@@ -452,3 +452,148 @@ subject = "reaction"
 basis = "molar"
 relation = "transformed"
 path = "none"
+
+[entities.observable.normal_boiling_temperature]
+doc = "Temperature at which the vapour pressure of a pure species, or the mean boiling point of a petroleum cut, reaches the standard atmosphere."
+key = "normal_boiling_temperature"
+quantity = "Temperature"
+subject = "pure"
+basis = "none"
+relation = "absolute"
+path = "saturation"
+
+[entities.observable.specific_gravity]
+doc = "Mass density of a liquid divided by the mass density of water at a stated reference temperature (the reference is a fact of the record that reports it). Dimensionless."
+key = "specific_gravity"
+quantity = "Scalar"
+subject = "pure"
+basis = "none"
+relation = "absolute"
+path = "none"
+
+[entities.observable.acentric_factor]
+doc = "Pitzer acentric factor of a pure species or pseudo-component: minus the base-ten logarithm of the reduced vapour pressure at a reduced temperature of 0.7, less one."
+key = "acentric_factor"
+quantity = "Scalar"
+subject = "pure"
+basis = "none"
+relation = "absolute"
+path = "none"
+
+[entities.observable.cumulative_distilled_volume_fraction]
+doc = "Volume fraction of a petroleum sample that has distilled over at or below a cut point, the coordinate of a distillation curve."
+key = "cumulative_distilled_volume_fraction"
+quantity = "Fraction"
+subject = "mixture"
+basis = "volumetric"
+relation = "absolute"
+path = "none"
+
+[entities.observable.adsorbed_amount_not_stated]
+doc = "Amount adsorbed per mass of host whose source does not say whether it is an absolute amount or a surface excess (94 percent of the isotherms of one digitised library), so the amount may be negative: an `ExcessLoading`."
+key = "adsorbed_amount_not_stated"
+quantity = "ExcessLoading"
+subject = "adsorbate_on_host"
+basis = "per_host_mass"
+relation = "absolute"
+path = "isothermal"
+adsorption = "not_stated"
+
+[entities.observable.adsorbed_amount_absolute_per_volume]
+doc = "Absolute amount adsorbed per volume of host."
+key = "adsorbed_amount_absolute_per_volume"
+quantity = "VolumeLoading"
+subject = "adsorbate_on_host"
+basis = "per_host_volume"
+relation = "absolute"
+path = "isothermal"
+adsorption = "absolute"
+
+[entities.observable.adsorbed_amount_excess_per_volume]
+doc = "Excess amount adsorbed per volume of host. A surface excess can be negative, so it has the signed type."
+key = "adsorbed_amount_excess_per_volume"
+quantity = "ExcessVolumeLoading"
+subject = "adsorbate_on_host"
+basis = "per_host_volume"
+relation = "absolute"
+path = "isothermal"
+adsorption = "excess"
+
+[entities.observable.adsorbed_amount_not_stated_per_volume]
+doc = "Amount adsorbed per volume of host whose source does not say whether it is an absolute amount or a surface excess, so the amount may be negative."
+key = "adsorbed_amount_not_stated_per_volume"
+quantity = "ExcessVolumeLoading"
+subject = "adsorbate_on_host"
+basis = "per_host_volume"
+relation = "absolute"
+path = "isothermal"
+adsorption = "not_stated"
+
+[entities.observable.adsorbed_amount_absolute_per_area]
+doc = "Absolute amount adsorbed per surface area of host."
+key = "adsorbed_amount_absolute_per_area"
+quantity = "AreaLoading"
+subject = "adsorbate_on_host"
+basis = "per_host_area"
+relation = "absolute"
+path = "isothermal"
+adsorption = "absolute"
+
+[entities.observable.adsorbed_amount_excess_per_area]
+doc = "Excess amount adsorbed per surface area of host. A surface excess can be negative, so it has the signed type."
+key = "adsorbed_amount_excess_per_area"
+quantity = "ExcessAreaLoading"
+subject = "adsorbate_on_host"
+basis = "per_host_area"
+relation = "absolute"
+path = "isothermal"
+adsorption = "excess"
+
+[entities.observable.adsorbed_amount_not_stated_per_area]
+doc = "Amount adsorbed per surface area of host whose source does not say whether it is an absolute amount or a surface excess, so the amount may be negative."
+key = "adsorbed_amount_not_stated_per_area"
+quantity = "ExcessAreaLoading"
+subject = "adsorbate_on_host"
+basis = "per_host_area"
+relation = "absolute"
+path = "isothermal"
+adsorption = "not_stated"
+
+[entities.observable.adsorbed_amount_absolute_per_cell]
+doc = "Absolute amount adsorbed per crystallographic unit cell of host."
+key = "adsorbed_amount_absolute_per_cell"
+quantity = "CellLoading"
+subject = "adsorbate_on_host"
+basis = "per_unit_cell"
+relation = "absolute"
+path = "isothermal"
+adsorption = "absolute"
+
+[entities.observable.adsorbed_amount_excess_per_cell]
+doc = "Excess amount adsorbed per crystallographic unit cell of host. A surface excess can be negative, so it has the signed type."
+key = "adsorbed_amount_excess_per_cell"
+quantity = "ExcessCellLoading"
+subject = "adsorbate_on_host"
+basis = "per_unit_cell"
+relation = "absolute"
+path = "isothermal"
+adsorption = "excess"
+
+[entities.observable.adsorbed_amount_not_stated_per_cell]
+doc = "Amount adsorbed per crystallographic unit cell of host whose source does not say whether it is an absolute amount or a surface excess, so the amount may be negative."
+key = "adsorbed_amount_not_stated_per_cell"
+quantity = "ExcessCellLoading"
+subject = "adsorbate_on_host"
+basis = "per_unit_cell"
+relation = "absolute"
+path = "isothermal"
+adsorption = "not_stated"
+
+[entities.observable.site_number_density]
+doc = "Number of sites of one type per volume of the system: the composition coordinate of an integral-equation theory, stated on the composition basis `site_number_density`."
+key = "site_number_density"
+quantity = "NumberDensity"
+subject = "component_in_mixture"
+basis = "volumetric"
+relation = "absolute"
+path = "none"

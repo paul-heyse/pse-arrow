@@ -257,11 +257,17 @@ COMMENT ON DOMAIN "meta"."amount" IS 'An amount of substance. Stored in mol.';
 CREATE DOMAIN "meta"."area" AS double precision CONSTRAINT "area__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)) CONSTRAINT "area__nonnegative" CHECK (VALUE >= 0);
 COMMENT ON DOMAIN "meta"."area" IS 'An area, such as a molecular surface area. Stored in m ** 2.';
 
+CREATE DOMAIN "meta"."area_loading" AS double precision CONSTRAINT "area_loading__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)) CONSTRAINT "area_loading__nonnegative" CHECK (VALUE >= 0);
+COMMENT ON DOMAIN "meta"."area_loading" IS 'Amount adsorbed per surface area of adsorbent, absolute. Stored in mol / m ** 2.';
+
 CREATE DOMAIN "meta"."avogadro_constant" AS double precision CONSTRAINT "avogadro_constant__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)) CONSTRAINT "avogadro_constant__nonnegative" CHECK (VALUE >= 0);
 COMMENT ON DOMAIN "meta"."avogadro_constant" IS 'The Avogadro constant as used by a body of data. Its value is a convention of that data: a library may derive it from the gas constant and the Boltzmann constant. Stored in 1 / mol.';
 
 CREATE DOMAIN "meta"."boltzmann_constant" AS double precision CONSTRAINT "boltzmann_constant__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)) CONSTRAINT "boltzmann_constant__nonnegative" CHECK (VALUE >= 0);
 COMMENT ON DOMAIN "meta"."boltzmann_constant" IS 'The Boltzmann constant as used by a body of data. Its value is a convention of that data: libraries mix editions of the constants. Stored in J / K.';
+
+CREATE DOMAIN "meta"."cell_loading" AS double precision CONSTRAINT "cell_loading__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision));
+COMMENT ON DOMAIN "meta"."cell_loading" IS 'Number of molecules adsorbed per crystallographic unit cell of the adsorbent, absolute. A count, stored as a dimensionless number. Stored in dimensionless.';
 
 CREATE DOMAIN "meta"."charge_number" AS double precision CONSTRAINT "charge_number__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision));
 COMMENT ON DOMAIN "meta"."charge_number" IS 'Net charge in units of the elementary charge; signed. Stored in dimensionless.';
@@ -281,8 +287,17 @@ COMMENT ON DOMAIN "meta"."electric_potential" IS 'Electric potential, or a poten
 CREATE DOMAIN "meta"."energy_temperature" AS double precision CONSTRAINT "energy_temperature__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision));
 COMMENT ON DOMAIN "meta"."energy_temperature" IS 'An energy expressed as a temperature (energy divided by the Boltzmann constant), as used for dispersion and association energies. Stored in K.';
 
+CREATE DOMAIN "meta"."excess_area_loading" AS double precision CONSTRAINT "excess_area_loading__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision));
+COMMENT ON DOMAIN "meta"."excess_area_loading" IS 'Amount adsorbed per surface area of adsorbent, signed: a surface excess can be negative, and so can an amount whose kind the source does not state. Stored in mol / m ** 2.';
+
+CREATE DOMAIN "meta"."excess_cell_loading" AS double precision CONSTRAINT "excess_cell_loading__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision));
+COMMENT ON DOMAIN "meta"."excess_cell_loading" IS 'Number of molecules adsorbed per crystallographic unit cell of the adsorbent, signed: a surface excess can be negative, and so can an amount whose kind the source does not state. Stored in dimensionless.';
+
 CREATE DOMAIN "meta"."excess_loading" AS double precision CONSTRAINT "excess_loading__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision));
 COMMENT ON DOMAIN "meta"."excess_loading" IS 'Surface excess amount adsorbed per mass of adsorbent. Signed: a surface excess can be negative, so `Loading`, which is an absolute amount, cannot hold it. Stored in mol / kg.';
+
+CREATE DOMAIN "meta"."excess_volume_loading" AS double precision CONSTRAINT "excess_volume_loading__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision));
+COMMENT ON DOMAIN "meta"."excess_volume_loading" IS 'Amount adsorbed per volume of adsorbent, signed: a surface excess can be negative, and so can an amount whose kind the source does not state. Stored in mol / m ** 3.';
 
 CREATE DOMAIN "meta"."fluidity" AS double precision CONSTRAINT "fluidity__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)) CONSTRAINT "fluidity__nonnegative" CHECK (VALUE >= 0);
 COMMENT ON DOMAIN "meta"."fluidity" IS 'The reciprocal of dynamic viscosity. Stored in 1 / Pa / s.';
@@ -328,6 +343,9 @@ COMMENT ON DOMAIN "meta"."molar_volume" IS 'Volume per amount of substance; sign
 
 CREATE DOMAIN "meta"."moment_of_inertia" AS double precision CONSTRAINT "moment_of_inertia__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)) CONSTRAINT "moment_of_inertia__nonnegative" CHECK (VALUE >= 0);
 COMMENT ON DOMAIN "meta"."moment_of_inertia" IS 'Moment of inertia of a rotor. Stored in kg * m ** 2.';
+
+CREATE DOMAIN "meta"."number_density" AS double precision CONSTRAINT "number_density__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)) CONSTRAINT "number_density__nonnegative" CHECK (VALUE >= 0);
+COMMENT ON DOMAIN "meta"."number_density" IS 'Number of entities per volume, such as the density of the sites of one type in a liquid-state theory. Distinct from a molar density: it counts sites or particles, not amount of substance. Stored in 1 / m ** 3.';
 
 CREATE DOMAIN "meta"."polarizability_volume" AS double precision CONSTRAINT "polarizability_volume__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)) CONSTRAINT "polarizability_volume__nonnegative" CHECK (VALUE >= 0);
 COMMENT ON DOMAIN "meta"."polarizability_volume" IS 'Polarizability expressed as a volume. Stored in m ** 3.';
@@ -376,6 +394,9 @@ COMMENT ON DOMAIN "meta"."viscosity" IS 'Dynamic viscosity. Stored in Pa * s.';
 
 CREATE DOMAIN "meta"."volume" AS double precision CONSTRAINT "volume__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)) CONSTRAINT "volume__nonnegative" CHECK (VALUE >= 0);
 COMMENT ON DOMAIN "meta"."volume" IS 'A volume, such as a molecular cavity volume. Stored in m ** 3.';
+
+CREATE DOMAIN "meta"."volume_loading" AS double precision CONSTRAINT "volume_loading__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)) CONSTRAINT "volume_loading__nonnegative" CHECK (VALUE >= 0);
+COMMENT ON DOMAIN "meta"."volume_loading" IS 'Amount adsorbed per volume of adsorbent, absolute. Stored in mol / m ** 3.';
 
 CREATE DOMAIN "meta"."wavenumber" AS double precision CONSTRAINT "wavenumber__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)) CONSTRAINT "wavenumber__nonnegative" CHECK (VALUE >= 0);
 COMMENT ON DOMAIN "meta"."wavenumber" IS 'Reciprocal wavelength, as vibrational frequencies are stated. Stored in 1 / m.';
@@ -1399,6 +1420,24 @@ COMMENT ON COLUMN "prov"."artifact"."path" IS 'Path relative to the carrier''s t
 COMMENT ON COLUMN "prov"."artifact"."sha256" IS 'Content hash of the file.';
 COMMENT ON COLUMN "prov"."artifact"."size" IS 'Size in bytes.';
 
+CREATE TABLE "param"."assay_cut__cut" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT '41aa493c-2a57-5f49-b4b9-412c714be449'::uuid,
+    "i" uuid NOT NULL,
+    "molar_mass" "meta"."molar_mass" NOT NULL,
+    "normal_boiling_temperature" "meta"."temperature" NOT NULL,
+    "specific_gravity" "meta"."scalar" NOT NULL,
+    CONSTRAINT "assay_cut__cut__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "assay_cut__cut__ck__slot_group" CHECK ("slot_group" = '41aa493c-2a57-5f49-b4b9-412c714be449'::uuid)
+);
+COMMENT ON TABLE "param"."assay_cut__cut" IS 'The properties of one pseudo-component.';
+COMMENT ON COLUMN "param"."assay_cut__cut"."id" IS 'Deterministic identifier of the assay_cut__cut instance.';
+COMMENT ON COLUMN "param"."assay_cut__cut"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."assay_cut__cut"."i" IS 'The pseudo-component.';
+COMMENT ON COLUMN "param"."assay_cut__cut"."molar_mass" IS 'Molar mass.';
+COMMENT ON COLUMN "param"."assay_cut__cut"."normal_boiling_temperature" IS 'Normal boiling temperature.';
+COMMENT ON COLUMN "param"."assay_cut__cut"."specific_gravity" IS 'Specific gravity.';
+
 CREATE TABLE "tk"."assembly_choice" (
     "id" uuid NOT NULL,
     "assembly" uuid NOT NULL,
@@ -1552,6 +1591,24 @@ COMMENT ON TABLE "param"."cef_redlich_kister__interaction" IS 'The polynomial co
 COMMENT ON COLUMN "param"."cef_redlich_kister__interaction"."id" IS 'Deterministic identifier of the cef_redlich_kister__interaction instance.';
 COMMENT ON COLUMN "param"."cef_redlich_kister__interaction"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
 COMMENT ON COLUMN "param"."cef_redlich_kister__interaction"."t" IS 'The array.';
+
+CREATE TABLE "param"."chapman_enskog_transport__pure" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT 'e65ae6a5-ff17-5358-9567-11b083482439'::uuid,
+    "i" uuid NOT NULL,
+    "M" "meta"."molar_mass" NOT NULL,
+    "sigma" "meta"."length" NOT NULL,
+    "epsilon_over_k" "meta"."energy_temperature" NOT NULL,
+    CONSTRAINT "chapman_enskog_transport__pure__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "chapman_enskog_transport__pure__ck__slot_group" CHECK ("slot_group" = 'e65ae6a5-ff17-5358-9567-11b083482439'::uuid)
+);
+COMMENT ON TABLE "param"."chapman_enskog_transport__pure" IS 'The molar mass and the Lennard-Jones parameters of one gas.';
+COMMENT ON COLUMN "param"."chapman_enskog_transport__pure"."id" IS 'Deterministic identifier of the chapman_enskog_transport__pure instance.';
+COMMENT ON COLUMN "param"."chapman_enskog_transport__pure"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."chapman_enskog_transport__pure"."i" IS 'The gas.';
+COMMENT ON COLUMN "param"."chapman_enskog_transport__pure"."M" IS 'Molar mass.';
+COMMENT ON COLUMN "param"."chapman_enskog_transport__pure"."sigma" IS 'Lennard-Jones diameter.';
+COMMENT ON COLUMN "param"."chapman_enskog_transport__pure"."epsilon_over_k" IS 'Lennard-Jones well depth over the Boltzmann constant.';
 
 CREATE TABLE "tk"."chemical_system" (
     "id" uuid NOT NULL,
@@ -1844,6 +1901,30 @@ COMMENT ON COLUMN "tk"."distributed_attribute"."support" IS 'The quantity type o
 COMMENT ON COLUMN "tk"."distributed_attribute"."weighting" IS 'How it is weighted.';
 COMMENT ON COLUMN "tk"."distributed_attribute"."density" IS 'True for a density over the support, false for weights in bins.';
 
+CREATE TABLE "param"."dual_site_langmuir_isotherm__pure" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT 'f6e001a4-f431-5ede-8a1b-248175fe1034'::uuid,
+    "adsorbate" uuid NOT NULL,
+    "host" uuid NOT NULL,
+    "quantity" uuid NOT NULL,
+    "n_m1" "meta"."loading" NOT NULL,
+    "K1" "meta"."finite_real" NOT NULL,
+    "n_m2" "meta"."loading" NOT NULL,
+    "K2" "meta"."finite_real" NOT NULL,
+    CONSTRAINT "dual_site_langmuir_isotherm__pure__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "dual_site_langmuir_isotherm__pure__ck__slot_group" CHECK ("slot_group" = 'f6e001a4-f431-5ede-8a1b-248175fe1034'::uuid)
+);
+COMMENT ON TABLE "param"."dual_site_langmuir_isotherm__pure" IS 'The coefficients of one adsorbate on one host.';
+COMMENT ON COLUMN "param"."dual_site_langmuir_isotherm__pure"."id" IS 'Deterministic identifier of the dual_site_langmuir_isotherm__pure instance.';
+COMMENT ON COLUMN "param"."dual_site_langmuir_isotherm__pure"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."dual_site_langmuir_isotherm__pure"."adsorbate" IS 'The adsorbed species.';
+COMMENT ON COLUMN "param"."dual_site_langmuir_isotherm__pure"."host" IS 'The adsorbent.';
+COMMENT ON COLUMN "param"."dual_site_langmuir_isotherm__pure"."quantity" IS 'The amount the isotherm gives: absolute, excess or not stated.';
+COMMENT ON COLUMN "param"."dual_site_langmuir_isotherm__pure"."n_m1" IS 'Saturation loading of the first kind of site.';
+COMMENT ON COLUMN "param"."dual_site_langmuir_isotherm__pure"."K1" IS 'Affinity of the first kind of site.';
+COMMENT ON COLUMN "param"."dual_site_langmuir_isotherm__pure"."n_m2" IS 'Saturation loading of the second kind of site.';
+COMMENT ON COLUMN "param"."dual_site_langmuir_isotherm__pure"."K2" IS 'Affinity of the second kind of site.';
+
 CREATE TABLE "tk"."element" (
     "id" uuid NOT NULL,
     "atomic_number" bigint NOT NULL,
@@ -1889,6 +1970,24 @@ COMMENT ON COLUMN "tk"."energy_reference"."energy_value" IS 'The molar energy st
 COMMENT ON COLUMN "tk"."energy_reference"."specific_energy_value" IS 'The energy per mass stated at the state, where the source states it per mass. Exactly one of the two energy values is present when the enthalpy datum carries the facet `stated_value`, and neither otherwise.';
 COMMENT ON COLUMN "tk"."energy_reference"."entropy_value" IS 'The molar entropy stated at the state.';
 COMMENT ON COLUMN "tk"."energy_reference"."specific_entropy_value" IS 'The entropy per mass stated at the state, where the source states it per mass. Exactly one of the two entropy values is present when the entropy datum carries the facet `stated_value`, and neither otherwise.';
+
+CREATE TABLE "param"."estimated_critical_constants__critical" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT 'd3e27451-3344-58f0-b95b-d1fbfad18a97'::uuid,
+    "i" uuid NOT NULL,
+    "critical_temperature" "meta"."temperature" NOT NULL,
+    "critical_pressure" "meta"."pressure" NOT NULL,
+    "acentric_factor" "meta"."scalar" NOT NULL,
+    CONSTRAINT "estimated_critical_constants__critical__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "estimated_critical_constants__critical__ck__slot_group" CHECK ("slot_group" = 'd3e27451-3344-58f0-b95b-d1fbfad18a97'::uuid)
+);
+COMMENT ON TABLE "param"."estimated_critical_constants__critical" IS 'The estimated constants of one pseudo-component.';
+COMMENT ON COLUMN "param"."estimated_critical_constants__critical"."id" IS 'Deterministic identifier of the estimated_critical_constants__critical instance.';
+COMMENT ON COLUMN "param"."estimated_critical_constants__critical"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."estimated_critical_constants__critical"."i" IS 'The pseudo-component.';
+COMMENT ON COLUMN "param"."estimated_critical_constants__critical"."critical_temperature" IS 'Critical temperature.';
+COMMENT ON COLUMN "param"."estimated_critical_constants__critical"."critical_pressure" IS 'Critical pressure.';
+COMMENT ON COLUMN "param"."estimated_critical_constants__critical"."acentric_factor" IS 'Acentric factor.';
 
 CREATE TABLE "prov"."fit" (
     "id" uuid NOT NULL,
@@ -2309,6 +2408,67 @@ COMMENT ON COLUMN "tk"."isotope"."mass_number" IS 'The mass number: protons plus
 COMMENT ON COLUMN "tk"."isotope"."atomic_mass" IS 'The atomic mass of the nuclide, where the source states it.';
 COMMENT ON COLUMN "tk"."isotope"."symbol" IS 'The symbol the source uses for the nuclide where it has one of its own, such as D or T.';
 
+CREATE TABLE "param"."kesler_lee_critical_temperature__correlation" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT 'd55e5eab-d1eb-5c97-a1a3-02e3bb1a64b8'::uuid,
+    "k0" "meta"."temperature" NOT NULL,
+    "k1" "meta"."temperature" NOT NULL,
+    "k2" "meta"."scalar" NOT NULL,
+    "k3" "meta"."scalar" NOT NULL,
+    "k4" "meta"."finite_real" NOT NULL,
+    "k5" "meta"."finite_real" NOT NULL,
+    CONSTRAINT "kesler_lee_critical_temperature__correlation__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "kesler_lee_critical_temperature__correlation__ck__slot_group" CHECK ("slot_group" = 'd55e5eab-d1eb-5c97-a1a3-02e3bb1a64b8'::uuid)
+);
+COMMENT ON TABLE "param"."kesler_lee_critical_temperature__correlation" IS 'The six coefficients of the correlation.';
+COMMENT ON COLUMN "param"."kesler_lee_critical_temperature__correlation"."id" IS 'Deterministic identifier of the kesler_lee_critical_temperature__correlation instance.';
+COMMENT ON COLUMN "param"."kesler_lee_critical_temperature__correlation"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."kesler_lee_critical_temperature__correlation"."k0" IS 'Constant term.';
+COMMENT ON COLUMN "param"."kesler_lee_critical_temperature__correlation"."k1" IS 'Coefficient of the specific gravity.';
+COMMENT ON COLUMN "param"."kesler_lee_critical_temperature__correlation"."k2" IS 'Coefficient of the boiling temperature.';
+COMMENT ON COLUMN "param"."kesler_lee_critical_temperature__correlation"."k3" IS 'Coefficient of the product of the specific gravity and the boiling temperature.';
+COMMENT ON COLUMN "param"."kesler_lee_critical_temperature__correlation"."k4" IS 'Coefficient of the reciprocal of the boiling temperature.';
+COMMENT ON COLUMN "param"."kesler_lee_critical_temperature__correlation"."k5" IS 'Coefficient of the specific gravity over the boiling temperature.';
+
+CREATE TABLE "param"."langmuir_isotherm__pure" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT '1cbf952e-fbb4-5117-87d7-e4f902695da0'::uuid,
+    "adsorbate" uuid NOT NULL,
+    "host" uuid NOT NULL,
+    "quantity" uuid NOT NULL,
+    "n_m" "meta"."loading" NOT NULL,
+    "K" "meta"."finite_real" NOT NULL,
+    CONSTRAINT "langmuir_isotherm__pure__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "langmuir_isotherm__pure__ck__slot_group" CHECK ("slot_group" = '1cbf952e-fbb4-5117-87d7-e4f902695da0'::uuid)
+);
+COMMENT ON TABLE "param"."langmuir_isotherm__pure" IS 'The coefficients of one adsorbate on one host.';
+COMMENT ON COLUMN "param"."langmuir_isotherm__pure"."id" IS 'Deterministic identifier of the langmuir_isotherm__pure instance.';
+COMMENT ON COLUMN "param"."langmuir_isotherm__pure"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."langmuir_isotherm__pure"."adsorbate" IS 'The adsorbed species.';
+COMMENT ON COLUMN "param"."langmuir_isotherm__pure"."host" IS 'The adsorbent.';
+COMMENT ON COLUMN "param"."langmuir_isotherm__pure"."quantity" IS 'The amount the isotherm gives: absolute, excess or not stated.';
+COMMENT ON COLUMN "param"."langmuir_isotherm__pure"."n_m" IS 'Saturation loading.';
+COMMENT ON COLUMN "param"."langmuir_isotherm__pure"."K" IS 'Affinity: the inverse of the pressure at half the saturation loading.';
+
+CREATE TABLE "param"."lennard_jones_site_potential__pair" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT '2dff204e-09c0-59e4-bcbf-20913b8a788c'::uuid,
+    "a" uuid NOT NULL,
+    "b" uuid NOT NULL,
+    "epsilon_over_k" "meta"."energy_temperature" NOT NULL,
+    "sigma" "meta"."length" NOT NULL,
+    CONSTRAINT "lennard_jones_site_potential__pair__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "lennard_jones_site_potential__pair__ck__slot_group" CHECK ("slot_group" = '2dff204e-09c0-59e4-bcbf-20913b8a788c'::uuid),
+    CONSTRAINT "lennard_jones_site_potential__pair__ck__canonical" CHECK ("a" <= "b")
+);
+COMMENT ON TABLE "param"."lennard_jones_site_potential__pair" IS 'The well depth and the diameter of one unordered pair of site types.';
+COMMENT ON COLUMN "param"."lennard_jones_site_potential__pair"."id" IS 'Deterministic identifier of the lennard_jones_site_potential__pair instance.';
+COMMENT ON COLUMN "param"."lennard_jones_site_potential__pair"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."lennard_jones_site_potential__pair"."a" IS 'The first site type.';
+COMMENT ON COLUMN "param"."lennard_jones_site_potential__pair"."b" IS 'The second site type.';
+COMMENT ON COLUMN "param"."lennard_jones_site_potential__pair"."epsilon_over_k" IS 'Well depth over the Boltzmann constant.';
+COMMENT ON COLUMN "param"."lennard_jones_site_potential__pair"."sigma" IS 'Separation at which the potential is zero.';
+
 CREATE TABLE "prov"."level_of_theory" (
     "id" uuid NOT NULL,
     "key" text NOT NULL,
@@ -2671,6 +2831,32 @@ COMMENT ON COLUMN "param"."nasa9__pure"."id" IS 'Deterministic identifier of the
 COMMENT ON COLUMN "param"."nasa9__pure"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
 COMMENT ON COLUMN "param"."nasa9__pure"."i" IS 'The species form.';
 
+CREATE TABLE "param"."neufeld_collision_integral__correlation" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT '443c5f8e-f2a4-5ae7-ae74-68f9fabda714'::uuid,
+    "A" "meta"."scalar" NOT NULL,
+    "B" "meta"."scalar" NOT NULL,
+    "C" "meta"."scalar" NOT NULL,
+    "D" "meta"."scalar" NOT NULL,
+    "E" "meta"."scalar" NOT NULL,
+    "F" "meta"."scalar" NOT NULL,
+    "G" "meta"."scalar" NOT NULL,
+    "H" "meta"."scalar" NOT NULL,
+    CONSTRAINT "neufeld_collision_integral__correlation__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "neufeld_collision_integral__correlation__ck__slot_group" CHECK ("slot_group" = '443c5f8e-f2a4-5ae7-ae74-68f9fabda714'::uuid)
+);
+COMMENT ON TABLE "param"."neufeld_collision_integral__correlation" IS 'The eight coefficients of the correlation, independent of the species.';
+COMMENT ON COLUMN "param"."neufeld_collision_integral__correlation"."id" IS 'Deterministic identifier of the neufeld_collision_integral__correlation instance.';
+COMMENT ON COLUMN "param"."neufeld_collision_integral__correlation"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."neufeld_collision_integral__correlation"."A" IS 'Coefficient of the power of the reduced temperature.';
+COMMENT ON COLUMN "param"."neufeld_collision_integral__correlation"."B" IS 'Exponent of the reduced temperature.';
+COMMENT ON COLUMN "param"."neufeld_collision_integral__correlation"."C" IS 'Coefficient of the first exponential term.';
+COMMENT ON COLUMN "param"."neufeld_collision_integral__correlation"."D" IS 'Rate of the first exponential term.';
+COMMENT ON COLUMN "param"."neufeld_collision_integral__correlation"."E" IS 'Coefficient of the second exponential term.';
+COMMENT ON COLUMN "param"."neufeld_collision_integral__correlation"."F" IS 'Rate of the second exponential term.';
+COMMENT ON COLUMN "param"."neufeld_collision_integral__correlation"."G" IS 'Coefficient of the third exponential term.';
+COMMENT ON COLUMN "param"."neufeld_collision_integral__correlation"."H" IS 'Rate of the third exponential term.';
+
 CREATE TABLE "param"."nrtl_excess_gibbs__pair" (
     "id" uuid NOT NULL,
     "slot_group" uuid NOT NULL DEFAULT '757bc0b9-97db-52db-9e4b-2694addbaf87'::uuid,
@@ -2797,6 +2983,38 @@ COMMENT ON COLUMN "tk"."parameterization"."group_scheme" IS 'The group scheme it
 COMMENT ON COLUMN "tk"."parameterization"."chemical_system" IS 'The chemical system its sets belong to, where one applies.';
 COMMENT ON COLUMN "tk"."parameterization"."composition_basis" IS 'The composition basis its interaction values assume, where the form leaves it open.';
 COMMENT ON COLUMN "tk"."parameterization"."reference_volume" IS 'The reference volume its size ratios and interaction values are relative to, where the form leaves it open.';
+
+CREATE TABLE "param"."pc_saft_association_functional__component" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT '680b7a2d-1e82-5ff0-8d69-363407782982'::uuid,
+    "i" uuid NOT NULL,
+    "epsilon_hb_over_k" "meta"."energy_temperature" NOT NULL,
+    "kappa_hb" "meta"."scalar" NOT NULL,
+    CONSTRAINT "pc_saft_association_functional__component__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "pc_saft_association_functional__component__ck__slot_group" CHECK ("slot_group" = '680b7a2d-1e82-5ff0-8d69-363407782982'::uuid)
+);
+COMMENT ON TABLE "param"."pc_saft_association_functional__component" IS 'The association parameters of one associating component.';
+COMMENT ON COLUMN "param"."pc_saft_association_functional__component"."id" IS 'Deterministic identifier of the pc_saft_association_functional__component instance.';
+COMMENT ON COLUMN "param"."pc_saft_association_functional__component"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."pc_saft_association_functional__component"."i" IS 'The component.';
+COMMENT ON COLUMN "param"."pc_saft_association_functional__component"."epsilon_hb_over_k" IS 'Association energy over the Boltzmann constant.';
+COMMENT ON COLUMN "param"."pc_saft_association_functional__component"."kappa_hb" IS 'Association volume, reduced.';
+
+CREATE TABLE "param"."pc_saft_chain_functional__component" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT 'de179709-3188-5a37-9e7c-07a12fcc6f36'::uuid,
+    "i" uuid NOT NULL,
+    "m" "meta"."scalar" NOT NULL,
+    "sigma" "meta"."length" NOT NULL,
+    CONSTRAINT "pc_saft_chain_functional__component__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "pc_saft_chain_functional__component__ck__slot_group" CHECK ("slot_group" = 'de179709-3188-5a37-9e7c-07a12fcc6f36'::uuid)
+);
+COMMENT ON TABLE "param"."pc_saft_chain_functional__component" IS 'The chain parameters of one component.';
+COMMENT ON COLUMN "param"."pc_saft_chain_functional__component"."id" IS 'Deterministic identifier of the pc_saft_chain_functional__component instance.';
+COMMENT ON COLUMN "param"."pc_saft_chain_functional__component"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."pc_saft_chain_functional__component"."i" IS 'The component.';
+COMMENT ON COLUMN "param"."pc_saft_chain_functional__component"."m" IS 'Number of segments of a molecule.';
+COMMENT ON COLUMN "param"."pc_saft_chain_functional__component"."sigma" IS 'Segment diameter.';
 
 CREATE TABLE "param"."pcsaft_association__pair" (
     "id" uuid NOT NULL,
@@ -2971,6 +3189,24 @@ COMMENT ON TABLE "tk"."polymer_type" IS 'A polymer identified by its repeat unit
 COMMENT ON COLUMN "tk"."polymer_type"."id" IS 'Deterministic identifier of the polymer_type instance.';
 COMMENT ON COLUMN "tk"."polymer_type"."architecture" IS 'Linear, branched, block and similar, as the source states it.';
 
+CREATE TABLE "param"."pore_size_kernel_table__pure" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT '69ee7bd6-c403-5324-b91c-57b3c2c15101'::uuid,
+    "adsorbate" uuid NOT NULL,
+    "host" uuid NOT NULL,
+    "temperature" "meta"."temperature" NOT NULL,
+    "kernel" uuid NOT NULL,
+    CONSTRAINT "pore_size_kernel_table__pure__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "pore_size_kernel_table__pure__ck__slot_group" CHECK ("slot_group" = '69ee7bd6-c403-5324-b91c-57b3c2c15101'::uuid)
+);
+COMMENT ON TABLE "param"."pore_size_kernel_table__pure" IS 'The kernel of one probe on one host.';
+COMMENT ON COLUMN "param"."pore_size_kernel_table__pure"."id" IS 'Deterministic identifier of the pore_size_kernel_table__pure instance.';
+COMMENT ON COLUMN "param"."pore_size_kernel_table__pure"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."pore_size_kernel_table__pure"."adsorbate" IS 'The probe species.';
+COMMENT ON COLUMN "param"."pore_size_kernel_table__pure"."host" IS 'The reference adsorbent.';
+COMMENT ON COLUMN "param"."pore_size_kernel_table__pure"."temperature" IS 'Temperature the kernel holds for.';
+COMMENT ON COLUMN "param"."pore_size_kernel_table__pure"."kernel" IS 'Loading on the grid of two axes: the pore width, then the relative pressure, the series `loading` in row-major order with the relative pressure varying fastest.';
+
 CREATE TABLE "tk"."pseudo_component" (
     "id" uuid NOT NULL,
     "kind" "meta"."pseudo_component_kind" NOT NULL,
@@ -3126,6 +3362,38 @@ COMMENT ON COLUMN "tk"."resolved_snapshot"."revision" IS 'Revision.';
 COMMENT ON COLUMN "tk"."resolved_snapshot"."assembly" IS 'The model the snapshot resolves.';
 COMMENT ON COLUMN "tk"."resolved_snapshot"."policy" IS 'The policy applied.';
 
+CREATE TABLE "param"."riazi_daubert_critical_pressure__correlation" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT '0bfa85e7-fda7-5c20-982e-a28e3e9cb9e3'::uuid,
+    "a" "meta"."pressure" NOT NULL,
+    "b" "meta"."scalar" NOT NULL,
+    "c" "meta"."scalar" NOT NULL,
+    CONSTRAINT "riazi_daubert_critical_pressure__correlation__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "riazi_daubert_critical_pressure__correlation__ck__slot_group" CHECK ("slot_group" = '0bfa85e7-fda7-5c20-982e-a28e3e9cb9e3'::uuid)
+);
+COMMENT ON TABLE "param"."riazi_daubert_critical_pressure__correlation" IS 'The three coefficients of the correlation.';
+COMMENT ON COLUMN "param"."riazi_daubert_critical_pressure__correlation"."id" IS 'Deterministic identifier of the riazi_daubert_critical_pressure__correlation instance.';
+COMMENT ON COLUMN "param"."riazi_daubert_critical_pressure__correlation"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."riazi_daubert_critical_pressure__correlation"."a" IS 'Coefficient a, in pascal.';
+COMMENT ON COLUMN "param"."riazi_daubert_critical_pressure__correlation"."b" IS 'Exponent of the boiling temperature in kelvin.';
+COMMENT ON COLUMN "param"."riazi_daubert_critical_pressure__correlation"."c" IS 'Exponent of the specific gravity.';
+
+CREATE TABLE "param"."riazi_daubert_critical_temperature__correlation" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT 'd41cf666-d359-5a28-bffc-d1f32583fc07'::uuid,
+    "a" "meta"."temperature" NOT NULL,
+    "b" "meta"."scalar" NOT NULL,
+    "c" "meta"."scalar" NOT NULL,
+    CONSTRAINT "riazi_daubert_critical_temperature__correlation__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "riazi_daubert_critical_temperature__correlation__ck__slot_group" CHECK ("slot_group" = 'd41cf666-d359-5a28-bffc-d1f32583fc07'::uuid)
+);
+COMMENT ON TABLE "param"."riazi_daubert_critical_temperature__correlation" IS 'The three coefficients of the correlation.';
+COMMENT ON COLUMN "param"."riazi_daubert_critical_temperature__correlation"."id" IS 'Deterministic identifier of the riazi_daubert_critical_temperature__correlation instance.';
+COMMENT ON COLUMN "param"."riazi_daubert_critical_temperature__correlation"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."riazi_daubert_critical_temperature__correlation"."a" IS 'Coefficient a, in kelvin.';
+COMMENT ON COLUMN "param"."riazi_daubert_critical_temperature__correlation"."b" IS 'Exponent of the boiling temperature in kelvin.';
+COMMENT ON COLUMN "param"."riazi_daubert_critical_temperature__correlation"."c" IS 'Exponent of the specific gravity.';
+
 CREATE TABLE "prov"."rights_determination" (
     "id" uuid NOT NULL,
     "carrier" uuid NOT NULL,
@@ -3159,6 +3427,56 @@ COMMENT ON COLUMN "prov"."rights_determination"."commercial" IS 'Commercial use.
 COMMENT ON COLUMN "prov"."rights_determination"."attribution_required" IS 'Whether attribution is required.';
 COMMENT ON COLUMN "prov"."rights_determination"."share_alike" IS 'Whether derived works must carry the same terms.';
 COMMENT ON COLUMN "prov"."rights_determination"."observed" IS 'When and how the claim was established.';
+
+CREATE TABLE "param"."rosenfeld_hard_sphere_functional__component" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT '461e2f53-f1b2-5890-b862-3dc0883be40f'::uuid,
+    "i" uuid NOT NULL,
+    "sigma" "meta"."length" NOT NULL,
+    CONSTRAINT "rosenfeld_hard_sphere_functional__component__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "rosenfeld_hard_sphere_functional__component__ck__slot_group" CHECK ("slot_group" = '461e2f53-f1b2-5890-b862-3dc0883be40f'::uuid)
+);
+COMMENT ON TABLE "param"."rosenfeld_hard_sphere_functional__component" IS 'The hard-sphere diameter of one component.';
+COMMENT ON COLUMN "param"."rosenfeld_hard_sphere_functional__component"."id" IS 'Deterministic identifier of the rosenfeld_hard_sphere_functional__component instance.';
+COMMENT ON COLUMN "param"."rosenfeld_hard_sphere_functional__component"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."rosenfeld_hard_sphere_functional__component"."i" IS 'The component.';
+COMMENT ON COLUMN "param"."rosenfeld_hard_sphere_functional__component"."sigma" IS 'Hard-sphere diameter.';
+
+CREATE TABLE "param"."saft_dispersion_functional__component" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT '853a284e-6109-58b8-9ad1-c7a55c446dd0'::uuid,
+    "i" uuid NOT NULL,
+    "m" "meta"."scalar" NOT NULL,
+    "sigma" "meta"."length" NOT NULL,
+    "epsilon_over_k" "meta"."energy_temperature" NOT NULL,
+    CONSTRAINT "saft_dispersion_functional__component__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "saft_dispersion_functional__component__ck__slot_group" CHECK ("slot_group" = '853a284e-6109-58b8-9ad1-c7a55c446dd0'::uuid)
+);
+COMMENT ON TABLE "param"."saft_dispersion_functional__component" IS 'The segment parameters of one component.';
+COMMENT ON COLUMN "param"."saft_dispersion_functional__component"."id" IS 'Deterministic identifier of the saft_dispersion_functional__component instance.';
+COMMENT ON COLUMN "param"."saft_dispersion_functional__component"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."saft_dispersion_functional__component"."i" IS 'The component.';
+COMMENT ON COLUMN "param"."saft_dispersion_functional__component"."m" IS 'Number of segments of a molecule.';
+COMMENT ON COLUMN "param"."saft_dispersion_functional__component"."sigma" IS 'Segment diameter.';
+COMMENT ON COLUMN "param"."saft_dispersion_functional__component"."epsilon_over_k" IS 'Dispersion energy over the Boltzmann constant.';
+
+CREATE TABLE "param"."saft_dispersion_functional__pair" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT '1805a52b-6ac7-54e5-9f08-11a9528840b2'::uuid,
+    "i" uuid NOT NULL,
+    "j" uuid NOT NULL,
+    "k_ij" "meta"."scalar" NOT NULL,
+    CONSTRAINT "saft_dispersion_functional__pair__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "saft_dispersion_functional__pair__ck__slot_group" CHECK ("slot_group" = '1805a52b-6ac7-54e5-9f08-11a9528840b2'::uuid),
+    CONSTRAINT "saft_dispersion_functional__pair__ck__canonical" CHECK ("i" <= "j"),
+    CONSTRAINT "saft_dispersion_functional__pair__ck__diagonal" CHECK ("i" <> "j")
+);
+COMMENT ON TABLE "param"."saft_dispersion_functional__pair" IS 'The binary interaction parameter of one unordered pair of components.';
+COMMENT ON COLUMN "param"."saft_dispersion_functional__pair"."id" IS 'Deterministic identifier of the saft_dispersion_functional__pair instance.';
+COMMENT ON COLUMN "param"."saft_dispersion_functional__pair"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."saft_dispersion_functional__pair"."i" IS 'The first component.';
+COMMENT ON COLUMN "param"."saft_dispersion_functional__pair"."j" IS 'The second component.';
+COMMENT ON COLUMN "param"."saft_dispersion_functional__pair"."k_ij" IS 'Binary interaction parameter of the dispersion energy.';
 
 CREATE TABLE "param"."saftgamma_mie__association" (
     "id" uuid NOT NULL,
@@ -3517,6 +3835,28 @@ COMMENT ON COLUMN "tk"."tabulated_series"."name" IS 'Name of the series; `value`
 COMMENT ON COLUMN "tk"."tabulated_series"."value_type" IS 'Quantity type of the values.';
 COMMENT ON COLUMN "tk"."tabulated_series"."values" IS 'Values in the value type''s storage unit, in row-major order over the axes.';
 
+CREATE TABLE "param"."toth_isotherm__pure" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT '739e4f34-1963-5b18-a743-a7fe0593a8d3'::uuid,
+    "adsorbate" uuid NOT NULL,
+    "host" uuid NOT NULL,
+    "quantity" uuid NOT NULL,
+    "n_m" "meta"."loading" NOT NULL,
+    "K" "meta"."finite_real" NOT NULL,
+    "t" "meta"."scalar" NOT NULL,
+    CONSTRAINT "toth_isotherm__pure__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "toth_isotherm__pure__ck__slot_group" CHECK ("slot_group" = '739e4f34-1963-5b18-a743-a7fe0593a8d3'::uuid)
+);
+COMMENT ON TABLE "param"."toth_isotherm__pure" IS 'The coefficients of one adsorbate on one host.';
+COMMENT ON COLUMN "param"."toth_isotherm__pure"."id" IS 'Deterministic identifier of the toth_isotherm__pure instance.';
+COMMENT ON COLUMN "param"."toth_isotherm__pure"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."toth_isotherm__pure"."adsorbate" IS 'The adsorbed species.';
+COMMENT ON COLUMN "param"."toth_isotherm__pure"."host" IS 'The adsorbent.';
+COMMENT ON COLUMN "param"."toth_isotherm__pure"."quantity" IS 'The amount the isotherm gives: absolute, excess or not stated.';
+COMMENT ON COLUMN "param"."toth_isotherm__pure"."n_m" IS 'Saturation loading.';
+COMMENT ON COLUMN "param"."toth_isotherm__pure"."K" IS 'Affinity.';
+COMMENT ON COLUMN "param"."toth_isotherm__pure"."t" IS 'Heterogeneity exponent.';
+
 CREATE TABLE "param"."twu_alpha__pure" (
     "id" uuid NOT NULL,
     "slot_group" uuid NOT NULL DEFAULT 'e2407663-6fc8-552a-a1c4-7c7a26adc3aa'::uuid,
@@ -3647,6 +3987,39 @@ COMMENT ON COLUMN "param"."vapor_pressure_exp_series_tau__pure"."slot_group" IS 
 COMMENT ON COLUMN "param"."vapor_pressure_exp_series_tau__pure"."i" IS 'The fluid.';
 COMMENT ON COLUMN "param"."vapor_pressure_exp_series_tau__pure"."T_r" IS 'Reducing temperature of the curve; the curve is defined up to it.';
 COMMENT ON COLUMN "param"."vapor_pressure_exp_series_tau__pure"."p_r" IS 'Reducing pressure of the curve.';
+
+CREATE TABLE "param"."wca_site_potential__pair" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT '49b063df-daa8-5dcc-99d9-278e9692c68d'::uuid,
+    "a" uuid NOT NULL,
+    "b" uuid NOT NULL,
+    "epsilon_over_k" "meta"."energy_temperature" NOT NULL,
+    "sigma" "meta"."length" NOT NULL,
+    CONSTRAINT "wca_site_potential__pair__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "wca_site_potential__pair__ck__slot_group" CHECK ("slot_group" = '49b063df-daa8-5dcc-99d9-278e9692c68d'::uuid),
+    CONSTRAINT "wca_site_potential__pair__ck__canonical" CHECK ("a" <= "b")
+);
+COMMENT ON TABLE "param"."wca_site_potential__pair" IS 'The well depth and the diameter of one unordered pair of site types.';
+COMMENT ON COLUMN "param"."wca_site_potential__pair"."id" IS 'Deterministic identifier of the wca_site_potential__pair instance.';
+COMMENT ON COLUMN "param"."wca_site_potential__pair"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."wca_site_potential__pair"."a" IS 'The first site type.';
+COMMENT ON COLUMN "param"."wca_site_potential__pair"."b" IS 'The second site type.';
+COMMENT ON COLUMN "param"."wca_site_potential__pair"."epsilon_over_k" IS 'Well depth of the underlying Lennard-Jones potential over the Boltzmann constant.';
+COMMENT ON COLUMN "param"."wca_site_potential__pair"."sigma" IS 'Separation at which the underlying potential is zero.';
+
+CREATE TABLE "param"."white_bear_hard_sphere_functional__component" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT '23510054-9610-514d-8009-bb05a5af1c1b'::uuid,
+    "i" uuid NOT NULL,
+    "sigma" "meta"."length" NOT NULL,
+    CONSTRAINT "white_bear_hard_sphere_functional__component__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "white_bear_hard_sphere_functional__component__ck__slot_group" CHECK ("slot_group" = '23510054-9610-514d-8009-bb05a5af1c1b'::uuid)
+);
+COMMENT ON TABLE "param"."white_bear_hard_sphere_functional__component" IS 'The hard-sphere diameter of one component.';
+COMMENT ON COLUMN "param"."white_bear_hard_sphere_functional__component"."id" IS 'Deterministic identifier of the white_bear_hard_sphere_functional__component instance.';
+COMMENT ON COLUMN "param"."white_bear_hard_sphere_functional__component"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."white_bear_hard_sphere_functional__component"."i" IS 'The component.';
+COMMENT ON COLUMN "param"."white_bear_hard_sphere_functional__component"."sigma" IS 'Hard-sphere diameter.';
 
 CREATE TABLE "tk"."accuracy_statement" (
     "id" uuid NOT NULL,
@@ -4972,6 +5345,10 @@ ALTER TABLE "meta"."entity" ADD CONSTRAINT "entity__fk__kind" FOREIGN KEY ("kind
 
 ALTER TABLE "prov"."artifact" ADD CONSTRAINT "artifact__fk__carrier" FOREIGN KEY ("carrier") REFERENCES "prov"."carrier" ("id") DEFERRABLE INITIALLY DEFERRED;
 
+ALTER TABLE "param"."assay_cut__cut" ADD CONSTRAINT "assay_cut__cut__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."assay_cut__cut" ADD CONSTRAINT "assay_cut__cut__fk__i" FOREIGN KEY ("i") REFERENCES "tk"."pseudo_component" ("id") DEFERRABLE INITIALLY DEFERRED;
+
 ALTER TABLE "tk"."assembly_choice" ADD CONSTRAINT "assembly_choice__fk__assembly" FOREIGN KEY ("assembly") REFERENCES "tk"."model_assembly" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."assembly_choice" ADD CONSTRAINT "assembly_choice__fk__slot" FOREIGN KEY ("slot") REFERENCES "meta"."subform_slot" ("id") DEFERRABLE INITIALLY DEFERRED;
@@ -5013,6 +5390,10 @@ ALTER TABLE "param"."cef_magnetic_ihj__structure" ADD CONSTRAINT "cef_magnetic_i
 ALTER TABLE "param"."cef_redlich_kister__interaction" ADD CONSTRAINT "cef_redlich_kister__interaction__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "param"."cef_redlich_kister__interaction" ADD CONSTRAINT "cef_redlich_kister__interaction__fk__t" FOREIGN KEY ("t") REFERENCES "tk"."constituent_array" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."chapman_enskog_transport__pure" ADD CONSTRAINT "chapman_enskog_transport__pure__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."chapman_enskog_transport__pure" ADD CONSTRAINT "chapman_enskog_transport__pure__fk__i" FOREIGN KEY ("i") REFERENCES "tk"."species" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."chemical_system" ADD CONSTRAINT "chemical_system__fk__id" FOREIGN KEY ("id") REFERENCES "prov"."record" ("id") DEFERRABLE INITIALLY DEFERRED;
 
@@ -5088,11 +5469,23 @@ ALTER TABLE "prov"."derivation" ADD CONSTRAINT "derivation__fk__level_of_theory"
 
 ALTER TABLE "tk"."distributed_attribute" ADD CONSTRAINT "distributed_attribute__fk__support" FOREIGN KEY ("support") REFERENCES "meta"."quantity_type" ("id") DEFERRABLE INITIALLY DEFERRED;
 
+ALTER TABLE "param"."dual_site_langmuir_isotherm__pure" ADD CONSTRAINT "dual_site_langmuir_isotherm__pure__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."dual_site_langmuir_isotherm__pure" ADD CONSTRAINT "dual_site_langmuir_isotherm__pure__fk__adsorbate" FOREIGN KEY ("adsorbate") REFERENCES "tk"."species" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."dual_site_langmuir_isotherm__pure" ADD CONSTRAINT "dual_site_langmuir_isotherm__pure__fk__host" FOREIGN KEY ("host") REFERENCES "tk"."material" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."dual_site_langmuir_isotherm__pure" ADD CONSTRAINT "dual_site_langmuir_isotherm__pure__fk__quantity" FOREIGN KEY ("quantity") REFERENCES "tk"."observable" ("id") DEFERRABLE INITIALLY DEFERRED;
+
 ALTER TABLE "tk"."element" ADD CONSTRAINT "element__fk__id" FOREIGN KEY ("id") REFERENCES "tk"."conserved_quantity" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."energy_reference" ADD CONSTRAINT "energy_reference__fk__id" FOREIGN KEY ("id") REFERENCES "prov"."record" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."energy_reference" ADD CONSTRAINT "energy_reference__fk__aggregation" FOREIGN KEY ("aggregation") REFERENCES "tk"."aggregation" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."estimated_critical_constants__critical" ADD CONSTRAINT "estimated_critical_constants__critical__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."estimated_critical_constants__critical" ADD CONSTRAINT "estimated_critical_constants__critical__fk__i" FOREIGN KEY ("i") REFERENCES "tk"."pseudo_component" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "prov"."fit" ADD CONSTRAINT "fit__fk__id" FOREIGN KEY ("id") REFERENCES "prov"."derivation" ("id") DEFERRABLE INITIALLY DEFERRED;
 
@@ -5178,6 +5571,22 @@ ALTER TABLE "prov"."import_record" ADD CONSTRAINT "import_record__fk__artifact" 
 
 ALTER TABLE "tk"."isotope" ADD CONSTRAINT "isotope__fk__id" FOREIGN KEY ("id") REFERENCES "tk"."conserved_quantity" ("id") DEFERRABLE INITIALLY DEFERRED;
 
+ALTER TABLE "param"."kesler_lee_critical_temperature__correlation" ADD CONSTRAINT "kesler_lee_critical_temperature__correlation__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."langmuir_isotherm__pure" ADD CONSTRAINT "langmuir_isotherm__pure__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."langmuir_isotherm__pure" ADD CONSTRAINT "langmuir_isotherm__pure__fk__adsorbate" FOREIGN KEY ("adsorbate") REFERENCES "tk"."species" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."langmuir_isotherm__pure" ADD CONSTRAINT "langmuir_isotherm__pure__fk__host" FOREIGN KEY ("host") REFERENCES "tk"."material" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."langmuir_isotherm__pure" ADD CONSTRAINT "langmuir_isotherm__pure__fk__quantity" FOREIGN KEY ("quantity") REFERENCES "tk"."observable" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."lennard_jones_site_potential__pair" ADD CONSTRAINT "lennard_jones_site_potential__pair__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."lennard_jones_site_potential__pair" ADD CONSTRAINT "lennard_jones_site_potential__pair__fk__a" FOREIGN KEY ("a") REFERENCES "tk"."pseudo_component" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."lennard_jones_site_potential__pair" ADD CONSTRAINT "lennard_jones_site_potential__pair__fk__b" FOREIGN KEY ("b") REFERENCES "tk"."pseudo_component" ("id") DEFERRABLE INITIALLY DEFERRED;
+
 ALTER TABLE "prov"."level_of_theory" ADD CONSTRAINT "level_of_theory__fk__id" FOREIGN KEY ("id") REFERENCES "prov"."record" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "prov"."level_of_theory" ADD CONSTRAINT "level_of_theory__fk__software" FOREIGN KEY ("software") REFERENCES "prov"."software_release" ("id") DEFERRABLE INITIALLY DEFERRED;
@@ -5252,6 +5661,8 @@ ALTER TABLE "param"."nasa9__pure" ADD CONSTRAINT "nasa9__pure__fk__id" FOREIGN K
 
 ALTER TABLE "param"."nasa9__pure" ADD CONSTRAINT "nasa9__pure__fk__i" FOREIGN KEY ("i") REFERENCES "tk"."species_form" ("id") DEFERRABLE INITIALLY DEFERRED;
 
+ALTER TABLE "param"."neufeld_collision_integral__correlation" ADD CONSTRAINT "neufeld_collision_integral__correlation__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
 ALTER TABLE "param"."nrtl_excess_gibbs__pair" ADD CONSTRAINT "nrtl_excess_gibbs__pair__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "param"."nrtl_excess_gibbs__pair" ADD CONSTRAINT "nrtl_excess_gibbs__pair__fk__i" FOREIGN KEY ("i") REFERENCES "tk"."species" ("id") DEFERRABLE INITIALLY DEFERRED;
@@ -5285,6 +5696,14 @@ ALTER TABLE "tk"."parameterization" ADD CONSTRAINT "parameterization__fk__group_
 ALTER TABLE "tk"."parameterization" ADD CONSTRAINT "parameterization__fk__chemical_system" FOREIGN KEY ("chemical_system") REFERENCES "tk"."chemical_system" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."parameterization" ADD CONSTRAINT "parameterization__fk__composition_basis" FOREIGN KEY ("composition_basis") REFERENCES "tk"."composition_basis" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."pc_saft_association_functional__component" ADD CONSTRAINT "pc_saft_association_functional__component__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."pc_saft_association_functional__component" ADD CONSTRAINT "pc_saft_association_functional__component__fk__i" FOREIGN KEY ("i") REFERENCES "tk"."species" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."pc_saft_chain_functional__component" ADD CONSTRAINT "pc_saft_chain_functional__component__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."pc_saft_chain_functional__component" ADD CONSTRAINT "pc_saft_chain_functional__component__fk__i" FOREIGN KEY ("i") REFERENCES "tk"."species" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "param"."pcsaft_association__pair" ADD CONSTRAINT "pcsaft_association__pair__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
 
@@ -5336,6 +5755,14 @@ ALTER TABLE "param"."pitzer_theta__pair" ADD CONSTRAINT "pitzer_theta__pair__fk_
 
 ALTER TABLE "tk"."polymer_type" ADD CONSTRAINT "polymer_type__fk__id" FOREIGN KEY ("id") REFERENCES "tk"."material_entity" ("id") DEFERRABLE INITIALLY DEFERRED;
 
+ALTER TABLE "param"."pore_size_kernel_table__pure" ADD CONSTRAINT "pore_size_kernel_table__pure__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."pore_size_kernel_table__pure" ADD CONSTRAINT "pore_size_kernel_table__pure__fk__adsorbate" FOREIGN KEY ("adsorbate") REFERENCES "tk"."species" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."pore_size_kernel_table__pure" ADD CONSTRAINT "pore_size_kernel_table__pure__fk__host" FOREIGN KEY ("host") REFERENCES "tk"."material" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."pore_size_kernel_table__pure" ADD CONSTRAINT "pore_size_kernel_table__pure__fk__kernel" FOREIGN KEY ("kernel") REFERENCES "tk"."tabulated_function" ("id") DEFERRABLE INITIALLY DEFERRED;
+
 ALTER TABLE "tk"."pseudo_component" ADD CONSTRAINT "pseudo_component__fk__id" FOREIGN KEY ("id") REFERENCES "tk"."material_entity" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."pseudo_component" ADD CONSTRAINT "pseudo_component__fk__produced_by" FOREIGN KEY ("produced_by") REFERENCES "prov"."derivation" ("id") DEFERRABLE INITIALLY DEFERRED;
@@ -5374,9 +5801,27 @@ ALTER TABLE "tk"."resolved_snapshot" ADD CONSTRAINT "resolved_snapshot__fk__asse
 
 ALTER TABLE "tk"."resolved_snapshot" ADD CONSTRAINT "resolved_snapshot__fk__policy" FOREIGN KEY ("policy") REFERENCES "tk"."selection_policy" ("id") DEFERRABLE INITIALLY DEFERRED;
 
+ALTER TABLE "param"."riazi_daubert_critical_pressure__correlation" ADD CONSTRAINT "riazi_daubert_critical_pressure__correlation__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."riazi_daubert_critical_temperature__correlation" ADD CONSTRAINT "riazi_daubert_critical_temperature__correlation__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
 ALTER TABLE "prov"."rights_determination" ADD CONSTRAINT "rights_determination__fk__carrier" FOREIGN KEY ("carrier") REFERENCES "prov"."carrier" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "prov"."rights_determination" ADD CONSTRAINT "rights_determination__fk__licence" FOREIGN KEY ("licence") REFERENCES "prov"."licence" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."rosenfeld_hard_sphere_functional__component" ADD CONSTRAINT "rosenfeld_hard_sphere_functional__component__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."rosenfeld_hard_sphere_functional__component" ADD CONSTRAINT "rosenfeld_hard_sphere_functional__component__fk__i" FOREIGN KEY ("i") REFERENCES "tk"."species" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."saft_dispersion_functional__component" ADD CONSTRAINT "saft_dispersion_functional__component__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."saft_dispersion_functional__component" ADD CONSTRAINT "saft_dispersion_functional__component__fk__i" FOREIGN KEY ("i") REFERENCES "tk"."species" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."saft_dispersion_functional__pair" ADD CONSTRAINT "saft_dispersion_functional__pair__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."saft_dispersion_functional__pair" ADD CONSTRAINT "saft_dispersion_functional__pair__fk__i" FOREIGN KEY ("i") REFERENCES "tk"."species" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."saft_dispersion_functional__pair" ADD CONSTRAINT "saft_dispersion_functional__pair__fk__j" FOREIGN KEY ("j") REFERENCES "tk"."species" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "param"."saftgamma_mie__association" ADD CONSTRAINT "saftgamma_mie__association__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
 
@@ -5470,6 +5915,14 @@ ALTER TABLE "tk"."tabulated_series" ADD CONSTRAINT "tabulated_series__fk__functi
 
 ALTER TABLE "tk"."tabulated_series" ADD CONSTRAINT "tabulated_series__fk__value_type" FOREIGN KEY ("value_type") REFERENCES "meta"."quantity_type" ("id") DEFERRABLE INITIALLY DEFERRED;
 
+ALTER TABLE "param"."toth_isotherm__pure" ADD CONSTRAINT "toth_isotherm__pure__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."toth_isotherm__pure" ADD CONSTRAINT "toth_isotherm__pure__fk__adsorbate" FOREIGN KEY ("adsorbate") REFERENCES "tk"."species" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."toth_isotherm__pure" ADD CONSTRAINT "toth_isotherm__pure__fk__host" FOREIGN KEY ("host") REFERENCES "tk"."material" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."toth_isotherm__pure" ADD CONSTRAINT "toth_isotherm__pure__fk__quantity" FOREIGN KEY ("quantity") REFERENCES "tk"."observable" ("id") DEFERRABLE INITIALLY DEFERRED;
+
 ALTER TABLE "param"."twu_alpha__pure" ADD CONSTRAINT "twu_alpha__pure__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "param"."twu_alpha__pure" ADD CONSTRAINT "twu_alpha__pure__fk__i" FOREIGN KEY ("i") REFERENCES "tk"."species" ("id") DEFERRABLE INITIALLY DEFERRED;
@@ -5501,6 +5954,16 @@ ALTER TABLE "tk"."validity_region" ADD CONSTRAINT "validity_region__fk__record" 
 ALTER TABLE "param"."vapor_pressure_exp_series_tau__pure" ADD CONSTRAINT "vapor_pressure_exp_series_tau__pure__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "param"."vapor_pressure_exp_series_tau__pure" ADD CONSTRAINT "vapor_pressure_exp_series_tau__pure__fk__i" FOREIGN KEY ("i") REFERENCES "tk"."material_entity" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."wca_site_potential__pair" ADD CONSTRAINT "wca_site_potential__pair__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."wca_site_potential__pair" ADD CONSTRAINT "wca_site_potential__pair__fk__a" FOREIGN KEY ("a") REFERENCES "tk"."pseudo_component" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."wca_site_potential__pair" ADD CONSTRAINT "wca_site_potential__pair__fk__b" FOREIGN KEY ("b") REFERENCES "tk"."pseudo_component" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."white_bear_hard_sphere_functional__component" ADD CONSTRAINT "white_bear_hard_sphere_functional__component__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."white_bear_hard_sphere_functional__component" ADD CONSTRAINT "white_bear_hard_sphere_functional__component__fk__i" FOREIGN KEY ("i") REFERENCES "tk"."species" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."accuracy_statement" ADD CONSTRAINT "accuracy_statement__fk__record" FOREIGN KEY ("record") REFERENCES "prov"."record" ("id") DEFERRABLE INITIALLY DEFERRED;
 

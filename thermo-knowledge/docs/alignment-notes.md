@@ -7,10 +7,9 @@ a worklist, not a contract.
 
 ## Requires a model or meta-model change
 
-| # | Evidence | Survey | Required change |
-|---|---|---|---|
-| 4 | 94 % of ISODB isotherms do not say whether loading is excess or absolute; loading units come in 83 spellings and only per-mass fits `Loading`; temperature has no unit | isodb | an adsorption kind `not_stated`; loading bases per volume, per surface area and per unit cell; the mapping must hold rows whose unit cannot be parsed instead of guessing |
-| 11 | Liquid-state integral-equation inputs are site types with number densities and pair tables; there is no molecule or species record | pyprism | site number density as a composition basis; site types as abstract entities |
+No item is open. The declaration holds every change the surveys required of it, and each has a hard-case
+fixture that proves it (`tests/test_hard_case_*.py`); a new survey adds a numbered row here
+(`| # | Evidence | Survey | Required change |`) when it finds one.
 
 ## Held by the current declaration; the mapping must record the loss or assumption
 

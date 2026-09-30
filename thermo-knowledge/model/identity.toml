@@ -340,6 +340,11 @@ traces = ["IC-01"]
 kind = { type = "pseudo_component_kind", doc = "Why it has no formula." }
 produced_by = { type = "derivation", optional = true, doc = "The characterisation that produced it." }
 
+[[kinds.pseudo_component.requires]]
+name = "produced_by_matches_lineage"
+doc = "The derivation a pseudo-component names as its producer is the derivation whose output it is (`derivation_output`), and a pseudo-component that some derivation produced names it: the producer is one fact, stated once in the lineage and once here, and the two agree."
+enforced = "verify"
+
 [kinds.polymer_type]
 doc = "A polymer identified by its repeat units and architecture. A molar-mass distribution is a property of a sample or mixture, not of the type."
 extends = "material_entity"

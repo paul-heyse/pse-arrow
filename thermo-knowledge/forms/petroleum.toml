@@ -1,0 +1,167 @@
+module = "petroleum"
+uses = [
+  "physical",
+  "provenance",
+  "identity",
+  "systems",
+  "conventions",
+  "observables",
+  "parameters",
+]
+doc = """
+Petroleum pseudo-components. A crude is not characterised by formulas but by an assay: a distillation
+curve, the density and molar mass of each cut. A characterisation derivation turns the assay into
+pseudo-components, one for each cut, each with a molar mass, a normal boiling temperature and a
+specific gravity (`assay_cut`). An estimation derivation then gives the critical temperature,
+critical pressure and acentric factor of a cut through correlation forms of those three (`critical`),
+and a lump of several cuts is a pseudo-component that a lumping derivation produced from them.
+
+A correlation is a form with its own coefficients. Two forms implement the critical temperature
+(a power law in the boiling temperature and the specific gravity, and a sum of terms in both), one
+the critical pressure, and the acentric factor follows from the other two constants and the boiling
+temperature by Edmister's closed form, which has no coefficient. Which correlation gave a cut its
+value is lineage: the estimation derivation names the coefficient sets it consumed. All numbers a
+mapping holds are the source's; none are declared here.
+"""
+
+# ---------------------------------------------------------------- the characterised cut
+
+[contracts.assay_cut_description]
+doc = "The molar mass, normal boiling temperature and specific gravity of one pseudo-component, as a characterisation of an assay gives them."
+roles.i = { type = "pseudo_component", doc = "The pseudo-component." }
+outputs.M = { type = "MolarMass", observable = "molar_mass", doc = "Molar mass." }
+outputs.Tb = { type = "Temperature", observable = "normal_boiling_temperature", doc = "Normal boiling temperature, the mean boiling point of the cut." }
+outputs.SG = { type = "Scalar", observable = "specific_gravity", doc = "Specific gravity of the cut." }
+
+[forms.assay_cut]
+doc = "The description of one pseudo-component by three bulk properties. It is a characterisation, not a measurement of a pure species: the sets have the origin role `derived`, produced by a characterisation derivation from the assay, or of a lump by a lumping derivation from its member cuts."
+implements = "assay_cut_description"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.assay_cut.slot_groups.cut]
+doc = "The properties of one pseudo-component."
+subject.i = { type = "pseudo_component", doc = "The pseudo-component." }
+
+[forms.assay_cut.slot_groups.cut.slots]
+molar_mass = { type = "MolarMass", observable = "molar_mass", doc = "Molar mass." }
+normal_boiling_temperature = { type = "Temperature", observable = "normal_boiling_temperature", doc = "Normal boiling temperature." }
+specific_gravity = { type = "Scalar", observable = "specific_gravity", doc = "Specific gravity." }
+
+[forms.assay_cut.outputs]
+M = "cut.molar_mass[i]"
+Tb = "cut.normal_boiling_temperature[i]"
+SG = "cut.specific_gravity[i]"
+
+# ---------------------------------------------------------------- the estimated critical constants
+
+[contracts.pseudo_component_critical_constants]
+doc = "The critical temperature, critical pressure and acentric factor of one pseudo-component."
+roles.i = { type = "pseudo_component", doc = "The pseudo-component." }
+outputs.Tc = { type = "Temperature", observable = "critical_temperature", doc = "Critical temperature." }
+outputs.Pc = { type = "Pressure", observable = "critical_pressure", doc = "Critical pressure." }
+outputs.omega = { type = "Scalar", observable = "acentric_factor", doc = "Acentric factor." }
+
+[forms.estimated_critical_constants]
+doc = "The critical constants of one pseudo-component, as an estimation derivation gives them: the sets have the origin role `estimated` and the derivation consumes the coefficient sets of the correlations it applied."
+implements = "pseudo_component_critical_constants"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.estimated_critical_constants.slot_groups.critical]
+doc = "The estimated constants of one pseudo-component."
+subject.i = { type = "pseudo_component", doc = "The pseudo-component." }
+
+[forms.estimated_critical_constants.slot_groups.critical.slots]
+critical_temperature = { type = "Temperature", observable = "critical_temperature", doc = "Critical temperature." }
+critical_pressure = { type = "Pressure", observable = "critical_pressure", doc = "Critical pressure." }
+acentric_factor = { type = "Scalar", observable = "acentric_factor", doc = "Acentric factor." }
+
+[forms.estimated_critical_constants.outputs]
+Tc = "critical.critical_temperature[i]"
+Pc = "critical.critical_pressure[i]"
+omega = "critical.acentric_factor[i]"
+
+# ---------------------------------------------------------------- the correlations
+
+[contracts.critical_temperature_from_boiling_point]
+doc = "The critical temperature of a hydrocarbon fraction from its normal boiling temperature and specific gravity."
+arguments.Tb = { type = "Temperature", observable = "normal_boiling_temperature", doc = "Normal boiling temperature." }
+arguments.SG = { type = "Scalar", observable = "specific_gravity", doc = "Specific gravity." }
+outputs.Tc = { type = "Temperature", observable = "critical_temperature", doc = "Critical temperature." }
+
+[contracts.critical_pressure_from_boiling_point]
+doc = "The critical pressure of a hydrocarbon fraction from its normal boiling temperature and specific gravity."
+arguments.Tb = { type = "Temperature", observable = "normal_boiling_temperature", doc = "Normal boiling temperature." }
+arguments.SG = { type = "Scalar", observable = "specific_gravity", doc = "Specific gravity." }
+outputs.Pc = { type = "Pressure", observable = "critical_pressure", doc = "Critical pressure." }
+
+[contracts.acentric_factor_from_critical_constants]
+doc = "The acentric factor of a fraction from its normal boiling temperature and its critical temperature and pressure."
+arguments.Tb = { type = "Temperature", observable = "normal_boiling_temperature", doc = "Normal boiling temperature." }
+arguments.Tc = { type = "Temperature", observable = "critical_temperature", doc = "Critical temperature." }
+arguments.Pc = { type = "Pressure", observable = "critical_pressure", doc = "Critical pressure." }
+outputs.omega = { type = "Scalar", observable = "acentric_factor", doc = "Acentric factor." }
+
+[forms.riazi_daubert_critical_temperature]
+doc = "Tc = a (Tb / K)^b SG^c: the critical temperature as a power law of the boiling temperature, taken in kelvin, and the specific gravity. The coefficient a has the dimension of a temperature, so the power of the dimensionless boiling temperature closes."
+implements = "critical_temperature_from_boiling_point"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.riazi_daubert_critical_temperature.slot_groups.correlation]
+doc = "The three coefficients of the correlation."
+
+[forms.riazi_daubert_critical_temperature.slot_groups.correlation.slots]
+a = { type = "Temperature", doc = "Coefficient a, in kelvin." }
+b = { type = "Scalar", doc = "Exponent of the boiling temperature in kelvin." }
+c = { type = "Scalar", doc = "Exponent of the specific gravity." }
+
+[forms.riazi_daubert_critical_temperature.outputs]
+Tc = "correlation.a * (Tb / unit('K')) ** correlation.b * SG ** correlation.c"
+
+[forms.kesler_lee_critical_temperature]
+doc = "Tc = k0 + k1 SG + (k2 + k3 SG) Tb + (k4 + k5 SG) / Tb: the critical temperature as a sum of terms in the boiling temperature and the specific gravity, with the reciprocal of the boiling temperature in two of them."
+implements = "critical_temperature_from_boiling_point"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.kesler_lee_critical_temperature.slot_groups.correlation]
+doc = "The six coefficients of the correlation."
+
+[forms.kesler_lee_critical_temperature.slot_groups.correlation.slots]
+k0 = { type = "Temperature", doc = "Constant term." }
+k1 = { type = "Temperature", doc = "Coefficient of the specific gravity." }
+k2 = { type = "Scalar", doc = "Coefficient of the boiling temperature." }
+k3 = { type = "Scalar", doc = "Coefficient of the product of the specific gravity and the boiling temperature." }
+k4 = { type = "Temperature^2", doc = "Coefficient of the reciprocal of the boiling temperature." }
+k5 = { type = "Temperature^2", doc = "Coefficient of the specific gravity over the boiling temperature." }
+
+[forms.kesler_lee_critical_temperature.outputs]
+Tc = "correlation.k0 + correlation.k1 * SG + (correlation.k2 + correlation.k3 * SG) * Tb + (correlation.k4 + correlation.k5 * SG) / Tb"
+
+[forms.riazi_daubert_critical_pressure]
+doc = "Pc = a (Tb / K)^b SG^c: the critical pressure as a power law of the boiling temperature, taken in kelvin, and the specific gravity. The coefficient a has the dimension of a pressure."
+implements = "critical_pressure_from_boiling_point"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.riazi_daubert_critical_pressure.slot_groups.correlation]
+doc = "The three coefficients of the correlation."
+
+[forms.riazi_daubert_critical_pressure.slot_groups.correlation.slots]
+a = { type = "Pressure", doc = "Coefficient a, in pascal." }
+b = { type = "Scalar", doc = "Exponent of the boiling temperature in kelvin." }
+c = { type = "Scalar", doc = "Exponent of the specific gravity." }
+
+[forms.riazi_daubert_critical_pressure.outputs]
+Pc = "correlation.a * (Tb / unit('K')) ** correlation.b * SG ** correlation.c"
+
+[forms.edmister_acentric_factor]
+doc = "omega = 3/7 log10(Pc / p_atm) / (Tc / Tb - 1) - 1: the acentric factor from the critical pressure in standard atmospheres, the critical temperature and the normal boiling temperature. It has no coefficient: the standard atmosphere is a defined constant and the 3/7 follows from the definition of the acentric factor and a vapour pressure of one atmosphere at the normal boiling temperature."
+implements = "acentric_factor_from_critical_constants"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.edmister_acentric_factor.outputs]
+omega = "3 / 7 * log10(Pc / unit('atm')) / (Tc / Tb - 1) - 1"

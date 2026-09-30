@@ -218,6 +218,19 @@ dimension of the value is that of `expr`. It is the value of a local, which is t
 `r[i]` like an indexed argument, and can be passed by name to a call; used bare in arithmetic it
 is refused. A derivative cannot be taken with respect to an element of an indexed local.
 
+### Definite integrals
+
+`integral(expr, z, a, b)` integrates `expr` in the scalar variable `z` between bounds of one dimension, which
+is the dimension of `z` (the lower bound of an integral from zero is written `0 * unit('Pa')`); the dimension of
+the integral is that of `expr` times that of the bounds. The integrand may call a sub-form at the integration
+variable, so a quantity defined as an integral of another form is a form with that form in a sub-form slot:
+the reduced spreading pressure of ideal adsorbed solution theory, `integral(isotherm.n(adsorbate=adsorbate,
+host=host, p=q) / q, q, 0 * unit('Pa'), P)`, takes any isotherm form. The evaluator integrates in closed form
+where SymPy finds one (the Langmuir isotherm gives `n_m ln(1 + K P)`); an integrand with no closed form (Toth's
+isotherm with a general exponent) becomes a quadrature function of the bounds and of the other symbols of the
+integrand, named by the structure of the integrand and evaluated by `scipy.integrate.quad` at a relative
+tolerance of 1e-12, and a derivative of such an output is refused.
+
 ### Implicit forms
 
 A form whose outputs are defined by equations rather than formulas declares an implicit block:

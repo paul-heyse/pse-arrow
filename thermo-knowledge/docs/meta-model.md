@@ -644,6 +644,16 @@ or why there is none.
   would say the value was sought, and no state for a divergence is declared because nothing a consumer
   can use is lost (a divergence is not a number to interpolate, and its sign follows from the other
   quantities of the row).
+- A value of an observable is held to the sign rule of the scale of the observable's quantity type. The column
+  type of a `Real` carries the unit and not the sign, so `datum.value_respects_scale` and
+  `dataset_column.constant_respects_scale` (both verify) flag a negative value, censored limit or constant of an
+  observable whose quantity type has the scale `absolute`: a negative pressure, temperature or absolute amount
+  adsorbed. A source whose amounts can be negative uses an observable of a `difference` type: a surface excess,
+  and an adsorbed amount whose kind the source does not say, are `ExcessLoading` and its counterparts, and the
+  adsorption kind `not_stated` has an observable on each loading basis (per mass of host, per volume, per
+  surface area and per unit cell, each with an absolute, an excess and a not-stated observable). A writer
+  refuses a unit that is not a unit or that has another dimension than the observable, so a mapping holds the
+  row (`unit_not_parseable`) instead of guessing.
 - A dataset of kind `verification` states the records whose implementation its values check, one
   `dataset_verifies` row each: the model assembly and the parameterisation it was computed with, because
   the values of a published check table depend on both the formulation and its coefficients. A
@@ -748,6 +758,15 @@ Applying a policy is a later packet (the snapshot export); what the declaration 
   `entropy_datum` exactly one entropy value; a stated zero is a stated value. The state is described by
   `state`, `temperature`, `pressure` and the `aggregation` of its phase. Any other datum states no value
   (`energy_reference.stated_energy_matches_datum`, `energy_reference.stated_entropy_matches_datum`).
+- A `pseudo_component` is an entity defined by characterisation or by fiat (an assay cut, a lump of cuts, a
+  site type of an integral-equation theory, a component with only a size) and has no formula. The derivation it
+  names in `produced_by` is the derivation of which it is an output (`derivation_output`), and a
+  pseudo-component some derivation produced names that derivation
+  (`pseudo_component.produced_by_matches_lineage`, verify): the producer is one fact stated in two places, and
+  the two agree. The properties of a characterised cut are a parameter set with the origin role `derived`; the
+  critical constants an estimation gave it are a set with the role `estimated`, whose derivation consumed the
+  coefficient sets of the correlation forms it applied; a lump is produced by a derivation whose inputs are its
+  member cuts, each weighted by its mole fraction in `derivation_input.weight`.
 - A `sample` states its `source` and `status`; its purities are `purity_statement` rows (a basis, a value
   with its digits, an analytical method or free text, and, for the content of an impurity, the impurity)
   and its history `purification_step` rows, each naming a listed method or free text.

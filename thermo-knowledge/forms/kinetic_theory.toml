@@ -1,0 +1,126 @@
+module = "kinetic_theory"
+uses = [
+  "physical",
+  "provenance",
+  "identity",
+  "systems",
+  "conventions",
+  "observables",
+  "parameters",
+]
+doc = """
+Transport properties of a dilute gas from Chapman-Enskog kinetic theory of a spherical pair
+potential. A species has a molar mass and the two parameters of a Lennard-Jones potential, its
+diameter and its well depth over the Boltzmann constant. The viscosity is the first approximation of the
+theory, proportional to the square root of the molecular mass and the temperature and inversely
+proportional to the square of the diameter and to a reduced collision integral of the potential at the
+reduced temperature T* = T / (epsilon / k). The collision integral is a correlation of its own
+(Neufeld's fit), filled through a sub-form slot, so a potential with another integral plugs in. The
+thermal conductivity of a monatomic gas follows from the viscosity by the factor 15 k / (4 m).
+
+The equations need the Boltzmann and Avogadro constants, which a body of data takes from an edition
+of the constants and which a library may derive from one another: they are convention facts of the
+parameterisation, stated as two separate facts, and a form reads them as it reads the gas constant,
+so two parameterisations that state different values cannot be evaluated together. A mixture of gases
+combines the viscosities of its pure components by Wilke's rule, which needs their molar masses as
+an argument (the caller reads them from the pure records) and calls the pure form through a sub-form
+slot.
+"""
+
+# ---------------------------------------------------------------- the reduced collision integral
+
+[contracts.collision_integral]
+doc = "The reduced collision integral of the viscosity and thermal conductivity of a pair potential, as a function of the reduced temperature T* = T / (epsilon / k)."
+arguments.T_star = { type = "Scalar", doc = "Reduced temperature." }
+outputs.omega = { type = "Scalar", doc = "Reduced collision integral of order (2, 2)." }
+
+[forms.neufeld_collision_integral]
+doc = "Neufeld's correlation of the (2, 2) collision integral of the Lennard-Jones potential: omega = A / T*^B + C / exp(D T*) + E / exp(F T*) + G / exp(H T*)."
+implements = "collision_integral"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.neufeld_collision_integral.slot_groups.correlation]
+doc = "The eight coefficients of the correlation, independent of the species."
+
+[forms.neufeld_collision_integral.slot_groups.correlation.slots]
+A = { type = "Scalar", doc = "Coefficient of the power of the reduced temperature." }
+B = { type = "Scalar", doc = "Exponent of the reduced temperature." }
+C = { type = "Scalar", doc = "Coefficient of the first exponential term." }
+D = { type = "Scalar", doc = "Rate of the first exponential term." }
+E = { type = "Scalar", doc = "Coefficient of the second exponential term." }
+F = { type = "Scalar", doc = "Rate of the second exponential term." }
+G = { type = "Scalar", doc = "Coefficient of the third exponential term." }
+H = { type = "Scalar", doc = "Rate of the third exponential term." }
+
+[forms.neufeld_collision_integral.outputs]
+omega = "correlation.A / T_star ** correlation.B + correlation.C / exp(correlation.D * T_star) + correlation.E / exp(correlation.F * T_star) + correlation.G / exp(correlation.H * T_star)"
+
+# ---------------------------------------------------------------- a pure dilute gas
+
+[contracts.dilute_gas_transport]
+doc = "The dynamic viscosity and the thermal conductivity of one dilute gas at a temperature."
+roles.i = { type = "species", doc = "The gas." }
+arguments.T = { type = "Temperature", observable = "temperature", doc = "Temperature." }
+outputs.eta = { type = "Viscosity", observable = "dynamic_viscosity", doc = "Dynamic viscosity." }
+outputs.lam = { type = "ThermalConductivity", observable = "thermal_conductivity", doc = "Thermal conductivity of a monatomic gas." }
+
+[forms.chapman_enskog_transport]
+doc = "First-approximation Chapman-Enskog theory of a dilute gas: eta = 5/16 sqrt(pi m k T) / (pi sigma^2 omega(T*)) with the molecular mass m = M / N_A and the collision integral of the sub-form slot, and lambda = 15/4 (k / m) eta for a monatomic gas."
+implements = "dilute_gas_transport"
+completeness = "fully_declared"
+status = "expressed"
+conventions = ["boltzmann_constant", "avogadro_constant"]
+
+[forms.chapman_enskog_transport.subforms.collision_integral]
+doc = "The reduced collision integral of the potential."
+accepts = "collision_integral"
+multiplicity = "one"
+per = "model"
+
+[forms.chapman_enskog_transport.slot_groups.pure]
+doc = "The molar mass and the Lennard-Jones parameters of one gas."
+subject.i = { type = "species", doc = "The gas." }
+
+[forms.chapman_enskog_transport.slot_groups.pure.slots]
+M = { type = "MolarMass", observable = "molar_mass", doc = "Molar mass." }
+sigma = { type = "Length", doc = "Lennard-Jones diameter." }
+epsilon_over_k = { type = "EnergyTemperature", doc = "Lennard-Jones well depth over the Boltzmann constant." }
+
+[forms.chapman_enskog_transport.let]
+kB = "convention.boltzmann_constant"
+m = "pure.M[i] / convention.avogadro_constant"
+omega = "collision_integral.omega(T_star=T / pure.epsilon_over_k[i])"
+viscosity = "5 / 16 * sqrt(3.141592653589793 * m * kB * T) / (3.141592653589793 * pure.sigma[i] ** 2 * omega)"
+
+[forms.chapman_enskog_transport.outputs]
+eta = "viscosity"
+lam = "15 / 4 * kB / m * viscosity"
+
+# ---------------------------------------------------------------- a mixture of dilute gases
+
+[contracts.dilute_gas_mixture_viscosity]
+doc = "The dynamic viscosity of a mixture of dilute gases at a temperature and a composition, from the viscosities of its pure components."
+sets.components = { type = "species", doc = "The components, in a fixed order." }
+arguments.T = { type = "Temperature", observable = "temperature", doc = "Temperature." }
+arguments.x = { type = "Fraction", over = ["components"], basis = "mole_fraction", doc = "Composition." }
+arguments.M = { type = "MolarMass", over = ["components"], doc = "Molar mass of each component, read by the caller from the pure records." }
+outputs.eta = { type = "Viscosity", observable = "dynamic_viscosity", doc = "Dynamic viscosity of the mixture." }
+
+[forms.wilke_mixture_viscosity]
+doc = "Wilke's rule: eta = sum_i x_i eta_i / sum_j x_j phi_ij with phi_ij = (1 + (eta_i / eta_j)^(1/2) (M_j / M_i)^(1/4))^2 / (8 (1 + M_i / M_j))^(1/2), the viscosities eta_i of the pure components being those of the sub-form slot."
+implements = "dilute_gas_mixture_viscosity"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.wilke_mixture_viscosity.subforms.pure]
+doc = "The transport properties of a pure component."
+accepts = "dilute_gas_transport"
+multiplicity = "one"
+per = "model"
+
+[forms.wilke_mixture_viscosity.let]
+eta_pure = "[pure.eta(i=i, T=T) for i in components]"
+
+[forms.wilke_mixture_viscosity.outputs]
+eta = "sum(x[i] * eta_pure[i] / sum(x[j] * (1 + (eta_pure[i] / eta_pure[j]) ** 0.5 * (M[j] / M[i]) ** 0.25) ** 2 / (8 * (1 + M[i] / M[j])) ** 0.5 for j in components) for i in components)"

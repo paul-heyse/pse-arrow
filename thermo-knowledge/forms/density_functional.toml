@@ -1,0 +1,160 @@
+module = "density_functional"
+uses = [
+  "physical",
+  "provenance",
+  "identity",
+  "systems",
+  "conventions",
+  "observables",
+  "parameters",
+]
+doc = """
+Classical density functional theory of inhomogeneous fluids. A Helmholtz energy functional maps the
+density profiles of the components to a free energy; its contributions (a hard-sphere functional
+from fundamental measure theory, a dispersion functional, a chain functional, an association
+functional) are each a functional of weighted densities, the convolutions of the profiles with
+weight functions. The weight functions are analytic functions in code, transformed to Fourier space
+for the convolution; a functional of density fields lies outside a pointwise expression, so these
+forms are catalogued: their structure (the parameters of each contribution for each component and
+pair, and which contribution fills which slot of the assembled functional) is declared, and their
+equation lives in code (`structure_declared_equation_external`).
+
+The contract gives the functional through its homogeneous limit, the Helmholtz energy per volume of a
+uniform fluid, which is the equation of state the functional reduces to and what a profile solver
+checks the bulk against. Density profiles, grids and the solver schedule are the state of one
+calculation and hold no knowledge about material.
+"""
+
+[contracts.helmholtz_functional_contribution]
+doc = "One contribution to a Helmholtz energy functional of the density profiles of its components, known through its homogeneous limit: its share of the Helmholtz energy per volume of a uniform fluid at a temperature and the number densities of the components."
+sets.components = { type = "species", doc = "The components, in a fixed order." }
+arguments.T = { type = "Temperature", observable = "temperature", doc = "Temperature." }
+arguments.rho = { type = "MolarDensity", over = ["components"], doc = "Amount density of each component of the uniform fluid." }
+outputs.f = { type = "Pressure", doc = "Contribution to the Helmholtz energy per volume of the uniform fluid." }
+
+[contracts.helmholtz_functional]
+doc = "The assembled Helmholtz energy functional of the density profiles of its components, known through its homogeneous limit: the Helmholtz energy per volume of a uniform fluid, which is the equation of state the functional reduces to."
+sets.components = { type = "species", doc = "The components, in a fixed order." }
+arguments.T = { type = "Temperature", observable = "temperature", doc = "Temperature." }
+arguments.rho = { type = "MolarDensity", over = ["components"], doc = "Amount density of each component of the uniform fluid." }
+outputs.f = { type = "Pressure", doc = "Helmholtz energy per volume of the uniform fluid." }
+
+# ---------------------------------------------------------------- the hard-sphere functionals
+
+[forms.rosenfeld_hard_sphere_functional]
+doc = "Rosenfeld's fundamental measure theory of hard spheres: the excess free energy density as a function of four weighted densities (the scalar, vector and tensor measures of each sphere), with the Percus-Yevick equation of state in the bulk."
+implements = "helmholtz_functional_contribution"
+completeness = "structure_declared_equation_external"
+status = "catalogued"
+
+[forms.rosenfeld_hard_sphere_functional.slot_groups.component]
+doc = "The hard-sphere diameter of one component."
+subject.i = { type = "species", doc = "The component." }
+bind = { i = "components" }
+
+[forms.rosenfeld_hard_sphere_functional.slot_groups.component.slots]
+sigma = { type = "Length", doc = "Hard-sphere diameter." }
+
+[forms.white_bear_hard_sphere_functional]
+doc = "White Bear fundamental measure theory: the same weighted densities as Rosenfeld's theory with the Carnahan-Starling equation of state in the bulk."
+implements = "helmholtz_functional_contribution"
+completeness = "structure_declared_equation_external"
+status = "catalogued"
+
+[forms.white_bear_hard_sphere_functional.slot_groups.component]
+doc = "The hard-sphere diameter of one component."
+subject.i = { type = "species", doc = "The component." }
+bind = { i = "components" }
+
+[forms.white_bear_hard_sphere_functional.slot_groups.component.slots]
+sigma = { type = "Length", doc = "Hard-sphere diameter." }
+
+# ---------------------------------------------------------------- the other contributions
+
+[forms.saft_dispersion_functional]
+doc = "The dispersion contribution of a SAFT functional: a bulk dispersion free energy evaluated at weighted densities, with the segment number, diameter and well depth of each component and a binary interaction parameter for each pair."
+implements = "helmholtz_functional_contribution"
+completeness = "structure_declared_equation_external"
+status = "catalogued"
+
+[forms.saft_dispersion_functional.slot_groups.component]
+doc = "The segment parameters of one component."
+subject.i = { type = "species", doc = "The component." }
+bind = { i = "components" }
+
+[forms.saft_dispersion_functional.slot_groups.component.slots]
+m = { type = "Scalar", doc = "Number of segments of a molecule." }
+sigma = { type = "Length", doc = "Segment diameter." }
+epsilon_over_k = { type = "EnergyTemperature", doc = "Dispersion energy over the Boltzmann constant." }
+
+[forms.saft_dispersion_functional.slot_groups.pair]
+doc = "The binary interaction parameter of one unordered pair of components."
+subject.i = { type = "species", doc = "The first component." }
+subject.j = { type = "species", doc = "The second component." }
+bind = { i = "components", j = "components" }
+transposition = { rule = "symmetric", roles = ["i", "j"], diagonal = "forbidden" }
+
+[forms.saft_dispersion_functional.slot_groups.pair.slots]
+k_ij = { type = "Scalar", doc = "Binary interaction parameter of the dispersion energy." }
+
+[forms.pc_saft_chain_functional]
+doc = "The chain contribution of a PC-SAFT functional: the free energy of bonding the segments of a molecule, evaluated at weighted densities, with the segment number and diameter of each component."
+implements = "helmholtz_functional_contribution"
+completeness = "structure_declared_equation_external"
+status = "catalogued"
+
+[forms.pc_saft_chain_functional.slot_groups.component]
+doc = "The chain parameters of one component."
+subject.i = { type = "species", doc = "The component." }
+bind = { i = "components" }
+
+[forms.pc_saft_chain_functional.slot_groups.component.slots]
+m = { type = "Scalar", doc = "Number of segments of a molecule." }
+sigma = { type = "Length", doc = "Segment diameter." }
+
+[forms.pc_saft_association_functional]
+doc = "The association contribution of a PC-SAFT functional: the free energy of hydrogen bonding between the sites of the molecules, evaluated at weighted densities, for the components that associate."
+implements = "helmholtz_functional_contribution"
+completeness = "structure_declared_equation_external"
+status = "catalogued"
+
+[forms.pc_saft_association_functional.slot_groups.component]
+doc = "The association parameters of one associating component."
+subject.i = { type = "species", doc = "The component." }
+bind = { i = "components" }
+
+[forms.pc_saft_association_functional.slot_groups.component.slots]
+epsilon_hb_over_k = { type = "EnergyTemperature", doc = "Association energy over the Boltzmann constant." }
+kappa_hb = { type = "Scalar", doc = "Association volume, reduced." }
+
+# ---------------------------------------------------------------- the assembled functional
+
+[forms.saft_functional]
+doc = "A SAFT density functional assembled from contributions: a hard-sphere functional, a dispersion functional, and, where the fluid needs them, a chain functional and an association functional. The assembly names the form of each slot; the sum of the contributions, each a functional of the profiles, is in code."
+implements = "helmholtz_functional"
+completeness = "structure_declared_equation_external"
+status = "catalogued"
+
+[forms.saft_functional.subforms.hard_sphere]
+doc = "The hard-sphere functional."
+accepts = "helmholtz_functional_contribution"
+multiplicity = "one"
+per = "model"
+
+[forms.saft_functional.subforms.dispersion]
+doc = "The dispersion functional."
+accepts = "helmholtz_functional_contribution"
+multiplicity = "one"
+per = "model"
+
+[forms.saft_functional.subforms.chain]
+doc = "The chain functional, for molecules of more than one segment."
+accepts = "helmholtz_functional_contribution"
+multiplicity = "optional"
+per = "model"
+
+[forms.saft_functional.subforms.association]
+doc = "The association functional, for associating fluids."
+accepts = "helmholtz_functional_contribution"
+multiplicity = "optional"
+per = "model"

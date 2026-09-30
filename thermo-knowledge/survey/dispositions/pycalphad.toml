@@ -120,7 +120,7 @@ reason = "The element and phase counts map to a chemical_system and the atomic m
 construct = "DAT endmember (Gibbs energy equation block)"
 disposition = "mapping_loss"
 ref = "mechanism:form catalogue"
-reason = "A Gibbs equation block becomes the pieces of a Gibbs-polynomial form (each interval's upper limit stated and the previous limit as lower), the additional-term exponent 99 decoded by a mapping rule to a ln T term, with the units (J/mol of the species formula) assumed and the interval boundary rule left to the consumer (alignment-notes #15). Equation types the reader rejects or cannot evaluate (constant volume 2, 5, 8, 11, heat-capacity forms 7-12, P-T volume 3, 6, 9, 12) are held until a form for them is declared."
+reason = "A Gibbs equation block becomes the pieces of a Gibbs-polynomial form (each interval's upper limit stated and the previous limit as lower), the additional-term exponent 99 decoded by a mapping rule to a ln T term, with the units (J/mol of the species formula) assumed and the interval boundary rule left to the consumer (the piece policy of a qualification case). Equation types the reader rejects or cannot evaluate (constant volume 2, 5, 8, 11, heat-capacity forms 7-12, P-T volume 3, 6, 9, 12) are held until a form for them is declared."
 
 [[disposition]]
 construct = "DAT solution phase models read by pycalphad (IDMX, RKMP and RKMPM, QKTO, SUBL and SUBLM, SUBG, SUBQ)"

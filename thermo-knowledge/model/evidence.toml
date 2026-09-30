@@ -174,6 +174,11 @@ doc = "A constraint column states its constant; variable and property columns do
 enforced = "load"
 
 [[kinds.dataset_column.requires]]
+name = "constant_respects_scale"
+doc = "The constant of a constraint column whose observable has a quantity type of the scale `absolute` is not negative (the rule of `datum.value_respects_scale`)."
+enforced = "verify"
+
+[[kinds.dataset_column.requires]]
 name = "site_class_of_the_phase"
 doc = "A column that names a site class names a phase whose phase definition owns that site class."
 enforced = "verify"
@@ -236,6 +241,11 @@ enforced = "verify"
 [[relations.datum.requires]]
 name = "column_is_variable_or_property"
 doc = "The column is a variable or a property column."
+enforced = "verify"
+
+[[relations.datum.requires]]
+name = "value_respects_scale"
+doc = "A value, or a censored limit, of an observable whose quantity type has the scale `absolute` is not negative: the column type of a `Real` carries the unit and not the sign rule, so the scale of the quantity type is what refuses a negative amount adsorbed, pressure or temperature where the observable is an absolute quantity. A source that states signed amounts uses an observable of a `difference` type (`adsorbed_amount_excess`)."
 enforced = "verify"
 
 [[relations.datum.requires]]

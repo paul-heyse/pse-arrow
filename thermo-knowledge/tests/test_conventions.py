@@ -431,7 +431,10 @@ def test_the_facts_a_form_reads_are_reified_in_meta(world: World, conn: psycopg.
     ]
     assert conn.execute(
         "SELECT form, name, kind FROM meta.form_convention WHERE name = 'avogadro_constant' ORDER BY form"
-    ).fetchall() == [("pcsaft_association", "avogadro_constant", "convention_set")]
+    ).fetchall() == [
+        ("chapman_enskog_transport", "avogadro_constant", "convention_set"),
+        ("pcsaft_association", "avogadro_constant", "convention_set"),
+    ]
     assert conn.execute(
         "SELECT kind FROM meta.framework_role WHERE role = 'convention_set'"
     ).fetchone() == ("convention_set",)

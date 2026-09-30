@@ -366,7 +366,7 @@ report, and adds that wave's libraries to the capability inventory.
 | TK3d Qualification | database-backed parameter source, oracle harness protocol, `tk qualify`; first case the CoolProp saturation ancillary against CoolProp. Depends on TK3c | a passing run is recorded; a perturbed parameter fails | none | done |
 | TK0f Evaluator passes parameters as arguments | stored values enter the compiled function as arguments, so it performs the formula's floating-point operations as written; one compilation per structure. Found by the first qualification run | a formula evaluated one unit in the last place below its reducing temperature agrees with a direct evaluation; equal structures share a compilation | value substitution into the symbolic expression | done |
 | TK2a Alignment mechanisms | occurrence in a parameter set's identity; multi-axis, multi-series tabulated functions; a linear transposition rule; an output's observable given by a slot; qualification derived from recorded runs instead of a declared status. Depends on TK3d | each mechanism's tests; the slice rebuilds, verifies and qualifies | the declared `qualified` status | in progress |
-| TK2 Survey and core model v0 | construct inventory for every source; core modules declared; the 14 hard-case fixtures; design review. Depends on TK0b, TK1b | fixtures load and satisfy every invariant; review findings dispositioned below | none | in progress: all 37 survey records written and every construct dispositioned (TK2e); design review done, verdict Revise, findings dispositioned below; model revisions TK2f and TK2g done; the hard-case fixtures run as four sequential sub-packets: HC1 (g, h, a), HC2 (b, c, d, k), HC3 (e, f, n), HC4 (i, j, l, m), each declaring the forms its cases need in `forms/` and closing the alignment items it proves; HC1 done (`tests/test_hard_case_{thermochemistry,iapws_if97,helmholtz}.py`; IF97 and Helmholtz/multifluid forms in `forms/`; `dataset.verifies` replaced by the relation `dataset_verifies`; item #9 closed); HC2 done (`tests/test_hard_case_{cubic,saft,unifac_benson,sigma_polymer}.py`, `test_assembly_invariants.py`, `test_unasserted_defaults.py`; cubic, excess-Gibbs, SAFT, group-additivity, COSMO-SAC and polymer forms in `forms/`; assembly-choice invariants; stated defaults for unasserted subjects; implicit-block coefficients taken by differentiation, which cut the assembled cubic's first evaluation from over 30 s to about 1 s; item #12 closed); HC3 done (`tests/test_hard_case_{calphad,aqueous,evidence}.py`, `test_expression_position.py`; CALPHAD and aqueous/electrolyte forms in `forms/`; an expression construct `position(t, s)` that reads a constituent's position in its array, from which the Toop member and odd-order signs follow; constituent-array ordering checks; the writer refuses a subject of the wrong kind at load; item #14 closed); #4 and #11 remain |
+| TK2 Survey and core model v0 | construct inventory for every source; core modules declared; the 14 hard-case fixtures; design review. Depends on TK0b, TK1b | fixtures load and satisfy every invariant; review findings dispositioned below | none | done: 37 survey records with every construct dispositioned (TK2e); design review done (verdict Revise) with its findings dispositioned below; model revisions TK2f and TK2g; all 14 hard cases load, verify and, where a form has an expression, evaluate against an independent numpy calculation, in four sub-packets: HC1 (g, h, a: `tests/test_hard_case_{thermochemistry,iapws_if97,helmholtz}.py`; `dataset_verifies`), HC2 (b, c, d, k: `tests/test_hard_case_{cubic,saft,unifac_benson,sigma_polymer}.py`; assembly invariants; stated defaults for unasserted subjects), HC3 (e, f, n: `tests/test_hard_case_{calphad,aqueous,evidence}.py`; the `position(t, s)` construct; constituent-array ordering checks), HC4 (i, j, l, m: `tests/test_hard_case_{petroleum,adsorption,liquid_state,kinetic_theory}.py`; sign checks for absolute observables in evidence; IAST spreading pressure through the existing definite integral). The catalogue now holds the forms of every hard case under `forms/`; the alignment worklist is empty |
 | TK2b Model revision: mechanisms | core review F02, F03, F05, F06, F07, F10, F11, F12, F15, F16: referenced sets, values stored as asserted, standard states by member role, convention inputs, relation invariants, a checked pipeline contract, typed covariance and basis, enum member facets. Depends on TK2a | the verification named in each finding's disposition row | value-rewriting canonicalisation in the writer; the per-form gas-constant slot groups | done |
 | TK2c Pipeline contracts | core review F01, F04, F08, F16, F17, F18, F19: qualification currency decided on content, entity classes in resolution, one reuse-key builder, publications resolved across carriers, typed reasons, rule-use accounting. Depends on TK2b | as above | per-stage key code; the digest-and-presence currency check; the third-party enumerator test fixtures | done |
 | TK2d Envelopes and evidence | core review F09, F13: validity regions with clauses and a coverage state bound to contract arguments; uncertainty assessments. Depends on TK2b | as above | the single-interval envelope, its writer, mapping support, checks and tests (deleted) | done |
@@ -491,8 +491,13 @@ State:
   open items #8, #10, #15 and #16 they are packaged as TK2f and TK2g. The largest are the rate-constant
   dimension (8 constructs), missing quantity types (7) and non-element conserved quantities (6).
   ThermoML's schema alone needs 18 (sample, component and standard-state description).
-- The core model is in `model/` with the changes the surveys required; the forms declared so far
-  are NASA-7, NASA-9, Shomate and one saturation-pressure curve.
+- The core model is in `model/` with the changes the surveys and the hard cases required. The
+  form catalogue under `forms/` holds the forms of every hard case: standard-state polynomials,
+  IF97, multifluid Helmholtz, cubic parts, excess Gibbs models, SAFT, UNIFAC, group additivity,
+  COSMO-SAC, polymer solutions, CALPHAD, aqueous electrolytes, petroleum characterisation,
+  adsorption, liquid-state inputs and kinetic theory. Most are expressed and evaluated against an
+  independent calculation in their hard-case tests; the rest are catalogued with their equations
+  external. The alignment worklist is empty.
 
 Decisions made during execution:
 
@@ -533,8 +538,10 @@ open-world store with a closed-world export, forms as data, qualification derive
 a set of model concepts and four pipeline contracts must change before the hard-case fixtures and
 Wave 1. Every finding is dispositioned above.
 
-Next, in dependency order: the hard-case fixtures HC1–HC4, which also remove the alignment items
-they prove; then Wave 1.
+Next, in dependency order: make `tk acquire` safe to run concurrently (each run rewrites
+`sources.lock` from the copy it read at start, so two runs lose an entry); finish the JANAF
+retrieval and retry the ThermoML archive; then Wave 1, starting with readers for chemicals, thermo,
+Cantera, NASA CEA, JANAF, FeOS and the ThermoML schema.
 
 ## Outcome (recorded after implementation)
 

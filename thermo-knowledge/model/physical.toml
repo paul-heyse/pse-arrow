@@ -237,3 +237,38 @@ scale = "absolute"
 doc = "The reciprocal of dynamic viscosity."
 unit = "1/(Pa*s)"
 scale = "absolute"
+
+[quantity_types.VolumeLoading]
+doc = "Amount adsorbed per volume of adsorbent, absolute."
+unit = "mol/m^3"
+scale = "absolute"
+
+[quantity_types.ExcessVolumeLoading]
+doc = "Amount adsorbed per volume of adsorbent, signed: a surface excess can be negative, and so can an amount whose kind the source does not state."
+unit = "mol/m^3"
+scale = "difference"
+
+[quantity_types.AreaLoading]
+doc = "Amount adsorbed per surface area of adsorbent, absolute."
+unit = "mol/m^2"
+scale = "absolute"
+
+[quantity_types.ExcessAreaLoading]
+doc = "Amount adsorbed per surface area of adsorbent, signed: a surface excess can be negative, and so can an amount whose kind the source does not state."
+unit = "mol/m^2"
+scale = "difference"
+
+[quantity_types.CellLoading]
+doc = "Number of molecules adsorbed per crystallographic unit cell of the adsorbent, absolute. A count, stored as a dimensionless number."
+unit = "dimensionless"
+scale = "count"
+
+[quantity_types.ExcessCellLoading]
+doc = "Number of molecules adsorbed per crystallographic unit cell of the adsorbent, signed: a surface excess can be negative, and so can an amount whose kind the source does not state."
+unit = "dimensionless"
+scale = "difference"
+
+[quantity_types.NumberDensity]
+doc = "Number of entities per volume, such as the density of the sites of one type in a liquid-state theory. Distinct from a molar density: it counts sites or particles, not amount of substance."
+unit = "1/m^3"
+scale = "absolute"
