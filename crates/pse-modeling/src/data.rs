@@ -1613,15 +1613,16 @@ pub(crate) fn document_slot(
                     ),
                 )
             })?;
-            let conversion = pse_quantity::CanonicalConversionPlan::registered(
-                c.quantities, *quantity, unit,
-            )
-            .map_err(|e| {
-                invalid(
-                    dataset,
-                    format!("{label}: column {name} declared {declared}: storage unit: {e}"),
-                )
-            })?;
+            let conversion =
+                pse_quantity::CanonicalConversionPlan::registered(c.quantities, *quantity, unit)
+                    .map_err(|e| {
+                        invalid(
+                            dataset,
+                            format!(
+                                "{label}: column {name} declared {declared}: storage unit: {e}"
+                            ),
+                        )
+                    })?;
             Target::Quantity(conversion)
         }
         Type::Entity(kind) => {

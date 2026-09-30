@@ -6,8 +6,8 @@
 pub mod analysis;
 pub mod annotation;
 pub mod check;
-pub mod continuous;
 pub mod contextual;
+pub mod continuous;
 pub mod data;
 pub mod document;
 pub mod entity;

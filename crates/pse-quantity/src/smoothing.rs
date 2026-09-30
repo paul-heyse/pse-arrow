@@ -62,7 +62,10 @@ pub fn resolve_epsilon(
     let tolerance = tolerance_type(opcode, operand, registry)?;
     let coordinate = registry.quantity_type(operand)?.canonical_unit;
     let conversion = crate::unit::CheckedRepresentationPlan::registered(
-        registry, tolerance, unit.unwrap_or(coordinate), coordinate,
+        registry,
+        tolerance,
+        unit.unwrap_or(coordinate),
+        coordinate,
     )?;
     let converted = conversion.apply(eps)?;
     positive(opcode, converted)?;

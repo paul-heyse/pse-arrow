@@ -165,17 +165,40 @@ fn cannot_invent_quantity_meaning_or_silently_convert_storage() {
 fn target_admission_preserves_declared_and_unknown_meaning_recursively() {
     let bare = Field::new("value", DataType::Utf8, false);
     for key in [
-        "pse.semantic.identity", "pse.semantic.document", "pse.semantic.collection",
-        "pse.semantic.integer_range", "pse.semantic.tagged_alternative", "custom.meaning",
+        "pse.semantic.identity",
+        "pse.semantic.document",
+        "pse.semantic.collection",
+        "pse.semantic.integer_range",
+        "pse.semantic.tagged_alternative",
+        "custom.meaning",
     ] {
-        let field = |value: &str| bare.clone().with_metadata(std::collections::HashMap::from([(key.into(), value.into())]));
+        let field = |value: &str| {
+            bare.clone()
+                .with_metadata(std::collections::HashMap::from([(
+                    key.into(),
+                    value.into(),
+                )]))
+        };
         assert!(compatible(&field("one"), &field("two")).is_err(), "{key}");
         assert!(compatible(&field("one"), &bare).is_err(), "{key}");
         assert!(compatible(&field("one"), &field("one")).is_ok(), "{key}");
-        assert_eq!(compatible(&bare, &field("one")).is_ok(), key != "custom.meaning", "{key}");
-        let nested = |value: Field| Field::new_dictionary("dictionary", DataType::Int32,
-            DataType::Struct(vec![value].into()), false);
-        assert!(compatible(&nested(field("one")), &nested(field("two"))).is_err(), "{key}");
+        assert_eq!(
+            compatible(&bare, &field("one")).is_ok(),
+            key != "custom.meaning",
+            "{key}"
+        );
+        let nested = |value: Field| {
+            Field::new_dictionary(
+                "dictionary",
+                DataType::Int32,
+                DataType::Struct(vec![value].into()),
+                false,
+            )
+        };
+        assert!(
+            compatible(&nested(field("one")), &nested(field("two"))).is_err(),
+            "{key}"
+        );
     }
 }
 

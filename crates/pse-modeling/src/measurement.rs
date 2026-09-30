@@ -152,7 +152,8 @@ mod tests {
     #[test]
     fn measured_attributes_preserve_canonical_values_uncertainty_origin_and_taint() {
         let (registry, _) = physical();
-        let context = TypeContext {formula_authority: None,
+        let context = TypeContext {
+            formula_authority: None,
             quantities: &registry,
             preconditions: &pse_quantity::PhysicalPreconditions::new(
                 pse_quantity::generated::standard_preconditions(),

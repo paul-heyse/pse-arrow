@@ -165,7 +165,8 @@ pub struct CheckedPackage {
 impl CheckedPackage {
     /// The immutable physical environment used to admit this package.
     pub fn context(&self) -> TypeContext<'_> {
-        TypeContext {formula_authority: None,
+        TypeContext {
+            formula_authority: None,
             quantities: &self.quantities,
             preconditions: &self.preconditions,
             scope: &self.scope,
@@ -461,7 +462,11 @@ impl CheckedPackage {
         for owner in chain.into_iter().rev() {
             // A nominal coordinate slot is addressed relative to every visible lexical
             // owner exactly as ordinary declaration lookup addresses it.
-            if let Some(prefix) = self.names.iter().find_map(|(name, id)| (*id == owner).then(|| format!("{name}."))) {
+            if let Some(prefix) = self
+                .names
+                .iter()
+                .find_map(|(name, id)| (*id == owner).then(|| format!("{name}.")))
+            {
                 for (name, id) in &self.names {
                     if let Some(relative) = name.strip_prefix(&prefix)
                         && self.resolve(owner, relative) == Some(*id)
@@ -1614,7 +1619,9 @@ fn check_declarations(
                 }
             }
         }
-        let conditions = translation.into_iter().flat_map(|translation| [&translation.temperature, &translation.pressure]);
+        let conditions = translation
+            .into_iter()
+            .flat_map(|translation| [&translation.temperature, &translation.pressure]);
         for body in function.body.iter().chain(domain.iter()).chain(conditions) {
             body.walk(|expr| {
                 let name = match &expr.kind {
@@ -1784,7 +1791,11 @@ impl CheckedPackage {
                 texts.extend(v.indices.iter().map(|i| i.domain.as_str()));
             }
             if let Some(v) = &row.value.reconstruction {
-                texts.extend([v.map.as_str(), v.reference.as_str(), v.normalization.as_str()]);
+                texts.extend([
+                    v.map.as_str(),
+                    v.reference.as_str(),
+                    v.normalization.as_str(),
+                ]);
                 types.push(&v.return_type);
                 types.extend(v.arguments.iter().map(|a| &a.r#type));
             }
@@ -1794,12 +1805,19 @@ impl CheckedPackage {
                 types.extend(v.arguments.iter().map(|a| &a.r#type));
             }
             if let Some(v) = &row.value.reference_translation {
-                texts.extend([v.source_anchor.as_str(), v.target_anchor.as_str(), v.temperature.as_str(), v.pressure.as_str()]);
+                texts.extend([
+                    v.source_anchor.as_str(),
+                    v.target_anchor.as_str(),
+                    v.temperature.as_str(),
+                    v.pressure.as_str(),
+                ]);
                 types.push(&v.return_type);
                 types.extend(v.arguments.iter().map(|a| &a.r#type));
                 paths.extend(provenance_paths(&v.provenance));
             }
-            if let Some(v) = &row.value.boundary { texts.extend(v.indices.iter().map(|i| i.domain.as_str())); }
+            if let Some(v) = &row.value.boundary {
+                texts.extend(v.indices.iter().map(|i| i.domain.as_str()));
+            }
             if let Some(v) = &row.value.exchange {
                 texts.extend([v.from.as_str(), v.to.as_str()]);
                 texts.extend(v.indices.iter().map(|i| i.domain.as_str()));
@@ -2230,12 +2248,18 @@ fn type_dependencies(ty: &Type, out: &mut Vec<DeclarationId>) {
         | Type::Boundary(id)
         | Type::CoordinateMap(id)
         | Type::Interface(id) => out.push(*id),
-        Type::Reconstruction {declaration, map} => out.extend([*declaration, *map]),
-        Type::RefinedQuantity {refinement, ..} => match refinement {
-            crate::PhysicalRefinement::Coordinate {map, slot} => out.extend([*map, *slot]),
-            crate::PhysicalRefinement::ReducedLaw {map, reconstruction} => out.extend([*map, *reconstruction]),
-            crate::PhysicalRefinement::Transfer {boundary, ..} => match boundary {
-                crate::BoundaryRef::Declared(id) | crate::BoundaryRef::Bound {declaration:id, ..} => out.push(*id),
+        Type::Reconstruction { declaration, map } => out.extend([*declaration, *map]),
+        Type::RefinedQuantity { refinement, .. } => match refinement {
+            crate::PhysicalRefinement::Coordinate { map, slot } => out.extend([*map, *slot]),
+            crate::PhysicalRefinement::ReducedLaw {
+                map,
+                reconstruction,
+            } => out.extend([*map, *reconstruction]),
+            crate::PhysicalRefinement::Transfer { boundary, .. } => match boundary {
+                crate::BoundaryRef::Declared(id)
+                | crate::BoundaryRef::Bound {
+                    declaration: id, ..
+                } => out.push(*id),
             },
         },
         Type::Function { arguments, result } => {

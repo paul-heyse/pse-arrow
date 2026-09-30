@@ -76,7 +76,9 @@ pub mod reference_translation;
 pub use reference_translation::{ReferenceTranslation, ScientificAnchor};
 pub mod registry;
 pub mod resolved;
-pub use resolved::{AdmittedOutputBoundary, PhysicalFormulaAuthority, ResolvedPhysicalContract, ResolvedInference};
+pub use resolved::{
+    AdmittedOutputBoundary, PhysicalFormulaAuthority, ResolvedInference, ResolvedPhysicalContract,
+};
 pub mod scheme;
 pub mod smoothing;
 #[cfg(feature = "fixtures")]
@@ -109,8 +111,8 @@ pub use crate::reference_state::{ReferenceCondition, ReferenceState};
 pub use crate::registry::PhysicalName;
 pub use crate::registry::{QuantityRegistry, QuantityRegistryBuilder};
 pub use crate::unit::{
-    CanonicalConversionPlan, CanonicalMagnitude, DefinedUnit, Unit, UnitConvertSpec,
-    UnitFactor, convert_spec, convert_spec_for_type, unit_product_id,
+    CanonicalConversionPlan, CanonicalMagnitude, DefinedUnit, Unit, UnitConvertSpec, UnitFactor,
+    convert_spec, convert_spec_for_type, unit_product_id,
 };
 pub use crate::unit_product::UnitProduct;
 pub use crate::unit_set::{DerivedUnit, UnitSet};

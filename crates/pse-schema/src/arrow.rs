@@ -36,8 +36,8 @@ pub const KEY_CHECKS: &str = "pse.contract.checks";
 /// Canonical native Delta policies, reflected in the relation fingerprint.
 pub const KEY_DELTA_PROPERTIES: &str = "pse.contract.delta_properties";
 pub use crate::model::field_facets::{
-    KEY_DOCUMENT, KEY_ENUM, KEY_EXTENSION_METADATA, KEY_EXTENSION_NAME, KEY_FK,
-    KEY_IDENTITY, KEY_LOGICAL_TYPE, KEY_QUANTITY_TYPE, KEY_ROLE, KEY_ROW_KEY_ENCODING, KEY_TRANSFER_CONTEXT,
+    KEY_DOCUMENT, KEY_ENUM, KEY_EXTENSION_METADATA, KEY_EXTENSION_NAME, KEY_FK, KEY_IDENTITY,
+    KEY_LOGICAL_TYPE, KEY_QUANTITY_TYPE, KEY_ROLE, KEY_ROW_KEY_ENCODING, KEY_TRANSFER_CONTEXT,
 };
 
 /// The Arrow schema of `spec`, with its schema and field metadata (blueprint §4.3).
@@ -219,7 +219,10 @@ fn bind_field(reg: &Registry, field: &Field, path: &str) -> Result<Field, Schema
     }
     if let Some(version) = contract.transfer_context() {
         if !matches!(field.data_type(), DataType::Struct(_)) {
-            return Err(crate::checks::invalid(path, "transfer context requires a structured value"));
+            return Err(crate::checks::invalid(
+                path,
+                "transfer context requires a structured value",
+            ));
         }
         semantic.insert(KEY_TRANSFER_CONTEXT.to_owned(), version.to_owned());
     }

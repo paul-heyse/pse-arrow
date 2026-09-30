@@ -6,7 +6,8 @@ use pse_ids::SemanticId;
 
 fn run(text: &str) -> Result<SpecializedModel> {
     let (registry, _) = physical();
-    let context = TypeContext {formula_authority: None,
+    let context = TypeContext {
+        formula_authority: None,
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
         scope: &PhysicalScope::default(),
@@ -26,7 +27,8 @@ const TEMPORAL: &str = "package p { difference backward order(1) offsets(-1,0) w
 
 fn temporal(text: &str, route: analysis::Route) -> Result<SpecializedModel> {
     let (registry, _) = physical();
-    let context = TypeContext {formula_authority: None,
+    let context = TypeContext {
+        formula_authority: None,
         quantities: &registry,
         preconditions: &pse_quantity::PhysicalPreconditions::new(
             pse_quantity::generated::standard_preconditions(),
@@ -417,7 +419,8 @@ fn replica_derivative_on_an_integrated_axis_is_the_state_rate() {
     let preconditions =
         pse_quantity::PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions())
             .unwrap();
-    let context = TypeContext {formula_authority: None,
+    let context = TypeContext {
+        formula_authority: None,
         preconditions: &preconditions,
         quantities: &registry,
         scope: &PhysicalScope::default(),

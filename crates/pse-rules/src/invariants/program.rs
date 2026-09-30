@@ -117,7 +117,14 @@ pub(super) async fn compile_individual(
         let keys = project_query_keys(plan, invariant, target, registry)?;
         branches.push((
             invariant.id,
-            finding(keys, invariant.into(), "violation", invariant.doc, registry, session)?,
+            finding(
+                keys,
+                invariant.into(),
+                "violation",
+                invariant.doc,
+                registry,
+                session,
+            )?,
         ));
     }
     if let InvariantScope::Required(selected) = scope
@@ -354,7 +361,9 @@ fn row_evidence(
     // The native constructor establishes the child values. The declaration-owned
     // validator checks the selected tagged arm before publishing this evidence.
     Ok(session.scalar_function("pse_checked_value")?.call(vec![
-        value, lit(target.qualified_name()), lit(evidence.name()),
+        value,
+        lit(target.qualified_name()),
+        lit(evidence.name()),
     ]))
 }
 

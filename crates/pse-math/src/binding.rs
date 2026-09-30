@@ -7,9 +7,7 @@ use pse_ids::{ContentHash, FramedHasher, SemanticId};
 use pse_kernels::Port;
 use pse_model::generated::enums::ModelingVariableDomain;
 use pse_model::{SemanticEq, SemanticFrame};
-use pse_quantity::{
-    CanonicalConversionPlan, QuantityRegistry, admission::require_same_contract,
-};
+use pse_quantity::{CanonicalConversionPlan, QuantityRegistry, admission::require_same_contract};
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Compiler-owned interpretation; external hashes cannot select numerical behavior.
@@ -217,9 +215,8 @@ impl SlotBinding {
                 "instance slots require scalar physical contracts".into(),
             ));
         }
-        let conversion = CanonicalConversionPlan::registered(
-            registry, source.quantity, source.unit,
-        )?;
+        let conversion =
+            CanonicalConversionPlan::registered(registry, source.quantity, source.unit)?;
         Ok(Self {
             source: source.id,
             conversion,

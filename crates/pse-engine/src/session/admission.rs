@@ -782,8 +782,11 @@ pub(crate) fn same_value_metadata(actual: &Field, expected: &Field) -> bool {
     if std::ptr::eq(actual, expected) {
         return true;
     }
-    use pse_columnar::native_field::{project, MetadataPurpose};
-    match (project(actual, MetadataPurpose::ValueIdentity), project(expected, MetadataPurpose::ValueIdentity)) {
+    use pse_columnar::native_field::{MetadataPurpose, project};
+    match (
+        project(actual, MetadataPurpose::ValueIdentity),
+        project(expected, MetadataPurpose::ValueIdentity),
+    ) {
         (Ok(actual), Ok(expected)) => actual.metadata() == expected.metadata(),
         _ => false,
     }

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Native field traversal and schema-declared projections for distinct contract questions.
-use arrow_schema::{ArrowError, DataType, Field, FieldRef, UnionFields};
 use crate::generated::field_facets::{Admission, FACETS};
+use arrow_schema::{ArrowError, DataType, Field, FieldRef, UnionFields};
 use std::sync::Arc;
 
 pub use crate::generated::field_facets::{DOC as DOCUMENTATION, STRUCTURE as STRUCTURE_NAME};
@@ -115,10 +115,19 @@ fn project_at(field: &Field, purpose: MetadataPurpose, root: bool) -> Field {
             MetadataPurpose::ExecutionIdentity => facet.execution,
             MetadataPurpose::ValueIdentity => facet.value,
             MetadataPurpose::LogicalStorageType => !root || facet.storage_root,
-            MetadataPurpose::LogicalTypeIdentity => facet.type_identity && (!root || facet.storage_root),
+            MetadataPurpose::LogicalTypeIdentity => {
+                facet.type_identity && (!root || facet.storage_root)
+            }
         }
     });
-    if root && matches!(purpose, MetadataPurpose::ValueIdentity | MetadataPurpose::LogicalStorageType | MetadataPurpose::LogicalTypeIdentity) {
+    if root
+        && matches!(
+            purpose,
+            MetadataPurpose::ValueIdentity
+                | MetadataPurpose::LogicalStorageType
+                | MetadataPurpose::LogicalTypeIdentity
+        )
+    {
         field = field.with_name("item").with_nullable(false);
     }
     field
@@ -142,15 +151,21 @@ pub fn admits_metadata(
     purpose: MetadataAdmission,
 ) -> bool {
     if purpose == MetadataAdmission::RestoreEstablished {
-        return source.iter().all(|(key, value)| target.get(key) == Some(value));
+        return source
+            .iter()
+            .all(|(key, value)| target.get(key) == Some(value));
     }
     source.keys().chain(target.keys()).all(|key| {
-        let admission = FACETS.iter().find(|facet| facet.key == key)
+        let admission = FACETS
+            .iter()
+            .find(|facet| facet.key == key)
             .map_or(Admission::Exact, |facet| facet.admission);
         match admission {
             Admission::Ignore => true,
             Admission::Exact => source.get(key) == target.get(key),
-            Admission::Preserve => source.get(key).is_none_or(|value| target.get(key) == Some(value)),
+            Admission::Preserve => source
+                .get(key)
+                .is_none_or(|value| target.get(key) == Some(value)),
         }
     })
 }

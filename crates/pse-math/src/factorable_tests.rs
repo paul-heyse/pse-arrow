@@ -54,7 +54,12 @@ fn number(value: Atom) -> TypedValue {
     TypedValue {
         effects: BTreeSet::new(),
         atom: value,
-        quantity: pse_quantity::ResolvedPhysicalContract::named(neutral(), IndexSet::new(), &standard_registry().unwrap()).unwrap(),
+        quantity: pse_quantity::ResolvedPhysicalContract::named(
+            neutral(),
+            IndexSet::new(),
+            &standard_registry().unwrap(),
+        )
+        .unwrap(),
         indices: IndexSet::new(),
         source: id(200),
     }

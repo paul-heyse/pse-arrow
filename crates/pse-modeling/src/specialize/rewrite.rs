@@ -90,9 +90,17 @@ impl Engine<'_, '_> {
                 .map(|i| (i.name.as_str(), i.domain.as_str()))
                 .collect()
         } else if let Some(boundary) = &declaration.value.boundary {
-            boundary.indices.iter().map(|i| (i.name.as_str(), i.domain.as_str())).collect()
+            boundary
+                .indices
+                .iter()
+                .map(|i| (i.name.as_str(), i.domain.as_str()))
+                .collect()
         } else if let Some(exchange) = &declaration.value.exchange {
-            exchange.indices.iter().map(|i| (i.name.as_str(), i.domain.as_str())).collect()
+            exchange
+                .indices
+                .iter()
+                .map(|i| (i.name.as_str(), i.domain.as_str()))
+                .collect()
         } else if let Some(e) = &declaration.value.equation {
             e.indices
                 .iter()
@@ -320,7 +328,9 @@ impl Engine<'_, '_> {
                     .collect::<Result<_>>()?,
             },
             ExprKind::NamedCall { name, args } => {
-                if let Some(value) = self.physical_operation_call(instance, at, name, args, &env, chain)? {
+                if let Some(value) =
+                    self.physical_operation_call(instance, at, name, args, &env, chain)?
+                {
                     return Ok(value);
                 }
                 if let Some(value) = self.contextual_call(instance, at, name, args, &env, chain)? {

@@ -169,24 +169,49 @@ impl TypeContext<'_> {
             K::Coordinate => {
                 let path = node.path().join(".");
                 match names.get(&path) {
-                    Some(Type::Function {result, ..}) if matches!(result.physical_refinement(), Some(crate::PhysicalRefinement::Coordinate {..})) => (**result).clone(),
-                    _ => return Err(invalid(at, format!("{path} is not a declared coordinate slot"))),
+                    Some(Type::Function { result, .. })
+                        if matches!(
+                            result.physical_refinement(),
+                            Some(crate::PhysicalRefinement::Coordinate { .. })
+                        ) =>
+                    {
+                        (**result).clone()
+                    }
+                    _ => {
+                        return Err(invalid(
+                            at,
+                            format!("{path} is not a declared coordinate slot"),
+                        ));
+                    }
                 }
             }
             K::ReducedLaw => {
                 let path = node.path().join(".");
-                let Some(Type::Reconstruction {declaration, map}) = names.get(&path) else {
-                    return Err(invalid(at, format!("{path} is not a declared reconstruction")));
+                let Some(Type::Reconstruction { declaration, map }) = names.get(&path) else {
+                    return Err(invalid(
+                        at,
+                        format!("{path} is not a declared reconstruction"),
+                    ));
                 };
                 Type::RefinedQuantity {
-                    quantity: Scheme::Concrete(self.quantities.neutral_dimensionless().ok_or_else(|| invalid(at, "neutral dimensionless type absent"))?),
-                    refinement: crate::PhysicalRefinement::ReducedLaw {map: *map, reconstruction: *declaration},
+                    quantity: Scheme::Concrete(
+                        self.quantities
+                            .neutral_dimensionless()
+                            .ok_or_else(|| invalid(at, "neutral dimensionless type absent"))?,
+                    ),
+                    refinement: crate::PhysicalRefinement::ReducedLaw {
+                        map: *map,
+                        reconstruction: *declaration,
+                    },
                 }
             }
             K::Transfer => {
                 let children = node.children().collect::<Vec<_>>();
                 let Type::Quantity(quantity) = self.node(children[0], variables, names, at)? else {
-                    return Err(invalid(at, "a transfer carries an unrefined physical quantity"));
+                    return Err(invalid(
+                        at,
+                        "a transfer carries an unrefined physical quantity",
+                    ));
                 };
                 let boundary = children[1].path().join(".");
                 let Some(Type::Boundary(boundary)) = names.get(&boundary) else {
@@ -197,7 +222,13 @@ impl TypeContext<'_> {
                     "OutOf" => crate::TransferDirection::OutOf,
                     _ => return Err(invalid(at, "transfer direction is Into or OutOf")),
                 };
-                Type::RefinedQuantity {quantity, refinement: crate::PhysicalRefinement::Transfer {boundary: crate::BoundaryRef::Declared(*boundary), direction}}
+                Type::RefinedQuantity {
+                    quantity,
+                    refinement: crate::PhysicalRefinement::Transfer {
+                        boundary: crate::BoundaryRef::Declared(*boundary),
+                        direction,
+                    },
+                }
             }
             K::Function => {
                 let children = node.children().collect::<Vec<_>>();
@@ -289,7 +320,11 @@ impl TypeContext<'_> {
         Ok(Type::Quantity(if scheme.is_closed() {
             Scheme::from_contract(
                 scheme
-                    .resolve_contract_with_evidence(self.quantities, &BTreeMap::new(), self.preconditions)
+                    .resolve_contract_with_evidence(
+                        self.quantities,
+                        &BTreeMap::new(),
+                        self.preconditions,
+                    )
                     .map_err(|e| invalid(at, e.to_string()))?,
             )
         } else {

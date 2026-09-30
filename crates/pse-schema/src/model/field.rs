@@ -7,11 +7,11 @@
 use super::{ColumnRole, ExtensionUse, ForeignKey, QuantityContract};
 use arrow_schema::{DataType, Field};
 
-use super::field_facets::{
-    DOCUMENT, EXTENSION, FK_COLUMN, FK_RELATION, IDENTITY, IDENTITY_OWNER, PARAMETER,
-    QUANTITY, ROLE, STRUCTURE, TRANSFER_CONTEXT,
-};
 pub(crate) use super::field_facets::DOC;
+use super::field_facets::{
+    DOCUMENT, EXTENSION, FK_COLUMN, FK_RELATION, IDENTITY, IDENTITY_OWNER, PARAMETER, QUANTITY,
+    ROLE, STRUCTURE, TRANSFER_CONTEXT,
+};
 /// The one document format: a JSON document (PostgreSQL `jsonb`).
 pub const JSON_DOCUMENT: &str = "json";
 
@@ -422,7 +422,10 @@ impl FieldContract {
         // A structure name is presentation only: the logical type (and every encoding
         // that records it) is the same whether or not a nested structure is named.
         let value = Self(
-            pse_columnar::native_field::project(self.field(), pse_columnar::native_field::MetadataPurpose::LogicalTypeIdentity)
+            pse_columnar::native_field::project(
+                self.field(),
+                pse_columnar::native_field::MetadataPurpose::LogicalTypeIdentity,
+            )
             .map_err(|error| crate::checks::invalid("logical type", error.to_string()))?,
         );
         if value.0.metadata().keys().any(|key| {
@@ -498,7 +501,10 @@ impl FieldContract {
             .keys()
             .filter(|key| key.starts_with("pse.domain."))
         {
-            if !super::field_facets::FACETS.iter().any(|facet| facet.domain && facet.key == key) {
+            if !super::field_facets::FACETS
+                .iter()
+                .any(|facet| facet.domain && facet.key == key)
+            {
                 return Err(invalid("unknown domain facet"));
             }
         }

@@ -2362,34 +2362,65 @@ impl Cursor<'_> {
                 })
             }
             "coordinate_map" => {
-                let arguments = self.parameters()?.into_iter().map(|(name, r#type, default_value)| {
-                    AuthoredModelingDeclarationsFieldValueCoordinateMapArgumentsItem {name, r#type, default_value}
-                }).collect();
+                let arguments = self
+                    .parameters()?
+                    .into_iter()
+                    .map(|(name, r#type, default_value)| {
+                        AuthoredModelingDeclarationsFieldValueCoordinateMapArgumentsItem {
+                            name,
+                            r#type,
+                            default_value,
+                        }
+                    })
+                    .collect();
                 let validity = if self.eat("valid") {
                     self.expect("(")?;
                     let predicate = self.until(&[")"])?;
                     self.expect(")")?;
                     Some(predicate)
-                } else { None };
+                } else {
+                    None
+                };
                 self.expect("{")?;
                 child_block = true;
-                Value::from_coordinate_map(AuthoredModelingDeclarationsFieldValueCoordinateMap {arguments, validity})
+                Value::from_coordinate_map(AuthoredModelingDeclarationsFieldValueCoordinateMap {
+                    arguments,
+                    validity,
+                })
             }
             "slot" => {
-                let indices = self.indices()?.into_iter().map(|(name, domain)| {
-                    AuthoredModelingDeclarationsFieldValueCoordinateSlotIndicesItem {name, domain}
-                }).collect();
+                let indices = self
+                    .indices()?
+                    .into_iter()
+                    .map(|(name, domain)| {
+                        AuthoredModelingDeclarationsFieldValueCoordinateSlotIndicesItem {
+                            name,
+                            domain,
+                        }
+                    })
+                    .collect();
                 self.expect("=")?;
                 let expression = self.until(&[";"])?;
                 self.expect(";")?;
-                Value::from_coordinate_slot(AuthoredModelingDeclarationsFieldValueCoordinateSlot {indices, expression})
+                Value::from_coordinate_slot(AuthoredModelingDeclarationsFieldValueCoordinateSlot {
+                    indices,
+                    expression,
+                })
             }
             "reconstruction" => {
                 self.expect("for")?;
                 let map = self.path()?;
-                let arguments = self.parameters()?.into_iter().map(|(name, r#type, default_value)| {
-                    AuthoredModelingDeclarationsFieldValueReconstructionArgumentsItem {name, r#type, default_value}
-                }).collect();
+                let arguments = self
+                    .parameters()?
+                    .into_iter()
+                    .map(|(name, r#type, default_value)| {
+                        AuthoredModelingDeclarationsFieldValueReconstructionArgumentsItem {
+                            name,
+                            r#type,
+                            default_value,
+                        }
+                    })
+                    .collect();
                 self.expect("->")?;
                 let return_type = self.type_expr()?;
                 self.expect("reference")?;
@@ -2397,25 +2428,52 @@ impl Cursor<'_> {
                 self.expect("=")?;
                 let normalization = self.until(&[";"])?;
                 self.expect(";")?;
-                Value::from_reconstruction(AuthoredModelingDeclarationsFieldValueReconstruction {map, arguments, return_type, reference, normalization})
+                Value::from_reconstruction(AuthoredModelingDeclarationsFieldValueReconstruction {
+                    map,
+                    arguments,
+                    return_type,
+                    reference,
+                    normalization,
+                })
             }
             "response" => {
                 self.expect("from")?;
                 let witness = self.word()?;
-                let arguments = self.parameters()?.into_iter().map(|(name, r#type, default_value)| {
-                    AuthoredModelingDeclarationsFieldValueResponseArgumentsItem {name, r#type, default_value}
-                }).collect();
+                let arguments = self
+                    .parameters()?
+                    .into_iter()
+                    .map(|(name, r#type, default_value)| {
+                        AuthoredModelingDeclarationsFieldValueResponseArgumentsItem {
+                            name,
+                            r#type,
+                            default_value,
+                        }
+                    })
+                    .collect();
                 self.expect("->")?;
                 let return_type = self.type_expr()?;
                 self.expect("=")?;
                 let body = self.until(&[";"])?;
                 self.expect(";")?;
-                Value::from_response(AuthoredModelingDeclarationsFieldValueResponse {witness, arguments, return_type, body})
+                Value::from_response(AuthoredModelingDeclarationsFieldValueResponse {
+                    witness,
+                    arguments,
+                    return_type,
+                    body,
+                })
             }
             "reference_translation" => {
-                let arguments = self.parameters()?.into_iter().map(|(name, r#type, default_value)| {
-                    AuthoredModelingDeclarationsFieldValueReferenceTranslationArgumentsItem {name, r#type, default_value}
-                }).collect();
+                let arguments = self
+                    .parameters()?
+                    .into_iter()
+                    .map(|(name, r#type, default_value)| {
+                        AuthoredModelingDeclarationsFieldValueReferenceTranslationArgumentsItem {
+                            name,
+                            r#type,
+                            default_value,
+                        }
+                    })
+                    .collect();
                 self.expect("->")?;
                 let return_type = self.type_expr()?;
                 self.expect("anchors")?;
@@ -2440,25 +2498,47 @@ impl Cursor<'_> {
                 self.expect(")")?;
                 let provenance = self.provenance()?;
                 self.expect(";")?;
-                Value::from_reference_translation(AuthoredModelingDeclarationsFieldValueReferenceTranslation {arguments, return_type, source_anchor, target_anchor, temperature, pressure, provenance})
+                Value::from_reference_translation(
+                    AuthoredModelingDeclarationsFieldValueReferenceTranslation {
+                        arguments,
+                        return_type,
+                        source_anchor,
+                        target_anchor,
+                        temperature,
+                        pressure,
+                        provenance,
+                    },
+                )
             }
             "boundary" => {
-                let indices = self.indices()?.into_iter().map(|(name, domain)| {
-                    AuthoredModelingDeclarationsFieldValueBoundaryIndicesItem {name, domain}
-                }).collect();
+                let indices = self
+                    .indices()?
+                    .into_iter()
+                    .map(|(name, domain)| {
+                        AuthoredModelingDeclarationsFieldValueBoundaryIndicesItem { name, domain }
+                    })
+                    .collect();
                 self.expect(";")?;
-                Value::from_boundary(AuthoredModelingDeclarationsFieldValueBoundary {indices})
+                Value::from_boundary(AuthoredModelingDeclarationsFieldValueBoundary { indices })
             }
             "exchange" => {
-                let indices = self.indices()?.into_iter().map(|(name, domain)| {
-                    AuthoredModelingDeclarationsFieldValueExchangeIndicesItem {name, domain}
-                }).collect();
+                let indices = self
+                    .indices()?
+                    .into_iter()
+                    .map(|(name, domain)| {
+                        AuthoredModelingDeclarationsFieldValueExchangeIndicesItem { name, domain }
+                    })
+                    .collect();
                 self.expect("between")?;
                 let from = self.until(&["and"])?;
                 self.expect("and")?;
                 let to = self.until(&[";"])?;
                 self.expect(";")?;
-                Value::from_exchange(AuthoredModelingDeclarationsFieldValueExchange {indices, from, to})
+                Value::from_exchange(AuthoredModelingDeclarationsFieldValueExchange {
+                    indices,
+                    from,
+                    to,
+                })
             }
             "fn" => {
                 let type_parameters = self.names("<", ">")?;
@@ -2683,7 +2763,11 @@ impl Cursor<'_> {
                     .collect();
                 self.expect(":")?;
                 let r#type = self.type_expr()?;
-                let boundary = if self.eat("boundary") { Some(self.path()?) } else { None };
+                let boundary = if self.eat("boundary") {
+                    Some(self.path()?)
+                } else {
+                    None
+                };
                 let mode = self
                     .word()?
                     .parse()

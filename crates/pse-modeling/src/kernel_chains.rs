@@ -92,7 +92,8 @@ fn rpp4_ds(T0: Temperature, T: Temperature, a: MolarCp, b: MolarCp/Temperature, 
 fn seed_forms_type_without_intermediate_kinds() {
     let (registry, _) = names();
     let preconditions = preconditions();
-    let context = TypeContext {formula_authority: None,
+    let context = TypeContext {
+        formula_authority: None,
         preconditions: &preconditions,
         quantities: &registry,
         scope: &PhysicalScope::default(),
@@ -161,7 +162,8 @@ fn seed_forms_type_without_intermediate_kinds() {
 fn type_expression_resolves_by_monomial() {
     let (registry, names) = names();
     let preconditions = preconditions();
-    let context = TypeContext {formula_authority: None,
+    let context = TypeContext {
+        formula_authority: None,
         preconditions: &preconditions,
         quantities: &registry,
         scope: &PhysicalScope::default(),
@@ -212,7 +214,8 @@ fn static_chains_evaluate_as_a_whole() {
     // c3·T³/3 is a declared enthalpy increment (3·(400³ − 300³)/3 J/mol = 3.7e7 J/mol).
     let (registry, _) = names();
     let preconditions = preconditions();
-    let context = TypeContext {formula_authority: None,
+    let context = TypeContext {
+        formula_authority: None,
         preconditions: &preconditions,
         quantities: &registry,
         scope: &PhysicalScope::default(),
@@ -248,7 +251,8 @@ fn static_chains_evaluate_as_a_whole() {
 fn ds_increment_types_as_entropy_difference() {
     let (registry, _) = names();
     let preconditions = preconditions();
-    let context = TypeContext {formula_authority: None,
+    let context = TypeContext {
+        formula_authority: None,
         preconditions: &preconditions,
         quantities: &registry,
         scope: &PhysicalScope::default(),
@@ -308,7 +312,8 @@ fn ds_increment_types_as_entropy_difference() {
 fn returning_heat_capacity_where_entropy_is_expected_is_refused() {
     let (registry, _) = names();
     let preconditions = preconditions();
-    let context = TypeContext {formula_authority: None,
+    let context = TypeContext {
+        formula_authority: None,
         preconditions: &preconditions,
         quantities: &registry,
         scope: &PhysicalScope::default(),

@@ -1170,7 +1170,11 @@ mod integrated_performance_unit {
                 .unwrap()
                 .into_unoptimized_plan();
             let plans = ObligationTemplates::new(&registry)
-                .bind(&RelationInputs::from([(spec.id, input)]), &context.state(), None)
+                .bind(
+                    &RelationInputs::from([(spec.id, input)]),
+                    &context.state(),
+                    None,
+                )
                 .unwrap();
             let mut violations = 0;
             for plan in plans {

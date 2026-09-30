@@ -4,6 +4,10 @@
 //! Generated checked views cross once into the exact physical algorithm types.
 
 use super::{PhysicalProjectionError as PhysicalError, invalid};
+use crate::{
+    columnar::FieldCheckedBatch,
+    generated::{extension_values, reference as r},
+};
 use pse_columnar::CancellationToken;
 use pse_ids::SemanticId;
 use pse_quantity::{
@@ -12,10 +16,6 @@ use pse_quantity::{
     OperationId, QuantityKind, QuantityKindId, QuantityOperation, QuantityRegistry,
     QuantityRegistryBuilder, QuantityType, QuantityTypeId, QuantityTypeKey, Ratio, ReferenceState,
     ReferenceStateId, Unit, UnitFactor, UnitId, UnitSet, UnitSetId,
-};
-use crate::{
-    columnar::FieldCheckedBatch,
-    generated::{extension_values, reference as r},
 };
 use pse_schema::{Registry, model::RelationKey};
 use std::collections::{BTreeMap, BTreeSet};
@@ -51,8 +51,8 @@ pub fn inventory(
         };
     }
     {
-        use pse_model::generated::enums::ModelingDeclarationKind;
         use crate::generated::authored::modeling_declarations as declarations;
+        use pse_model::generated::enums::ModelingDeclarationKind;
         if let Some(spec) = registry.relation_by_id(declarations::RELATION_ID)
             && let Some(batch) = batches.get(&spec.key)
         {

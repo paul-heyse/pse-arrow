@@ -352,7 +352,11 @@ fn write(node: TypeRef<'_>, out: &mut String) {
         K::Named => out.push_str(&path(node.path())),
         K::Variable | K::Argument => out.push_str(&crate::grammar::render_name(node.name())),
         K::Identifier | K::Coordinate | K::ReducedLaw => {
-            out.push_str(match node.kind() { K::Coordinate => "Coordinate<", K::ReducedLaw => "Reduced<", _ => "Id<" });
+            out.push_str(match node.kind() {
+                K::Coordinate => "Coordinate<",
+                K::ReducedLaw => "Reduced<",
+                _ => "Id<",
+            });
             out.push_str(&path(node.path()));
             out.push('>');
         }

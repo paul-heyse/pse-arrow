@@ -11,7 +11,8 @@ use pse_model::generated::enums::{ExtrapolationPolicy, ModelingValidityLayer};
 
 fn admitted(text: &str) -> Result<CheckedPackage> {
     let (registry, _) = physical();
-    let context = TypeContext {formula_authority: None,
+    let context = TypeContext {
+        formula_authority: None,
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
         scope: &PhysicalScope::default(),

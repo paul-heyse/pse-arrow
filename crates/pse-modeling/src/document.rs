@@ -502,8 +502,8 @@ fn column(
                 "the document states unit {stated}, but only a quantity column has one"
             )));
         };
-        let agrees = stated_unit(stated, quantities)
-            .is_some_and(|unit| unit == conversion.source_unit());
+        let agrees =
+            stated_unit(stated, quantities).is_some_and(|unit| unit == conversion.source_unit());
         if !agrees {
             return Err(refuse(format!(
                 "the document states unit {stated}, which disagrees with the declared storage unit; units come only from the declaration"

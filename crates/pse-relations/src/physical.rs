@@ -8,15 +8,21 @@ pub use units::{UnitReconciliation, reconcile_units};
 
 /// Declaration families consumed by value compatibility; operation families are separate.
 pub const VALUE_INPUTS: &[&str] = &[
-    "authored.modeling_declarations", "reference.units", "normalized.units",
-    "reference.quantity_kinds", "reference.bases", "reference.reference_states",
+    "authored.modeling_declarations",
+    "reference.units",
+    "normalized.units",
+    "reference.quantity_kinds",
+    "reference.bases",
+    "reference.reference_states",
     "reference.quantity_types",
 ];
 
 fn invalid(detail: impl Into<String>) -> PhysicalProjectionError {
     pse_quantity::QuantityError::InferencePrecondition {
-        rule: "quantity.relation_admission", detail: detail.into(),
-    }.into()
+        rule: "quantity.relation_admission",
+        detail: detail.into(),
+    }
+    .into()
 }
 
 /// Original physical projection failure, without a dependency on an execution owner.

@@ -2,14 +2,23 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Isolated authored-potential admission and library evaluation, without storage or solvers.
-#![allow(clippy::unwrap_used, reason = "focused physical-potential unit assertions")]
+#![allow(
+    clippy::unwrap_used,
+    reason = "focused physical-potential unit assertions"
+)]
 
 use crate::workspace::{CompilerWorkspace, Inputs, Profile, WorkspaceLimits};
-use pse_authoring::{ParseBudget, language::{IdentityPolicy, parse}};
+use pse_authoring::{
+    ParseBudget,
+    language::{IdentityPolicy, parse},
+};
 use pse_ids::SemanticId;
 use pse_math::binding::CaseValues;
 use pse_modeling::{Bindings, Limits, PhysicalScope, specialize::root_instance};
-use std::{collections::BTreeMap, sync::{Arc, atomic::AtomicBool}};
+use std::{
+    collections::BTreeMap,
+    sync::{Arc, atomic::AtomicBool},
+};
 
 /// Whole current source documents: the tests do not copy scientific function bodies.
 const SOURCES: &[&str] = &[
@@ -34,26 +43,67 @@ const SOURCES: &[&str] = &[
 
 fn workspace() -> (CompilerWorkspace, Vec<pse_modeling::Declaration>) {
     let text = format!("{}\n{FIXTURE}", SOURCES.join("\n"));
-    let rows = parse(&text, SemanticId::from_bytes([193; 16]), IdentityPolicy::Named, ParseBudget::default()).unwrap();
+    let rows = parse(
+        &text,
+        SemanticId::from_bytes([193; 16]),
+        IdentityPolicy::Named,
+        ParseBudget::default(),
+    )
+    .unwrap();
     let input = Inputs {
         quantities: Arc::new(pse_quantity::standard::standard_registry().unwrap()),
-        preconditions: Arc::new(pse_quantity::PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions()).unwrap()),
-        flows: BTreeMap::new(), definitions: BTreeMap::new(), domains: BTreeMap::new(),
-        groups: BTreeMap::new(), providers: BTreeMap::new(), cases: BTreeMap::new(), values: BTreeMap::new(),
+        preconditions: Arc::new(
+            pse_quantity::PhysicalPreconditions::new(
+                pse_quantity::generated::standard_preconditions(),
+            )
+            .unwrap(),
+        ),
+        flows: BTreeMap::new(),
+        definitions: BTreeMap::new(),
+        domains: BTreeMap::new(),
+        groups: BTreeMap::new(),
+        providers: BTreeMap::new(),
+        cases: BTreeMap::new(),
+        values: BTreeMap::new(),
     };
     let mut workspace = CompilerWorkspace::new(input, WorkspaceLimits::default()).unwrap();
-    workspace.publish_modeling(rows.clone(), PhysicalScope::default()).unwrap();
+    workspace
+        .publish_modeling(rows.clone(), PhysicalScope::default())
+        .unwrap();
     (workspace, rows)
 }
 
 fn check(name: &str) {
     let (mut workspace, rows) = workspace();
-    let root = rows.iter().find(|row| row.name == name && row.value.kind == pse_model::generated::enums::ModelingDeclarationKind::Test).unwrap().declaration_id;
-    let result = workspace.check_modeling_point(root, root_instance(root), Bindings::default(), Limits::default(),
-        &CaseValues {scalars: BTreeMap::new()}, Profile::default(), Arc::new(AtomicBool::new(false)))
+    let root = rows
+        .iter()
+        .find(|row| {
+            row.name == name
+                && row.value.kind == pse_model::generated::enums::ModelingDeclarationKind::Test
+        })
+        .unwrap()
+        .declaration_id;
+    let result = workspace
+        .check_modeling_point(
+            root,
+            root_instance(root),
+            Bindings::default(),
+            Limits::default(),
+            &CaseValues {
+                scalars: BTreeMap::new(),
+            },
+            Profile::default(),
+            Arc::new(AtomicBool::new(false)),
+        )
         .unwrap_or_else(|error| panic!("{name}: {error}"));
     assert!(!result.expectations.is_empty());
-    assert!(result.expectations.iter().all(|expectation| expectation.passed), "{name}: {result:?}");
+    assert!(
+        result
+            .expectations
+            .iter()
+            .all(|expectation| expectation.passed),
+        "{name}: {result:?}"
+    );
 }
 
 #[test]

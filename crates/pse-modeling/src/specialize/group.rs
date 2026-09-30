@@ -140,8 +140,11 @@ impl Engine<'_, '_> {
                     .map_err(|e| invalid(state.definition, e.to_string()))?;
                 quantity.frame(&mut h);
                 if let Some(refinement) = ty.physical_refinement() {
-                    h.u64(1); refinement.frame(&mut h);
-                } else { h.u64(0); }
+                    h.u64(1);
+                    refinement.frame(&mut h);
+                } else {
+                    h.u64(0);
+                }
             }
             h.u64(body.expressions.len() as u64);
             for (slot, expression) in &body.expressions {

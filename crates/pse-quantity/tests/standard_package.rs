@@ -5,7 +5,7 @@
 //! Required standard physical compositions (blueprint §8.3).
 use pse_quantity::infer::{OpRequest, Operand, OperationSelection, infer, infer_with_evidence};
 use pse_quantity::standard::{StandardInvariantChecker, ids, standard_registry};
-use pse_quantity::{IndexSet, ScaleKind, convert_spec, CanonicalConversionPlan};
+use pse_quantity::{CanonicalConversionPlan, IndexSet, ScaleKind, convert_spec};
 #[test]
 fn six_required_compositions_and_swapped_multiplication_have_declared_results() {
     let registry = standard_registry().expect("admitted standard fixture");
@@ -167,13 +167,16 @@ fn gauge_datum_is_applied_exactly_once_after_context_checked_representation_conv
         pse_quantity::convert_spec_for_type(psig, pa, &gauge.key).expect("same gauge context");
     assert_eq!(representation.offset.to_bits(), 0.0_f64.to_bits());
     let gauge_pa = CanonicalConversionPlan::registered(&registry, gauge.id, psig.id)
-        .unwrap().apply(0.0).unwrap();
+        .unwrap()
+        .apply(0.0)
+        .unwrap();
     assert_eq!(gauge_pa.bits(), 0.0_f64.to_bits());
     let datum = pse_quantity::DatumConversionPlan::admit(&registry, gauge.id, absolute.id)
         .expect("datum derived from the selected authored pressure condition");
     let absolute_pa = datum.apply(gauge_pa).unwrap();
     assert_eq!(absolute_pa.bits(), 101_325.0_f64.to_bits());
-    let inverse = pse_quantity::DatumConversionPlan::admit(&registry, absolute.id, gauge.id).unwrap();
+    let inverse =
+        pse_quantity::DatumConversionPlan::admit(&registry, absolute.id, gauge.id).unwrap();
     assert_eq!(inverse.apply(absolute_pa).unwrap().bits(), gauge_pa.bits());
     // A unit-only conversion never applies this second semantic operation implicitly.
     assert_eq!(representation.to, pa.id);

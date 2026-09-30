@@ -79,7 +79,8 @@ mod tests {
         let (registry, _) = physical();
         let preconditions = pse_quantity::PhysicalPreconditions::new(vec![]).unwrap();
         let scope = PhysicalScope::default();
-        let context = TypeContext {formula_authority: None,
+        let context = TypeContext {
+            formula_authority: None,
             quantities: &registry,
             preconditions: &preconditions,
             scope: &scope,

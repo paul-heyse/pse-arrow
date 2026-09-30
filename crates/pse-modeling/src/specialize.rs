@@ -2,13 +2,13 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Bounded finite specialization. No solver, store, query runtime or native library startup.
-mod continuous;
 mod contextual;
-mod physical_operations;
+mod continuous;
 mod envelopes;
 mod fold;
 mod functions;
 mod group;
+mod physical_operations;
 mod rewrite;
 mod transformations;
 pub use transformations::{Continuation, Elastic};
@@ -1030,7 +1030,18 @@ impl Engine<'_, '_> {
                     if tolerance.scalar(*member)? <= 0.0 {
                         return Err(invalid(*member, "positive closure tolerance required"));
                     }
-                    let boundary = a.boundary.as_ref().map(|path| self.resolve_boundary(id, *member, path, &coordinates_env(&env, &coordinates))).transpose()?;
+                    let boundary = a
+                        .boundary
+                        .as_ref()
+                        .map(|path| {
+                            self.resolve_boundary(
+                                id,
+                                *member,
+                                path,
+                                &coordinates_env(&env, &coordinates),
+                            )
+                        })
+                        .transpose()?;
                     self.model.closures.insert(
                         key,
                         Closure {
@@ -1049,7 +1060,11 @@ impl Engine<'_, '_> {
         for member in members.values() {
             let r = self.p.declarations[member].clone();
             if matches!(r.value.kind, Kind::Parameter | Kind::Variable)
-                && self.p.types.get(member).is_some_and(|ty| ty.quantity_scheme().is_some())
+                && self
+                    .p
+                    .types
+                    .get(member)
+                    .is_some_and(|ty| ty.quantity_scheme().is_some())
                 && r.value
                     .binding
                     .as_ref()
@@ -1262,13 +1277,22 @@ impl Engine<'_, '_> {
         for member in members.values() {
             let row = self.p.declarations[member].clone();
             if let Some(exchange) = &row.value.exchange {
-                for coordinates in self.coordinates(*member, &env, exchange.indices.iter().map(|i| (i.name.as_str(), i.domain.as_str())))? {
+                for coordinates in self.coordinates(
+                    *member,
+                    &env,
+                    exchange
+                        .indices
+                        .iter()
+                        .map(|i| (i.name.as_str(), i.domain.as_str())),
+                )? {
                     self.reserve(1)?;
                     let local = coordinates_env(&env, &coordinates);
                     let from = self.resolve_boundary(id, *member, &exchange.from, &local)?;
                     let to = self.resolve_boundary(id, *member, &exchange.to, &local)?;
                     let pair = crate::contextual::PairedExchange::admit(*member, from, to)?;
-                    self.model.exchanges.insert(member_id(id, *member, &coordinates), pair);
+                    self.model
+                        .exchanges
+                        .insert(member_id(id, *member, &coordinates), pair);
                 }
             }
         }
@@ -1902,19 +1926,77 @@ impl Engine<'_, '_> {
             &self.model.function_contracts(self.p),
             self.c,
             id,
-            if c.role == Role::Directed {None}else{Some(&ty)},
+            if c.role == Role::Directed {
+                None
+            } else {
+                Some(&ty)
+            },
         )?;
         if c.role == Role::Directed {
-            let boundary=self.model.closures[&target].boundary.as_ref().ok_or_else(||invalid(id,"directed contribution requires an explicit accumulator boundary"))?;
-            let refinement=actual.physical_refinement().ok_or_else(||invalid(id,"directed contribution requires a transfer"))?;
-            refinement.contribution(boundary,false,id)?;
-            let payload=Type::Quantity(actual.quantity_scheme().ok_or_else(||invalid(id,"transfer requires physical payload"))?.clone());
-            let contracts=[&ty,&payload].iter().map(|value|value.quantity_scheme().ok_or_else(||invalid(id,"ledger requires physical payload"))?.resolve_contract_with_evidence(self.c.quantities,&BTreeMap::new(),self.c.preconditions).map_err(|error|invalid(id,error.to_string()))).collect::<Result<Vec<_>>>()?;
-            let expected=contracts[0].require_named().map_err(|error|invalid(id,error.to_string()))?;
-            pse_quantity::resolved::infer_operation(&pse_quantity::infer::OpRequest::Add,&contracts,Some(expected),self.c.quantities,self.c.preconditions).map_err(|error|invalid(id,format!("directed transfer does not belong in this physical ledger: {error}")))?;
-            expression=self.physical_transfer_function(id,actual.clone(),payload,crate::PhysicalOperation::TransferMagnitude {source:refinement.clone()},1,expression)?;
+            let boundary = self.model.closures[&target]
+                .boundary
+                .as_ref()
+                .ok_or_else(|| {
+                    invalid(
+                        id,
+                        "directed contribution requires an explicit accumulator boundary",
+                    )
+                })?;
+            let refinement = actual
+                .physical_refinement()
+                .ok_or_else(|| invalid(id, "directed contribution requires a transfer"))?;
+            refinement.contribution(boundary, false, id)?;
+            let payload = Type::Quantity(
+                actual
+                    .quantity_scheme()
+                    .ok_or_else(|| invalid(id, "transfer requires physical payload"))?
+                    .clone(),
+            );
+            let contracts = [&ty, &payload]
+                .iter()
+                .map(|value| {
+                    value
+                        .quantity_scheme()
+                        .ok_or_else(|| invalid(id, "ledger requires physical payload"))?
+                        .resolve_contract_with_evidence(
+                            self.c.quantities,
+                            &BTreeMap::new(),
+                            self.c.preconditions,
+                        )
+                        .map_err(|error| invalid(id, error.to_string()))
+                })
+                .collect::<Result<Vec<_>>>()?;
+            let expected = contracts[0]
+                .require_named()
+                .map_err(|error| invalid(id, error.to_string()))?;
+            pse_quantity::resolved::infer_operation(
+                &pse_quantity::infer::OpRequest::Add,
+                &contracts,
+                Some(expected),
+                self.c.quantities,
+                self.c.preconditions,
+            )
+            .map_err(|error| {
+                invalid(
+                    id,
+                    format!("directed transfer does not belong in this physical ledger: {error}"),
+                )
+            })?;
+            expression = self.physical_transfer_function(
+                id,
+                actual.clone(),
+                payload,
+                crate::PhysicalOperation::TransferMagnitude {
+                    source: refinement.clone(),
+                },
+                1,
+                expression,
+            )?;
         } else if actual.physical_refinement().is_some() {
-            return Err(invalid(id,"a directed transfer must be consumed with role directed exactly once"));
+            return Err(invalid(
+                id,
+                "a directed transfer must be consumed with role directed exactly once",
+            ));
         } else if actual != ty {
             return Err(invalid(id, "contribution physical contract differs"));
         }
@@ -2002,7 +2084,9 @@ impl Engine<'_, '_> {
         Ok(())
     }
     fn typed_zero(&self, ty: &Type, at: DeclarationId) -> Result<Expr> {
-        let s=ty.quantity_scheme().ok_or_else(||invalid(at,"accumulator requires quantity"))?;
+        let s = ty
+            .quantity_scheme()
+            .ok_or_else(|| invalid(at, "accumulator requires quantity"))?;
         let id = s
             .resolve_with_evidence(self.c.quantities, &BTreeMap::new(), self.c.preconditions)
             .map_err(|e| invalid(at, e.to_string()))?;
@@ -2086,8 +2170,7 @@ impl Contribution {
         if matches!(
             self.role,
             Role::Outflow | Role::Consumption | Role::Accumulation | Role::Negative
-        )
-        {
+        ) {
             -1.0
         } else {
             1.0

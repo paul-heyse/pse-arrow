@@ -1488,15 +1488,25 @@ pub(crate) fn number(
             .map(|v| (Value::Integer(v), 1.))
             .ok_or_else(|| invalid(at, "exact bounded integer required"));
     }
-    let literal_type=crate::expression::number_type(n,physical,at,expected)?;
-    let quantity=literal_type.quantity_scheme().ok_or_else(||invalid(at,"concrete literal type required"))?.resolve_with_evidence(physical.quantities,&BTreeMap::new(),physical.preconditions).map_err(|error|invalid(at,error.to_string()))?;
+    let literal_type = crate::expression::number_type(n, physical, at, expected)?;
+    let quantity = literal_type
+        .quantity_scheme()
+        .ok_or_else(|| invalid(at, "concrete literal type required"))?
+        .resolve_with_evidence(
+            physical.quantities,
+            &BTreeMap::new(),
+            physical.preconditions,
+        )
+        .map_err(|error| invalid(at, error.to_string()))?;
     let conversion = if let Some(unit) = &n.unit {
         pse_quantity::CanonicalConversionPlan::composed(physical.quantities, quantity, unit)
     } else {
         pse_quantity::CanonicalConversionPlan::canonical(physical.quantities, quantity)
     }
     .map_err(|e| invalid(at, e.to_string()))?;
-    let value = conversion.apply(n.value).map_err(|e| invalid(at, e.to_string()))?;
+    let value = conversion
+        .apply(n.value)
+        .map_err(|e| invalid(at, e.to_string()))?;
     Ok((
         Value::Number {
             bits: value.bits(),

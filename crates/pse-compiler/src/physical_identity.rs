@@ -194,7 +194,8 @@ pub(crate) fn identity(r: &QuantityRegistry, p: &PhysicalPreconditions) -> Conte
             h.id(&n.as_id());
         }
     }
-    h.str("reductions").u64(r.reduction_domains().count() as u64);
+    h.str("reductions")
+        .u64(r.reduction_domains().count() as u64);
     for (op, d) in r.reduction_domains() {
         h.id(&op.as_id()).id(&d.as_id());
     }
@@ -324,7 +325,18 @@ mod tests {
         let none = PhysicalPreconditions::new(vec![]).unwrap();
         let empty = QuantityRegistryBuilder::new().build().unwrap();
         let mut expected = FramedHasher::new(pse_ids::Frame::MathPhysicalInventoryV6);
-        for section in ["entity-kinds", "units", "kinds", "bases", "references", "quantities", "conversions", "operations", "reductions", "unit-sets"] {
+        for section in [
+            "entity-kinds",
+            "units",
+            "kinds",
+            "bases",
+            "references",
+            "quantities",
+            "conversions",
+            "operations",
+            "reductions",
+            "unit-sets",
+        ] {
             expected.str(section).u64(0);
         }
         expected.u64(0).str("preconditions").u64(0);

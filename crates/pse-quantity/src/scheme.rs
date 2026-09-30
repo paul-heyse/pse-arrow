@@ -42,15 +42,35 @@ impl Scheme {
     /// Structural physical signature identity, including retained intermediate contracts.
     pub fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         match self {
-            Self::Concrete(id) => { hash.str("named").id(&id.as_id()); }
-            Self::Resolved(contract) => { hash.str("resolved"); contract.frame(hash); }
-            Self::Variable(name) => { hash.str("variable").str(name); }
-            Self::Delta(value) => { hash.str("difference"); value.frame(hash); }
-            Self::Product(left, right) | Self::Quotient(left, right) => {
-                hash.str(if matches!(self, Self::Product(..)) { "product" } else { "quotient" });
-                left.frame(hash); right.frame(hash);
+            Self::Concrete(id) => {
+                hash.str("named").id(&id.as_id());
             }
-            Self::Power(value, power) => { hash.str("power").part(&power.num().to_le_bytes()).part(&power.den().to_le_bytes()); value.frame(hash); }
+            Self::Resolved(contract) => {
+                hash.str("resolved");
+                contract.frame(hash);
+            }
+            Self::Variable(name) => {
+                hash.str("variable").str(name);
+            }
+            Self::Delta(value) => {
+                hash.str("difference");
+                value.frame(hash);
+            }
+            Self::Product(left, right) | Self::Quotient(left, right) => {
+                hash.str(if matches!(self, Self::Product(..)) {
+                    "product"
+                } else {
+                    "quotient"
+                });
+                left.frame(hash);
+                right.frame(hash);
+            }
+            Self::Power(value, power) => {
+                hash.str("power")
+                    .part(&power.num().to_le_bytes())
+                    .part(&power.den().to_le_bytes());
+                value.frame(hash);
+            }
         }
     }
     /// Resolve a scheme using the existing physical registry and operation inference.
@@ -73,11 +93,14 @@ impl Scheme {
         checker: &dyn InvariantChecker,
     ) -> Result<QuantityTypeId, SchemeError> {
         if let Self::Concrete(id) = self {
-            registry.quantity_type(*id).map_err(|error| SchemeError::Contract(error.to_string()))?;
+            registry
+                .quantity_type(*id)
+                .map_err(|error| SchemeError::Contract(error.to_string()))?;
             return Ok(*id);
         }
         self.resolve_contract_with_evidence(registry, bindings, checker)?
-            .require_named().map_err(|error| SchemeError::Contract(error.to_string()))
+            .require_named()
+            .map_err(|error| SchemeError::Contract(error.to_string()))
     }
     /// Whether this scheme contains no unbound physical variable.
     pub fn is_closed(&self) -> bool {
@@ -85,7 +108,9 @@ impl Scheme {
             Self::Concrete(_) | Self::Resolved(_) => true,
             Self::Variable(_) => false,
             Self::Delta(value) | Self::Power(value, _) => value.is_closed(),
-            Self::Product(left, right) | Self::Quotient(left, right) => left.is_closed() && right.is_closed(),
+            Self::Product(left, right) | Self::Quotient(left, right) => {
+                left.is_closed() && right.is_closed()
+            }
         }
     }
     /// Whether every formal variable has an admitted binding in this invocation.
@@ -94,30 +119,54 @@ impl Scheme {
             Self::Concrete(_) | Self::Resolved(_) => true,
             Self::Variable(name) => bindings.contains_key(name),
             Self::Delta(value) | Self::Power(value, _) => value.is_bound(bindings),
-            Self::Product(left, right) | Self::Quotient(left, right) => left.is_bound(bindings) && right.is_bound(bindings),
+            Self::Product(left, right) | Self::Quotient(left, right) => {
+                left.is_bound(bindings) && right.is_bound(bindings)
+            }
         }
     }
     /// Resolve without inventing a named declaration for a physical intermediate.
     pub fn resolve_contract_with_evidence(
-        &self, registry: &QuantityRegistry, bindings: &Substitution,
+        &self,
+        registry: &QuantityRegistry,
+        bindings: &Substitution,
         checker: &dyn InvariantChecker,
     ) -> Result<crate::ResolvedPhysicalContract, SchemeError> {
         let bad = |error: crate::QuantityError| SchemeError::Contract(error.to_string());
-        let resolve = |scheme: &Self| scheme.resolve_contract_with_evidence(registry, bindings, checker);
+        let resolve =
+            |scheme: &Self| scheme.resolve_contract_with_evidence(registry, bindings, checker);
         let (request, values) = match self {
-            Self::Concrete(id) => return crate::ResolvedPhysicalContract::named(*id, IndexSet::new(), registry).map_err(bad),
+            Self::Concrete(id) => {
+                return crate::ResolvedPhysicalContract::named(*id, IndexSet::new(), registry)
+                    .map_err(bad);
+            }
             Self::Resolved(contract) => return Ok((**contract).clone()),
-            Self::Variable(name) => return bindings.get(name).cloned().ok_or_else(|| SchemeError::Contract(format!("unbound {name}"))),
-            Self::Delta(value) => { let value = resolve(value)?; (OpRequest::Sub, vec![value.clone(), value]) },
+            Self::Variable(name) => {
+                return bindings
+                    .get(name)
+                    .cloned()
+                    .ok_or_else(|| SchemeError::Contract(format!("unbound {name}")));
+            }
+            Self::Delta(value) => {
+                let value = resolve(value)?;
+                (OpRequest::Sub, vec![value.clone(), value])
+            }
             Self::Product(left, right) => (OpRequest::Mul, vec![resolve(left)?, resolve(right)?]),
             Self::Quotient(left, right) => (OpRequest::Div, vec![resolve(left)?, resolve(right)?]),
             Self::Power(base, power) => {
-                let neutral = registry.neutral_dimensionless().ok_or_else(|| SchemeError::Contract("neutral exponent type absent".into()))?;
-                (OpRequest::Pow { exponent: Exponent::Rational(*power) }, vec![resolve(base)?, resolve(&Self::Concrete(neutral))?])
+                let neutral = registry
+                    .neutral_dimensionless()
+                    .ok_or_else(|| SchemeError::Contract("neutral exponent type absent".into()))?;
+                (
+                    OpRequest::Pow {
+                        exponent: Exponent::Rational(*power),
+                    },
+                    vec![resolve(base)?, resolve(&Self::Concrete(neutral))?],
+                )
             }
         };
         crate::resolved::infer_operation(&request, &values, None, registry, checker)
-            .map(|admitted| admitted.result).map_err(bad)
+            .map(|admitted| admitted.result)
+            .map_err(bad)
     }
     /// Preserve named syntax where possible while retaining an anonymous closed contract.
     pub fn from_contract(contract: crate::ResolvedPhysicalContract) -> Self {
@@ -176,19 +225,28 @@ impl Scheme {
     }
     /// Bind an admitted argument without requiring a synthetic named declaration.
     pub fn bind_contract_with_evidence(
-        &self, actual: &crate::ResolvedPhysicalContract, registry: &QuantityRegistry,
-        bindings: &mut Substitution, checker: &dyn InvariantChecker,
+        &self,
+        actual: &crate::ResolvedPhysicalContract,
+        registry: &QuantityRegistry,
+        bindings: &mut Substitution,
+        checker: &dyn InvariantChecker,
     ) -> Result<(), SchemeError> {
         if let Self::Variable(name) = self {
             if let Some(prior) = bindings.get(name) {
                 if !prior.same_meaning(actual) {
-                    return Err(SchemeError::Contract(format!("conflicting complete types for {name}")));
+                    return Err(SchemeError::Contract(format!(
+                        "conflicting complete types for {name}"
+                    )));
                 }
-            } else { bindings.insert(name.clone(), actual.clone()); }
+            } else {
+                bindings.insert(name.clone(), actual.clone());
+            }
             return Ok(());
         }
         let expected = self.resolve_contract_with_evidence(registry, bindings, checker)?;
-        actual.at_contract_boundary(&expected, registry)
-            .map(|_| ()).map_err(|error| SchemeError::Contract(error.to_string()))
+        actual
+            .at_contract_boundary(&expected, registry)
+            .map(|_| ())
+            .map_err(|error| SchemeError::Contract(error.to_string()))
     }
 }

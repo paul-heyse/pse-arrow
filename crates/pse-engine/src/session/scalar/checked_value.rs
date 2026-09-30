@@ -145,7 +145,8 @@ fn compatible(source: &Field, target: &Field) -> Result<()> {
         return Ok(());
     }
     if !pse_columnar::native_field::admits_metadata(
-        source.metadata(), target.metadata(),
+        source.metadata(),
+        target.metadata(),
         pse_columnar::native_field::MetadataAdmission::CheckedTarget,
     ) {
         return Err(invalid(
@@ -159,7 +160,10 @@ fn compatible(source: &Field, target: &Field) -> Result<()> {
 }
 
 fn compatible_type(source: &DataType, target: &DataType) -> Result<()> {
-    use DataType::{Dictionary, FixedSizeList, LargeList, LargeListView, List, ListView, Map, RunEndEncoded, Struct, Union};
+    use DataType::{
+        Dictionary, FixedSizeList, LargeList, LargeListView, List, ListView, Map, RunEndEncoded,
+        Struct, Union,
+    };
     match (source, target) {
         (Struct(left), Struct(right)) if left.len() == right.len() => {
             for (left, right) in left.iter().zip(right) {
@@ -170,12 +174,18 @@ fn compatible_type(source: &DataType, target: &DataType) -> Result<()> {
             }
             Ok(())
         }
-        (List(left), List(right)) | (LargeList(left), LargeList(right))
-        | (ListView(left), ListView(right)) | (LargeListView(left), LargeListView(right)) => compatible(left, right),
+        (List(left), List(right))
+        | (LargeList(left), LargeList(right))
+        | (ListView(left), ListView(right))
+        | (LargeListView(left), LargeListView(right)) => compatible(left, right),
         (FixedSizeList(left, n), FixedSizeList(right, m)) if n == m => compatible(left, right),
         (Map(left, n), Map(right, m)) if n == m => compatible(left, right),
-        (Dictionary(left_key, left), Dictionary(right_key, right)) if left_key == right_key => compatible_type(left, right),
-        (Union(left, left_mode), Union(right, right_mode)) if left_mode == right_mode && left.len() == right.len() => {
+        (Dictionary(left_key, left), Dictionary(right_key, right)) if left_key == right_key => {
+            compatible_type(left, right)
+        }
+        (Union(left, left_mode), Union(right, right_mode))
+            if left_mode == right_mode && left.len() == right.len() =>
+        {
             for ((left_id, left), (right_id, right)) in left.iter().zip(right.iter()) {
                 if left_id != right_id || left.name() != right.name() {
                     return Err(invalid("value admission union arms differ"));

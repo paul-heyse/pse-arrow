@@ -17,19 +17,42 @@ use pse_model::generated::enums::{
 pub use pse_model::generated::runtime::modeling_checks::Row as ModelingCheck;
 pub use pse_model::generated::runtime::modeling_reports::Row as ModelingReport;
 
-fn report_transfer_context(ty: &pse_modeling::Type) -> Result<Option<pse_model::generated::structures::ModelingTransferContext>, WorkflowError> {
+fn report_transfer_context(
+    ty: &pse_modeling::Type,
+) -> Result<Option<pse_model::generated::structures::ModelingTransferContext>, WorkflowError> {
+    use pse_model::generated::{
+        enums::ModelingTransferDirection as Direction, structures::ModelingTransferContext,
+    };
     use pse_modeling::{BoundaryRef, PhysicalRefinement, TransferDirection};
-    use pse_model::generated::{enums::ModelingTransferDirection as Direction, structures::ModelingTransferContext};
     match ty.physical_refinement() {
         None => Ok(None),
-        Some(PhysicalRefinement::Transfer { boundary: BoundaryRef::Bound { instance, declaration, coordinates }, direction }) => Ok(Some(ModelingTransferContext {
+        Some(PhysicalRefinement::Transfer {
+            boundary:
+                BoundaryRef::Bound {
+                    instance,
+                    declaration,
+                    coordinates,
+                },
+            direction,
+        }) => Ok(Some(ModelingTransferContext {
             instance: *instance,
             boundary: *declaration,
-            coordinates: coordinates.iter().map(pse_modeling::specialize::Value::identity).collect(),
-            direction: match direction { TransferDirection::Into => Direction::Into, TransferDirection::OutOf => Direction::OutOf },
+            coordinates: coordinates
+                .iter()
+                .map(pse_modeling::specialize::Value::identity)
+                .collect(),
+            direction: match direction {
+                TransferDirection::Into => Direction::Into,
+                TransferDirection::OutOf => Direction::OutOf,
+            },
         })),
-        Some(PhysicalRefinement::Transfer { boundary: BoundaryRef::Declared(_), .. }) => Err(contract("reported transfer requires an actual bound owner")),
-        Some(_) => Err(contract("reported value requires a reconstructed physical contract")),
+        Some(PhysicalRefinement::Transfer {
+            boundary: BoundaryRef::Declared(_),
+            ..
+        }) => Err(contract("reported transfer requires an actual bound owner")),
+        Some(_) => Err(contract(
+            "reported value requires a reconstructed physical contract",
+        )),
     }
 }
 /// Completed solve and explicit model-level qualification. Diagnostic evidence never
@@ -618,7 +641,9 @@ pub(in crate::workflow) fn assess_observations(
                     .get(&a.target)
                     .ok_or_else(|| contract("reported target is not a scalar member"))?;
                 let transfer_context = report_transfer_context(&symbol.ty)?;
-                let scheme = symbol.ty.quantity_scheme()
+                let scheme = symbol
+                    .ty
+                    .quantity_scheme()
                     .ok_or_else(|| contract("reported target has no physical contract"))?;
                 let quantity = scheme
                     .resolve(quantities, &BTreeMap::new())
@@ -765,28 +790,59 @@ mod tests {
     use pse_relations::columnar::RelationRow;
     #[test]
     fn report_transfer_context_retains_actual_owner_order_and_direction() {
-        use pse_modeling::{BoundaryRef, PhysicalRefinement, TransferDirection, Type};
         use pse_modeling::specialize::Value;
-        let instance = SemanticId::from_bytes([1;16]).into();
-        let declaration = SemanticId::from_bytes([2;16]).into();
+        use pse_modeling::{BoundaryRef, PhysicalRefinement, TransferDirection, Type};
+        let instance = SemanticId::from_bytes([1; 16]).into();
+        let declaration = SemanticId::from_bytes([2; 16]).into();
         let coordinates = vec![Value::Integer(7), Value::Text("hot".into())];
         let quantity = pse_quantity::scheme::Scheme::Concrete(SemanticId::NIL.into());
-        let ty = Type::RefinedQuantity { quantity: quantity.clone(), refinement: PhysicalRefinement::Transfer {
-            boundary: BoundaryRef::Bound { instance, declaration, coordinates: coordinates.clone() }, direction: TransferDirection::OutOf,
-        }};
+        let ty = Type::RefinedQuantity {
+            quantity: quantity.clone(),
+            refinement: PhysicalRefinement::Transfer {
+                boundary: BoundaryRef::Bound {
+                    instance,
+                    declaration,
+                    coordinates: coordinates.clone(),
+                },
+                direction: TransferDirection::OutOf,
+            },
+        };
         let context = report_transfer_context(&ty).unwrap().unwrap();
         assert_eq!(context.instance, instance);
         assert_eq!(context.boundary, declaration);
-        assert_eq!(context.coordinates, coordinates.iter().map(Value::identity).collect::<Vec<_>>());
-        assert_eq!(context.direction, pse_model::generated::enums::ModelingTransferDirection::OutOf);
-        let unbound = Type::RefinedQuantity { quantity: quantity.clone(), refinement: PhysicalRefinement::Transfer {
-            boundary: BoundaryRef::Declared(declaration), direction: TransferDirection::Into,
-        }};
+        assert_eq!(
+            context.coordinates,
+            coordinates.iter().map(Value::identity).collect::<Vec<_>>()
+        );
+        assert_eq!(
+            context.direction,
+            pse_model::generated::enums::ModelingTransferDirection::OutOf
+        );
+        let unbound = Type::RefinedQuantity {
+            quantity: quantity.clone(),
+            refinement: PhysicalRefinement::Transfer {
+                boundary: BoundaryRef::Declared(declaration),
+                direction: TransferDirection::Into,
+            },
+        };
         assert!(report_transfer_context(&unbound).is_err());
-        assert!(report_transfer_context(&Type::Quantity(quantity)).unwrap().is_none());
-        let report = ModelingReport { run_id: SemanticId::NIL.into(), step: 0, target_id: SemanticId::NIL,
-            source_id: declaration, label: "heat".into(), path: "unit.heat".into(),
-            quantity_id: SemanticId::NIL, unit_id: SemanticId::NIL, transfer_context: Some(context), value: -3., };
+        assert!(
+            report_transfer_context(&Type::Quantity(quantity))
+                .unwrap()
+                .is_none()
+        );
+        let report = ModelingReport {
+            run_id: SemanticId::NIL.into(),
+            step: 0,
+            target_id: SemanticId::NIL,
+            source_id: declaration,
+            label: "heat".into(),
+            path: "unit.heat".into(),
+            quantity_id: SemanticId::NIL,
+            unit_id: SemanticId::NIL,
+            transfer_context: Some(context),
+            value: -3.,
+        };
         let registry = pse_schema::registry().unwrap();
         let mut builder = ModelingReport::builder(registry, 1).unwrap();
         ModelingReport::push(&mut builder, report.clone()).unwrap();

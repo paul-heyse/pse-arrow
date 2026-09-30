@@ -1,15 +1,18 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Occurrence-preserving anti joins against admitted selected physical compatibility.
+use super::QuantityCompatibility;
 use crate::native::{
     arrow::datatypes::Field,
     common::{Column, Result},
     functions::core::expr_fn::get_field,
     logical_expr::{JoinType, LogicalPlan, LogicalPlanBuilder, lit},
 };
-use super::QuantityCompatibility;
 
-pub(super) fn plans(input: &LogicalPlan, compatibility: Option<&QuantityCompatibility>) -> Result<Vec<LogicalPlan>> {
+pub(super) fn plans(
+    input: &LogicalPlan,
+    compatibility: Option<&QuantityCompatibility>,
+) -> Result<Vec<LogicalPlan>> {
     super::nested_values::occurrences(
         input, input.schema().fields().iter().map(AsRef::as_ref), is_quantity,
     )?.into_iter().map(|occurrence| {
@@ -32,7 +35,9 @@ pub(super) fn plans(input: &LogicalPlan, compatibility: Option<&QuantityCompatib
     }).collect()
 }
 pub(super) fn is_quantity(field: &Field) -> bool {
-    field.metadata().get(pse_schema::arrow::KEY_EXTENSION_NAME)
+    field
+        .metadata()
+        .get(pse_schema::arrow::KEY_EXTENSION_NAME)
         .is_some_and(|name| name == "pse.quantity_value")
 }
 #[cfg(test)]

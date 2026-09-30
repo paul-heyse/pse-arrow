@@ -108,7 +108,8 @@ impl PhysicalInventory {
             .try_grow(extent)
             .map_err(pse_columnar::CanonError::from)?;
         let context = plans::context(session, registry, cancel).await?;
-        let (quantities, boolean) = pse_relations::physical::inventory(&batches, registry, cancel, context)?;
+        let (quantities, boolean) =
+            pse_relations::physical::inventory(&batches, registry, cancel, context)?;
         let preconditions = preconditions::preconditions(&batches, registry, &quantities, cancel)?;
         let preconditions = Arc::new(pse_quantity::PhysicalPreconditions::new(preconditions)?);
         Ok(Self {

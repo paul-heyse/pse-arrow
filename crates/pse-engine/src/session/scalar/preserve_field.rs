@@ -162,7 +162,8 @@ fn field_missing_metadata_only(actual: &Field, expected: &Field, refine: bool) -
         && (actual.is_nullable() == expected.is_nullable() || (refine && actual.is_nullable()))
         && actual.dict_is_ordered() == expected.dict_is_ordered()
         && pse_columnar::native_field::admits_metadata(
-            actual.metadata(), expected.metadata(),
+            actual.metadata(),
+            expected.metadata(),
             pse_columnar::native_field::MetadataAdmission::RestoreEstablished,
         )
         && layout_compatible(actual.data_type(), expected.data_type(), refine)
@@ -229,13 +230,29 @@ mod tests {
     #[test]
     fn restoration_requires_established_annotations_and_exact_nested_layout() {
         let field = Field::new("member", DataType::Utf8, false);
-        let expected = field.clone().with_metadata(HashMap::from([("custom.meaning".into(), "a".into())]));
+        let expected = field
+            .clone()
+            .with_metadata(HashMap::from([("custom.meaning".into(), "a".into())]));
         let list = |field: Field| DataType::List(Arc::new(field));
-        assert!(missing_metadata_only(&list(field.clone()), &list(expected.clone())));
-        assert!(!missing_metadata_only(&list(expected.clone()), &list(field.clone())));
-        let conflict = field.clone().with_metadata(HashMap::from([("custom.meaning".into(), "b".into())]));
-        assert!(!missing_metadata_only(&list(conflict), &list(expected.clone())));
-        assert!(!missing_metadata_only(&list(field.clone().with_name("renamed")), &list(expected.clone())));
+        assert!(missing_metadata_only(
+            &list(field.clone()),
+            &list(expected.clone())
+        ));
+        assert!(!missing_metadata_only(
+            &list(expected.clone()),
+            &list(field.clone())
+        ));
+        let conflict = field
+            .clone()
+            .with_metadata(HashMap::from([("custom.meaning".into(), "b".into())]));
+        assert!(!missing_metadata_only(
+            &list(conflict),
+            &list(expected.clone())
+        ));
+        assert!(!missing_metadata_only(
+            &list(field.clone().with_name("renamed")),
+            &list(expected.clone())
+        ));
         let nullable = list(field.with_nullable(true));
         assert!(!missing_metadata_only(&nullable, &list(expected.clone())));
         assert!(proven_native_layout(&nullable, &list(expected)));

@@ -112,7 +112,9 @@ impl<'a> ObligationTemplates<'a> {
         quantities: Option<&QuantityCompatibility>,
         mut required: impl FnMut(pse_ids::SemanticId, ObligationKind) -> bool,
     ) -> Result<Vec<BoundObligation>> {
-        if let Some(quantities) = quantities { quantities.require_selection(inputs)?; }
+        if let Some(quantities) = quantities {
+            quantities.require_selection(inputs)?;
+        }
         let mut all = Vec::new();
         for (id, input) in inputs {
             let mut checks = Vec::new();

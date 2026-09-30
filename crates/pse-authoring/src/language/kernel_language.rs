@@ -34,22 +34,35 @@ fn physical_maps_responses_translations_and_transfers_roundtrip() {
 }"#;
     let rows = parse_named(text);
     let rendered = render(&rows).unwrap();
-    let semantic = |rows: Vec<Declaration>| rows.into_iter().map(|mut row| {
-        row.source_start = 0;
-        row.source_end = 0;
-        row
-    }).collect::<Vec<_>>();
+    let semantic = |rows: Vec<Declaration>| {
+        rows.into_iter()
+            .map(|mut row| {
+                row.source_start = 0;
+                row.source_end = 0;
+                row
+            })
+            .collect::<Vec<_>>()
+    };
     assert_eq!(semantic(parse_named(&rendered)), semantic(rows.clone()));
     assert!(rows.iter().any(|r| r.value.coordinate_map.is_some()));
     assert!(rows.iter().any(|r| r.value.reference_translation.is_some()));
-    for spelling in ["Coordinate<reduced.temperature>", "Reduced<residual>", "Transfer<EnergyTransferRate, thermal, Into>"] {
+    for spelling in [
+        "Coordinate<reduced.temperature>",
+        "Reduced<residual>",
+        "Transfer<EnergyTransferRate, thermal, Into>",
+    ] {
         assert!(rendered.contains(spelling), "{rendered}");
     }
 }
 
 #[test]
 fn physical_refinement_type_shapes_refuse_missing_or_extra_context() {
-    for text in ["Transfer<EnergyTransferRate,thermal>", "Transfer<EnergyTransferRate,thermal,Into,extra>", "Coordinate<map.slot,other>", "Reduced<family,other>"] {
+    for text in [
+        "Transfer<EnergyTransferRate,thermal>",
+        "Transfer<EnergyTransferRate,thermal,Into,extra>",
+        "Coordinate<map.slot,other>",
+        "Reduced<family,other>",
+    ] {
         assert!(parse_type(text, &[]).is_err(), "{text}");
     }
 }

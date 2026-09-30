@@ -113,7 +113,10 @@ fn scheme(ty: &Type, at: DeclarationId) -> Result<Scheme> {
 }
 fn with_physical_refinement(ty: Type, refinement: Option<crate::PhysicalRefinement>) -> Type {
     match (ty, refinement) {
-        (Type::Quantity(quantity), Some(refinement)) => Type::RefinedQuantity { quantity, refinement },
+        (Type::Quantity(quantity), Some(refinement)) => Type::RefinedQuantity {
+            quantity,
+            refinement,
+        },
         (ty, _) => ty,
     }
 }
@@ -166,12 +169,30 @@ fn physical_op(
     context: &TypeContext<'_>,
     at: DeclarationId,
 ) -> Result<Option<Type>> {
-    if values.iter().any(|value| !value.is_closed()) { return Ok(None); }
-    let values = values.iter().map(|value| value.resolve_contract_with_evidence(
-        context.quantities, &Substitution::new(), context.preconditions,
-    ).map_err(|error| invalid(at, error.to_string()))).collect::<Result<Vec<_>>>()?;
-    let admitted = pse_quantity::resolved::infer_in_context(&request, &values, None,
-        context.quantities, context.preconditions, context.formula_authority.as_ref()).map_err(|error| invalid(at, error.to_string()))?;
+    if values.iter().any(|value| !value.is_closed()) {
+        return Ok(None);
+    }
+    let values = values
+        .iter()
+        .map(|value| {
+            value
+                .resolve_contract_with_evidence(
+                    context.quantities,
+                    &Substitution::new(),
+                    context.preconditions,
+                )
+                .map_err(|error| invalid(at, error.to_string()))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let admitted = pse_quantity::resolved::infer_in_context(
+        &request,
+        &values,
+        None,
+        context.quantities,
+        context.preconditions,
+        context.formula_authority.as_ref(),
+    )
+    .map_err(|error| invalid(at, error.to_string()))?;
     Ok(Some(Type::Quantity(Scheme::from_contract(admitted.result))))
 }
 /// A product, a quotient or an exact power belongs to a multiplicative chain.
@@ -211,9 +232,15 @@ pub fn infer(
             if ty == Type::Integer {
                 return Ok(ty);
             }
-            let refinement = crate::contextual::arithmetic_refinement(&OpRequest::Neg, std::slice::from_ref(&ty), context, at)?;
+            let refinement = crate::contextual::arithmetic_refinement(
+                &OpRequest::Neg,
+                std::slice::from_ref(&ty),
+                context,
+                at,
+            )?;
             let a = scheme(&ty, at)?;
-            let result = physical_op(OpRequest::Neg, std::slice::from_ref(&a), context, at)?.unwrap_or(q(a));
+            let result =
+                physical_op(OpRequest::Neg, std::slice::from_ref(&a), context, at)?.unwrap_or(q(a));
             Ok(with_physical_refinement(result, refinement))
         }
         ExprKind::Binary { op, lhs, rhs } => {
@@ -235,8 +262,18 @@ pub fn infer(
                 return Ok(Type::Integer);
             }
             let a = scheme(&left, at)?;
-            let right = infer(rhs, env, p, context, at,
-                if matches!(op, BinaryOp::Add | BinaryOp::Sub) { Some(&left) } else { None })?;
+            let right = infer(
+                rhs,
+                env,
+                p,
+                context,
+                at,
+                if matches!(op, BinaryOp::Add | BinaryOp::Sub) {
+                    Some(&left)
+                } else {
+                    None
+                },
+            )?;
             let b = scheme(&right, at)?;
             let request = match op {
                 BinaryOp::Add => OpRequest::Add,
@@ -249,7 +286,8 @@ pub fn infer(
             };
             // The exact exponent is a request fact; its quantity remains a second
             // operand so the authoritative operation checks dimensionlessness.
-            let refinement = crate::contextual::arithmetic_refinement(&request, &[left, right], context, at)?;
+            let refinement =
+                crate::contextual::arithmetic_refinement(&request, &[left, right], context, at)?;
             let operands = vec![a.clone(), b.clone()];
             if let Some(ty) = physical_op(request, &operands, context, at)? {
                 return Ok(with_physical_refinement(ty, refinement));
@@ -290,8 +328,14 @@ pub fn infer(
             Ok(with_physical_refinement(q(result), refinement))
         }
         ExprKind::Call { function, args } => {
-            let types = args.iter().map(|e| infer(e, env, p, context, at, None)).collect::<Result<Vec<_>>>()?;
-            let values = types.iter().map(|ty| scheme(ty, at)).collect::<Result<Vec<_>>>()?;
+            let types = args
+                .iter()
+                .map(|e| infer(e, env, p, context, at, None))
+                .collect::<Result<Vec<_>>>()?;
+            let values = types
+                .iter()
+                .map(|ty| scheme(ty, at))
+                .collect::<Result<Vec<_>>>()?;
             let request = match function.as_str() {
                 "sqrt" => OpRequest::Sqrt,
                 "abs" => OpRequest::Abs,
@@ -309,7 +353,8 @@ pub fn infer(
             if values.len() != 1 {
                 return Err(invalid(at, "primitive function arity"));
             }
-            let refinement = crate::contextual::arithmetic_refinement(&request, &types, context, at)?;
+            let refinement =
+                crate::contextual::arithmetic_refinement(&request, &types, context, at)?;
             if let Some(ty) = physical_op(request, &values, context, at)? {
                 return Ok(with_physical_refinement(ty, refinement));
             }
@@ -592,7 +637,8 @@ pub(crate) fn number_type(
             .compose(unit)
             .map_err(|e| invalid(at, format!("unit {{{unit}}}: {e}")))?;
         let literal_context = expected
-            .and_then(Type::quantity_scheme).and_then(|s|concrete(s,context))
+            .and_then(Type::quantity_scheme)
+            .and_then(|s| concrete(s, context))
             .map_or(LiteralContext::Free, |quantity_type| {
                 LiteralContext::Explicit { quantity_type }
             });
@@ -604,8 +650,14 @@ pub(crate) fn number_type(
             .neutral_dimensionless()
             .ok_or_else(|| invalid(at, "no neutral physical type"))?
     };
-    let ty=Type::Quantity(Scheme::Concrete(id));
-    Ok(with_physical_refinement(ty,expected.and_then(Type::physical_refinement).filter(|role|matches!(role,crate::PhysicalRefinement::Transfer {..})).cloned()))
+    let ty = Type::Quantity(Scheme::Concrete(id));
+    Ok(with_physical_refinement(
+        ty,
+        expected
+            .and_then(Type::physical_refinement)
+            .filter(|role| matches!(role, crate::PhysicalRefinement::Transfer { .. }))
+            .cloned(),
+    ))
 }
 pub(crate) fn finite_reduction(
     kind: dsl::ReduceKind,
@@ -639,20 +691,51 @@ fn call(
     at: DeclarationId,
 ) -> Result<Type> {
     if name == "reconstruct" {
-        if !wrt.is_empty() { return Err(invalid(at, "differentiate the reconstructed physical function")); }
-        let (family, arguments) = args.split_first().ok_or_else(|| invalid(at, "reconstruct requires a declared family and selected law"))?;
+        if !wrt.is_empty() {
+            return Err(invalid(
+                at,
+                "differentiate the reconstructed physical function",
+            ));
+        }
+        let (family, arguments) = args.split_first().ok_or_else(|| {
+            invalid(
+                at,
+                "reconstruct requires a declared family and selected law",
+            )
+        })?;
         let path = dsl::render_expr(family);
-        let selected = p.resolve(at, &path).filter(|id| matches!(p.types.get(id), Some(Type::Reconstruction {..}))).ok_or_else(|| invalid(at, "reconstruct requires a declared reconstruction family"))?;
-        let qualified = p.names.iter().find_map(|(name, id)| (*id == selected).then_some(name)).ok_or_else(|| invalid(at, "reconstruction family is unnamed"))?;
+        let selected = p
+            .resolve(at, &path)
+            .filter(|id| matches!(p.types.get(id), Some(Type::Reconstruction { .. })))
+            .ok_or_else(|| invalid(at, "reconstruct requires a declared reconstruction family"))?;
+        let qualified = p
+            .names
+            .iter()
+            .find_map(|(name, id)| (*id == selected).then_some(name))
+            .ok_or_else(|| invalid(at, "reconstruction family is unnamed"))?;
         return call(qualified, arguments, &[], env, p, context, at);
     }
-    if let Some(ty)=crate::contextual::call_type(name,args,env,p,context,at)? {
-        if !wrt.is_empty() {return Err(invalid(at,"differentiate the composed physical function, not a contextual intrinsic"));}
+    if let Some(ty) = crate::contextual::call_type(name, args, env, p, context, at)? {
+        if !wrt.is_empty() {
+            return Err(invalid(
+                at,
+                "differentiate the composed physical function, not a contextual intrinsic",
+            ));
+        }
         return Ok(ty);
     }
     let indirect;
-    let lexical_formal = p.functions.get(&at).is_some_and(|function| function.arguments.iter().any(|(argument, _)| argument == name));
-    let f = if let Some(function) = (!lexical_formal).then(|| p.resolve(at, name)).flatten().and_then(|id| p.functions.get(&id)) {
+    let lexical_formal = p.functions.get(&at).is_some_and(|function| {
+        function
+            .arguments
+            .iter()
+            .any(|(argument, _)| argument == name)
+    });
+    let f = if let Some(function) = (!lexical_formal)
+        .then(|| p.resolve(at, name))
+        .flatten()
+        .and_then(|id| p.functions.get(&id))
+    {
         function
     } else {
         let expression = dsl::parse_expr(name).map_err(|e| invalid(at, e.to_string()))?;
@@ -678,21 +761,52 @@ fn call(
         };
         &indirect
     };
-    let indexed_slot = p.declarations.get(&f.id).and_then(|row| row.value.coordinate_slot.as_ref()).filter(|slot| !slot.indices.is_empty() && args.len() + slot.indices.len() == f.arguments.len());
+    let indexed_slot = p
+        .declarations
+        .get(&f.id)
+        .and_then(|row| row.value.coordinate_slot.as_ref())
+        .filter(|slot| {
+            !slot.indices.is_empty() && args.len() + slot.indices.len() == f.arguments.len()
+        });
     if let Some(slot) = indexed_slot {
-        if !wrt.is_empty() { return Err(invalid(at, "an indexed coordinate group is differentiated through its physical reconstruction")); }
-        for (expr, (_, formal)) in args.iter().zip(&f.arguments) {
-            if infer(expr, env, p, context, at, Some(formal))? != *formal { return Err(invalid(at, "coordinate map argument contract differs")); }
+        if !wrt.is_empty() {
+            return Err(invalid(
+                at,
+                "an indexed coordinate group is differentiated through its physical reconstruction",
+            ));
         }
-        let axes = f.arguments[args.len()..].iter().map(|(_, ty)| match ty {
-            Type::Entity(id) | Type::Enum(id) => Ok(*id),
-            _ => Err(invalid(at, "coordinate slot group has invalid coordinate kind")),
-        }).collect::<Result<Vec<_>>>()?;
-        if axes.len() != slot.indices.len() { return Err(invalid(at, "coordinate slot group arity")); }
-        return Ok(Type::Indexed {element:Box::new(f.result.clone()), axes});
+        for (expr, (_, formal)) in args.iter().zip(&f.arguments) {
+            if infer(expr, env, p, context, at, Some(formal))? != *formal {
+                return Err(invalid(at, "coordinate map argument contract differs"));
+            }
+        }
+        let axes = f.arguments[args.len()..]
+            .iter()
+            .map(|(_, ty)| match ty {
+                Type::Entity(id) | Type::Enum(id) => Ok(*id),
+                _ => Err(invalid(
+                    at,
+                    "coordinate slot group has invalid coordinate kind",
+                )),
+            })
+            .collect::<Result<Vec<_>>>()?;
+        if axes.len() != slot.indices.len() {
+            return Err(invalid(at, "coordinate slot group arity"));
+        }
+        return Ok(Type::Indexed {
+            element: Box::new(f.result.clone()),
+            axes,
+        });
     }
     if args.len() != f.arguments.len() {
-        return Err(invalid(at, format!("function {name} expects {} arguments, received {}", f.arguments.len(), args.len())));
+        return Err(invalid(
+            at,
+            format!(
+                "function {name} expects {} arguments, received {}",
+                f.arguments.len(),
+                args.len()
+            ),
+        ));
     }
     let actual = args
         .iter()
@@ -700,7 +814,9 @@ fn call(
         .map(|(expr, (_, formal))| infer(expr, env, p, context, at, Some(formal)))
         .collect::<Result<Vec<_>>>()?;
     let normalize = |s: Scheme| -> Result<Scheme> {
-        if !s.is_closed() { return Ok(s); }
+        if !s.is_closed() {
+            return Ok(s);
+        }
         s.resolve_contract_with_evidence(
             context.quantities,
             &Substitution::new(),
@@ -805,9 +921,19 @@ fn call(
         .map_err(|e| invalid(at, e.to_string()))?;
     let result = Type::Quantity(normalize(result)?);
     if wrt.is_empty() {
-        Ok(with_physical_refinement(result, f.result.physical_refinement().cloned()))
-    } else if f.result.physical_refinement().is_some() || f.arguments.iter().any(|(_, ty)| ty.physical_refinement().is_some()) {
-        Err(invalid(at, "differentiate the reconstructed physical function rather than nominal reduced coordinates"))
+        Ok(with_physical_refinement(
+            result,
+            f.result.physical_refinement().cloned(),
+        ))
+    } else if f.result.physical_refinement().is_some()
+        || f.arguments
+            .iter()
+            .any(|(_, ty)| ty.physical_refinement().is_some())
+    {
+        Err(invalid(
+            at,
+            "differentiate the reconstructed physical function rather than nominal reduced coordinates",
+        ))
     } else {
         Ok(result)
     }
@@ -1176,13 +1302,20 @@ pub(crate) fn check_all(p: &CheckedPackage, context: &TypeContext<'_>) -> Result
         }
         if let Some(f) = p.functions.get(id) {
             let physical_context = TypeContext {
-                formula_authority: matches!(f.physical_operation, Some(crate::PhysicalOperation::Response {..})).then(|| pse_quantity::PhysicalFormulaAuthority::response(id.as_id())),
+                formula_authority: matches!(
+                    f.physical_operation,
+                    Some(crate::PhysicalOperation::Response { .. })
+                )
+                .then(|| pse_quantity::PhysicalFormulaAuthority::response(id.as_id())),
                 quantities: context.quantities,
                 preconditions: context.preconditions,
                 scope: context.scope,
             };
             let context = &physical_context;
-            env.extend(f.physical_operation.as_ref().map_or_else(|| f.arguments.clone(), |operation| operation.body_arguments(&f.arguments)));
+            env.extend(f.physical_operation.as_ref().map_or_else(
+                || f.arguments.clone(),
+                |operation| operation.body_arguments(&f.arguments),
+            ));
             if let Some(external) = &f.external {
                 if f.body.is_some() || f.continuity.is_some() {
                     return Err(invalid(
@@ -1319,7 +1452,18 @@ pub(crate) fn check_all(p: &CheckedPackage, context: &TypeContext<'_>) -> Result
                 }
             }
             if let Some(body) = &f.body {
-                let actual = infer(body, &env, p, context, *id, if f.physical_operation.is_some() { None } else { Some(&f.result) })?;
+                let actual = infer(
+                    body,
+                    &env,
+                    p,
+                    context,
+                    *id,
+                    if f.physical_operation.is_some() {
+                        None
+                    } else {
+                        Some(&f.result)
+                    },
+                )?;
                 if let Some(operation) = &f.physical_operation {
                     operation.admit_result(&actual, &f.result, context, *id)?;
                 } else if actual != f.result {
@@ -1460,8 +1604,12 @@ pub(crate) fn check_all(p: &CheckedPackage, context: &TypeContext<'_>) -> Result
             }
             let tolerance =
                 dsl::parse_expr(&expectation.tolerance).map_err(|e| invalid(*id, e.to_string()))?;
-            let delta = Scheme::Delta(Box::new(actual.quantity_scheme()
-                .ok_or_else(|| invalid(*id, "test expectation requires quantities"))?.clone()));
+            let delta = Scheme::Delta(Box::new(
+                actual
+                    .quantity_scheme()
+                    .ok_or_else(|| invalid(*id, "test expectation requires quantities"))?
+                    .clone(),
+            ));
             let delta = Type::Quantity(Scheme::Concrete(
                 delta
                     .resolve_with_evidence(

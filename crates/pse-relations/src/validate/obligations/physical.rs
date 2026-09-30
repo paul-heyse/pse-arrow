@@ -1,21 +1,27 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Compatibility for encountered pairs from one exact selected physical closure.
+use super::RelationInputs;
 use crate::{
     columnar::FieldCheckedBatch,
     native::{
-        arrow::{array::{Array, FixedSizeBinaryArray, RecordBatch}, datatypes::{DataType, Field, Schema}},
+        arrow::{
+            array::{Array, FixedSizeBinaryArray, RecordBatch},
+            datatypes::{DataType, Field, Schema},
+        },
         common::{Column, DFSchema, DataFusionError, Result, ScalarValue},
         functions::core::expr_fn::get_field,
         logical_expr::{EmptyRelation, Expr, LogicalPlan, LogicalPlanBuilder, lit},
     },
 };
-use super::RelationInputs;
 use pse_columnar::CancellationToken;
 use pse_ids::SemanticId;
 use pse_quantity::{CanonicalConversionPlan, QuantityTypeId, UnitId};
 use pse_schema::{Registry, model::RelationKey};
-use std::{collections::{BTreeMap, BTreeSet}, sync::Arc};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    sync::Arc,
+};
 
 /// The exact selected physical inputs and the compatible encountered value pairs.
 /// Construction never accepts a process-global or caller-asserted quantity registry.
@@ -47,8 +53,12 @@ impl QuantityCompatibility {
                 let quantity = identity(quantity, row)?;
                 let unit = identity(unit, row)?;
                 if CanonicalConversionPlan::registered(
-                    &quantities, QuantityTypeId::from_id(quantity), UnitId::from_id(unit),
-                ).is_ok() {
+                    &quantities,
+                    QuantityTypeId::from_id(quantity),
+                    UnitId::from_id(unit),
+                )
+                .is_ok()
+                {
                     accepted.insert((quantity, unit));
                 }
             }
@@ -58,23 +68,43 @@ impl QuantityCompatibility {
             Field::new("admitted_unit", DataType::FixedSizeBinary(16), false),
         ]))?);
         let compatible = if accepted.is_empty() {
-            LogicalPlan::EmptyRelation(EmptyRelation { produce_one_row: false, schema })
+            LogicalPlan::EmptyRelation(EmptyRelation {
+                produce_one_row: false,
+                schema,
+            })
         } else {
-            let rows = accepted.into_iter().map(|(quantity, unit)| vec![
-                lit(ScalarValue::FixedSizeBinary(16, Some(quantity.as_bytes().to_vec()))),
-                lit(ScalarValue::FixedSizeBinary(16, Some(unit.as_bytes().to_vec()))),
-            ]).collect();
+            let rows = accepted
+                .into_iter()
+                .map(|(quantity, unit)| {
+                    vec![
+                        lit(ScalarValue::FixedSizeBinary(
+                            16,
+                            Some(quantity.as_bytes().to_vec()),
+                        )),
+                        lit(ScalarValue::FixedSizeBinary(
+                            16,
+                            Some(unit.as_bytes().to_vec()),
+                        )),
+                    ]
+                })
+                .collect();
             LogicalPlanBuilder::values(rows)?
                 .project([
                     Expr::Column(Column::from_name("column1")).alias("admitted_quantity"),
                     Expr::Column(Column::from_name("column2")).alias("admitted_unit"),
-                ])?.build()?
+                ])?
+                .build()?
         };
-        Ok(Self { selected: selected.clone(), compatible })
+        Ok(Self {
+            selected: selected.clone(),
+            compatible,
+        })
     }
     pub(super) fn require_selection(&self, selected: &RelationInputs) -> Result<()> {
         if &self.selected != selected {
-            return Err(DataFusionError::Plan("physical compatibility belongs to different selected inputs".into()));
+            return Err(DataFusionError::Plan(
+                "physical compatibility belongs to different selected inputs".into(),
+            ));
         }
         Ok(())
     }
@@ -87,29 +117,42 @@ pub fn quantity_requests(inputs: &RelationInputs) -> Result<Option<LogicalPlan>>
     let mut all: Option<LogicalPlan> = None;
     for input in inputs.values() {
         for occurrence in super::nested_values::occurrences(
-            input, input.schema().fields().iter().map(AsRef::as_ref), super::quantities::is_quantity,
+            input,
+            input.schema().fields().iter().map(AsRef::as_ref),
+            super::quantities::is_quantity,
         )? {
             let value = occurrence.value()?;
-            let pairs = LogicalPlanBuilder::from(occurrence.input).project([
-                get_field(value.clone(), "quantity_type_id").alias("quantity"),
-                get_field(value, "unit_id").alias("unit"),
-            ])?.build()?;
+            let pairs = LogicalPlanBuilder::from(occurrence.input)
+                .project([
+                    get_field(value.clone(), "quantity_type_id").alias("quantity"),
+                    get_field(value, "unit_id").alias("unit"),
+                ])?
+                .build()?;
             all = Some(match all {
                 None => pairs,
                 Some(previous) => LogicalPlanBuilder::from(previous).union(pairs)?.build()?,
             });
         }
     }
-    all.map(|plan| LogicalPlanBuilder::from(plan).distinct()?.build()).transpose()
+    all.map(|plan| LogicalPlanBuilder::from(plan).distinct()?.build())
+        .transpose()
 }
 fn ids(batch: &RecordBatch, column: usize) -> Result<&FixedSizeBinaryArray> {
-    batch.columns().get(column).and_then(|array| array.as_any().downcast_ref())
+    batch
+        .columns()
+        .get(column)
+        .and_then(|array| array.as_any().downcast_ref())
         .ok_or_else(|| DataFusionError::Plan("physical request needs two identity columns".into()))
 }
 fn identity(array: &FixedSizeBinaryArray, row: usize) -> Result<SemanticId> {
     if array.is_null(row) {
-        return Err(DataFusionError::Plan("physical request identity cannot be null".into()));
+        return Err(DataFusionError::Plan(
+            "physical request identity cannot be null".into(),
+        ));
     }
-    Ok(SemanticId::from_bytes(array.value(row).try_into()
-        .map_err(|_| DataFusionError::Plan("physical request identity has wrong width".into()))?))
+    Ok(SemanticId::from_bytes(
+        array.value(row).try_into().map_err(|_| {
+            DataFusionError::Plan("physical request identity has wrong width".into())
+        })?,
+    ))
 }

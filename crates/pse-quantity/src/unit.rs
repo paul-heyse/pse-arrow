@@ -15,8 +15,8 @@
 
 use crate::Ratio;
 use crate::ids::{QuantityTypeId, UnitId};
-use std::hash::{Hash, Hasher};
 use crate::{DimensionVector as Dimension, QuantityError as Error};
+use std::hash::{Hash, Hasher};
 
 /// One canonical factor of a unit product: an atomic unit and its nonzero rational
 /// exponent (ADR-0124).
@@ -338,9 +338,7 @@ impl CanonicalConversionPlan {
             registry.compose(&crate::UnitProduct::from_factors(
                 factors
                     .iter()
-                    .map(|factor| {
-                        Ok((registry.unit(factor.unit)?.symbol.clone(), factor.exponent))
-                    })
+                    .map(|factor| Ok((registry.unit(factor.unit)?.symbol.clone(), factor.exponent)))
                     .collect::<Result<Vec<_>, Error>>()?,
             )?)?
         } else {
@@ -366,7 +364,12 @@ impl CanonicalConversionPlan {
         quantity: QuantityTypeId,
     ) -> Result<Self, Error> {
         let target = registry.quantity_type(quantity)?;
-        Self::admit(registry, quantity, registry.unit(target.canonical_unit)?, true)
+        Self::admit(
+            registry,
+            quantity,
+            registry.unit(target.canonical_unit)?,
+            true,
+        )
     }
 
     fn admit(
@@ -377,7 +380,12 @@ impl CanonicalConversionPlan {
     ) -> Result<Self, Error> {
         let target = registry.quantity_type(quantity)?;
         Ok(Self {
-            operation: CheckedRepresentationPlan::admit(registry, quantity, source, target.canonical_unit)?,
+            operation: CheckedRepresentationPlan::admit(
+                registry,
+                quantity,
+                source,
+                target.canonical_unit,
+            )?,
             already_canonical,
         })
     }
@@ -389,24 +397,43 @@ impl CanonicalConversionPlan {
     /// A nonfinite source or a nonfinite converted result, with the physical operands.
     pub fn apply(&self, value: f64) -> Result<CanonicalMagnitude, Error> {
         let canonical = self.operation.apply_mode(value, self.already_canonical)?;
-        Ok(CanonicalMagnitude { bits: canonical.to_bits(), quantity: self.quantity() })
+        Ok(CanonicalMagnitude {
+            bits: canonical.to_bits(),
+            quantity: self.quantity(),
+        })
     }
 
     /// Quantity identity resolved from the complete admitted contract.
-    pub const fn quantity(&self) -> QuantityTypeId { self.operation.quantity }
+    pub const fn quantity(&self) -> QuantityTypeId {
+        self.operation.quantity
+    }
     /// Complete semantic contract retained by this plan.
-    pub fn context(&self) -> &crate::QuantityTypeKey { &self.operation.context }
+    pub fn context(&self) -> &crate::QuantityTypeKey {
+        &self.operation.context
+    }
     /// Declared source representation unit.
-    pub const fn source_unit(&self) -> UnitId { self.operation.source }
+    pub const fn source_unit(&self) -> UnitId {
+        self.operation.source
+    }
     /// Canonical representation unit of the target quantity.
-    pub const fn canonical_unit(&self) -> UnitId { self.operation.target }
+    pub const fn canonical_unit(&self) -> UnitId {
+        self.operation.target
+    }
     /// Difference/uncertainty scaling factor, excluding any point offset.
-    pub fn scale(&self) -> f64 { self.operation.scale() }
+    pub fn scale(&self) -> f64 {
+        self.operation.scale()
+    }
     /// Point offset; zero for differences.
-    pub fn offset(&self) -> f64 { self.operation.offset() }
+    pub fn offset(&self) -> f64 {
+        self.operation.offset()
+    }
     /// Owned heap extent of the retained complete contract.
     pub fn heap_bytes(&self) -> usize {
-        self.operation.context.shape.capacity().saturating_mul(size_of::<crate::EntityKindId>())
+        self.operation
+            .context
+            .shape
+            .capacity()
+            .saturating_mul(size_of::<crate::EntityKindId>())
     }
 }
 
@@ -480,8 +507,12 @@ impl CheckedRepresentationPlan {
         Ok(converted)
     }
 
-    fn scale(&self) -> f64 { f64::from_bits(self.scale_bits) }
-    fn offset(&self) -> f64 { f64::from_bits(self.offset_bits) }
+    fn scale(&self) -> f64 {
+        f64::from_bits(self.scale_bits)
+    }
+    fn offset(&self) -> f64 {
+        f64::from_bits(self.offset_bits)
+    }
 }
 
 impl Hash for CheckedRepresentationPlan {
@@ -508,11 +539,17 @@ pub struct CanonicalMagnitude {
 }
 impl CanonicalMagnitude {
     /// Exact canonical magnitude bits.
-    pub const fn bits(self) -> u64 { self.bits }
+    pub const fn bits(self) -> u64 {
+        self.bits
+    }
     /// Finite canonical numerical value.
-    pub fn value(self) -> f64 { f64::from_bits(self.bits) }
+    pub fn value(self) -> f64 {
+        f64::from_bits(self.bits)
+    }
     /// Admitted physical quantity identity.
-    pub const fn quantity(self) -> QuantityTypeId { self.quantity }
+    pub const fn quantity(self) -> QuantityTypeId {
+        self.quantity
+    }
 }
 impl UnitConvertSpec {
     /// Compare the actual declared conversion, preserving signed zero (ADR-0030).
@@ -548,13 +585,19 @@ mod canonical_tests {
     };
     use pse_ids::SemanticId;
 
-    fn id(n: u8) -> SemanticId { SemanticId::from_bytes([n; 16]) }
+    fn id(n: u8) -> SemanticId {
+        SemanticId::from_bytes([n; 16])
+    }
     fn unit(n: u8, symbol: &str, scale: f64, offset: f64) -> Unit {
         Unit {
-            id: id(n).into(), symbol: symbol.into(),
+            id: id(n).into(),
+            symbol: symbol.into(),
             dimension: Dimension::base(BaseDimension::Temperature),
-            scale_to_canonical: scale, offset_to_canonical: offset,
-            is_affine: offset != 0.0, reference_state: None, definition: None,
+            scale_to_canonical: scale,
+            offset_to_canonical: offset,
+            is_affine: offset != 0.0,
+            reference_state: None,
+            definition: None,
         }
     }
     fn registry() -> QuantityRegistry {
@@ -568,17 +611,25 @@ mod canonical_tests {
             .kind(QuantityKind {
                 id: id(20).into(),
                 dimension: Dimension::base(BaseDimension::Temperature),
-                extensive: false, addition_kind: QuantityAdditionKind::OriginSensitive,
-                category: None, definition: None,
+                extensive: false,
+                addition_kind: QuantityAdditionKind::OriginSensitive,
+                category: None,
+                definition: None,
             });
         for (n, scale_kind) in [(30, ScaleKind::Point), (31, ScaleKind::Difference)] {
             b.quantity_type(QuantityType {
-                id: id(n).into(), name: None,
+                id: id(n).into(),
+                name: None,
                 key: QuantityTypeKey {
-                    kind: id(20).into(), basis: None, reference_state: None,
-                    scale_kind, shape: vec![], subject_kind: None,
+                    kind: id(20).into(),
+                    basis: None,
+                    reference_state: None,
+                    scale_kind,
+                    shape: vec![],
+                    subject_kind: None,
                 },
-                canonical_unit: id(1).into(), nominal_magnitude: None,
+                canonical_unit: id(1).into(),
+                nominal_magnitude: None,
             });
         }
         b.build().unwrap()
@@ -587,36 +638,56 @@ mod canonical_tests {
     #[test]
     fn canonical_admission_distinguishes_source_nonfinite_and_both_overflows() {
         let registry = registry();
-        let scaled = CanonicalConversionPlan::registered(&registry, id(30).into(), id(3).into()).unwrap();
+        let scaled =
+            CanonicalConversionPlan::registered(&registry, id(30).into(), id(3).into()).unwrap();
         for input in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
-            assert!(matches!(scaled.apply(input), Err(Error::NonfiniteMagnitude { quantity, unit, .. })
-                if quantity == id(30).into() && unit == id(3).into()));
+            assert!(
+                matches!(scaled.apply(input), Err(Error::NonfiniteMagnitude { quantity, unit, .. })
+                if quantity == id(30).into() && unit == id(3).into())
+            );
         }
-        assert!(matches!(scaled.apply(f64::MAX), Err(Error::NonfiniteConversion { value, scale, offset, .. })
-            if value == f64::MAX && scale == 2.0 && offset == 0.0));
-        assert_eq!(scaled.apply(f64::MAX / 2.0).unwrap().bits(), f64::MAX.to_bits());
-        let shifted = CanonicalConversionPlan::registered(&registry, id(30).into(), id(4).into()).unwrap();
-        assert!(matches!(shifted.apply(f64::MAX), Err(Error::NonfiniteConversion { scale, offset, .. })
-            if scale == 1.0 && offset == f64::MAX));
+        assert!(
+            matches!(scaled.apply(f64::MAX), Err(Error::NonfiniteConversion { value, scale, offset, .. })
+            if value == f64::MAX && scale == 2.0 && offset == 0.0)
+        );
+        assert_eq!(
+            scaled.apply(f64::MAX / 2.0).unwrap().bits(),
+            f64::MAX.to_bits()
+        );
+        let shifted =
+            CanonicalConversionPlan::registered(&registry, id(30).into(), id(4).into()).unwrap();
+        assert!(
+            matches!(shifted.apply(f64::MAX), Err(Error::NonfiniteConversion { scale, offset, .. })
+            if scale == 1.0 && offset == f64::MAX)
+        );
         assert_eq!(shifted.apply(0.0).unwrap().bits(), f64::MAX.to_bits());
     }
 
     #[test]
     fn canonical_admission_preserves_two_roundings_signed_zero_and_subnormals() {
         let registry = registry();
-        let rounding = CanonicalConversionPlan::registered(&registry, id(30).into(), id(5).into()).unwrap();
+        let rounding =
+            CanonicalConversionPlan::registered(&registry, id(30).into(), id(5).into()).unwrap();
         let input = 1.0 - f64::EPSILON;
         let converted = rounding.apply(input).unwrap().value();
-        assert_eq!(converted.to_bits(), ((input * (1.0 + f64::EPSILON)) - 1.0).to_bits());
-        assert_ne!(converted.to_bits(), input.mul_add(rounding.scale(), rounding.offset()).to_bits());
+        assert_eq!(
+            converted.to_bits(),
+            ((input * (1.0 + f64::EPSILON)) - 1.0).to_bits()
+        );
+        assert_ne!(
+            converted.to_bits(),
+            input.mul_add(rounding.scale(), rounding.offset()).to_bits()
+        );
         let canonical = CanonicalConversionPlan::canonical(&registry, id(30).into()).unwrap();
-        let represented = CanonicalConversionPlan::registered(&registry, id(30).into(), id(1).into()).unwrap();
+        let represented =
+            CanonicalConversionPlan::registered(&registry, id(30).into(), id(1).into()).unwrap();
         assert_eq!(canonical.apply(-0.0).unwrap().bits(), (-0.0_f64).to_bits());
         assert_eq!(represented.apply(-0.0).unwrap().bits(), 0.0_f64.to_bits());
         assert_ne!(canonical, represented);
         assert_eq!(canonical.apply(f64::from_bits(1)).unwrap().bits(), 1);
         assert!(canonical.apply(f64::INFINITY).is_err());
-        let half = CanonicalConversionPlan::registered(&registry, id(30).into(), id(6).into()).unwrap();
+        let half =
+            CanonicalConversionPlan::registered(&registry, id(30).into(), id(6).into()).unwrap();
         assert_eq!(half.apply(f64::from_bits(2)).unwrap().bits(), 1);
         assert_eq!(half.apply(f64::from_bits(1)).unwrap().bits(), 0);
     }
@@ -624,12 +695,15 @@ mod canonical_tests {
     #[test]
     fn canonical_admission_applies_affine_origins_only_to_points_and_retains_scale() {
         let registry = registry();
-        let point = CanonicalConversionPlan::registered(&registry, id(30).into(), id(2).into()).unwrap();
-        let interval = CanonicalConversionPlan::registered(&registry, id(31).into(), id(2).into()).unwrap();
+        let point =
+            CanonicalConversionPlan::registered(&registry, id(30).into(), id(2).into()).unwrap();
+        let interval =
+            CanonicalConversionPlan::registered(&registry, id(31).into(), id(2).into()).unwrap();
         assert_eq!(point.apply(80.0).unwrap().value(), 353.15);
         assert_eq!(interval.apply(80.0).unwrap().value(), 80.0);
         assert_eq!(interval.apply(80.0).unwrap().quantity(), id(31).into());
-        let scaled = CanonicalConversionPlan::registered(&registry, id(31).into(), id(3).into()).unwrap();
+        let scaled =
+            CanonicalConversionPlan::registered(&registry, id(31).into(), id(3).into()).unwrap();
         assert_eq!(scaled.scale(), 2.0);
         assert_eq!(scaled.canonical_unit(), id(1).into());
         assert_eq!(scaled.context().scale_kind, ScaleKind::Difference);
@@ -640,19 +714,34 @@ mod canonical_tests {
         let registry = registry();
         let mut forged = registry.unit(id(2).into()).unwrap().clone();
         forged.scale_to_canonical = 100.0;
-        assert!(matches!(CanonicalConversionPlan::resolved(&registry, id(30).into(), &forged),
-            Err(Error::Registry { rule: "conversion.source_definition", .. })));
+        assert!(matches!(
+            CanonicalConversionPlan::resolved(&registry, id(30).into(), &forged),
+            Err(Error::Registry {
+                rule: "conversion.source_definition",
+                ..
+            })
+        ));
         let mut b = registry.to_builder();
         b.reference_state(crate::ReferenceState {
-            id: id(40).into(), name: "different".into(), kind: crate::ReferenceStateKind::Custom,
-            temperature: None, pressure: None, include_enthalpy_of_formation: false, subject: None,
+            id: id(40).into(),
+            name: "different".into(),
+            kind: crate::ReferenceStateKind::Custom,
+            temperature: None,
+            pressure: None,
+            include_enthalpy_of_formation: false,
+            subject: None,
         });
         let mut restricted = unit(7, "datumK", 1.0, 0.0);
         restricted.reference_state = Some(id(40).into());
         b.unit(restricted);
         let registry = b.build().unwrap();
-        assert!(matches!(CanonicalConversionPlan::registered(&registry, id(30).into(), id(7).into()),
-            Err(Error::InferencePrecondition { rule: "unit.reference_context", .. })));
+        assert!(matches!(
+            CanonicalConversionPlan::registered(&registry, id(30).into(), id(7).into()),
+            Err(Error::InferencePrecondition {
+                rule: "unit.reference_context",
+                ..
+            })
+        ));
     }
 
     #[test]
@@ -661,11 +750,14 @@ mod canonical_tests {
         let product = crate::UnitProduct::from_factors([
             ("twiceK".into(), Ratio::new(2, 1).unwrap()),
             ("K".into(), Ratio::new(-1, 1).unwrap()),
-        ]).unwrap();
+        ])
+        .unwrap();
         let source = registry.compose(&product).unwrap();
         assert!(registry.unit(source.id).is_err());
-        let composed = CanonicalConversionPlan::composed(&registry, id(30).into(), &product).unwrap();
-        let resolved = CanonicalConversionPlan::resolved(&registry, id(30).into(), &source).unwrap();
+        let composed =
+            CanonicalConversionPlan::composed(&registry, id(30).into(), &product).unwrap();
+        let resolved =
+            CanonicalConversionPlan::resolved(&registry, id(30).into(), &source).unwrap();
         assert_eq!(composed, resolved);
         assert_eq!(composed.apply(3.0).unwrap().value(), 12.0);
     }
@@ -674,32 +766,77 @@ mod canonical_tests {
     fn canonical_reference_conditions_and_smoothing_use_checked_admission() {
         let registry = registry();
         let condition = crate::ReferenceCondition {
-            value: f64::MAX, quantity_type: id(30).into(), unit: id(3).into(),
+            value: f64::MAX,
+            quantity_type: id(30).into(),
+            unit: id(3).into(),
         };
-        assert!(matches!(registry.reference_condition(&condition), Err(Error::NonfiniteConversion { .. })));
-        assert_eq!(registry.reference_condition(&crate::ReferenceCondition {
-            value: 25.0, unit: id(2).into(), ..condition
-        }).unwrap(), 298.15);
-        assert!(matches!(crate::smoothing::resolve_epsilon(
-            crate::Opcode::SmoothMax, id(30).into(), f64::MAX, Some(id(3).into()), &registry,
-        ), Err(Error::NonfiniteConversion { .. })));
-        assert_eq!(crate::smoothing::resolve_epsilon(
-            crate::Opcode::SmoothMax, id(30).into(), 2.0, Some(id(2).into()), &registry,
-        ).unwrap(), 2.0);
-        assert!(matches!(crate::smoothing::resolve_epsilon(
-            crate::Opcode::SmoothMax, id(30).into(), f64::from_bits(1), Some(id(6).into()), &registry,
-        ), Err(Error::StaticDomain { .. })));
-        assert!(matches!(crate::smoothing::resolve_epsilon(
-            crate::Opcode::SmoothMax, id(30).into(), f64::NAN, None, &registry,
-        ), Err(Error::NonfiniteMagnitude { .. })));
+        assert!(matches!(
+            registry.reference_condition(&condition),
+            Err(Error::NonfiniteConversion { .. })
+        ));
+        assert_eq!(
+            registry
+                .reference_condition(&crate::ReferenceCondition {
+                    value: 25.0,
+                    unit: id(2).into(),
+                    ..condition
+                })
+                .unwrap(),
+            298.15
+        );
+        assert!(matches!(
+            crate::smoothing::resolve_epsilon(
+                crate::Opcode::SmoothMax,
+                id(30).into(),
+                f64::MAX,
+                Some(id(3).into()),
+                &registry,
+            ),
+            Err(Error::NonfiniteConversion { .. })
+        ));
+        assert_eq!(
+            crate::smoothing::resolve_epsilon(
+                crate::Opcode::SmoothMax,
+                id(30).into(),
+                2.0,
+                Some(id(2).into()),
+                &registry,
+            )
+            .unwrap(),
+            2.0
+        );
+        assert!(matches!(
+            crate::smoothing::resolve_epsilon(
+                crate::Opcode::SmoothMax,
+                id(30).into(),
+                f64::from_bits(1),
+                Some(id(6).into()),
+                &registry,
+            ),
+            Err(Error::StaticDomain { .. })
+        ));
+        assert!(matches!(
+            crate::smoothing::resolve_epsilon(
+                crate::Opcode::SmoothMax,
+                id(30).into(),
+                f64::NAN,
+                None,
+                &registry,
+            ),
+            Err(Error::NonfiniteMagnitude { .. })
+        ));
     }
 
     #[test]
     fn canonical_smoothing_retains_operand_coordinates_when_tolerance_canonical_unit_differs() {
         let registry = registry();
         let mut b = QuantityRegistryBuilder::new();
-        for unit in registry.units() { b.unit(unit.clone()); }
-        for kind in registry.kinds() { b.kind(kind.clone()); }
+        for unit in registry.units() {
+            b.unit(unit.clone());
+        }
+        for kind in registry.kinds() {
+            b.kind(kind.clone());
+        }
         for quantity in registry.quantity_types() {
             let mut quantity = quantity.clone();
             if quantity.key.scale_kind == ScaleKind::Difference {
@@ -708,15 +845,32 @@ mod canonical_tests {
             b.quantity_type(quantity);
         }
         let registry = b.build().unwrap();
-        let tolerance = CanonicalConversionPlan::registered(&registry, id(31).into(), id(2).into()).unwrap();
+        let tolerance =
+            CanonicalConversionPlan::registered(&registry, id(31).into(), id(2).into()).unwrap();
         assert_eq!(tolerance.apply(2.0).unwrap().value(), 1.0);
         // The smoothing algorithm consumes first-operand K coordinates, even though
         // the admitted tolerance type stores canonical magnitudes in twiceK.
-        assert_eq!(crate::smoothing::resolve_epsilon(
-            crate::Opcode::SmoothMax, id(30).into(), 2.0, Some(id(2).into()), &registry,
-        ).unwrap(), 2.0);
-        assert_eq!(crate::smoothing::resolve_epsilon(
-            crate::Opcode::SmoothMax, id(30).into(), 2.0, None, &registry,
-        ).unwrap(), 2.0);
+        assert_eq!(
+            crate::smoothing::resolve_epsilon(
+                crate::Opcode::SmoothMax,
+                id(30).into(),
+                2.0,
+                Some(id(2).into()),
+                &registry,
+            )
+            .unwrap(),
+            2.0
+        );
+        assert_eq!(
+            crate::smoothing::resolve_epsilon(
+                crate::Opcode::SmoothMax,
+                id(30).into(),
+                2.0,
+                None,
+                &registry,
+            )
+            .unwrap(),
+            2.0
+        );
     }
 }

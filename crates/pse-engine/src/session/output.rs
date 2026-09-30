@@ -318,10 +318,14 @@ pub fn check_field_output(source: &Field, target: &Field) -> Result<()> {
 }
 
 pub(super) fn check_value_metadata(source: &Field, target: &Field) -> Result<()> {
-    use pse_columnar::native_field::{project, MetadataPurpose};
+    use pse_columnar::native_field::{MetadataPurpose, project};
     let source_value = project(source, MetadataPurpose::ValueIdentity)?;
     let target_value = project(target, MetadataPurpose::ValueIdentity)?;
-    for key in source_value.metadata().keys().chain(target_value.metadata().keys()) {
+    for key in source_value
+        .metadata()
+        .keys()
+        .chain(target_value.metadata().keys())
+    {
         let actual = source_value.metadata().get(key);
         let declared = target_value.metadata().get(key);
         if actual == declared {
@@ -411,12 +415,17 @@ mod consolidation_unit {
     #[test]
     fn output_and_alias_preserve_transfer_and_unknown_semantic_facets() {
         use std::collections::HashMap;
-        for key in [pse_schema::arrow::KEY_TRANSFER_CONTEXT, "custom.physical-owner"] {
+        for key in [
+            pse_schema::arrow::KEY_TRANSFER_CONTEXT,
+            "custom.physical-owner",
+        ] {
             let field = Field::new("source", DataType::Float64, false)
                 .with_metadata(HashMap::from([(key.into(), "owner-a".into())]));
             let same = field.clone().with_name("alias");
             let bare = Field::new("alias", DataType::Float64, false);
-            let changed = bare.clone().with_metadata(HashMap::from([(key.into(), "owner-b".into())]));
+            let changed = bare
+                .clone()
+                .with_metadata(HashMap::from([(key.into(), "owner-b".into())]));
             assert!(check_field_output(&field, &same).is_ok());
             assert!(check_value_metadata(&field, &same).is_ok());
             assert!(check_field_output(&field, &bare).is_err());
@@ -425,10 +434,13 @@ mod consolidation_unit {
             assert!(!super::super::admission::same_value_metadata(&field, &bare));
         }
         let source = Field::new("source", DataType::Float64, false);
-        let target = source.clone().with_name("target").with_metadata(HashMap::from([
-            (pse_schema::arrow::KEY_LOGICAL_TYPE.into(), "float64".into()),
-            (pse_schema::arrow::KEY_ROLE.into(), "payload".into()),
-        ]));
+        let target = source
+            .clone()
+            .with_name("target")
+            .with_metadata(HashMap::from([
+                (pse_schema::arrow::KEY_LOGICAL_TYPE.into(), "float64".into()),
+                (pse_schema::arrow::KEY_ROLE.into(), "payload".into()),
+            ]));
         assert!(check_field_output(&source, &target).is_ok());
     }
 

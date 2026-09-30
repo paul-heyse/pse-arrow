@@ -546,27 +546,38 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         (
             "reconstruction",
             vec!["reconstruction"],
-            vec![text("map"), parameters("arguments"), type_arena("return_type"),
-                text("reference"), text("normalization")],
+            vec![
+                text("map"),
+                parameters("arguments"),
+                type_arena("return_type"),
+                text("reference"),
+                text("normalization"),
+            ],
         ),
         (
             "response",
             vec!["response"],
-            vec![text("witness"), parameters("arguments"), type_arena("return_type"),
-                text("body")],
+            vec![
+                text("witness"),
+                parameters("arguments"),
+                type_arena("return_type"),
+                text("body"),
+            ],
         ),
         (
             "reference_translation",
             vec!["reference_translation"],
-            vec![parameters("arguments"), type_arena("return_type"),
-                text("source_anchor"), text("target_anchor"), text("temperature"),
-                text("pressure"), provenance("provenance")],
+            vec![
+                parameters("arguments"),
+                type_arena("return_type"),
+                text("source_anchor"),
+                text("target_anchor"),
+                text("temperature"),
+                text("pressure"),
+                provenance("provenance"),
+            ],
         ),
-        (
-            "boundary",
-            vec!["boundary"],
-            vec![indices()],
-        ),
+        ("boundary", vec!["boundary"], vec![indices()]),
         (
             "exchange",
             vec!["exchange"],
@@ -1204,12 +1215,18 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             column("path", T::native(D::Utf8)),
             column("quantity_id", T::id()),
             column("unit_id", T::id()),
-            column("transfer_context", T::structure(vec![
-                column("instance", T::id()).with_identity("instance"),
-                column("boundary", T::id()).with_identity("declaration"),
-                column("coordinates", T::list(T::id())),
-                column("direction", T::enumeration("ModelingTransferDirection")),
-            ]).named("ModelingTransferContext").with_transfer_context()).optional(),
+            column(
+                "transfer_context",
+                T::structure(vec![
+                    column("instance", T::id()).with_identity("instance"),
+                    column("boundary", T::id()).with_identity("declaration"),
+                    column("coordinates", T::list(T::id())),
+                    column("direction", T::enumeration("ModelingTransferDirection")),
+                ])
+                .named("ModelingTransferContext")
+                .with_transfer_context(),
+            )
+            .optional(),
             column("value", T::native(D::Float64)),
         ],
         "Canonical physical observations keyed by source and semantic target. Indexed members may share a presentation label without losing their coordinates. Version two retains an optional directed-transfer context: actual instance, boundary declaration, ordered coordinate identities and positive direction. No unbound owner can be published as a physical transfer.",

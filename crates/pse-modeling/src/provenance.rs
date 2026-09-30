@@ -220,7 +220,12 @@ pub(crate) fn admit(p: &mut CheckedPackage) -> Result<()> {
             .as_ref()
             .map(|d| &d.provenance)
             .or_else(|| row.value.constant.as_ref().map(|c| &c.provenance))
-            .or_else(|| row.value.reference_translation.as_ref().map(|c| &c.provenance))
+            .or_else(|| {
+                row.value
+                    .reference_translation
+                    .as_ref()
+                    .map(|c| &c.provenance)
+            })
             .or_else(|| {
                 row.value
                     .entity

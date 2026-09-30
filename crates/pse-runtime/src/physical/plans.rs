@@ -21,28 +21,48 @@ pub(super) async fn units(
 ) -> Result<(), PhysicalError> {
     let mut inputs = pse_relations::validate::obligations::RelationInputs::new();
     for name in ["reference.units", "normalized.units"] {
-        if let Some(spec) = registry.relation(name).filter(|spec| batches.contains_key(&spec.key)) {
+        if let Some(spec) = registry
+            .relation(name)
+            .filter(|spec| batches.contains_key(&spec.key))
+        {
             let plan = LogicalPlanBuilder::scan(
-                session.table_reference(&spec.key)?, session.table_source(&spec.key)?, None,
-            ).and_then(LogicalPlanBuilder::build).map_err(engine)?;
+                session.table_reference(&spec.key)?,
+                session.table_source(&spec.key)?,
+                None,
+            )
+            .and_then(LogicalPlanBuilder::build)
+            .map_err(engine)?;
             inputs.insert(spec.id, plan);
         }
     }
-    let Some(plans) = pse_relations::physical::reconcile_units(&inputs, registry).map_err(engine)?
-        else { return Ok(()); };
-    let conflicts = session.prepare_rule_plan(plans.conflicts, cancel)?
-        .execute(cancel).await?;
-    if let Some(batch) = conflicts.batches().iter().find(|batch| batch.num_rows() != 0) {
+    let Some(plans) =
+        pse_relations::physical::reconcile_units(&inputs, registry).map_err(engine)?
+    else {
+        return Ok(());
+    };
+    let conflicts = session
+        .prepare_rule_plan(plans.conflicts, cancel)?
+        .execute(cancel)
+        .await?;
+    if let Some(batch) = conflicts
+        .batches()
+        .iter()
+        .find(|batch| batch.num_rows() != 0)
+    {
         return Err(pse_quantity::QuantityError::Registry {
             rule: "unit_inventory.complete_definition",
             subject: identity(batch, 0, 0)?,
             detail: "native unit inventory found duplicate source keys or incompatible exact definitions".into(),
         }.into());
     }
-    let reference = registry.relation("reference.units")
+    let reference = registry
+        .relation("reference.units")
         .ok_or_else(|| invalid("physical unit declaration disappeared"))?;
     let plan = declare_relation_output(plans.merged, registry, reference).map_err(engine)?;
-    let complete = session.prepare_rule_plan(plan, cancel)?.execute(cancel).await?
+    let complete = session
+        .prepare_rule_plan(plan, cancel)?
+        .execute(cancel)
+        .await?
         .into_checked_relation(registry, reference, cancel)?;
     batches.insert(reference.key, complete);
     Ok(())

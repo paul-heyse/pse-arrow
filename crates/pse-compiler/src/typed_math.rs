@@ -305,11 +305,18 @@ impl Request<'_> {
             .iter()
             .enumerate()
             .map(|(i, expr)| {
-                let value = lower.expression_expected(expr, &mut builder, 0, outputs.get(i).copied())?;
-                match outputs.get(i) { Some(expected) => builder.named_boundary(value, *expected), None => Ok(value) }
+                let value =
+                    lower.expression_expected(expr, &mut builder, 0, outputs.get(i).copied())?;
+                match outputs.get(i) {
+                    Some(expected) => builder.named_boundary(value, *expected),
+                    None => Ok(value),
+                }
             })
             .collect::<Result<Vec<_>, _>>()?;
-        let quantities = values.iter().map(TypedValue::quantity).collect::<Result<Vec<_>, _>>()?;
+        let quantities = values
+            .iter()
+            .map(TypedValue::quantity)
+            .collect::<Result<Vec<_>, _>>()?;
         builder.frame_admissions(&mut lower.hash);
         let admissions = builder.admission_identity();
         let math = Arc::new(builder.prepare(&values)?);
@@ -572,7 +579,11 @@ impl Lower<'_, '_> {
                     rhs,
                     builder,
                     depth + 1,
-                    if additive { left.physical_contract().named_id() } else { None },
+                    if additive {
+                        left.physical_contract().named_id()
+                    } else {
+                        None
+                    },
                 )?;
                 let exponent = if *op == BinaryOp::Pow {
                     literal_exponent(rhs)
@@ -709,12 +720,32 @@ impl Lower<'_, '_> {
                 ));
             };
             let expected = if scheme.is_bound(&substitutions) {
-                Some(scheme.resolve_contract_with_evidence(self.registry, &substitutions, self.checker)
-                    .map_err(|error| MathError::Contract(error.to_string()))?)
-            } else { None };
-            let value = self.expression_expected(expr, builder, depth, expected.as_ref().and_then(|contract| contract.named_id()))?;
-            let value = if let Some(expected) = &expected { builder.contract_boundary(value, expected)? } else { value };
-            scheme.bind_contract_with_evidence(value.physical_contract(), self.registry, &mut substitutions, self.checker)
+                Some(
+                    scheme
+                        .resolve_contract_with_evidence(self.registry, &substitutions, self.checker)
+                        .map_err(|error| MathError::Contract(error.to_string()))?,
+                )
+            } else {
+                None
+            };
+            let value = self.expression_expected(
+                expr,
+                builder,
+                depth,
+                expected.as_ref().and_then(|contract| contract.named_id()),
+            )?;
+            let value = if let Some(expected) = &expected {
+                builder.contract_boundary(value, expected)?
+            } else {
+                value
+            };
+            scheme
+                .bind_contract_with_evidence(
+                    value.physical_contract(),
+                    self.registry,
+                    &mut substitutions,
+                    self.checker,
+                )
                 .map_err(|error| MathError::Contract(error.to_string()))?;
             // A specialized finite reduction is an operation, not a source
             // function argument boundary. Keep its terms in the surrounding
@@ -730,13 +761,29 @@ impl Lower<'_, '_> {
         if let Some(operation) = &f.physical_operation {
             operation.frame(&mut self.hash);
             let body_arguments = operation.body_arguments(&f.arguments);
-            for ((value, (_, original)), (_, consumed)) in arguments.iter_mut().zip(&f.arguments).zip(body_arguments) {
+            for ((value, (_, original)), (_, consumed)) in
+                arguments.iter_mut().zip(&f.arguments).zip(body_arguments)
+            {
                 if original != &consumed {
-                    let target = consumed.quantity_scheme().ok_or_else(|| MathError::Contract("physical operation argument payload must be numerical".into()))?
-                        .resolve_with_evidence(self.registry, &substitutions, self.checker).map_err(|error| MathError::Contract(error.to_string()))?;
-                    let mut identity = FramedHasher::new(pse_ids::Frame::ModelingPhysicalOperationV1);
-                    identity.id(&f.id.as_id()); operation.frame(&mut identity);
-                    let authorization = pse_quantity::AdmittedOutputBoundary::declared(identity.finish_id(), value.physical_contract().clone(), target, self.registry)?;
+                    let target = consumed
+                        .quantity_scheme()
+                        .ok_or_else(|| {
+                            MathError::Contract(
+                                "physical operation argument payload must be numerical".into(),
+                            )
+                        })?
+                        .resolve_with_evidence(self.registry, &substitutions, self.checker)
+                        .map_err(|error| MathError::Contract(error.to_string()))?;
+                    let mut identity =
+                        FramedHasher::new(pse_ids::Frame::ModelingPhysicalOperationV1);
+                    identity.id(&f.id.as_id());
+                    operation.frame(&mut identity);
+                    let authorization = pse_quantity::AdmittedOutputBoundary::declared(
+                        identity.finish_id(),
+                        value.physical_contract().clone(),
+                        target,
+                        self.registry,
+                    )?;
                     *value = builder.authorized_boundary(value.clone(), &authorization)?;
                 }
             }
@@ -968,15 +1015,27 @@ impl Lower<'_, '_> {
                 "runtime function result requires a scalar physical type".into(),
             ));
         };
-        let expected = result.resolve_contract_with_evidence(self.registry, &substitutions, self.checker)
+        let expected = result
+            .resolve_contract_with_evidence(self.registry, &substitutions, self.checker)
             .map_err(|error| MathError::Contract(error.to_string()))?;
         let prior_formula = builder.physical_formula_scope(match &f.physical_operation {
-            Some(pse_modeling::PhysicalOperation::Response { potential: Some(potential), .. }) => {
+            Some(pse_modeling::PhysicalOperation::Response {
+                potential: Some(potential),
+                ..
+            }) => {
                 let mut identity = FramedHasher::new(pse_ids::Frame::ModelingPhysicalOperationV1);
                 identity.id(&f.id.as_id()).id(&potential.as_id());
-                Some(pse_quantity::PhysicalFormulaAuthority::response(identity.finish_id()))
+                Some(pse_quantity::PhysicalFormulaAuthority::response(
+                    identity.finish_id(),
+                ))
             }
-            Some(pse_modeling::PhysicalOperation::Response { potential: None, .. }) => return Err(MathError::Contract("response formula requires its actual reconstructed potential witness".into())),
+            Some(pse_modeling::PhysicalOperation::Response {
+                potential: None, ..
+            }) => {
+                return Err(MathError::Contract(
+                    "response formula requires its actual reconstructed potential witness".into(),
+                ));
+            }
             _ => None,
         });
         let value = if let Some(reduction) = &f.reduction {
@@ -1000,7 +1059,16 @@ impl Lower<'_, '_> {
                 .body
                 .as_ref()
                 .ok_or_else(|| MathError::Contract("function has no selected body".into()))?;
-            self.expression_expected(body, builder, depth, if f.physical_operation.is_some() { None } else { expected.named_id() })
+            self.expression_expected(
+                body,
+                builder,
+                depth,
+                if f.physical_operation.is_some() {
+                    None
+                } else {
+                    expected.named_id()
+                },
+            )
         };
         builder.physical_formula_scope(prior_formula);
         self.locals = saved;
@@ -1017,7 +1085,14 @@ impl Lower<'_, '_> {
             builder.verify_piecewise(scope, &arguments, order)?;
         }
         if let Some(operation) = &f.physical_operation {
-            let authorization = operation.admit_numeric_result(value.physical_contract(), &f.result, self.registry, self.checker, f.id)
+            let authorization = operation
+                .admit_numeric_result(
+                    value.physical_contract(),
+                    &f.result,
+                    self.registry,
+                    self.checker,
+                    f.id,
+                )
                 .map_err(|error| MathError::Contract(error.to_string()))?;
             value = builder.authorized_boundary(value, &authorization)?;
         } else {

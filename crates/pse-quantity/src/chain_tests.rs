@@ -138,15 +138,46 @@ fn anonymous_contracts_retain_factors_until_named_boundary() {
     let registry = builder().build().unwrap();
     let a = ResolvedPhysicalContract::named(q(40), IndexSet::new(), &registry).unwrap();
     let b = ResolvedPhysicalContract::named(q(42), IndexSet::new(), &registry).unwrap();
-    let square = resolved::infer_operation(&OpRequest::Mul, &[a.clone(), a.clone()], None, &registry, &NoInvariantFacts).unwrap();
-    let admitted = resolved::infer_operation(&OpRequest::Mul, &[square.result, b], None, &registry, &NoInvariantFacts).unwrap();
+    let square = resolved::infer_operation(
+        &OpRequest::Mul,
+        &[a.clone(), a.clone()],
+        None,
+        &registry,
+        &NoInvariantFacts,
+    )
+    .unwrap();
+    let admitted = resolved::infer_operation(
+        &OpRequest::Mul,
+        &[square.result, b],
+        None,
+        &registry,
+        &NoInvariantFacts,
+    )
+    .unwrap();
     assert_eq!(admitted.result.named_id(), None);
-    assert_eq!(admitted.result.kind_factors(), &[
-        KindFactor {kind: raw(A).into(), exponent:r(2,1)}, KindFactor {kind:raw(B).into(),exponent:Ratio::ONE},
-    ]);
+    assert_eq!(
+        admitted.result.kind_factors(),
+        &[
+            KindFactor {
+                kind: raw(A).into(),
+                exponent: r(2, 1)
+            },
+            KindFactor {
+                kind: raw(B).into(),
+                exponent: Ratio::ONE
+            },
+        ]
+    );
     assert_eq!(admitted.result.qualified_factors().len(), 2);
     assert!(admitted.result.at_boundary(q(43), &registry).is_err());
-    let completed = resolved::infer_operation(&OpRequest::Div, &[admitted.result, a], None, &registry, &NoInvariantFacts).unwrap();
+    let completed = resolved::infer_operation(
+        &OpRequest::Div,
+        &[admitted.result, a],
+        None,
+        &registry,
+        &NoInvariantFacts,
+    )
+    .unwrap();
     assert_eq!(completed.result.require_named().unwrap(), q(43));
 }
 
@@ -154,50 +185,112 @@ fn anonymous_contracts_retain_factors_until_named_boundary() {
 fn qualified_cancellation_keeps_free_binders_and_refuses_wrong_basis() {
     let mut b = builder();
     let kind = EntityKindId::from_id(raw(70));
-    b.entity_kind(EntityKind {id:kind,name:"component".into()});
-    let mut indexed = ty(48,A,Some(MOLAR),1); indexed.key.shape = vec![kind]; b.quantity_type(indexed);
+    b.entity_kind(EntityKind {
+        id: kind,
+        name: "component".into(),
+    });
+    let mut indexed = ty(48, A, Some(MOLAR), 1);
+    indexed.key.shape = vec![kind];
+    b.quantity_type(indexed);
     let registry = b.build().unwrap();
-    let bound = BoundIndexRef::new(raw(71).into(),raw(72).into(),kind);
+    let bound = BoundIndexRef::new(raw(71).into(), raw(72).into(), kind);
     let indices = IndexSet::try_from_iter([bound]).unwrap();
-    let value = ResolvedPhysicalContract::named(q(48),indices.clone(),&registry).unwrap();
-    let cancelled = resolved::infer_operation(&OpRequest::Div,&[value.clone(),value],None,&registry,&NoInvariantFacts).unwrap();
+    let value = ResolvedPhysicalContract::named(q(48), indices.clone(), &registry).unwrap();
+    let cancelled = resolved::infer_operation(
+        &OpRequest::Div,
+        &[value.clone(), value],
+        None,
+        &registry,
+        &NoInvariantFacts,
+    )
+    .unwrap();
     assert!(cancelled.result.is_pure_number());
-    assert_eq!(cancelled.result.indices(),&indices);
-    assert_eq!(cancelled.result.axes(),&[kind]);
-    assert_eq!(cancelled.result.named_id(),None);
-    let values = [q(40), q(41)].map(|id| ResolvedPhysicalContract::named(id, IndexSet::new(), &registry).unwrap());
-    assert!(resolved::infer_operation(&OpRequest::Div, &values, None, &registry, &NoInvariantFacts).is_err());
-    assert_eq!(resolved::infer_operation(&OpRequest::Div, &[values[0].clone(), values[0].clone()], None, &registry, &NoInvariantFacts).unwrap().result.require_named().unwrap(), q(44));
+    assert_eq!(cancelled.result.indices(), &indices);
+    assert_eq!(cancelled.result.axes(), &[kind]);
+    assert_eq!(cancelled.result.named_id(), None);
+    let values = [q(40), q(41)]
+        .map(|id| ResolvedPhysicalContract::named(id, IndexSet::new(), &registry).unwrap());
+    assert!(
+        resolved::infer_operation(&OpRequest::Div, &values, None, &registry, &NoInvariantFacts)
+            .is_err()
+    );
+    assert_eq!(
+        resolved::infer_operation(
+            &OpRequest::Div,
+            &[values[0].clone(), values[0].clone()],
+            None,
+            &registry,
+            &NoInvariantFacts
+        )
+        .unwrap()
+        .result
+        .require_named()
+        .unwrap(),
+        q(44)
+    );
 }
 
 #[test]
 fn intermediate_coordinates_have_an_explicit_result_scale() {
     let mut b = builder();
-    b.unit(Unit { scale_to_canonical: 1000.0, ..unit(5,"ka",dimension(1,0)) });
-    b.quantity_type(ty(49,A,None,5));
+    b.unit(Unit {
+        scale_to_canonical: 1000.0,
+        ..unit(5, "ka", dimension(1, 0))
+    });
+    b.quantity_type(ty(49, A, None, 5));
     let registry = b.build().unwrap();
-    let left=ResolvedPhysicalContract::named(q(49),IndexSet::new(),&registry).unwrap();
-    let right=ResolvedPhysicalContract::named(q(42),IndexSet::new(),&registry).unwrap();
-    let admitted=resolved::infer_operation(&OpRequest::Mul,&[left,right],Some(q(43)),&registry,&NoInvariantFacts).unwrap();
-    assert_eq!(admitted.result.require_named().unwrap(),q(43));
-    assert_eq!(admitted.result_scale,1000.0);
+    let left = ResolvedPhysicalContract::named(q(49), IndexSet::new(), &registry).unwrap();
+    let right = ResolvedPhysicalContract::named(q(42), IndexSet::new(), &registry).unwrap();
+    let admitted = resolved::infer_operation(
+        &OpRequest::Mul,
+        &[left, right],
+        Some(q(43)),
+        &registry,
+        &NoInvariantFacts,
+    )
+    .unwrap();
+    assert_eq!(admitted.result.require_named().unwrap(), q(43));
+    assert_eq!(admitted.result_scale, 1000.0);
 }
 
 #[test]
 fn scientific_response_sum_requires_scoped_authority_and_retains_both_terms() {
     let mut b = builder();
-    b.kind(kind(80, dimension(1,0))).quantity_type(ty(81,80,Some(MOLAR),1));
-    let registry=b.build().unwrap();
-    let values=[q(40),q(81)].map(|id|ResolvedPhysicalContract::named(id,IndexSet::new(),&registry).unwrap());
-    assert!(resolved::infer_operation(&OpRequest::Add,&values,None,&registry,&NoInvariantFacts).is_err());
-    let authority=PhysicalFormulaAuthority::response(raw(82));
-    let sum=resolved::infer_in_context(&OpRequest::Add,&values,None,&registry,&NoInvariantFacts,Some(&authority)).unwrap();
-    assert_eq!(sum.operands,values);
-    assert_eq!(sum.result.named_id(),None);
-    assert_eq!(sum.result.qualified_factors().len(),2);
-    assert!(sum.result.at_boundary(q(40),&registry).is_err());
-    let wrong=ResolvedPhysicalContract::named(q(41),IndexSet::new(),&registry).unwrap();
-    assert!(resolved::infer_in_context(&OpRequest::Add,&[wrong,values[1].clone()],None,&registry,&NoInvariantFacts,Some(&authority)).is_err());
+    b.kind(kind(80, dimension(1, 0)))
+        .quantity_type(ty(81, 80, Some(MOLAR), 1));
+    let registry = b.build().unwrap();
+    let values = [q(40), q(81)]
+        .map(|id| ResolvedPhysicalContract::named(id, IndexSet::new(), &registry).unwrap());
+    assert!(
+        resolved::infer_operation(&OpRequest::Add, &values, None, &registry, &NoInvariantFacts)
+            .is_err()
+    );
+    let authority = PhysicalFormulaAuthority::response(raw(82));
+    let sum = resolved::infer_in_context(
+        &OpRequest::Add,
+        &values,
+        None,
+        &registry,
+        &NoInvariantFacts,
+        Some(&authority),
+    )
+    .unwrap();
+    assert_eq!(sum.operands, values);
+    assert_eq!(sum.result.named_id(), None);
+    assert_eq!(sum.result.qualified_factors().len(), 2);
+    assert!(sum.result.at_boundary(q(40), &registry).is_err());
+    let wrong = ResolvedPhysicalContract::named(q(41), IndexSet::new(), &registry).unwrap();
+    assert!(
+        resolved::infer_in_context(
+            &OpRequest::Add,
+            &[wrong, values[1].clone()],
+            None,
+            &registry,
+            &NoInvariantFacts,
+            Some(&authority)
+        )
+        .is_err()
+    );
 }
 
 #[test]
@@ -208,52 +301,104 @@ fn canonical_coordinates_reject_affine_storage_and_retain_difference_scale() {
     affine.offset_to_canonical = 10.0;
     affine.is_affine = true;
     let mut invalid = builder();
-    invalid.unit(affine.clone()).quantity_type(ty(86, A, None, 85));
-    assert!(matches!(invalid.build(), Err(QuantityError::Registry { rule: "quantity_type.canonical_unit", .. })));
-    affine.is_affine = false; affine.offset_to_canonical = 0.0;
+    invalid
+        .unit(affine.clone())
+        .quantity_type(ty(86, A, None, 85));
+    assert!(matches!(
+        invalid.build(),
+        Err(QuantityError::Registry {
+            rule: "quantity_type.canonical_unit",
+            ..
+        })
+    ));
+    affine.is_affine = false;
+    affine.offset_to_canonical = 0.0;
     let mut origin = kind(88, dimension(1, 0));
     origin.addition_kind = QuantityAdditionKind::OriginSensitive;
-    b.kind(origin).unit(affine).quantity_type(ty(86, 88, None, 85));
+    b.kind(origin)
+        .unit(affine)
+        .quantity_type(ty(86, 88, None, 85));
     let mut difference = ty(87, 88, None, 1);
     difference.key.scale_kind = ScaleKind::Difference;
     b.quantity_type(difference);
     let registry = b.build().unwrap();
     let point = ResolvedPhysicalContract::named(q(86), IndexSet::new(), &registry).unwrap();
-    let delta = resolved::infer_operation(&OpRequest::Sub, &[point.clone(), point.clone()], None,
-        &registry, &NoInvariantFacts).unwrap();
+    let delta = resolved::infer_operation(
+        &OpRequest::Sub,
+        &[point.clone(), point.clone()],
+        None,
+        &registry,
+        &NoInvariantFacts,
+    )
+    .unwrap();
     assert_eq!(delta.result.require_named().unwrap(), q(87));
     assert_eq!(delta.operand_scales, [2.0, 2.0]);
-    let derivative = resolved::infer_partial(&point, &[point.clone()], &registry, &NoInvariantFacts).unwrap();
+    let derivative =
+        resolved::infer_partial(&point, &[point.clone()], &registry, &NoInvariantFacts).unwrap();
     assert!(derivative.result.is_pure_number());
     assert_eq!(derivative.result_scale, 1.0);
 }
 
 #[test]
 fn unlike_subjects_and_affine_points_cannot_cancel_through_anonymous_algebra() {
-    let mut b=builder();
-    for (n,name) in [(70,"component"),(71,"reaction")] {
-        b.entity_kind(EntityKind{id:raw(n).into(),name:name.into()});
-        let mut value=ty(n+10,A,Some(MOLAR),1);value.key.subject_kind=Some(raw(n).into());b.quantity_type(value);
+    let mut b = builder();
+    for (n, name) in [(70, "component"), (71, "reaction")] {
+        b.entity_kind(EntityKind {
+            id: raw(n).into(),
+            name: name.into(),
+        });
+        let mut value = ty(n + 10, A, Some(MOLAR), 1);
+        value.key.subject_kind = Some(raw(n).into());
+        b.quantity_type(value);
     }
-    b.reference_state(ReferenceState{id:raw(90).into(),name:"datum".into(),kind:ReferenceStateKind::Custom,
-        temperature:None,pressure:None,include_enthalpy_of_formation:false,subject:None});
-    let mut point=ty(91,A,Some(MOLAR),1);point.key.reference_state=Some(raw(90).into());b.quantity_type(point);
-    let registry=b.build().unwrap();
-    for (request, ids) in [(OpRequest::Div, [q(80),q(81)]), (OpRequest::Mul, [q(91),q(42)]), (OpRequest::Div, [q(91),q(40)])] {
-        let values = ids.map(|id| ResolvedPhysicalContract::named(id, IndexSet::new(), &registry).unwrap());
-        assert!(resolved::infer_operation(&request, &values, None, &registry, &NoInvariantFacts).is_err());
+    b.reference_state(ReferenceState {
+        id: raw(90).into(),
+        name: "datum".into(),
+        kind: ReferenceStateKind::Custom,
+        temperature: None,
+        pressure: None,
+        include_enthalpy_of_formation: false,
+        subject: None,
+    });
+    let mut point = ty(91, A, Some(MOLAR), 1);
+    point.key.reference_state = Some(raw(90).into());
+    b.quantity_type(point);
+    let registry = b.build().unwrap();
+    for (request, ids) in [
+        (OpRequest::Div, [q(80), q(81)]),
+        (OpRequest::Mul, [q(91), q(42)]),
+        (OpRequest::Div, [q(91), q(40)]),
+    ] {
+        let values =
+            ids.map(|id| ResolvedPhysicalContract::named(id, IndexSet::new(), &registry).unwrap());
+        assert!(
+            resolved::infer_operation(&request, &values, None, &registry, &NoInvariantFacts)
+                .is_err()
+        );
     }
 }
 
-#[cfg(feature="fixtures")]
+#[cfg(feature = "fixtures")]
 #[test]
 fn registered_refusal_cannot_be_rescued_by_a_derived_kind() {
-    use crate::standard::{StandardInvariantChecker,standard_registry};
-    let registry=standard_registry().unwrap();
-    let cp=QuantityTypeId::from_id(SemanticId::parse_hex("cd653ba98fa94d16b5d66b363f21c3d6").unwrap());
-    let point=QuantityTypeId::from_id(SemanticId::parse_hex("c64b96975a4a59755f8711d3bf628bc9").unwrap());
-    let values = [cp, point].map(|id| ResolvedPhysicalContract::named(id, IndexSet::new(), &registry).unwrap());
-    assert!(resolved::infer_operation(&OpRequest::Mul, &values, None, &registry, &StandardInvariantChecker).is_err());
+    use crate::standard::{StandardInvariantChecker, standard_registry};
+    let registry = standard_registry().unwrap();
+    let cp =
+        QuantityTypeId::from_id(SemanticId::parse_hex("cd653ba98fa94d16b5d66b363f21c3d6").unwrap());
+    let point =
+        QuantityTypeId::from_id(SemanticId::parse_hex("c64b96975a4a59755f8711d3bf628bc9").unwrap());
+    let values = [cp, point]
+        .map(|id| ResolvedPhysicalContract::named(id, IndexSet::new(), &registry).unwrap());
+    assert!(
+        resolved::infer_operation(
+            &OpRequest::Mul,
+            &values,
+            None,
+            &registry,
+            &StandardInvariantChecker
+        )
+        .is_err()
+    );
 }
 #[test]
 fn derived_kinds_are_admitted_acyclic_unique_and_derived() {

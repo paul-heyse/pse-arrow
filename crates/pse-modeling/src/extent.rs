@@ -17,7 +17,9 @@ fn scheme(value: &Scheme) -> usize {
     match value {
         Scheme::Variable(n) => n.capacity(),
         Scheme::Concrete(_) => 0,
-        Scheme::Resolved(contract) => size_of::<pse_quantity::ResolvedPhysicalContract>() + contract.heap_bytes(),
+        Scheme::Resolved(contract) => {
+            size_of::<pse_quantity::ResolvedPhysicalContract>() + contract.heap_bytes()
+        }
         Scheme::Delta(v) | Scheme::Power(v, _) => size_of::<Scheme>() + scheme(v),
         Scheme::Product(a, b) | Scheme::Quotient(a, b) => {
             2 * size_of::<Scheme>() + scheme(a) + scheme(b)

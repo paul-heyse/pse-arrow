@@ -386,7 +386,8 @@ impl CompilerWorkspace {
             self.inputs.quantities.as_ref(),
             self.inputs.preconditions.as_ref(),
         ));
-        let context = TypeContext {formula_authority: None,
+        let context = TypeContext {
+            formula_authority: None,
             quantities,
             preconditions,
             scope,

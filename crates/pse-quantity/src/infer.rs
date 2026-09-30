@@ -6,10 +6,10 @@
 use crate::literal::{LiteralContext, resolve_literal};
 use crate::{
     BoundIndexRef, ConversionId, DimensionVector, EntityKindId, IncompatibilityReason, IndexSet,
-    InvariantId, Opcode, OperationId, QuantityAdditionKind, QuantityError,
-    QuantityOperation, QuantityRegistry, QuantityScaleRule, QuantityShapeRule,
-    QuantityType, QuantityTypeId, QuantityTypeKey, Ratio, ReductionKind, ScaleKind,
-    UnitConvertSpec, UnitId, WeightNormalization, admission, convert_spec_for_type,
+    InvariantId, Opcode, OperationId, QuantityAdditionKind, QuantityError, QuantityOperation,
+    QuantityRegistry, QuantityScaleRule, QuantityShapeRule, QuantityType, QuantityTypeId,
+    QuantityTypeKey, Ratio, ReductionKind, ScaleKind, UnitConvertSpec, UnitId, WeightNormalization,
+    admission, convert_spec_for_type,
 };
 
 /// One ordered operand, including binder identity rather than only index shape.
@@ -293,9 +293,16 @@ pub fn infer_with_evidence(
     registry: &QuantityRegistry,
     checker: &dyn InvariantChecker,
 ) -> Result<Inferred, QuantityError> {
-    let contracts = operands.iter().map(|operand| {
-        crate::ResolvedPhysicalContract::named(operand.quantity_type, operand.indices.clone(), registry)
-    }).collect::<Result<Vec<_>, _>>()?;
+    let contracts = operands
+        .iter()
+        .map(|operand| {
+            crate::ResolvedPhysicalContract::named(
+                operand.quantity_type,
+                operand.indices.clone(),
+                registry,
+            )
+        })
+        .collect::<Result<Vec<_>, _>>()?;
     crate::resolved::infer_operation(request, &contracts, None, registry, checker)?.named_result()
 }
 
@@ -337,7 +344,8 @@ pub(crate) fn infer_named(
             ))
         }
         OpRequest::Mul | OpRequest::Div => Err(invariant(
-            "physical.internal_dispatch", "multiplication must use resolved physical admission",
+            "physical.internal_dispatch",
+            "multiplication must use resolved physical admission",
         )),
         OpRequest::Affine {
             term_signs,
@@ -548,10 +556,16 @@ fn additive(
     registry: &QuantityRegistry,
 ) -> Result<Inferred, QuantityError> {
     let (key, indices) = additive_contract(subtract, operands, registry)?;
-    Ok(built(registry.resolve_key(&key)?, indices, BuiltInRule::Addition))
+    Ok(built(
+        registry.resolve_key(&key)?,
+        indices,
+        BuiltInRule::Addition,
+    ))
 }
 pub(crate) fn additive_contract(
-    subtract: bool, operands: &[Operand<'_>], registry: &QuantityRegistry,
+    subtract: bool,
+    operands: &[Operand<'_>],
+    registry: &QuantityRegistry,
 ) -> Result<(QuantityTypeKey, IndexSet), QuantityError> {
     count(operands, 2)?;
     let left = registry.quantity_type(operands[0].quantity_type)?;
@@ -835,13 +849,22 @@ fn registered(
     checker: &dyn InvariantChecker,
 ) -> Result<Inferred, QuantityError> {
     let admitted = registered_contract(request, operands, registry, checker)?;
-    let result = registry.resolve_key(&admitted.key).map_err(|_| QuantityError::UnregisteredResultType {
-        opcode: request_opcode(request),
-        operation: admitted.operation,
-        requested: format!("kind {} with declared basis/reference/scale/shape/subject", admitted.key.kind),
-    })?;
+    let result =
+        registry
+            .resolve_key(&admitted.key)
+            .map_err(|_| QuantityError::UnregisteredResultType {
+                opcode: request_opcode(request),
+                operation: admitted.operation,
+                requested: format!(
+                    "kind {} with declared basis/reference/scale/shape/subject",
+                    admitted.key.kind
+                ),
+            })?;
     Ok(Inferred {
-        result, indices: admitted.indices, selected: admitted.selected, conversions: admitted.conversions,
+        result,
+        indices: admitted.indices,
+        selected: admitted.selected,
+        conversions: admitted.conversions,
     })
 }
 
@@ -854,10 +877,13 @@ pub(crate) struct RegisteredContract {
 }
 
 pub(crate) fn has_registered(
-    request: &OpRequest<'_>, operands: &[Operand<'_>], registry: &QuantityRegistry,
+    request: &OpRequest<'_>,
+    operands: &[Operand<'_>],
+    registry: &QuantityRegistry,
 ) -> Result<bool, QuantityError> {
     Ok(!match_rules(request, operands, registry, false)?.is_empty()
-        || (matches!(request, OpRequest::Mul) && !match_rules(request, operands, registry, true)?.is_empty()))
+        || (matches!(request, OpRequest::Mul)
+            && !match_rules(request, operands, registry, true)?.is_empty()))
 }
 
 pub(crate) fn registered_contract(
@@ -1312,4 +1338,3 @@ fn smooth(
         )),
     }
 }
-

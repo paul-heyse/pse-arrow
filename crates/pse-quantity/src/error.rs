@@ -121,7 +121,9 @@ pub enum QuantityError {
     },
 
     /// A finite source overflowed its admitted multiply-then-add operation.
-    #[error("nonfinite converted magnitude for quantity `{quantity}` from `{from}` to `{to}`: ({value} * {scale}) + {offset}")]
+    #[error(
+        "nonfinite converted magnitude for quantity `{quantity}` from `{from}` to `{to}`: ({value} * {scale}) + {offset}"
+    )]
     NonfiniteConversion {
         /// Admitted target quantity.
         quantity: QuantityTypeId,
@@ -419,14 +421,20 @@ mod tests {
         );
         assert_eq!(
             code_of(&QuantityError::NonfiniteMagnitude {
-                quantity: id.into(), unit: id.into(), value: f64::NAN,
+                quantity: id.into(),
+                unit: id.into(),
+                value: f64::NAN,
             }),
             Some(pse_diagnostics::DiagnosticCode::CompileMathDomainViolationStatic)
         );
         assert_eq!(
             code_of(&QuantityError::NonfiniteConversion {
-                quantity: id.into(), from: id.into(), to: id.into(),
-                value: f64::MAX, scale: 2.0, offset: 0.0,
+                quantity: id.into(),
+                from: id.into(),
+                to: id.into(),
+                value: f64::MAX,
+                scale: 2.0,
+                offset: 0.0,
             }),
             Some(pse_diagnostics::DiagnosticCode::CompileMathDomainViolationStatic)
         );

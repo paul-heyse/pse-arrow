@@ -208,7 +208,8 @@ fn reference_package_admission_scientific_units() {
     let celsius = atomic("degC");
     assert_eq!(celsius.offset_to_canonical, 273.15);
     let fahrenheit = atomic("degF");
-    let temperature = units.quantity_type(pse_quantity::standard::ids::quantity("temperature.point"))
+    let temperature = units
+        .quantity_type(pse_quantity::standard::ids::quantity("temperature.point"))
         .expect("temperature point");
     let point = pse_quantity::CanonicalConversionPlan::resolved(units, temperature.id, &fahrenheit)
         .expect("point admission");
@@ -216,9 +217,17 @@ fn reference_package_admission_scientific_units() {
     let mut difference_key = temperature.key.clone();
     difference_key.scale_kind = pse_quantity::ScaleKind::Difference;
     let difference = pse_quantity::CanonicalConversionPlan::resolved(
-        units, units.resolve_key(&difference_key).expect("temperature difference"), &fahrenheit,
-    ).expect("difference admission");
-    assert_eq!(difference.apply(18.0).expect("finite difference").value(), 10.0);
+        units,
+        units
+            .resolve_key(&difference_key)
+            .expect("temperature difference"),
+        &fahrenheit,
+    )
+    .expect("difference admission");
+    assert_eq!(
+        difference.apply(18.0).expect("finite difference").value(),
+        10.0
+    );
     let psi = atomic("psig");
     let exact_factor = 0.453_592_37 * 9.806_65 / (0.0254 * 0.0254);
     assert!((psi.scale_to_canonical - exact_factor).abs() < 1e-9);
