@@ -41,8 +41,10 @@ example, which solver owns nonlinear roots). This profile names none.
 
 ## Architecture remains the organizing question
 
-Start with responsibilities, consumed contracts, composition and change scenarios under the
-core foundations. Trace adding a model, replacing an implementation and testing admission or
+Start with modeled phenomena, owned domain operations, responsibilities, consumed contracts,
+composition and change scenarios under the core foundations. AP-04 requires the model to govern
+formulation, evaluation and outcome interpretation, including their contextual bindings and
+invariants; matching result schemas alone cannot satisfy it. Trace adding a model, replacing an implementation and testing admission or
 policy in isolation where they distinguish alternatives. Assess ownership of library state,
 upgrade cost and duplicated workflow decisions. Do not demand a new trait, registry or crate
 merely because a numerical capability has its own name. Scientific correctness and G9 remain

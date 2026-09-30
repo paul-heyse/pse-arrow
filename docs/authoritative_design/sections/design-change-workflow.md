@@ -8,15 +8,20 @@ status: current
 ### 24.4 Architecture review and design-change tracking
 
 > Decision: [ADR-0094](../../adr/0094-architecture-first-design-review.md),
-> [ADR-0096](../../adr/0096-current-rationale-and-selective-retirement.md) (accepted).
+> [ADR-0096](../../adr/0096-current-rationale-and-selective-retirement.md),
+> [ADR-0128](../../adr/0128-semantic-model-first-design.md) (accepted).
 
 The [selected design standard](../../design_review/design_principles/standard.toml) governs
 architecture review. Its core foundations organize assessment around separation of concerns,
-contracts, composition, authoritative meaning, explicit constraints and local reasoning.
+contracts, composition, explicit domain models and scoped semantic authority, constraints and
+local reasoning. Domain modeling is mandatory wherever implementation establishes or interprets
+domain meaning. AP-04/G9 require both model adequacy and behavior governed by owned concept and
+operation contracts; ordinary domain functions can suffice.
 The core and profile own the detailed requirements; this section does not duplicate them.
 
-Reviews start with the functional target, responsibility boundaries and representative change
-scenarios. Architectural fitness and behavioral/scientific adequacy are settled independently;
+Reviews start with the functional target, modeled phenomena and owned domain operations,
+responsibility boundaries and representative change scenarios. Trace those definitions into
+implementation and consumers; domain-named output records alone cannot establish alignment. Architectural fitness and behavioral/scientific adequacy are settled independently;
 passing one does not establish the other. Mechanism-level investigation follows material
 uncertainty. Library eligibility under §3.3.1 remains; integration cost and dependency exposure
 are assessed against the architecture. Internal contracts may evolve deliberately without

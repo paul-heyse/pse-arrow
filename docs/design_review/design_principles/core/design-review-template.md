@@ -1,6 +1,6 @@
 # Design review template
 
-**Version 3.1 · 2026-09-27** · Core layer: repository- and domain-agnostic.
+**Version 3.2 · 2026-09-29** · Core layer: repository- and domain-agnostic.
 The [principles](design-principles.md) define foundations AP-01–AP-06, refinements DP-nn
 and gates G1–G9. Profile additions follow this template's versioned slots.
 
@@ -63,6 +63,9 @@ alternative and assess over-construction from any integration, including library
 Settle **behavioral/semantic adequacy** (G1–G8 and applicable domain gates) and
 **architectural fitness** (G9, supported by the six foundation verdicts) separately.
 Neither substitutes for the other. G8 retains its established library-use meaning.
+Core §1's domain-model MUST is assessed through AP-04 and G9: both model adequacy and
+authoritative realization must hold. Domain-named output records and correct current outputs
+cannot compensate for that gap; deferral does not waive it for supported behavior.
 
 | Situation in the declared scope | Decision |
 |---|---|
@@ -104,22 +107,28 @@ root and which decisions may vary independently. Distinguish an intentional shar
 contract from an incidental backend type. Name the context needed for a safe local change;
 module/file count is not a proxy. Derive observed dependencies from source/manifests rather
 than creating a competing hand-maintained dependency graph.
+Trace phenomenon → authoritative concept or operation → implementation → consumer → expected
+change. Establish that the model captures consequential distinctions and that behavior uses
+its definitions. This trace does not require a new artifact or a fixed implementation layout.
 
 ### 3. Contracts, authority and constraints
 
-| Meaning / contract | Authoritative owner and update path | Consumer obligations / invariant | Enforcement and failure | Derived representations / evolution |
+| Phenomenon, concept or operation / contract | Semantic scope, authoritative owner and update path | Consumer obligations / invariant | Enforcement and failure | Implementation, derived representations / evolution |
 |---|---|---|---|---|
 
 Include identities, absence/outcome states and equivalence only where interpretation depends
 on them. Explain substitution for the capabilities actually consumed, including unsupported
 work and effects. Identify intended specification versus observed implementation explicitly.
+Assess verbs alongside nouns: applicability, inputs, outcomes, state changes, effects and the
+invariants owned by concepts, relationships and operations. Multiple enforcement points may
+share one invariant definition. Ordinary domain functions can supply these contracts.
 
 ### 4. Change scenarios and composition
 
 Give scenarios stable local IDs (`S01`, `S02`, …) so findings and work can cite them. Reference
 an existing scenario definition instead of re-authoring it when its meaning is unchanged.
 
-| Scenario / stimulus and conditions | Expected response and change boundary | Edit/composition path | Observed or predicted impact | Acceptance and evidence |
+| Scenario / stimulus, kind of change and conditions | Expected response and change boundary | Edit/composition path | Observed or predicted impact | Acceptance and evidence |
 |---|---|---|---|---|
 
 Choose the small set that distinguishes the design alternatives. Useful scenarios include an
@@ -127,6 +136,11 @@ ordinary extension, implementation/library replacement, new workflow, representa
 independent test and meaningful contract evolution. For each, identify genuinely new meaning,
 reused primitives, repeated decisions, affected owners and needed context. Add failure/recovery
 journeys when lifecycle is material. No mandatory number of scenarios or numeric change quota.
+Distinguish instances, bindings, compositions, policies, domain concepts and mechanisms; explain
+why edits belong to their semantic owners. In a substantial architecture review, consider both
+a relevant domain extension and mechanism substitution where credible, with a scope reason
+when either does not apply. A bounded review keeps its relevant scenario. Locality does not
+promise inexpensive replacement when the substitute has incompatible capabilities.
 
 ### 5. Mechanisms and execution, where material
 
@@ -146,7 +160,7 @@ noncomputational subsystem need not invent cache, graph or publication requireme
 | AP-01 Separation of concerns | | | |
 | AP-02 Stable contracts | | | |
 | AP-03 Composition | | | |
-| AP-04 Authoritative meaning | | | |
+| AP-04 Domain model and semantic authority | | | |
 | AP-05 Explicit structure | | | |
 | AP-06 Local reasoning/testability | | | |
 

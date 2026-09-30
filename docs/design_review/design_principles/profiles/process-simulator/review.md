@@ -1,6 +1,6 @@
 # Process-simulator review additions
 
-**Version 1.1 · 2026-09-25** · What the [process-simulator profile](principles.md) adds
+**Version 1.2 · 2026-09-29** · What the [process-simulator profile](principles.md) adds
 to each slot of the [core review template](../../core/design-review-template.md). The additions
 sit within the core slots; no slot is added or removed. Everything here applies only where the
 subject touches the behaviour concerned. Architectural foundations and G9 remain visible;
@@ -10,7 +10,7 @@ the numerical detail does not replace decomposition or change-scenario analysis.
 |---|---|
 | 1 Scope | Name the analysis modes in scope (square simulation, optimization, dynamics, estimation) and the simulator workloads considered (principles: *Functional target*). |
 | 2 Decomposition | Distinguish authored physics, property integration, analysis policy, workflow orchestration and result/persistence responsibilities where they occur. |
-| 3 Contracts and authority | A **physical-semantics table** (below). |
+| 3 Contracts and authority | A **physical-semantics table** (below), linked to the owned operations for formulation, evaluation and outcome interpretation. |
 | 3 Contracts | A **well-posedness statement** (below). |
 | 5 Mechanisms and execution | The **numerical stage columns** (below) for every stage that formulates, evaluates or solves. |
 | 4 Change scenarios | The **simulator journeys** (below), selected by relevance. |
@@ -37,6 +37,11 @@ Add to each formulating, evaluating or solving stage:
 |---|---|---|---|---|---|
 
 ## Simulator journeys (slot 4)
+
+Classify each change as an instance, binding, composition, policy, domain concept or mechanism.
+Trace the physical phenomenon through its authoritative concept or operation into consumers;
+assess both model adequacy and authoritative behavior under AP-04/G9. A new case should reuse
+its definition; genuinely new physics may require a contract migration.
 
 | Journey | What to trace |
 |---|---|

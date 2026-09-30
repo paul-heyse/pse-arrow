@@ -12,9 +12,14 @@ calibration cases, not findings about the repository being reviewed.
 Reconstruct the responsibilities and consequential dependency paths. Then trace a small set
 of changes capable of distinguishing the alternatives. A public interface alone does not
 establish a boundary: follow its inputs, outputs, required initialization and consumers.
+Trace the phenomena and authoritative domain operations into behavior. AP-04 requires both
+adequate distinctions and one scoped interpretation; a schema naming domain concepts or a
+single classifier alone establishes neither. Ordinary domain functions can govern behavior.
 
 | Shape | Evidence that makes it reportable | Foundation |
 |---|---|---|
+| Output-only domain model | Records standardize outputs while procedures independently define what they mean; identify the operation and a change requiring repeated semantic edits | AP-04 |
+| Inadequate single authority | A supported domain distinction is collapsed by its one definition; identify the cases and the affected operation or consumer | AP-04/AP-05 |
 | Several independent reasons to change in one owner | Two concrete changes to unrelated policies/representations require editing the same orchestration internals; identify the responsibilities mixed | AP-01 |
 | Implementation mechanics exposed as the contract | A consumer must inspect backend objects or know initialization order to perform a semantic operation; trace the replacement change into that consumer | AP-02 |
 | Workflow duplication | An ordinary new workflow repeats preparation, capability policy or failure translation instead of composing owners; show the repeated decision | AP-03/AP-04 |

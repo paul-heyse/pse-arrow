@@ -66,7 +66,9 @@ sufficient — one to three sentences per section. Cite
 ### Architectural drivers and tracking
 
 For architecture decisions, connect the selected option to concrete change scenarios and
-responsibility boundaries. Compare composition, consumed contracts, local test setup and
+responsibility boundaries. Establish the modeled phenomena, owned operations and how behavior
+realizes them (AP-04); a consistent output schema is insufficient. Compare composition,
+consumed contracts, local test setup and
 integration costs as well as correctness. A new trait, crate or registry is not itself an
 improvement. Use the current review template; keep its architectural and behavioral judgments
 distinct and preserve the scope of each claim.

@@ -1,6 +1,6 @@
 ---
 name: design-review
-description: Review system architecture, a proposed design or an existing code scope for change locality, contracts, composition, authoritative meaning, explicit constraints and local reasoning. Apply the repository's layered standard, including scientific profiles where relevant. Use for architecture/design reviews, modularity or testability assessments, and library-integration tradeoffs; ordinary implementation does not itself request a review.
+description: Review system architecture, a proposed design or an existing code scope for change locality, contracts, composition, explicit domain models and semantic authority, constraints and local reasoning. Apply the repository's layered standard, including scientific profiles where relevant. Use for architecture/design reviews, modularity or testability assessments, and library-integration tradeoffs; ordinary implementation does not itself request a review.
 allowed-tools: Read, Glob, Grep, Bash, Write, Edit, Agent
 user-invocable: true
 model-baseline: claude-5 (2026-08)
@@ -41,15 +41,21 @@ suppliers and consumers needed to reason about the boundary; state exclusions. F
 depth, not the obligation to report a material defect found outside the focus.
 
 For design tier, start with the target, architectural drivers and credible variation axes.
-Establish responsibility boundaries, hidden decisions, dependency direction and consumed
-contracts. Trace representative changes and test setup before investigating detailed mechanisms.
+Establish the domain phenomena, consequential distinctions and owned operations, then their
+responsibility boundaries, hidden decisions, dependency direction and consumed contracts.
+Trace phenomenon → authoritative concept or operation → implementation → consumer → expected
+change. Domain-named output records alone do not establish alignment. Trace representative
+changes and test setup before investigating detailed mechanisms.
 A change review can compress that reasoning to its affected scenario and foundations.
 
 ## What to establish
 
 - **Architecture:** verdicts for the applicable foundations, grounded in responsibilities,
   contracts, composition and change scenarios. Name the context and dependencies needed to
-  modify or test a component. G9 follows these verdicts without averaging.
+  modify or test a component. AP-04 requires both model adequacy and behavior governed by its
+  semantic authorities; a centralized but inadequate definition is insufficient. G9 follows
+  these verdicts without averaging, even when current outputs are correct. Deferral cannot
+  waive a domain-model MUST for supported behavior.
 - **Behavior:** settle each applicable core/profile gate on its own evidence. Preserve physical
   and numerical requirements when the subject touches them. A missing mechanism is unresolved,
   not a pass. Successful tests do not establish unexamined architectural qualities.
@@ -77,8 +83,12 @@ infrastructure to test; two authorities diverging; a rewrite, cache or retry cha
 The reference and domain skills give conditional mechanisms to investigate. Do not force every
 review into a cache, graph, registry or publication analysis.
 
-Distinguish a new core concept from an ordinary extension. Multiple files or a substantial
-module do not establish entanglement. A specification and its implementation serve different
+Classify changes as instances, bindings, compositions, policies, domain concepts or mechanisms.
+In a substantial architecture review, consider a relevant domain extension and mechanism
+substitution where credible; give a scope reason when either does not apply. A bounded review
+keeps its relevant scenario. Ordinary domain functions can supply operation contracts; a registry
+or serializable instruction model is not required. Multiple files or a substantial module do
+not establish entanglement. A specification and its implementation serve different
 roles; reconcile disagreement instead of treating their coexistence as duplication. Independent
 oracles may deliberately use a different representation.
 

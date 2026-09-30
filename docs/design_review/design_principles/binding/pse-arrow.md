@@ -11,6 +11,8 @@ authority disagree, the cited authority wins and this page is corrected.
 [`standard.toml`](../standard.toml) owns the selected versions and paths. Read the core
 principles/template and applicable profile from that declaration; this binding does not copy
 the version values. The core's version-transition table preserves historical DP/G references.
+AP-04/G9 require an adequate, explicit domain model that governs behavior, independently of
+the remaining architectural and scientific judgments (ADR-0128; blueprint §24.4).
 
 ## Reviews in this repository
 
