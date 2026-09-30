@@ -66,8 +66,9 @@ disposition = "mapped"
 origin_role = "fitted"
 
 [tables.curves.partitions.constants]
-"envelope.axis" = "temperature"
-"envelope.kind" = "fitted_range"
+"validity_region.kind" = "fitted_range"
+"region_clause.observable" = "temperature"
+"region_clause.lower" = { value = 250.0, unit = "K" }
 
 [tables.curves.partitions.derivation]
 kind = "fit"

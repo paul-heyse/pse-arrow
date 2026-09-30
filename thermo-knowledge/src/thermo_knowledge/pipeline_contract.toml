@@ -7,7 +7,7 @@ The shape of the declaration that the pipeline's stage code depends on (meta-mod
 Stage code writes and reads canonical rows of these kinds and relations by name: the canonical
 writer creates a carrier's provenance rows and computes the text keys that restate references,
 resolution writes species and source entities, the mapping framework writes derivations,
-coverage and held rows, and qualification writes runs and reads envelopes. The declaration
+coverage and held rows, and qualification writes runs and reads validity regions. The declaration
 loader compares the loaded declaration with this file and refuses a mismatch with a located
 diagnostic (code `pipeline-contract`). The code takes every name from
 `thermo_knowledge.pipeline_contract`, which reads this file, so a name it uses that this file
@@ -143,12 +143,21 @@ schema = "prov"
 extends = "derivation"
 attributes.outcome = { type = "fit_outcome" }
 
-[kinds.envelope]
+[kinds.validity_region]
 schema = "tk"
-identity = ["parameter_set", "axis", "kind"]
-attributes.parameter_set = { type = "parameter_set" }
-attributes.axis = { type = "observable" }
+identity = ["record", "kind", "ordinal"]
+attributes.record = { type = "Record" }
 attributes.kind = { type = "envelope_kind" }
+attributes.ordinal = { type = "Integer" }
+
+[kinds.region_clause]
+schema = "tk"
+identity = ["region", "ordinal"]
+attributes.region = { type = "validity_region" }
+attributes.ordinal = { type = "Integer" }
+attributes.observable = { type = "observable" }
+attributes.component = { type = "material_entity", optional = true }
+attributes.aggregation = { type = "aggregation", optional = true }
 attributes.lower = { type = "Real", optional = true }
 attributes.upper = { type = "Real", optional = true }
 
@@ -288,6 +297,10 @@ attributes.absolute_tolerance = { type = "Real", optional = true }
 attributes.worst_relative_deviation = { type = "Scalar", optional = true }
 attributes.blocked_reason = { type = "blocked_reason", optional = true }
 attributes.note = { type = "Text", optional = true }
+attributes.validity_kind = { type = "envelope_kind", optional = true }
+attributes.inside_points = { type = "Integer", optional = true }
+attributes.outside_points = { type = "Integer", optional = true }
+attributes.undetermined_points = { type = "Integer", optional = true }
 
 [kinds.standard_state]
 schema = "tk"
@@ -346,6 +359,12 @@ schema = "tk"
 keys.source_entity = { type = "source_entity" }
 keys.candidate = { type = "material_entity" }
 
+[relations.validity_coverage]
+schema = "tk"
+keys.record = { type = "Record" }
+keys.kind = { type = "envelope_kind" }
+columns.value = { type = "validity_coverage_state" }
+
 [relations.run_parameter_set]
 schema = "qual"
 keys.run = { type = "qualification_run" }
@@ -377,6 +396,9 @@ members = ["fit"]
 [enums.comparison_basis]
 
 [enums.envelope_kind]
+
+[enums.validity_coverage_state]
+members = ["stated", "not_stated"]
 
 [enums.run_outcome]
 members = ["passed", "failed", "blocked"]

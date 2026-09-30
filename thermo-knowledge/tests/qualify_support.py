@@ -73,6 +73,8 @@ class World:
     """The saturation set of each fluid."""
     repeated: dict[str, uuid.UUID]
     """The sets of the parameterization `sat_twice`, by `<fluid>#<occurrence>`."""
+    regional: dict[str, uuid.UUID]
+    """The sets of the parameterization `sat_regions`, which states validity in every shape."""
 
 
 def species_key(name: str) -> str:
@@ -130,15 +132,11 @@ def write_world(
             origins=[published],
         )
         low, high = fluid["range"]  # type: ignore[misc]
-        w.kind(
-            "envelope",
-            {
-                "parameter_set": sets[name],
-                "axis": temperature.id,
-                "kind": "fitted_range",
-                "lower": Quantity(low, "K"),
-                "upper": Quantity(high, "K"),
-            },
+        w.validity_region(
+            sets[name],
+            {"kind": "fitted_range"},
+            [{"observable": temperature.id, "lower": Quantity(low, "K"), "upper": Quantity(high, "K")}],
+            origins=[published],
         )
     world["sets"] = sets
     # A parameterization that asserts the saturation set of sp-a twice: occurrence 1 as `sat` has
@@ -172,17 +170,78 @@ def write_world(
         )
         repeated[f"{name}#{occurrence}"] = identifier
         low, high = fluid["range"]  # type: ignore[misc]
-        w.kind(
-            "envelope",
-            {
-                "parameter_set": identifier,
-                "axis": temperature.id,
-                "kind": "fitted_range",
-                "lower": Quantity(low, "K"),
-                "upper": Quantity(high, "K"),
-            },
+        w.validity_region(
+            identifier,
+            {"kind": "fitted_range"},
+            [{"observable": temperature.id, "lower": Quantity(low, "K"), "upper": Quantity(high, "K")}],
+            origins=[published],
         )
     world["repeated"] = repeated
+    # A parameterization that states validity in every shape a source may: two alternative regions
+    # (sp-a), one region of two clauses, on temperature and pressure (sp-b), a region whose only clause
+    # is about a component (sp-c), and a kind of region that no set has a statement for.
+    regional_pz = w.kind(
+        "parameterization",
+        {
+            "key": "sat_regions",
+            "revision": PIN,
+            "title": "Saturation, with validity regions",
+            "coherence": "independent_records",
+        },
+        origins=[published],
+    )
+    pressure = decl.observable_entity("pressure")
+    density = decl.observable_entity("molar_density")
+    assert pressure is not None and density is not None
+    regional: dict[str, uuid.UUID] = {}
+    for name, fluid in FLUIDS.items():
+        regional[name] = w.parameter_set(
+            parameterization=regional_pz,
+            slot_group=SATURATION,
+            subjects=[species[name]],
+            slots={"T_r": Quantity(fluid["T_r"], "K"), "p_r": Quantity(fluid["p_r"], "Pa")},  # type: ignore[arg-type]
+            families={
+                "term": [
+                    FamilyRow({"k": k}, {"n": n, "t": t})
+                    for k, (n, t) in enumerate(zip(fluid["n"], fluid["t"]), 1)  # type: ignore[arg-type]
+                ]
+            },
+            origins=[published],
+        )
+        w.validity_not_stated(regional[name], "recommended_range", at="b.json#/0")
+
+    def clause(observable: uuid.UUID, low: float, high: float, unit: str, **extra: object) -> dict[str, object]:
+        return {
+            "observable": observable,
+            "lower": Quantity(low, unit),
+            "upper": Quantity(high, unit),
+            **extra,
+        }
+
+    fitted = {"kind": "fitted_range"}
+    w.validity_region(
+        regional["sp-a"], fitted, [clause(temperature.id, 250.0, 300.0, "K")], origins=[published]
+    )
+    w.validity_region(
+        regional["sp-a"],
+        fitted,
+        [clause(temperature.id, 350.0, 399.0, "K")],
+        origins=[published],
+        ordinal=2,
+    )
+    w.validity_region(
+        regional["sp-b"],
+        fitted,
+        [clause(temperature.id, 300.0, 519.0, "K"), clause(pressure.id, 1.0, 100.0, "bar")],
+        origins=[published],
+    )
+    w.validity_region(
+        regional["sp-c"],
+        fitted,
+        [clause(density.id, 0.0, 5000.0, "mol/m^3", component=species["sp-c"])],
+        origins=[published],
+    )
+    world["regional"] = regional
     # A pair form: pure weights and terms, a symmetric pair with a nested function, a shift.
     qfix = w.kind(
         "parameterization",
@@ -271,7 +330,9 @@ def build_world(canonical: Path, decl: Declaration, database_url: str) -> World:
         declaration=fingerprint(decl),
     )
     build_database(database_url, decl, inputs_of(canonical))
-    return World(decl, canonical, made["species"], made["sets"], made["repeated"])
+    return World(
+        decl, canonical, made["species"], made["sets"], made["repeated"], made["regional"]
+    )
 
 
 def case_text(
@@ -280,13 +341,15 @@ def case_text(
     extra_comparison: str = "",
     call: str = "ok",
     subjects: str = 'select = "all"',
-    argument: str = 'points = 5\nwithin = "envelope"\nobservable = "temperature"\ninset = 0.0',
+    argument: str = 'points = 5\nwithin = "envelope"\ninset = 0.0',
     revision: str = "{pin}",
     library: str = "fake",
     key: str = "sat",
     occurrence: int | None = None,
+    validity: str = "",
 ) -> str:
-    """A case of the saturation form against the fake harness."""
+    """A case of the saturation form against the fake harness; `validity` is the text of a
+    `[validity]` table."""
     carrier_line = 'carrier = "src"\n' if "{pin}" in revision else ""
     carrier_line += f"occurrence = {occurrence}\n" if occurrence is not None else ""
     return f"""
@@ -318,4 +381,6 @@ relative_tolerance = {tolerance}
 library = "{library}"
 environment = "core"
 call = "{call}"
+
+{validity}
 """

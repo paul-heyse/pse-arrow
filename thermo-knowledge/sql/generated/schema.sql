@@ -77,7 +77,7 @@ COMMENT ON TYPE "meta"."dataless_node_rule" IS 'What an estimator does at a node
 CREATE TYPE "meta"."dataset_kind" AS ENUM ('measured', 'evaluated', 'computed', 'verification');
 COMMENT ON TYPE "meta"."dataset_kind" IS 'What the values of a dataset are.';
 
-CREATE TYPE "meta"."datum_state" AS ENUM ('known', 'not_measured', 'censored');
+CREATE TYPE "meta"."datum_state" AS ENUM ('known', 'not_measured', 'censored_below', 'censored_above');
 COMMENT ON TYPE "meta"."datum_state" IS 'Whether a point has a value in a column.';
 
 CREATE TYPE "meta"."dependency_kind" AS ENUM ('fitted_given', 'estimated_from', 'consistent_with');
@@ -99,7 +99,7 @@ CREATE TYPE "meta"."entropy_datum" AS ENUM ('third_law', 'zero_at_state', 'conve
 COMMENT ON TYPE "meta"."entropy_datum" IS 'What fixes the zero of entropy.';
 
 CREATE TYPE "meta"."envelope_kind" AS ENUM ('fitted_range', 'recommended_range', 'validated_range');
-COMMENT ON TYPE "meta"."envelope_kind" IS 'What a stated range of applicability represents.';
+COMMENT ON TYPE "meta"."envelope_kind" IS 'What a stated region of applicability represents.';
 
 CREATE TYPE "meta"."equivalence_level" AS ENUM ('exact', 'within_rounding', 'equal_under_conversion', 'conflicting');
 COMMENT ON TYPE "meta"."equivalence_level" IS 'How two records that claim the same primary fact compare.';
@@ -155,6 +155,9 @@ COMMENT ON TYPE "meta"."purity_basis" IS 'The basis of a stated purity.';
 CREATE TYPE "meta"."reference_relation" AS ENUM ('absolute', 'standard', 'excess', 'residual_tv', 'residual_tp', 'mixing', 'formation', 'increment');
 COMMENT ON TYPE "meta"."reference_relation" IS 'What an observable''s value is relative to.';
 
+CREATE TYPE "meta"."reference_state_kind" AS ENUM ('reference_phase_fixed_tp', 'reference_phase_same_tp', 'reference_phase_fixed_t_same_p', 'reference_phase_same_t_fixed_p', 'ideal_gas_same_density', 'ideal_mixture_same_density', 'equilibrium_phase_same_tp', 'pure_components_fixed_tp', 'pure_components_same_tp', 'pure_solvent_equilibrium_temperature', 'pure_solvent_same_tp', 'pure_solute_same_tp');
+COMMENT ON TYPE "meta"."reference_state_kind" IS 'What the reference state of a difference or ratio is. Where it is given, `same` conditions are those of the state point the value is reported at, and `fixed` conditions are stated on the column.';
+
 CREATE TYPE "meta"."resolution_rule" AS ENUM ('curated', 'structural', 'registry', 'formula_scope', 'composition', 'provisional');
 COMMENT ON TYPE "meta"."resolution_rule" IS 'Which rule decided the resolution of a source entity.';
 
@@ -191,8 +194,14 @@ COMMENT ON TYPE "meta"."temperature_scale" IS 'The practical temperature scale d
 CREATE TYPE "meta"."unasserted_policy" AS ENUM ('refuse', 'named_rule', 'stated_default');
 COMMENT ON TYPE "meta"."unasserted_policy" IS 'What a selection policy does when no set is asserted for a required subject.';
 
-CREATE TYPE "meta"."uncertainty_kind" AS ENUM ('standard', 'expanded', 'relative', 'interval', 'exact', 'not_stated');
-COMMENT ON TYPE "meta"."uncertainty_kind" IS 'What an uncertainty magnitude means.';
+CREATE TYPE "meta"."uncertainty_kind" AS ENUM ('standard', 'expanded', 'combined_standard', 'combined_expanded', 'relative', 'interval', 'repeatability_single_biased', 'repeatability_single_unbiased', 'repeatability_of_mean', 'repeatability_other', 'device_specification', 'curve_deviation', 'relative_curve_deviation', 'exact', 'not_stated');
+COMMENT ON TYPE "meta"."uncertainty_kind" IS 'What an uncertainty magnitude means. The facets state what a magnitude of each kind is: a rule that depends on them reads them, never the names of members.';
+
+CREATE TYPE "meta"."validity_coverage_state" AS ENUM ('stated', 'not_stated');
+COMMENT ON TYPE "meta"."validity_coverage_state" IS 'Whether a source states any region of one kind for a record.';
+
+CREATE TYPE "meta"."value_presentation" AS ENUM ('direct', 'difference_between_temperatures', 'difference_between_pressures', 'mean_between_temperatures', 'difference_from_reference', 'ratio_to_reference', 'relative_difference_from_reference');
+COMMENT ON TYPE "meta"."value_presentation" IS 'How a reported number relates to the property its column is about: the property itself, or a difference, mean or ratio formed from it. The facets state what a presentation needs.';
 
 CREATE TYPE "meta"."value_state" AS ENUM ('known', 'not_applicable', 'redirect', 'withheld');
 COMMENT ON TYPE "meta"."value_state" IS 'Whether a slot holds a value and, if not, why. Missing is not a state: it is the absence of a set.';
@@ -815,6 +824,7 @@ CREATE TABLE "meta"."contract_argument" (
     "element_kind" text NOT NULL,
     "element" text NOT NULL,
     "basis" uuid,
+    "observable" uuid,
     "doc" text NOT NULL,
     CONSTRAINT "contract_argument__pk" PRIMARY KEY ("contract", "name"),
     CONSTRAINT "contract_argument__uq__contract_position" UNIQUE ("contract", "position"),
@@ -829,6 +839,7 @@ COMMENT ON COLUMN "meta"."contract_argument"."container" IS 'How the type holds 
 COMMENT ON COLUMN "meta"."contract_argument"."element_kind" IS 'What the element is: primitive, quantity, enum, kind and so on.';
 COMMENT ON COLUMN "meta"."contract_argument"."element" IS 'The element: a type, scheme, enum or kind name, an expression or a Meta construct.';
 COMMENT ON COLUMN "meta"."contract_argument"."basis" IS 'For a composition: the declared composition basis entity its values are on (its identifier).';
+COMMENT ON COLUMN "meta"."contract_argument"."observable" IS 'The declared observable entity the argument is a value of (its identifier).';
 COMMENT ON COLUMN "meta"."contract_argument"."doc" IS 'What the argument is.';
 
 CREATE TABLE "meta"."contract_argument_set" (
@@ -1475,6 +1486,12 @@ CREATE TABLE "ev"."dataset_column" (
     "composition_basis" uuid,
     "standard_state" uuid,
     "constant" "meta"."finite_real",
+    "constant_digits" bigint,
+    "presentation" "meta"."value_presentation" NOT NULL DEFAULT 'direct',
+    "reference_state_kind" "meta"."reference_state_kind",
+    "reference_temperature" "meta"."temperature",
+    "reference_pressure" "meta"."pressure",
+    "reference_phase" uuid,
     "source_name" text,
     CONSTRAINT "dataset_column__pk" PRIMARY KEY ("id"),
     CONSTRAINT "dataset_column__identity" UNIQUE ("dataset", "ordinal")
@@ -1491,6 +1508,12 @@ COMMENT ON COLUMN "ev"."dataset_column"."second_phase" IS 'The other phase, for 
 COMMENT ON COLUMN "ev"."dataset_column"."composition_basis" IS 'The basis, for a composition column.';
 COMMENT ON COLUMN "ev"."dataset_column"."standard_state" IS 'The standard state, for a standard-state observable.';
 COMMENT ON COLUMN "ev"."dataset_column"."constant" IS 'The value of a constraint column, in the observable''s storage unit.';
+COMMENT ON COLUMN "ev"."dataset_column"."constant_digits" IS 'Number of significant digits the source reports for the constant of a constraint column.';
+COMMENT ON COLUMN "ev"."dataset_column"."presentation" IS 'How the column''s numbers relate to the property: the property itself, or a difference, mean or ratio formed from it.';
+COMMENT ON COLUMN "ev"."dataset_column"."reference_state_kind" IS 'What the reference state is, for a column presented relative to one.';
+COMMENT ON COLUMN "ev"."dataset_column"."reference_temperature" IS 'The temperature of the reference state, where the kind fixes one.';
+COMMENT ON COLUMN "ev"."dataset_column"."reference_pressure" IS 'The pressure of the reference state, where the kind fixes one.';
+COMMENT ON COLUMN "ev"."dataset_column"."reference_phase" IS 'The phase of the reference state, where the kind names one.';
 COMMENT ON COLUMN "ev"."dataset_column"."source_name" IS 'The column''s name or property string in the source. Retained; nothing branches on it.';
 
 CREATE TABLE "ev"."dataset_component" (
@@ -1547,7 +1570,7 @@ CREATE TABLE "prov"."derivation" (
     CONSTRAINT "derivation__pk" PRIMARY KEY ("id"),
     CONSTRAINT "derivation__identity" UNIQUE ("key")
 );
-COMMENT ON TABLE "prov"."derivation" IS 'An activity that produced records from other records. Lineage is acyclic.';
+COMMENT ON TABLE "prov"."derivation" IS 'An activity that produced records from other records.';
 COMMENT ON COLUMN "prov"."derivation"."id" IS 'Deterministic identifier of the derivation instance.';
 COMMENT ON COLUMN "prov"."derivation"."key" IS 'Stable key assigned by the mapping that records the derivation.';
 COMMENT ON COLUMN "prov"."derivation"."kind" IS 'What kind of activity it was.';
@@ -1604,32 +1627,13 @@ COMMENT ON COLUMN "tk"."energy_reference"."temperature" IS 'Reference temperatur
 COMMENT ON COLUMN "tk"."energy_reference"."pressure" IS 'Reference pressure of the datum.';
 COMMENT ON COLUMN "tk"."energy_reference"."state" IS 'The named state of a zero-at-state datum, as the source describes it.';
 
-CREATE TABLE "tk"."envelope" (
-    "id" uuid NOT NULL,
-    "parameter_set" uuid NOT NULL,
-    "axis" uuid NOT NULL,
-    "kind" "meta"."envelope_kind" NOT NULL,
-    "lower" "meta"."finite_real",
-    "upper" "meta"."finite_real",
-    CONSTRAINT "envelope__pk" PRIMARY KEY ("id"),
-    CONSTRAINT "envelope__identity" UNIQUE ("parameter_set", "axis", "kind"),
-    CONSTRAINT "envelope__ck__bounds_ordered" CHECK ("lower" <= "upper")
-);
-COMMENT ON TABLE "tk"."envelope" IS 'Where a parameter set applies, along one observable. This is scientific applicability; it is not a numerical bound and not a piece interval.';
-COMMENT ON COLUMN "tk"."envelope"."id" IS 'Deterministic identifier of the envelope instance.';
-COMMENT ON COLUMN "tk"."envelope"."parameter_set" IS 'The set.';
-COMMENT ON COLUMN "tk"."envelope"."axis" IS 'The observable the range is along.';
-COMMENT ON COLUMN "tk"."envelope"."kind" IS 'What the range represents.';
-COMMENT ON COLUMN "tk"."envelope"."lower" IS 'Lower bound in the axis observable''s storage unit; absent when unbounded below.';
-COMMENT ON COLUMN "tk"."envelope"."upper" IS 'Upper bound in the axis observable''s storage unit; absent when unbounded above.';
-
 CREATE TABLE "prov"."fit" (
     "id" uuid NOT NULL,
     "objective" text,
     "outcome" "meta"."fit_outcome" NOT NULL,
     CONSTRAINT "fit__pk" PRIMARY KEY ("id")
 );
-COMMENT ON TABLE "prov"."fit" IS 'A regression of parameters against evidence. A failed fit produces no selected parameter set.';
+COMMENT ON TABLE "prov"."fit" IS 'A regression of parameters against evidence.';
 COMMENT ON COLUMN "prov"."fit"."id" IS 'Deterministic identifier of the fit instance.';
 COMMENT ON COLUMN "prov"."fit"."objective" IS 'The objective function as the source describes it.';
 COMMENT ON COLUMN "prov"."fit"."outcome" IS 'How the fit ended.';
@@ -1704,7 +1708,7 @@ COMMENT ON COLUMN "qual"."held_row"."id" IS 'Deterministic identifier of the hel
 COMMENT ON COLUMN "qual"."held_row"."manifest_id" IS 'The source.';
 COMMENT ON COLUMN "qual"."held_row"."source_table" IS 'The source-faithful table.';
 COMMENT ON COLUMN "qual"."held_row"."locator" IS 'The row''s locator.';
-COMMENT ON COLUMN "qual"."held_row"."state" IS '`held` or `unmapped`.';
+COMMENT ON COLUMN "qual"."held_row"."state" IS 'The state the row ended in.';
 COMMENT ON COLUMN "qual"."held_row"."reason" IS 'Why it was not loaded.';
 COMMENT ON COLUMN "qual"."held_row"."detail" IS 'The reason in words: what about this row led to it.';
 
@@ -2056,6 +2060,10 @@ CREATE TABLE "qual"."qualification_run" (
     "worst_relative_deviation" "meta"."scalar",
     "blocked_reason" "meta"."blocked_reason",
     "note" text,
+    "validity_kind" "meta"."envelope_kind",
+    "inside_points" bigint,
+    "outside_points" bigint,
+    "undetermined_points" bigint,
     CONSTRAINT "qualification_run__pk" PRIMARY KEY ("id"),
     CONSTRAINT "qualification_run__identity" UNIQUE ("key"),
     CONSTRAINT "qualification_run__ck__blocked_reason_iff_blocked" CHECK (("blocked_reason" IS NOT NULL) = ("outcome"::text IN ('blocked')))
@@ -2075,6 +2083,10 @@ COMMENT ON COLUMN "qual"."qualification_run"."absolute_tolerance" IS 'Declared a
 COMMENT ON COLUMN "qual"."qualification_run"."worst_relative_deviation" IS 'Largest relative deviation observed.';
 COMMENT ON COLUMN "qual"."qualification_run"."blocked_reason" IS 'Why a blocked run could not be carried out; present exactly when the outcome is `blocked`.';
 COMMENT ON COLUMN "qual"."qualification_run"."note" IS 'The detail of a blocked run''s reason, or what the domain excluded.';
+COMMENT ON COLUMN "qual"."qualification_run"."validity_kind" IS 'The kind of validity region the counts of points below are taken against; stated by a case that names one.';
+COMMENT ON COLUMN "qual"."qualification_run"."inside_points" IS 'Grid points that lay inside a region of that kind on every record the evaluation read that states one.';
+COMMENT ON COLUMN "qual"."qualification_run"."outside_points" IS 'Grid points that lay outside one, including those a case excluded for it.';
+COMMENT ON COLUMN "qual"."qualification_run"."undetermined_points" IS 'Grid points a region of that kind could not decide, because a clause is about a component or a phase or limits an observable no argument of the contract names.';
 
 CREATE TABLE "tk"."reaction" (
     "id" uuid NOT NULL,
@@ -2090,6 +2102,30 @@ COMMENT ON COLUMN "tk"."reaction"."canonical_key" IS 'Canonical encoding of the 
 COMMENT ON COLUMN "tk"."reaction"."extent" IS 'How the stoichiometry is normalised.';
 COMMENT ON COLUMN "tk"."reaction"."equation" IS 'The reaction as the source writes it. Retained; nothing branches on it.';
 
+CREATE TABLE "tk"."region_clause" (
+    "id" uuid NOT NULL,
+    "region" uuid NOT NULL,
+    "ordinal" bigint NOT NULL,
+    "observable" uuid NOT NULL,
+    "component" uuid,
+    "aggregation" uuid,
+    "lower" "meta"."finite_real",
+    "upper" "meta"."finite_real",
+    CONSTRAINT "region_clause__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "region_clause__identity" UNIQUE ("region", "ordinal"),
+    CONSTRAINT "region_clause__ck__ordinal_from_one" CHECK ("ordinal" > 0),
+    CONSTRAINT "region_clause__ck__bounds_ordered" CHECK ("lower" <= "upper")
+);
+COMMENT ON TABLE "tk"."region_clause" IS 'One condition of a validity region: an interval of one observable, about the whole record or, through a component or an aggregation, about one component or one phase of it.';
+COMMENT ON COLUMN "tk"."region_clause"."id" IS 'Deterministic identifier of the region_clause instance.';
+COMMENT ON COLUMN "tk"."region_clause"."region" IS 'The region the clause belongs to.';
+COMMENT ON COLUMN "tk"."region_clause"."ordinal" IS 'Position among the clauses of the region, from one.';
+COMMENT ON COLUMN "tk"."region_clause"."observable" IS 'The axis the clause limits: the observable of a condition such as temperature or pressure, or of a composition or a partial quantity.';
+COMMENT ON COLUMN "tk"."region_clause"."component" IS 'The component the clause is about, for a composition or a partial quantity.';
+COMMENT ON COLUMN "tk"."region_clause"."aggregation" IS 'The aggregation whose phase the clause is about.';
+COMMENT ON COLUMN "tk"."region_clause"."lower" IS 'Lower bound in the observable''s storage unit; absent when the clause has no lower limit.';
+COMMENT ON COLUMN "tk"."region_clause"."upper" IS 'Upper bound in the observable''s storage unit; absent when the clause has no upper limit.';
+
 CREATE TABLE "tk"."resolved_snapshot" (
     "id" uuid NOT NULL,
     "key" text NOT NULL,
@@ -2099,7 +2135,7 @@ CREATE TABLE "tk"."resolved_snapshot" (
     CONSTRAINT "resolved_snapshot__pk" PRIMARY KEY ("id"),
     CONSTRAINT "resolved_snapshot__identity" UNIQUE ("key", "revision")
 );
-COMMENT ON TABLE "tk"."resolved_snapshot" IS 'The frozen result of applying a selection policy to a model assembly and a set of entities: exactly one value per required slot and subject, every dependency satisfied or waived, conventions compatible, and no record whose rights forbid the use. It is the boundary between this open-world store and a closed-world package.';
+COMMENT ON TABLE "tk"."resolved_snapshot" IS 'The frozen result of applying a selection policy to a model assembly and a set of entities. The snapshot export, a later packet, establishes for it exactly one value per required slot and subject, every dependency of the selected sets satisfied or waived, compatible conventions and no record whose rights forbid the use. It is the boundary between this open-world store and a closed-world package.';
 COMMENT ON COLUMN "tk"."resolved_snapshot"."id" IS 'Deterministic identifier of the resolved_snapshot instance.';
 COMMENT ON COLUMN "tk"."resolved_snapshot"."key" IS 'Stable key.';
 COMMENT ON COLUMN "tk"."resolved_snapshot"."revision" IS 'Revision.';
@@ -2130,7 +2166,7 @@ COMMENT ON COLUMN "prov"."rights_determination"."carrier" IS 'The carrier the cl
 COMMENT ON COLUMN "prov"."rights_determination"."scope" IS '`code`, `data`, or a path glob within the carrier.';
 COMMENT ON COLUMN "prov"."rights_determination"."ordinal" IS 'Order among claims with the same carrier and scope.';
 COMMENT ON COLUMN "prov"."rights_determination"."basis" IS 'What the claim rests on.';
-COMMENT ON COLUMN "prov"."rights_determination"."licence" IS 'The licence, when the basis is a licence grant.';
+COMMENT ON COLUMN "prov"."rights_determination"."licence" IS 'The licence the determination names.';
 COMMENT ON COLUMN "prov"."rights_determination"."statement" IS 'The governing statement, quoted or closely paraphrased.';
 COMMENT ON COLUMN "prov"."rights_determination"."url" IS 'Where the statement was read.';
 COMMENT ON COLUMN "prov"."rights_determination"."store" IS 'Keeping a local copy.';
@@ -2416,12 +2452,50 @@ COMMENT ON COLUMN "tk"."tabulated_series"."name" IS 'Name of the series; `value`
 COMMENT ON COLUMN "tk"."tabulated_series"."value_type" IS 'Quantity type of the values.';
 COMMENT ON COLUMN "tk"."tabulated_series"."values" IS 'Values in the value type''s storage unit, in row-major order over the axes.';
 
+CREATE TABLE "ev"."uncertainty_assessment" (
+    "id" uuid NOT NULL,
+    "column" uuid NOT NULL,
+    "ordinal" bigint NOT NULL,
+    "kind" "meta"."uncertainty_kind" NOT NULL,
+    "coverage_factor" "meta"."scalar",
+    "confidence_level" "meta"."fraction",
+    "evaluator" text,
+    "method" text,
+    CONSTRAINT "uncertainty_assessment__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "uncertainty_assessment__identity" UNIQUE ("column", "ordinal"),
+    CONSTRAINT "uncertainty_assessment__ck__ordinal_from_one" CHECK ("ordinal" > 0)
+);
+COMMENT ON TABLE "ev"."uncertainty_assessment" IS 'One way the uncertainty of the values of a column is assessed: what its magnitudes mean and, where the source states them, the coverage factor, the level of confidence, who assessed it and by what method. A column has as many assessments as its source defines, and the magnitudes of each are stated per value (`datum_uncertainty`) or, for the constant of a constraint column, once (`column_uncertainty`).';
+COMMENT ON COLUMN "ev"."uncertainty_assessment"."id" IS 'Deterministic identifier of the uncertainty_assessment instance.';
+COMMENT ON COLUMN "ev"."uncertainty_assessment"."column" IS 'The column whose values are assessed.';
+COMMENT ON COLUMN "ev"."uncertainty_assessment"."ordinal" IS 'Position among the assessments of the column, from one.';
+COMMENT ON COLUMN "ev"."uncertainty_assessment"."kind" IS 'What the magnitudes of this assessment mean.';
+COMMENT ON COLUMN "ev"."uncertainty_assessment"."coverage_factor" IS 'Coverage factor of an expanded uncertainty.';
+COMMENT ON COLUMN "ev"."uncertainty_assessment"."confidence_level" IS 'Level of confidence of an expanded uncertainty, as a fraction.';
+COMMENT ON COLUMN "ev"."uncertainty_assessment"."evaluator" IS 'Who assessed the uncertainty, as the source states it.';
+COMMENT ON COLUMN "ev"."uncertainty_assessment"."method" IS 'How it was assessed, as the source states it.';
+
 CREATE TABLE "tk"."unclassified_entity" (
     "id" uuid NOT NULL,
     CONSTRAINT "unclassified_entity__pk" PRIMARY KEY ("id")
 );
 COMMENT ON TABLE "tk"."unclassified_entity" IS 'An entity whose class its source does not establish; it is never joined across carriers. It is the provisional entity of a source entity of class `undetermined`.';
 COMMENT ON COLUMN "tk"."unclassified_entity"."id" IS 'Deterministic identifier of the unclassified_entity instance.';
+
+CREATE TABLE "tk"."validity_region" (
+    "id" uuid NOT NULL,
+    "record" uuid NOT NULL,
+    "kind" "meta"."envelope_kind" NOT NULL,
+    "ordinal" bigint NOT NULL,
+    CONSTRAINT "validity_region__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "validity_region__identity" UNIQUE ("record", "kind", "ordinal"),
+    CONSTRAINT "validity_region__ck__ordinal_from_one" CHECK ("ordinal" > 0)
+);
+COMMENT ON TABLE "tk"."validity_region" IS 'A region of conditions in which a record applies, as its source states it. A region is the conjunction of its clauses; several regions of one kind on one record are alternatives, so the validity of the record is their union. This is scientific applicability: it is not a numerical bound and not a piece interval. The record may be a parameter set, a parameterisation or a model assembly.';
+COMMENT ON COLUMN "tk"."validity_region"."id" IS 'Deterministic identifier of the validity_region instance.';
+COMMENT ON COLUMN "tk"."validity_region"."record" IS 'The parameter set, parameterisation or model assembly the region is stated for.';
+COMMENT ON COLUMN "tk"."validity_region"."kind" IS 'What the region represents.';
+COMMENT ON COLUMN "tk"."validity_region"."ordinal" IS 'Position among the regions of this kind on the record, from one.';
 
 CREATE TABLE "param"."vapor_pressure_exp_series_tau__pure" (
     "id" uuid NOT NULL,
@@ -2503,6 +2577,24 @@ COMMENT ON COLUMN "prov"."citation"."publication" IS 'The work the key denotes.'
 COMMENT ON COLUMN "prov"."citation"."year" IS 'Year of publication as the carrier states it.';
 COMMENT ON COLUMN "prov"."citation"."citation" IS 'Bibliographic citation as the carrier gives it.';
 
+CREATE TABLE "ev"."column_uncertainty" (
+    "id" uuid NOT NULL,
+    "assessment" uuid NOT NULL,
+    "minus" "meta"."finite_real",
+    "plus" "meta"."finite_real",
+    "relative_minus" "meta"."scalar",
+    "relative_plus" "meta"."scalar",
+    CONSTRAINT "column_uncertainty__pk" PRIMARY KEY ("assessment"),
+    CONSTRAINT "column_uncertainty__uq__id" UNIQUE ("id")
+);
+COMMENT ON TABLE "ev"."column_uncertainty" IS 'The magnitudes of one uncertainty assessment for the constant of a constraint column, stated as `datum_uncertainty` states them for a value.';
+COMMENT ON COLUMN "ev"."column_uncertainty"."id" IS 'Deterministic identifier of the row, computed from its keys.';
+COMMENT ON COLUMN "ev"."column_uncertainty"."assessment" IS 'The assessment.';
+COMMENT ON COLUMN "ev"."column_uncertainty"."minus" IS 'The magnitude below the constant, in the column observable''s storage unit.';
+COMMENT ON COLUMN "ev"."column_uncertainty"."plus" IS 'The magnitude above the constant, in the column observable''s storage unit.';
+COMMENT ON COLUMN "ev"."column_uncertainty"."relative_minus" IS 'The relative magnitude below the constant, as a fraction of it.';
+COMMENT ON COLUMN "ev"."column_uncertainty"."relative_plus" IS 'The relative magnitude above the constant, as a fraction of it.';
+
 CREATE TABLE "tk"."composition" (
     "id" uuid NOT NULL,
     "entity" uuid NOT NULL,
@@ -2554,23 +2646,37 @@ CREATE TABLE "ev"."datum" (
     "state" "meta"."datum_state" NOT NULL,
     "value" "meta"."finite_real",
     "digits" bigint,
-    "uncertainty_kind" "meta"."uncertainty_kind" NOT NULL,
-    "uncertainty" "meta"."finite_real",
-    "coverage_factor" "meta"."scalar",
     CONSTRAINT "datum__pk" PRIMARY KEY ("point", "column"),
     CONSTRAINT "datum__uq__id" UNIQUE ("id"),
-    CONSTRAINT "datum__ck__value_matches_state" CHECK (("value" IS NOT NULL) = ("state"::text IN ('known', 'censored')))
+    CONSTRAINT "datum__ck__value_matches_state" CHECK (("value" IS NOT NULL) = ("state"::text IN ('known', 'censored_below', 'censored_above')))
 );
-COMMENT ON TABLE "ev"."datum" IS 'The value a point has in a column. Uncertainty is typed and is never defaulted to zero.';
+COMMENT ON TABLE "ev"."datum" IS 'The value a point has in a column, or why it has none. The uncertainties of the value are `datum_uncertainty` rows.';
 COMMENT ON COLUMN "ev"."datum"."id" IS 'Deterministic identifier of the row, computed from its keys.';
 COMMENT ON COLUMN "ev"."datum"."point" IS 'The point.';
-COMMENT ON COLUMN "ev"."datum"."column" IS 'A variable or property column.';
+COMMENT ON COLUMN "ev"."datum"."column" IS 'The column.';
 COMMENT ON COLUMN "ev"."datum"."state" IS 'Whether a value is reported.';
 COMMENT ON COLUMN "ev"."datum"."value" IS 'The value, or the limit when censored, in the column observable''s storage unit.';
 COMMENT ON COLUMN "ev"."datum"."digits" IS 'Number of significant digits the source reports.';
-COMMENT ON COLUMN "ev"."datum"."uncertainty_kind" IS 'What the uncertainty magnitude means.';
-COMMENT ON COLUMN "ev"."datum"."uncertainty" IS 'Uncertainty magnitude in the same unit as the value.';
-COMMENT ON COLUMN "ev"."datum"."coverage_factor" IS 'Coverage factor of an expanded uncertainty.';
+
+CREATE TABLE "ev"."datum_uncertainty" (
+    "id" uuid NOT NULL,
+    "point" uuid NOT NULL,
+    "assessment" uuid NOT NULL,
+    "minus" "meta"."finite_real",
+    "plus" "meta"."finite_real",
+    "relative_minus" "meta"."scalar",
+    "relative_plus" "meta"."scalar",
+    CONSTRAINT "datum_uncertainty__pk" PRIMARY KEY ("point", "assessment"),
+    CONSTRAINT "datum_uncertainty__uq__id" UNIQUE ("id")
+);
+COMMENT ON TABLE "ev"."datum_uncertainty" IS 'The magnitudes of one uncertainty assessment for the value of one point. Both sides are stated: a symmetric uncertainty has equal `minus` and `plus`. A kind stated in the unit of the quantity has `minus` and `plus`; a relative kind has `relative_minus` and `relative_plus`.';
+COMMENT ON COLUMN "ev"."datum_uncertainty"."id" IS 'Deterministic identifier of the row, computed from its keys.';
+COMMENT ON COLUMN "ev"."datum_uncertainty"."point" IS 'The point.';
+COMMENT ON COLUMN "ev"."datum_uncertainty"."assessment" IS 'The assessment.';
+COMMENT ON COLUMN "ev"."datum_uncertainty"."minus" IS 'The magnitude below the value, in the column observable''s storage unit.';
+COMMENT ON COLUMN "ev"."datum_uncertainty"."plus" IS 'The magnitude above the value, in the column observable''s storage unit.';
+COMMENT ON COLUMN "ev"."datum_uncertainty"."relative_minus" IS 'The relative magnitude below the value, as a fraction of it.';
+COMMENT ON COLUMN "ev"."datum_uncertainty"."relative_plus" IS 'The relative magnitude above the value, as a fraction of it.';
 
 CREATE TABLE "tk"."dependency" (
     "id" uuid NOT NULL,
@@ -2580,7 +2686,7 @@ CREATE TABLE "tk"."dependency" (
     CONSTRAINT "dependency__pk" PRIMARY KEY ("dependent", "prerequisite"),
     CONSTRAINT "dependency__uq__id" UNIQUE ("id")
 );
-COMMENT ON TABLE "tk"."dependency" IS 'One record was obtained assuming another, and is valid only with it. A snapshot satisfies every dependency of the sets it selects, or waives it explicitly. Dependencies are acyclic.';
+COMMENT ON TABLE "tk"."dependency" IS 'One record was obtained assuming another, and is valid only with it.';
 COMMENT ON COLUMN "tk"."dependency"."id" IS 'Deterministic identifier of the row, computed from its keys.';
 COMMENT ON COLUMN "tk"."dependency"."dependent" IS 'The record that depends.';
 COMMENT ON COLUMN "tk"."dependency"."prerequisite" IS 'The record it assumes: a parameter set, a parameterisation or a model assembly.';
@@ -2650,6 +2756,7 @@ CREATE TABLE "prov"."equivalence_assessment" (
     "conversion" uuid,
     CONSTRAINT "equivalence_assessment__pk" PRIMARY KEY ("a", "b"),
     CONSTRAINT "equivalence_assessment__uq__id" UNIQUE ("id"),
+    CONSTRAINT "equivalence_assessment__ck__conversion_iff_under_conversion" CHECK (("conversion" IS NOT NULL) = ("level"::text IN ('equal_under_conversion'))),
     CONSTRAINT "equivalence_assessment__ck__canonical" CHECK ("a" <= "b"),
     CONSTRAINT "equivalence_assessment__ck__diagonal" CHECK ("a" <> "b")
 );
@@ -2658,7 +2765,7 @@ COMMENT ON COLUMN "prov"."equivalence_assessment"."id" IS 'Deterministic identif
 COMMENT ON COLUMN "prov"."equivalence_assessment"."a" IS 'One record.';
 COMMENT ON COLUMN "prov"."equivalence_assessment"."b" IS 'The other record.';
 COMMENT ON COLUMN "prov"."equivalence_assessment"."level" IS 'How the two compare.';
-COMMENT ON COLUMN "prov"."equivalence_assessment"."conversion" IS 'The conversion under which the two agree, for the level `equal_under_conversion`.';
+COMMENT ON COLUMN "prov"."equivalence_assessment"."conversion" IS 'The conversion under which the two agree.';
 
 CREATE TABLE "prov"."fit_correlation" (
     "id" uuid NOT NULL,
@@ -2929,7 +3036,7 @@ CREATE TABLE "tk"."system_conserves" (
     CONSTRAINT "system_conserves__pk" PRIMARY KEY ("system", "quantity"),
     CONSTRAINT "system_conserves__uq__id" UNIQUE ("id")
 );
-COMMENT ON TABLE "tk"."system_conserves" IS 'A conserved quantity a chemical system declares. Every reaction of the system conserves each of them.';
+COMMENT ON TABLE "tk"."system_conserves" IS 'A conserved quantity a chemical system declares.';
 COMMENT ON COLUMN "tk"."system_conserves"."id" IS 'Deterministic identifier of the row, computed from its keys.';
 COMMENT ON COLUMN "tk"."system_conserves"."system" IS 'The system.';
 COMMENT ON COLUMN "tk"."system_conserves"."quantity" IS 'A conserved quantity.';
@@ -2963,6 +3070,20 @@ COMMENT ON COLUMN "tk"."system_reaction"."id" IS 'Deterministic identifier of th
 COMMENT ON COLUMN "tk"."system_reaction"."system" IS 'The system.';
 COMMENT ON COLUMN "tk"."system_reaction"."reaction" IS 'A reaction of the system.';
 COMMENT ON COLUMN "tk"."system_reaction"."defines" IS 'The secondary species form this reaction defines from the basis, when it is a defining reaction.';
+
+CREATE TABLE "tk"."validity_coverage" (
+    "id" uuid NOT NULL,
+    "record" uuid NOT NULL,
+    "kind" "meta"."envelope_kind" NOT NULL,
+    "value" "meta"."validity_coverage_state" NOT NULL,
+    CONSTRAINT "validity_coverage__pk" PRIMARY KEY ("record", "kind"),
+    CONSTRAINT "validity_coverage__uq__id" UNIQUE ("id")
+);
+COMMENT ON TABLE "tk"."validity_coverage" IS 'Whether a source states regions of one kind for a record. No row means the record''s validity has not been mapped; a row with `not_stated` records that the source gives no such region.';
+COMMENT ON COLUMN "tk"."validity_coverage"."id" IS 'Deterministic identifier of the row, computed from its keys.';
+COMMENT ON COLUMN "tk"."validity_coverage"."record" IS 'The record.';
+COMMENT ON COLUMN "tk"."validity_coverage"."kind" IS 'The kind of region.';
+COMMENT ON COLUMN "tk"."validity_coverage"."value" IS 'Whether regions of this kind are stated.';
 
 CREATE TABLE "param"."nasa7__pure__piece" (
     "set_id" uuid NOT NULL,
@@ -3150,6 +3271,8 @@ ALTER TABLE "meta"."contract_set" ADD CONSTRAINT "contract_set__fk__kind" FOREIG
 
 ALTER TABLE "meta"."contract_argument" ADD CONSTRAINT "contract_argument__fk__contract" FOREIGN KEY ("contract") REFERENCES "meta"."contract" ("name") DEFERRABLE INITIALLY DEFERRED;
 
+ALTER TABLE "meta"."contract_argument" ADD CONSTRAINT "contract_argument__fk__observable" FOREIGN KEY ("observable") REFERENCES "tk"."observable" ("id") DEFERRABLE INITIALLY DEFERRED;
+
 ALTER TABLE "meta"."contract_argument" ADD CONSTRAINT "contract_argument__fk__basis" FOREIGN KEY ("basis") REFERENCES "tk"."composition_basis" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "meta"."contract_argument_set" ADD CONSTRAINT "contract_argument_set__fk__contract_argument" FOREIGN KEY ("contract", "argument") REFERENCES "meta"."contract_argument" ("contract", "name") DEFERRABLE INITIALLY DEFERRED;
@@ -3282,6 +3405,8 @@ ALTER TABLE "ev"."dataset_column" ADD CONSTRAINT "dataset_column__fk__compositio
 
 ALTER TABLE "ev"."dataset_column" ADD CONSTRAINT "dataset_column__fk__standard_state" FOREIGN KEY ("standard_state") REFERENCES "tk"."standard_state" ("id") DEFERRABLE INITIALLY DEFERRED;
 
+ALTER TABLE "ev"."dataset_column" ADD CONSTRAINT "dataset_column__fk__reference_phase" FOREIGN KEY ("reference_phase") REFERENCES "ev"."dataset_phase" ("id") DEFERRABLE INITIALLY DEFERRED;
+
 ALTER TABLE "ev"."dataset_component" ADD CONSTRAINT "dataset_component__fk__dataset" FOREIGN KEY ("dataset") REFERENCES "ev"."dataset" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "ev"."dataset_component" ADD CONSTRAINT "dataset_component__fk__entity" FOREIGN KEY ("entity") REFERENCES "tk"."material_entity" ("id") DEFERRABLE INITIALLY DEFERRED;
@@ -3303,10 +3428,6 @@ ALTER TABLE "tk"."distributed_attribute" ADD CONSTRAINT "distributed_attribute__
 ALTER TABLE "tk"."element" ADD CONSTRAINT "element__fk__id" FOREIGN KEY ("id") REFERENCES "tk"."conserved_quantity" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."energy_reference" ADD CONSTRAINT "energy_reference__fk__id" FOREIGN KEY ("id") REFERENCES "prov"."record" ("id") DEFERRABLE INITIALLY DEFERRED;
-
-ALTER TABLE "tk"."envelope" ADD CONSTRAINT "envelope__fk__parameter_set" FOREIGN KEY ("parameter_set") REFERENCES "tk"."parameter_set" ("id") DEFERRABLE INITIALLY DEFERRED;
-
-ALTER TABLE "tk"."envelope" ADD CONSTRAINT "envelope__fk__axis" FOREIGN KEY ("axis") REFERENCES "tk"."observable" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "prov"."fit" ADD CONSTRAINT "fit__fk__id" FOREIGN KEY ("id") REFERENCES "prov"."derivation" ("id") DEFERRABLE INITIALLY DEFERRED;
 
@@ -3402,6 +3523,14 @@ ALTER TABLE "qual"."qualification_run" ADD CONSTRAINT "qualification_run__fk__ob
 
 ALTER TABLE "tk"."reaction" ADD CONSTRAINT "reaction__fk__id" FOREIGN KEY ("id") REFERENCES "prov"."record" ("id") DEFERRABLE INITIALLY DEFERRED;
 
+ALTER TABLE "tk"."region_clause" ADD CONSTRAINT "region_clause__fk__region" FOREIGN KEY ("region") REFERENCES "tk"."validity_region" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "tk"."region_clause" ADD CONSTRAINT "region_clause__fk__observable" FOREIGN KEY ("observable") REFERENCES "tk"."observable" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "tk"."region_clause" ADD CONSTRAINT "region_clause__fk__component" FOREIGN KEY ("component") REFERENCES "tk"."material_entity" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "tk"."region_clause" ADD CONSTRAINT "region_clause__fk__aggregation" FOREIGN KEY ("aggregation") REFERENCES "tk"."aggregation" ("id") DEFERRABLE INITIALLY DEFERRED;
+
 ALTER TABLE "tk"."resolved_snapshot" ADD CONSTRAINT "resolved_snapshot__fk__id" FOREIGN KEY ("id") REFERENCES "prov"."record" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."resolved_snapshot" ADD CONSTRAINT "resolved_snapshot__fk__assembly" FOREIGN KEY ("assembly") REFERENCES "tk"."model_assembly" ("id") DEFERRABLE INITIALLY DEFERRED;
@@ -3482,7 +3611,13 @@ ALTER TABLE "tk"."tabulated_series" ADD CONSTRAINT "tabulated_series__fk__functi
 
 ALTER TABLE "tk"."tabulated_series" ADD CONSTRAINT "tabulated_series__fk__value_type" FOREIGN KEY ("value_type") REFERENCES "meta"."quantity_type" ("id") DEFERRABLE INITIALLY DEFERRED;
 
+ALTER TABLE "ev"."uncertainty_assessment" ADD CONSTRAINT "uncertainty_assessment__fk__column" FOREIGN KEY ("column") REFERENCES "ev"."dataset_column" ("id") DEFERRABLE INITIALLY DEFERRED;
+
 ALTER TABLE "tk"."unclassified_entity" ADD CONSTRAINT "unclassified_entity__fk__id" FOREIGN KEY ("id") REFERENCES "tk"."material_entity" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "tk"."validity_region" ADD CONSTRAINT "validity_region__fk__id" FOREIGN KEY ("id") REFERENCES "prov"."record" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "tk"."validity_region" ADD CONSTRAINT "validity_region__fk__record" FOREIGN KEY ("record") REFERENCES "prov"."record" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "param"."vapor_pressure_exp_series_tau__pure" ADD CONSTRAINT "vapor_pressure_exp_series_tau__pure__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
 
@@ -3504,6 +3639,8 @@ ALTER TABLE "prov"."citation" ADD CONSTRAINT "citation__fk__carrier" FOREIGN KEY
 
 ALTER TABLE "prov"."citation" ADD CONSTRAINT "citation__fk__publication" FOREIGN KEY ("publication") REFERENCES "prov"."publication" ("id") DEFERRABLE INITIALLY DEFERRED;
 
+ALTER TABLE "ev"."column_uncertainty" ADD CONSTRAINT "column_uncertainty__fk__assessment" FOREIGN KEY ("assessment") REFERENCES "ev"."uncertainty_assessment" ("id") DEFERRABLE INITIALLY DEFERRED;
+
 ALTER TABLE "tk"."composition" ADD CONSTRAINT "composition__fk__entity" FOREIGN KEY ("entity") REFERENCES "tk"."material_entity" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."composition" ADD CONSTRAINT "composition__fk__quantity" FOREIGN KEY ("quantity") REFERENCES "tk"."conserved_quantity" ("id") DEFERRABLE INITIALLY DEFERRED;
@@ -3523,6 +3660,10 @@ ALTER TABLE "tk"."convention_standard_state" ADD CONSTRAINT "convention_standard
 ALTER TABLE "ev"."datum" ADD CONSTRAINT "datum__fk__point" FOREIGN KEY ("point") REFERENCES "ev"."data_point" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "ev"."datum" ADD CONSTRAINT "datum__fk__column" FOREIGN KEY ("column") REFERENCES "ev"."dataset_column" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "ev"."datum_uncertainty" ADD CONSTRAINT "datum_uncertainty__fk__point" FOREIGN KEY ("point") REFERENCES "ev"."data_point" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "ev"."datum_uncertainty" ADD CONSTRAINT "datum_uncertainty__fk__assessment" FOREIGN KEY ("assessment") REFERENCES "ev"."uncertainty_assessment" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."dependency" ADD CONSTRAINT "dependency__fk__dependent" FOREIGN KEY ("dependent") REFERENCES "prov"."record" ("id") DEFERRABLE INITIALLY DEFERRED;
 
@@ -3651,6 +3792,8 @@ ALTER TABLE "tk"."system_reaction" ADD CONSTRAINT "system_reaction__fk__system" 
 ALTER TABLE "tk"."system_reaction" ADD CONSTRAINT "system_reaction__fk__reaction" FOREIGN KEY ("reaction") REFERENCES "tk"."reaction" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."system_reaction" ADD CONSTRAINT "system_reaction__fk__defines" FOREIGN KEY ("defines") REFERENCES "tk"."species_form" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "tk"."validity_coverage" ADD CONSTRAINT "validity_coverage__fk__record" FOREIGN KEY ("record") REFERENCES "prov"."record" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "param"."nasa7__pure__piece" ADD CONSTRAINT "nasa7__pure__piece__fk__set_id" FOREIGN KEY ("set_id") REFERENCES "param"."nasa7__pure" ("id") DEFERRABLE INITIALLY DEFERRED;
 

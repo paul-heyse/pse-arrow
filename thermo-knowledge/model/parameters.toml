@@ -33,10 +33,15 @@ members.estimated_from = { doc = "Estimated from the prerequisite." }
 members.consistent_with = { doc = "Valid only in combination with the prerequisite." }
 
 [enums.envelope_kind]
-doc = "What a stated range of applicability represents."
+doc = "What a stated region of applicability represents."
 members.fitted_range = { doc = "The range of the data the set was fitted to." }
 members.recommended_range = { doc = "The range the source recommends." }
 members.validated_range = { doc = "A range over which agreement was demonstrated." }
+
+[enums.validity_coverage_state]
+doc = "Whether a source states any region of one kind for a record."
+members.stated = { doc = "The source states at least one region of this kind for the record." }
+members.not_stated = { doc = "The source gives no such region for the record; the validity is unknown, not unbounded." }
 
 [enums.value_state]
 doc = "Whether a slot holds a value and, if not, why. Missing is not a state: it is the absence of a set."
@@ -138,7 +143,7 @@ confidence_level = { type = "Fraction", optional = true, doc = "Level of confide
 
 [[kinds.slot_uncertainty.requires]]
 name = "magnitude_matches_kind"
-doc = "A relative uncertainty states a relative magnitude only; a standard, expanded or interval uncertainty states a magnitude only; an exact or not-stated uncertainty states neither."
+doc = "A kind with the facet `relative` states a relative magnitude only, a kind with the facet `unquantified` states neither, and every other kind states a magnitude only."
 enforced = "verify"
 
 [kinds.tabulated_function]
@@ -185,29 +190,78 @@ enforced = "verify"
 
 # ---------------------------------------------------------------- applicability and dependency
 
-[kinds.envelope]
-doc = "Where a parameter set applies, along one observable. This is scientific applicability; it is not a numerical bound and not a piece interval."
-identity = ["parameter_set", "axis", "kind"]
-provenance = "inherit:parameter_set"
+[kinds.validity_region]
+doc = """A region of conditions in which a record applies, as its source states it. A region is the conjunction of its clauses; several regions of one kind on one record are alternatives, so the validity of the record is their union. This is scientific applicability: it is not a numerical bound and not a piece interval. The record may be a parameter set, a parameterisation or a model assembly."""
+identity = ["record", "kind", "ordinal"]
+provenance = "own"
 traces = ["IC-15", "SI-13"]
 
-[kinds.envelope.attributes]
-parameter_set = { type = "parameter_set", doc = "The set." }
-axis = { type = "observable", doc = "The observable the range is along." }
-kind = { type = "envelope_kind", doc = "What the range represents." }
-lower = { type = "Real", unit_from = "axis", optional = true, doc = "Lower bound in the axis observable's storage unit; absent when unbounded below." }
-upper = { type = "Real", unit_from = "axis", optional = true, doc = "Upper bound in the axis observable's storage unit; absent when unbounded above." }
+[kinds.validity_region.attributes]
+record = { type = "Record", doc = "The parameter set, parameterisation or model assembly the region is stated for." }
+kind = { type = "envelope_kind", doc = "What the region represents." }
+ordinal = { type = "Integer", doc = "Position among the regions of this kind on the record, from one." }
 
-[[kinds.envelope.requires]]
+[[kinds.validity_region.requires]]
+name = "ordinal_from_one"
+doc = "Regions of one kind on a record are numbered from one."
+enforced = "ddl"
+check = { positive = "ordinal" }
+
+[kinds.region_clause]
+doc = "One condition of a validity region: an interval of one observable, about the whole record or, through a component or an aggregation, about one component or one phase of it."
+identity = ["region", "ordinal"]
+provenance = "inherit:region"
+
+[kinds.region_clause.attributes]
+region = { type = "validity_region", doc = "The region the clause belongs to." }
+ordinal = { type = "Integer", doc = "Position among the clauses of the region, from one." }
+observable = { type = "observable", doc = "The axis the clause limits: the observable of a condition such as temperature or pressure, or of a composition or a partial quantity." }
+component = { type = "material_entity", optional = true, doc = "The component the clause is about, for a composition or a partial quantity." }
+aggregation = { type = "aggregation", optional = true, doc = "The aggregation whose phase the clause is about." }
+lower = { type = "Real", unit_from = "observable", optional = true, doc = "Lower bound in the observable's storage unit; absent when the clause has no lower limit." }
+upper = { type = "Real", unit_from = "observable", optional = true, doc = "Upper bound in the observable's storage unit; absent when the clause has no upper limit." }
+
+[[kinds.region_clause.requires]]
+name = "ordinal_from_one"
+doc = "Clauses of a region are numbered from one."
+enforced = "ddl"
+check = { positive = "ordinal" }
+
+[[kinds.region_clause.requires]]
 name = "bounds_ordered"
 doc = "The lower bound does not exceed the upper bound."
 enforced = "ddl"
 check = { ordered = ["lower", "upper"] }
 
+[[kinds.region_clause.requires]]
+name = "has_a_bound"
+doc = "A clause states a lower bound, an upper bound or both."
+enforced = "verify"
+
+[relations.validity_coverage]
+doc = "Whether a source states regions of one kind for a record. No row means the record's validity has not been mapped; a row with `not_stated` records that the source gives no such region."
+provenance = "inherit:record"
+absence = "optional"
+value = { type = "validity_coverage_state", doc = "Whether regions of this kind are stated." }
+
+[[relations.validity_coverage.requires]]
+name = "state_matches_regions"
+doc = "The state is `stated` exactly when at least one region of the kind exists for the record."
+enforced = "verify"
+
+[relations.validity_coverage.keys]
+record = { type = "Record", doc = "The record." }
+kind = { type = "envelope_kind", doc = "The kind of region." }
+
 [relations.dependency]
-doc = "One record was obtained assuming another, and is valid only with it. A snapshot satisfies every dependency of the sets it selects, or waives it explicitly. Dependencies are acyclic."
+doc = "One record was obtained assuming another, and is valid only with it."
 provenance = "inherit:dependent"
 absence = "optional"
+
+[[relations.dependency.requires]]
+name = "acyclic"
+doc = "No record depends on itself, directly or through a chain of dependencies."
+enforced = "verify"
 
 [relations.dependency.keys]
 dependent = { type = "Record", doc = "The record that depends." }
@@ -351,7 +405,7 @@ policy = { type = "selection_policy", doc = "The policy." }
 parameter_set = { type = "parameter_set", doc = "The set selected for its slot group and subject." }
 
 [kinds.resolved_snapshot]
-doc = "The frozen result of applying a selection policy to a model assembly and a set of entities: exactly one value per required slot and subject, every dependency satisfied or waived, conventions compatible, and no record whose rights forbid the use. It is the boundary between this open-world store and a closed-world package."
+doc = "The frozen result of applying a selection policy to a model assembly and a set of entities. The snapshot export, a later packet, establishes for it exactly one value per required slot and subject, every dependency of the selected sets satisfied or waived, compatible conventions and no record whose rights forbid the use. It is the boundary between this open-world store and a closed-world package."
 identity = ["key", "revision"]
 provenance = "own"
 traces = ["IC-14", "IC-20"]
@@ -366,6 +420,11 @@ policy = { type = "selection_policy", doc = "The policy applied." }
 doc = "A parameter set a snapshot selected."
 provenance = "inherit:snapshot"
 absence = "optional"
+
+[[relations.snapshot_selection.requires]]
+name = "no_failed_fit"
+doc = "The producing derivation of a selected set is not a fit with the outcome `failed`."
+enforced = "verify"
 
 [relations.snapshot_selection.keys]
 snapshot = { type = "resolved_snapshot", doc = "The snapshot." }

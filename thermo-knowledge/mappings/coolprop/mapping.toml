@@ -171,8 +171,8 @@ origin_role = "fitted"
 loss = "The curve is a fit to the equation of state. Its derivation has no input and there is no auxiliary_of relation: the fluid's equation-of-state parameter set, which both would name, does not exist until the Helmholtz forms are mapped."
 
 [tables.ancillary_equations.partitions.constants]
-"envelope.axis" = "temperature"
-"envelope.kind" = "fitted_range"
+"validity_region.kind" = "fitted_range"
+"region_clause.observable" = "temperature"
 
 [tables.ancillary_equations.partitions.derivation]
 kind = "fit"
@@ -200,13 +200,13 @@ precision = "exact"
 loss = "CoolProp states no unit for the reducing value of a pressure curve; pascal is assumed (the survey infers it from the values and the critical pressure)."
 
 [tables.ancillary_equations.fields.Tmin]
-target = "envelope.lower"
+target = "region_clause.lower"
 unit = "K"
 precision = "exact"
 loss = "CoolProp states no unit for Tmin; kelvin is assumed."
 
 [tables.ancillary_equations.fields.Tmax]
-target = "envelope.upper"
+target = "region_clause.upper"
 unit = "K"
 precision = "exact"
 loss = "CoolProp states no unit for Tmax; kelvin is assumed."

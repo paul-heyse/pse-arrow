@@ -62,7 +62,7 @@ members.conversion = { doc = "A change of unit, convention or representation tha
 [enums.fit_outcome]
 doc = "How a fit ended."
 members.converged = { doc = "The optimiser reported convergence." }
-members.failed = { doc = "The fit failed; it selects no parameter set." }
+members.failed = { doc = "The fit failed." }
 members.not_stated = { doc = "The source does not say." }
 
 [enums.equivalence_level]
@@ -203,12 +203,17 @@ doc = "A recorded claim about what may be done with part of a carrier. Competing
 identity = ["carrier", "scope", "ordinal"]
 provenance = "none"
 
+[[kinds.rights_determination.requires]]
+name = "licence_only_for_licence_grant"
+doc = "A licence is named only when the basis is a licence grant."
+enforced = "verify"
+
 [kinds.rights_determination.attributes]
 carrier = { type = "carrier", doc = "The carrier the claim concerns." }
 scope = { type = "Text", doc = "`code`, `data`, or a path glob within the carrier." }
 ordinal = { type = "Integer", doc = "Order among claims with the same carrier and scope." }
 basis = { type = "rights_basis", doc = "What the claim rests on." }
-licence = { type = "licence", optional = true, doc = "The licence, when the basis is a licence grant." }
+licence = { type = "licence", optional = true, doc = "The licence the determination names." }
 statement = { type = "Text", doc = "The governing statement, quoted or closely paraphrased." }
 url = { type = "Text", optional = true, doc = "Where the statement was read." }
 store = { type = "permission", doc = "Keeping a local copy." }
@@ -221,10 +226,15 @@ observed = { type = "Text", doc = "When and how the claim was established." }
 # ---------------------------------------------------------------- derivation
 
 [kinds.derivation]
-doc = "An activity that produced records from other records. Lineage is acyclic."
+doc = "An activity that produced records from other records."
 identity = ["key"]
 provenance = "own"
 traces = ["IC-16", "IC-17"]
+
+[[kinds.derivation.requires]]
+name = "estimation_names_method"
+doc = "A derivation of kind `estimation` states its method."
+enforced = "verify"
 
 [kinds.derivation.attributes]
 key = { type = "Text", doc = "Stable key assigned by the mapping that records the derivation." }
@@ -236,6 +246,11 @@ software = { type = "source", optional = true, doc = "The software that performe
 doc = "A record a derivation used."
 provenance = "inherit:derivation"
 absence = "optional"
+
+[[relations.derivation_input.requires]]
+name = "lineage_acyclic"
+doc = "No record is its own ancestor through derivation lineage: from an input that influenced a derivation to the outputs it produced, and on from those as inputs."
+enforced = "verify"
 
 [relations.derivation_input.keys]
 derivation = { type = "derivation", doc = "The derivation." }
@@ -260,7 +275,7 @@ derivation = { type = "derivation", doc = "The derivation." }
 record = { type = "Record", doc = "A record it produced." }
 
 [kinds.fit]
-doc = "A regression of parameters against evidence. A failed fit produces no selected parameter set."
+doc = "A regression of parameters against evidence."
 extends = "derivation"
 traces = ["IC-16", "SI-12"]
 
@@ -317,10 +332,16 @@ transposition = { rule = "symmetric", roles = [
   "b",
 ], diagonal = "forbidden" }
 
+[[relations.equivalence_assessment.requires]]
+name = "conversion_iff_under_conversion"
+doc = "A conversion is named exactly when the level is `equal_under_conversion`."
+enforced = "ddl"
+check = { present_iff = { column = "conversion", when = "level", in = ["equal_under_conversion"] } }
+
 [relations.equivalence_assessment.keys]
 a = { type = "Record", doc = "One record." }
 b = { type = "Record", doc = "The other record." }
 
 [relations.equivalence_assessment.columns]
 level = { type = "equivalence_level", doc = "How the two compare." }
-conversion = { type = "derivation", optional = true, doc = "The conversion under which the two agree, for the level `equal_under_conversion`." }
+conversion = { type = "derivation", optional = true, doc = "The conversion under which the two agree." }

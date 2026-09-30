@@ -11,8 +11,8 @@ table gives is claimed as its components: the source entities of the fluids the 
 
 Phase 2: each saturation-pressure curve (partition `saturation_pressure` of
 `ancillary_equations`) becomes one parameter set of `vapor_pressure_exp_series_tau.pure` for its
-fluid, with one `term` row per coefficient row, one envelope on the set and the `fit` derivation
-that produced it.
+fluid, with one `term` row per coefficient row, the fitted temperature range of the set as one region
+with one clause, and the `fit` derivation that produced both.
 """
 
 from __future__ import annotations
@@ -88,7 +88,9 @@ def records(ctx: RecordContext) -> None:
                     ]
                 },
             )
-            emit.kind(
-                "envelope", {**ctx.attributes(curve, "envelope"), "parameter_set": parameter_set}
+            region = emit.validity(
+                parameter_set,
+                ctx.attributes(curve, "validity_region"),
+                [ctx.attributes(curve, "region_clause")],
             )
-            emit.derivation([parameter_set])
+            emit.derivation([parameter_set, region])

@@ -208,9 +208,9 @@ and the same three enforcement points:
 ```toml
 [[relations.datum.requires]]
 name = "value_matches_state"
-doc = "A value is present exactly when the state is known or censored."
+doc = "A value is present exactly when the state is known or a censored limit."
 enforced = "ddl"
-check = { present_iff = { column = "value", when = "state", in = ["known", "censored"] } }
+check = { present_iff = { column = "value", when = "state", in = ["known", "censored_below", "censored_above"] } }
 ```
 
 A `ddl` requirement is a `CHECK` on the relation's table and is evaluated by the canonical writer, a
@@ -259,7 +259,11 @@ outputs.p = { type = "Pressure", observable_from_set = true }
 p = "pure.quantity"           # <slot group>.<slot>
 ```
 
-An argument that is a composition names its `basis`, a declared entity of the kind bound to the
+An argument may name the observable it is a value of (`arguments.T = { type = "Temperature",
+observable = "temperature" }`), a declared entity of the kind bound to the framework role `observable`
+(`meta.contract_argument.observable` references it). It is how a clause of a validity region, which
+limits an observable, finds the argument it limits (`expressions.md` section 2). An argument that is
+a composition names its `basis`, a declared entity of the kind bound to the
 framework role `composition_basis` (`meta.contract_argument.basis` references it). At a sub-form call
 a vector passed by name has the basis of the callee's argument, or the callee's argument names none;
 a comprehension passed to an argument that names a basis is written `basis('<name>', [ ... ])`, by
@@ -312,7 +316,10 @@ A **slot** has a type (section 2) and a `presence` policy:
 
 A slot may name the `observable` it denotes (for example a critical temperature slot), which lets
 a snapshot fill it from evaluated data. Uncertainty is never a slot; it is recorded in the
-framework table `slot_uncertainty`.
+framework table `slot_uncertainty`, whose kind of uncertainty is a member of the enum
+`uncertainty_kind`. That enum carries facets that say what a magnitude of each kind is (`relative`: a
+fraction of the value; `unquantified`: no magnitude), and the checks of `slot_uncertainty` and of the
+magnitudes of evidence read them, so a new kind with the right facet is checked with no other edit.
 
 **Value shapes.** A slot holds one of: a dimensioned scalar or count; an enum member; a reference
 to an entity; a **nested set** (`accepts = "<contract>"`: the value is a parameter set of a form
@@ -484,13 +491,60 @@ generator. The domain concepts the generator relies on are declared in the model
 `parameterization`, `tabulated_function`, `slot_uncertainty`) to the kind that fills it. The
 roles are required only when the declaration contains forms. An optional fifth role,
 `observable`, binds the kind whose declared entities are the observables: when it is bound, the
-`observable` of a contract output or a slot must name a declared entity of that kind (the `meta`
+`observable` of a contract argument, a contract output or a slot must name a declared entity of that kind (the `meta`
 rows reference it by identifier); when it is not bound, `observable` may not be used. A sixth,
 `composition_basis`, binds the kind whose declared entities are the composition bases in the same
 way: a contract argument's `basis` and the name in `basis('<name>', [ ... ])` must name one, and
 without the role neither may be used. A seventh, `convention_set`, binds the kind whose
 quantity-typed attributes a form may declare it reads (`conventions`, section 4.2); without the
 role `conventions` may not be used.
+
+### Validity regions
+
+A source states the conditions in which a record applies as regions of conditions, and the model holds
+them as stated:
+
+- `validity_region` is one region of one kind (`envelope_kind`: a fitted, recommended or validated
+  range) of a **record**: a parameter set, a parameterization or a model assembly. Regions of one kind on
+  one record are numbered from one and are **alternatives**; the validity of the record is their union.
+- `region_clause` is one condition of a region: an interval of an observable (`lower` and `upper`, in
+  the observable's storage unit, at least one of them present, the lower not above the upper), about
+  the whole record, or, when `component` is stated, about that component (a composition or a partial
+  quantity), or, when `aggregation` is stated, about the phase of that aggregation. A region is the
+  **conjunction** of its clauses, so a limit coupled across axes is one region with a clause on each.
+- `validity_coverage` says, for a record and a kind, whether the source states regions of that kind
+  (`stated`) or gives none (`not_stated`). No row means the record's validity has not been mapped. The
+  state is `stated` exactly when at least one region of that kind exists for the record, which the
+  verify invariant `validity_coverage.state_matches_regions` checks in both directions.
+
+Nothing here is a numerical bound or a piece interval of a family (section 4.2). A contract argument
+that names its observable (section 4.1) is what ties a clause to the argument it limits, and the
+evaluator reports where a point lies with respect to the regions (`expressions.md` section 5).
+
+### Evidence: uncertainty and presentation
+
+A dataset's columns state how their values are assessed and presented; a datum states only the value
+or why there is none.
+
+- `datum` holds a state (`known`, `not_measured`, `censored_below` or `censored_above`: the true value
+  is below or above the limit the value column then holds) and, for the three states that carry a value,
+  the value and its digits.
+- `uncertainty_assessment` is one way the uncertainty of a column's values is assessed, numbered from
+  one within the column: its kind (`uncertainty_kind`: standard, expanded, combined, relative, interval,
+  repeatability, device specification, curve deviation, exact or not stated), and as the source states
+  them the coverage factor, the level of confidence, who assessed it and by what method. A column has
+  as many assessments as its source defines.
+- `datum_uncertainty`, keyed by a point and an assessment, holds the magnitudes of that assessment for
+  that value, both sides: `minus` and `plus` in the unit of the column's observable for a kind stated in
+  the quantity's unit, `relative_minus` and `relative_plus` for a relative kind, none for a kind that
+  states no magnitude. A symmetric uncertainty has equal sides. `column_uncertainty`, keyed by an
+  assessment of a constraint column, holds the same for the column's constant, which has its own
+  `constant_digits`. No uncertainty is assumed: a value without a row has none stated.
+- A column's `presentation` (`value_presentation`: the property itself, or differences between an upper
+  and a lower temperature or pressure, a mean between temperatures, or a difference, ratio or relative
+  difference against a reference state) defaults to the property itself. A column presented against a
+  reference state states its `reference_state_kind`, and may state the `reference_temperature`,
+  `reference_pressure` and `reference_phase` the kind fixes.
 
 ### The pipeline contract
 
@@ -499,10 +553,12 @@ The roles above are what the generator needs. The stage code needs more: the can
 text keys that restate references, and writes the `publication` a carrier's citation denotes with its
 `citation` row, resolution writes `species`, `species_form`, `defined_mixture` with its `mixture_component` rows,
 `material`, `polymer_type`, `unclassified_entity`, `source_entity` (with its `entity_class`), `identity_assertion` and
-`resolution_candidate`, the mapping framework writes `derivation`, `fit`, `envelope`, `mapping_rule` (with
+`resolution_candidate`, the mapping framework writes `derivation`, `fit`, `validity_region`, `region_clause`,
+`validity_coverage`, `mapping_rule` (with
 the number of rows each rule was applied to), `mapping_coverage` and `held_row` (with a `held_reason`),
-qualification writes `qualification_run` (with a `blocked_reason` when it is blocked) and reads `parameter_set`,
-`parameterization`, `envelope`, `source_entity` and `subject_subform_choice`. That dependency is declared in one file shipped with
+qualification writes `qualification_run` (with a `blocked_reason` when it is blocked and the counts of its points
+against a validity kind) and reads `parameter_set`, `parameterization`, `validity_region`, `region_clause`,
+`validity_coverage`, `source_entity` and `subject_subform_choice`. That dependency is declared in one file shipped with
 the package, `src/thermo_knowledge/pipeline_contract.toml`, which names each kind, relation and enum
 the code uses directly (the model is this pipeline's model) with:
 
@@ -560,7 +616,8 @@ and a message (DP-21). At least:
   always present, depends on a column that is not an enum or names a member the enum lacks; a
   `within` with no bound or with its lower bound above its upper
 - a contract argument whose `basis` names no declared entity of the `composition_basis` kind, or is
-  used without that role
+  used without that role; a contract argument, output or slot whose `observable` names no declared
+  entity of the `observable` kind, or is used without that role
 - a declaration that differs from the pipeline contract (above)
 - any projected PostgreSQL identifier longer than 63 bytes
 
@@ -599,7 +656,7 @@ hand-written in `sql/physical.sql`, which also holds the view `qual.form_qualifi
 `meta` reifies the declaration as rows (modules, kinds, attributes, relations, the requirements of kinds
 and of relations alike, enums with their members, facets and the facets of each member, identifier
 schemes, units, quantity types, contracts, forms, slot groups, slots, families,
-sub-form slots, transposition slots and matrices, the slot that supplies an output's observable,
+sub-form slots, transposition slots and matrices, the observable an argument or an output denotes and the slot that supplies an output's observable,
 the contract each set-reference slot names, the convention facts each form reads and each output's
 evaluation hash), so the database describes itself and `parameter_set` rows reference their slot
 group by foreign key. These rows and the declared entities are inserted from the declaration when
@@ -637,7 +694,7 @@ generated from those marks plus the table below.
 | slot group | a refined keyed kind plus a `dataset ... from "*.parquet"` |
 | family with integer index | `table t[f, k: 0..n]` |
 | form contract | an abstract kind with function attributes, or an interface |
-| envelope (`Range<Q>` attributes) | `envelope` |
+| validity region: clauses over observables, alternatives and a coverage state | gap (`envelope` states one interval of one axis: no component or phase, no alternative, no coverage state) |
 | `parity`, `reciprocal`, `linear`, `permutation_group` transposition | gap |
 | `stateful` slot (`not_applicable`, `redirect`, `withheld`) | gap |
 | nested set as a slot value | gap (pair values are `Scalar` only) |

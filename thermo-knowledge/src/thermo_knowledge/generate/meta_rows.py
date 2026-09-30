@@ -283,6 +283,7 @@ def meta_rows(decl: m.Declaration) -> dict[str, list[tuple[object, ...]]]:
                 position=position,
                 **_type(argument.type),
                 basis=_basis_id(decl, argument.basis),
+                observable=_observable_id(decl, argument.observable),
                 doc=argument.doc,
             )
             mark(argument.construct, argument.traces, argument.pse)

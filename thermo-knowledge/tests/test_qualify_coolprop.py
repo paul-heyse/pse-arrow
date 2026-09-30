@@ -167,6 +167,16 @@ def test_the_committed_case_compares_every_fluid_at_25_points_and_the_library_an
     # theta is a few ulp, are among the points and agree within it
     assert report["relative_tolerance"] == 1e-10
     assert runs["committed"].outcome == "passed" and report["failed"] == 0
+    # every point of the grid lies inside the fitted range the grid was spread within
+    assert report["validity"] == {
+        "kind": "fitted_range",
+        "outside_policy": "compare",
+        "inside": 123 * 25,
+        "outside": 0,
+        "undetermined": 0,
+        "not_stated": 0,
+        "excluded": 0,
+    }
 
 
 def test_every_deviation_inside_each_range_is_within_a_rounding_bound_of_its_coefficients(

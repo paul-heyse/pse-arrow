@@ -74,13 +74,50 @@ members.self_diffusion = { doc = "Self-diffusion or tracer diffusion; no frame a
 members.not_applicable = { doc = "Not a diffusion observable." }
 
 [enums.uncertainty_kind]
-doc = "What an uncertainty magnitude means."
+doc = "What an uncertainty magnitude means. The facets state what a magnitude of each kind is: a rule that depends on them reads them, never the names of members."
+facets.relative = { doc = "The magnitude is a fraction of the value, not a quantity in the value's unit." }
+facets.unquantified = { doc = "The kind states no magnitude." }
 members.standard = { doc = "A standard uncertainty." }
 members.expanded = { doc = "An expanded uncertainty with a coverage factor or confidence level." }
-members.relative = { doc = "A relative standard uncertainty." }
+members.combined_standard = { doc = "A combined standard uncertainty: the standard uncertainty of the value obtained by combining several uncertainty contributions, as the source evaluates it." }
+members.combined_expanded = { doc = "A combined expanded uncertainty: the combined standard uncertainty multiplied by a coverage factor or stated with a level of confidence." }
+members.relative = { doc = "A relative standard uncertainty.", facets = ["relative"] }
 members.interval = { doc = "A bound the true value is stated to lie within." }
-members.exact = { doc = "Exact by definition or convention." }
-members.not_stated = { doc = "The source gives no uncertainty; this is not zero uncertainty." }
+members.repeatability_single_biased = { doc = "The repeatability of a single value, stated as the standard deviation of a single measured value computed with the biased estimator." }
+members.repeatability_single_unbiased = { doc = "The repeatability of a single value, stated as the standard deviation of a single measured value computed with the unbiased estimator." }
+members.repeatability_of_mean = { doc = "The repeatability of a value that is a mean, stated as the standard deviation of the mean." }
+members.repeatability_other = { doc = "A repeatability stated as a spread of another kind than the standard deviations above; the method states which." }
+members.device_specification = { doc = "The uncertainty that the specification of the measuring device gives the value; the method states how the specification was obtained." }
+members.curve_deviation = { doc = "The root-mean-square deviation of the values from a stated curve, in the unit of the value." }
+members.relative_curve_deviation = { doc = "The root-mean-square relative deviation of the values from a stated curve, as a fraction of the value.", facets = ["relative"] }
+members.exact = { doc = "Exact by definition or convention.", facets = ["unquantified"] }
+members.not_stated = { doc = "The source gives no uncertainty; this is not zero uncertainty.", facets = ["unquantified"] }
+
+[enums.value_presentation]
+doc = "How a reported number relates to the property its column is about: the property itself, or a difference, mean or ratio formed from it. The facets state what a presentation needs."
+facets.relative_to_reference_state = { doc = "The number is formed against a reference state, which the column's reference state kind then says." }
+members.direct = { doc = "The value of the property itself." }
+members.difference_between_temperatures = { doc = "The difference of the property between an upper and a lower temperature." }
+members.difference_between_pressures = { doc = "The difference of the property between an upper and a lower pressure." }
+members.mean_between_temperatures = { doc = "The mean of the property at an upper and a lower temperature." }
+members.difference_from_reference = { doc = "The property minus its value in the reference state.", facets = ["relative_to_reference_state"] }
+members.ratio_to_reference = { doc = "The property divided by its value in the reference state.", facets = ["relative_to_reference_state"] }
+members.relative_difference_from_reference = { doc = "The difference from the reference state divided by the value in the reference state.", facets = ["relative_to_reference_state"] }
+
+[enums.reference_state_kind]
+doc = "What the reference state of a difference or ratio is. Where it is given, `same` conditions are those of the state point the value is reported at, and `fixed` conditions are stated on the column."
+members.reference_phase_fixed_tp = { doc = "A reference phase of the same composition at a fixed temperature and pressure." }
+members.reference_phase_same_tp = { doc = "A reference phase of the same composition at the same temperature and pressure." }
+members.reference_phase_fixed_t_same_p = { doc = "A reference phase at a fixed temperature and the same pressure." }
+members.reference_phase_same_t_fixed_p = { doc = "A reference phase at the same temperature and a fixed pressure." }
+members.ideal_gas_same_density = { doc = "An ideal gas at the same amount density, temperature and composition." }
+members.ideal_mixture_same_density = { doc = "An ideal mixture of the pure fluid components at the same amount density, temperature and composition." }
+members.equilibrium_phase_same_tp = { doc = "The phase in equilibrium with the primary phase, at the same temperature and pressure." }
+members.pure_components_fixed_tp = { doc = "The pure components in the same proportion, at a fixed temperature and pressure." }
+members.pure_components_same_tp = { doc = "The pure components in the same proportion, at the same temperature and pressure." }
+members.pure_solvent_equilibrium_temperature = { doc = "The pure solvent at the temperature of the same phase equilibrium." }
+members.pure_solvent_same_tp = { doc = "The pure solvent at the same temperature and pressure." }
+members.pure_solute_same_tp = { doc = "The pure solute at the same temperature and pressure." }
 
 [kinds.observable]
 doc = "A physical quantity with the facets needed to interpret a number for it."

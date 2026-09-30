@@ -296,15 +296,17 @@ def test_a_failed_ddl_check_is_reported_before_the_database_sees_it() -> None:
     )
     message = refused(
         w,
-        lambda: w.kind(
-            "envelope",
-            {
-                "parameter_set": ps,
-                "axis": temperature.id,
-                "kind": "fitted_range",
-                "lower": Quantity(500.0, "K"),
-                "upper": Quantity(300.0, "K"),
-            },
+        lambda: w.validity_region(
+            ps,
+            {"kind": "fitted_range"},
+            [
+                {
+                    "observable": temperature.id,
+                    "lower": Quantity(500.0, "K"),
+                    "upper": Quantity(300.0, "K"),
+                }
+            ],
+            origins=[origin("a.json#/1", "fitted")],
             at="a.json#/1",
         ),
     )
@@ -781,7 +783,7 @@ def test_the_unit_of_a_real_follows_a_dotted_path_of_references() -> None:
         return w.relation(
             "datum",
             {"point": point, "column": column},
-            {"state": "known", "value": value, "uncertainty_kind": "not_stated"},
+            {"state": "known", "value": value},
             at="a.json#/1",
         )
 
@@ -801,7 +803,7 @@ def test_the_unit_of_a_real_follows_a_dotted_path_of_references() -> None:
         lambda: w.relation(
             "datum",
             {"point": point, "column": unknown},
-            {"state": "known", "value": Quantity(1.0, "K"), "uncertainty_kind": "not_stated"},
+            {"state": "known", "value": Quantity(1.0, "K")},
             at="a.json#/2",
         ),
     )

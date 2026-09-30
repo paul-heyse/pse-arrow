@@ -142,7 +142,7 @@ role = { type = "system_role", doc = "Its role in this system." }
 member_role = { type = "member_role", optional = true, doc = "The part it plays in the phases of this system, where the source states one." }
 
 [relations.system_conserves]
-doc = "A conserved quantity a chemical system declares. Every reaction of the system conserves each of them."
+doc = "A conserved quantity a chemical system declares."
 provenance = "inherit:system"
 absence = "optional"
 

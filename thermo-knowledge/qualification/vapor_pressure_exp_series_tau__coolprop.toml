@@ -14,9 +14,14 @@
 # conditioning floor of any fluid in the set, and four orders of magnitude below the smallest
 # error a wrong unit, term order or reducing value would produce.
 #
-# Grid. The ends of each fitted range are included. The upper end is within a few units in the
-# last place of the reducing temperature, where theta is rounding noise; agreement there requires
-# the evaluator to perform the same floating-point operations as the formula as written.
+# Grid. Each fluid's grid is spread within its one fitted-range region, along the clause on the
+# observable that the contract's temperature argument names. The ends of each fitted range are
+# included. The upper end is within a few units in the last place of the reducing temperature,
+# where theta is rounding noise; agreement there requires the evaluator to perform the same
+# floating-point operations as the formula as written.
+#
+# Validity. The run counts its points against the same fitted-range regions (every point of the
+# grid is inside) and compares points outside a region anyway, since there are none.
 
 doc = "Saturation pressure from the stored CoolProp pS ancillary coefficients against CoolProp's own evaluation of its ancillary, at 25 temperatures within each fluid's fitted range."
 form = "vapor_pressure_exp_series_tau"
@@ -39,9 +44,12 @@ scope = "fluids"
 [arguments.T]
 points = 25
 within = "envelope"
-observable = "temperature"
 envelope_kind = "fitted_range"
 inset = 0.0
+
+[validity]
+kind = "fitted_range"
+outside = "compare"
 
 [comparison]
 relative_tolerance = 1e-10

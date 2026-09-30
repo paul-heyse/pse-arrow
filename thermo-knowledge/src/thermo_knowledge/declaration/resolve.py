@@ -2627,9 +2627,11 @@ class Resolver:
     # -- observables -----------------------------------------------------------------------
 
     def _observable_fields(self) -> list[tuple[str, m.Field]]:
-        """Every contract output and slot that names an observable, with its module."""
+        """Every contract argument, contract output and slot that names an observable, with its
+        module."""
         found: list[tuple[str, m.Field]] = []
         for contract in self.contracts.values():
+            found.extend((contract.module, f) for f in contract.arguments if f.observable)
             found.extend((contract.module, f) for f in contract.outputs if f.observable)
         for form in self.forms.values():
             for group in form.slot_groups:

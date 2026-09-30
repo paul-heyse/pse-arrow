@@ -39,6 +39,7 @@ import scipy.integrate
 import sympy
 from sympy.core.function import ArgumentIndexError
 
+from thermo_knowledge import pipeline_contract as pc
 from thermo_knowledge import transposition
 from thermo_knowledge.declaration import model as m
 from thermo_knowledge.expression import tree as t
@@ -48,6 +49,7 @@ from thermo_knowledge.expression.parameters import (
     FamilyRows,
     FormChoice,
     ParameterSource,
+    RecordValidity,
     SetRead,
     SlotValues,
     Subject,
@@ -64,6 +66,7 @@ from thermo_knowledge.expression.scope import (
     classify_slot,
 )
 from thermo_knowledge.expression.units import unit_literal
+from thermo_knowledge.expression.validity import membership
 
 _PRECISION = 17
 _SIMPLE = {
@@ -761,6 +764,7 @@ class _Machine:
                 f"({', '.join(subjects)}) {error}"
             ) from None
         if found is not None:
+            self.sources[id(frame.source)] = frame.source
             self.reads.setdefault(id(frame.source), []).append((group.qualified, subjects))
             return found
         fallback = default() if default is not None else None
@@ -1371,6 +1375,56 @@ class BoundForm:
             np.broadcast(*(values[s] for s in prepared.symbols)).shape if prepared.symbols else ()
         )
         return np.broadcast_to(result, shape).copy() if shape else result.reshape(())
+
+    def validity(
+        self,
+        output: str,
+        kind: str,
+        **arguments: float | np.ndarray,
+    ) -> np.ndarray:
+        """Where each point lies with respect to the validity regions of `kind` (an
+        `envelope_kind` member) of the records `output` reads, as an array of `Membership` codes
+        broadcast over the argument values: inside, outside, undetermined, or no region of that
+        kind stated (`expression/validity.py`).
+
+        A clause is decided by the argument of the contract that names its observable (an
+        argument declares `observable`); a clause about a component or an aggregation, or on an
+        observable that no argument names, names more than one argument or has no value here,
+        leaves its region undetermined. It never refuses because of a region: evaluating is
+        `evaluate`'s business, and what to do outside is the caller's."""
+        kinds = [member.name for member in self.decl.enums[pc.ENVELOPE_KIND.declared].members]
+        if kind not in kinds:
+            raise EvaluationRefusal(
+                f"`{kind}` is not a validity region kind ({', '.join(kinds)})"
+            )
+        unknown = set(arguments) - set(self.args)
+        if unknown:
+            raise EvaluationRefusal(
+                f"`{', '.join(sorted(unknown))}` is not an argument of contract "
+                f"`{self.scope.contract.name}`"
+            )
+        self._built(output)
+        named: dict[str, list[str]] = {}
+        for argument in self.scope.contract.arguments:
+            if argument.observable is not None and not argument.over:
+                named.setdefault(argument.observable, []).append(argument.name)
+        observed = {
+            observable: np.asarray(arguments[names[0]], dtype=float)
+            for observable, names in named.items()
+            if len(names) == 1 and names[0] in arguments
+        }
+        shapes = [
+            np.shape(np.asarray(value))
+            for name, value in arguments.items()
+            if isinstance(self.args[name], sympy.Symbol)
+        ]
+        shape = np.broadcast_shapes(*shapes) if shapes else ()
+        records: list[RecordValidity] = []
+        for key, source in self.machine.sources.items():
+            reads = tuple(self.machine.reads.get(key, ()))
+            if reads:
+                records.extend(source.validity(kind, reads))
+        return membership(records, observed, shape)
 
     def _guard(self, condition: sympy.Basic) -> _Guard:
         symbols = tuple(sorted(condition.free_symbols, key=str))

@@ -1,5 +1,5 @@
--- invariant: slot_uncertainty.magnitude_matches_kind
--- An uncertainty states a magnitude its kind does not allow, or lacks the one it requires.
+-- invariant: datum_uncertainty.magnitude_matches_kind
+-- An uncertainty states a pair of magnitudes its assessment's kind does not allow, or lacks the pair it requires.
 -- The kinds that are relative and those that state no magnitude are the members of `uncertainty_kind` with the facets `relative` and `unquantified`, so a member with a facet is covered without editing this file.
 WITH kind_facets AS (
     SELECT m.name AS kind,
@@ -10,17 +10,22 @@ WITH kind_facets AS (
     FROM meta.enum_member m
     WHERE m.enum = 'uncertainty_kind'
 )
-SELECT u.id, loc.locator, u.kind::text AS kind, u.magnitude, u.relative_magnitude
-FROM tk.slot_uncertainty u
-JOIN kind_facets k ON k.kind = u.kind::text
+SELECT u.id, loc.locator, a.kind::text AS kind, u.minus, u.plus, u.relative_minus, u.relative_plus
+FROM ev.datum_uncertainty u
+JOIN ev.uncertainty_assessment a ON a.id = u.assessment
+JOIN ev.dataset_column c ON c.id = a."column"
+JOIN kind_facets k ON k.kind = a.kind::text
 LEFT JOIN LATERAL (
     SELECT string_agg(i.locator, '; ' ORDER BY i.locator) AS locator
     FROM prov.record_origin o
     JOIN prov.import_record i ON i.id = o.import_record
-    WHERE o.record = u.id
+    WHERE o.record = c.dataset
 ) loc ON true
 WHERE NOT CASE
-    WHEN k.is_unquantified THEN u.magnitude IS NULL AND u.relative_magnitude IS NULL
-    WHEN k.is_relative THEN u.relative_magnitude IS NOT NULL AND u.magnitude IS NULL
-    ELSE u.magnitude IS NOT NULL AND u.relative_magnitude IS NULL
+    WHEN k.is_unquantified THEN
+        u.minus IS NULL AND u.plus IS NULL AND u.relative_minus IS NULL AND u.relative_plus IS NULL
+    WHEN k.is_relative THEN
+        u.relative_minus IS NOT NULL AND u.relative_plus IS NOT NULL AND u.minus IS NULL AND u.plus IS NULL
+    ELSE
+        u.minus IS NOT NULL AND u.plus IS NOT NULL AND u.relative_minus IS NULL AND u.relative_plus IS NULL
 END

@@ -5,10 +5,11 @@
 
 A `ParameterSource` answers for a slot group, by its qualified name `form.group`, and an ordered
 tuple of subjects: the slot values (in storage units), the rows of a family, a nested or
-referenced set, the convention facts of the parameterizations that supplied the sets read, and,
-for a sub-form slot, the form chosen together with that form's own source. A subject is the
-opaque identifier of an entity, as text. The source returns `None` for what it does not hold; the
-evaluator refuses, it never substitutes a zero.
+referenced set, the convention facts of the parameterizations that supplied the sets read, the
+validity regions of the records that supplied them and, for a sub-form slot, the form chosen
+together with that form's own source. A subject is the opaque identifier of an entity, as text.
+The source returns `None` for what it does not hold; the evaluator refuses, it never substitutes
+a zero.
 
 **Orientation.** A source returns the values for the order of the subjects it is asked for. A
 set is held for the order its source asserted; asked for another order of a transposable group,
@@ -21,7 +22,7 @@ database.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Protocol
 
@@ -64,6 +65,40 @@ class ConventionFact:
     absent: str = ""
 
 
+@dataclass(frozen=True)
+class RegionClause:
+    """One clause of a validity region: an interval of one observable (by its declared name),
+    about the whole record or, when `component` or `aggregation` is stated, about that component
+    or the phase of that aggregation. A bound the source does not state is `None`."""
+
+    observable: str
+    lower: float | None = None
+    upper: float | None = None
+    component: Subject | None = None
+    aggregation: str | None = None
+
+
+@dataclass(frozen=True)
+class ValidityRegion:
+    """A region of conditions: the conjunction of its clauses."""
+
+    clauses: tuple[RegionClause, ...]
+
+
+@dataclass(frozen=True)
+class RecordValidity:
+    """What one record says about its validity for one kind of region.
+
+    `coverage` is `stated` or `not_stated` as the record's coverage row says, and `None` when it
+    has none (its validity has not been mapped). `regions` are alternatives: the record applies
+    inside any of them. `record` is how a message names the record."""
+
+    record: str
+    kind: str
+    coverage: str | None
+    regions: tuple[ValidityRegion, ...] = ()
+
+
 class ParameterSource(Protocol):
     def slot_values(self, group: str, subjects: tuple[Subject, ...]) -> SlotValues | None:
         """The slot values of the parameter set of slot group `group` for `subjects`, as held for
@@ -104,6 +139,13 @@ class ParameterSource(Protocol):
         of the parameterization the source is in force for."""
         ...
 
+    def validity(self, kind: str, reads: tuple[SetRead, ...]) -> tuple[RecordValidity, ...]:
+        """What the records that supplied the sets `reads` to this source state about their
+        validity for regions of `kind`, once each: each set and the parameterization it belongs
+        to (a model assembly is not read by an evaluation). A record states nothing for a kind it
+        has no coverage row for."""
+        ...
+
 
 @dataclass
 class InMemorySource:
@@ -134,6 +176,11 @@ class InMemorySource:
     declaration: m.Declaration | None = None
     conventions: Mapping[str, float] = field(default_factory=dict)
     parameterization: str = "(in memory)"
+    validities: Mapping[tuple[str, tuple[Subject, ...]], Sequence[RecordValidity]] = field(
+        default_factory=dict
+    )
+    """What the record of each set states about its validity, by (group, subjects) as written in
+    the set's key: one `RecordValidity` per kind stated."""
 
     def _group(self, group: str) -> m.SlotGroup | None:
         if self.declaration is None:
@@ -196,3 +243,13 @@ class InMemorySource:
                 ),
             )
         return (ConventionFact(self.parameterization, float(value)),)
+
+    def validity(self, kind: str, reads: tuple[SetRead, ...]) -> tuple[RecordValidity, ...]:
+        found: list[RecordValidity] = []
+        for group, subjects in reads:
+            for asserted in self._orders(group, subjects):
+                held = self.validities.get((group, asserted))
+                if held is not None:
+                    found.extend(item for item in held if item.kind == kind and item not in found)
+                    break
+        return tuple(found)

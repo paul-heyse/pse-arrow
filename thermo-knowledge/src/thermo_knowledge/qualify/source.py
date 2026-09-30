@@ -7,8 +7,8 @@ The source answers the reference evaluator from canonical records: slot values i
 from the `param.<form>__<group>` tables, the rows of a family from its table, a nested or
 referenced set by following the slot's foreign key to the set it holds, the forms chosen for a
 sub-form slot (from an explicit choice given by the caller, else for a slot chosen per subject
-from the `subject_subform_choice` relation), and the convention facts of the parameterizations
-that supplied the sets an evaluation read. It reads one or several parameterizations in order:
+from the `subject_subform_choice` relation), the convention facts of the parameterizations that
+supplied the sets an evaluation read and the validity regions of those sets and parameterizations. It reads one or several parameterizations in order:
 the first that holds a set for a slot group and subjects answers. It holds no defaults
 (`default_slot_values` is always `None`), so a missing set is reported as missing and the
 evaluator refuses.
@@ -46,9 +46,12 @@ from thermo_knowledge.expression.parameters import (
     ConventionFact,
     FamilyRows,
     FormChoice,
+    RecordValidity,
+    RegionClause,
     SetRead,
     SlotValues,
     Subject,
+    ValidityRegion,
 )
 from thermo_knowledge.generate.fingerprint import declaration_fingerprint
 from thermo_knowledge.schema_build import read_physical, recorded_in
@@ -440,6 +443,69 @@ class _Backend:
         self.facts[(parameterization, name)] = fact
         return fact
 
+    def _names(self, kind: str) -> dict[uuid.UUID, str]:
+        """The declared entities of `kind` by identifier, as their names."""
+        return {
+            entity.id: entity.name
+            for entity in self.decl.entities
+            if self.decl.is_a(entity.kind, kind)
+        }
+
+    def validities(
+        self, kind: str, holders: Sequence[tuple[uuid.UUID, str]]
+    ) -> list[RecordValidity]:
+        """What each of `holders` (a record's identifier and how a message names it) states about
+        its validity for regions of `kind`: its coverage row and its regions with their clauses.
+        A record with neither has no coverage and no region."""
+        if not holders:
+            return []
+        coverage_table, region_table = pc.VALIDITY_COVERAGE, pc.VALIDITY_REGION
+        clause_table = pc.REGION_CLAUSE
+        identifiers = [holder for holder, _ in holders]
+        states = dict(
+            self.conn.execute(
+                f"SELECT {coverage_table.record}, {coverage_table.value}::text "  # noqa: S608
+                f"FROM {coverage_table.table} "
+                f"WHERE {coverage_table.kind}::text = %s AND {coverage_table.record} = ANY(%s)",
+                (kind, identifiers),
+            ).fetchall()
+        )
+        regions = self.conn.execute(
+            f"SELECT id, {region_table.record} FROM {region_table.table} "  # noqa: S608
+            f"WHERE {region_table.kind}::text = %s AND {region_table.record} = ANY(%s) "
+            f"ORDER BY {region_table.record}, {region_table.ordinal}",
+            (kind, identifiers),
+        ).fetchall()
+        clauses: dict[uuid.UUID, list[RegionClause]] = {}
+        if regions:
+            observables = self._names(self.decl.framework[m.OBSERVABLE_ROLE])
+            aggregations = self._names(pc.AGGREGATION.declared)
+            rows = self.conn.execute(
+                f"SELECT {clause_table.region}, {clause_table.observable}, "  # noqa: S608
+                f"{clause_table.component}, {clause_table.aggregation}, "
+                f"{clause_table.lower}, {clause_table.upper} FROM {clause_table.table} "
+                f"WHERE {clause_table.region} = ANY(%s) ORDER BY {clause_table.region}, "
+                f"{clause_table.ordinal}",
+                ([identifier for identifier, _ in regions],),
+            ).fetchall()
+            for region, observable, component, aggregation, lower, upper in rows:
+                clauses.setdefault(region, []).append(
+                    RegionClause(
+                        observables[observable],
+                        None if lower is None else float(lower),
+                        None if upper is None else float(upper),
+                        None if component is None else str(component),
+                        None if aggregation is None else aggregations[aggregation],
+                    )
+                )
+        held: dict[uuid.UUID, list[ValidityRegion]] = {}
+        for identifier, record in regions:
+            held.setdefault(record, []).append(ValidityRegion(tuple(clauses.get(identifier, ()))))
+        return [
+            RecordValidity(label, kind, states.get(holder), tuple(held.get(holder, ())))
+            for holder, label in holders
+        ]
+
     def choices(
         self, slot: str, subjects: tuple[Subject, ...], parameterizations: Sequence[uuid.UUID]
     ) -> list[tuple[str, uuid.UUID]]:
@@ -682,3 +748,18 @@ class DatabaseSource:
                     found.setdefault(record.parameterization)
             supplying = list(found) or list(self._scope.parameterizations[:1])
         return tuple(self._backend.convention_fact(p, name) for p in supplying)
+
+    def validity(self, kind: str, reads: tuple[SetRead, ...]) -> tuple[RecordValidity, ...]:
+        """The validity of `kind` that each set of the `reads` and the parameterization it belongs
+        to state (this source's pinned set, for a nested or referenced one)."""
+        sets: dict[uuid.UUID, _Set] = {}
+        for group, subjects in reads:
+            record = self._set(group, subjects)
+            if record is not None:
+                sets.setdefault(record.id, record)
+        holders: list[tuple[uuid.UUID, str]] = [
+            (record.id, f"{record.group}({', '.join(record.subjects)})") for record in sets.values()
+        ]
+        for parameterization in dict.fromkeys(record.parameterization for record in sets.values()):
+            holders.append((parameterization, self._backend.label(parameterization)))
+        return tuple(self._backend.validities(kind, holders))

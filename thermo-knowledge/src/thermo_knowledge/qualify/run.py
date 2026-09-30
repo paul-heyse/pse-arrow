@@ -37,6 +37,7 @@ from thermo_knowledge.declaration import model as m
 from thermo_knowledge.expression.canonical import evaluation_hash
 from thermo_knowledge.expression.compiled import CompileCache
 from thermo_knowledge.expression.evaluate import EvaluationRefusal, bind
+from thermo_knowledge.expression.validity import Membership, counts
 from thermo_knowledge.generate.fingerprint import declaration_fingerprint
 from thermo_knowledge.qualify import harness, persist
 from thermo_knowledge.qualify.case import (
@@ -113,6 +114,28 @@ class SubjectOutcome:
     worst: float | None = None
     worst_at: dict[str, float] | None = None
     refused: str | None = None
+
+
+@dataclass(frozen=True)
+class Evaluation:
+    """What evaluating the form for the subjects gave: the answer at each subject's points (or
+    the refusal that stopped it), the points that were evaluated (those a case excludes for
+    lying outside its validity regions are not among them) and, for a case that names a validity
+    kind, where every point of the grid lies (`Membership` codes; `None` for a subject the form
+    was refused for)."""
+
+    answers: dict[uuid.UUID, np.ndarray | str]
+    points: dict[uuid.UUID, dict[str, list[float]]]
+    membership: dict[uuid.UUID, np.ndarray | None]
+
+    def counts(self) -> dict[Membership, int]:
+        """How many grid points are in each membership, over the subjects that have one."""
+        total = {member: 0 for member in Membership}
+        for codes in self.membership.values():
+            if codes is not None:
+                for member, number in counts(codes).items():
+                    total[member] += number
+        return total
 
 
 @dataclass
@@ -285,23 +308,50 @@ def select_subjects(
 # -- grids -------------------------------------------------------------------------------------
 
 
-def _envelopes(
-    conn: psycopg.Connection, decl: m.Declaration, sets: Sequence[uuid.UUID], observable: str
-) -> dict[uuid.UUID, list[tuple[str, float | None, float | None]]]:
-    entity = decl.observable_entity(observable)
-    assert entity is not None
-    env = pc.ENVELOPE
+@dataclass(frozen=True)
+class _Clause:
+    observable: uuid.UUID
+    component: uuid.UUID | None
+    aggregation: uuid.UUID | None
+    lower: float | None
+    upper: float | None
+
+
+@dataclass(frozen=True)
+class _Region:
+    kind: str
+    ordinal: int
+    clauses: tuple[_Clause, ...]
+
+
+def _regions(conn: psycopg.Connection, sets: Sequence[uuid.UUID]) -> dict[uuid.UUID, list[_Region]]:
+    """The validity regions of each of `sets` (of its own record), with their clauses."""
+    region, clause = pc.VALIDITY_REGION, pc.REGION_CLAUSE
     rows = conn.execute(
-        f"SELECT {env.parameter_set}, {env.kind}, {env.lower}, {env.upper} FROM {env.table} "  # noqa: S608
-        f"WHERE {env.parameter_set} = ANY(%s) AND {env.axis} = %s ORDER BY {env.kind}",
-        (list(sets), entity.id),
+        f"SELECT r.{region.record}, r.id, r.{region.kind}::text, r.{region.ordinal}, "  # noqa: S608
+        f"c.{clause.observable}, c.{clause.component}, c.{clause.aggregation}, "
+        f"c.{clause.lower}, c.{clause.upper} "
+        f"FROM {region.table} r JOIN {clause.table} c ON c.{clause.region} = r.id "
+        f"WHERE r.{region.record} = ANY(%s) "
+        f"ORDER BY r.{region.record}, r.{region.kind}::text, r.{region.ordinal}, c.{clause.ordinal}",
+        (list(sets),),
     ).fetchall()
-    found: dict[uuid.UUID, list[tuple[str, float | None, float | None]]] = {}
-    for parameter_set, kind, lower, upper in rows:
-        found.setdefault(parameter_set, []).append(
-            (kind, None if lower is None else float(lower), None if upper is None else float(upper))
+    held: dict[uuid.UUID, dict[uuid.UUID, tuple[str, int, list[_Clause]]]] = {}
+    for record, identifier, kind, ordinal, observable, component, aggregation, lower, upper in rows:
+        entry = held.setdefault(record, {}).setdefault(identifier, (kind, int(ordinal), []))
+        entry[2].append(
+            _Clause(
+                observable,
+                component,
+                aggregation,
+                None if lower is None else float(lower),
+                None if upper is None else float(upper),
+            )
         )
-    return found
+    return {
+        record: [_Region(kind, ordinal, tuple(clauses)) for kind, ordinal, clauses in by_id.values()]
+        for record, by_id in held.items()
+    }
 
 
 def _spread(grid: ArgumentSpec, low: float, high: float) -> np.ndarray:
@@ -323,6 +373,9 @@ def grids(
     arguments give their Cartesian product, the last varying fastest), keyed by set."""
     per_argument: dict[str, dict[uuid.UUID, np.ndarray]] = {}
     problems: list[str] = []
+    regions: dict[uuid.UUID, list[_Region]] = {}
+    if any(case.spec.arguments[a.name].points is not None for a in contract.arguments):
+        regions = _regions(conn, [s.set_id for s in subjects])
     for argument in contract.arguments:
         grid = case.spec.arguments[argument.name]
         if grid.values is not None:
@@ -331,28 +384,43 @@ def grids(
             values = [convert(v, grid.unit, target) if target else v for v in grid.values]
             per_argument[argument.name] = {s.set_id: np.array(values) for s in subjects}
             continue
-        assert grid.observable is not None
-        envelopes = _envelopes(conn, decl, [s.set_id for s in subjects], grid.observable)
+        assert argument.observable is not None  # validated: a grid within a region needs it
+        entity = decl.observable_entity(argument.observable)
+        assert entity is not None
         table: dict[uuid.UUID, np.ndarray] = {}
         for subject in subjects:
-            rows = [
-                row
-                for row in envelopes.get(subject.set_id, [])
-                if grid.envelope_kind is None or row[0] == grid.envelope_kind
-            ]
             label = "/".join(subject.keys)
-            if len(rows) != 1:
+            kind = f" of kind `{grid.envelope_kind}`" if grid.envelope_kind else ""
+            found = [
+                region
+                for region in regions.get(subject.set_id, [])
+                if grid.envelope_kind is None or region.kind == grid.envelope_kind
+            ]
+            if len(found) != 1:
                 problems.append(
-                    f"{label}: {len(rows)} envelopes on `{grid.observable}`"
-                    + (f" of kind `{grid.envelope_kind}`" if grid.envelope_kind else "")
-                    + ", needs one"
+                    f"{label}: {len(found)} validity regions{kind}, a grid within a region "
+                    "needs exactly one (give explicit `values` for this argument)"
                 )
                 continue
-            _, lower, upper = rows[0]
-            if lower is None or upper is None:
-                problems.append(f"{label}: the envelope on `{grid.observable}` is open at one end")
+            along = [
+                c
+                for c in found[0].clauses
+                if c.observable == entity.id and c.component is None and c.aggregation is None
+            ]
+            if len(along) != 1:
+                problems.append(
+                    f"{label}: the validity region{kind} has {len(along)} clauses on "
+                    f"`{argument.observable}` that are about the whole record, a grid follows "
+                    "exactly one (give explicit `values` for this argument)"
+                )
                 continue
-            table[subject.set_id] = _spread(grid, lower, upper)
+            if along[0].lower is None or along[0].upper is None:
+                problems.append(
+                    f"{label}: the clause of the validity region{kind} on "
+                    f"`{argument.observable}` is open at one end"
+                )
+                continue
+            table[subject.set_id] = _spread(grid, along[0].lower, along[0].upper)
         per_argument[argument.name] = table
     if problems:
         shown = "; ".join(problems[:5])
@@ -430,25 +498,45 @@ def evaluate(
     group: m.SlotGroup,
     subjects: Sequence[Subject],
     points: Mapping[uuid.UUID, dict[str, list[float]]],
-) -> dict[uuid.UUID, np.ndarray | str]:
-    """The form's output at each subject's points from the database, or the refusal that
-    stopped it (a string). The subjects share one compile cache, so subjects whose expansion has
-    the same structure (the same term count, say) compile the form once."""
+) -> Evaluation:
+    """The form's output at each subject's points from the database, or the refusal that stopped
+    it (a string). The subjects share one compile cache, so subjects whose expansion has the same
+    structure (the same term count, say) compile the form once.
+
+    A case that names a validity kind has every point classified against the regions of that kind
+    of the records the evaluation read (`BoundForm.validity`), and leaves out the points outside
+    them when its policy is to `exclude`: they are neither evaluated nor compared, and the
+    classification still counts them."""
     source.prefetch(group.qualified, [subject.ids for subject in subjects])
     cache = CompileCache()
+    validity = case.spec.validity
     answers: dict[uuid.UUID, np.ndarray | str] = {}
+    kept: dict[uuid.UUID, dict[str, list[float]]] = {}
+    membership: dict[uuid.UUID, np.ndarray | None] = {}
     for subject in subjects:
-        arguments = {name: np.array(values) for name, values in points[subject.set_id].items()}
+        columns = points[subject.set_id]
+        arguments = {name: np.array(values) for name, values in columns.items()}
+        kept[subject.set_id] = columns
         try:
             bound = bind(
                 decl, case.spec.form, source=source, roles=_roles(group, subject), cache=cache
             )
+            if validity is not None:
+                codes = bound.validity(case.spec.output, validity.kind, **arguments)
+                membership[subject.set_id] = codes
+                if validity.outside == "exclude":
+                    keep = codes != Membership.OUTSIDE
+                    arguments = {name: values[keep] for name, values in arguments.items()}
+                    kept[subject.set_id] = {
+                        name: values.tolist() for name, values in arguments.items()
+                    }
             # A non-finite answer is compared (and fails the point); NumPy's warning adds nothing.
             with np.errstate(all="ignore"):
                 answers[subject.set_id] = bound.evaluate(case.spec.output, **arguments)
         except EvaluationRefusal as refusal:
             answers[subject.set_id] = str(refusal)
-    return answers
+            membership[subject.set_id] = None  # a subject the form is refused for is not classified
+    return Evaluation(answers, kept, membership)
 
 
 def _deviation(form_value: float, library_value: float) -> float:
@@ -540,6 +628,7 @@ def _report(
     outcomes: Sequence[SubjectOutcome],
     invalid: Sequence[dict[str, object]],
     sets: Sequence[uuid.UUID],
+    totals: Mapping[Membership, int] | None,
 ) -> dict[str, object]:
     comparison = case.spec.comparison
     exclude = comparison.invalid_points == "exclude"
@@ -596,6 +685,32 @@ def _report(
         ],
         "invalid_points": list(invalid),
         "sets": [str(s) for s in sets],
+        "validity": _validity_report(case, totals),
+    }
+
+
+def _validity_report(
+    case: Case, totals: Mapping[Membership, int] | None
+) -> dict[str, object] | None:
+    """Where the grid lies with respect to the validity regions the case names: how many points
+    are inside, outside, undetermined, and in none of these because no region of the kind is
+    stated; `excluded` is the outside points the case left out of the comparison. `None` for a
+    case that names no validity kind."""
+    validity = case.spec.validity
+    if validity is None:
+        return None
+    return {
+        "kind": validity.kind,
+        "outside_policy": validity.outside,
+        "inside": None if totals is None else totals[Membership.INSIDE],
+        "outside": None if totals is None else totals[Membership.OUTSIDE],
+        "undetermined": None if totals is None else totals[Membership.UNDETERMINED],
+        "not_stated": None if totals is None else totals[Membership.NOT_STATED],
+        "excluded": (
+            None
+            if totals is None
+            else totals[Membership.OUTSIDE] if validity.outside == "exclude" else 0
+        ),
     }
 
 
@@ -622,6 +737,14 @@ def table_lines(report: Mapping[str, object]) -> list[str]:
         f"  {report['subjects']:>8} {report['points']:>8} {report['passed']:>8} {report['failed']:>8} "
         f"{report['invalid']:>8}  {deviation}  ({where})",
     ]
+    region = report.get("validity")
+    if isinstance(region, dict) and region["inside"] is not None:
+        lines.append(
+            f"  against the `{region['kind']}` regions: {region['inside']} inside, "
+            f"{region['outside']} outside ({region['outside_policy']}"
+            + (f", {region['excluded']} left out" if region["excluded"] else "")
+            + f"), {region['undetermined']} undetermined, {region['not_stated']} with no region stated"
+        )
     if report["blocked_reason"]:
         lines.append(f"  blocked ({report['blocked_reason']}): {report['note']}")
     elif report["note"]:
@@ -676,6 +799,7 @@ def run_case(ctx: Context, conn: psycopg.Connection, case: Case) -> CaseOutcome:
     outcome, blocked_reason, note = BLOCKED, None, None
     key: reuse.Key | None = None
     read: ReadRecords | None = None
+    evaluation: Evaluation | None = None
 
     def run_key_of() -> str:
         return f"{case.name}/{spec.form}/{spec.parameterization.key}@{revision}/{fingerprint[:16]}"
@@ -739,13 +863,13 @@ def run_case(ctx: Context, conn: psycopg.Connection, case: Case) -> CaseOutcome:
         ):
             persist.load_live(ctx.url, stored.directory, stored.manifest, f"{case.name}/")
             return CaseOutcome(case.name, "current", stored.report, stored.directory)
-        answers = evaluate(source, decl, case, group, subjects, points)
+        evaluation = evaluate(source, decl, case, group, subjects, points)
         request = harness.Request(
             spec.harness.library,
             spec.harness.call,
             argument_units,
             output_unit,
-            tuple(_subject_request(s, points[s.set_id]) for s in subjects),
+            tuple(_subject_request(s, evaluation.points[s.set_id]) for s in subjects),
         )
         result = _harness(
             lambda: harness.run(
@@ -753,14 +877,17 @@ def run_case(ctx: Context, conn: psycopg.Connection, case: Case) -> CaseOutcome:
             )
         )
         state.library, state.version = result.library, result.version
-        outcomes, invalid = compare(case, decl, contract, subjects, points, answers, result)
-        outcome, blocked_reason, note = _verdict(case, outcomes, invalid)
+        outcomes, invalid = compare(
+            case, decl, contract, subjects, evaluation.points, evaluation.answers, result
+        )
+        outcome, blocked_reason, note = _verdict(case, outcomes, invalid, evaluation.counts())
     except Blocked as reason:
         blocked_reason, note = reason.reason, str(reason)
     except AmbiguousOccurrence as reason:
         blocked_reason, note = pc.BLOCKED_REASON.member("ambiguous_occurrence"), str(reason)
     run_key = run_key_of()
     worst = max((o.worst for o in outcomes if o.worst is not None), default=None)
+    totals = None if evaluation is None else evaluation.counts()
     record = persist.RunRecord(
         key=run_key,
         form=spec.form,
@@ -780,9 +907,27 @@ def run_case(ctx: Context, conn: psycopg.Connection, case: Case) -> CaseOutcome:
         blocked_reason=blocked_reason,
         note=note,
         sets=state.sets if outcomes else (),
+        validity_kind=None if spec.validity is None else spec.validity.kind,
+        inside_points=None if totals is None or spec.validity is None else totals[Membership.INSIDE],
+        outside_points=None
+        if totals is None or spec.validity is None
+        else totals[Membership.OUTSIDE],
+        undetermined_points=None
+        if totals is None or spec.validity is None
+        else totals[Membership.UNDETERMINED],
     )
     report = _report(
-        case, run_key, revision, state, outcome, blocked_reason, note, outcomes, invalid, record.sets
+        case,
+        run_key,
+        revision,
+        state,
+        outcome,
+        blocked_reason,
+        note,
+        outcomes,
+        invalid,
+        record.sets,
+        totals if spec.validity is not None else None,
     )
     if key is None:
         key = _key(
@@ -799,13 +944,22 @@ def run_case(ctx: Context, conn: psycopg.Connection, case: Case) -> CaseOutcome:
 
 
 def _verdict(
-    case: Case, outcomes: Sequence[SubjectOutcome], invalid: Sequence[dict[str, object]]
+    case: Case,
+    outcomes: Sequence[SubjectOutcome],
+    invalid: Sequence[dict[str, object]],
+    totals: Mapping[Membership, int],
 ) -> tuple[str, str | None, str | None]:
     """The outcome, the blocked reason (only for a blocked outcome) and the note."""
     comparison = case.spec.comparison
     compared = sum(o.passed + o.failed for o in outcomes)
     excluded = comparison.invalid_points == "exclude"
     notes: list[str] = []
+    validity = case.spec.validity
+    if validity is not None and validity.outside == "exclude" and totals[Membership.OUTSIDE]:
+        notes.append(
+            f"{totals[Membership.OUTSIDE]} point(s) outside the `{validity.kind}` regions excluded "
+            "from the comparison"
+        )
     if invalid:
         if excluded:
             notes.append(
@@ -871,6 +1025,7 @@ __all__ = [
     "CaseOutcome",
     "Context",
     "Subject",
+    "Evaluation",
     "SubjectOutcome",
     "compare",
     "evaluate",

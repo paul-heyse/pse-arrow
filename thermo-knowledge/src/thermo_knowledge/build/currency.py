@@ -20,8 +20,9 @@ computes plays no part and the two sides agree.
 The records read, starting from the parameter sets a run evaluated and every set of the
 parameterizations its sub-form choices read from: each parameter set, its slot-group row and the
 rows of its families, the sets it nests and the sets its reference slots name (followed to a
-fixed point), the envelopes of every set, the parameterizations the sets belong to with their
-convention sets (the convention facts an evaluation reads) and their sub-form choices.
+fixed point), the parameterizations the sets belong to with their convention sets (the convention
+facts an evaluation reads) and their sub-form choices, and the validity of every set and every such
+parameterization: its regions, their clauses and its coverage rows.
 """
 
 from __future__ import annotations
@@ -199,7 +200,6 @@ def read_records(
                     for name in family_held
                     if row.get(name) is not None
                 }
-        add(pc.ENVELOPE.table, source.rows(pc.ENVELOPE.table, pc.ENVELOPE.parameter_set, frontier))
         frontier = reached - known
     if belonging:
         pz = pc.PARAMETERIZATION
@@ -212,6 +212,17 @@ def read_records(
         add(choice.table, source.rows(choice.table, choice.parameterization, belonging))
     if convention_sets:
         add(pc.CONVENTION_SET.table, source.rows(pc.CONVENTION_SET.table, "id", convention_sets))
+    holders = known | belonging
+    if holders:
+        region, clause, coverage = pc.VALIDITY_REGION, pc.REGION_CLAUSE, pc.VALIDITY_COVERAGE
+        regions = source.rows(region.table, region.record, holders)
+        add(region.table, regions)
+        if regions:
+            add(
+                clause.table,
+                source.rows(clause.table, clause.region, [row["id"] for row in regions]),  # type: ignore[misc]
+            )
+        add(coverage.table, source.rows(coverage.table, coverage.record, holders))
     return records
 
 

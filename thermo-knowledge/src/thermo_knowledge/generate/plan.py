@@ -37,7 +37,7 @@ GENERATED_SCHEMAS: tuple[str, ...] = tuple(SCHEMA_DOCS)
 """The schemas the generated DDL creates, in creation order."""
 
 META_ENTITY_COLUMNS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
-    (m.OBSERVABLE_ROLE, "observable", ("contract_output", "slot")),
+    (m.OBSERVABLE_ROLE, "observable", ("contract_argument", "contract_output", "slot")),
     (m.COMPOSITION_BASIS_ROLE, "basis", ("contract_argument",)),
 )
 """Columns of `meta` tables that hold the identifier of a declared entity of a framework role's

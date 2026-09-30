@@ -354,6 +354,11 @@ name = "provisional_target_matches_status"
 doc = "The target is provisional exactly when the status is ambiguous, unresolved or rejected; a unique status has a canonical target."
 enforced = "verify"
 
+[[kinds.source_entity.requires]]
+name = "class_matches_target"
+doc = "The target is an entity of the refinement its class names: a species, a species form, a defined mixture, a material, a polymer type or a pseudo-component for the class of that name, and an unclassified entity for the class `undetermined`."
+enforced = "verify"
+
 [kinds.identity_assertion]
 doc = "One identifier or name a source gives for a source entity. The value is kept verbatim and is never parsed for meaning."
 identity = ["source_entity", "scheme", "value"]

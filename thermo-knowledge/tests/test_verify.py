@@ -46,7 +46,6 @@ STRUCTURAL = {
     "abstract_kind_has_one_refinement",
     "nested_set_implements_contract",
     "family_indices_contiguous",
-    "lineage_acyclic",
     "producing_derivation",
     "producing_derivation_is_fit",
     "subject_key_matches_subjects",
@@ -97,7 +96,7 @@ def lookup(conn: psycopg.Connection, query: str, *params: object) -> uuid.UUID:
 
 
 def run(conn: psycopg.Connection, target: str) -> CheckResult:
-    result = run_check(conn, CHECKS[target])
+    result = run_check(conn, CHECKS[target], shown=100)
     assert result.error is None, result.error
     return result
 
@@ -153,6 +152,16 @@ def test_a_verify_invariant_of_a_relation_needs_its_check_file_like_one_of_a_kin
         "datum.column_in_point_dataset",
         "subject_subform_choice.form_implements_slot_contract",
         "subject_subform_choice.ordinals_contiguous",
+        "dependency.acyclic",
+        "derivation_input.lineage_acyclic",
+        "snapshot_selection.no_failed_fit",
+        "datum.column_is_variable_or_property",
+        "datum_uncertainty.assessment_in_point_dataset",
+        "datum_uncertainty.magnitude_matches_kind",
+        "column_uncertainty.column_is_constraint",
+        "column_uncertainty.magnitude_matches_kind",
+        "validity_coverage.state_matches_regions",
+        "system_reaction.conserves_system_quantities",
     } <= relations
     without = [check for check in REAL_CHECKS if check.target != "supersedes.acyclic"]
     assert agreement_problems(real_declaration(), without) == [
@@ -375,9 +384,18 @@ def test_an_uncertainty_magnitude_matches_its_kind(conn: psycopg.Connection) -> 
     # kind: (magnitude, relative magnitude) that conforms, then one that does not
     rules = {
         "relative": ((None, 0.1), (1.0, 0.1)),
+        "relative_curve_deviation": ((None, 0.1), (None, None)),
         "standard": ((1.0, None), (None, None)),
         "expanded": ((1.0, None), (None, 0.1)),
+        "combined_standard": ((1.0, None), (1.0, 0.1)),
+        "combined_expanded": ((1.0, None), (None, None)),
         "interval": ((1.0, None), (1.0, 0.1)),
+        "repeatability_single_biased": ((1.0, None), (None, 0.1)),
+        "repeatability_single_unbiased": ((1.0, None), (None, None)),
+        "repeatability_of_mean": ((1.0, None), (1.0, 0.1)),
+        "repeatability_other": ((1.0, None), (None, 0.1)),
+        "device_specification": ((1.0, None), (None, None)),
+        "curve_deviation": ((1.0, None), (None, 0.1)),
         "exact": ((None, None), (1.0, None)),
         "not_stated": ((None, None), (None, 0.1)),
     }
@@ -400,7 +418,7 @@ def test_an_uncertainty_magnitude_matches_its_kind(conn: psycopg.Connection) -> 
             if label == "wrong":
                 bad.append(identifier)
     result = run(conn, "slot_uncertainty.magnitude_matches_kind")
-    assert violating(result) == ids(*bad) and result.violations == 6
+    assert violating(result) == ids(*bad) and result.violations == len(rules)
 
 
 def test_tabulated_axis_points_are_strictly_ascending(conn: psycopg.Connection) -> None:
@@ -712,7 +730,7 @@ def test_family_indices_are_contiguous_from_their_minimum(conn: psycopg.Connecti
     assert by_set[str(sets["gap"])]["family"] == "vapor_pressure_exp_series_tau.pure.term"
 
 
-def test_lineage_and_dependencies_are_acyclic(conn: psycopg.Connection) -> None:
+def test_derivation_lineage_is_acyclic(conn: psycopg.Connection) -> None:
     records = {name: new() for name in "ABCDEFG"}
 
     def derive(key: str, sources: str, products: str, *, excluded: bool = False) -> None:
@@ -742,8 +760,21 @@ def test_lineage_and_dependencies_are_acyclic(conn: psycopg.Connection) -> None:
     derive("ed", "E", "D")
     derive("fg", "F", "G")  # G -> F through an excluded input is no lineage
     derive("gf", "G", "F", excluded=True)
-    dependent, prerequisite, loop_x, loop_y = new(), new(), new(), new()
-    for subject, required in ((dependent, prerequisite), (loop_x, loop_y), (loop_y, loop_x)):
+    provenance(conn, records["D"], "a.json#/5")
+    result = run(conn, "derivation_input.lineage_acyclic")
+    assert violating(result) == ids(records["D"], records["E"])
+    row = {r[0]: dict(zip(result.columns, r)) for r in result.rows}[str(records["D"])]
+    assert row["locator"] == "a.json#/5"
+
+
+def test_dependencies_are_acyclic(conn: psycopg.Connection) -> None:
+    dependent, prerequisite, loop_x, loop_y, chain = (new() for _ in range(5))
+    for subject, required in (
+        (dependent, prerequisite),  # a chain: prerequisite <- dependent <- chain
+        (chain, dependent),
+        (loop_x, loop_y),  # a cycle
+        (loop_y, loop_x),
+    ):
         insert(
             conn,
             "tk.dependency",
@@ -752,10 +783,11 @@ def test_lineage_and_dependencies_are_acyclic(conn: psycopg.Connection) -> None:
             prerequisite=required,
             kind="fitted_given",
         )
-    result = run(conn, "lineage_acyclic")
-    assert violating(result) == ids(records["D"], records["E"], loop_x, loop_y)
-    graphs = {r[0]: r[result.columns.index("graph")] for r in result.rows}
-    assert graphs[str(records["D"])] == "derivation lineage" and graphs[str(loop_x)] == "dependency"
+    provenance(conn, loop_x, "a.json#/6")
+    result = run(conn, "dependency.acyclic")
+    assert violating(result) == ids(loop_x, loop_y)
+    row = {r[0]: dict(zip(result.columns, r)) for r in result.rows}[str(loop_x)]
+    assert row["locator"] == "a.json#/6"
 
 
 def test_a_record_is_the_output_of_at_most_one_derivation(conn: psycopg.Connection) -> None:
@@ -950,13 +982,541 @@ def test_a_datums_column_belongs_to_the_dataset_of_its_point(conn: psycopg.Conne
             point=point,
             column=target,
             state="not_measured",
-            uncertainty_kind="not_stated",
         )
     provenance(conn, dataset, "a.json#/7")
     result = run(conn, "datum.column_in_point_dataset")
     assert violating(result) == ids(bad)
     row = dict(zip(result.columns, result.rows[0]))
     assert row["locator"] == "a.json#/7" and row["column_dataset"] == str(other)
+
+
+def evidence_column(
+    conn: psycopg.Connection, dataset: uuid.UUID, ordinal: int, role: str = "property", **extra: object
+) -> uuid.UUID:
+    identifier = new()
+    observable = lookup(conn, "SELECT id FROM tk.observable LIMIT 1")
+    insert(
+        conn,
+        "ev.dataset_column",
+        id=identifier,
+        dataset=dataset,
+        ordinal=ordinal,
+        role=role,
+        observable=observable,
+        **extra,
+    )
+    return identifier
+
+
+def test_a_datums_column_is_a_variable_or_a_property(conn: psycopg.Connection) -> None:
+    dataset = new()
+    point = new()
+    insert(conn, "ev.data_point", id=point, dataset=dataset, index=1)
+    columns = {
+        role: evidence_column(conn, dataset, ordinal, role, **(
+            {"constant": 1.0} if role == "constraint" else {}
+        ))
+        for ordinal, role in enumerate(("variable", "property", "constraint"), 1)
+    }
+    made = {}
+    for role, column in columns.items():
+        made[role] = new()
+        insert(
+            conn, "ev.datum", id=made[role], point=point, column=column, state="not_measured"
+        )
+    provenance(conn, dataset, "a.json#/8")
+    result = run(conn, "datum.column_is_variable_or_property")
+    assert violating(result) == ids(made["constraint"])
+    row = dict(zip(result.columns, result.rows[0]))
+    assert row["role"] == "constraint" and row["locator"] == "a.json#/8"
+
+
+def test_a_column_presented_against_a_reference_state_states_its_kind(
+    conn: psycopg.Connection,
+) -> None:
+    dataset = new()
+    cases = {
+        # presentation: (reference state kind, conforms)
+        "direct": (None, True),
+        "difference_between_temperatures": (None, True),
+        "mean_between_temperatures": (None, True),
+        "difference_from_reference": ("ideal_gas_same_density", True),
+        "ratio_to_reference": (None, False),
+        "relative_difference_from_reference": (None, False),
+    }
+    bad: list[uuid.UUID] = []
+    for ordinal, (presentation, (kind, conforms)) in enumerate(cases.items(), 1):
+        column = evidence_column(
+            conn, dataset, ordinal, presentation=presentation, reference_state_kind=kind
+        )
+        if not conforms:
+            bad.append(column)
+    provenance(conn, dataset, "a.json#/9")
+    result = run(conn, "dataset_column.reference_state_kind_when_relative")
+    assert violating(result) == ids(*bad)
+    assert {dict(zip(result.columns, r))["presentation"] for r in result.rows} == {
+        "ratio_to_reference",
+        "relative_difference_from_reference",
+    }
+
+
+def assessment(
+    conn: psycopg.Connection, column: uuid.UUID, ordinal: int, kind: str, **extra: object
+) -> uuid.UUID:
+    identifier = new()
+    insert(
+        conn,
+        "ev.uncertainty_assessment",
+        id=identifier,
+        column=column,
+        ordinal=ordinal,
+        kind=kind,
+        **extra,
+    )
+    return identifier
+
+
+def test_an_uncertainty_is_stated_for_a_point_of_the_dataset_of_its_assessment(
+    conn: psycopg.Connection,
+) -> None:
+    dataset, other = new(), new()
+    point = new()
+    insert(conn, "ev.data_point", id=point, dataset=dataset, index=1)
+    mine = assessment(conn, evidence_column(conn, dataset, 1), 1, "standard")
+    foreign = assessment(conn, evidence_column(conn, other, 1), 1, "standard")
+    good, bad = new(), new()
+    for identifier, target in ((good, mine), (bad, foreign)):
+        insert(
+            conn,
+            "ev.datum_uncertainty",
+            id=identifier,
+            point=point,
+            assessment=target,
+            minus=0.1,
+            plus=0.1,
+        )
+    provenance(conn, dataset, "a.json#/10")
+    result = run(conn, "datum_uncertainty.assessment_in_point_dataset")
+    assert violating(result) == ids(bad)
+    row = dict(zip(result.columns, result.rows[0]))
+    assert row["locator"] == "a.json#/10" and row["column_dataset"] == str(other)
+
+
+MAGNITUDES = {
+    # kind: (minus, plus, relative minus, relative plus) that conforms, then some that do not
+    "standard": ((0.1, 0.1, None, None), [(0.1, None, None, None), (None, None, 0.1, 0.1)]),
+    "expanded": ((0.1, 0.3, None, None), [(None, None, None, None), (0.1, 0.1, 0.1, 0.1)]),
+    "combined_standard": ((0.2, 0.2, None, None), [(0.2, None, None, None)]),
+    "relative": ((None, None, 0.1, 0.2), [(0.1, 0.1, None, None), (None, None, 0.1, None)]),
+    "relative_curve_deviation": ((None, None, 0.1, 0.1), [(None, None, None, None)]),
+    "device_specification": ((0.5, 0.5, None, None), [(None, None, 0.5, 0.5)]),
+    "not_stated": ((None, None, None, None), [(0.1, 0.1, None, None)]),
+    "exact": ((None, None, None, None), [(None, None, 0.1, 0.1)]),
+}
+
+
+@pytest.mark.parametrize("relation", ["datum_uncertainty", "column_uncertainty"])
+def test_the_pair_of_magnitudes_present_is_the_one_the_kind_calls_for(
+    conn: psycopg.Connection, relation: str
+) -> None:
+    dataset = new()
+    point = new()
+    insert(conn, "ev.data_point", id=point, dataset=dataset, index=1)
+    column = evidence_column(conn, dataset, 1, "constraint", constant=1.0)
+    bad: list[uuid.UUID] = []
+    ordinal = 0
+    for kind, (good, wrong) in MAGNITUDES.items():
+        for label, (minus, plus, relative_minus, relative_plus) in [
+            ("good", good),
+            *(("wrong", found) for found in wrong),
+        ]:
+            ordinal += 1
+            made = assessment(conn, column, ordinal, kind)
+            identifier = new()
+            keys = {"point": point} if relation == "datum_uncertainty" else {}
+            insert(
+                conn,
+                f"ev.{relation}",
+                id=identifier,
+                assessment=made,
+                minus=minus,
+                plus=plus,
+                relative_minus=relative_minus,
+                relative_plus=relative_plus,
+                **keys,
+            )
+            if label == "wrong":
+                bad.append(identifier)
+    provenance(conn, dataset, "a.json#/11")
+    result = run(conn, f"{relation}.magnitude_matches_kind")
+    assert violating(result) == ids(*bad)
+    assert {dict(zip(result.columns, r))["locator"] for r in result.rows} == {"a.json#/11"}
+
+
+def test_an_uncertainty_of_a_constant_is_of_a_constraint_column(conn: psycopg.Connection) -> None:
+    dataset = new()
+    constraint = evidence_column(conn, dataset, 1, "constraint", constant=1.0)
+    variable = evidence_column(conn, dataset, 2, "variable")
+    good, bad = new(), new()
+    for identifier, column in ((good, constraint), (bad, variable)):
+        insert(
+            conn,
+            "ev.column_uncertainty",
+            id=identifier,
+            assessment=assessment(conn, column, 1, "standard"),
+            minus=0.1,
+            plus=0.1,
+        )
+    result = run(conn, "column_uncertainty.column_is_constraint")
+    assert violating(result) == ids(bad)
+    assert dict(zip(result.columns, result.rows[0]))["role"] == "variable"
+
+
+def test_a_member_with_a_facet_is_checked_for_its_magnitudes_without_editing_the_check(
+    tmp_path: Path,
+) -> None:
+    """A new `uncertainty_kind` member that carries the facet `relative` is held to a relative
+    magnitude by the checks that read the facets, with no SQL change."""
+    model, forms = extended_directories(tmp_path / "decl")
+    module = model / "observables.toml"
+    text = module.read_text()
+    marker = 'members.interval = { doc = "A bound the true value is stated to lie within." }'
+    assert marker in text
+    module.write_text(
+        text.replace(
+            marker,
+            'members.fractional_bound = { doc = "A bound as a fraction of the value.", '
+            'facets = ["relative"] }\n' + marker,
+            1,
+        )
+    )
+    decl = load_declaration(model, forms).require()
+    with TestDatabase() as database:
+        build_database(database.url, decl)
+        with psycopg.connect(database.url) as connection:
+            connection.execute("SELECT 1")
+            good, bad = new(), new()
+            for identifier, magnitude, relative in ((good, None, 0.1), (bad, 1.0, None)):
+                insert(
+                    connection,
+                    "tk.slot_uncertainty",
+                    id=identifier,
+                    parameter_set=new(),
+                    slot=new(),
+                    index_key="",
+                    kind="fractional_bound",
+                    magnitude=magnitude,
+                    relative_magnitude=relative,
+                )
+            found = run_check(connection, CHECKS["slot_uncertainty.magnitude_matches_kind"])
+            connection.rollback()
+    assert found.error is None and violating(found) == ids(bad)
+
+
+def test_a_clause_of_a_region_states_a_bound(conn: psycopg.Connection) -> None:
+    region = new()
+    observable = lookup(conn, "SELECT id FROM tk.observable LIMIT 1")
+    lower, upper, both, neither = new(), new(), new(), new()
+    for identifier, ordinal, low, high in (
+        (lower, 1, 250.0, None),
+        (upper, 2, None, 300.0),
+        (both, 3, 250.0, 300.0),
+        (neither, 4, None, None),
+    ):
+        insert(
+            conn,
+            "tk.region_clause",
+            id=identifier,
+            region=region,
+            ordinal=ordinal,
+            observable=observable,
+            lower=low,
+            upper=high,
+        )
+    provenance(conn, region, "a.json#/12")
+    result = run(conn, "region_clause.has_a_bound")
+    assert violating(result) == ids(neither)
+    assert dict(zip(result.columns, result.rows[0]))["locator"] == "a.json#/12"
+
+
+def test_a_coverage_row_says_stated_exactly_when_the_record_has_a_region_of_the_kind(
+    conn: psycopg.Connection,
+) -> None:
+    names = (
+        "stated_with_region",
+        "stated_without_region",
+        "not_stated_without_region",
+        "not_stated_with_region",
+        "region_without_row",
+        "other_kind",
+    )
+    record = {name: new() for name in names}
+    coverage = {name: new() for name in names}
+    for name, kind, state in (
+        ("stated_with_region", "fitted_range", "stated"),
+        ("stated_without_region", "fitted_range", "stated"),
+        ("not_stated_without_region", "fitted_range", "not_stated"),
+        ("not_stated_with_region", "fitted_range", "not_stated"),
+        ("other_kind", "fitted_range", "stated"),
+    ):
+        insert(
+            conn,
+            "tk.validity_coverage",
+            id=coverage[name],
+            record=record[name],
+            kind=kind,
+            value=state,
+        )
+    # the regions of one kind do not make another kind `stated`: no `recommended_range` is stated
+    insert(
+        conn,
+        "tk.validity_coverage",
+        id=new(),
+        record=record["other_kind"],
+        kind="recommended_range",
+        value="not_stated",
+    )
+    for name in ("stated_with_region", "not_stated_with_region", "region_without_row", "other_kind"):
+        insert(
+            conn,
+            "tk.validity_region",
+            id=new(),
+            record=record[name],
+            kind="fitted_range",
+            ordinal=1,
+        )
+    provenance(conn, record["stated_without_region"], "a.json#/13")
+    result = run(conn, "validity_coverage.state_matches_regions")
+    assert violating(result) == ids(
+        coverage["stated_without_region"],
+        coverage["not_stated_with_region"],
+        record["region_without_row"],
+    )
+    by_id = {r[0]: dict(zip(result.columns, r)) for r in result.rows}
+    assert by_id[str(coverage["stated_without_region"])]["locator"] == "a.json#/13"
+    assert by_id[str(record["region_without_row"])]["state"] == "", "no row: no state"
+
+
+def test_a_derivation_of_kind_estimation_states_its_method(conn: psycopg.Connection) -> None:
+    made = {}
+    for key, kind, method in (
+        ("named", "estimation", "Joback"),
+        ("missing", "estimation", None),
+        ("blank", "estimation", "  "),
+        ("fit_without", "computation", None),
+    ):
+        made[key] = new()
+        insert(conn, "prov.derivation", id=made[key], key=key, kind=kind, method=method)
+    provenance(conn, made["missing"], "a.json#/14")
+    result = run(conn, "derivation.estimation_names_method")
+    assert violating(result) == ids(made["missing"], made["blank"])
+    assert {dict(zip(result.columns, r))["locator"] for r in result.rows} == {"a.json#/14", ""}
+
+
+def test_a_snapshot_selects_no_set_made_by_a_failed_fit(conn: psycopg.Connection) -> None:
+    snapshot = new()
+    selected = {name: new() for name in ("failed", "converged", "not_stated", "estimated", "bare")}
+    for name, outcome in (("failed", "failed"), ("converged", "converged"), ("not_stated", "not_stated")):
+        derivation = new()
+        insert(conn, "prov.derivation", id=derivation, key=name, kind="fit")
+        insert(conn, "prov.fit", id=derivation, outcome=outcome)
+        insert(conn, "prov.derivation_output", id=new(), derivation=derivation, record=selected[name])
+    estimation = new()
+    insert(conn, "prov.derivation", id=estimation, key="e", kind="estimation", method="m")
+    insert(conn, "prov.derivation_output", id=new(), derivation=estimation, record=selected["estimated"])
+    chosen = {}
+    for name, record in selected.items():
+        chosen[name] = new()
+        insert(conn, "tk.snapshot_selection", id=chosen[name], snapshot=snapshot, parameter_set=record)
+    provenance(conn, selected["failed"], "a.json#/15")
+    result = run(conn, "snapshot_selection.no_failed_fit")
+    assert violating(result) == ids(chosen["failed"])
+    assert dict(zip(result.columns, result.rows[0]))["locator"] == "a.json#/15"
+
+
+def test_a_licence_is_named_only_for_a_licence_grant(conn: psycopg.Connection) -> None:
+    licence = new()
+    insert(conn, "prov.licence", id=licence, key="MIT", title="MIT")
+    made = {}
+    for ordinal, (name, basis, named) in enumerate(
+        (
+            ("grant_with_licence", "licence_grant", licence),
+            ("grant_without", "licence_grant", None),
+            ("terms_without", "terms_of_use", None),
+            ("terms_with_licence", "terms_of_use", licence),
+            ("public_domain_with_licence", "public_domain", licence),
+        ),
+        1,
+    ):
+        made[name] = new()
+        insert(
+            conn,
+            "prov.rights_determination",
+            id=made[name],
+            carrier=new(),
+            scope="data",
+            ordinal=ordinal,
+            basis=basis,
+            licence=named,
+            statement="s",
+            store="yes",
+            redistribute="yes",
+            commercial="yes",
+            attribution_required=False,
+            share_alike=False,
+            observed="o",
+        )
+    result = run(conn, "rights_determination.licence_only_for_licence_grant")
+    assert violating(result) == ids(made["terms_with_licence"], made["public_domain_with_licence"])
+
+
+def test_a_row_that_was_not_loaded_is_held_or_unmapped(conn: psycopg.Connection) -> None:
+    made = {}
+    for state in ("held", "unmapped", "mapped", "deferred"):
+        made[state] = new()
+        insert(
+            conn,
+            "qual.held_row",
+            id=made[state],
+            manifest_id="m",
+            source_table="t",
+            locator=f"t#{state}",
+            state=state,
+            reason="unmapped_by_mapping",
+            detail="d",
+        )
+    result = run(conn, "held_row.state_is_held_or_unmapped")
+    assert violating(result) == ids(made["mapped"], made["deferred"])
+
+
+def test_a_reaction_of_a_system_conserves_the_quantities_the_system_declares(
+    conn: psycopg.Connection,
+) -> None:
+    hydrogen, oxygen = (
+        lookup(conn, "SELECT id FROM tk.conserved_quantity WHERE key = %s", symbol)
+        for symbol in "HO"
+    )
+    gas = lookup(conn, "SELECT id FROM tk.aggregation WHERE name = 'gas'")
+    form: dict[str, uuid.UUID] = {}
+    for name, composition in {
+        "H2": {hydrogen: 2.0},
+        "O2": {oxygen: 2.0},
+        "H2O": {hydrogen: 2.0, oxygen: 1.0},
+    }.items():
+        species = new()
+        form[name] = new()
+        insert(conn, "tk.species_form", id=form[name], species=species, aggregation=gas)
+        for quantity, value in composition.items():
+            insert(conn, "tk.composition", id=new(), entity=species, quantity=quantity, value=value)
+
+    def reaction(key: str, coefficients: dict[str, float]) -> uuid.UUID:
+        identifier = new()
+        insert(conn, "tk.reaction", id=identifier, canonical_key=key, extent="as_written")
+        for name, coefficient in coefficients.items():
+            insert(
+                conn,
+                "tk.reaction_participant",
+                id=new(),
+                reaction=identifier,
+                form=form[name],
+                coefficient=coefficient,
+            )
+        return identifier
+
+    balanced = reaction("balanced", {"H2": -2.0, "O2": -1.0, "H2O": 2.0})
+    unbalanced = reaction("unbalanced", {"H2": -1.0, "O2": -1.0, "H2O": 1.0})
+    system, other = new(), new()
+    # the system declares only hydrogen: the oxygen imbalance of `unbalanced` is not its concern
+    insert(conn, "tk.system_conserves", id=new(), system=system, quantity=hydrogen)
+    conserving = {}
+    for name, owner, target in (
+        ("balanced", system, balanced),
+        ("unbalanced_in_hydrogen", system, unbalanced),
+    ):
+        conserving[name] = new()
+        insert(conn, "tk.system_reaction", id=conserving[name], system=owner, reaction=target)
+    # declared oxygen makes `unbalanced` a violation of the system that declares it
+    insert(conn, "tk.system_conserves", id=new(), system=other, quantity=oxygen)
+    conserving["unbalanced_in_oxygen"] = new()
+    insert(conn, "tk.system_reaction", id=conserving["unbalanced_in_oxygen"], system=other, reaction=unbalanced)
+    provenance(conn, unbalanced, "a.json#/16")
+    result = run(conn, "system_reaction.conserves_system_quantities")
+    assert violating(result) == ids(conserving["unbalanced_in_oxygen"])
+    row = dict(zip(result.columns, result.rows[0]))
+    assert row["quantity"] == "O" and float(row["net"]) == -1.0 and row["locator"] == "a.json#/16"
+
+
+def test_the_target_of_a_source_entity_is_of_the_refinement_its_class_names(
+    conn: psycopg.Connection,
+) -> None:
+    species, mixture, unclassified = new(), new(), new()
+    for table, identifier, extra in (
+        ("tk.species", species, {"charge": 0}),
+        ("tk.defined_mixture", mixture, {"definition": "by_definition", "mole_basis": True}),
+        ("tk.unclassified_entity", unclassified, {}),
+    ):
+        insert(
+            conn,
+            "tk.material_entity",
+            id=identifier,
+            canonical_key=str(identifier),
+            label="x",
+            provisional=False,
+        )
+        insert(conn, table, id=identifier, **extra)
+    cases = {
+        # key: (class, target, conforms)
+        "species_to_species": ("species", species, True),
+        "mixture_to_mixture": ("defined_mixture", mixture, True),
+        "undetermined_to_unclassified": ("undetermined", unclassified, True),
+        "species_to_mixture": ("species", mixture, False),
+        "mixture_to_species": ("defined_mixture", species, False),
+        "undetermined_to_species": ("undetermined", species, False),
+        "species_to_unclassified": ("species", unclassified, False),
+        "species_to_nothing": ("species", new(), False),
+    }
+    bad: list[uuid.UUID] = []
+    for key, (entity_class, target, conforms) in cases.items():
+        entity = new()
+        insert(
+            conn,
+            "tk.source_entity",
+            id=entity,
+            carrier=new(),
+            scope="s",
+            local_key=key,
+            entity_class=entity_class,
+            status="unique",
+            rule="structural",
+            target=target,
+        )
+        if not conforms:
+            bad.append(entity)
+    result = run(conn, "source_entity.class_matches_target")
+    assert violating(result) == ids(*bad)
+
+
+def test_the_database_enforces_that_a_conversion_is_named_exactly_for_the_level_that_needs_one(
+    conn: psycopg.Connection,
+) -> None:
+    conversion = new()
+    kinds = {"exact": None, "equal_under_conversion": conversion}
+    for level, named in kinds.items():
+        first, second = sorted((new(), new()), key=str)
+        insert(conn, "prov.equivalence_assessment", id=new(), a=first, b=second, level=level, conversion=named)
+    for level, named in (("exact", conversion), ("equal_under_conversion", None)):
+        first, second = sorted((new(), new()), key=str)
+        with pytest.raises(psycopg.errors.CheckViolation, match="conversion_iff_under_conversion"):
+            with conn.transaction():
+                insert(
+                    conn,
+                    "prov.equivalence_assessment",
+                    id=new(),
+                    a=first,
+                    b=second,
+                    level=level,
+                    conversion=named,
+                )
 
 
 def test_the_subject_key_of_a_set_encodes_its_subjects(conn: psycopg.Connection) -> None:
@@ -1222,7 +1782,7 @@ def test_the_table_lists_check_kind_violations_and_the_first_offending_ids() -> 
         (
             CheckResult(check, 5, ("id", "locator"), tuple((f"id-{n}", "") for n in range(5))),
             CheckResult(other, 0),
-            CheckResult(CHECKS["lineage_acyclic"], 0, error="boom\nsecond line"),
+            CheckResult(CHECKS["dependency.acyclic"], 0, error="boom\nsecond line"),
         ),
     )
     lines = table_lines(report)

@@ -53,6 +53,11 @@ doc = "A reaction that belongs to a chemical system."
 provenance = "inherit:system"
 absence = "optional"
 
+[[relations.system_reaction.requires]]
+name = "conserves_system_quantities"
+doc = "The reaction conserves each conserved quantity its system declares: the coefficient-weighted sum over its participants of the quantity's composition entries is zero."
+enforced = "verify"
+
 [relations.system_reaction.keys]
 system = { type = "chemical_system", doc = "The system." }
 reaction = { type = "reaction", doc = "A reaction of the system." }

@@ -147,21 +147,21 @@ def test_the_fixture_mapping_is_valid(fake: tuple[Environment, Workspace]) -> No
         ),
         (
             lambda d: tables(d)["curves"]["partitions"][0]["constants"].update(
-                {"envelope.kind": "nonsense"}
+                {"validity_region.kind": "nonsense"}
             ),
             "`nonsense` is not a member of `envelope_kind`",
         ),
         (
             lambda d: tables(d)["curves"]["partitions"][0]["constants"].update(
-                {"envelope.axis": "no_such_observable"}
+                {"region_clause.observable": "no_such_observable"}
             ),
             "is not a declared entity of kind `observable`",
         ),
         (
             lambda d: tables(d)["curves"]["partitions"][0]["constants"].update(
-                {"envelope.missing": 1}
+                {"region_clause.missing": 1}
             ),
-            "is not an attribute of kind `envelope`",
+            "is not an attribute of kind `region_clause`",
         ),
         (
             lambda d: d["scopes"]["species"].update(key="nothing"),
@@ -467,8 +467,12 @@ def test_parameter_sets_carry_converted_values_and_every_origin(
     assert len(origins) == 4 and {r["role"] for r in origins} == {"fitted"}
     records = {r["id"]: r["kind"] for r in output(env, "prov.record")}
     assert records[ethanol["id"]] == "vapor_pressure_exp_series_tau__pure"
-    (envelope,) = [r for r in output(env, "tk.envelope") if r["parameter_set"] == ethanol["id"]]
-    assert envelope["kind"] == "fitted_range" and envelope["lower"] is None
+    (region,) = [r for r in output(env, "tk.validity_region") if r["record"] == ethanol["id"]]
+    assert region["kind"] == "fitted_range" and region["ordinal"] == 1
+    (clause,) = [r for r in output(env, "tk.region_clause") if r["region"] == region["id"]]
+    assert clause["lower"] == 250.0 and clause["upper"] is None and clause["ordinal"] == 1
+    (coverage,) = [r for r in output(env, "tk.validity_coverage") if r["record"] == ethanol["id"]]
+    assert (coverage["kind"], coverage["value"]) == ("fitted_range", "stated")
     (parameterization,) = output(env, "tk.parameterization")
     assert (
         parameterization["revision"] == "0123456789ab"
@@ -518,10 +522,11 @@ def test_each_parameter_set_has_the_fit_derivation_that_produced_it(
         ("fit", "A fit declared by the fixture mapping.")
     }
     outputs = output(env, "prov.derivation_output")
-    assert {r["record"] for r in outputs} == sets and {r["derivation"] for r in outputs} == set(
-        derivations
-    )
-    assert len(outputs) == 3, "one producing derivation per record"
+    regions = {r["id"] for r in output(env, "tk.validity_region")}
+    assert len(regions) == 3
+    assert {r["record"] for r in outputs} == sets | regions
+    assert {r["derivation"] for r in outputs} == set(derivations)
+    assert len(outputs) == 6, "one producing derivation per record: the set and its fitted region"
     assert not (env.canonical_dir / "fake" / "prov.derivation_input.parquet").exists()
     records = {r["id"]: r["kind"] for r in output(env, "prov.record")}
     assert {records[i] for i in derivations} == {"fit"}
@@ -549,7 +554,7 @@ def test_the_rules_of_a_mapping_are_written_with_their_unit_factor_and_loss(
         and "wave 2" in rules[("curves", "")]["loss"]
     )  # type: ignore[operator]
     assert rules[("curves", "partition:pressure")]["disposition"] == "mapped"
-    assert rules[("curves", "constant:envelope.kind")]["disposition"] == "mapped"
+    assert rules[("curves", "constant:validity_region.kind")]["disposition"] == "mapped"
     assert rules[("notes", "")]["disposition"] == "out_of_scope"
     assert (
         rules[("curves", "species")]["disposition"] == "mapped"

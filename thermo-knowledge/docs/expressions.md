@@ -64,6 +64,14 @@ alpha_r = { type = "Scalar", observable = "molar_residual_helmholtz_energy", doc
 - An argument may be indexed `over` one or more sets and, when it is a composition, names its
   `basis`: a declared entity of the kind bound to the framework role `composition_basis`
   (meta-model sections 4.1 and 5), which `meta.contract_argument.basis` references.
+- An argument may name the observable it is a value of:
+  `arguments.T = { type = "Temperature", observable = "temperature", doc = "..." }`. The observable is a
+  declared entity of the kind bound to the framework role `observable`, checked as an output's is and
+  reified in `meta.contract_argument.observable`. A clause of a validity region limits an observable
+  (meta-model section 5); the argument that names the observable is the one the clause limits, so the
+  binding of a region's clause to an argument is stated here, in the contract, and a qualification
+  case does not have to say it. An observable that two arguments name binds to neither. The contracts
+  of the committed forms name `temperature` for `T`.
 - A form implementing the contract binds its slot-group subject roles to the contract's roles
   and sets. A subject role binds to the contract role or set of the same name; when the names
   differ the slot group states `bind = { i = "components", j = "components" }`. The subject's
@@ -243,6 +251,7 @@ refusals:
 - an unknown name, a convention fact the form does not declare included; a slot subscripted with the
   wrong number or kinds of subject
 - an index variable used outside its `for`; a sum over something that is not an index set
+- an argument, output or slot whose `observable` is no declared entity of the `observable` kind
 - a dimension mismatch, stating both dimensions; a transcendental function of a dimensioned
   argument; a non-integer power of a dimensioned base
 - an output whose dimension differs from the contract's
@@ -319,6 +328,35 @@ A block that has no root in its interval, more than one under `unique`, an empty
 start outside its bounds or a solver that does not converge is an evaluation refusal naming the
 form, the block and the point (the values of the arguments it depends on), never a NaN. A root
 outside the bounds is never returned.
+
+### Where a point lies with respect to validity regions
+
+The records an evaluation reads state their validity as regions (meta-model section 5): a parameter
+set, and the parameterization it belongs to, for each set the expansion read through any source
+(nested and referenced sets and sub-forms included). The parameter source exposes them
+(`ParameterSource.validity(kind, reads)`: for each record that supplied one of the sets read, its
+coverage row and its regions with their clauses), and a bound form reports, for each point of the
+argument values and for one region kind asked for, where the point lies
+(`BoundForm.validity(output, kind, **arguments)`, an array of `Membership` codes broadcast over the
+arguments):
+
+- a clause is **decidable** when it limits an observable that exactly one argument of the contract
+  names and has a value here, and is about no component and no aggregation; it holds when the
+  argument's value lies in its closed interval;
+- a region is **inside** for a point when all its clauses are decidable and hold, **outside** when they
+  are all decidable and one fails, and **undetermined** when one cannot be decided from the arguments (a
+  clause on a component or an aggregation, on an observable no argument names, or on one named by
+  two arguments), never inside or outside;
+- for a record that states regions of the kind, the point is **inside** when it is inside some region
+  (the regions are alternatives), else **undetermined** when some region is, else **outside**; for the
+  evaluation, which reads several records, it is **outside** when it is outside a record that states
+  regions, else **undetermined** when it is for one, else **inside**;
+- when no record read states a region of the kind (it has a `not_stated` coverage row, or none), the
+  answer is **not stated**, which is neither inside nor outside.
+
+A membership never refuses an evaluation and evaluation never consults one: lying inside a region is
+independent of permission to extrapolate, and what to do outside is the caller's decision. A kind
+that is not an `envelope_kind` member is refused.
 
 ### Parameters and what evaluation guarantees
 

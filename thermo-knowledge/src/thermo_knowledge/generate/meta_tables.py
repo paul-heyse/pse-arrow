@@ -726,6 +726,11 @@ def _build() -> dict[str, ir.Table]:
                     "For a composition: the declared composition basis entity its values are "
                     "on (its identifier).",
                 ),
+                (
+                    "observable",
+                    "uuid?",
+                    "The declared observable entity the argument is a value of (its identifier).",
+                ),
                 ("doc", "text", "What the argument is."),
             ],
             pk=["contract", "name"],

@@ -324,7 +324,9 @@ def test_every_usable_curve_is_one_parameter_set_with_its_terms_and_its_values(r
     terms: dict[object, list[dict[str, object]]] = {}
     for row in run.table(f"param.{SATURATION}__term"):
         terms.setdefault(row["set_id"], []).append(row)
-    envelopes = {r["parameter_set"]: r for r in run.table("tk.envelope")}
+    regions = {r["record"]: r for r in run.table("tk.validity_region")}
+    clauses = {r["region"]: r for r in run.table("tk.region_clause")}
+    coverage = {(r["record"], r["kind"]): r["value"] for r in run.table("tk.validity_coverage")}
     temperature = next(
         e.id
         for e in real_declaration().entities
@@ -348,10 +350,15 @@ def test_every_usable_curve_is_one_parameter_set_with_its_terms_and_its_values(r
             (int(e["row_index"]) + 1, e["n"], e["t"])
             for e in expected  # type: ignore[call-overload]
         ]
-        envelope = envelopes[made["id"]]
-        assert (envelope["lower"], envelope["upper"]) == (curve["Tmin"], curve["Tmax"])
-        assert envelope["kind"] == "fitted_range" and envelope["axis"] == temperature
+        region = regions[made["id"]]
+        assert region["kind"] == "fitted_range" and region["ordinal"] == 1
+        clause = clauses[region["id"]]
+        assert (clause["lower"], clause["upper"]) == (curve["Tmin"], curve["Tmax"])
+        assert clause["observable"] == temperature and clause["ordinal"] == 1
+        assert clause["component"] is None and clause["aggregation"] is None
+        assert coverage[(made["id"], "fitted_range")] == "stated"
     assert len(sets) == len(curves) - len(held_fluids)
+    assert len(regions) == len(clauses) == len(coverage) == len(sets)
     assert len(run.table(f"param.{SATURATION}__term")) == sum(
         len(coefficients[str(c["fluid"])]) for c in curves if c["fluid"] not in held_fluids
     )
@@ -394,7 +401,11 @@ def test_every_curve_has_one_fit_that_produced_it_and_no_inputs_yet(run: Run) ->
         method == declared["tables"]["ancillary_equations"]["partitions"][0]["derivation"]["method"]
     )
     outputs = run.table("prov.derivation_output")
-    assert {r["record"] for r in outputs} == sets and len(outputs) == 123
+    regions = {r["id"] for r in run.table("tk.validity_region")}
+    assert len(regions) == 123
+    assert {r["record"] for r in outputs} == sets | regions and len(outputs) == 246, (
+        "the fit produced each set and the fitted range stated for it"
+    )
     assert {r["derivation"] for r in outputs} == set(derivations)
     assert not (run.env.canonical_dir / "coolprop" / "prov.derivation_input.parquet").exists(), (
         "the equation-of-state sets the fits consumed are not mapped yet"
@@ -408,7 +419,7 @@ def test_the_source_states_no_units_so_the_assumptions_are_recorded_as_loss(run:
     for column, unit in (("T_r", "K"), ("reducing_value", "Pa"), ("Tmin", "K"), ("Tmax", "K")):
         rule = rules[("ancillary_equations", column)]
         assert rule["source_unit"] == unit and "assumed" in rule["loss"]  # type: ignore[operator]
-        # the unit of an envelope bound is fixed by the observable of its axis, not by its type
+        # the unit of a clause bound is fixed by the observable of its clause, not by its type
         assert rule["factor"] == (1.0 if column in ("T_r", "reducing_value") else None)
     declared = rules[("ancillary_equations", "partition:saturation_pressure")]["loss"]
     assert "no input" in declared and "auxiliary_of" in declared  # type: ignore[operator]

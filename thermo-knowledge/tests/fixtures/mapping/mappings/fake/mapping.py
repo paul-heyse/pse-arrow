@@ -32,7 +32,9 @@ def records(ctx: RecordContext) -> None:
                 slots=ctx.slot_values(curve, GROUP),
                 families={"term": [ctx.family_row(row, f"{GROUP}.term") for row in rows]},
             )
-            emit.kind(
-                "envelope", {**ctx.attributes(curve, "envelope"), "parameter_set": parameter_set}
+            region = emit.validity(
+                parameter_set,
+                ctx.attributes(curve, "validity_region"),
+                [ctx.attributes(curve, "region_clause")],
             )
-            emit.derivation([parameter_set])
+            emit.derivation([parameter_set, region])

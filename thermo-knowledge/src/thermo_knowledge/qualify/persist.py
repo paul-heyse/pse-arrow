@@ -44,7 +44,7 @@ from thermo_knowledge.canonical.writer import CanonicalWriter
 from thermo_knowledge.declaration import model as m
 
 REPORT_NAME = "report.json"
-FORMAT = 3
+FORMAT = 4
 """Bumped when what a run records, or how, changes."""
 RUN_TABLE = pc.QUALIFICATION_RUN.table
 SET_TABLE = pc.RUN_PARAMETER_SET.table
@@ -74,6 +74,13 @@ class RunRecord:
     """The `blocked_reason` member of a blocked run; `None` for any other outcome."""
     note: str | None
     sets: tuple[uuid.UUID, ...]
+    validity_kind: str | None = None
+    """The validity region kind the case counted its points against, when it names one."""
+    inside_points: int | None = None
+    outside_points: int | None = None
+    undetermined_points: int | None = None
+    """How many grid points were inside, outside and undetermined with respect to it; absent for
+    a run that was blocked before it evaluated."""
 
 
 def output_dir(canonical: Path, case: str) -> Path:
@@ -100,6 +107,10 @@ def tables(decl: m.Declaration, run: RunRecord) -> dict[str, pa.Table]:
         record.blocked_reason: run.blocked_reason,
         record.note: run.note,
         record.worst_relative_deviation: run.worst_relative_deviation,
+        record.validity_kind: run.validity_kind,
+        record.inside_points: run.inside_points,
+        record.outside_points: run.outside_points,
+        record.undetermined_points: run.undetermined_points,
     }
     if run.version is not None:
         values[record.reference] = writer.kind(

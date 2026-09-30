@@ -398,13 +398,13 @@ def test_subjects_are_all_a_declared_list_or_a_seeded_sample(env: Env) -> None:
         assert len(seen) > 1  # the seed decides
 
 
-def test_a_grid_is_spread_within_each_envelope_with_the_inset_a_fraction_of_its_range(
+def test_a_grid_is_spread_within_each_region_with_the_inset_a_fraction_of_its_range(
     env: Env,
 ) -> None:
     with db.connect(env.database.url) as conn:
         case = env.case(
             case_text(
-                argument='points = 5\nwithin = "envelope"\nobservable = "temperature"\ninset = 0.1'
+                argument='points = 5\nwithin = "envelope"\ninset = 0.1'
             )
         )
         form = env.world.decl.forms[case.spec.form]
@@ -426,6 +426,200 @@ def test_a_grid_is_spread_within_each_envelope_with_the_inset_a_fraction_of_its_
         explicit = env.case(case_text(argument='values = [25.0, 30.0]\nunit = "degC"'))
         made = grids(conn, explicit, env.world.decl, contract, subjects)
         assert made[subjects[0].set_id]["T"] == pytest.approx([298.15, 303.15])
+
+
+# -- validity regions ---------------------------------------------------------------------------
+
+BEYOND = 'values = [200.0, 240.0, 300.0]\nunit = "K"'
+"""Explicit temperatures. Against the regions of `sat`: sp-a (250 to 399) has two of them outside,
+sp-b (300 to 519) two, and sp-c (200 to 309) none."""
+
+
+def validity_columns(env: Env) -> dict[str, object]:
+    row = run_row(env)
+    return {
+        name: row[name]
+        for name in ("validity_kind", "inside_points", "outside_points", "undetermined_points")
+    }
+
+
+def test_points_beyond_the_range_are_recorded_as_outside_and_compared_under_compare(
+    env: Env,
+) -> None:
+    done = env.run(
+        case_text(
+            argument=BEYOND, validity='[validity]\nkind = "fitted_range"\noutside = "compare"'
+        )
+    )
+    assert done.outcome == "passed", done.report
+    assert validity_columns(env) == {
+        "validity_kind": "fitted_range",
+        "inside_points": 5,
+        "outside_points": 4,
+        "undetermined_points": 0,
+    }
+    assert done.report["points"] == 9 and done.report["passed"] == 9
+    assert done.report["validity"] == {
+        "kind": "fitted_range",
+        "outside_policy": "compare",
+        "inside": 5,
+        "outside": 4,
+        "undetermined": 0,
+        "not_stated": 0,
+        "excluded": 0,
+    }
+    assert run_row(env)["points"] == 9
+    assert any("4 outside" in line for line in table_lines(done.report))
+
+
+def test_points_beyond_the_range_are_excluded_under_exclude_and_their_count_reported(
+    env: Env,
+) -> None:
+    done = env.run(
+        case_text(
+            argument=BEYOND, validity='[validity]\nkind = "fitted_range"\noutside = "exclude"'
+        )
+    )
+    assert done.outcome == "passed", done.report
+    assert validity_columns(env) == {
+        "validity_kind": "fitted_range",
+        "inside_points": 5,
+        "outside_points": 4,
+        "undetermined_points": 0,
+    }
+    # the outside points are neither evaluated nor compared, nor asked of the library
+    assert done.report["points"] == 5 and done.report["passed"] == 5 and done.report["invalid"] == 0
+    assert run_row(env)["points"] == 5
+    assert done.report["validity"]["excluded"] == 4  # type: ignore[index]
+    assert "4 point(s) outside the `fitted_range` regions excluded" in str(done.report["note"])
+    by_key = {tuple(s["key"]): s for s in done.report["per_subject"]}  # type: ignore[union-attr]
+    assert [by_key[(k,)]["points"] for k in ("sp-a", "sp-b", "sp-c")] == [1, 1, 3]
+
+
+def test_a_case_that_names_no_validity_kind_records_no_counts(env: Env) -> None:
+    done = env.run(case_text(argument=BEYOND))
+    assert done.outcome == "passed" and done.report["validity"] is None
+    assert validity_columns(env) == {
+        "validity_kind": None,
+        "inside_points": None,
+        "outside_points": None,
+        "undetermined_points": None,
+    }
+
+
+def test_several_regions_of_one_kind_are_a_union(env: Env) -> None:
+    """`sat_regions`: sp-a has two alternative regions, 250 to 300 and 350 to 399 K."""
+    done = env.run(
+        case_text(
+            key="sat_regions",
+            subjects='select = "list"\nkeys = ["sp-a"]',
+            argument='values = [260.0, 320.0, 360.0]\nunit = "K"',
+            validity='[validity]\nkind = "fitted_range"',
+        )
+    )
+    assert done.outcome == "passed", done.report
+    assert validity_columns(env) == {
+        "validity_kind": "fitted_range",
+        "inside_points": 2,  # 260 and 360
+        "outside_points": 1,  # 320 lies between the regions
+        "undetermined_points": 0,
+    }
+
+
+def test_a_region_that_needs_more_than_the_arguments_know_leaves_its_points_undetermined(
+    env: Env,
+) -> None:
+    """sp-b's region has a pressure clause and sp-c's a clause about a component: the pressure
+    is no argument of the saturation contract, and a component cannot be decided from the
+    arguments, so neither region says inside or outside for any point."""
+    done = env.run(
+        case_text(
+            key="sat_regions",
+            subjects='select = "list"\nkeys = ["sp-b", "sp-c"]',
+            argument='values = [260.0, 300.0]\nunit = "K"',
+            validity='[validity]\nkind = "fitted_range"',
+        )
+    )
+    assert done.outcome == "passed", done.report
+    assert validity_columns(env) == {
+        "validity_kind": "fitted_range",
+        "inside_points": 0,
+        "outside_points": 0,
+        "undetermined_points": 4,
+    }
+
+
+def test_a_kind_no_region_is_stated_for_has_no_points_inside_outside_or_undetermined(
+    env: Env,
+) -> None:
+    done = env.run(
+        case_text(
+            key="sat_regions",
+            argument=BEYOND,
+            validity='[validity]\nkind = "recommended_range"',
+        )
+    )
+    assert done.outcome == "passed", done.report
+    assert validity_columns(env) == {
+        "validity_kind": "recommended_range",
+        "inside_points": 0,
+        "outside_points": 0,
+        "undetermined_points": 0,
+    }
+    assert done.report["validity"]["not_stated"] == 9  # type: ignore[index]
+
+
+def test_a_grid_within_a_region_needs_exactly_one_region_and_a_clause_it_can_follow(
+    env: Env,
+) -> None:
+    by_fluid = {
+        "sp-a": "2 validity regions",
+        "sp-c": "has 0 clauses on `temperature`",
+    }
+    for fluid, message in by_fluid.items():
+        done = env.run(
+            case_text(key="sat_regions", subjects=f'select = "list"\nkeys = ["{fluid}"]'),
+            name=f"grid_{fluid}",
+        )
+        assert done.blocked_reason == "no_grid", done.report
+        assert fluid in str(done.report["note"]) and message in str(done.report["note"])
+    # the two-clause region of sp-b is followed along its clause on temperature
+    done = env.run(
+        case_text(
+            key="sat_regions",
+            subjects='select = "list"\nkeys = ["sp-b"]',
+            validity='[validity]\nkind = "fitted_range"',
+        ),
+        name="grid_sp-b",
+    )
+    assert done.outcome == "passed", done.report
+    assert env.sql(
+        "SELECT inside_points, outside_points, undetermined_points FROM qual.qualification_run "
+        "WHERE starts_with(key, 'grid_sp-b/')"
+    ) == [(0, 0, 5)]
+
+
+def test_a_case_refuses_what_it_cannot_ground_in_a_validity_region(env: Env) -> None:
+    decl = env.world.decl
+    # the grid no longer names an observable: the contract's argument does
+    with pytest.raises(CaseError, match="unknown field `observable`"):
+        env.case(case_text().replace("[arguments.T]", "[arguments.T]\nobservable = 'temperature'"))
+    case = env.case(case_text(validity='[validity]\nkind = "no_such_kind"'))
+    assert validate(case, decl) == ["validity: `no_such_kind` is not a validity region kind"]
+    with pytest.raises(CaseError, match="outside"):
+        env.case(case_text(validity='[validity]\nkind = "fitted_range"\noutside = "drop"'))
+    with pytest.raises(CaseError, match="kind"):
+        env.case(case_text(validity="[validity]\noutside = 'exclude'"))
+    # `qfix_function` has a temperature argument that names no observable
+    hollow = case_text().replace("vapor_pressure_exp_series_tau", "qfix_linear").replace(
+        'output = "p_sat"', 'output = "y"'
+    )
+    problems = validate(env.case(hollow), decl)
+    assert any(
+        "arguments.T: `points` within a validity region follow the observable the contract "
+        "argument names" in problem
+        for problem in problems
+    ), problems
 
 
 # -- cases the declaration refuses, runs that cannot be carried out ------------------------------
@@ -682,9 +876,9 @@ def test_an_output_is_skipped_with_its_reason_when_its_key_or_its_sets_do_not_fi
     )
     outputs, skipped = discover_qualification(env.canonical, [], decl, fingerprint)
     assert outputs == [] and len(skipped) == 1
-    # three sets, each a parameter-set row, a slot-group row, three term rows and an envelope,
-    # and the parameterization they belong to
-    assert skipped[0].reason.startswith("19 record(s) it read are not in this build (")
+    # three sets, each a parameter-set row, a slot-group row, three term rows, a region, its clause
+    # and its coverage row, and the parameterization they belong to
+    assert skipped[0].reason.startswith("25 record(s) it read are not in this build (")
     assert discover_qualification(env.canonical / "nowhere", inputs, decl, fingerprint) == (
         [],
         [],
@@ -711,8 +905,18 @@ def mapped_change(env: Env, table: str, column: str, where: str, value: uuid.UUI
     tables = {name: pq.read_table(directory / record.file) for name, record in manifest.tables.items()}
     data = tables[table]
     index = data.schema.get_field_index(column)
+    targets = {value}
+    if where == "region":  # a clause is found by the region of the set it is about
+        regions = tables["tk.validity_region"]
+        targets = {
+            identifier
+            for identifier, record in zip(
+                regions.column("id").to_pylist(), regions.column("record").to_pylist()
+            )
+            if record == value
+        }
     changed = [
-        held * factor if identifier == value else held
+        held * factor if identifier in targets else held
         for identifier, held in zip(data.column(where).to_pylist(), data.column(column).to_pylist())
     ]
     field = data.schema.field(index)
@@ -744,7 +948,7 @@ SET_TABLE = "param.vapor_pressure_exp_series_tau__pure"
     [
         (SET_TABLE, "p_r", "id", "a slot value"),
         (f"{SET_TABLE}__term", "n", "set_id", "a family row"),
-        ("tk.envelope", "upper", "parameter_set", "an envelope bound"),
+        ("tk.region_clause", "upper", "region", "a clause bound"),
     ],
 )
 def test_a_run_is_skipped_and_not_listed_when_a_mapping_fix_changed_a_value_it_evaluated(
@@ -808,7 +1012,9 @@ def test_the_build_hashes_the_records_the_run_hashed_from_the_database(env: Env)
         "tk.parameter_set",
         SET_TABLE,
         f"{SET_TABLE}__term",
-        "tk.envelope",
+        "tk.validity_region",
+        "tk.region_clause",
+        "tk.validity_coverage",
         "tk.parameterization",
     }
 

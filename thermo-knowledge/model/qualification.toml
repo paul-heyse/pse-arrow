@@ -30,7 +30,7 @@ members.subject_unidentified = { doc = "A subject of the parameterization does n
 members.subjects_not_found = { doc = "The case lists subjects the parameterization holds no set for." }
 members.sample_too_large = { doc = "The case samples more subjects than the parameterization has." }
 members.ambiguous_occurrence = { doc = "A subject has several sets in the parameterization and the case chooses none." }
-members.no_grid = { doc = "No grid of argument values could be made for a subject from its envelope." }
+members.no_grid = { doc = "No grid of argument values could be made for a subject from its validity regions." }
 members.harness_missing = { doc = "The oracle harness script of the library does not exist." }
 members.harness_failed = { doc = "The harness could not produce a result: the library is absent from its environment, it crashed or timed out, or its result breaks the protocol." }
 members.nothing_compared = { doc = "No point could be compared, because the library answered NaN or an error at every point." }
@@ -73,6 +73,10 @@ absolute_tolerance = { type = "Real", unit_from = "observable", optional = true,
 worst_relative_deviation = { type = "Scalar", optional = true, doc = "Largest relative deviation observed." }
 blocked_reason = { type = "blocked_reason", optional = true, doc = "Why a blocked run could not be carried out; present exactly when the outcome is `blocked`." }
 note = { type = "Text", optional = true, doc = "The detail of a blocked run's reason, or what the domain excluded." }
+validity_kind = { type = "envelope_kind", optional = true, doc = "The kind of validity region the counts of points below are taken against; stated by a case that names one." }
+inside_points = { type = "Integer", optional = true, doc = "Grid points that lay inside a region of that kind on every record the evaluation read that states one." }
+outside_points = { type = "Integer", optional = true, doc = "Grid points that lay outside one, including those a case excluded for it." }
+undetermined_points = { type = "Integer", optional = true, doc = "Grid points a region of that kind could not decide, because a clause is about a component or a phase or limits an observable no argument of the contract names." }
 
 [[kinds.qualification_run.requires]]
 name = "blocked_reason_iff_blocked"
@@ -248,10 +252,15 @@ doc = "A source-faithful row that was not loaded, with the reason."
 identity = ["manifest_id", "source_table", "locator"]
 provenance = "none"
 
+[[kinds.held_row.requires]]
+name = "state_is_held_or_unmapped"
+doc = "A row that was not loaded is `held` or `unmapped`."
+enforced = "verify"
+
 [kinds.held_row.attributes]
 manifest_id = { type = "Text", doc = "The source." }
 source_table = { type = "Text", doc = "The source-faithful table." }
 locator = { type = "Text", doc = "The row's locator." }
-state = { type = "row_state", doc = "`held` or `unmapped`." }
+state = { type = "row_state", doc = "The state the row ended in." }
 reason = { type = "held_reason", doc = "Why it was not loaded." }
 detail = { type = "Text", doc = "The reason in words: what about this row led to it." }

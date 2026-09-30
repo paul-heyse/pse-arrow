@@ -5,8 +5,9 @@
 
 The file is decoded into the structs below (an unknown key is refused) and checked against the
 declaration: the form, its contract output and the comparison basis exist, the subject slot
-group binds every role of the contract, every argument has a grid, units convert and the
-sub-form choices name forms that implement what their slot accepts. `validate` returns every
+group binds every role of the contract, every argument has a grid, units convert, a grid within
+a validity region belongs to an argument that names its observable, the validity policy names a
+region kind, and the sub-form choices name forms that implement what their slot accepts. `validate` returns every
 problem found; a case that has any is refused before anything is evaluated.
 """
 
@@ -74,15 +75,15 @@ class SubjectsSpec(Struct, **_STRICT):
 
 
 class ArgumentSpec(Struct, **_STRICT):
-    """The grid of one argument: explicit `values` (in `unit`), or `points` evenly spread
-    within each set's envelope on `observable`, leaving `inset` (a fraction of the range) at
-    each end."""
+    """The grid of one argument: explicit `values` (in `unit`), or `points` evenly spread within
+    the one validity region (of `envelope_kind`, when a set has regions of several kinds) of each
+    set, along the clause that limits the observable the contract argument names, leaving `inset`
+    (a fraction of the range) at each end."""
 
     values: list[float] | None = None
     unit: str | None = None
     points: int | None = None
     within: Literal["envelope"] | None = None
-    observable: str | None = None
     envelope_kind: str | None = None
     inset: float = 0.0
 
@@ -102,6 +103,15 @@ class ComparisonSpec(Struct, **_STRICT):
     absolute_tolerance: AbsoluteTolerance | None = None
     invalid_points: Literal["fail", "exclude"] = "fail"
     invalid_reason: str | None = None
+
+
+class ValiditySpec(Struct, **_STRICT):
+    """The kind of validity region the run counts its points against (inside, outside or
+    undetermined), and what it does with a point outside: `compare` it anyway, or `exclude` it
+    from the comparison, reporting the count."""
+
+    kind: str
+    outside: Literal["compare", "exclude"] = "compare"
 
 
 class HarnessSpec(Struct, **_STRICT):
@@ -128,6 +138,7 @@ class CaseSpec(Struct, **_STRICT):
     arguments: dict[str, ArgumentSpec]
     comparison: ComparisonSpec
     harness: HarnessSpec
+    validity: ValiditySpec | None = None
     subforms: dict[str, list[SubformChoiceSpec]] = {}
 
 
@@ -200,6 +211,10 @@ def validate(case: Case, decl: m.Declaration) -> list[str]:
             problems.append(f"slot group `{group.qualified}` has a subject bound to a set")
     _validate_arguments(case, decl, contract, problems)
     _validate_comparison(case, decl, contract, problems)
+    if spec.validity is not None:
+        kinds = {member.name for member in decl.enums[pc.ENVELOPE_KIND.declared].members}
+        if spec.validity.kind not in kinds:
+            problems.append(f"validity: `{spec.validity.kind}` is not a validity region kind")
     if spec.subjects.select == "list" and not spec.subjects.keys:
         problems.append('subjects: `select = "list"` needs `keys`')
     if spec.subjects.select == "sample" and (
@@ -280,19 +295,21 @@ def _validate_arguments(
                     convert(1.0, grid.unit, target)
                 except ValueRefused as error:
                     problems.append(f"arguments.{name}: {error}")
-            if grid.within or grid.observable or grid.envelope_kind or grid.inset:
+            if grid.within or grid.envelope_kind or grid.inset:
                 problems.append(
-                    f"arguments.{name}: `within`, `observable`, `envelope_kind` and `inset` go with `points`"
+                    f"arguments.{name}: `within`, `envelope_kind` and `inset` go with `points`"
                 )
             continue
         if grid.points is None or grid.points < 1:
             problems.append(f"arguments.{name}: `points` is at least 1")
         if grid.within != "envelope":
             problems.append(f'arguments.{name}: `points` are spread `within = "envelope"`')
-        if grid.observable is None:
-            problems.append(f"arguments.{name}: `points` within an envelope name the `observable`")
-        elif decl.observable_entity(grid.observable) is None:
-            problems.append(f"arguments.{name}: `{grid.observable}` is not a declared observable")
+        if argument.observable is None:
+            problems.append(
+                f"arguments.{name}: `points` within a validity region follow the observable the "
+                f"contract argument names, and `{name}` of `{contract.name}` names none: give "
+                "`values`"
+            )
         if not 0 <= grid.inset < 0.5:
             problems.append(f"arguments.{name}: `inset` is a fraction of the range in [0, 0.5)")
         if grid.unit is not None:

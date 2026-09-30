@@ -20,7 +20,7 @@ the integration constants.
 [contracts.standard_state_thermo]
 doc = "Standard-state molar heat capacity, enthalpy and entropy of one species form at a temperature."
 roles.i = { type = "species_form", doc = "The species form." }
-arguments.T = { type = "Temperature", doc = "Temperature." }
+arguments.T = { type = "Temperature", observable = "temperature", doc = "Temperature." }
 outputs.cp = { type = "MolarEntropy", observable = "standard_molar_heat_capacity_isobaric", doc = "Standard-state molar heat capacity at constant pressure." }
 outputs.h = { type = "MolarEnergy", observable = "standard_molar_enthalpy", doc = "Standard-state molar enthalpy relative to the energy reference." }
 outputs.s = { type = "MolarEntropy", observable = "standard_molar_entropy", doc = "Standard-state molar entropy." }

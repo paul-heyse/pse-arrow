@@ -56,7 +56,7 @@ def test_the_rules_carry_the_number_of_mapped_rows_they_were_applied_to(tmp_path
         ("species", ""),
         ("curves", "partition:pressure"),
         ("curves", "derivation:pressure"),
-        ("curves", "constant:envelope.kind"),
+        ("curves", "constant:validity_region.kind"),
         ("curves", "species"),
     ):
         assert rules[key]["applied_rows"] is None, key

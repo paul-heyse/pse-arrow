@@ -17,7 +17,7 @@ mapping records what it was fitted to and the accuracy the source claims.
 [contracts.pure_vapor_pressure]
 doc = "Vapour-liquid saturation pressure of a pure fluid as a function of temperature."
 roles.i = { type = "material_entity", doc = "The fluid." }
-arguments.T = { type = "Temperature", doc = "Temperature." }
+arguments.T = { type = "Temperature", observable = "temperature", doc = "Temperature." }
 outputs.p_sat = { type = "Pressure", observable = "vapor_pressure", doc = "Saturation pressure." }
 
 [forms.vapor_pressure_exp_series_tau]

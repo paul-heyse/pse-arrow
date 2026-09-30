@@ -328,8 +328,8 @@ where = { ancillary = "pS", using_tau_r = true }   # column = value, or column =
 disposition = "mapped"                    # the same keys as a table: reason, wave, loss, origin_role
 
 [tables.<table>.partitions.constants]     # canonical values no column holds, by `kind.attribute`
-"envelope.axis" = "temperature"           #   a declared entity, an enum member, text, a number,
-"envelope.kind" = "fitted_range"          #   or { value = ..., unit = "..." }
+"validity_region.kind" = "fitted_range"     #   a declared entity, an enum member, text, a number,
+"region_clause.observable" = "temperature"  #   or { value = ..., unit = "..." }
 
 [tables.<table>.partitions.derivation]    # how the records made from these rows were produced
 kind = "fit"                              # a `derivation_kind` member; `fit` makes a `fit` record
@@ -412,10 +412,17 @@ it names tables, scopes, kinds, slot groups and families, and never a unit, a nu
   column[, value])` and `emit.component(mixture, component, row, column)` (the component's fraction,
   read from `column` of `row` under a `mixture_component.value` rule, converted to a dimensionless
   number and kept as exact decimal text); phase 2
-  emits `emit.parameter_set(...)`, `emit.kind(...)`, `emit.relation(...)` and
-  `emit.parameterization(name)` and `emit.derivation(outputs)` (the derivation declared for the block's
-  partition, a `fit` when it is one, with a `derivation_output` row per output record and no
-  `derivation_input`: a mapping links inputs only when it can name the records). A block is atomic: if validation, an ambiguous or unknown subject or a
+  emits `emit.parameter_set(...)`, `emit.kind(...)`, `emit.relation(...)`,
+  `emit.parameterization(name)`, `emit.validity(record, region, clauses)`,
+  `emit.validity_not_stated(record, region)` and `emit.derivation(outputs)` (the derivation declared for
+  the block's partition, a `fit` when it is one, with a `derivation_output` row per output record and no
+  `derivation_input`: a mapping links inputs only when it can name the records; a record presented in a
+  role that requires a derivation, a validity region included, is the output of one). `emit.validity`
+  writes one region of the validity of a parameter set, a parameterization or a model assembly with its
+  clauses and the coverage row `stated` in one call (`region` is `ctx.attributes(row,
+  "validity_region")`, each clause `ctx.attributes(row, "region_clause")`; regions of one kind are
+  alternatives and each has its `ordinal`), and `emit.validity_not_stated` records that the source
+  gives no region of that kind, with the coverage row `not_stated`. A block is atomic: if validation, an ambiguous or unknown subject or a
   value that fits no scheme refuses anything in it, none of its records is written and its rows end
   `held` with the typed reason and its detail. A refusal about identity (section 2's competing assertions) is not held: it
   ends the run.
@@ -622,7 +629,6 @@ check that returns the violating rows, plus these structural checks:
   convention set that states each of them (`parameterization_has_conventions`, read from
   `meta.form_convention`);
 - family indices are contiguous from their minimum;
-- derivation lineage and dependency relations are acyclic;
 - a record presented in a role with the facet `requires_derivation` (`origin_role` marks `fitted`,
   `estimated` and `derived`) has a producing derivation (a derivation is exempt), and when the role has
   the facet `requires_fit` (`fitted`) that derivation is a fit. The roles are read from `meta`, so a
@@ -633,7 +639,12 @@ check that returns the violating rows, plus these structural checks:
 
 The declared invariants of relations are checked the same way as those of kinds: a relation's
 `requires` with `enforced = "verify"` has a check file named `<relation>.<requirement>`, and the
-verify stage treats both alike. The relation `subject_subform_choice` has two: the chosen form
+verify stage treats both alike. Derivation lineage and dependencies being acyclic are two of them
+(`derivation_input.lineage_acyclic`, `dependency.acyclic`). A check about a property of enum members
+reads the member's facets from `meta`, as the checks of `origin_role` do: the magnitudes of an
+uncertainty against the facets `relative` and `unquantified` of `uncertainty_kind`, and a column
+presented against a reference state against the facet `relative_to_reference_state` of
+`value_presentation`. The relation `subject_subform_choice` has two: the chosen form
 implements the contract its slot accepts, and the ordinals of one slot and subject run from one
 without a gap and exceed one only for multiplicity `many`.
 
@@ -667,8 +678,8 @@ reproduces an independent answer.
   data, so agreement means the mapping preserved the meaning.
 - A **qualification case** is declared in `qualification/<case>.toml` (section 5.1): the form, the
   contract output, the parameterization, the subjects (all, or a declared sample), the grid of
-  argument values (within each set's envelope), the comparison basis, the tolerance, and the
-  harness.
+  argument values (within each set's validity region), the comparison basis, the tolerance, the kind
+  of validity region its points are counted against, and the harness.
 - `tk qualify` evaluates the form from the database through the reference evaluator (section 5.3),
   runs the harness, compares, and writes `qual.qualification_run` rows (section 5.4).
 
@@ -717,13 +728,16 @@ carrier = "coolprop"                        #   the local key of the source enti
 scope = "fluids"                            #   and scope whose target is the subject
 
 [arguments.T]                               # one grid for each argument of the contract
-points = 25                                 # `points` spread evenly within each set's envelope ...
-within = "envelope"
-observable = "temperature"                  #   on this observable
-envelope_kind = "fitted_range"              #   optional: when a set has several envelopes
+points = 25                                 # `points` spread evenly within the one region of each set ...
+within = "envelope"                         #   along the clause on the observable the argument names
+envelope_kind = "fitted_range"              #   optional: when a set has regions of several kinds
 inset = 0.0                                 #   optional: a fraction of the range left out at each end
 # values = [298.15, 350.0]                  # ... or explicit `values`, in `unit`
 # unit = "K"
+
+[validity]                                  # optional: count the points against the regions of a kind
+kind = "fitted_range"
+outside = "compare"                         #   `compare` the points outside them anyway, or `exclude` them
 
 [comparison]
 relative_tolerance = 1e-12
@@ -750,10 +764,26 @@ parameterization = { key = "k", revision = "r" }
   the carrier and scope blocks the run. `sample` draws with `random.Random(seed)` from the keys in
   order, so a seed gives the same subjects on every machine. A contract with index sets is refused:
   a case evaluates a form for single subjects (model assemblies come later).
-- **Points.** `points` spread evenly over the envelope of the set on the observable, from the lower
-  bound plus the inset to the upper bound minus it (one point is the midpoint); a set with no envelope
-  of that kind, several, or one open at an end blocks the run. Several arguments give the Cartesian
-  product, the last varying fastest. Values are in the storage units of the argument's type.
+- **Points.** `points` spread evenly within the one validity region of the named kind (any kind when
+  none is named) of the set, along the clause of that region on the observable the contract argument
+  names, from the lower bound plus the inset to the upper bound minus it (one point is the midpoint). The
+  grid refuses, naming the set, and the run is blocked with `no_grid`, when the argument names no
+  observable, when the set has no region of that kind or several (alternatives), or when the region has
+  no clause on that observable about the whole record (none, or only clauses about a component or a
+  phase), several, or one open at an end: the case must then give explicit `values` for the argument.
+  A region with other clauses (a pressure limit next to the temperature limit) is gridded along the
+  clause the argument follows; the other clauses are what the validity counts decide. Several arguments
+  give the Cartesian product, the last varying fastest. Values are in the storage units of the
+  argument's type.
+- **Validity.** A case with a `[validity]` table has every point of its grid classified, for each
+  subject, as inside, outside or undetermined with respect to the regions of its `kind` on the records
+  the evaluation read, or as in none of these because no region of that kind is stated (section 5.3
+  and `expressions.md` section 5). The classification is made whatever the grid, so explicit `values`
+  beyond a range are recorded as outside. `outside = "compare"` (the default) compares the points
+  outside anyway; `outside = "exclude"` leaves them out of the evaluation, the request to the harness
+  and the comparison, and reports their count in the run's note. A subject the form is refused for has
+  no classification. Nothing is refused because a point is outside: lying outside a region is not
+  permission to extrapolate, and the case, not the evaluator, decides what to do about it.
 - **A point agrees** when its relative deviation from the library, `|form - library| / |library|`, is
   within `relative_tolerance`, or its absolute deviation within `absolute_tolerance` when one is
   given; a form value that is not finite never agrees. A point the library answers with NaN or an
@@ -851,6 +881,13 @@ for a slot group and subjects answers.
   parameterizations and the two values, or, for a parameterization with no convention set or whose set
   lacks the fact, the parameterization and the fact. A parameterization that supplied no set is not
   compared.
+- **Validity.** `ParameterSource.validity(kind, reads)` gives, for each set read (and for the
+  parameterization each belongs to), the coverage row of that record for regions of `kind` and its
+  regions with their clauses (observable, component, aggregation, bounds in storage units); a record
+  with neither has no coverage and no region. The database-backed source reads `tk.validity_coverage`,
+  `tk.validity_region` and `tk.region_clause`, and follows a nested or referenced set to its own
+  record. The evaluator turns them into where each point lies (`expressions.md` section 5). A model
+  assembly is not read by an evaluation.
 - **Occurrence.** A parameterization may hold several sets for one subject, distinguished by
   `occurrence`. The source takes the occurrence stated for each parameterization (the case's
   `occurrence`; a sub-form choice states its own) and reads that set; a subject that does not have
@@ -885,7 +922,8 @@ evaluated:
 | `blocked_reason`, `note` | for a blocked run its typed reason, and exactly then; the note is the detail of a blocked run's reason, or what the domain excluded |
 | `expression_hash` | the evaluation hash of the compared output when the run was made (what `qual.form_qualification` compares with the current one); every run has one, a blocked run included |
 | `reference` | the `software_release` of the library version the harness reported |
-| `points` | the points compared (those that failed the run by being invalid included) |
+| `points` | the points compared (those that failed the run by being invalid included; the points a case excluded for lying outside its validity regions are not) |
+| `validity_kind`, `inside_points`, `outside_points`, `undetermined_points` | for a case with a `[validity]` table, its kind and how many points of the grid were inside, outside and undetermined with respect to it (the points excluded for lying outside are counted as outside; points of a subject the form was refused for, and points in no region of the kind because it is stated for none, are in none of the three); the counts are absent for a run blocked before it evaluated and for a case that names no kind |
 | `relative_tolerance`, `absolute_tolerance`, `observable` | as declared; the observable is the contract output's |
 | `worst_relative_deviation` | the largest relative deviation seen, where it is finite |
 
@@ -905,8 +943,9 @@ the records it read are, row for row, the ones the build holds. The manifest rec
 of every record the run read: each parameter set evaluated (and every set of the parameterizations a
 sub-form choice reads from) with its row in the slot-group table and in the tables of its families,
 the sets it nests and the sets its reference slots name (followed until no more are found), the
-envelopes of each, the parameterizations they belong to with their convention sets (the convention
-facts an evaluation reads) and their sub-form choices. A hash is the SHA-256 of the record's table and
+parameterizations they belong to with their convention sets (the convention facts an evaluation
+reads) and their sub-form choices, and the validity of every set and parameterization read: its
+regions, their clauses and its coverage rows. A hash is the SHA-256 of the record's table and
 canonical columns with their values (`thermo_knowledge.build.currency.record_hash`); one function,
 `read_records`, decides which records a run reads and hashes them, for both sides: `tk qualify`
 computes the hashes from the database it reads, and `tk build` recomputes them from the canonical

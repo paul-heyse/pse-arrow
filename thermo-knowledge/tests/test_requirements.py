@@ -233,6 +233,30 @@ def test_the_writer_enforces_the_ddl_requirements_of_a_relation(tmp_path: Path) 
     assert w.rows("tk.reading") == 3
 
 
+def test_the_writer_names_a_conversion_exactly_when_the_level_is_equal_under_conversion() -> None:
+    w = writer(real_declaration())
+    conversion = uuid.uuid4()
+
+    def assess(level: str, named: uuid.UUID | None) -> uuid.UUID:
+        return w.relation(
+            "equivalence_assessment",
+            {"a": uuid.uuid4(), "b": uuid.uuid4()},
+            {"level": level, "conversion": named},
+        )
+
+    assess("exact", None)
+    assess("equal_under_conversion", conversion)
+    for level, named, message in (
+        ("exact", conversion, "conversion is present but level is `exact`"),
+        ("conflicting", conversion, "conversion is present but level is `conflicting`"),
+        ("equal_under_conversion", None, "conversion is absent but level is `equal_under_conversion`"),
+    ):
+        with pytest.raises(ValidationError) as raised:
+            assess(level, named)
+        assert "conversion_iff_under_conversion" in str(raised.value) and message in str(raised.value)
+    assert w.rows("prov.equivalence_assessment") == 2
+
+
 def test_a_relation_load_invariant_needs_an_evaluator(tmp_path: Path) -> None:
     tree = copy_full(tmp_path)
     (tree / "model" / "zz_probe.toml").write_text(MODULE.format(enforced="load", check=""))

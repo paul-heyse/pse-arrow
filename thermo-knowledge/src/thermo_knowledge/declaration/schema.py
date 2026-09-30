@@ -175,6 +175,7 @@ class ArgumentDecl(Marked, frozen=True, kw_only=True, forbid_unknown_fields=True
     doc: str
     over: tuple[str, ...] = ()
     basis: str | None = None
+    observable: str | None = None
 
 
 class RoleDecl(Marked, frozen=True, kw_only=True, forbid_unknown_fields=True):

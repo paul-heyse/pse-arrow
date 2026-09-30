@@ -15,7 +15,9 @@ locator of the source row instead of leaving it to fail in the database:
   the canonical orientation;
 * `parameter_set` writes one parameter set of a slot group: `subject_key`, the subjects in the
   canonical orientation, the set row, the slot-group row and the family rows;
-* `subform_choice` writes which form fills a sub-form slot for one subject.
+* `subform_choice` writes which form fills a sub-form slot for one subject;
+* `validity_region` writes one region of the validity of a record with its clauses and the
+  coverage row, and `validity_not_stated` records that the source states none.
 
 The values are stored as the source asserted them. A transposable subject tuple is stored in the
 canonical orientation (so uniqueness and `subject_key` do not depend on the order asserted), and
@@ -325,7 +327,9 @@ class CanonicalWriter:
         return len(self._tables.get(table, {}))
 
     def counts(self) -> dict[str, int]:
-        return {name: len(rows) for name, rows in sorted(self._tables.items())}
+        """The number of rows in each table that has any (a table whose rows were all withdrawn
+        by a failed group has none)."""
+        return {name: len(rows) for name, rows in sorted(self._tables.items()) if rows}
 
     def tables(self) -> dict[str, pa.Table]:
         """Every table that has rows, as an Arrow table of its canonical schema, rows in
@@ -1006,6 +1010,80 @@ class CanonicalWriter:
                 {sc.form: form, sc.source_parameterization: source_parameterization},
                 at=at,
             )
+
+    # -- validity -----------------------------------------------------------------------------
+
+    def validity_region(
+        self,
+        record: uuid.UUID,
+        region: Mapping[str, object],
+        clauses: Sequence[Mapping[str, object]],
+        *,
+        origins: Sequence[Origin],
+        ordinal: int = 1,
+        at: str | None = None,
+    ) -> uuid.UUID:
+        """Write one region of the validity of `record` (a parameter set, a parameterization or a
+        model assembly) with its clauses and the coverage row that says the source states regions
+        of that kind for it; returns the region's identifier.
+
+        `region` holds the attributes of `validity_region` other than `record` and `ordinal` (its
+        `kind`); each of `clauses` those of `region_clause` other than `region` and `ordinal`
+        (`observable`, and as stated `component`, `aggregation`, `lower` and `upper`), numbered
+        from one in the order given. Several regions of one kind on one record are alternatives and
+        are written by separate calls with their own `ordinal`. A region has at least one
+        clause."""
+        locator = self._locator(origins, at)
+        vr, rc = pc.VALIDITY_REGION, pc.REGION_CLAUSE
+        problems = Problems()
+        for name in (vr.record, vr.ordinal):
+            if name in region:
+                problems.add(name, "is given by the writer, not in `region`")
+        for position, clause in enumerate(clauses, start=1):
+            for name in (rc.region, rc.ordinal):
+                if name in clause:
+                    problems.add(f"clauses[{position}].{name}", "is given by the writer")
+        if not clauses:
+            problems.add("clauses", "a validity region has at least one clause")
+        if problems:
+            raise ValidationError(locator, problems.items)
+        with self._atomic():
+            found = self.kind(
+                vr.declared,
+                {**region, vr.record: record, vr.ordinal: ordinal},
+                origins=origins,
+                at=at,
+            )
+            for position, clause in enumerate(clauses, start=1):
+                self.kind(
+                    rc.declared,
+                    {**clause, rc.region: found, rc.ordinal: position},
+                    at=locator,
+                )
+            self._coverage(record, region[vr.kind], pc.VALIDITY_COVERAGE_STATE.member("stated"), locator)
+            return found
+
+    def validity_not_stated(
+        self, record: uuid.UUID, kind: object, *, at: str | None = None
+    ) -> uuid.UUID:
+        """Record that the source gives no region of `kind` (an `envelope_kind` member) for
+        `record`: its validity is unknown, not unbounded. Returns the coverage row's identifier."""
+        with self._atomic():
+            return self._coverage(
+                record,
+                kind,
+                pc.VALIDITY_COVERAGE_STATE.member("not_stated"),
+                self._locator((), at),
+            )
+
+    def _coverage(self, record: uuid.UUID, kind: object, state: str, locator: str) -> uuid.UUID:
+        coverage = pc.VALIDITY_COVERAGE
+        return self._relation(
+            coverage.declared,
+            {coverage.record: record, coverage.kind: kind},
+            {coverage.value: state},
+            at=locator,
+        )
 
     # -- parameter sets -----------------------------------------------------------------------
 

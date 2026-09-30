@@ -742,6 +742,35 @@ class RecordEmitter:
         self._block.count += 1
         return found
 
+    def validity(
+        self,
+        record: uuid.UUID,
+        region: Mapping[str, object],
+        clauses: Sequence[Mapping[str, object]],
+        *,
+        ordinal: int = 1,
+    ) -> uuid.UUID:
+        """One region of the validity of `record` with its clauses, and the coverage row that says
+        the source states regions of that kind for it, in one call. `region` holds the attributes
+        of `validity_region` the mapping declares (its `kind`, `ctx.attributes(row,
+        "validity_region")`) and each of `clauses` those of one `region_clause`
+        (`ctx.attributes(row, "region_clause")`); the region takes the block's origins. Several
+        regions of one kind are alternatives, each with its own `ordinal`."""
+        found = self._ctx.writer.validity_region(
+            record, region, clauses, origins=self._origins, ordinal=ordinal, at=self.locator
+        )
+        self._block.count += 1
+        return found
+
+    def validity_not_stated(self, record: uuid.UUID, region: Mapping[str, object]) -> uuid.UUID:
+        """Record that the source gives no region of the kind `region` names for `record`."""
+        kind = region.get(pc.VALIDITY_REGION.kind)
+        if kind is None:
+            raise MappingError("a `not_stated` validity names the `kind` of region the source omits")
+        found = self._ctx.writer.validity_not_stated(record, kind, at=self.locator)
+        self._block.count += 1
+        return found
+
     def derivation(self, outputs: Sequence[uuid.UUID]) -> uuid.UUID:
         """The derivation declared for the block's first row (a `fit` when it is one), with a
         `derivation_output` row for each record in `outputs`. It takes no input: the records a
