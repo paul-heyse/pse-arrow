@@ -376,31 +376,45 @@ and `just case-measure` for M1–M3 and 10⁵-row admission, and the AUD review.
 
 ## Current checkpoint
 
-**2026-09-29.** Main (`5664e80a`) carries:
-- P0, H1, H1f and ADR-0127;
-- SM0 (chemistry kinds in `pse.physical`'s `chemistry` module; 354 unreferenced shaped
-  types deleted);
-- KR1–KR2 (unit products and derived kinds, including the entropy increment);
-- H2–H4 (lazily extended formal pool, study preparation counts, typed regime crossings);
-- the memory guard `scripts/memory-cap.sh`.
+**2026-09-30 (session end).** Everything below is on main and verified by targeted tests on
+main's own tree.
 
-Verified on main's tree:
-- `just seed-conformance`: 94/94 passed, complete (128 GiB pool, memory-capped);
-- targeted `just native-test`: 73 passed, 0 failed;
-- the seven kernel crates' library suites: 0 failures.
+**Done:**
+- **Decisions and harness:** P0; H1 and H1f (fixture policies; seed 94/94); ADR-0127.
+- **Chemistry and kernel:** SM0; KR1–KR9. `authored.modeling_declarations` is at version 16.
+- **Domain:**
+  - D0: the domain schema and its operation contracts;
+  - SM2 provenance.
+- **Harness and defects:** H2–H11. This covers the memory regression (H8), the reservation
+  pile-up (H9), the infeasibility contradiction check (H10) and the contract protobuf depth
+  (H11).
+- **Campaign scenarios:** CT-S05, CT-S06 and CT-S07, in the campaign package.
+- **Last broad runs:** seed + campaign 103/103 and domain 6/6. KR9's integration was verified
+  with targeted tests.
 
-Two editor-wide OOM crashes were traced to one runaway run and are tracked as H8:
-- the track C study `pfr_order_radau` grew to 156 GB resident;
-- a problem of that size needs a few GB, so H8 is a regression hunt in recent code.
+**Integration pending: C2 (CT-S09, CT-S12, CT-S13).** It is complete on branch `plan23/c2`
+(`f7ba8740`, worktree `/home/paul/pse-arrow-wt/c`), with its targeted tests passing, but it
+is based on old main `e9ebc60a`. To land it:
+- rebase onto main;
+- give its `diagnose` fixture clause the next IR version (17);
+- move its three `failure` clauses to H5's lineage grammar (`members(..)`), and keep one
+  member-naming mechanism;
+- merge its manifest `diagnostics` setting;
+- add `--run <name>` so `--fixture` works with the two-run manifest;
+- run C2's targeted fixtures by `--fixture`.
 
-In progress:
-- H8, then CT-S06 and CT-S07 (`plan23/c`; CT-S05 at `1d1d4bf3`);
-- KR3 + KR8 (`plan23/kr2`); the structured IR takes `authored.modeling_declarations`
-  version 9, because H1f took version 8.
+**Owed architecture text** (no edits yet) for KR4–KR7, KR9, D0, H5, H6, H8–H11, track C and
+C2. Owners: §5, §6, §7, §8, §9, §9.10, §10.3, §13, §14.3.2, §18.6, §18.8, §18.10.1, §20,
+§22.1, §23.2 and §24.3.
 
-Next: KR4–KR7 and KR9; H5, H6 and H7; then D0 and SM1–SM6.
+**Not started:** SM1, SM3, SM4, SM5 and SM6 (SM1's identifiers and decisions are recorded in
+its row); CT-S01, CT-S02, CT-S03, CT-S10, CT-S11 and CT-S14 evidence; DM1–DM6; M1–M3; AUD;
+Q.
 
-Integration keeps history linear from here: track branches are rebased onto main.
+**Where things are:**
+- Worktrees live under `/home/paul/pse-arrow-wt/`, with the brief in `BRIEF.md`.
+- Integration: rebase a track onto main, run its targeted tests once in the main checkout,
+  fast-forward, then record. Never set `CARGO_TARGET_DIR`.
 
 Decisions during execution:
 - The `chem` split into data-bank distributions moves to SM1.

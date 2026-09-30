@@ -5,7 +5,8 @@ progress. The current architecture and its supported scope live in the
 [architecture sections](../authoritative_design/README.md), not in plans.
 
 [Plan 23](23-thermodynamic-domain-and-campaign.md) (thermodynamic domain model and the
-integrated kernel campaign) is **in progress**, authorized 2026-09-29. It adds a typed,
+integrated kernel campaign) is **in progress**, authorized 2026-09-29; its *Current
+checkpoint* (2026-09-30) owns what is done, what awaits integration and what is not started. It adds a typed,
 relational domain schema, migrates the seed onto it, runs the transferred K9 scenarios
 and measurements, and owns the open Plan 20 findings F01–F13.
 [Plan 21](https://github.com/paul-heyse/pse-arrow/blob/0e725de269f18dd08331158a07b38a7d92ea0b5e/docs/plans/21-modeling-kernel.md) (the modeling kernel) is **done**: K0–K8 were implemented;
