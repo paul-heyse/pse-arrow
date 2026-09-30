@@ -73,7 +73,7 @@ Changelog = "https://github.com/paul-heyse/pse-arrow/blob/main/CHANGELOG.md"
 # Independent frozen thermodynamic references; never a production dependency.
 thermo-reference = [
   { include-group = "test" },
-  "teqp==0.23.1; python_version == '3.12'",
+  "teqp==0.23.2; python_version == '3.12'",
 ]
 # Tools that only execute (formatters, linters, type checkers, test runners) carry
 # floors, not exact pins: uv.lock records what resolved, `uv lock --upgrade` moves them,
