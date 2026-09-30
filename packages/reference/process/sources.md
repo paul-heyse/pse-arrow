@@ -68,10 +68,12 @@ This reference is distinct from IDAES's 20-element backward-difference compariso
 
 SSLW heat-exchanger purchase costing represents one exchanger; indexed costing children
 compose multiple purchases through the capital accumulator. The seed's coefficient
-datasets name the correlation's publication as their source and keep the IDAES costing test
-as a comparison. The pressure factor's stated envelope is 100–2000 psig. The upstream
-2-atmosphere-absolute case lies below it and explicitly requests extrapolation, recorded
-by the validity result. No such permission is implied for ordinary use. USD_CE500 and
+datasets name the correlation's publication as their source. The campaign costs the BT_PR
+co-current exchanger from its solved area and tube-side pressure (`hx_costing_solved_area`);
+the seed keeps the correlation at a stated 1000 m² area (`envelope`). The pressure factor's
+stated envelope is 100–2000 psig. The campaign exchanger at 0 psig lies below it and its
+flowsheet explicitly requests extrapolation, recorded by the validity result. No such
+permission is implied for ordinary use. USD_CE500 and
 USD_2018 use CEPCI 500 and 603.1 in the physical unit registry; year conversion is not a
 second correlation multiplier in the model.
 

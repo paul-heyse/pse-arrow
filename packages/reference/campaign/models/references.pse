@@ -18,4 +18,7 @@
 @id("01a0efcd84ac72f9aa089242e50bd825") entity provenance.source analytic_radau_order { title = "Radau IIA collocation with s points has endpoint order 2s-1, five for three points, until the differences reach the solver tolerance" }
 @id("01a0efcd84ac72f9aa089243ffd5f1f4") entity provenance.source analytic_steady_state_limit { title = "At constant inputs a stable CSTR relaxes to its steady state: 40 residence times from a feed-filled start reach the steady solution of the same definition" }
 @id("01a0efcd84ac72f9aa0892440ee773b7") entity provenance.source analytic_equilibrium_tangent_plane { title = "A phase in equilibrium is stable under its own law: its minimum tangent-plane distance is nonnegative, zero at itself and at each phase in equilibrium with it" }
+
+// The SSLW correlation evaluated at an IDAES test's solved state.
+@id("01a0f037426c718f919d2147b76f2c35") entity provenance.source sslw_cost_of_idaes_bt_exchanger { title = "SSLW (3rd edition) purchase cost of the IDAES 2.13 TestBT_Generic_cocurrent exchanger, evaluated by hand: its 1 m2 area, recovered from the test's 596.9 degR cold outlet, costed as a U-tube, stainless/stainless, 12 ft exchanger at its 0 psig tube-side pressure (10.7639 ft2; base 16529.14 USD_CE500; material 3.555535; pressure 0.9803; length 1.12; CEPCI 603.1 for 2018)" }
 }

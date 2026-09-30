@@ -44,7 +44,6 @@
 @id("01a0ef5f693f74888be59660f64e0f7a") entity provenance.oracle_test idaes_test_pressure_changer_saponification { title = "IDAES pressure changer with saponification", release = idaes_2_13, locator = "idaes/models/unit_models/tests/test_pressure_changer.py::TestSaponification::test_solution" }
 @id("01a0ef5f693f74888be59661dc473f0a") entity provenance.oracle_test idaes_test_heat_exchanger_bt { title = "IDAES cocurrent heat exchanger with BT_PR", release = idaes_2_13, locator = "idaes/models/unit_models/tests/test_heat_exchanger.py::TestBT_Generic_cocurrent::test_solution" }
 @id("01a0ef5f693f74888be596624264bcdb") entity provenance.oracle_test idaes_test_pfr_saponification { title = "IDAES PFR with saponification, 20 backward finite elements", release = idaes_2_13, locator = "idaes/models/unit_models/tests/test_pfr.py::TestSaponification::test_solution" }
-@id("01a0ef5f693f74888be5966368a11743") entity provenance.oracle_test idaes_test_sslw_heat_exchanger { title = "IDAES SSLW heat exchanger costing", release = idaes_2_13, locator = "idaes/models/costing/tests/test_SSLW.py::test_cost_heat_exchanger" }
 
 // References computed in this repository with pinned software.
 @id("01a0ef5f693f74888be5966494d7e432") entity provenance.computation plan14_thermo_reference { title = "Plan 14 thermodynamic reference: homogeneous PC-SAFT states and a two-phase flash, and Decimal DIPPR100 enthalpy integrals", tools = {teqp_0_23_1, scipy_1_18_1}, locator = "tests/fixtures/plan14/thermo-reference.json" }

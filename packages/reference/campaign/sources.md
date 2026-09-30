@@ -48,3 +48,14 @@ realization), and the nested flash `nested_equilibrium.NestedPRFlash` (two-phase
 liquid-only and vapor-only regimes solved on compressibility roots and selected by
 eligibility and the minimum Gibbs energy of the split). Each compares with the test's
 outlet flows, compositions, temperature and pressure at its absolute 1e-3.
+
+`models/exchanger-costing.pse` costs the IDAES 2.13 `test_heat_exchanger`
+TestBT_Generic_cocurrent exchanger (BT_PR on both sides, 5 mol/s at 365 K against 1 mol/s
+at 300 K, 100 W/(m² K)) from its solved area. The flowsheet binds the SSLW costing's area
+and tube-side pressure to the exchanger's area and hot inlet pressure and aggregates its
+capital cost. The fixture holds the cold outlet at the test's 596.9 °R and leaves the area
+free, so the solve recovers the test's 1 m² within the 0.003 m² its outlet tolerance
+allows. The expected costs are the SSLW U-tube, stainless/stainless, 12 ft correlation
+evaluated by hand at 1 m² and 0 psig; 1 m² lies far below the exchanger sizes the
+correlation is published for, so the fixture checks the costing's reading and arithmetic,
+not a purchase price.
