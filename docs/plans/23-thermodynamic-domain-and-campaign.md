@@ -376,45 +376,237 @@ and `just case-measure` for M1–M3 and 10⁵-row admission, and the AUD review.
 
 ## Current checkpoint
 
-**2026-09-30 (session end).** Everything below is on main and verified by targeted tests on
-main's own tree.
+**2026-09-30, handoff.** Read this whole section before resuming. The packet rows above
+record each packet's evidence. This section states repository state, what is functionally
+implemented, what is not, and exactly how to resume.
 
-**Done:**
-- **Decisions and harness:** P0; H1 and H1f (fixture policies; seed 94/94); ADR-0127.
-- **Chemistry and kernel:** SM0; KR1–KR9. `authored.modeling_declarations` is at version 16.
-- **Domain:**
-  - D0: the domain schema and its operation contracts;
-  - SM2 provenance.
-- **Harness and defects:** H2–H11. This covers the memory regression (H8), the reservation
-  pile-up (H9), the infeasibility contradiction check (H10) and the contract protobuf depth
-  (H11).
-- **Campaign scenarios:** CT-S05, CT-S06 and CT-S07, in the campaign package.
-- **Last broad runs:** seed + campaign 103/103 and domain 6/6. KR9's integration was verified
-  with targeted tests.
+### Repository state at handoff
 
-**Integration pending: C2 (CT-S09, CT-S12, CT-S13).** It is complete on branch `plan23/c2`
-(`f7ba8740`, worktree `/home/paul/pse-arrow-wt/c`), with its targeted tests passing, but it
-is based on old main `e9ebc60a`. To land it:
-- rebase onto main;
-- give its `diagnose` fixture clause the next IR version (17);
-- move its three `failure` clauses to H5's lineage grammar (`members(..)`), and keep one
-  member-naming mechanism;
-- merge its manifest `diagnostics` setting;
-- add `--run <name>` so `--fixture` works with the two-run manifest;
-- run C2's targeted fixtures by `--fixture`.
+- **`origin/main` at `e80d1a1d`** holds every packet listed under *Implemented and verified*.
+- **Local main**, which the maintainer commits and pushes at handoff, additionally carries
+  track C2:
+  - `6f4b0f8c` CT-S12 (verified, see below);
+  - `dddb361b` and `f9075292` CT-S09 (known failing, see below);
+  - the CT-S13 commit (`f7ba8740`) cherry-picked with its conflicts resolved. It was
+    **not verified**: regeneration and `just check` were still running when the session ended.
+- **Branches:** `plan23/c2` (CT-S12 and CT-S09, rebased) and `plan23/c2-ct-s13` (the original
+  CT-S13 at `f7ba8740`) stay as references. Once main carries their content they can be
+  deleted.
+- **Worktrees under `/home/paul/pse-arrow-wt/`** (`kr`, `kr2`, `h`, `sm`, `int`, `d0`, `c`,
+  `fix`): all are merged or obsolete. Remove them with `git worktree remove` after confirming
+  they hold no uncommitted work. `BRIEF.md` there holds the agent rules.
+- **Uncommitted changes the coordinator did not make** (`.gitignore`, `justfile`,
+  `pyproject.toml`) add a `library-catalog` recipe and lint excludes for the maintainer's
+  library-utilization scripts.
 
-**Owed architecture text** (no edits yet) for KR4–KR7, KR9, D0, H5, H6, H8–H11, track C and
-C2. Owners: §5, §6, §7, §8, §9, §9.10, §10.3, §13, §14.3.2, §18.6, §18.8, §18.10.1, §20,
-§22.1, §23.2 and §24.3.
+### First task for the next session: make main green
 
-**Not started:** SM1, SM3, SM4, SM5 and SM6 (SM1's identifiers and decisions are recorded in
-its row); CT-S01, CT-S02, CT-S03, CT-S10, CT-S11 and CT-S14 evidence; DM1–DM6; M1–M3; AUD;
-Q.
+1. **Finish the CT-S13 integration** (`f7ba8740`: over-specified flash and near-singular
+   cascade diagnostics).
+   - **Conflict resolutions made** (kept both sides; review them):
+     - the parser has C2's `diagnose "<rule>" at(<member>, …);` clause before H5's
+       `failure <class> validity(…)|members(…);`;
+     - the renderer renders both;
+     - `check.rs` keeps C2's diagnostics admission rules and drops C2's check on the deleted
+       `failure.rule`;
+     - `specialize.rs` imports the union of both sides;
+     - `specialize/fixture.rs` keeps H5's `ExpectedFailure` and `ExpectedLineage` and adds
+       C2's `diagnostics: Vec<FixtureDiagnostic>` field and `FixtureDiagnostic` type;
+     - `authored.modeling_declarations` goes to **version 17**, with a sentence added to its
+       description;
+     - generated files take main's side and are regenerated.
+   - **Still to do:**
+     - run `just codegen-contracts && just codegen`, then `just check`, and fix compile errors;
+     - CT-S13's `failure invalid_model "native.structural";` in
+       `packages/reference/campaign/models/flash-diagnostics.pse` uses the deleted grammar.
+       Rewrite it as `failure invalid_model members(<the over-determined equations>);`.
+       The structural refusal names its members, so this is a causal fit, unlike CT-S09;
+     - decide whether CT-S13's `diagnose … at(…)` duplicates H5's `members(..)` naming, and
+       keep one mechanism;
+     - C2's manifest `diagnostics` threshold setting (python/pse/conformance.py and
+       packages/reference/conformance.toml) must survive the merge;
+     - targeted tests: the CT-S13 kernel-gap tests (structural refusal of non-square root
+       systems naming members; rank-deficiency findings naming only near-null-mode members
+       with the `singular_vector` threshold), and its two fixtures `flash_overspecified` and
+       `cascade_near_singular_diagnostics_name_members` by `--fixture`.
+2. **CT-S09 is known failing on main, deliberately, not silenced.** It was merged at the
+   maintainer's direction so the work cannot be lost.
+   - **Parse failure.** The fixture `recycle_flash_failure_restores_specification`
+     (`packages/reference/campaign/models/recycle-flash.pse`) still uses the deleted grammar
+     `failure trial_rejected "modeling.qualification.rejected";`. **The campaign package
+     therefore fails to parse**, so every campaign fixture fails to load until it is fixed.
+   - **Runtime test.** `expected_initialization_failure_leaves_the_specification_intact`
+     (pse-runtime conformance tests) builds the same old-grammar clause and fails.
+   - **Causal gap.** The failure is a qualification rejection from an infeasible
+     initialization stage (`termination: infeasible`, `native attempt supplied no candidate`).
+     Its `BoundaryDiagnostic` carries **no lineage**: empty `sources`, and `validity: None`.
+     H5 requires every expected failure to name exactly one lineage, `validity(...)` or
+     `members(...)`, so the expectation cannot be stated honestly.
+   - **Required fix.** Give qualification-rejected initialization failures a lineage, H10's
+     treatment again: the failed stage and the members or equations it overrides. The
+     fixture and test then expect that lineage.
+   - **Do not** use an empty `members()` or any class-only match; admission refuses it, and
+     it would silence the test.
+   - The CT-S09 kernel gaps are in place:
+     - a definition's stage may override an equation it inherits from an interface;
+     - conformance checks that a failed initialization committed nothing, then solves the
+       unchanged specification;
+     - C2's check was adapted to H5 (`ExpectedFailure::matches` on the boundary diagnostic).
+   - The seed Mixer gains a momentum-mixing option (minimize, equality, none). Its users,
+     for example `mixer_saponification`, need a targeted run.
+3. **CT-S12 is verified on main:** `just codegen` produces no change, `just check` is clean,
+   and its fixtures `hx_costing_solved_area` and `sslw.envelope`, and the co-current
+   exchanger, pass by `--fixture`.
+4. **Fixture selection with the two-run manifest.** `--fixture` needs a single-run manifest,
+   and `packages/reference/conformance.toml` has two runs, `seed` and `domain`. Add
+   `--run <name>` to `python -m pse.conformance --manifest`; the test is
+   `test_conformance_selects_one_manifest_run`. Until then, copy the manifest with only the
+   `seed` run and absolute package paths.
 
-**Where things are:**
-- Worktrees live under `/home/paul/pse-arrow-wt/`, with the brief in `BRIEF.md`.
-- Integration: rebase a track onto main, run its targeted tests once in the main checkout,
-  fast-forward, then record. Never set `CARGO_TARGET_DIR`.
+### Implemented and verified (on `origin/main`)
+
+Each packet was verified by targeted tests on main's own tree when it landed. The last broad
+runs were `just seed-conformance`, 103/103 (seed + campaign) and 6/6 (domain), when D0 and
+H5/H6 landed. After KR9 only targeted tests ran: 13/13 golden vectors, 64/64 `db-test`,
+5/5 `worker-test`, 3/3 registry contracts, 24/24 Python and 20/20 native conformance.
+
+- **Decisions.** ADR-0123, ADR-0124 and ADR-0125 are accepted. ADR-0127 (accepted)
+  supersedes ADR-0126. The maintainer's ADR-0128 makes domain models mandatory. Register
+  rows R-49, R-50, R-51 and R-52 are open. R-40 is removed.
+- **Kernel, typed package schema** (`authored.modeling_declarations` version 16 on
+  `origin/main`):
+  - **KR1:** unit products.
+  - **KR2:** derived kinds and chain resolution, including the entropy-increment kinds.
+  - **KR3:** the structured IR type arena and enums.
+  - **KR4:** typed cells, entity records, identifier schemes, keyed kinds, kind bindings,
+    `Ref` dispatch and constants.
+  - **KR5:** relations with constraints.
+  - **KR6:** typed provenance and test-only taint.
+  - **KR7:** typed envelopes, and lineage taint.
+  - **KR8:** physical names declared once, and typed imports.
+  - **KR9:** Parquet data documents, `authored.documents` version 2, the store's `bytea`,
+    and `ModelingSourceRevisionV3`.
+  - The syntax as built is recorded in the notes below, from KR4 onward.
+- **Domain schema (D0).**
+  - The chemical core lives in `pse.physical`'s `chemistry` module: identifier schemes,
+    charge, formula, derived molar mass, apparent species with electroneutrality,
+    stoichiometry closure, and phase type.
+  - `pse.domain` holds `properties`, `interactions`, `constants` and `provenance`.
+  - The operation contracts `cp`, `enthalpy_increment`, `entropy_increment`, `psat` and
+    `liquid_density` dispatch through `selection`.
+  - The kernel gains kind-level derived attributes, `require` and `unique`.
+  - `pse.domain-fixtures` holds the refusal corpus of 10 cases.
+- **Seed:**
+  - SM0 put the chemistry kinds in `pse.physical` and deleted 354 unreferenced shaped types.
+  - SM2 migrated provenance: 57 source entities, and typed sources on every seed dataset and
+    test.
+- **Harness and defects:**
+  - **H1, H1f:** fixture policies, `just seed-conformance`, and four root-cause fixes.
+  - **H2:** the lazily extended formal pool.
+  - **H3:** preparation counts.
+  - **H4:** typed regime crossings.
+  - **H5:** typed expected-failure lineage.
+  - **H6:** the parity report.
+  - **H7:** bench defects.
+  - **H8:** the projection memory regression (outputs × members) fixed.
+  - **H9:** the foreign allowance is charged only while native work runs.
+  - **H10:** a global infeasibility claim is checked against known feasible points.
+  - **H11:** registry contract protobuf depth.
+- **Campaign (track C):**
+  - CT-S05: `ControlVolume0D` owns its dynamic accumulation.
+  - CT-S06: PFR order studies, and the IDAES `test_pfr` oracle.
+  - CT-S07: the BT_PR formulation switch, with `bt_pr_liquid_stability` expecting H10's
+    typed contradiction.
+  - `--fixture` typed selection.
+  - SCIP rows exported in normalized coordinates.
+- **Tooling:**
+  - `scripts/memory-cap.sh` applies a per-run memory cap; the machine-wide lock is removed.
+  - `CARGO_TARGET_DIR` is never set.
+  - Mid-plan verification is targeted only.
+
+### Not functionally implemented (not started)
+
+- **SM1, the chemistry catalogue.** Nothing is implemented; the identifiers are verified and
+  recorded in the SM1 row. Plan:
+  1. Split `chem` into `data/ciaaw` (elements) and `data/species` (the catalogue: CAS,
+     InChIKey, formula, charge). `data/species` depends on `data/ciaaw`.
+  2. Move `aromatics` to `bt_ideal` and `alkanes` to `vessel_fixtures`.
+  3. Make `formula_weights` a check on the derived `species.molar_mass`, which stays
+     optional.
+  4. Delete `atoms` and `atomic_mass`.
+  
+  Its first step is a kernel gap: declared entities must carry typed provenance, because
+  today only datasets, constants and tests do.
+- **SM3, pure-component forms.** Still to do:
+  - the refined forms (Shomate, DIPPR 100/105, RPP4 cp and Wagner, Antoine, constant);
+  - the `dh`/`ds` increments;
+  - deleting the `fit` kind, `polynomial`/`scale`, the 13 name-encoded fits and the unit
+    helper functions.
+- **SM4, constants and EoS parameters.** Still to do:
+  - `cubic_family` and `kappa`;
+  - critical points as `oracle_input` sets;
+  - symmetric kᵢⱼ with the package declaring `missing zero`;
+  - PC-SAFT `sigma: Length`;
+  - named oracle datums;
+  - deleting `gas_constant_value()`, the literal digits and the registry `reference.constants`.
+- **SM5, property packages as selection.** Still to do:
+  - `bt_ideal_idaes`, `bt_pr_idaes`, `saponification_idaes` and
+    `vessel_light_hydrocarbons` as `property_package` entities with `selection`;
+  - the generic operations replacing per-package property functions;
+  - phase slots and `component_role` replacing `if p==equilibrium.liquid` and
+    `if j==chem.water`.
+- **SM6, reactions.** Still to do: stoichiometry as a relation with element and charge
+  closure, and Arrhenius parameter sets.
+- **SM2 remainder.** Still to do: generate the oracle Parquet banks, and delete
+  `crates/pse-kernels/data/*` and `tests/fixtures/plan14/thermo-reference.json` once
+  nothing reads them.
+- **Scenarios still to run:**
+  - CT-S01 (RPP5 and Antoine as pure data);
+  - the CT-S02 evidence write-up;
+  - CT-S03 (FeOS oracle bank for PC-SAFT);
+  - CT-S10 (envelope failures at three layers through H5 lineage);
+  - the CT-S11 evidence write-up;
+  - the CT-S14 evidence, from H6's `seed.parity.arrow`.
+- **DM1–DM6.** Still to do:
+  - the Parquet data bank (Gross–Sadowski);
+  - cross-bank identity;
+  - wrong coefficient units;
+  - oracle data refused in production;
+  - NRTL as pure data;
+  - fitted sets with lineage, which needs `fit` lineage and register R-50.
+- **M1–M3.** Still to do: PC-SAFT preparation scaling at 2/5/10/20 components, where
+  10 components took 277 s in H2's smoke run; smooth versus nested flash convergence over
+  200 BT_PR feeds; and regime crossings.
+- **AUD** (the knowledge-boundary review) and **Q** (the final qualification).
+
+**Owed architecture text** covers KR4–KR7, KR9, D0, H5, H6, H8–H11, track C and C2; none
+has been written since revision 81. The owners are §5, §6, §7, §8, §9, §9.10, §10.3, §13,
+§14.3.2, §18.6, §18.8, §18.10.1, §20, §22.1, §23.2 and §24.3.
+
+**Known limits carried into W4:**
+- Kind-wide checks hit the evaluation limit at data-bank scale.
+- `pair` values are `Scalar` only.
+- Abstract kinds are not enforced.
+- Keyed-kind datasets cannot come from documents.
+- The Python boundary accepts text documents only.
+- Entity attributes cannot carry provenance.
+- Local Delta tables must be recreated after H11, because their stored check bytes are out
+  of date.
+
+**Findings.** F01–F13 are all still `scheduled`. Each closes only with its scenario's
+acceptance (the finding map above).
+
+### How to work
+
+- **Integrate** a track by rebasing it onto main, running its targeted tests once in the main
+  checkout, fast-forwarding, and then recording it. The maintainer sometimes commits
+  documents directly to main, so fast-forward first and record afterwards.
+- **Build.** Never set `CARGO_TARGET_DIR`. After a registry conflict, regenerate with
+  `just codegen-contracts` then `just codegen`. A store schema change needs
+  `cargo run -p xtask --no-default-features -- codegen --only postgres`, then
+  `just --yes db-reset` (coordinator only), then `--only queries`.
+- **Agents** do development only. No agent runs a verification-only pass. Broad suites run
+  once, at Q.
 
 Decisions during execution:
 - The `chem` split into data-bank distributions moves to SM1.
