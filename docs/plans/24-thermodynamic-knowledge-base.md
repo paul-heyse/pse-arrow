@@ -359,7 +359,7 @@ report, and adds that wave's libraries to the capability inventory.
 | TK0d Implicit blocks and set-valued sub-form calls | implicit unknowns and residuals with root selection and derivatives through the block; passing sets and composition vectors through a sub-form slot. Depends on TK0c | cubic volume roots, association site fractions and a Huron–Vidal rule calling NRTL agree with independent calculations | the not-yet-supported refusals | done |
 | TK0e Side environments | locked thermotools, geochem and rmg environments with smoke tests. Depends on TK0a | each environment recreates from its lock and its smoke test makes one real call per library | none | done |
 | TK1a Acquisition | manifest schema, acquisition for git, archive, single-file and scoped-web kinds, lock, store verification. Depends on TK0a | unit tests against local fixture repositories and files; a tampered store is refused | none | done |
-| TK1b Procure | all 36 manifests and rights determinations; acquisition in reconnaissance order. Depends on TK1a | every source is in the lock with verified hashes; DDBST recorded as not acquired | none | in progress: 38 of 42 manifests acquired; JANAF stopped at 1,273 of 1,796 tables (resumable); ThermoML archive and ATcT open (see Open items) |
+| TK1b Procure | all 36 manifests and rights determinations; acquisition in reconnaissance order. Depends on TK1a | every source is in the lock with verified hashes; DDBST recorded as not acquired | none | in progress: 39 of 42 manifests acquired (JANAF complete, 3,596 files); the ThermoML archive (NIST's file service not answering) and ATcT (403 to the pipeline's client) open, see Open items |
 | TK3a Reader framework | `tk read` and `tk load-src`: source-faithful staged Parquet with a manifest that accounts for every payload file; in-process and side-environment readers; first reader CoolProp. Depends on TK1a | reader row counts equal independent counts; a round trip reproduces the source arrays; an unaccounted payload file is refused | none | done |
 | TK3b Resolution and mapping framework | source entities, identity assertions and the resolution rules; the canonical writer with identifiers, provenance, units, validation and coverage; first mapping CoolProp identities and saturation ancillaries. Depends on TK0b, TK3a | each resolution rule on a fixture corpus; resolution is order-independent and deterministic; canonical Parquet loads with every constraint satisfied | none | done |
 | TK3c Build and verify | `tk build` from every source's canonical Parquet with swap; `tk verify` and its named checks. Depends on TK3b | a second build reproduces every identifier; each verify check has a violating fixture | the schema-only build path and its tests (deleted) | done; first real build and verify of the CoolProp slice in progress |
@@ -438,10 +438,10 @@ recipe in `thermo-knowledge/justfile`:
 - ATcT: the site answers HTTP 403 to the pipeline's descriptive User-Agent, including on
   `robots.txt`; it is not acquired and the client identity is not changed to get past the filter.
   Options are a manually saved copy, asking Argonne, or the ATcT-derived values other carriers hold.
-- ThermoML archive: `data.nist.gov` did not respond on 2026-09-30; the schema was acquired from
-  `trc.nist.gov` and matches its published checksum.
-- JANAF: the page retrieval stopped at the background time limit with 1,273 of 1,796 tables in
-  its partial directory; re-running `tk acquire janaf` fetches only what is missing.
+- ThermoML archive: `data.nist.gov`'s file service does not answer (retried late on 2026-09-30:
+  even the 64-byte checksum file times out with no bytes, while the site and its metadata API
+  answer and still list the pinned archive at the same URL and size). The schema was acquired from
+  `trc.nist.gov` and matches its published checksum. The archive is needed in W6; retry before then.
 - CoolProp's own identifiers disagree for seven fluids (its InChIKey, InChI and SMILES fields give
   different structures), so they resolve as ambiguous and their records are held; each needs a
   curated decision in `identity/decisions.toml`.
