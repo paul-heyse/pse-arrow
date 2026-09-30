@@ -123,6 +123,26 @@ fn list_view_child_ranges_respect_visible_slices_and_null_parents() {
 }
 
 #[test]
+fn absent_parents_hide_child_storage_and_present_children_keep_their_domains() {
+    use crate::native::arrow::array::StructArray;
+    let structure = |levels: Vec<i64>, present: Option<Vec<bool>>| -> ArrayRef {
+        Arc::new(StructArray::new(
+            vec![Arc::new(IntegerRange::nonnegative(10).field("level"))].into(),
+            vec![Arc::new(Int64Array::from(levels))],
+            present.map(NullBuffer::from),
+        ))
+    };
+    // Row 0 stores an out-of-domain child under an absent parent slot.
+    let optional = structure(vec![99, 5, 11], Some(vec![false, true, true]));
+    let field = Field::new("value", optional.data_type().clone(), true);
+    check_field(optional, &field, &[true, true, false]);
+    // A required parent splices its children's violations into its own.
+    let required = structure(vec![5, 11], None);
+    let field = Field::new("value", required.data_type().clone(), false);
+    check_field(required, &field, &[true, false]);
+}
+
+#[test]
 fn half_precision_reals_reject_nonfinite_values() {
     type Half = <Float16Type as ArrowPrimitiveType>::Native;
     let array = Float16Array::from(vec![Half::MAX, Half::NAN, Half::NEG_INFINITY]);

@@ -7,7 +7,10 @@
 
 use crate::native::{
     arrow::datatypes::{ArrowPrimitiveType, DataType, Field, Float16Type, Schema},
-    common::{Column, DFSchema, DataFusionError, Result, ScalarValue},
+    common::{
+        Column, DFSchema, DataFusionError, Result, ScalarValue,
+        tree_node::{Transformed, TransformedResult, TreeNode, TreeNodeRecursion},
+    },
     functions::{
         core::expr_fn::get_field, encoding::expr_fn::encode, math::expr_fn::gcd,
         string::expr_fn::octet_length,
@@ -16,9 +19,10 @@ use crate::native::{
         array_any_match, array_distinct, array_length, map_keys, map_values,
     },
     logical_expr::{
-        Expr, cast,
+        BinaryExpr, Expr, Operator, binary_expr, cast,
         expr_fn::{lambda, lambda_var},
         lit,
+        utils::{disjunction, split_binary_owned},
     },
 };
 use pse_schema::{
@@ -45,23 +49,51 @@ pub fn combine(checks: Vec<Expr>) -> Expr {
     all(checks)
 }
 
+/// Rebalance every AND/OR chain for SQL text. Field predicates use flat left-deep
+/// chains, which native planning and `datafusion-proto` linearize; the SQL unparser
+/// parenthesizes each binary operator, so SQL text receives logarithmic nesting.
+/// # Errors
+/// Native expression traversal failure.
+pub fn balanced(expr: Expr) -> Result<Expr> {
+    expr.transform_down(|expr| {
+        let Expr::BinaryExpr(BinaryExpr {
+            op: op @ (Operator::And | Operator::Or),
+            ..
+        }) = expr
+        else {
+            return Ok(Transformed::no(expr));
+        };
+        let operands = split_binary_owned(expr, op)
+            .into_iter()
+            .map(balanced)
+            .collect::<Result<Vec<_>>>()?;
+        let tree = balance(operands, op).ok_or_else(|| {
+            DataFusionError::Internal("a binary chain has operands".into())
+        })?;
+        Ok(Transformed::new(tree, true, TreeNodeRecursion::Jump))
+    })
+    .data()
+}
+
 fn column(name: &str) -> Expr {
     Expr::Column(Column::from_name(name))
 }
 fn all(checks: impl IntoIterator<Item = Expr>) -> Expr {
-    let mut checks: Vec<_> = checks.into_iter().collect();
-    while checks.len() > 1 {
-        let mut values = checks.into_iter();
+    balance(checks.into_iter().collect(), Operator::And).unwrap_or_else(|| lit(true))
+}
+fn balance(mut operands: Vec<Expr>, op: Operator) -> Option<Expr> {
+    while operands.len() > 1 {
+        let mut values = operands.into_iter();
         let mut next = Vec::new();
         while let Some(left) = values.next() {
             next.push(match values.next() {
-                Some(right) => left.and(right),
+                Some(right) => binary_expr(left, op, right),
                 None => left,
             });
         }
-        checks = next;
+        operands = next;
     }
-    checks.pop().unwrap_or_else(|| lit(true))
+    operands.pop()
 }
 
 /// Compile a visible field contract, including native nested children.
@@ -77,6 +109,9 @@ pub fn field_value(registry: &Registry, field: &Field, value: Expr, depth: usize
 pub fn field_local(registry: &Registry, field: &Field, value: Expr) -> Result<Expr> {
     field_predicate(registry, field, value, 0, false)
 }
+
+/// A field holds exactly when none of its violations does. Every violation is a
+/// total Boolean, so the negation is never NULL.
 fn field_predicate(
     registry: &Registry,
     field: &Field,
@@ -84,51 +119,107 @@ fn field_predicate(
     depth: usize,
     descendants: bool,
 ) -> Result<Expr> {
-    let mut checks = vec![];
+    let mut violations = vec![];
+    field_violations(registry, field, value, depth, descendants, &mut violations)?;
+    Ok(disjunction(violations).map_or_else(|| lit(true), |violated| !violated))
+}
+
+/// Append the total violation disjuncts of one field value.
+///
+/// Violations form one flat disjunction per nullable value or lambda body: a required
+/// value contributes `value IS NULL` and splices its own and its descendants'
+/// violations into the enclosing disjunction; a nullable value guards them with a
+/// single CASE, which also keeps descendants of absent values unevaluated. The
+/// expression depth therefore grows with nullable and collection nesting only, and
+/// each flat disjunction is one linearized node in `datafusion-proto`.
+fn field_violations(
+    registry: &Registry,
+    field: &Field,
+    value: Expr,
+    depth: usize,
+    descendants: bool,
+    out: &mut Vec<Expr>,
+) -> Result<()> {
+    if !field.is_nullable() {
+        out.push(value.clone().is_null());
+        return value_violations(registry, field, &value, depth, descendants, out);
+    }
+    let mut present = vec![];
+    value_violations(registry, field, &value, depth, descendants, &mut present)?;
+    if let Some(violated) = disjunction(present) {
+        let present = crate::native::logical_expr::when(value.is_null(), lit(false))
+            .otherwise(violated)?;
+        out.push(present);
+    }
+    Ok(())
+}
+
+/// Violations of a present value. A local check violates unless it is TRUE.
+fn value_violations(
+    registry: &Registry,
+    field: &Field,
+    value: &Expr,
+    depth: usize,
+    descendants: bool,
+    out: &mut Vec<Expr>,
+) -> Result<()> {
     if let Some(reference) =
         pse_schema::model::ReferenceContract::from_field(field).map_err(external)?
     {
-        checks.push(reference_presence(&reference, &value));
+        out.push(reference_presence(&reference, value).is_not_true());
     }
     if let Some(collection) =
         pse_schema::model::CollectionContract::from_field(field).map_err(external)?
     {
-        checks.push(collection_value(collection, value.clone()));
+        out.extend(
+            collection_checks(collection, value.clone())
+                .into_iter()
+                .map(Expr::is_not_true),
+        );
     }
     if let Some(alternative) =
         pse_schema::model::TaggedAlternative::from_field(field).map_err(external)?
     {
-        checks.push(alternative_value(&alternative, &value)?);
+        out.extend(
+            alternative_checks(&alternative, value)?
+                .into_iter()
+                .map(Expr::is_not_true),
+        );
     }
     if let Some(range) = IntegerRange::from_field(field).map_err(external)? {
-        checks.push(
+        out.push(
             value
                 .clone()
-                .between(lit(range.minimum), lit(range.maximum)),
+                .between(lit(range.minimum), lit(range.maximum))
+                .is_not_true(),
         );
     }
     if let Some(name) = FieldContract::from_field(field.clone()).enum_name() {
         let domain = registry
             .enum_spec(name)
             .ok_or_else(|| DataFusionError::Plan(format!("unknown enum {name}")))?;
-        checks.push(
-            value.clone().in_list(
-                domain
-                    .members
-                    .iter()
-                    .map(|member| lit(member.name))
-                    .collect(),
-                false,
-            ),
+        out.push(
+            value
+                .clone()
+                .in_list(
+                    domain
+                        .members
+                        .iter()
+                        .map(|member| lit(member.name))
+                        .collect(),
+                    false,
+                )
+                .is_not_true(),
         );
     }
-    checks.push(storage_value(
+    storage_violations(
         registry,
         field.data_type(),
-        value.clone(),
+        value,
         depth,
         descendants,
-    )?);
+        out,
+    )?;
     match field
         .metadata()
         .get(pse_schema::arrow::KEY_EXTENSION_NAME)
@@ -137,15 +228,20 @@ fn field_predicate(
         Some("pse.bound") => {
             let kind = get_field(value.clone(), "kind");
             let payload = get_field(value.clone(), "value");
-            checks.push(
+            out.push(
                 kind.clone()
                     .eq(lit("finite"))
                     .and(payload.clone().is_not_null())
-                    .or(kind.eq(lit("unbounded")).and(payload.is_null())),
+                    .or(kind.eq(lit("unbounded")).and(payload.is_null()))
+                    .is_not_true(),
             );
         }
         Some("pse.source_span") => {
-            checks.push(get_field(value.clone(), "start").lt_eq(get_field(value.clone(), "end")));
+            out.push(
+                get_field(value.clone(), "start")
+                    .lt_eq(get_field(value.clone(), "end"))
+                    .is_not_true(),
+            );
         }
         Some("pse.dimension_vector") => {
             let parameter = format!("pse_exponent_{depth}");
@@ -156,21 +252,20 @@ fn field_predicate(
                 .clone()
                 .gt(lit(0_i64))
                 .and(gcd(numerator, denominator).eq(lit(1_i64)));
-            checks.push(!array_any_match(
+            out.push(array_any_match(
                 value.clone(),
                 lambda([parameter], valid.is_not_true()),
             ));
         }
         _ => {}
     }
-    let valid = all(checks).is_true();
-    crate::native::logical_expr::when(value.is_null(), lit(field.is_nullable())).otherwise(valid)
+    Ok(())
 }
 
-fn alternative_value(
+fn alternative_checks(
     alternative: &pse_schema::model::TaggedAlternative,
     value: &Expr,
-) -> Result<Expr> {
+) -> Result<Vec<Expr>> {
     let mut checks = vec![];
     let tag = get_field(value.clone(), &alternative.discriminator);
     checks.push(
@@ -195,10 +290,10 @@ fn alternative_value(
             .otherwise(payload.is_null())?,
         );
     }
-    Ok(all(checks))
+    Ok(checks)
 }
 
-fn collection_value(collection: pse_schema::model::CollectionContract, value: Expr) -> Expr {
+fn collection_checks(collection: pse_schema::model::CollectionContract, value: Expr) -> Vec<Expr> {
     let length = array_length(value.clone());
     let mut checks = vec![length.clone().gt_eq(lit(collection.minimum))];
     if let Some(maximum) = collection.maximum {
@@ -207,28 +302,52 @@ fn collection_value(collection: pse_schema::model::CollectionContract, value: Ex
     if collection.unique {
         checks.push(length.eq(array_length(array_distinct(value))));
     }
-    all(checks)
+    checks
 }
 
-fn storage_value(
+/// A collection violates when any member violates: one higher-order call per level.
+fn members_violation(
+    registry: &Registry,
+    values: Expr,
+    member: &Field,
+    parameter: String,
+    depth: usize,
+) -> Result<Option<Expr>> {
+    let mut violations = vec![];
+    field_violations(
+        registry,
+        member,
+        lambda_var(&parameter),
+        depth,
+        true,
+        &mut violations,
+    )?;
+    Ok(disjunction(violations)
+        .map(|violated| array_any_match(values, lambda([parameter], violated))))
+}
+
+fn storage_violations(
     registry: &Registry,
     ty: &DataType,
-    value: Expr,
+    value: &Expr,
     depth: usize,
     descendants: bool,
-) -> Result<Expr> {
-    Ok(match ty {
-        DataType::Struct(fields) if descendants => all(fields
-            .iter()
-            .map(|child| {
-                field_value(
+    out: &mut Vec<Expr>,
+) -> Result<()> {
+    let mut check = |check: Expr| out.push(check.is_not_true());
+    match ty {
+        DataType::Struct(fields) if descendants => {
+            for child in fields {
+                field_violations(
                     registry,
                     child,
                     get_field(value.clone(), child.name()),
                     depth + 1,
-                )
-            })
-            .collect::<Result<Vec<_>>>()?),
+                    true,
+                    out,
+                )?;
+            }
+        }
         DataType::List(child)
         | DataType::LargeList(child)
         | DataType::ListView(child)
@@ -236,17 +355,19 @@ fn storage_value(
         | DataType::FixedSizeList(child, _)
             if descendants =>
         {
-            let parameter = format!("pse_item_{depth}");
-            let valid = field_value(registry, child, lambda_var(&parameter), depth + 1)?;
-            let members = !array_any_match(value.clone(), lambda([parameter], valid.is_not_true()));
             if let DataType::FixedSizeList(_, width) = ty {
-                array_length(value).eq(lit(i64::from(*width))).and(members)
-            } else {
-                members
+                check(array_length(value.clone()).eq(lit(i64::from(*width))));
             }
+            out.extend(members_violation(
+                registry,
+                value.clone(),
+                child,
+                format!("pse_item_{depth}"),
+                depth + 1,
+            )?);
         }
         DataType::FixedSizeBinary(width) => {
-            octet_length(encode(value, lit("hex"))).eq(lit(i64::from(*width) * 2))
+            check(octet_length(encode(value.clone(), lit("hex"))).eq(lit(i64::from(*width) * 2)));
         }
         DataType::Map(entries, _) => {
             let DataType::Struct(fields) = entries.data_type() else {
@@ -258,43 +379,38 @@ fn storage_value(
                 ));
             };
             let keys = map_keys(value.clone());
-            let distinct =
-                array_length(array_distinct(keys.clone())).eq(array_length(keys.clone()));
-            if !descendants {
-                return Ok(distinct);
-            }
-            let children = [keys, map_values(value)]
-                .into_iter()
-                .zip([key, item])
-                .map(|(values, child)| {
-                    let parameter = format!("pse_map_{depth}");
-                    let valid = field_value(registry, child, lambda_var(&parameter), depth + 1)?;
-                    Ok(!array_any_match(
+            check(array_length(array_distinct(keys.clone())).eq(array_length(keys.clone())));
+            if descendants {
+                for (values, child) in [(keys, key), (map_values(value.clone()), item)] {
+                    out.extend(members_violation(
+                        registry,
                         values,
-                        lambda([parameter], valid.is_not_true()),
-                    ))
-                })
-                .collect::<Result<Vec<_>>>()?;
-            distinct.and(all(children))
+                        child,
+                        format!("pse_map_{depth}"),
+                        depth + 1,
+                    )?);
+                }
+            }
         }
         DataType::Float16 => {
             let maximum = f32::from(<Float16Type as ArrowPrimitiveType>::Native::MAX);
-            cast(value, DataType::Float32).between(lit(-maximum), lit(maximum))
+            check(cast(value.clone(), DataType::Float32).between(lit(-maximum), lit(maximum)));
         }
-        DataType::Float64 => value.between(lit(-f64::MAX), lit(f64::MAX)),
-        DataType::Float32 => value.between(lit(-f32::MAX), lit(f32::MAX)),
-        DataType::UInt8 => value.between(lit(0_i64), lit(i64::from(u8::MAX))),
-        DataType::UInt16 => value.between(lit(0_i64), lit(i64::from(u16::MAX))),
-        DataType::UInt32 => value.between(lit(0_i64), lit(i64::from(u32::MAX))),
-        DataType::UInt64 => value.between(
+        DataType::Float64 => check(value.clone().between(lit(-f64::MAX), lit(f64::MAX))),
+        DataType::Float32 => check(value.clone().between(lit(-f32::MAX), lit(f32::MAX))),
+        DataType::UInt8 => check(value.clone().between(lit(0_i64), lit(i64::from(u8::MAX)))),
+        DataType::UInt16 => check(value.clone().between(lit(0_i64), lit(i64::from(u16::MAX)))),
+        DataType::UInt32 => check(value.clone().between(lit(0_i64), lit(i64::from(u32::MAX)))),
+        DataType::UInt64 => check(value.clone().between(
             lit(0_i64),
             lit(ScalarValue::Decimal128(Some(i128::from(u64::MAX)), 20, 0)),
-        ),
+        )),
         DataType::Dictionary(_, values) => {
-            storage_value(registry, values, value, depth, descendants)?
+            storage_violations(registry, values, value, depth, descendants, out)?;
         }
-        _ => lit(true),
-    })
+        _ => {}
+    }
+    Ok(())
 }
 
 #[cfg(test)]

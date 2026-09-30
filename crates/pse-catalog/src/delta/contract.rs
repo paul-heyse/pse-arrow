@@ -123,7 +123,9 @@ impl DeclaredCheck {
             );
         }
         let sql = datafusion::sql::unparser::expr_to_sql(
-            &pse_relations::validate::predicates::combine(checks),
+            &pse_relations::validate::predicates::balanced(
+                pse_relations::validate::predicates::combine(checks),
+            )?,
         )?
         .to_string();
         properties.insert("delta.constraints.pse_contract".into(), sql);
