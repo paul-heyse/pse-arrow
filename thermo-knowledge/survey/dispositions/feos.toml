@@ -18,15 +18,15 @@ reason = "The moment q is given in Debye*Angstrom (struct comment) and is stored
 
 [[disposition]]
 construct = "association site record (AssociationRecord) and induced-association sites"
-disposition = "model_change"
-ref = "alignment-notes #8"
-reason = "A site with counts but no kappa_ab and epsilon_k_ab (703 of 1090 esper2023 sites) means association is defined only by binary association records, and neither value_state nor an absent set can say that; item 8 schedules a declared state for a parameterless site, which review F14 notes is not yet in model/. The A, B and C interaction grammar is part of the form, and counts stored as floats fit the Count type."
+disposition = "held_by_model"
+ref = "enum:value_state"
+reason = "A site with counts but no kappa_ab and epsilon_k_ab (703 of 1090 esper2023 sites) is a site set whose self-association slots are not_applicable, which states that it associates by induced association only; the A, B and C interaction grammar is part of the form, and counts stored as floats fit the Count type."
 
 [[disposition]]
 construct = "binary record (BinaryRecord) and binary association record"
-disposition = "model_change"
-ref = "alignment-notes #8"
-reason = "A binary record with neither model fields nor sites (21 in rehner2023_binary) states that the pair was considered and carries nothing, which an absent set cannot say and value_state does not represent; item 8 schedules the declared state. The default k_ij of 0 and the association combining rules are a selection_policy with stated_default and named_rule, not data."
+disposition = "held_by_model"
+ref = "enum:value_state"
+reason = "A binary record with neither model fields nor sites (21 in rehner2023_binary) is a pair set whose slots are all in the value state stated_default, which states that the pair was considered and carries nothing; the default k_ij of 0 is a policy_default row and the association combining rules a named_rule of the selection policy with the combining rule as its rule_form, not data."
 
 [[disposition]]
 construct = "chemical record (gc_substances.json)"

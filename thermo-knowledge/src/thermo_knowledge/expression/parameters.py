@@ -69,13 +69,17 @@ class ConventionFact:
 class RegionClause:
     """One clause of a validity region: an interval of one observable (by its declared name),
     about the whole record or, when `component` or `aggregation` is stated, about that component
-    or the phase of that aggregation. A bound the source does not state is `None`."""
+    or the phase of that aggregation. A bound the source does not state is `None`. A bound with a
+    `..._relative_to` is an offset from the subject's value of that observable (by its declared
+    name), not a value."""
 
     observable: str
     lower: float | None = None
     upper: float | None = None
     component: Subject | None = None
     aggregation: str | None = None
+    lower_relative_to: str | None = None
+    upper_relative_to: str | None = None
 
 
 @dataclass(frozen=True)

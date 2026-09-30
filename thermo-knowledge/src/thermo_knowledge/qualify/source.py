@@ -22,6 +22,11 @@ family the evaluation touches, or, after `prefetch`, one query for the sets of m
 one per family for all of them. A database built from another declaration than the one given is
 refused.
 
+A slot a set leaves at its stated default (value state `stated_default`) holds no value: given a
+`policy`, the source supplies the default that policy states for the slot (`policy_default`; a
+default whose state is `not_applicable` supplies none), and without one, or where the policy
+states none, the slot has no value and the evaluator refuses.
+
 One parameterization may hold several sets for one subject (repeated assertions of a source,
 distinguished by their `occurrence`). The source never picks one silently: for each
 parameterization the caller states the occurrence to read, and a parameterization that holds
@@ -135,6 +140,8 @@ class _Set:
     arrangement: int = 0
     """For which order of the subjects the values were asserted (0 when the group records none)."""
     slots: dict[str, float] = field(default_factory=dict)
+    at_default: tuple[str, ...] = ()
+    """The slots the set leaves at their stated default: they hold no value of their own."""
     nested: dict[str, uuid.UUID] = field(default_factory=dict)
     """The set each set-valued slot outside a family holds: nested in this set or referenced."""
     redirects: dict[str, uuid.UUID] = field(default_factory=dict)
@@ -147,9 +154,13 @@ class _Backend:
     """What every source over one connection shares: the declaration's index of slot groups and
     the sets read so far."""
 
-    def __init__(self, conn: psycopg.Connection, decl: m.Declaration) -> None:
+    def __init__(
+        self, conn: psycopg.Connection, decl: m.Declaration, policy: uuid.UUID | None = None
+    ) -> None:
         self.conn = conn
         self.decl = decl
+        self.policy = policy
+        self._policy_defaults: dict[str, float] | None = None
         self.groups = {group.qualified: group for group in decl.slot_groups}
         self.by_id: dict[uuid.UUID, _Set] = {}
         self.by_key: dict[tuple[str, tuple[Subject, ...], Scope], _Set | None] = {}
@@ -165,6 +176,35 @@ class _Backend:
         }
         self.subform_ids = ids["subform_slot"]
         self.facts: dict[tuple[uuid.UUID, str], ConventionFact] = {}
+
+    def policy_defaults(self) -> dict[str, float]:
+        """The value each slot (`form.group.slot`) takes under the policy in force where a set
+        leaves it at its stated default; a default that is `not_applicable` states no value."""
+        if self._policy_defaults is None:
+            found: dict[str, float] = {}
+            if self.policy is not None:
+                default = pc.POLICY_DEFAULT
+                for qualified, value in self.conn.execute(
+                    f"SELECT sl.qualified_name, d.{default.value} FROM {default.table} d "  # noqa: S608
+                    f"JOIN meta.slot sl ON sl.id = d.{default.slot} "
+                    f"WHERE d.{default.policy} = %s AND d.{default.value} IS NOT NULL",
+                    (self.policy,),
+                ).fetchall():
+                    found[qualified] = float(value)
+            self._policy_defaults = found
+        return self._policy_defaults
+
+    def with_defaults(self, group: m.SlotGroup, record: _Set) -> dict[str, float]:
+        """The slot values of `record`, with the policy's default for each slot it leaves at its
+        stated default."""
+        values = dict(record.slots)
+        if record.at_default:
+            defaults = self.policy_defaults()
+            for name in record.at_default:
+                held = defaults.get(f"{group.qualified}.{name}")
+                if held is not None:
+                    values[name] = held
+        return values
 
     def group(self, qualified: str) -> m.SlotGroup:
         found = self.groups.get(qualified)
@@ -232,6 +272,11 @@ class _Backend:
                 parameterization,
                 occurrence,
                 arrangement,
+            )
+            record.at_default = tuple(
+                slot.name
+                for slot in group.slots
+                if slot.shape == "quantity" and stored[slot.name][1] == "stated_default"
             )
             for slot in group.slots:
                 value, state, redirect = stored[slot.name]
@@ -483,12 +528,23 @@ class _Backend:
             rows = self.conn.execute(
                 f"SELECT {clause_table.region}, {clause_table.observable}, "  # noqa: S608
                 f"{clause_table.component}, {clause_table.aggregation}, "
-                f"{clause_table.lower}, {clause_table.upper} FROM {clause_table.table} "
+                f"{clause_table.lower}, {clause_table.upper}, "
+                f"{clause_table.lower_relative_to}, {clause_table.upper_relative_to} "
+                f"FROM {clause_table.table} "
                 f"WHERE {clause_table.region} = ANY(%s) ORDER BY {clause_table.region}, "
                 f"{clause_table.ordinal}",
                 ([identifier for identifier, _ in regions],),
             ).fetchall()
-            for region, observable, component, aggregation, lower, upper in rows:
+            for (
+                region,
+                observable,
+                component,
+                aggregation,
+                lower,
+                upper,
+                lower_reference,
+                upper_reference,
+            ) in rows:
                 clauses.setdefault(region, []).append(
                     RegionClause(
                         observables[observable],
@@ -496,6 +552,8 @@ class _Backend:
                         None if upper is None else float(upper),
                         None if component is None else str(component),
                         None if aggregation is None else aggregations[aggregation],
+                        None if lower_reference is None else observables[lower_reference],
+                        None if upper_reference is None else observables[upper_reference],
                     )
                 )
         held: dict[uuid.UUID, list[ValidityRegion]] = {}
@@ -555,7 +613,8 @@ class DatabaseSource:
     parameterizations its sets are read from. A slot chosen per subject that the map does not
     mention takes its choices from the relation `subject_subform_choice` in the parameterizations
     read; with neither, it has no choices. The constructor refuses a database whose recorded
-    fingerprint differs from `decl`'s.
+    fingerprint differs from `decl`'s. `policy` is the selection policy whose stated defaults
+    fill the slots that sets leave at their stated default.
     """
 
     def __init__(
@@ -566,11 +625,12 @@ class DatabaseSource:
         *,
         occurrences: Mapping[uuid.UUID, int] | None = None,
         subforms: Mapping[str, Sequence[SubformBinding]] | None = None,
+        policy: uuid.UUID | None = None,
         tree: Path | None = None,
     ) -> None:
         check_database(conn, decl, tree)
         self._init(
-            _Backend(conn, decl), Scope.of(parameterizations, occurrences), subforms or {}, None
+            _Backend(conn, decl, policy), Scope.of(parameterizations, occurrences), subforms or {}, None
         )
 
     def _init(
@@ -645,7 +705,10 @@ class DatabaseSource:
             return None
         owner = self._backend.group(group)
         return transposition.read_slots(
-            owner, record.slots, self._backend.asserted(owner, record), subjects
+            owner,
+            self._backend.with_defaults(owner, record),
+            self._backend.asserted(owner, record),
+            subjects,
         )
 
     def default_slot_values(self, group: str, subjects: tuple[Subject, ...]) -> SlotValues | None:

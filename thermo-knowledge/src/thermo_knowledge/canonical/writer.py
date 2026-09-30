@@ -48,7 +48,7 @@ import pyarrow as pa
 
 from thermo_knowledge import identity, transposition
 from thermo_knowledge import pipeline_contract as pc
-from thermo_knowledge.canonical import invariants, tied_keys
+from thermo_knowledge.canonical import dependent, invariants, tied_keys
 from thermo_knowledge.canonical import values as v
 from thermo_knowledge.canonical.provenance import Carriers, CarrierInfo, Origin, SourceRef
 from thermo_knowledge.canonical.schemas import UUID, canonical_schemas, table_name
@@ -58,6 +58,7 @@ from thermo_knowledge.canonical.values import (
     Problems,
     QuantityArray,
     Redirect,
+    StatedDefault,
     ValueRefused,
     Withheld,
 )
@@ -231,7 +232,16 @@ def _sort_key(key: tuple[object, ...]) -> tuple[tuple[int, object], ...]:
 class CanonicalWriter:
     """Collects the canonical rows of one mapping run, table by table."""
 
-    def __init__(self, decl: m.Declaration, carriers: Carriers | None = None) -> None:
+    def __init__(
+        self,
+        decl: m.Declaration,
+        carriers: Carriers | None = None,
+        *,
+        form_aggregations: Mapping[uuid.UUID, uuid.UUID] | None = None,
+    ) -> None:
+        """`form_aggregations` is the aggregation of each species form resolution wrote (a mapping
+        run does not write them): a dependent rate constant reads the phase of each participant of
+        its reaction, from the species forms this writer wrote or from these."""
         missing = invariants.missing_evaluators(decl)
         if missing:
             listed = ", ".join(f"{kind}.{name}" for kind, name in missing)
@@ -256,6 +266,7 @@ class CanonicalWriter:
                 for slot in family.slots:
                     self._slots[f"{family.qualified}.{slot.name}"] = slot
         self._unit_kinds = _kinds_on_unit_paths(decl)
+        self._form_aggregations = dict(form_aggregations or {})
         self._instances: dict[uuid.UUID, tuple[str, Mapping[str, Converted]]] = {}
         self._tables: dict[str, dict[tuple[object, ...], _Stored]] = {}
         self._seen: set[object] = set()
@@ -433,9 +444,12 @@ class CanonicalWriter:
         attribute: m.Field,
         raw: object,
         merged: Mapping[str, Converted],
+        units: Mapping[str, str] | None = None,
     ) -> Converted:
         type_ = attribute.type
         hint = self._real_unit(owner, attribute, merged)
+        if units is not None and attribute.name in units:
+            hint = units[attribute.name]
         if type_.container == "scalar":
             return v.scalar(self.decl, type_, raw, unit_hint=hint, meta_ids=self._meta_ids)
         if type_.container == "array":
@@ -458,11 +472,14 @@ class CanonicalWriter:
         locator: str,
         *,
         extra: Mapping[str, Converted] | None = None,
+        units: Mapping[str, str] | None = None,
     ) -> dict[str, Converted]:
         """Validate `given` against every attribute of `kind_name` and its refinement chain.
 
-        Returns attribute name to converted value (a stateful slot also gets `<slot>__state` and
-        `<slot>__redirect`). Raises `ValidationError` with every problem found."""
+        `units` are the storage units of the slots of a dependent quantity type for this set's
+        reaction (`_dependent_units`). Returns attribute name to converted value (a stateful slot
+        also gets `<slot>__state` and `<slot>__redirect`). Raises `ValidationError` with every
+        problem found."""
         decl = self.decl
         attributes = decl.attributes_of(kind_name)
         problems = Problems()
@@ -475,9 +492,9 @@ class CanonicalWriter:
             name = attribute.name
             raw = given.get(name)
             if attribute.presence == "stateful":
-                self._stateful(owner, attribute, raw, merged, problems)
+                self._stateful(owner, attribute, raw, merged, problems, units)
                 continue
-            if isinstance(raw, (NotApplicable, Withheld, Redirect)):
+            if isinstance(raw, (NotApplicable, Withheld, Redirect, StatedDefault)):
                 problems.add(name, "is not a stateful slot, so it takes a value")
                 continue
             if raw is None:
@@ -491,7 +508,7 @@ class CanonicalWriter:
                     problems.add(name, "a required value is missing")
                 continue
             try:
-                merged[name] = self._convert(owner, attribute, raw, merged)
+                merged[name] = self._convert(owner, attribute, raw, merged, units)
             except ValueRefused as error:
                 problems.add(name, str(error))
         if not problems:
@@ -511,6 +528,7 @@ class CanonicalWriter:
         raw: object,
         merged: dict[str, Converted],
         problems: Problems,
+        units: Mapping[str, str] | None = None,
     ) -> None:
         name = attribute.name
         state_name, redirect_name = f"{name}__state", f"{name}__redirect"
@@ -521,11 +539,13 @@ class CanonicalWriter:
             merged.update({name: None, state_name: "not_applicable", redirect_name: None})
         elif isinstance(raw, Withheld):
             merged.update({name: None, state_name: "withheld", redirect_name: None})
+        elif isinstance(raw, StatedDefault):
+            merged.update({name: None, state_name: "stated_default", redirect_name: None})
         elif isinstance(raw, Redirect):
             merged.update({name: None, state_name: "redirect", redirect_name: raw.parameter_set})
         else:
             try:
-                merged[name] = self._convert(owner, attribute, raw, merged)
+                merged[name] = self._convert(owner, attribute, raw, merged, units)
             except ValueRefused as error:
                 problems.add(name, str(error))
                 return
@@ -895,6 +915,99 @@ class CanonicalWriter:
         if transposition.stores_arrangement(relation):
             converted[m.ARRANGEMENT] = transposition.arrangement_of(relation, subjects, canonical)
 
+    def _dependent_units(
+        self, group: m.SlotGroup, subjects: Sequence[uuid.UUID], locator: str
+    ) -> dict[str, str]:
+        """The storage unit of each slot of a dependent quantity type in `group` (`slot` for a
+        slot of the group, `family.slot` qualified for a family's), which follows the reaction
+        the set is about. The reaction's participants, explicit orders and the phase of each
+        species must have been written before the set: a value's dimension is never guessed."""
+        decl = self.decl
+        fields: list[tuple[str, m.Field]] = [(slot.name, slot) for slot in group.slots]
+        fields += [
+            (f"{family.qualified}.{slot.name}", slot)
+            for family in group.families
+            for slot in family.slots
+        ]
+        wanted = [
+            (key, slot)
+            for key, slot in fields
+            if slot.type.element_kind == "quantity"
+            and decl.quantity_types[slot.type.element].dependent is not None
+        ]
+        if not wanted:
+            return {}
+        units: dict[str, str] = {}
+        cache: dict[tuple[str, int], str] = {}
+        for key, slot in wanted:
+            rule = decl.quantity_types[slot.type.element].dependent
+            assert rule is not None
+            reaction = next(
+                subject
+                for role, subject in zip(group.subjects, subjects, strict=True)
+                if decl.is_a(role.type.element, rule.on)
+            )
+            pair = (slot.type.element, slot.extra_order)
+            if pair not in cache:
+                try:
+                    cache[pair] = self._reaction_unit(reaction, slot)
+                except ValueRefused as error:
+                    raise ValidationError(locator, [f"{key}: {error}"]) from error
+            units[key] = cache[pair]
+        return units
+
+    def _reaction_unit(self, reaction: uuid.UUID, slot: m.Field) -> str:
+        """The storage unit of a value of `slot`'s dependent type for `reaction`."""
+        decl = self.decl
+        participant, order = pc.REACTION_PARTICIPANT, pc.REACTION_ORDER
+        coefficients: dict[uuid.UUID, float] = {}
+        for stored in self._tables.get(participant.table, {}).values():
+            if stored.row[participant.reaction] == reaction:
+                coefficients[stored.row[participant.form]] = stored.row[participant.coefficient]  # type: ignore[index]
+        if not coefficients:
+            raise ValueRefused(
+                f"its dimension follows reaction {reaction}, which has no participant written "
+                "before this set"
+            )
+        stated: dict[uuid.UUID, float] = {}
+        for stored in self._tables.get(order.table, {}).values():
+            if stored.row[order.reaction] == reaction:
+                stated[stored.row[order.form]] = stored.row[order.value]  # type: ignore[index]
+        orders: dict[uuid.UUID, float] = {
+            form: -float(coefficient) for form, coefficient in coefficients.items() if coefficient < 0
+        }
+        orders.update(stated)
+        per_area = {form: self._per_area(form) for form in {*coefficients, *orders}}
+        return dependent.concrete_unit(
+            decl,
+            slot.type.element,
+            slot.extra_order,
+            surface=any(per_area[form] for form in coefficients),
+            species=[
+                dependent.Species(orders[form], per_area[form])
+                for form in sorted(orders, key=str)
+                if orders[form] != 0
+            ],
+        )
+
+    def _per_area(self, form: uuid.UUID) -> bool:
+        """Whether the species form is counted per area: its aggregation's concentration domain
+        has the facet `per_area`."""
+        decl = self.decl
+        species = pc.SPECIES_FORM
+        stored = self._tables.get(species.table, {}).get((form,))
+        aggregation = (
+            stored.row[species.aggregation] if stored is not None else self._form_aggregations.get(form)
+        )
+        entity = self._entities.get(aggregation)  # type: ignore[arg-type]
+        if entity is None:
+            raise ValueRefused(
+                f"the phase of species form {form} is not known: it is neither written before "
+                "this set nor a resolved species form"
+            )
+        domain = entity.values[pc.AGGREGATION.concentration_domain]
+        return domain in decl.enum_members_with(pc.CONCENTRATION_DOMAIN.declared, "per_area")
+
     def _check_output_observables(
         self, group: m.SlotGroup, merged: Mapping[str, Converted], locator: str
     ) -> None:
@@ -928,7 +1041,7 @@ class CanonicalWriter:
             )
             contract = decl.contracts[form.implements]
             output = next(o for o in contract.outputs if o.name == supplied.output)
-            wanted = type_dimension(decl, output.type)
+            wanted = type_dimension(decl, output.type, output.extra_order)
             if named is None or wanted is None or named != wanted:
                 problems.add(
                     supplied.qualified,
@@ -1220,9 +1333,10 @@ class CanonicalWriter:
             given[field.name] = subject
         if transposition.stores_arrangement(group):
             given[m.ARRANGEMENT] = transposition.arrangement_of(group, ordered, canonical)
-        merged = self._assemble(group.id, given, locator)
+        units = self._dependent_units(group, ordered, locator)
+        merged = self._assemble(group.id, given, locator, units=units)
         self._check_output_observables(group, merged, locator)
-        family_rows = self._family_rows(group, families or {}, locator, holder_context)
+        family_rows = self._family_rows(group, families or {}, locator, holder_context, units)
         written = self._emit_kind(group.id, merged, origins, locator, slot_group=marker)
         assert written == set_id, "a set's identifier does not depend on its values"
         for family, rows in family_rows:
@@ -1432,6 +1546,7 @@ class CanonicalWriter:
         given: Mapping[str, Sequence[FamilyRow]],
         locator: str,
         holder: _Holder,
+        units: Mapping[str, str],
     ) -> list[tuple[m.Family, list[dict[str, object]]]]:
         problems = Problems()
         known = {family.name: family for family in group.families}
@@ -1508,7 +1623,12 @@ class CanonicalWriter:
                             )
                         continue
                     try:
-                        row[slot.name] = v.scalar(self.decl, slot.type, raw)
+                        row[slot.name] = v.scalar(
+                            self.decl,
+                            slot.type,
+                            raw,
+                            unit_hint=units.get(f"{family.qualified}.{slot.name}"),
+                        )
                     except ValueRefused as error:
                         problems.add(f"{where}.{slot.name}", str(error))
                 if len(row) != len(family.indices) + len(family.slots):

@@ -71,6 +71,9 @@ COMMENT ON TYPE "meta"."comparison_basis" IS 'What a qualification run compared 
 CREATE TYPE "meta"."component_function" AS ENUM ('component', 'solvent', 'solute', 'adsorbent', 'adsorbate', 'catalyst', 'buffer', 'inert', 'cofactor');
 COMMENT ON TYPE "meta"."component_function" IS 'The part a component plays in a measured system.';
 
+CREATE TYPE "meta"."concentration_domain" AS ENUM ('bulk', 'surface');
+COMMENT ON TYPE "meta"."concentration_domain" IS 'Where the amount of a species is counted, which fixes the unit of its concentration.';
+
 CREATE TYPE "meta"."conserved_kind" AS ENUM ('element', 'charge', 'site_total', 'isotope', 'alkalinity', 'decoupled_inventory', 'moiety');
 COMMENT ON TYPE "meta"."conserved_kind" IS 'What kind of thing a formula matrix conserves. The facet states what a member needs of its quantity: a rule that depends on it reads the facet, never the names of members.';
 
@@ -170,6 +173,9 @@ COMMENT ON TYPE "meta"."reference_relation" IS 'What an observable''s value is r
 CREATE TYPE "meta"."reference_state_kind" AS ENUM ('reference_phase_fixed_tp', 'reference_phase_same_tp', 'reference_phase_fixed_t_same_p', 'reference_phase_same_t_fixed_p', 'ideal_gas_same_density', 'ideal_mixture_same_density', 'equilibrium_phase_same_tp', 'pure_components_fixed_tp', 'pure_components_same_tp', 'pure_solvent_equilibrium_temperature', 'pure_solvent_same_tp', 'pure_solute_same_tp');
 COMMENT ON TYPE "meta"."reference_state_kind" IS 'What the reference state of a difference or ratio is. Where it is given, `same` conditions are those of the state point the value is reported at, and `fixed` conditions are stated on the column.';
 
+CREATE TYPE "meta"."repeated_row_rule" AS ENUM ('first_wins', 'last_wins', 'refused', 'not_stated');
+COMMENT ON TYPE "meta"."repeated_row_rule" IS 'Which of several rows a source holds for one subject under one selector its own code uses.';
+
 CREATE TYPE "meta"."resolution_rule" AS ENUM ('curated', 'structural', 'registry', 'formula_scope', 'composition', 'provisional');
 COMMENT ON TYPE "meta"."resolution_rule" IS 'Which rule decided the resolution of a source entity.';
 
@@ -206,6 +212,9 @@ COMMENT ON TYPE "meta"."subject_shape" IS 'What an observable is a property of.'
 CREATE TYPE "meta"."system_role" AS ENUM ('basis', 'secondary', 'member');
 COMMENT ON TYPE "meta"."system_role" IS 'The part a species form plays in a chemical system.';
 
+CREATE TYPE "meta"."table_choice_rule" AS ENUM ('listing_order', 'tagged_default', 'ranked', 'first_only', 'not_stated');
+COMMENT ON TYPE "meta"."table_choice_rule" IS 'How a source chooses among the competing tables it holds for one observable or slot group when the caller names none.';
+
 CREATE TYPE "meta"."table_disposition" AS ENUM ('mapped', 'out_of_scope', 'deferred');
 COMMENT ON TYPE "meta"."table_disposition" IS 'What a mapping does with a source-faithful table.';
 
@@ -224,8 +233,8 @@ COMMENT ON TYPE "meta"."validity_coverage_state" IS 'Whether a source states any
 CREATE TYPE "meta"."value_presentation" AS ENUM ('direct', 'difference_between_temperatures', 'difference_between_pressures', 'mean_between_temperatures', 'difference_from_reference', 'ratio_to_reference', 'relative_difference_from_reference');
 COMMENT ON TYPE "meta"."value_presentation" IS 'How a reported number relates to the property its column is about: the property itself, or a difference, mean or ratio formed from it. The facets state what a presentation needs.';
 
-CREATE TYPE "meta"."value_state" AS ENUM ('known', 'not_applicable', 'redirect', 'withheld');
-COMMENT ON TYPE "meta"."value_state" IS 'Whether a slot holds a value and, if not, why. Missing is not a state: it is the absence of a set.';
+CREATE TYPE "meta"."value_state" AS ENUM ('known', 'not_applicable', 'redirect', 'withheld', 'stated_default');
+COMMENT ON TYPE "meta"."value_state" IS 'Whether a slot holds a value and, if not, why. Missing is not a state: it is the absence of a set. The facets state what a rule about states needs: a rule that depends on them reads the facets, never the names of members.';
 
 CREATE TYPE "meta"."weighting" AS ENUM ('number', 'mass', 'area');
 COMMENT ON TYPE "meta"."weighting" IS 'How a distribution over a molecular attribute is weighted.';
@@ -329,6 +338,9 @@ COMMENT ON DOMAIN "meta"."pressure" IS 'Absolute pressure. Stored in Pa.';
 CREATE DOMAIN "meta"."quadrupole_moment" AS double precision CONSTRAINT "quadrupole_moment__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision));
 COMMENT ON DOMAIN "meta"."quadrupole_moment" IS 'Electric quadrupole moment; signed. Stored in C * m ** 2.';
 
+CREATE DOMAIN "meta"."rate_constant" AS double precision CONSTRAINT "rate_constant__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision));
+COMMENT ON DOMAIN "meta"."rate_constant" IS 'A rate constant of a reaction. Its dimension follows the subject reaction of the slot or contract output that holds it: the rate per volume (mol m^-3 s^-1), or per area (mol m^-2 s^-1) when any participant is a surface species, divided by the concentration of each species to its forward order (mol m^-3 in a bulk phase, mol m^-2 on a surface), and by one more bulk concentration for each extra order the slot declares (a low-pressure limit or a third-body rate). The stored number is in the coherent SI unit of that dimension, so the column is a plain finite double. Signed: a duplicate reaction may have a negative pre-exponential factor. The unit shown is the rate of a homogeneous reaction of order zero. Stored in mol / m ** 3 / s.';
+
 CREATE DOMAIN "meta"."scalar" AS double precision CONSTRAINT "scalar__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision));
 COMMENT ON DOMAIN "meta"."scalar" IS 'A dimensionless number with no further interpretation. Stored in dimensionless.';
 
@@ -426,11 +438,16 @@ CREATE TABLE "meta"."quantity_type" (
     "unit" text NOT NULL,
     "scale" text NOT NULL,
     "production" text,
+    "depends_on" text,
+    "surface_unit" text,
+    "concentration_unit" text,
+    "surface_concentration_unit" text,
     "pg_type" text NOT NULL,
     "doc" text NOT NULL,
     CONSTRAINT "quantity_type__pk" PRIMARY KEY ("id"),
     CONSTRAINT "quantity_type__uq__name" UNIQUE ("name"),
-    CONSTRAINT "quantity_type__ck__scale" CHECK ("scale" IN ('absolute', 'difference', 'ratio', 'dimensionless', 'count'))
+    CONSTRAINT "quantity_type__ck__scale" CHECK ("scale" IN ('absolute', 'difference', 'ratio', 'dimensionless', 'count')),
+    CONSTRAINT "quantity_type__ck__dependent_complete" CHECK (("depends_on" IS NULL) = ("surface_unit" IS NULL) AND ("depends_on" IS NULL) = ("concentration_unit" IS NULL) AND ("depends_on" IS NULL) = ("surface_concentration_unit" IS NULL))
 );
 COMMENT ON TABLE "meta"."quantity_type" IS 'A dimensioned number type with a storage unit.';
 COMMENT ON COLUMN "meta"."quantity_type"."id" IS 'Identifier of the row; what Meta<quantity_type> refers to.';
@@ -439,6 +456,10 @@ COMMENT ON COLUMN "meta"."quantity_type"."module" IS 'The declaring module.';
 COMMENT ON COLUMN "meta"."quantity_type"."unit" IS 'The storage unit.';
 COMMENT ON COLUMN "meta"."quantity_type"."scale" IS 'absolute, difference, ratio, dimensionless or count.';
 COMMENT ON COLUMN "meta"."quantity_type"."production" IS 'The corresponding production quantity type, if any.';
+COMMENT ON COLUMN "meta"."quantity_type"."depends_on" IS 'For a dependent type: the kind of the subject whose reaction-derived dimension the type has (the storage unit is then that of a homogeneous reaction of order zero).';
+COMMENT ON COLUMN "meta"."quantity_type"."surface_unit" IS 'For a dependent type: the rate unit when a participant is on a surface.';
+COMMENT ON COLUMN "meta"."quantity_type"."concentration_unit" IS 'For a dependent type: the unit of a species'' concentration in a bulk phase.';
+COMMENT ON COLUMN "meta"."quantity_type"."surface_concentration_unit" IS 'For a dependent type: the unit of a species'' concentration on a surface.';
 COMMENT ON COLUMN "meta"."quantity_type"."pg_type" IS 'The domain that projects the type.';
 COMMENT ON COLUMN "meta"."quantity_type"."doc" IS 'What the quantity means.';
 
@@ -625,7 +646,7 @@ CREATE TABLE "meta"."requirement" (
     CONSTRAINT "requirement__pk" PRIMARY KEY ("owner_type", "owner", "name"),
     CONSTRAINT "requirement__ck__owner_type" CHECK ("owner_type" IN ('kind', 'relation')),
     CONSTRAINT "requirement__ck__enforced" CHECK ("enforced" IN ('ddl', 'load', 'verify')),
-    CONSTRAINT "requirement__ck__check_rule" CHECK ("check_rule" IN ('nonempty', 'positive', 'nonnegative', 'ordered', 'one_of_present', 'present_iff', 'within')),
+    CONSTRAINT "requirement__ck__check_rule" CHECK ("check_rule" IN ('nonempty', 'positive', 'nonnegative', 'ordered', 'ordered_same_reference', 'one_of_present', 'present_iff', 'within')),
     CONSTRAINT "requirement__ck__rule_for_ddl" CHECK (("enforced" = 'ddl') = ("check_rule" IS NOT NULL)),
     CONSTRAINT "requirement__ck__bounds_for_within" CHECK (("check_lower" IS NULL AND "check_upper" IS NULL) OR "check_rule" = 'within')
 );
@@ -918,6 +939,7 @@ CREATE TABLE "meta"."contract_output" (
     "element" text NOT NULL,
     "observable" uuid,
     "observable_from_set" boolean NOT NULL,
+    "extra_order" integer NOT NULL,
     "doc" text NOT NULL,
     CONSTRAINT "contract_output__pk" PRIMARY KEY ("contract", "name"),
     CONSTRAINT "contract_output__uq__contract_position" UNIQUE ("contract", "position"),
@@ -934,6 +956,7 @@ COMMENT ON COLUMN "meta"."contract_output"."element_kind" IS 'What the element i
 COMMENT ON COLUMN "meta"."contract_output"."element" IS 'The element: a type, scheme, enum or kind name, an expression or a Meta construct.';
 COMMENT ON COLUMN "meta"."contract_output"."observable" IS 'The declared observable entity the output denotes (its identifier).';
 COMMENT ON COLUMN "meta"."contract_output"."observable_from_set" IS 'Whether the observable is given by a slot of the implementing form (form_output_observable).';
+COMMENT ON COLUMN "meta"."contract_output"."extra_order" IS 'For an output of a dependent quantity type: the extra concentration powers of its dimension; zero otherwise.';
 COMMENT ON COLUMN "meta"."contract_output"."doc" IS 'What the output is.';
 
 CREATE TABLE "meta"."form" (
@@ -1027,14 +1050,19 @@ CREATE TABLE "meta"."form_convention" (
     "name" text NOT NULL,
     "position" integer NOT NULL,
     "kind" text NOT NULL,
+    "slot_group" text,
+    "over" text,
     CONSTRAINT "form_convention__pk" PRIMARY KEY ("form", "name"),
-    CONSTRAINT "form_convention__uq__form_position" UNIQUE ("form", "position")
+    CONSTRAINT "form_convention__uq__form_position" UNIQUE ("form", "position"),
+    CONSTRAINT "form_convention__ck__component_fact_complete" CHECK (("slot_group" IS NULL) = ("over" IS NULL))
 );
-COMMENT ON TABLE "meta"."form_convention" IS 'A convention fact a form reads (`convention.<name>` in its expressions): a quantity-typed attribute of the convention-set kind.';
+COMMENT ON TABLE "meta"."form_convention" IS 'A convention fact a form reads (`convention.<name>` in its expressions, or `convention.<name>[i]` for one read per component): a quantity-typed attribute of the convention-set kind.';
 COMMENT ON COLUMN "meta"."form_convention"."form" IS 'The form.';
 COMMENT ON COLUMN "meta"."form_convention"."name" IS 'The convention-set attribute the form reads.';
 COMMENT ON COLUMN "meta"."form_convention"."position" IS 'Position among the form''s convention facts, from 1.';
 COMMENT ON COLUMN "meta"."form_convention"."kind" IS 'The kind that declares the attribute (the kind bound to convention_set or one it extends).';
+COMMENT ON COLUMN "meta"."form_convention"."slot_group" IS 'For a fact read per component: the slot group of the form whose set for a component names the parameterization the component''s fact is taken from.';
+COMMENT ON COLUMN "meta"."form_convention"."over" IS 'For a fact read per component: the contract set the group''s subject is bound to.';
 
 CREATE TABLE "meta"."form_implicit" (
     "form" text NOT NULL,
@@ -1235,6 +1263,7 @@ CREATE TABLE "meta"."slot" (
     "references_contract" text,
     "presence" text NOT NULL,
     "observable" uuid,
+    "extra_order" integer NOT NULL,
     "doc" text NOT NULL,
     CONSTRAINT "slot__pk" PRIMARY KEY ("id"),
     CONSTRAINT "slot__uq__qualified_name" UNIQUE ("qualified_name"),
@@ -1259,6 +1288,7 @@ COMMENT ON COLUMN "meta"."slot"."accepts" IS 'For a nested set: the contract its
 COMMENT ON COLUMN "meta"."slot"."references_contract" IS 'For a set reference: the contract the form of the referenced set implements.';
 COMMENT ON COLUMN "meta"."slot"."presence" IS 'required or stateful.';
 COMMENT ON COLUMN "meta"."slot"."observable" IS 'The declared observable entity the slot denotes (its identifier).';
+COMMENT ON COLUMN "meta"."slot"."extra_order" IS 'For a slot of a dependent quantity type: the extra concentration powers of its dimension; zero otherwise.';
 COMMENT ON COLUMN "meta"."slot"."doc" IS 'What the slot is.';
 
 CREATE TABLE "meta"."subform_slot" (
@@ -1331,12 +1361,14 @@ COMMENT ON COLUMN "prov"."record"."kind" IS 'The name of the kind or relation th
 CREATE TABLE "tk"."aggregation" (
     "id" uuid NOT NULL,
     "name" text NOT NULL,
+    "concentration_domain" "meta"."concentration_domain" NOT NULL DEFAULT 'bulk',
     CONSTRAINT "aggregation__pk" PRIMARY KEY ("id"),
     CONSTRAINT "aggregation__identity" UNIQUE ("name")
 );
 COMMENT ON TABLE "tk"."aggregation" IS 'A state of aggregation. `aqueous` is deliberately not one: it is a liquid with a solvent convention.';
 COMMENT ON COLUMN "tk"."aggregation"."id" IS 'Deterministic identifier of the aggregation instance.';
 COMMENT ON COLUMN "tk"."aggregation"."name" IS 'Name of the state.';
+COMMENT ON COLUMN "tk"."aggregation"."concentration_domain" IS 'Where a species in this state is counted: in a bulk phase, or on a surface. A rate constant''s dimension reads it through the facet `per_area`.';
 
 CREATE TABLE "tk"."analysis_method" (
     "id" uuid NOT NULL,
@@ -2274,10 +2306,12 @@ CREATE TABLE "tk"."region_clause" (
     "aggregation" uuid,
     "lower" "meta"."finite_real",
     "upper" "meta"."finite_real",
+    "lower_relative_to" uuid,
+    "upper_relative_to" uuid,
     CONSTRAINT "region_clause__pk" PRIMARY KEY ("id"),
     CONSTRAINT "region_clause__identity" UNIQUE ("region", "ordinal"),
     CONSTRAINT "region_clause__ck__ordinal_from_one" CHECK ("ordinal" > 0),
-    CONSTRAINT "region_clause__ck__bounds_ordered" CHECK ("lower" <= "upper")
+    CONSTRAINT "region_clause__ck__bounds_ordered" CHECK ("lower" IS NULL OR "upper" IS NULL OR "lower_relative_to" IS DISTINCT FROM "upper_relative_to" OR "lower" <= "upper")
 );
 COMMENT ON TABLE "tk"."region_clause" IS 'One condition of a validity region: an interval of one observable, about the whole record or, through a component or an aggregation, about one component or one phase of it.';
 COMMENT ON COLUMN "tk"."region_clause"."id" IS 'Deterministic identifier of the region_clause instance.';
@@ -2286,8 +2320,10 @@ COMMENT ON COLUMN "tk"."region_clause"."ordinal" IS 'Position among the clauses 
 COMMENT ON COLUMN "tk"."region_clause"."observable" IS 'The axis the clause limits: the observable of a condition such as temperature or pressure, or of a composition or a partial quantity.';
 COMMENT ON COLUMN "tk"."region_clause"."component" IS 'The component the clause is about, for a composition or a partial quantity.';
 COMMENT ON COLUMN "tk"."region_clause"."aggregation" IS 'The aggregation whose phase the clause is about.';
-COMMENT ON COLUMN "tk"."region_clause"."lower" IS 'Lower bound in the observable''s storage unit; absent when the clause has no lower limit.';
-COMMENT ON COLUMN "tk"."region_clause"."upper" IS 'Upper bound in the observable''s storage unit; absent when the clause has no upper limit.';
+COMMENT ON COLUMN "tk"."region_clause"."lower" IS 'Lower bound in the observable''s storage unit; absent when the clause has no lower limit. With `lower_relative_to`, the offset from the subject''s value of that observable, in the same unit.';
+COMMENT ON COLUMN "tk"."region_clause"."upper" IS 'Upper bound in the observable''s storage unit; absent when the clause has no upper limit. With `upper_relative_to`, the offset from the subject''s value of that observable, in the same unit.';
+COMMENT ON COLUMN "tk"."region_clause"."lower_relative_to" IS 'The observable of the subject whose value the lower bound is an offset from (the normal boiling temperature minus 50 K: the boiling temperature and an offset of -50 K). Absent for a bound stated as a value. It has the quantity type of the clause''s observable.';
+COMMENT ON COLUMN "tk"."region_clause"."upper_relative_to" IS 'The observable of the subject whose value the upper bound is an offset from (the critical temperature minus 100 K). Absent for a bound stated as a value. It has the quantity type of the clause''s observable.';
 
 CREATE TABLE "tk"."resolved_snapshot" (
     "id" uuid NOT NULL,
@@ -2364,24 +2400,29 @@ CREATE TABLE "tk"."selection_policy" (
     "key" text NOT NULL,
     "revision" text NOT NULL,
     "unasserted" "meta"."unasserted_policy" NOT NULL,
-    "rule" text,
+    "rule_form" uuid,
     "asserted_by" uuid,
     "scope_slot_group" uuid,
     "scope_observable" uuid,
+    "repeated_rows" "meta"."repeated_row_rule",
+    "table_choice" "meta"."table_choice_rule",
     "as_documented" boolean,
     CONSTRAINT "selection_policy__pk" PRIMARY KEY ("id"),
-    CONSTRAINT "selection_policy__identity" UNIQUE ("key", "revision")
+    CONSTRAINT "selection_policy__identity" UNIQUE ("key", "revision"),
+    CONSTRAINT "selection_policy__ck__rule_form_for_named_rule" CHECK (("rule_form" IS NOT NULL) = ("unasserted"::text IN ('named_rule')))
 );
-COMMENT ON TABLE "tk"."selection_policy" IS 'An ordered preference among parameterisations, with per-subject overrides and a stated behaviour when nothing is asserted. Applying it is deterministic.';
+COMMENT ON TABLE "tk"."selection_policy" IS 'An ordered preference among parameterisations, with per-subject overrides, the defaults it states for slots (`policy_default`) and a stated behaviour when nothing is asserted. Applying it is deterministic. A carrier''s own behaviour is a policy whose `asserted_by` is that carrier, scoped to one slot group or one observable, and saying whether it is what the carrier documents: a repeated row that wins by coming last, a default table chosen by dictionary order, an in-band `DEFAULT` tag or a library rank.';
 COMMENT ON COLUMN "tk"."selection_policy"."id" IS 'Deterministic identifier of the selection_policy instance.';
 COMMENT ON COLUMN "tk"."selection_policy"."key" IS 'Stable key.';
 COMMENT ON COLUMN "tk"."selection_policy"."revision" IS 'Revision.';
 COMMENT ON COLUMN "tk"."selection_policy"."unasserted" IS 'What to do when no set is asserted for a required subject.';
-COMMENT ON COLUMN "tk"."selection_policy"."rule" IS 'The named rule or stated default, when the policy uses one.';
+COMMENT ON COLUMN "tk"."selection_policy"."rule_form" IS 'The form that computes the value of an unasserted subject, when `unasserted` is `named_rule`: a combining rule such as Lorentz-Berthelot declared as a form whose output is the pair value.';
 COMMENT ON COLUMN "tk"."selection_policy"."asserted_by" IS 'The carrier whose own default behaviour this policy records; absent for a policy authored for a snapshot.';
 COMMENT ON COLUMN "tk"."selection_policy"."scope_slot_group" IS 'The slot group the policy governs, when it is narrower than everything.';
 COMMENT ON COLUMN "tk"."selection_policy"."scope_observable" IS 'The observable the policy governs, when it is narrower than everything.';
-COMMENT ON COLUMN "tk"."selection_policy"."as_documented" IS 'For a carrier''s policy: whether the behaviour recorded matches what the carrier documents.';
+COMMENT ON COLUMN "tk"."selection_policy"."repeated_rows" IS 'For a carrier''s policy: which of several rows for one subject under one selector the carrier''s own code uses, within the scope. The rows themselves are all held, distinguished by their occurrence.';
+COMMENT ON COLUMN "tk"."selection_policy"."table_choice" IS 'For a carrier''s policy: how the carrier chooses among competing tables within the scope when the caller names none. The order it yields is the policy''s precedence.';
+COMMENT ON COLUMN "tk"."selection_policy"."as_documented" IS 'For a carrier''s policy: whether the behaviour recorded, which is what the code does, matches what the carrier documents. False where the documented order and the code differ.';
 
 CREATE TABLE "param"."shomate__pure" (
     "id" uuid NOT NULL,
@@ -3086,6 +3127,23 @@ COMMENT ON COLUMN "tk"."phase_model"."phase" IS 'The phase definition.';
 COMMENT ON COLUMN "tk"."phase_model"."parameterization" IS 'The parameterisation under which this model describes the phase.';
 COMMENT ON COLUMN "tk"."phase_model"."value" IS 'The value.';
 
+CREATE TABLE "tk"."policy_default" (
+    "id" uuid NOT NULL,
+    "policy" uuid NOT NULL,
+    "slot" uuid NOT NULL,
+    "state" "meta"."value_state" NOT NULL,
+    "value" "meta"."finite_real",
+    CONSTRAINT "policy_default__pk" PRIMARY KEY ("policy", "slot"),
+    CONSTRAINT "policy_default__uq__id" UNIQUE ("id"),
+    CONSTRAINT "policy_default__ck__value_matches_state" CHECK (("value" IS NOT NULL) = ("state"::text IN ('known')))
+);
+COMMENT ON TABLE "tk"."policy_default" IS 'The default a selection policy states for one slot: what a set that leaves the slot at its stated default (value state `stated_default`) takes under this policy, and what an unasserted subject takes when the policy supplies stated defaults. NRTL''s alpha of 0.3, a temperature coefficient read as zero when absent and a volume translation of zero are such defaults. A default is stated as a value, or as the slot having no meaning.';
+COMMENT ON COLUMN "tk"."policy_default"."id" IS 'Deterministic identifier of the row, computed from its keys.';
+COMMENT ON COLUMN "tk"."policy_default"."policy" IS 'The policy.';
+COMMENT ON COLUMN "tk"."policy_default"."slot" IS 'The slot the default is for.';
+COMMENT ON COLUMN "tk"."policy_default"."state" IS 'The state the default is: known, or not applicable.';
+COMMENT ON COLUMN "tk"."policy_default"."value" IS 'The default value, in the slot''s storage unit; present exactly when the state is known.';
+
 CREATE TABLE "tk"."policy_override" (
     "id" uuid NOT NULL,
     "policy" uuid NOT NULL,
@@ -3154,6 +3212,20 @@ COMMENT ON COLUMN "tk"."purity_statement"."digits" IS 'The number of significant
 COMMENT ON COLUMN "tk"."purity_statement"."method" IS 'The analytical method, where the source names one of a listed vocabulary.';
 COMMENT ON COLUMN "tk"."purity_statement"."method_text" IS 'The analytical method as free text, where the source gives none of a listed vocabulary.';
 COMMENT ON COLUMN "tk"."purity_statement"."impurity" IS 'The impurity the statement is the content of, such as water or a halide. Absent when the statement is a purity.';
+
+CREATE TABLE "tk"."reaction_order" (
+    "id" uuid NOT NULL,
+    "reaction" uuid NOT NULL,
+    "form" uuid NOT NULL,
+    "value" "meta"."scalar" NOT NULL,
+    CONSTRAINT "reaction_order__pk" PRIMARY KEY ("reaction", "form"),
+    CONSTRAINT "reaction_order__uq__id" UNIQUE ("id")
+);
+COMMENT ON TABLE "tk"."reaction_order" IS 'An explicit forward reaction order of one species form, which need not be an integer and need not be a reactant. Where no row states a species'' order, a reactant''s order is its stoichiometric coefficient and any other species'' order is zero. The orders fix the dimension of a rate constant (`RateConstant`).';
+COMMENT ON COLUMN "tk"."reaction_order"."id" IS 'Deterministic identifier of the row, computed from its keys.';
+COMMENT ON COLUMN "tk"."reaction_order"."reaction" IS 'The reaction.';
+COMMENT ON COLUMN "tk"."reaction_order"."form" IS 'The species form the order is stated for.';
+COMMENT ON COLUMN "tk"."reaction_order"."value" IS 'The order with respect to the species form.';
 
 CREATE TABLE "tk"."reaction_participant" (
     "id" uuid NOT NULL,
@@ -3492,6 +3564,14 @@ ALTER TABLE "meta"."quantity_type" ADD CONSTRAINT "quantity_type__fk__module" FO
 
 ALTER TABLE "meta"."quantity_type" ADD CONSTRAINT "quantity_type__fk__unit" FOREIGN KEY ("unit") REFERENCES "meta"."unit" ("unit") DEFERRABLE INITIALLY DEFERRED;
 
+ALTER TABLE "meta"."quantity_type" ADD CONSTRAINT "quantity_type__fk__depends_on" FOREIGN KEY ("depends_on") REFERENCES "meta"."kind" ("name") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "meta"."quantity_type" ADD CONSTRAINT "quantity_type__fk__surface_unit" FOREIGN KEY ("surface_unit") REFERENCES "meta"."unit" ("unit") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "meta"."quantity_type" ADD CONSTRAINT "quantity_type__fk__concentration_unit" FOREIGN KEY ("concentration_unit") REFERENCES "meta"."unit" ("unit") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "meta"."quantity_type" ADD CONSTRAINT "quantity_type__fk__surface_concentration_unit" FOREIGN KEY ("surface_concentration_unit") REFERENCES "meta"."unit" ("unit") DEFERRABLE INITIALLY DEFERRED;
+
 ALTER TABLE "meta"."quantity_expression" ADD CONSTRAINT "quantity_expression__fk__unit" FOREIGN KEY ("unit") REFERENCES "meta"."unit" ("unit") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "meta"."identifier_scheme" ADD CONSTRAINT "identifier_scheme__fk__module" FOREIGN KEY ("module") REFERENCES "meta"."module" ("name") DEFERRABLE INITIALLY DEFERRED;
@@ -3585,6 +3665,8 @@ ALTER TABLE "meta"."form_output_observable" ADD CONSTRAINT "form_output_observab
 ALTER TABLE "meta"."form_convention" ADD CONSTRAINT "form_convention__fk__form" FOREIGN KEY ("form") REFERENCES "meta"."form" ("name") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "meta"."form_convention" ADD CONSTRAINT "form_convention__fk__kind_name" FOREIGN KEY ("kind", "name") REFERENCES "meta"."attribute" ("kind", "name") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "meta"."form_convention" ADD CONSTRAINT "form_convention__fk__slot_group" FOREIGN KEY ("slot_group") REFERENCES "meta"."slot_group" ("qualified_name") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "meta"."form_implicit" ADD CONSTRAINT "form_implicit__fk__form" FOREIGN KEY ("form") REFERENCES "meta"."form" ("name") DEFERRABLE INITIALLY DEFERRED;
 
@@ -3832,6 +3914,10 @@ ALTER TABLE "tk"."region_clause" ADD CONSTRAINT "region_clause__fk__component" F
 
 ALTER TABLE "tk"."region_clause" ADD CONSTRAINT "region_clause__fk__aggregation" FOREIGN KEY ("aggregation") REFERENCES "tk"."aggregation" ("id") DEFERRABLE INITIALLY DEFERRED;
 
+ALTER TABLE "tk"."region_clause" ADD CONSTRAINT "region_clause__fk__lower_relative_to" FOREIGN KEY ("lower_relative_to") REFERENCES "tk"."observable" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "tk"."region_clause" ADD CONSTRAINT "region_clause__fk__upper_relative_to" FOREIGN KEY ("upper_relative_to") REFERENCES "tk"."observable" ("id") DEFERRABLE INITIALLY DEFERRED;
+
 ALTER TABLE "tk"."resolved_snapshot" ADD CONSTRAINT "resolved_snapshot__fk__id" FOREIGN KEY ("id") REFERENCES "prov"."record" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."resolved_snapshot" ADD CONSTRAINT "resolved_snapshot__fk__assembly" FOREIGN KEY ("assembly") REFERENCES "tk"."model_assembly" ("id") DEFERRABLE INITIALLY DEFERRED;
@@ -3849,6 +3935,8 @@ ALTER TABLE "tk"."sample" ADD CONSTRAINT "sample__fk__carrier" FOREIGN KEY ("car
 ALTER TABLE "tk"."sample" ADD CONSTRAINT "sample__fk__entity" FOREIGN KEY ("entity") REFERENCES "tk"."material_entity" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."selection_policy" ADD CONSTRAINT "selection_policy__fk__id" FOREIGN KEY ("id") REFERENCES "prov"."record" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "tk"."selection_policy" ADD CONSTRAINT "selection_policy__fk__rule_form" FOREIGN KEY ("rule_form") REFERENCES "meta"."form" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."selection_policy" ADD CONSTRAINT "selection_policy__fk__asserted_by" FOREIGN KEY ("asserted_by") REFERENCES "prov"."carrier" ("id") DEFERRABLE INITIALLY DEFERRED;
 
@@ -4036,6 +4124,10 @@ ALTER TABLE "tk"."phase_model" ADD CONSTRAINT "phase_model__fk__parameterization
 
 ALTER TABLE "tk"."phase_model" ADD CONSTRAINT "phase_model__fk__value" FOREIGN KEY ("value") REFERENCES "tk"."model_assembly" ("id") DEFERRABLE INITIALLY DEFERRED;
 
+ALTER TABLE "tk"."policy_default" ADD CONSTRAINT "policy_default__fk__policy" FOREIGN KEY ("policy") REFERENCES "tk"."selection_policy" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "tk"."policy_default" ADD CONSTRAINT "policy_default__fk__slot" FOREIGN KEY ("slot") REFERENCES "meta"."slot" ("id") DEFERRABLE INITIALLY DEFERRED;
+
 ALTER TABLE "tk"."policy_override" ADD CONSTRAINT "policy_override__fk__policy" FOREIGN KEY ("policy") REFERENCES "tk"."selection_policy" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."policy_override" ADD CONSTRAINT "policy_override__fk__parameter_set" FOREIGN KEY ("parameter_set") REFERENCES "tk"."parameter_set" ("id") DEFERRABLE INITIALLY DEFERRED;
@@ -4053,6 +4145,10 @@ ALTER TABLE "tk"."purity_statement" ADD CONSTRAINT "purity_statement__fk__sample
 ALTER TABLE "tk"."purity_statement" ADD CONSTRAINT "purity_statement__fk__method" FOREIGN KEY ("method") REFERENCES "tk"."analysis_method" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."purity_statement" ADD CONSTRAINT "purity_statement__fk__impurity" FOREIGN KEY ("impurity") REFERENCES "tk"."material_entity" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "tk"."reaction_order" ADD CONSTRAINT "reaction_order__fk__reaction" FOREIGN KEY ("reaction") REFERENCES "tk"."reaction" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "tk"."reaction_order" ADD CONSTRAINT "reaction_order__fk__form" FOREIGN KEY ("form") REFERENCES "tk"."species_form" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."reaction_participant" ADD CONSTRAINT "reaction_participant__fk__reaction" FOREIGN KEY ("reaction") REFERENCES "tk"."reaction" ("id") DEFERRABLE INITIALLY DEFERRED;
 

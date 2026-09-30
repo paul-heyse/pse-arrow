@@ -7,7 +7,10 @@
 A record states its validity as regions (`RecordValidity`): each a conjunction of clauses, several
 alternatives of one kind a union. A clause is decided from the arguments of the evaluation only
 when it limits an observable that exactly one argument of the contract names and is about no
-component and no aggregation; every other clause cannot be decided from the arguments.
+component and no aggregation; every other clause cannot be decided from the arguments. A bound
+stated as an offset from another observable of the subject (`lower_relative_to`,
+`upper_relative_to`) is decided only when the evaluation has a value of that observable
+(`references`); without one the clause cannot be decided.
 
 For one region, a point is
 
@@ -43,17 +46,31 @@ class Membership(enum.IntEnum):
     NOT_STATED = 3
 
 
-def _holds(clause: RegionClause, value: np.ndarray) -> np.ndarray:
+def _holds(
+    clause: RegionClause, value: np.ndarray, references: Mapping[str, np.ndarray]
+) -> np.ndarray | None:
+    """Where `value` lies in the closed interval of the clause, or `None` when a bound is an
+    offset from an observable `references` has no value of."""
     held = np.ones(np.shape(value), dtype=bool)
-    if clause.lower is not None:
-        held &= value >= clause.lower
-    if clause.upper is not None:
-        held &= value <= clause.upper
+    for bound, reference, below in (
+        (clause.lower, clause.lower_relative_to, True),
+        (clause.upper, clause.upper_relative_to, False),
+    ):
+        if bound is None:
+            continue
+        if reference is not None:
+            if reference not in references:
+                return None
+            bound = references[reference] + bound
+        held &= (value >= bound) if below else (value <= bound)
     return held
 
 
 def _region(
-    region: ValidityRegion, observed: Mapping[str, np.ndarray], shape: tuple[int, ...]
+    region: ValidityRegion,
+    observed: Mapping[str, np.ndarray],
+    references: Mapping[str, np.ndarray],
+    shape: tuple[int, ...],
 ) -> tuple[np.ndarray, bool]:
     """For each point whether a decidable clause of the region fails, and whether the region has a
     clause that cannot be decided."""
@@ -67,7 +84,11 @@ def _region(
         ):
             undecided = True
             continue
-        fails |= ~_holds(clause, observed[clause.observable])
+        held = _holds(clause, observed[clause.observable], references)
+        if held is None:
+            undecided = True
+            continue
+        fails |= ~held
     return fails, undecided
 
 
@@ -75,11 +96,14 @@ def membership(
     records: Sequence[RecordValidity],
     observed: Mapping[str, np.ndarray],
     shape: tuple[int, ...],
+    references: Mapping[str, np.ndarray] | None = None,
 ) -> np.ndarray:
     """The `Membership` of each point, as an array of `shape` of integer codes.
 
     `observed` gives, for each observable that exactly one argument of the contract names, that
-    argument's values (arrays broadcastable to `shape`)."""
+    argument's values (arrays broadcastable to `shape`). `references` gives the subject's value
+    of each observable a bound may be relative to."""
+    known = references or {}
     stated = [record for record in records if record.regions]
     if not stated:
         return np.full(shape, Membership.NOT_STATED, dtype=np.int8)
@@ -88,7 +112,9 @@ def membership(
     for record in stated:
         inside_any = np.zeros(shape, dtype=bool)
         undetermined_any = np.zeros(shape, dtype=bool)
-        for fails, undecided in (_region(region, observed, shape) for region in record.regions):
+        for fails, undecided in (
+            _region(region, observed, known, shape) for region in record.regions
+        ):
             inside_any |= ~fails & (not undecided)
             undetermined_any |= ~fails & undecided
         undetermined |= ~inside_any & undetermined_any

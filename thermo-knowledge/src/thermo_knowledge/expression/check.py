@@ -173,7 +173,7 @@ class Checker:
     # -- values ----------------------------------------------------------------------------
 
     def dimension(self, node: t.Node, field: m.Field, what: str) -> Dim | None:
-        dim = type_dimension(self.scope.decl, field.type)
+        dim = type_dimension(self.scope.decl, field.type, field.extra_order)
         if dim is None:
             self.fail(
                 node,
@@ -448,7 +448,7 @@ class Checker:
                 "cannot use as a number",
             )
             return None
-        dim = type_dimension(scope.decl, ref.slot.type)
+        dim = type_dimension(scope.decl, ref.slot.type, ref.slot.extra_order)
         return dim if ok else None
 
     def convention(self, node: t.Attribute) -> Ty | None:
@@ -464,9 +464,58 @@ class Checker:
                 f"(it declares {listed}): name it in `conventions`",
             )
             return None
+        if declared.over is not None:
+            self.fail(
+                node,
+                Code.BAD_CONVENTION,
+                f"the convention fact `{node.attr}` is read per component of `{declared.over}`: "
+                f"write `convention.{node.attr}[i]`",
+            )
+            return None
         dim = type_dimension(scope.decl, declared.type)
         if dim is None:
             self.fail(node, Code.BAD_TYPE, f"convention fact `{node.attr}` is not a quantity")
+            return None
+        return NumTy(dim)
+
+    def component_convention(self, node: t.Subscript, env: Env) -> Ty | None:
+        """`convention.<name>[i]`: the convention fact of the parameterization that supplied the
+        set of the component `i`, for a fact the form declares in `component_conventions`."""
+        scope = self.scope
+        assert isinstance(node.base, t.Attribute)
+        name = node.base.attr
+        declared = scope.conventions.get(name)
+        if declared is None:
+            listed = ", ".join(scope.conventions) or "none"
+            self.fail(
+                node,
+                Code.UNKNOWN_NAME,
+                f"form `{scope.form.name}` does not declare the convention fact `{name}` "
+                f"(it declares {listed}): name it in `component_conventions`",
+            )
+            return None
+        if declared.over is None:
+            self.fail(
+                node,
+                Code.BAD_CONVENTION,
+                f"the convention fact `{name}` is a fact of the form's parameterization, not of "
+                f"a component: write `convention.{name}`, or declare it in `component_conventions`",
+            )
+            return None
+        if len(node.indices) != 1:
+            self.fail(
+                node,
+                Code.SLOT_SUBJECTS,
+                f"`convention.{name}` is read for one component of `{declared.over}`, found "
+                f"{len(node.indices)} subscripts",
+            )
+            return None
+        what = f"the subscript of `convention.{name}` over `{declared.over}`"
+        if not self.subject(node.indices[0], ("set", declared.over), what, env):
+            return None
+        dim = type_dimension(scope.decl, declared.type)
+        if dim is None:
+            self.fail(node, Code.BAD_TYPE, f"convention fact `{name}` is not a quantity")
             return None
         return NumTy(dim)
 
@@ -479,6 +528,14 @@ class Checker:
             and m.CONVENTION_NAME not in env
         ):
             return self.convention(node)
+        if (
+            isinstance(node, t.Subscript)
+            and isinstance(node.base, t.Attribute)
+            and isinstance(node.base.value, t.Name)
+            and node.base.value.id == m.CONVENTION_NAME
+            and m.CONVENTION_NAME not in env
+        ):
+            return self.component_convention(node, env)
         if isinstance(node, t.Subscript) and isinstance(node.base, t.Name):
             ident = node.base.id
             argument = scope.arguments.get(ident)
@@ -1552,7 +1609,7 @@ def check_form(decl: m.Declaration, form: m.Form) -> list[Diagnostic]:
                 root, Code.OUTPUT_DIMENSION, f"an output is a number, found {_describe(ty)}"
             )
             continue
-        expected = type_dimension(decl, field.type)
+        expected = type_dimension(decl, field.type, field.extra_order)
         if expected is not None and ty.dim != expected:
             checker.fail(
                 root,

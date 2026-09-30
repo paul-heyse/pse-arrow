@@ -75,7 +75,13 @@ class Redirect:
     parameter_set: uuid.UUID
 
 
-type SlotState = NotApplicable | Withheld | Redirect
+@dataclass(frozen=True)
+class StatedDefault:
+    """A stateful slot the source leaves at its stated default and gives no value for: the value is
+    the default the selection policy in force states for the slot (`policy_default`)."""
+
+
+type SlotState = NotApplicable | Withheld | Redirect | StatedDefault
 
 HEX_HASH = re.compile(r"^[0-9a-fA-F]{64}$")
 
@@ -98,9 +104,12 @@ class ValueRefused(ValueError):
 
 
 def storage_unit(decl: m.Declaration, type_: TypeRef) -> str | None:
-    """The storage unit of a quantity or quantity-expression type, else `None`."""
+    """The storage unit of a quantity or quantity-expression type, else `None`. A dependent
+    quantity type has none: its unit follows the reaction of the set and the writer supplies it as
+    the `unit_hint`."""
     if type_.element_kind == "quantity":
-        return decl.quantity_types[type_.element].unit
+        quantity = decl.quantity_types[type_.element]
+        return None if quantity.dependent is not None else quantity.unit
     if type_.element_kind == "expression":
         return decl.expressions[type_.element]
     return None

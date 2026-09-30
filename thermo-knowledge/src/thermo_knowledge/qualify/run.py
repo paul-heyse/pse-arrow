@@ -36,7 +36,7 @@ from thermo_knowledge.canonical.values import convert, storage_unit
 from thermo_knowledge.declaration import model as m
 from thermo_knowledge.expression.canonical import evaluation_hash
 from thermo_knowledge.expression.compiled import CompileCache
-from thermo_knowledge.expression.evaluate import EvaluationRefusal, bind
+from thermo_knowledge.expression.evaluate import EvaluationRefusal, PiecePolicy, bind
 from thermo_knowledge.expression.validity import Membership, counts
 from thermo_knowledge.generate.fingerprint import declaration_fingerprint
 from thermo_knowledge.qualify import harness, persist
@@ -519,7 +519,12 @@ def evaluate(
         kept[subject.set_id] = columns
         try:
             bound = bind(
-                decl, case.spec.form, source=source, roles=_roles(group, subject), cache=cache
+                decl,
+                case.spec.form,
+                source=source,
+                roles=_roles(group, subject),
+                cache=cache,
+                pieces=PiecePolicy(case.spec.pieces.boundary, case.spec.pieces.outside),
             )
             if validity is not None:
                 codes = bound.validity(case.spec.output, validity.kind, **arguments)

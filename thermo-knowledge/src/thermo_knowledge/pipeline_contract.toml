@@ -160,6 +160,8 @@ attributes.component = { type = "material_entity", optional = true }
 attributes.aggregation = { type = "aggregation", optional = true }
 attributes.lower = { type = "Real", optional = true }
 attributes.upper = { type = "Real", optional = true }
+attributes.lower_relative_to = { type = "observable", optional = true }
+attributes.upper_relative_to = { type = "observable", optional = true }
 
 [kinds.source_entity]
 schema = "tk"
@@ -248,6 +250,7 @@ attributes.registry = { type = "Boolean" }
 schema = "tk"
 identity = ["name"]
 attributes.name = { type = "Text" }
+attributes.concentration_domain = { type = "concentration_domain", defaulted = true }
 
 [kinds.mapping_rule]
 schema = "qual"
@@ -365,6 +368,25 @@ keys.record = { type = "Record" }
 keys.kind = { type = "envelope_kind" }
 columns.value = { type = "validity_coverage_state" }
 
+[relations.reaction_participant]
+schema = "tk"
+keys.reaction = { type = "reaction" }
+keys.form = { type = "species_form" }
+columns.coefficient = { type = "Count" }
+
+[relations.reaction_order]
+schema = "tk"
+keys.reaction = { type = "reaction" }
+keys.form = { type = "species_form" }
+columns.value = { type = "Scalar" }
+
+[relations.policy_default]
+schema = "tk"
+keys.policy = { type = "selection_policy" }
+keys.slot = { type = "Meta<slot>" }
+columns.state = { type = "value_state" }
+columns.value = { type = "Real", optional = true }
+
 [relations.run_parameter_set]
 schema = "qual"
 keys.run = { type = "qualification_run" }
@@ -399,6 +421,8 @@ members = ["fit"]
 
 [enums.validity_coverage_state]
 members = ["stated", "not_stated"]
+
+[enums.concentration_domain]
 
 [enums.run_outcome]
 members = ["passed", "failed", "blocked"]

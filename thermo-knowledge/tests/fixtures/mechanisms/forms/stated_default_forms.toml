@@ -1,0 +1,65 @@
+module = "stated_default_forms"
+uses = ["physical", "provenance", "identity", "systems", "conventions", "observables", "parameters"]
+doc = "Forms that show slots left at a stated default and sites with no parameters (TK2g, alignment items 35 and 8): an NRTL-style pair form with a default interaction exponent and an absent temperature coefficient, a PC-SAFT-style binary record that may carry no field, and an association site that may carry no parameter."
+
+[contracts.pair_factor_fixture]
+doc = "A dimensionless factor of an ordered pair at a temperature."
+roles.i = { type = "material_entity", doc = "The first entity." }
+roles.j = { type = "material_entity", doc = "The second entity." }
+arguments.T = { type = "Temperature", observable = "temperature", doc = "Temperature." }
+outputs.G = { type = "Scalar", doc = "The factor." }
+
+[forms.nrtl_fixture]
+doc = "The NRTL factor G = exp(-alpha tau) with tau = a + b / T. The non-randomness alpha is commonly left at 0.3 and the temperature coefficient b absent, which a source reads as zero."
+implements = "pair_factor_fixture"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.nrtl_fixture.slot_groups.pair]
+doc = "The parameters of one ordered pair."
+subject.i = { type = "material_entity", doc = "The first entity." }
+subject.j = { type = "material_entity", doc = "The second entity." }
+
+[forms.nrtl_fixture.slot_groups.pair.slots]
+a = { type = "Scalar", doc = "Constant term of tau." }
+b = { type = "Temperature", presence = "stateful", doc = "Temperature coefficient of tau; a source may leave it absent." }
+alpha = { type = "Scalar", presence = "stateful", doc = "Non-randomness; a source may leave it at its stated default." }
+
+[forms.nrtl_fixture.outputs]
+G = "exp(-pair.alpha[i, j] * (pair.a[i, j] + pair.b[i, j] / T))"
+
+[forms.pcsaft_binary_fixture]
+doc = "The binary interaction parameter of a PC-SAFT pair, which a record may omit entirely."
+implements = "pair_factor_fixture"
+completeness = "structure_declared_equation_external"
+status = "catalogued"
+
+[forms.pcsaft_binary_fixture.slot_groups.pair]
+doc = "The binary record of an unordered pair: a record with no fields leaves every slot at its stated default."
+subject.i = { type = "material_entity", doc = "The first entity." }
+subject.j = { type = "material_entity", doc = "The second entity." }
+transposition = { rule = "symmetric", roles = ["i", "j"], diagonal = "forbidden" }
+
+[forms.pcsaft_binary_fixture.slot_groups.pair.slots]
+k_ij = { type = "Scalar", presence = "stateful", doc = "Binary interaction parameter." }
+l_ij = { type = "Scalar", presence = "stateful", doc = "Second binary interaction parameter." }
+
+[contracts.site_quantity_fixture]
+doc = "A dimensionless quantity of an association site at a temperature."
+roles.s = { type = "association_site", doc = "The site." }
+arguments.T = { type = "Temperature", observable = "temperature", doc = "Temperature." }
+outputs.y = { type = "Scalar", doc = "The quantity." }
+
+[forms.association_site_fixture]
+doc = "The self-association parameters of one site type. A parameterless site associates by induced association only, so its self-association slots have no meaning."
+implements = "site_quantity_fixture"
+completeness = "structure_declared_equation_external"
+status = "catalogued"
+
+[forms.association_site_fixture.slot_groups.site]
+doc = "The parameters of one site type."
+subject.s = { type = "association_site", doc = "The site." }
+
+[forms.association_site_fixture.slot_groups.site.slots]
+kappa_AB = { type = "Scalar", presence = "stateful", doc = "Association volume." }
+epsilon_AB_over_k = { type = "Temperature", presence = "stateful", doc = "Association energy over the Boltzmann constant." }

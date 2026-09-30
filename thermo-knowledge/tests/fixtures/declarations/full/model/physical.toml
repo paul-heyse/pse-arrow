@@ -11,6 +11,7 @@ members.known = { doc = "A value is asserted; a known zero is known." }
 members.not_applicable = { doc = "The slot has no meaning for this subject." }
 members.redirect = { doc = "The value is that of another parameter set." }
 members.withheld = { doc = "A value exists but rights forbid storing it." }
+members.stated_default = { doc = "The source leaves the slot at its stated default." }
 
 [enums.phase_class]
 doc = "Coarse classification of a phase."

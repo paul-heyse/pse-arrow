@@ -1,0 +1,107 @@
+module = "ternary_forms"
+uses = ["physical", "provenance", "identity", "systems", "conventions", "observables", "parameters"]
+doc = "Forms that show a sub-form chosen per ternary (TK2g, proof fixture 1): the excess Gibbs energy of a ternary subsystem from the binary excess energies of its pairs, by the Kohler or the Toop extrapolation, chosen for each ternary subsystem of a phase (Thermochimica)."
+
+[contracts.binary_excess_fixture]
+doc = "The excess Gibbs energy of the binary of two species at the composition of the first."
+roles.i = { type = "species", doc = "The first species." }
+roles.j = { type = "species", doc = "The second species." }
+arguments.xi = { type = "Fraction", doc = "Mole fraction of the first species in the binary." }
+outputs.g = { type = "MolarEnergy", doc = "Excess Gibbs energy of the binary." }
+
+[forms.redlich_kister_fixture]
+doc = "A binary excess energy with two Redlich-Kister terms: xi (1 - xi) (L0 + L1 (2 xi - 1)). Swapping the species changes the sign of L1."
+implements = "binary_excess_fixture"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.redlich_kister_fixture.slot_groups.pair]
+doc = "The two terms of one pair of species."
+subject.i = { type = "species", doc = "The first species." }
+subject.j = { type = "species", doc = "The second species." }
+transposition = { rule = "linear", roles = ["i", "j"], slots = ["L0", "L1"], matrix = [[1, 0], [0, -1]], diagonal = "forbidden" }
+
+[forms.redlich_kister_fixture.slot_groups.pair.slots]
+L0 = { type = "MolarEnergy", doc = "The regular-solution term." }
+L1 = { type = "MolarEnergy", doc = "The term in the difference of the mole fractions." }
+
+[forms.redlich_kister_fixture.outputs]
+g = "xi * (1 - xi) * (pair.L0[i, j] + pair.L1[i, j] * (2 * xi - 1))"
+
+[contracts.ternary_extrapolation_fixture]
+doc = "The excess Gibbs energy of a ternary subsystem of a phase, from the binaries of its species."
+roles.t = { type = "constituent_array", doc = "The ternary subsystem: the array of its three species, in the order the source asserts." }
+sets.components = { type = "species", doc = "The three species of the array, in its order." }
+arguments.x = { type = "Fraction", over = ["components"], basis = "mole_fraction", doc = "Composition." }
+arguments.first = { type = "Scalar", over = ["components"], doc = "One for the species the array puts first, zero for the others: the species a Toop extrapolation singles out." }
+outputs.gE = { type = "MolarEnergy", doc = "Excess Gibbs energy of the ternary." }
+
+[forms.kohler_fixture]
+doc = "The Kohler extrapolation: every binary is evaluated at its own renormalised composition and weighted by the square of the sum of its mole fractions. Symmetric in the species."
+implements = "ternary_extrapolation_fixture"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.kohler_fixture.subforms.binary]
+doc = "The binary excess energies."
+accepts = "binary_excess_fixture"
+multiplicity = "one"
+per = "model"
+
+[forms.kohler_fixture.outputs]
+gE = """
+sum(
+    (0 * unit('J/mol')) if i == j else
+    (x[i] + x[j]) ** 2 * binary.g(i=i, j=j, xi=x[i] / (x[i] + x[j])) / 2
+    for i in components for j in components
+)
+"""
+
+[forms.toop_fixture]
+doc = "The Toop extrapolation: the species the array puts first is singled out, and its binaries are evaluated at its own composition and the rest, weighted by the mole fraction of the other species over the rest; the binary of the other two is evaluated as in the Kohler extrapolation."
+implements = "ternary_extrapolation_fixture"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.toop_fixture.subforms.binary]
+doc = "The binary excess energies."
+accepts = "binary_excess_fixture"
+multiplicity = "one"
+per = "model"
+
+[forms.toop_fixture.outputs]
+gE = """
+sum(
+    (0 * unit('J/mol')) if s == j else
+    first[s] * x[j] / (1 - x[s]) * binary.g(i=s, j=j, xi=x[s])
+    for s in components for j in components
+)
++ sum(
+    (0 * unit('J/mol')) if i == j else
+    (1 - first[i]) * (1 - first[j]) * (x[i] + x[j]) ** 2 * binary.g(i=i, j=j, xi=x[i] / (x[i] + x[j])) / 2
+    for i in components for j in components
+)
+"""
+
+[contracts.ternary_excess_contract_fixture]
+doc = "The excess Gibbs energy of a ternary subsystem of a phase, whatever extrapolation its subsystem uses."
+roles.t = { type = "constituent_array", doc = "The ternary subsystem: the array of its three species, in the order the source asserts." }
+sets.components = { type = "species", doc = "The three species of the array, in its order." }
+arguments.x = { type = "Fraction", over = ["components"], basis = "mole_fraction", doc = "Composition." }
+arguments.first = { type = "Scalar", over = ["components"], doc = "One for the species the array puts first, zero for the others." }
+outputs.gE = { type = "MolarEnergy", doc = "Excess Gibbs energy of the ternary." }
+
+[forms.ternary_excess_fixture]
+doc = "The excess Gibbs energy of a ternary subsystem, with the extrapolation chosen for each ternary subsystem."
+implements = "ternary_excess_contract_fixture"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.ternary_excess_fixture.subforms.extrapolation]
+doc = "The extrapolation model of this ternary subsystem."
+accepts = "ternary_extrapolation_fixture"
+multiplicity = "one"
+per = "subject"
+
+[forms.ternary_excess_fixture.outputs]
+gE = "extrapolation.gE(t=t, components=components, x=x, first=first)"

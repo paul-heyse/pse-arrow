@@ -57,11 +57,24 @@ class SchemeDecl(Marked, frozen=True, kw_only=True, forbid_unknown_fields=True):
     doc: str
 
 
+class DependentDecl(Construct, frozen=True, kw_only=True, forbid_unknown_fields=True):
+    """A dimension derived from a reaction: the quantity type's own `unit` is the rate per volume
+    of a homogeneous reaction of order zero, and `surface_unit` the rate per area; `concentration`
+    and `surface_concentration` are the units of a participant's concentration in a bulk phase and
+    on a surface. `on` is the kind of the subject the dimension follows."""
+
+    on: str
+    surface_unit: str
+    concentration: str
+    surface_concentration: str
+
+
 class QuantityTypeDecl(Marked, frozen=True, kw_only=True, forbid_unknown_fields=True):
     doc: str
     unit: str
     scale: Literal["absolute", "difference", "ratio", "dimensionless", "count"]
     production: str | None = None
+    dependent: DependentDecl | None = None
 
 
 class AttributeDecl(Marked, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -96,6 +109,7 @@ class CheckDecl(Construct, frozen=True, kw_only=True, forbid_unknown_fields=True
     positive: str | None = None
     nonnegative: str | None = None
     ordered: tuple[str, ...] | None = None
+    ordered_same_reference: tuple[str, ...] | None = None
     one_of_present: tuple[str, ...] | None = None
     present_iff: PresentIffDecl | None = None
     within: WithinDecl | None = None
@@ -190,6 +204,7 @@ class OutputDecl(Marked, frozen=True, kw_only=True, forbid_unknown_fields=True):
     doc: str
     observable: str | None = None
     observable_from_set: bool = False
+    extra_order: int = 0
 
 
 class ContractDecl(Marked, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -213,6 +228,7 @@ class SlotDecl(Marked, frozen=True, kw_only=True, forbid_unknown_fields=True):
     references: str | None = None
     presence: Literal["required", "stateful"] = "required"
     observable: str | None = None
+    extra_order: int = 0
 
 
 class IndexDecl(Marked, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -294,6 +310,7 @@ class FormDecl(Marked, frozen=True, kw_only=True, forbid_unknown_fields=True):
     outputs: dict[str, str] = {}
     output_observables: dict[str, str] = {}
     conventions: tuple[str, ...] = ()
+    component_conventions: dict[str, str] = {}
     implicit: dict[str, ImplicitDecl] = {}
 
 

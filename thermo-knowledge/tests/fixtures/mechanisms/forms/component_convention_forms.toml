@@ -1,0 +1,48 @@
+module = "component_convention_forms"
+uses = ["physical", "provenance", "identity", "systems", "conventions", "observables", "parameters"]
+doc = "Forms that read a convention fact per component (TK2g, proof fixture 4): the gas constant of a multifluid mixture as the mole-fraction average of the gas constants of its components (teqp), whose pure-fluid parameterisations were built with different editions of the constant; and, beside it, a form that reads the fact of the parameterisation and so refuses components whose conventions differ."
+
+[contracts.mixture_gas_constant_fixture]
+doc = "The gas constant a mixture's equations use."
+sets.components = { type = "species", doc = "The components of the mixture." }
+arguments.x = { type = "Fraction", over = ["components"], basis = "mole_fraction", doc = "Composition." }
+outputs.R = { type = "GasConstant", doc = "The gas constant of the mixture." }
+outputs.RT = { type = "MolarEnergy", doc = "The mole-fraction average of each component's gas constant times its critical temperature." }
+
+[forms.averaged_gas_constant_fixture]
+doc = "R = sum x_i R_i: each component's gas constant is that of the parameterisation that supplied its pure-fluid set."
+implements = "mixture_gas_constant_fixture"
+completeness = "fully_declared"
+status = "expressed"
+component_conventions = { gas_constant = "pure" }
+
+[forms.averaged_gas_constant_fixture.slot_groups.pure]
+doc = "The pure-fluid parameters of one component."
+subject.i = { type = "species", doc = "The component." }
+bind = { i = "components" }
+
+[forms.averaged_gas_constant_fixture.slot_groups.pure.slots]
+T_c = { type = "Temperature", doc = "Critical temperature." }
+
+[forms.averaged_gas_constant_fixture.outputs]
+R = "sum(x[i] * convention.gas_constant[i] for i in components)"
+RT = "sum(x[i] * convention.gas_constant[i] * pure.T_c[i] for i in components)"
+
+[forms.single_gas_constant_fixture]
+doc = "The gas constant of the one parameterisation the mixture's sets come from."
+implements = "mixture_gas_constant_fixture"
+completeness = "fully_declared"
+status = "expressed"
+conventions = ["gas_constant"]
+
+[forms.single_gas_constant_fixture.slot_groups.pure]
+doc = "The pure-fluid parameters of one component."
+subject.i = { type = "species", doc = "The component." }
+bind = { i = "components" }
+
+[forms.single_gas_constant_fixture.slot_groups.pure.slots]
+T_c = { type = "Temperature", doc = "Critical temperature." }
+
+[forms.single_gas_constant_fixture.outputs]
+R = "sum(x[i] * convention.gas_constant for i in components)"
+RT = "sum(x[i] * convention.gas_constant * pure.T_c[i] for i in components)"

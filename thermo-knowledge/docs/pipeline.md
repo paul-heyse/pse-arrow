@@ -740,6 +740,11 @@ inset = 0.0                                 #   optional: a fraction of the rang
 kind = "fitted_range"
 outside = "compare"                         #   `compare` the points outside them anyway, or `exclude` them
 
+[pieces]                                    # optional: how a piece lookup reads the stored pieces
+boundary = "upper_piece"                    #   a boundary point belongs to the piece above ([low, high)) or
+                                            #   to the piece below ("lower_piece": (low, high])
+outside = "refuse"                          #   a point beyond the pieces is refused, or given to the "nearest" piece
+
 [comparison]
 relative_tolerance = 1e-12
 absolute_tolerance = { value = 1.0, unit = "Pa" }   # optional; needs an output that denotes an observable
@@ -785,6 +790,15 @@ parameterization = { key = "k", revision = "r" }
   and the comparison, and reports their count in the run's note. A subject the form is refused for has
   no classification. Nothing is refused because a point is outside: lying outside a region is not
   permission to extrapolate, and the case, not the evaluator, decides what to do about it.
+- **Pieces.** The pieces of a family are stored as half-open intervals and stay so: what an evaluation does
+  at and beyond their boundaries is a policy of the case, because the libraries read them differently and
+  the case compares with one of them. `boundary` says which side a point at a boundary between two pieces
+  belongs to (`upper_piece`, the default, is `[low, high)`; `lower_piece` is `(low, high]`; the outermost
+  bounds belong to the outermost pieces either way), and `outside` says what a point beyond the pieces
+  does: `refuse` (the default) refuses the evaluation, `nearest` gives it to the nearest piece (a point in
+  a gap between pieces goes to the nearer, the middle of the gap to the side the boundary rule names). It
+  applies to every piece lookup of the form and of the forms it calls, and is part of the case file, so it
+  is part of the case's reuse key. The stored data never changes.
 - **A point agrees** when its relative deviation from the library, `|form - library| / |library|`, is
   within `relative_tolerance`, or its absolute deviation within `absolute_tolerance` when one is
   given; a form value that is not finite never agrees. A point the library answers with NaN or an
@@ -881,7 +895,9 @@ for a slot group and subjects answers.
   to be stated by each of them and equal across them; otherwise it refuses, naming the fact, the two
   parameterizations and the two values, or, for a parameterization with no convention set or whose set
   lacks the fact, the parameterization and the fact. A parameterization that supplied no set is not
-  compared.
+  compared. A fact a form declares per component (`component_conventions`) is read for each component from the
+  parameterization that supplied the component's set, is required of each, and is not compared
+  between components.
 - **Validity.** `ParameterSource.validity(kind, reads)` gives, for each set read (and for the
   parameterization each belongs to), the coverage row of that record for regions of `kind` and its
   regions with their clauses (observable, component, aggregation, bounds in storage units); a record

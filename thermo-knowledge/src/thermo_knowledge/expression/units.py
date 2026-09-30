@@ -29,12 +29,28 @@ def from_info(info: UnitInfo) -> Dim:
     return UnitsContainer({f"[{name}]": exponent for name, exponent in info.dimensions})
 
 
-def type_dimension(decl: Declaration, type_: TypeRef) -> Dim | None:
+def dependent_dimension(decl: Declaration, type_name: str, extra_order: int = 0) -> Dim:
+    """The dimension a declaration states for a dependent quantity type: one opaque symbol
+    `[<TypeName>]`, stated once per type, times the dimension of a bulk concentration to the power
+    minus the extra order. The concrete dimension follows the reaction and is checked per set
+    when it is written; an expression sees the symbol, which closes under multiplication with the
+    other quantities of the expression and only with a value of the same type and extra order."""
+    quantity = decl.quantity_types[type_name]
+    assert quantity.dependent is not None
+    symbol = UnitsContainer({f"[{type_name}]": 1})
+    concentration = from_info(decl.units[quantity.dependent.concentration])
+    return symbol * concentration ** (-extra_order)
+
+
+def type_dimension(decl: Declaration, type_: TypeRef, extra_order: int = 0) -> Dim | None:
     """The dimension of values of a quantity type or quantity expression; `None` for any other
-    type (an enum, a reference, a primitive), which has none."""
+    type (an enum, a reference, a primitive), which has none. `extra_order` is the extra
+    concentration power of a field of a dependent quantity type."""
     if type_.container != "scalar":
         return None
     if type_.element_kind == "quantity":
+        if decl.quantity_types[type_.element].dependent is not None:
+            return dependent_dimension(decl, type_.element, extra_order)
         return from_info(decl.units[decl.quantity_types[type_.element].unit])
     if type_.element_kind == "expression":
         return from_info(decl.units[decl.expressions[type_.element]])

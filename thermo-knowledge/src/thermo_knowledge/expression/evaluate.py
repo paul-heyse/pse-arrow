@@ -33,6 +33,7 @@ import hashlib
 import itertools
 from collections.abc import Callable, Hashable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
+from typing import Literal
 
 import numpy as np
 import scipy.integrate
@@ -192,12 +193,33 @@ class _Frame:
     """The implicit blocks of this form and, substituted, of the sub-forms it called."""
 
 
+@dataclass(frozen=True)
+class PiecePolicy:
+    """What a piece lookup, `at(family(i), z)`, does at and beyond the boundaries of the pieces.
+
+    The stored pieces are half-open intervals whichever end is closed; this is how an evaluation
+    reads them, a policy of the caller (a qualification case) and never a property of the data.
+
+    `boundary` says which side a point at a boundary between two pieces belongs to: the piece
+    above (`upper_piece`, the intervals are `[low, high)`) or the piece below (`lower_piece`,
+    `(low, high]`). The outermost bounds belong to the outermost pieces in either case.
+    `outside` says what a point beyond the pieces does: is refused (`refuse`), or is given to the
+    nearest piece (`nearest`), a point in a gap between two pieces going to the nearer of them and
+    one halfway to the boundary rule's side."""
+
+    boundary: Literal["upper_piece", "lower_piece"] = "upper_piece"
+    outside: Literal["refuse", "nearest"] = "refuse"
+
+
 class _Machine:
     """Expands forms to SymPy; one per bound form, shared by the frames of its sub-forms."""
 
-    def __init__(self, decl: m.Declaration, cache: CompileCache) -> None:
+    def __init__(
+        self, decl: m.Declaration, cache: CompileCache, pieces: PiecePolicy | None = None
+    ) -> None:
         self.decl = decl
         self.cache = cache
+        self.pieces = pieces or PiecePolicy()
         self.counter = itertools.count(1)
         self.functions: dict[str, Callable[..., np.ndarray]] = {"_Debye": _debye_numeric}
         self.parameters: dict[Hashable, sympy.Symbol] = {}
@@ -209,6 +231,11 @@ class _Machine:
         asked for, in reading order."""
         self.conventions: dict[str, dict[int, ParameterSource]] = {}
         """For each convention fact the expansion reads, the sources of the frames that read it."""
+        self.component_conventions: dict[
+            tuple[str, Subject], tuple[ParameterSource, m.SlotGroup]
+        ] = {}
+        """For each convention fact read per component and each component, the source of the frame
+        that read it and the slot group whose set for the component names the parameterization."""
         self.values: dict[sympy.Symbol, float] = {}
         """The number each parameter symbol stands for, in storage units, as bound."""
         self.numbers: dict[sympy.Basic, sympy.Basic] = {}
@@ -247,6 +274,34 @@ class _Machine:
             self.parameters[key] = symbol
         return symbol
 
+    def component_convention(
+        self, frame: _Frame, fact: m.FormConvention, subject: Subject
+    ) -> sympy.Symbol:
+        """The symbol for the convention fact `fact` of the component `subject`: the fact of the
+        parameterization that supplied the set of the fact's slot group for that component. The set
+        is read here, so that it is one this evaluation draws on and a missing one is refused; the
+        value is set when the expansion is finished. A fact read per component is never compared
+        between components: each has its own."""
+        group = next(g for g in frame.scope.form.slot_groups if g.qualified == fact.group)
+        source = frame.source
+        self.held(
+            frame,
+            group,
+            (subject,),
+            lambda candidate: source.slot_values(group.qualified, candidate),
+            "parameter set",
+            lambda: source.default_slot_values(group.qualified, (subject,)),
+        )
+        self.component_conventions[(fact.name, subject)] = (source, group)
+        key = ("convention", fact.name, subject)
+        symbol = self.parameters.get(key)
+        if symbol is None:
+            symbol = sympy.Symbol(
+                f"param:convention.{fact.name}[{subject}]#{len(self.parameters) + 1}", real=True
+            )
+            self.parameters[key] = symbol
+        return symbol
+
     def resolve_conventions(self) -> None:
         """Give each convention fact the expansion reads its value, from the parameterizations
         that supplied the sets it read. Every source states the fact; two parameterizations that
@@ -273,6 +328,16 @@ class _Machine:
             assert first.value is not None
             self.values[symbol] = first.value
             self.numbers[symbol] = _float(first.value)
+        for (name, subject), (source, group) in self.component_conventions.items():
+            (fact,) = source.convention_facts(name, ((group.qualified, (subject,)),))
+            if fact.value is None:
+                raise EvaluationRefusal(
+                    f"parameterization `{fact.parameterization}` {fact.absent}: a form reads "
+                    f"the convention fact `{name}` of component ({subject})"
+                )
+            symbol = self.parameters[("convention", name, subject)]
+            self.values[symbol] = fact.value
+            self.numbers[symbol] = _float(fact.value)
 
     def decide(self, frame: _Frame, condition: Value) -> bool | sympy.Basic:
         """`condition` as a truth value when it is one: already, or because it depends on
@@ -713,6 +778,21 @@ class _Machine:
                     f"form `{scope.form.name}` does not declare the convention fact `{node.attr}`"
                 )
             return self.convention(frame, node.attr)
+        if (
+            isinstance(node, t.Subscript)
+            and isinstance(node.base, t.Attribute)
+            and isinstance(node.base.value, t.Name)
+            and node.base.value.id == m.CONVENTION_NAME
+            and m.CONVENTION_NAME not in env
+        ):
+            fact = scope.conventions.get(node.base.attr)
+            if fact is None or fact.over is None:
+                raise EvaluationRefusal(
+                    f"form `{scope.form.name}` does not declare the convention fact "
+                    f"`{node.base.attr}` per component"
+                )
+            (subject,) = self.subjects(frame, node.indices, env)
+            return self.component_convention(frame, fact, subject)
         if isinstance(node, t.Subscript) and isinstance(node.base, t.Name):
             base = node.base.id
             key = self.subjects(frame, node.indices, env)
@@ -1138,23 +1218,52 @@ class _Machine:
                     f"({', '.join(subjects)}) overlap"
                 )
         z = _expr(self.ev(frame, node.value, env))
-        branches: list[tuple[sympy.Expr, sympy.Basic]] = []
-        for position, (low, high, index) in enumerate(pieces):
-            closed = position == len(pieces) - 1
+        label = f"{ref.group.qualified}.{ref.family.name}"
+        low_symbols: list[sympy.Symbol] = []
+        high_symbols: list[sympy.Symbol] = []
+        for low, high, index in pieces:
             where = ("row", ref.group.qualified, ref.family.name, subjects, (index,))
-            label = f"{ref.group.qualified}.{ref.family.name}"
-            low_symbol = self.parameter(frame, (*where, lower, False), f"{label}.{lower}", low)
-            high_symbol = self.parameter(frame, (*where, upper, False), f"{label}.{upper}", high)
-            inside = sympy.And(z >= low_symbol, z <= high_symbol if closed else z < high_symbol)
-            branches.append((sympy.Integer(index), inside))
-        anywhere = sympy.Or(*(condition for _, condition in branches)) if branches else sympy.false
-        frame.guards.append(
-            (
-                f"{self.describe(z)} is outside every piece of family `{ref.group.qualified}.{ref.family.name}` "
-                f"for subject ({', '.join(subjects)})",
-                sympy.Or(sympy.Not(frame.path), anywhere),
+            low_symbols.append(self.parameter(frame, (*where, lower, False), f"{label}.{lower}", low))
+            high_symbols.append(
+                self.parameter(frame, (*where, upper, False), f"{label}.{upper}", high)
             )
-        )
+        policy = self.pieces
+        nearest = policy.outside == "nearest"
+        above = policy.boundary == "upper_piece"  # a boundary point belongs to the piece above
+        cuts: list[sympy.Expr] = []
+        if nearest:
+            # the point at which the pieces k and k + 1 hand over: their common boundary, or the
+            # middle of the gap between them (decided from the stored values, here)
+            for k in range(len(pieces) - 1):
+                if pieces[k][1] == pieces[k + 1][0]:
+                    cuts.append(high_symbols[k])
+                else:
+                    cuts.append((high_symbols[k] + low_symbols[k + 1]) / 2)
+        branches: list[tuple[sympy.Expr, sympy.Basic]] = []
+        last = len(pieces) - 1
+        for position, (_, _, index) in enumerate(pieces):
+            if nearest:
+                start = cuts[position - 1] if position > 0 else None
+                stop = cuts[position] if position < last else None
+            else:
+                start, stop = low_symbols[position], high_symbols[position]
+            conditions: list[sympy.Basic] = []
+            if start is not None:
+                first_closed = above or position == 0
+                conditions.append(z >= start if first_closed else z > start)
+            if stop is not None:
+                last_closed = (not above) or position == last
+                conditions.append(z <= stop if last_closed else z < stop)
+            branches.append((sympy.Integer(index), sympy.And(*conditions)))
+        if not nearest:
+            anywhere = sympy.Or(*(condition for _, condition in branches)) if branches else sympy.false
+            frame.guards.append(
+                (
+                    f"{self.describe(z)} is outside every piece of family `{label}` "
+                    f"for subject ({', '.join(subjects)})",
+                    sympy.Or(sympy.Not(frame.path), anywhere),
+                )
+            )
         return _normal(sympy.Piecewise(*branches, (sympy.nan, True)))
 
     def integral(self, frame: _Frame, node: t.Integral, env: dict[str, Value]) -> Value:
@@ -1244,11 +1353,12 @@ class BoundForm:
         roles: Mapping[str, Subject],
         sets: Mapping[str, Sequence[Subject]],
         cache: CompileCache,
+        pieces: PiecePolicy | None = None,
     ) -> None:
         self.decl = decl
         self.form = form
         self.cache = cache
-        self.machine = _Machine(decl, cache)
+        self.machine = _Machine(decl, cache, pieces)
         scope = FormScope.of(decl, form)
         self.scope = scope
         if set(roles) != set(scope.roles):
@@ -1380,12 +1490,20 @@ class BoundForm:
         self,
         output: str,
         kind: str,
+        *,
+        references: Mapping[str, float] | None = None,
         **arguments: float | np.ndarray,
     ) -> np.ndarray:
         """Where each point lies with respect to the validity regions of `kind` (an
         `envelope_kind` member) of the records `output` reads, as an array of `Membership` codes
         broadcast over the argument values: inside, outside, undetermined, or no region of that
         kind stated (`expression/validity.py`).
+
+        A bound stated as an offset from another observable of the subject is decided only when
+        this evaluation has a value of that observable: `references` (observable name to value)
+        gives one, and otherwise the value of a slot that denotes the observable in a set the
+        evaluation read is used when the sets read agree on it. Without a value the clause, and so
+        the region, is undetermined.
 
         A clause is decided by the argument of the contract that names its observable (an
         argument declares `observable`); a clause about a component or an aggregation, or on an
@@ -1424,7 +1542,26 @@ class BoundForm:
             reads = tuple(self.machine.reads.get(key, ()))
             if reads:
                 records.extend(source.validity(kind, reads))
-        return membership(records, observed, shape)
+        known = self._read_observables()
+        known.update({name: np.asarray(value, dtype=float) for name, value in (references or {}).items()})
+        return membership(records, observed, shape, known)
+
+    def _read_observables(self) -> dict[str, np.ndarray]:
+        """The value of each observable that a slot of a set this evaluation read denotes, where the
+        sets read give it one value (several subjects with different values give none)."""
+        groups = {group.qualified: group for group in self.decl.slot_groups}
+        found: dict[str, set[float]] = {}
+        for key, source in self.machine.sources.items():
+            for group_name, subjects in self.machine.reads.get(key, ()):
+                group = groups[group_name]
+                values = source.slot_values(group_name, subjects)
+                if values is None:
+                    continue
+                for slot in group.slots:
+                    value = values.get(slot.name)
+                    if slot.observable is not None and value is not None:
+                        found.setdefault(slot.observable, set()).add(float(value))
+        return {name: np.asarray(next(iter(held))) for name, held in found.items() if len(held) == 1}
 
     def _guard(self, condition: sympy.Basic) -> _Guard:
         symbols = tuple(sorted(condition.free_symbols, key=str))
@@ -1475,11 +1612,14 @@ def bind(
     roles: Mapping[str, Subject] | None = None,
     sets: Mapping[str, Sequence[Subject]] | None = None,
     cache: CompileCache | None = None,
+    pieces: PiecePolicy | None = None,
 ) -> BoundForm:
     """Bind form `form` of `decl` to the subject of each role and the ordered members of each set
     of its contract, and to a parameter source. Bindings given one `cache` share what they
-    compile; without one, the binding has a cache of its own."""
+    compile; without one, the binding has a cache of its own. `pieces` says what a piece lookup
+    does at and beyond the boundaries of the pieces (`PiecePolicy`); by default a boundary point
+    belongs to the piece above and a point beyond the pieces is refused."""
     chosen = decl.forms.get(form)
     if chosen is None:
         raise EvaluationRefusal(f"`{form}` is not a declared form")
-    return BoundForm(decl, chosen, source, roles or {}, sets or {}, cache or CompileCache())
+    return BoundForm(decl, chosen, source, roles or {}, sets or {}, cache or CompileCache(), pieces)

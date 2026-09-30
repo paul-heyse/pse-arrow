@@ -64,6 +64,7 @@ class Code(StrEnum):
     BAD_OUTPUT_OBSERVABLE = "bad-output-observable"
     OBSERVABLE_DIMENSION = "observable-dimension"
     BAD_CONVENTION = "bad-convention"
+    BAD_DEPENDENT = "bad-dependent"
     # Expressions (expressions.md section 4).
     EXPRESSION_SYNTAX = "expression-syntax"
     EXPRESSION_GRAMMAR = "expression-grammar"

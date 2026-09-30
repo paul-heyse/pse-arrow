@@ -13,6 +13,12 @@ doc = "IUPAC standard InChIKey. Opaque."
 
 # ---------------------------------------------------------------- vocabularies
 
+[enums.concentration_domain]
+doc = "Where the amount of a species is counted, which fixes the unit of its concentration."
+facets.per_area = { doc = "The amount is counted per unit area of a surface, not per unit volume." }
+members.bulk = { doc = "In a bulk phase: amount per volume." }
+members.surface = { doc = "On a surface: amount per area.", facets = ["per_area"] }
+
 [kinds.aggregation]
 doc = "A state of aggregation. `aqueous` is deliberately not one: it is a liquid with a solvent convention."
 identity = ["name"]
@@ -20,6 +26,7 @@ provenance = "declaration"
 
 [kinds.aggregation.attributes]
 name = { type = "Text", doc = "Name of the state." }
+concentration_domain = { type = "concentration_domain", default = "bulk", doc = "Where a species in this state is counted: in a bulk phase, or on a surface. A rate constant's dimension reads it through the facet `per_area`." }
 
 [entities.aggregation.gas]
 doc = "Gas or vapour."
@@ -38,6 +45,10 @@ doc = "Amorphous solid or glass."
 
 [entities.aggregation.adsorbed]
 doc = "Adsorbed on or bound to a surface or host."
+
+[entities.aggregation.surface]
+doc = "A species of a surface phase of a reaction mechanism, counted per unit area of the surface."
+concentration_domain = "surface"
 
 [kinds.naming_scheme]
 doc = "A system of names or registry identifiers that sources use to refer to material: a registry, a structure notation, or a source's own labels."

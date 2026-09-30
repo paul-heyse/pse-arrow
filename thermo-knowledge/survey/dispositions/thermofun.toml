@@ -26,7 +26,7 @@ reason = "enum:uncertainty_kind has the member unspecified, with no facet, so a 
 construct = "TPMethods entry"
 disposition = "held_by_model"
 ref = "relation:entity_model"
-reason = "The list is an entity_model assembly of the species form whose sub-form slots (general equation of state, temperature correction, pressure correction, solvent) are filled through the code-to-slot table that mapping.toml declares (alignment-notes #16), with temperature limits as validity regions. The rule that a later entry replaces an earlier one in the same slot is a selection fact, and the {code: name} pairs are read by code."
+reason = "The list is an entity_model assembly of the species form whose sub-form slots (general equation of state, temperature correction, pressure correction, solvent) are filled through the code-to-slot table that mapping.toml declares, with temperature limits as validity regions. The rule that a later entry replaces an earlier one in the same slot is a selection fact, and the {code: name} pairs are read by code."
 
 [[disposition]]
 construct = "method code vocabularies"

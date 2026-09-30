@@ -129,6 +129,19 @@ def ddl_violation(requirement: m.Requirement, row: Row) -> str | None:
         if lower is not None and upper is not None and lower > upper:  # type: ignore[operator]
             return f"`{requirement.name}`: {requirement.attributes[0]} exceeds {requirement.attributes[1]}"
         return None
+    if rule == "ordered_same_reference":
+        lower, upper, lower_reference, upper_reference = values
+        if (
+            lower is not None
+            and upper is not None
+            and lower_reference == upper_reference
+            and lower > upper  # type: ignore[operator]
+        ):
+            return (
+                f"`{requirement.name}`: {requirement.attributes[0]} exceeds "
+                f"{requirement.attributes[1]} and both are stated against the same reference"
+            )
+        return None
     if rule == "present_iff":
         value, state = values
         column, when = requirement.attributes

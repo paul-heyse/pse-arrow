@@ -132,11 +132,17 @@ def residual_hash(text: str) -> str:
 def evaluation_hash(form: m.Form, output: str) -> str:
     """The hex SHA-256 of what evaluating `output` of `form` reads from the form's text: its
     locals, the expression of `output` and its implicit blocks (residuals, selection rule and
-    unknowns with their bounds), each expression in canonical serialisation. Editing any of them
+    unknowns with their bounds), each expression in canonical serialisation, and the slot group
+    that names the convention set of each component for a fact read per component. Editing any of them
     changes it; the forms chosen for sub-form slots are other forms, with hashes of their own."""
     parts: list[object] = [["local", e.name, serialise(parse(e.text))] for e in form.locals]
     parts += [
         ["output", e.name, serialise(parse(e.text))] for e in form.outputs if e.name == output
+    ]
+    parts += [
+        ["component_convention", c.name, c.group, c.over]
+        for c in form.conventions
+        if c.group is not None
     ]
     for block in form.implicit:
         parts.append(

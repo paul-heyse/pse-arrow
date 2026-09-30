@@ -68,7 +68,7 @@ reason = "Each backward equation is a form with an auxiliary_of row of kind appr
 construct = "ice Ih Gibbs potential (R10-06(2009))"
 disposition = "held_by_model"
 ref = "mechanism:form catalogue"
-reason = "The complex constants t1, r1, t2 and r20 to r22 are stored as real and imaginary Scalar slots and the form's expression carries the complex arithmetic and the principal logarithm in real terms, and the two s0 alternatives are two parameterisations, each with its own convention set, that share the other coefficients."
+reason = "The complex constants t1, r1, t2 and r20 to r22 are stored as real and imaginary slots (Scalar for t, SpecificEntropy for r) of the terms of a family, and the form's expression carries the complex arithmetic in real terms with the principal logarithm taken by a sub-form (the grammar has an arctangent but no two-argument one), which a fixture compares with cmath, and the two s0 alternatives are two parameterisations, each with its own convention set, that share the other coefficients."
 
 [[disposition]]
 construct = "melting and sublimation curve equations (R14-08(2011))"

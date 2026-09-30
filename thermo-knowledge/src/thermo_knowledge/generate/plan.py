@@ -226,6 +226,11 @@ def _requirement_constraint(table_name: str, requirement: m.Requirement) -> ir.C
         expression = f"{attrs[0]} >= 0"
     elif rule == "ordered":
         expression = f"{attrs[0]} <= {attrs[1]}"
+    elif rule == "ordered_same_reference":
+        expression = (
+            f"{attrs[0]} IS NULL OR {attrs[1]} IS NULL OR {attrs[2]} IS DISTINCT FROM {attrs[3]} "
+            f"OR {attrs[0]} <= {attrs[1]}"
+        )
     elif rule == "present_iff":
         members = ", ".join(literal(member) for member in requirement.members)
         expression = f"({attrs[0]} IS NOT NULL) = ({attrs[1]}::text IN ({members}))"

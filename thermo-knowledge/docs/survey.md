@@ -195,7 +195,7 @@ writes it:
 [[disposition]]
 construct = "binary pair record (mixture_binary_pairs.json)"
 disposition = "model_change"        # model_change | mapping_loss | out_of_scope | held_by_model
-ref = "alignment-notes #5"          # what holds it, or what schedules the change
+ref = "alignment-notes #4"          # what holds it, or what schedules the change
 reason = "One sentence: what is kept, what is lost or assumed, or why it is out of scope."
 ```
 

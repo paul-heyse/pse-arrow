@@ -100,7 +100,8 @@ A rule that depends on a property of members reads the facet, never the member's
 checks of `origin_role` select the roles with `requires_derivation` and `requires_fit` from `meta`, so
 giving a new member a facet puts it under the rule with no other edit. The enums that carry facets
 are `origin_role`, `uncertainty_kind` (`relative`, `factor`, `unquantified`), `value_presentation`,
-`conserved_kind` (`names_element`) and `enthalpy_datum` and `entropy_datum` (`stated_value`).
+`conserved_kind` (`names_element`), `enthalpy_datum` and `entropy_datum` (`stated_value`) and `value_state`
+(`policy_supplied`, `may_be_policy_default`).
 
 Scientific vocabularies that grow with the science (observables, aggregations, group schemes) are
 **kinds with declared entities**, not enums.
@@ -131,6 +132,53 @@ declares no unit table of its own. A storage unit must be a coherent SI unit pro
 to base units is exactly 1), so stored numbers never carry a hidden scale. A quantity expression
 resolves by unit algebra over the storage units; two types with equal dimensions remain
 different types. `meta` records each type's unit and dimensionality.
+
+**Dependent quantity types.** A type may have a dimension that follows a subject instead of a fixed
+unit. The rate constant of a reaction is the example:
+
+```toml
+[quantity_types.RateConstant]
+unit = "mol/(m^3*s)"               # the rate of a homogeneous reaction of order zero
+scale = "difference"
+dependent = { on = "reaction", surface_unit = "mol/(m^2*s)", concentration = "mol/m^3", surface_concentration = "mol/m^2" }
+```
+
+The dimension of a slot or a contract output of this type is the rate unit, `unit` per volume or
+`surface_unit` per area when any participant of the subject reaction is on a surface, divided by the
+concentration of each species to its forward order (`concentration` in a bulk phase,
+`surface_concentration` on a surface) and by one more bulk concentration for each **extra order**
+the slot or output declares (`extra_order = 1` on the low-pressure limit of a falloff rate or on a
+third-body rate). A species' forward order is the stated `reaction_order` of (reaction, species
+form) where one is stated (any real number, a non-reactant included), else its stoichiometric
+coefficient when it is a reactant, else zero. A species is on a surface when its aggregation's
+`concentration_domain` has the facet `per_area`.
+
+- `on` names the kind of the subject. A slot of the type needs exactly one subject role of that kind in
+  its slot group (or a contract output exactly one role), and only a slot or a contract output may
+  have the type: not an attribute, a relation column, an argument, an unknown, a range, an array
+  or a unit of a quantity expression. `extra_order` applies to a field of such a type and is a whole
+  number from zero. The per-area units must have one more length dimension than their per-volume
+  units. Enforced at load (`bad-dependent`).
+- Storage stays coherent SI: any integer or rational power of coherent SI units is coherent, so the
+  column is a plain finite double in the domain of the type. `unit` is the unit of the order-zero
+  homogeneous reaction and is what `meta.quantity_type.unit` records; `meta` also records the rule
+  (`depends_on` and the three other units), `meta.slot.extra_order` and
+  `meta.contract_output.extra_order`.
+- A declaration checks expressions with the dimension as one opaque symbol `[<TypeName>]` times a
+  bulk concentration to the power minus the extra order. `A * (T / unit('K'))**b * exp(-Ea / (R*T))`
+  closes for a slot `A`; a Lindemann expression `k_inf * Pr / (1 + Pr)` with
+  `Pr = k_0 * M / k_inf` closes for a `k_0` with `extra_order = 1` and an argument `M` of
+  `MolarDensity`. The concrete dimension is not in the symbol: it is checked per set.
+- **The concrete unit is checked when a set is written** (enforcement point `load`, in the canonical
+  writer). A set of a slot group with a dependent slot is written after the reaction's
+  `reaction_participant` rows and its `reaction_order` rows; the writer derives the unit for that
+  reaction, converts the stated value to it and refuses a value of another dimension, a bare number
+  (the unit is not dimensionless) and a reaction with no participant written. The phase of a
+  participant is read from the `species_form` the writer wrote or, for a mapping run, from the
+  aggregation of each species form resolution wrote (`form_aggregations`). An uncertainty whose
+  `unit_from` is a dependent slot has no unit the writer can take, and is refused.
+- An observable of a dependent type, named by an output, has extra order zero (the observable names
+  the type, not the power).
 
 ### 3.4 Kind
 
@@ -164,7 +212,9 @@ Rules:
 - Every invariant names its enforcement point (DP-03). `ddl` means a constraint the generator
   emits from a declared `check`, a table with exactly one key from a small closed set:
   `check = { nonempty = "a" }`, `{ positive = "a" }`, `{ nonnegative = "a" }`,
-  `{ ordered = ["a", "b"] }` (a <= b), `{ one_of_present = ["a", "b"] }` (exactly one is
+  `{ ordered = ["a", "b"] }` (a <= b), `{ ordered_same_reference = ["a", "b", "ra", "rb"] }` (a <= b
+  unless both are present and their references `ra` and `rb`, columns of one kind, differ: two bounds
+  stated as offsets from different observables are not comparable), `{ one_of_present = ["a", "b"] }` (exactly one is
   non-null), `{ present_iff = { column = "value", when = "state", in = ["known"] } }` (the column is
   non-null exactly when the enum column `when` holds one of the listed members; a null `when`
   satisfies the check) and `{ within = { column = "c", lower = -1, upper = 1 } }` (a closed numeric
@@ -274,6 +324,9 @@ a vector passed by name has the basis of the callee's argument, or the callee's 
 a comprehension passed to an argument that names a basis is written `basis('<name>', [ ... ])`, by
 which the form's author asserts the basis of the vector it builds (`expressions.md` section 3).
 
+An output of a dependent quantity type (section 3.3) may state `extra_order`, and needs a contract
+role of the kind the type depends on.
+
 A form implementing a contract with such an output declares, for each of them and for no other
 output, the slot that supplies its observable. The slot is a required slot of a slot group (not
 of a family) whose type is the kind bound to the framework role `observable`; the parameter set
@@ -317,7 +370,10 @@ A **slot** has a type (section 2) and a `presence` policy:
 | `presence` | Meaning | Projection |
 |---|---|---|
 | `required` (default) | a known value is always present | `NOT NULL` column |
-| `stateful` | the value may be `not_applicable`, `redirect` or `withheld` | nullable value column, a `value_state` column, a redirect reference, and a check tying them together |
+| `stateful` | the value may be `not_applicable`, `redirect`, `withheld` or `stated_default` | nullable value column, a `value_state` column, a redirect reference, and a check tying them together |
+
+A slot of a dependent quantity type may declare `extra_order` (section 3.3): the concentration powers its
+dimension has beyond the rate of the subject reaction.
 
 A slot may name the `observable` it denotes (for example a critical temperature slot), which lets
 a snapshot fill it from evaluated data. Uncertainty is never a slot; it is recorded in the
@@ -380,6 +436,18 @@ constant it was built with. `meta.form_convention` reifies the declaration. The 
 `parameterization_has_conventions` requires every parameterization that holds a parameter set of such
 a form to have a convention set that states each declared fact, and an evaluation refuses
 parameterizations whose facts differ (`pipeline.md` section 5.3).
+
+**A fact read per component.** A multifluid mixture's gas constant is the mole-fraction average of the gas
+constants of its components, whose pure-fluid parameterisations may have been built with different editions
+of the constant. A form declares such a fact in `component_conventions = { gas_constant = "pure" }` instead of
+in `conventions`: the value names the slot group of the form, with one subject role bound to a contract
+set, whose set for a component says which parameterisation's convention set the component's fact is taken
+from. The expression reads it as `convention.gas_constant[i]` for `i` in that set, and it is allowed to differ
+between components; a fact in `conventions` still refuses parameterisations that differ, so a difference is
+allowed only where a form declares that it reads the fact per component. A fact is declared one way or the
+other, not both (`meta.form_convention` records the group and the set of a fact read per component). The
+parameterisation of every component is one the evaluation draws the component's set from, and a
+parameterisation that states no such fact is refused, naming the component.
 
 ### 4.3 Transposition
 
@@ -464,6 +532,14 @@ its `source_parameterization`. The chosen form implements the contract the slot 
 ordinals are contiguous from one; both are verify checks written from `meta`. The database-backed
 parameter source takes a slot's choices from the relation when the qualification case states none.
 
+The model assembly of a substance is held per species form: `entity_model`, keyed by (parameterisation, entity),
+names the `model_assembly` of the entity under the parameterisation, so two species of one parameterisation have
+different assemblies. A ThermoFun-like aqueous species has one whose root form has sub-form slots for a general
+equation of state, a temperature correction and a pressure correction, and the solvent density and permittivity an
+equation of state needs are sub-form slots of that equation of state; the assembly's `assembly_choice` rows name the
+form of each slot by its `path` of slot names from the root (`eos`, `eos/epsilon`). Which method code of a source
+fills which slot is mapping knowledge (`mapping.toml`), not model: the declaration knows no method code.
+
 ### 4.5 Expressions
 
 The mathematics of a form (contract roles and sets, locals, output expressions and implicit
@@ -517,9 +593,17 @@ them as stated:
   range) of a **record**: a parameter set, a parameterization or a model assembly. Regions of one kind on
   one record are numbered from one and are **alternatives**; the validity of the record is their union.
 - `region_clause` is one condition of a region: an interval of an observable (`lower` and `upper`, in
-  the observable's storage unit, at least one of them present, the lower not above the upper), about
+  the observable's storage unit, at least one of them present, the lower not above the upper where both
+  are stated against the same reference), about
   the whole record, or, when `component` is stated, about that component (a composition or a partial
-  quantity), or, when `aggregation` is stated, about the phase of that aggregation. A region is the
+  quantity), or, when `aggregation` is stated, about the phase of that aggregation. A bound may instead be an
+  **offset from the subject's value of another observable**: `lower_relative_to` and `upper_relative_to`
+  name that observable (the normal boiling temperature minus 50 K is an offset of -50 K from the boiling
+  temperature), and the bound column then holds the offset, signed, in the clause observable's storage unit. The
+  named observable has the quantity type of the clause's observable, and is named only for a bound that is
+  stated (`region_clause.relative_bound_matches_observable`, a verify check). Two bounds against the same reference must be ordered, bounds against different
+  references are not compared. Nothing stores the reference value: it is resolved at evaluation
+  (`expressions.md` section 5). A region is the
   **conjunction** of its clauses, so a limit coupled across axes is one region with a clause on each.
 - `validity_coverage` says, for a record and a kind, whether the source states regions of that kind
   (`stated`) or gives none (`not_stated`). No row means the record's validity has not been mapped. The
@@ -571,6 +655,45 @@ maximum, rms, mean bias, standard deviation, variance), and it has a `magnitude`
 or a `relative_magnitude` as the facets of the kind say, checked as the magnitudes of slot uncertainties
 are (`accuracy_statement.magnitude_matches_kind`). It is what a source states, not a qualification result.
 
+### Selection policies, stated defaults and a carrier's own behaviour
+
+A `selection_policy` is an ordered preference among parameterisations (`policy_precedence`, rank one
+preferred), with per-set overrides (`policy_override`), a behaviour when no set is asserted for a
+subject (`unasserted`: `refuse`, `stated_default` or `named_rule`) and the defaults it states for slots.
+Applying a policy is a later packet (the snapshot export); what the declaration holds is the facts.
+
+- **Stated defaults.** `policy_default`, keyed by (policy, slot), states what a slot takes under the policy as
+  a value state, `known` or `not_applicable`, and a value in the slot's storage unit exactly when the state is
+  `known` (enforced `ddl`; that the state is one a policy may state, a state with the facet
+  `may_be_policy_default`, is a verify check). NRTL's alpha of 0.3, a temperature coefficient read as zero when
+  absent and a volume translation of zero are such defaults. A policy scoped to a slot group states defaults
+  for slots of that group only (verify). A policy with `unasserted = stated_default` states at least one default,
+  and one with `unasserted = named_rule` names in `rule_form` the form that computes the value of an unasserted
+  subject (a combining rule such as Lorentz-Berthelot, declared as a form: `rule_form` is present exactly when
+  `unasserted` is `named_rule`, enforced `ddl`), which implements the contract of the form of the slot group
+  the policy is scoped to (verify). The free-text `rule` of a policy is gone.
+- **The value state `stated_default`.** A slot a source leaves at its stated default stores no value: the value
+  is the default the selecting policy states for the slot, when the set is selected. A PC-SAFT binary record with
+  no fields is a pair set whose slots are all in this state; a parameterless association site is a site set whose
+  self-association slots are `not_applicable`, so it associates by induced association only. A set with a slot in
+  a state with the facet `policy_supplied` is selectable only under a policy that states a default for that slot.
+  Selection does not exist yet, so this is enforced as a structural check over the declared policies, not at
+  selection: `set_default_needs_policy_default` flags every (set, policy) where the policy ranks the set's
+  parameterisation or overrides to the set and states no default for the slot. The database-backed source given a
+  `policy` supplies its defaults to a slot at its default (and none for a default that is `not_applicable`); without
+  one the slot has no value and the evaluator refuses.
+- **A carrier's own behaviour** is a policy whose `asserted_by` names the carrier, recorded with the locator of the
+  code or the documentation it was read from (the policy is a record with an origin). Repeated rows a source holds
+  for one subject are all kept, distinguished by `occurrence` (meta-model section 5, identity); which of them the
+  carrier's own code uses is `repeated_rows` (`first_wins`, `last_wins`, `refused`, `not_stated`), and how it
+  chooses among competing tables when the caller names none is `table_choice` (`listing_order`: a dictionary's insertion
+  order, `tagged_default`: an in-band `DEFAULT` tag, `ranked`: ordered libraries with a rank, `first_only`, `not_stated`),
+  with the order it yields as the policy's precedence. Both are scoped to a slot group (`scope_slot_group`) or an observable
+  (`scope_observable`), and `as_documented` says whether what the code does is what the carrier documents (false
+  where the documented order and the code differ). `selection_policy.carrier_policy_is_a_scoped_assessed_fact`
+  (verify) requires a carrier's policy to have a scope, to state one of the two rules and to say whether it is as
+  documented, and a policy no carrier asserts to state none of them.
+
 ### Conserved quantities, groups, reference states and samples
 
 - A `conserved_quantity` is an element, charge, a site total, an isotope, an alkalinity, a decoupled
@@ -608,6 +731,8 @@ text keys that restate references, and writes the `publication` a carrier's cita
 `resolution_candidate`, the mapping framework writes `derivation`, `fit`, `validity_region`, `region_clause`,
 `validity_coverage`, `mapping_rule` (with
 the number of rows each rule was applied to), `mapping_coverage` and `held_row` (with a `held_reason`),
+the canonical writer reads `reaction_participant`, `reaction_order`, `species_form` and the
+`concentration_domain` of an `aggregation` to derive the unit of a dependent quantity type,
 qualification writes `qualification_run` (with a `blocked_reason` when it is blocked and the counts of its points
 against a validity kind) and reads `parameter_set`, `parameterization`, `validity_region`, `region_clause`,
 `validity_coverage`, `source_entity` and `subject_subform_choice`. That dependency is declared in one file shipped with
@@ -661,9 +786,15 @@ and a message (DP-21). At least:
 - a slot that does not declare exactly one of `type`, `accepts` and `references`, or whose `accepts` or
   `references` names something that is not a contract; a slot group or relation with a rule that acts
   on values and a slot, key or column named `arrangement`
-- a form whose `conventions` names an attribute the convention-set kind lacks or one that is not a
-  quantity, or is used without the `convention_set` role
+- a form whose `conventions` or `component_conventions` names an attribute the convention-set kind lacks
+  or one that is not a quantity, or is used without the `convention_set` role; a `component_conventions`
+  group that is not a slot group of the form or has not one subject role bound to a contract set; a fact
+  named in both
 - a quantity expression that does not resolve by unit algebra
+- a dependent quantity type whose `on` names no kind or whose per-area unit is not its per-volume unit
+  per length, one used anywhere but as the type of a slot or a contract output, a slot or output of
+  one with no subject role (or more than one) of the kind it depends on, and an `extra_order` that is
+  negative or on another type
 - a member that names a facet its enum does not declare; a `present_iff` that governs a column that is
   always present, depends on a column that is not an enum or names a member the enum lacks; a
   `within` with no bound or with its lower bound above its upper
@@ -755,3 +886,6 @@ generated from those marks plus the table below.
 | convention fact read by a form | gap (production quantity types carry the convention) |
 | rights determinations | gap (provenance has no rights facet) |
 | `derivation` lineage beyond dataset and source | gap (register R-50) |
+| dependent quantity type (a rate constant's dimension follows its reaction) | gap (production quantity types have a fixed dimension) |
+| convention fact read per component | gap |
+| selection policy, stated default, value state `stated_default` | gap |

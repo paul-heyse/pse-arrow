@@ -89,6 +89,7 @@ class Field:
     minimum: int | None = None
     over: tuple[str, ...] = ()
     basis: str | None = None
+    extra_order: int = 0
     traces: tuple[str, ...] = ()
     pse: str | None = None
 
@@ -187,6 +188,20 @@ class Scheme:
 
 
 @dataclass(frozen=True, kw_only=True)
+class Dependent:
+    """The rule that makes a quantity type's dimension follow the subject reaction of the slot or
+    contract output that holds it (meta-model section 3.3): the rate unit per volume, or per area
+    when a participant is on a surface, divided by the concentration of each species to its order
+    (per volume in a bulk phase, per area on a surface), and by one more bulk concentration for
+    each extra order the slot or output declares. Units are keys of `Declaration.units`."""
+
+    on: str
+    surface_unit: str
+    concentration: str
+    surface_concentration: str
+
+
+@dataclass(frozen=True, kw_only=True)
 class QuantityType:
     name: str
     module: str
@@ -195,6 +210,7 @@ class QuantityType:
     scale: str
     production: str | None
     construct: str
+    dependent: Dependent | None = None
     traces: tuple[str, ...] = ()
     pse: str | None = None
 
@@ -378,12 +394,20 @@ class OutputObservable:
 @dataclass(frozen=True, kw_only=True)
 class FormConvention:
     """A convention fact a form reads, `convention.<name>` in its expressions: a quantity-typed
-    attribute of the convention-set kind, with that attribute's type."""
+    attribute of the convention-set kind, with that attribute's type.
+
+    A fact of the form's parameterization has no `group`. A fact read per component
+    (`convention.<name>[i]`, for a mixture whose components come from parameterizations with
+    different conventions) names the slot group of the form (`group`, qualified) whose set for a
+    component supplies its convention set, and the contract set (`over`) the group's subject is
+    bound to."""
 
     name: str
     type: TypeRef
     doc: str
     construct: str
+    group: str | None = None
+    over: str | None = None
 
 
 @dataclass(frozen=True, kw_only=True)

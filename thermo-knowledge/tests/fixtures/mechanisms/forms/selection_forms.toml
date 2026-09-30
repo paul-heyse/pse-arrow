@@ -1,0 +1,44 @@
+module = "selection_forms"
+uses = ["physical", "provenance", "identity", "systems", "conventions", "observables", "parameters"]
+doc = "Forms that hold what a carrier's own selection behaviour is about (TK2g, alignment items 5 and 7): a binary interaction parameter a source may list twice for one pair, and a critical temperature several tables of a source compete to supply."
+
+[contracts.selection_pair_fixture]
+doc = "A dimensionless parameter of an unordered pair."
+roles.i = { type = "material_entity", doc = "The first entity." }
+roles.j = { type = "material_entity", doc = "The second entity." }
+arguments.T = { type = "Temperature", observable = "temperature", doc = "Temperature." }
+outputs.y = { type = "Scalar", doc = "The parameter." }
+
+[forms.kij_fixture]
+doc = "A binary interaction parameter of a pair."
+implements = "selection_pair_fixture"
+completeness = "structure_declared_equation_external"
+status = "catalogued"
+
+[forms.kij_fixture.slot_groups.pair]
+doc = "The parameter of one unordered pair; a source may hold several rows for it."
+subject.i = { type = "material_entity", doc = "The first entity." }
+subject.j = { type = "material_entity", doc = "The second entity." }
+transposition = { rule = "symmetric", roles = ["i", "j"], diagonal = "forbidden" }
+
+[forms.kij_fixture.slot_groups.pair.slots]
+k_ij = { type = "Scalar", doc = "The binary interaction parameter." }
+
+[contracts.selection_pure_fixture]
+doc = "A dimensionless constant of one entity."
+roles.i = { type = "material_entity", doc = "The entity." }
+arguments.T = { type = "Temperature", observable = "temperature", doc = "Temperature." }
+outputs.y = { type = "Scalar", doc = "The constant." }
+
+[forms.critical_table_fixture]
+doc = "The critical temperature of a fluid, as one of several tables a source holds."
+implements = "selection_pure_fixture"
+completeness = "structure_declared_equation_external"
+status = "catalogued"
+
+[forms.critical_table_fixture.slot_groups.pure]
+doc = "The critical temperature of one fluid."
+subject.i = { type = "material_entity", doc = "The fluid." }
+
+[forms.critical_table_fixture.slot_groups.pure.slots]
+T_c = { type = "Temperature", observable = "critical_temperature", doc = "Critical temperature." }

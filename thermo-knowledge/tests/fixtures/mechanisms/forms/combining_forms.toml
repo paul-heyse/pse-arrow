@@ -1,0 +1,45 @@
+module = "combining_forms"
+uses = ["physical", "provenance", "identity", "systems", "conventions", "observables", "parameters"]
+doc = "A combining rule declared as a form (TK2g, proof fixture 3): the Lorentz-Berthelot rule gives the size and energy of an unasserted pair of species from those of its species, and a selection policy names the form for the pairs a source leaves unasserted."
+
+[contracts.pair_dispersion_fixture]
+doc = "The segment diameter and the dispersion energy over the Boltzmann constant of a pair of species."
+sets.components = { type = "species", doc = "The two species of the pair." }
+outputs.sigma = { type = "Length", doc = "Segment diameter of the pair." }
+outputs.epsilon = { type = "EnergyTemperature", doc = "Dispersion energy of the pair over the Boltzmann constant." }
+
+[forms.pair_dispersion_table_fixture]
+doc = "The segment diameter and energy of a pair as a source states them."
+implements = "pair_dispersion_fixture"
+completeness = "structure_declared_equation_external"
+status = "catalogued"
+
+[forms.pair_dispersion_table_fixture.slot_groups.pair]
+doc = "The values of one unordered pair."
+subject.i = { type = "species", doc = "The first species." }
+subject.j = { type = "species", doc = "The second species." }
+bind = { i = "components", j = "components" }
+transposition = { rule = "symmetric", roles = ["i", "j"], diagonal = "forbidden" }
+
+[forms.pair_dispersion_table_fixture.slot_groups.pair.slots]
+sigma = { type = "Length", doc = "Segment diameter of the pair." }
+epsilon = { type = "EnergyTemperature", doc = "Dispersion energy of the pair over the Boltzmann constant." }
+
+[forms.lorentz_berthelot_fixture]
+doc = "The Lorentz-Berthelot combining rule: the arithmetic mean of the diameters and the geometric mean of the energies of the two species."
+implements = "pair_dispersion_fixture"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.lorentz_berthelot_fixture.slot_groups.pure]
+doc = "The diameter and energy of one species."
+subject.i = { type = "species", doc = "The species." }
+bind = { i = "components" }
+
+[forms.lorentz_berthelot_fixture.slot_groups.pure.slots]
+sigma = { type = "Length", doc = "Segment diameter." }
+epsilon = { type = "EnergyTemperature", doc = "Dispersion energy over the Boltzmann constant." }
+
+[forms.lorentz_berthelot_fixture.outputs]
+sigma = "sum(pure.sigma[i] for i in components) / 2"
+epsilon = "sqrt(prod(pure.epsilon[i] / unit('K') for i in components)) * unit('K')"

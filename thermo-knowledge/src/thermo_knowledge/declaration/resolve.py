@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 
 import pint
+from pint.util import UnitsContainer
 
 from thermo_knowledge import identity
 from thermo_knowledge import transposition as transposition_module
@@ -93,6 +94,7 @@ CHECK_FORMS = (
     "positive",
     "nonnegative",
     "ordered",
+    "ordered_same_reference",
     "one_of_present",
     "present_iff",
     "within",
@@ -342,6 +344,11 @@ class Resolver:
                 except UnitError as error:
                     self.err(module, f"{construct}.unit", Code(error.code), str(error))
                     continue
+                dependent = None
+                if raw.dependent is not None:
+                    dependent = self._dependent(module, construct, info, raw.dependent)
+                    if dependent is None:
+                        continue
                 self.unit_objects[name] = unit
                 self.unit_infos[info.unit] = info
                 self.quantity_types[name] = m.QuantityType(
@@ -352,9 +359,101 @@ class Resolver:
                     scale=raw.scale,
                     production=raw.production,
                     construct=construct,
+                    dependent=dependent,
                     traces=raw.traces,
                     pse=raw.pse,
                 )
+
+    def _dependent(
+        self, module: str, construct: str, base: UnitInfo, raw: s.DependentDecl
+    ) -> m.Dependent | None:
+        """The rule that derives the dimension of a dependent quantity type from its subject
+        reaction: every unit parses as a coherent storage unit, and each per-area unit has the
+        length dimension the per-volume unit lacks."""
+        where = f"{construct}.dependent"
+        if self.lookup(raw.on, ("kind",), module, f"{where}.on", "kind") is None:
+            return None
+        infos: dict[str, UnitInfo] = {}
+        for label, text in (
+            ("surface_unit", raw.surface_unit),
+            ("concentration", raw.concentration),
+            ("surface_concentration", raw.surface_concentration),
+        ):
+            try:
+                infos[label] = parse_storage_unit(text)[1]
+            except UnitError as error:
+                self.err(module, f"{where}.{label}", Code(error.code), str(error))
+                return None
+        length = UnitsContainer({"[length]": 1})
+        for surface, volume, label in (
+            (infos["surface_unit"], base, "surface_unit"),
+            (infos["surface_concentration"], infos["concentration"], "surface_concentration"),
+        ):
+            if from_info(surface) != from_info(volume) * length:
+                self.err(
+                    module,
+                    f"{where}.{label}",
+                    Code.BAD_DEPENDENT,
+                    f"`{surface.unit}` is not the per-area form of `{volume.unit}`: a per-area "
+                    "unit has one more length dimension than its per-volume unit",
+                )
+                return None
+        for info in infos.values():
+            self.unit_infos[info.unit] = info
+        return m.Dependent(
+            on=raw.on,
+            surface_unit=infos["surface_unit"].unit,
+            concentration=infos["concentration"].unit,
+            surface_concentration=infos["surface_concentration"].unit,
+        )
+
+    def dependent_of(self, type_: TypeRef) -> m.Dependent | None:
+        """The dependence of a scalar quantity type, `None` for any other type."""
+        if type_.container != "scalar" or type_.element_kind != "quantity":
+            return None
+        quantity = self.quantity_types.get(type_.element)  # absent when its own declaration failed
+        return None if quantity is None else quantity.dependent
+
+    def _dependent_subject(
+        self,
+        module: str,
+        construct: str,
+        field_: m.Field,
+        subjects: Iterable[m.Field],
+        owner: str,
+    ) -> None:
+        """A field of a dependent quantity type has exactly one subject of the kind its dimension
+        follows; a field of any other type declares no extra order."""
+        if field_.type.element_kind == "quantity" and field_.type.element not in self.quantity_types:
+            return  # the type's own declaration was refused and reported
+        dependent = self.dependent_of(field_.type)
+        if dependent is None:
+            if field_.extra_order != 0:
+                self.err(
+                    module,
+                    f"{construct}.extra_order",
+                    Code.BAD_DEPENDENT,
+                    f"`extra_order` applies to a dependent quantity type, and {field_.type.text} "
+                    "is not one",
+                )
+            return
+        if field_.extra_order < 0:
+            self.err(
+                module,
+                f"{construct}.extra_order",
+                Code.BAD_DEPENDENT,
+                "the extra order is a whole number of concentration powers, not below zero",
+            )
+        found = [s_.name for s_ in subjects if self._is_a(s_.type.element, dependent.on)]
+        if len(found) != 1:
+            self.err(
+                module,
+                construct,
+                Code.BAD_DEPENDENT,
+                f"{field_.type.text} takes its dimension from the subject of kind `{dependent.on}` "
+                f"of the {owner}, which must have exactly one such role (it has "
+                f"{len(found)})",
+            )
 
     def _schemes_and_enums(self) -> None:
         for doc in self.docs:
@@ -442,10 +541,17 @@ class Resolver:
     def _unit_of(self, name: str, module: str, construct: str) -> pint.Unit | None:
         if self.lookup(name, ("quantity_type",), module, construct, "quantity type") is None:
             return None
+        if self._refuses_dependent(name, module, construct, allowed=False):
+            return None
         return self.unit_objects.get(name)
 
-    def resolve_type(self, text: str, module: str, construct: str) -> TypeRef | None:
-        """Resolve a type expression (section 2); report and return `None` when refused."""
+    def resolve_type(
+        self, text: str, module: str, construct: str, *, allow_dependent: bool = False
+    ) -> TypeRef | None:
+        """Resolve a type expression (section 2); report and return `None` when refused.
+
+        A dependent quantity type (section 3.3) is accepted only where `allow_dependent` says so:
+        the type of a slot or of a contract output."""
         shape = split_type(text)
         inner = shape.inner
         if shape.head == "Id":
@@ -459,6 +565,8 @@ class Resolver:
             return None
         if shape.head == "Range":
             if self.lookup(inner, ("quantity_type",), module, construct, "quantity type"):
+                if self._refuses_dependent(inner, module, construct, allowed=False):
+                    return None
                 return TypeRef(
                     container="range",
                     element_kind="quantity",
@@ -508,9 +616,25 @@ class Resolver:
                 element=element.element,
                 text=f"Array<{element.text}>",
             )
-        return self._scalar_type(inner, module, construct)
+        return self._scalar_type(inner, module, construct, allow_dependent=allow_dependent)
 
-    def _scalar_type(self, text: str, module: str, construct: str) -> TypeRef | None:
+    def _refuses_dependent(self, name: str, module: str, construct: str, *, allowed: bool) -> bool:
+        """Whether `name` is a dependent quantity type where none is allowed (reported)."""
+        quantity = self.quantity_types.get(name)
+        if allowed or quantity is None or quantity.dependent is None:
+            return False
+        self.err(
+            module,
+            construct,
+            Code.BAD_DEPENDENT,
+            f"`{name}` is a dependent quantity type: its dimension follows a subject, so only a "
+            "slot or a contract output has it",
+        )
+        return True
+
+    def _scalar_type(
+        self, text: str, module: str, construct: str, *, allow_dependent: bool = False
+    ) -> TypeRef | None:
         if text in PRIMITIVES:
             return TypeRef(container="scalar", element_kind="primitive", element=text, text=text)
         simple = {"Record": "record", "Real": "real", "SourceText": "source_text"}
@@ -526,6 +650,10 @@ class Resolver:
                 text, ("quantity_type", "enum", "kind"), module, construct, "type"
             )
             if category is None:
+                return None
+            if category == "quantity_type" and self._refuses_dependent(
+                text, module, construct, allowed=allow_dependent
+            ):
                 return None
             kind = {"quantity_type": "quantity", "enum": "enum", "kind": "kind"}[category]
             return TypeRef(
@@ -1056,6 +1184,19 @@ class Resolver:
                     )
                 ):
                     problems.append("`ordered` compares two numeric or two date attributes")
+            elif rule == "ordered_same_reference":
+                if len(fields) != 4:
+                    problems.append(
+                        "`ordered_same_reference` names four attributes: two bounds, then the "
+                        "reference each is stated against"
+                    )
+                elif not all(numeric[:2]):
+                    problems.append("`ordered_same_reference` compares two numeric bounds")
+                elif fields[2].type != fields[3].type or fields[2].type.element_kind != "kind":
+                    problems.append(
+                        "`ordered_same_reference` takes two references of one kind as the "
+                        "references of the bounds"
+                    )
             elif rule == "one_of_present":
                 if len(fields) < 2 or not all(f.optional for f in fields):
                     problems.append("`one_of_present` names two or more optional attributes")
@@ -1562,7 +1703,12 @@ class Resolver:
                         if not self.symbol(module, where, field_name, f"contract {label}"):
                             ok = False
                             continue
-                        type_ = self.resolve_type(decl.type, module, f"{where}.type")
+                        type_ = self.resolve_type(
+                            decl.type,
+                            module,
+                            f"{where}.type",
+                            allow_dependent=isinstance(decl, s.OutputDecl),
+                        )
                         if type_ is None:
                             continue
                         if type_.container != "scalar":
@@ -1635,10 +1781,15 @@ class Resolver:
                                 observable_from_set=getattr(decl, "observable_from_set", False),
                                 over=over,
                                 basis=basis,
+                                extra_order=getattr(decl, "extra_order", 0),
                                 traces=decl.traces,
                                 pse=decl.pse,
                             )
                         )
+                        if isinstance(decl, s.OutputDecl):
+                            self._dependent_subject(
+                                module, where, target[-1], roles, f"contract `{name}`"
+                            )
                 if not raw.outputs:
                     self.err(
                         module,
@@ -1797,7 +1948,7 @@ class Resolver:
             output_observables = self._output_observables(module, name, raw, contract, groups)
             if output_observables is None:
                 ok = False
-        conventions = self._conventions(module, name, raw)
+        conventions = self._conventions(module, name, raw, groups)
         if conventions is None:
             ok = False
         defined: dict[str, list[m.ExpressionDef]] = {"let": [], "outputs": []}
@@ -1839,12 +1990,15 @@ class Resolver:
         )
 
     def _conventions(
-        self, module: str, form: str, raw: s.FormDecl
+        self, module: str, form: str, raw: s.FormDecl, groups: list[m.SlotGroup]
     ) -> list[m.FormConvention] | None:
         """The convention facts a form reads: each names a quantity-typed attribute of the kind
-        bound to the framework role `convention_set`."""
+        bound to the framework role `convention_set`. A fact of `component_conventions` is read
+        per component: it names the slot group of the form, with one subject bound to a contract
+        set, whose set for a component says which parameterization's convention set the
+        component's fact is taken from."""
         construct = f"forms.{form}.conventions"
-        if not raw.conventions:
+        if not raw.conventions and not raw.component_conventions:
             return []
         kind = self.framework.get(m.CONVENTION_SET_ROLE)
         if kind is None:
@@ -1859,38 +2013,83 @@ class Resolver:
         attributes = {a.name: a for link in self._chain(kind) for a in link.attributes}
         found: list[m.FormConvention] = []
         ok = True
-        for name in raw.conventions:
+
+        def attribute_of(name: str, where: str) -> m.Field | None:
             attribute = attributes.get(name)
             if name in (f.name for f in found):
-                self.err(module, construct, Code.BAD_CONVENTION, f"`{name}` is named twice")
-                ok = False
+                self.err(module, where, Code.BAD_CONVENTION, f"`{name}` is named twice")
             elif attribute is None:
                 self.err(
                     module,
-                    construct,
+                    where,
                     Code.BAD_CONVENTION,
                     f"`{name}` is not an attribute of kind `{kind}`, the convention set "
                     f"(its attributes: {', '.join(attributes)})",
                 )
-                ok = False
             elif attribute.type.container != "scalar" or attribute.type.element_kind not in (
                 "quantity",
                 "expression",
             ):
                 self.err(
                     module,
-                    construct,
+                    where,
                     Code.BAD_CONVENTION,
                     f"`{name}` is {attribute.type.text}, not a quantity: an expression reads "
                     "only quantity-typed convention facts",
                 )
-                ok = False
             else:
-                found.append(
-                    m.FormConvention(
-                        name=name, type=attribute.type, doc=attribute.doc, construct=construct
-                    )
+                return attribute
+            return None
+
+        for name in raw.conventions:
+            attribute = attribute_of(name, construct)
+            if attribute is None:
+                ok = False
+                continue
+            found.append(
+                m.FormConvention(
+                    name=name, type=attribute.type, doc=attribute.doc, construct=construct
                 )
+            )
+        by_name = {g.name: g for g in groups}
+        for name, group_name in raw.component_conventions.items():
+            where = f"forms.{form}.component_conventions.{name}"
+            attribute = attribute_of(name, where)
+            group = by_name.get(group_name)
+            if group is None:
+                self.err(
+                    module,
+                    where,
+                    Code.BAD_CONVENTION,
+                    f"`{group_name}` is not a slot group of form `{form}`",
+                )
+                ok = False
+                continue
+            bound = [b for b in group.bindings if b.kind == "set"]
+            if len(group.subjects) != 1 or len(bound) != 1:
+                self.err(
+                    module,
+                    where,
+                    Code.BAD_CONVENTION,
+                    f"slot group `{group.qualified}` names the convention set of a component, so "
+                    "it has one subject role and it is bound to a set of the contract",
+                )
+                ok = False
+                continue
+            if attribute is None:
+                ok = False
+                continue
+            assert bound[0].target is not None
+            found.append(
+                m.FormConvention(
+                    name=name,
+                    type=attribute.type,
+                    doc=attribute.doc,
+                    construct=where,
+                    group=group.qualified,
+                    over=bound[0].target,
+                )
+            )
         return found if ok else None
 
     def _output_observables(
@@ -2145,7 +2344,9 @@ class Resolver:
             shape = "nested_set" if raw.accepts is not None else "set_reference"
         else:
             assert raw.type is not None
-            resolved = self.resolve_type(raw.type, module, f"{construct}.type")
+            resolved = self.resolve_type(
+                raw.type, module, f"{construct}.type", allow_dependent=True
+            )
             if resolved is None:
                 return None
             if resolved.container != "scalar" or resolved.element_kind not in (
@@ -2182,6 +2383,7 @@ class Resolver:
             accepts=raw.accepts,
             references=raw.references,
             observable=raw.observable,
+            extra_order=raw.extra_order,
             traces=raw.traces,
             pse=raw.pse,
         )
@@ -2317,6 +2519,16 @@ class Resolver:
                 ok = False
             else:
                 families.append(built_family)
+        owner = f"slot group `{form}.{name}`"
+        for slot_field in slots.values():
+            self._dependent_subject(
+                module, slot_field.construct, slot_field, subjects.values(), owner
+            )
+        for built_family in families:
+            for slot_field in built_family.slots:
+                self._dependent_subject(
+                    module, slot_field.construct, slot_field, subjects.values(), owner
+                )
         transposition = None
         if raw.transposition is not None:
             by_names = [index.name for fam in families for index in fam.indices]
@@ -2487,7 +2699,7 @@ class Resolver:
         ]
         if not stateful:
             return
-        members = ("known", "not_applicable", "redirect", "withheld")
+        members = ("known", "not_applicable", "redirect", "withheld", "stated_default")
         enum = self.enums.get("value_state")
         if enum is None or tuple(sorted(x.name for x in enum.members)) != tuple(sorted(members)):
             self.err(
@@ -2693,8 +2905,11 @@ class Resolver:
             named = quantity_names.get(entity.values.get(quantity_attributes[0]))  # type: ignore[arg-type]
             if named is None:
                 continue
-            expected = from_info(declaration.units[declaration.quantity_types[named].unit])
-            found = type_dimension(declaration, field_.type)
+            expected = type_dimension(
+                declaration,
+                TypeRef(container="scalar", element_kind="quantity", element=named, text=named),
+            )
+            found = type_dimension(declaration, field_.type, field_.extra_order)
             if found is not None and expected != found:
                 self.err(
                     module,

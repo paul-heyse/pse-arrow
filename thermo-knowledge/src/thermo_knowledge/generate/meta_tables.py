@@ -219,13 +219,50 @@ def _build() -> dict[str, ir.Table]:
                 ("unit", "text", "The storage unit."),
                 ("scale", "text", "absolute, difference, ratio, dimensionless or count."),
                 ("production", "text?", "The corresponding production quantity type, if any."),
+                (
+                    "depends_on",
+                    "text?",
+                    "For a dependent type: the kind of the subject whose reaction-derived "
+                    "dimension the type has (the storage unit is then that of a homogeneous "
+                    "reaction of order zero).",
+                ),
+                (
+                    "surface_unit",
+                    "text?",
+                    "For a dependent type: the rate unit when a participant is on a surface.",
+                ),
+                (
+                    "concentration_unit",
+                    "text?",
+                    "For a dependent type: the unit of a species' concentration in a bulk phase.",
+                ),
+                (
+                    "surface_concentration_unit",
+                    "text?",
+                    "For a dependent type: the unit of a species' concentration on a surface.",
+                ),
                 ("pg_type", "text", "The domain that projects the type."),
                 ("doc", "text", "What the quantity means."),
             ],
             pk=["id"],
             unique=[["name"]],
-            fks=[(["module"], "module", ["name"]), (["unit"], "unit", ["unit"])],
+            fks=[
+                (["module"], "module", ["name"]),
+                (["unit"], "unit", ["unit"]),
+                (["depends_on"], "kind", ["name"]),
+                (["surface_unit"], "unit", ["unit"]),
+                (["concentration_unit"], "unit", ["unit"]),
+                (["surface_concentration_unit"], "unit", ["unit"]),
+            ],
             vocabulary={"scale": ("absolute", "difference", "ratio", "dimensionless", "count")},
+            checks=[
+                (
+                    "dependent_complete",
+                    '("depends_on" IS NULL) = ("surface_unit" IS NULL) '
+                    'AND ("depends_on" IS NULL) = ("concentration_unit" IS NULL) '
+                    'AND ("depends_on" IS NULL) = ("surface_concentration_unit" IS NULL)',
+                )
+            ],
         )
     )
     add(
@@ -454,6 +491,7 @@ def _build() -> dict[str, ir.Table]:
                     "positive",
                     "nonnegative",
                     "ordered",
+                    "ordered_same_reference",
                     "one_of_present",
                     "present_iff",
                     "within",
@@ -775,6 +813,12 @@ def _build() -> dict[str, ir.Table]:
                     "boolean",
                     "Whether the observable is given by a slot of the implementing form (form_output_observable).",
                 ),
+                (
+                    "extra_order",
+                    "integer",
+                    "For an output of a dependent quantity type: the extra concentration powers "
+                    "of its dimension; zero otherwise.",
+                ),
                 ("doc", "text", "What the output is."),
             ],
             pk=["contract", "name"],
@@ -914,19 +958,37 @@ def _build() -> dict[str, ir.Table]:
     add(
         _table(
             "form_convention",
-            "A convention fact a form reads (`convention.<name>` in its expressions): a "
-            "quantity-typed attribute of the convention-set kind.",
+            "A convention fact a form reads (`convention.<name>` in its expressions, or "
+            "`convention.<name>[i]` for one read per component): a quantity-typed attribute of "
+            "the convention-set kind.",
             [
                 ("form", "text", "The form."),
                 ("name", "text", "The convention-set attribute the form reads."),
                 ("position", "integer", "Position among the form's convention facts, from 1."),
                 ("kind", "text", "The kind that declares the attribute (the kind bound to convention_set or one it extends)."),
+                (
+                    "slot_group",
+                    "text?",
+                    "For a fact read per component: the slot group of the form whose set for a component names the parameterization the component's fact is taken from.",
+                ),
+                (
+                    "over",
+                    "text?",
+                    "For a fact read per component: the contract set the group's subject is bound to.",
+                ),
             ],
             pk=["form", "name"],
             unique=[["form", "position"]],
             fks=[
                 (["form"], "form", ["name"]),
                 (["kind", "name"], "attribute", ["kind", "name"]),
+                (["slot_group"], "slot_group", ["qualified_name"]),
+            ],
+            checks=[
+                (
+                    "component_fact_complete",
+                    '("slot_group" IS NULL) = ("over" IS NULL)',
+                )
             ],
         )
     )
@@ -1180,6 +1242,12 @@ def _build() -> dict[str, ir.Table]:
                     "observable",
                     "uuid?",
                     "The declared observable entity the slot denotes (its identifier).",
+                ),
+                (
+                    "extra_order",
+                    "integer",
+                    "For a slot of a dependent quantity type: the extra concentration powers of "
+                    "its dimension; zero otherwise.",
                 ),
                 ("doc", "text", "What the slot is."),
             ],

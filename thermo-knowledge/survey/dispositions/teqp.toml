@@ -14,7 +14,7 @@ reason = "The shipped JSON Schemas document the specification language of the in
 construct = "multifluid model specification (kind multifluid)"
 disposition = "mapping_loss"
 ref = "kind:model_assembly"
-reason = "The multifluid document maps to an assembly with pair parameters taken from the referenced files and the Lorentz-Berthelot fallback (betas and gammas 1, F 0) as a selection_policy named rule, but the free-form flags and the gas-constant rule (mole-fraction-weighted pure values unless Rmodel is CODATA) are not kept as rules, because a convention fact belongs to one convention set, so the mapping states one gas constant for the assembly."
+reason = "The multifluid document maps to an assembly with pair parameters taken from the referenced files and the Lorentz-Berthelot fallback (betas and gammas 1, F 0) as a selection_policy named_rule whose rule_form is the combining form, and the gas constant it averages (mole-fraction-weighted pure values unless Rmodel is CODATA) is held by a form that declares the gas constant per component (component_conventions), the CODATA alternative being a separate form choice; the free-form flags are not kept as rules."
 
 [[disposition]]
 construct = "kinds vdW1 and vdW"

@@ -216,9 +216,9 @@ reason = "The columns map to a PPDS 12 set only because the module docstring and
 
 [[disposition]]
 construct = "Alibakhshi one-coefficient enthalpy of vaporization"
-disposition = "model_change"
-ref = "alignment-notes #19"
-reason = "A region_clause bound is a number in the observable's unit, but this source states the validity as offsets from two other values of the same compound (Tb - 50 K to Tc - 100 K); the declaration needs a clause bound expressed relative to another observable of the same record (an offset from a named observable) so the region is stored as stated, since the mapping holds no arithmetic and the file carries neither Tb nor Tc."
+disposition = "held_by_model"
+ref = "kind:region_clause"
+reason = "A region_clause bound may be an offset from another observable of the subject (lower_relative_to and upper_relative_to), so the validity Tb - 50 K to Tc - 100 K is stored as stated, offsets of -50 K and -100 K against the normal boiling and critical temperatures; the file carries neither value, so a point's coverage is undetermined until a selected set or the caller supplies them."
 
 [[disposition]]
 construct = "Bell 2018 supporting-information table (unread)"

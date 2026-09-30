@@ -8,7 +8,7 @@ reason = "The element and phase counts and the atomic masses map to a chemical_s
 construct = "Gibbs-energy equation block (species or compound)"
 disposition = "mapping_loss"
 ref = "mechanism:form catalogue"
-reason = "A block becomes the pieces of a Gibbs-polynomial form with the six coefficients, up to three additional terms (exponent 99 decoded to ln T) and the magnetic coefficients of types 13 and 16, the units (J/mol) being assumed. Thermochimica's upper-inclusive interval rule and upward extrapolation are consumer policy (alignment-notes #15) and are not stored, the 0.10945/R constant the code adds for the first phase numerically equals ln(101325/100000) and so implies a gas standard pressure that the mapping can only infer, and '#' dummy species are skipped as a numerical device."
+reason = "A block becomes the pieces of a Gibbs-polynomial form with the six coefficients, up to three additional terms (exponent 99 decoded to ln T) and the magnetic coefficients of types 13 and 16, the units (J/mol) being assumed. Thermochimica's upper-inclusive interval rule and upward extrapolation are consumer policy, stated by a qualification case (boundary = \"lower_piece\", outside = \"nearest\") and not stored, the 0.10945/R constant the code adds for the first phase numerically equals ln(101325/100000) and so implies a gas standard pressure that the mapping can only infer, and '#' dummy species are skipped as a numerical device."
 
 [[disposition]]
 construct = "IDMX block (ideal mixture)"
@@ -20,7 +20,7 @@ reason = "An IDMX block becomes a phase_definition of structure none with an ide
 construct = "QKTO block (quasichemical Kohler-Toop)"
 disposition = "held_by_model"
 ref = "relation:subject_subform_choice"
-reason = "The per-species equivalent-fraction factor and chemical group number are slots of a per-species group of the QKTO form (declared with the wave) and the excess terms are parameter sets with role-tuple subjects, while the per-triad Kohler or Toop overrides are sub-form choices keyed by the triad, so the two losses the survey names are held by existing concepts. The composition variables are species mole fractions, converted to equivalent fractions inside the form."
+reason = "The per-species equivalent-fraction factor and chemical group number are slots of a per-species group of the QKTO form (declared with the wave) and the excess terms are parameter sets with role-tuple subjects, while the per-triad Kohler or Toop overrides are sub-form choices whose subject is the triad's constituent array, so the two losses the survey names are held by existing concepts. The composition variables are species mole fractions, converted to equivalent fractions inside the form."
 
 [[disposition]]
 construct = "RKMP and RKMPM block (Redlich-Kister-Muggianu polynomial)"
@@ -73,4 +73,4 @@ reason = "The per-species Tc and moment of types 13 and 16, the two phase-level 
 construct = "interpolation override line"
 disposition = "held_by_model"
 ref = "relation:subject_subform_choice"
-reason = "A triad with K or T marks is a sub-form choice for a subject of three constituents (Kohler for a symmetric triad, Toop with the odd constituent for an asymmetric one), so the per-subsystem selector the survey finds missing exists. The ten-item syntax is read by the mapping, and a line matching neither pattern, which the program ignores with a message, is held."
+reason = "A triad with K or T marks is a sub-form choice whose subject is the constituent array of the three constituents (Kohler for a symmetric triad, Toop for an asymmetric one, the odd constituent being the array's first member, read from its member positions as an indexed argument), so the per-subsystem selector the survey finds missing exists. The ten-item syntax is read by the mapping, and a line matching neither pattern, which the program ignores with a message, is held."

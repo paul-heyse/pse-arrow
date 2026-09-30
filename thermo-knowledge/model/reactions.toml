@@ -8,6 +8,12 @@ laws are ordinary forms whose subject is a reaction; they are declared in the fo
 here. "This species' standard properties are defined through that reaction" is a dependency.
 """
 
+[quantity_types.RateConstant]
+doc = """A rate constant of a reaction. Its dimension follows the subject reaction of the slot or contract output that holds it: the rate per volume (mol m^-3 s^-1), or per area (mol m^-2 s^-1) when any participant is a surface species, divided by the concentration of each species to its forward order (mol m^-3 in a bulk phase, mol m^-2 on a surface), and by one more bulk concentration for each extra order the slot declares (a low-pressure limit or a third-body rate). The stored number is in the coherent SI unit of that dimension, so the column is a plain finite double. Signed: a duplicate reaction may have a negative pre-exponential factor. The unit shown is the rate of a homogeneous reaction of order zero."""
+unit = "mol/(m^3*s)"
+scale = "difference"
+dependent = { on = "reaction", surface_unit = "mol/(m^2*s)", concentration = "mol/m^3", surface_concentration = "mol/m^2" }
+
 [enums.extent_convention]
 doc = "How a reaction's stoichiometry is normalised."
 members.as_written = { doc = "Coefficients exactly as the source writes them." }
@@ -47,6 +53,16 @@ form = { type = "species_form", doc = "A participant." }
 [relations.reaction_participant.columns]
 coefficient = { type = "Count", doc = "Signed stoichiometric coefficient." }
 standard_state = { type = "standard_state", optional = true, doc = "The standard state the participant's activity is referred to." }
+
+[relations.reaction_order]
+doc = "An explicit forward reaction order of one species form, which need not be an integer and need not be a reactant. Where no row states a species' order, a reactant's order is its stoichiometric coefficient and any other species' order is zero. The orders fix the dimension of a rate constant (`RateConstant`)."
+provenance = "inherit:reaction"
+absence = "optional"
+value = { type = "Scalar", doc = "The order with respect to the species form." }
+
+[relations.reaction_order.keys]
+reaction = { type = "reaction", doc = "The reaction." }
+form = { type = "species_form", doc = "The species form the order is stated for." }
 
 [relations.system_reaction]
 doc = "A reaction that belongs to a chemical system."

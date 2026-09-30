@@ -52,6 +52,7 @@ STRUCTURAL = {
     "subject_key_matches_subjects",
     "referenced_set_implements_contract",
     "parameterization_has_conventions",
+    "set_default_needs_policy_default",
 }
 """Section 4's structural checks. "Reactions conserve every conserved quantity with a
 composition entry on a participant" is the declared invariant
@@ -689,6 +690,7 @@ def test_a_nested_set_implements_the_contract_its_slot_accepts(conn: psycopg.Con
         shape="nested_set",
         accepts="child_contract",
         presence="required",
+        extra_order=0,
         doc="d",
     )
     parameterization, parent, good, wrong_contract, no_slot = new(), new(), new(), new(), new()

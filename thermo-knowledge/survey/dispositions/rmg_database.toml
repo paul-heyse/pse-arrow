@@ -113,9 +113,9 @@ reason = "Forbidden structure patterns are exclusion constraints that steer mech
 
 [[disposition]]
 construct = "entry() of a kinetics rate rule (rules.py)"
-disposition = "model_change"
-ref = "alignment-notes #18"
-reason = "The rule's A is written in m^3/(mol*s) or s^-1 according to the family's reactant count, so the rate-constant slot needs a dimension derived from the reaction's order (concentration^(1-n)/time); the tuple subject is held by a slot group with one group-typed role per reactant tree, rank as a count slot and the enthalpy-dependent activation energy as a contract argument of the EP and BM forms."
+disposition = "held_by_model"
+ref = "mechanism:quantity type RateConstant"
+reason = "The rule's A is a RateConstant slot whose dimension follows the reaction (m^3/(mol*s) or s^-1 according to the family's reactant count); the tuple subject is held by a slot group with one group-typed role per reactant tree, rank as a count slot and the enthalpy-dependent activation energy as a contract argument of the EP and BM forms."
 
 [[disposition]]
 construct = "entry() of a training reaction and its dictionary"
@@ -131,21 +131,21 @@ reason = "Each entry becomes a reaction with a rate parameter set inside one par
 
 [[disposition]]
 construct = "Arrhenius, ArrheniusEP and ArrheniusBM rate objects"
-disposition = "model_change"
-ref = "alignment-notes #18"
-reason = "A is stored in six spellings of a unit that follows the reaction order (s^-1, volume per mole per second, its square, per molecule with Avogadro's number), so the rate-constant slot needs a dimension derived from the reaction (concentration^(1-n)/time, n the order of the forward rate law); the EP and BM variants take the 298 K reaction enthalpy as a contract argument, which forms can already state."
+disposition = "mapping_loss"
+ref = "mechanism:quantity type RateConstant"
+reason = "A is a RateConstant slot whose dimension follows the reaction, but it is stored in six spellings of a unit, and the spellings per molecule need Avogadro's number, which the mapping states as an assumption because the source states none; the EP and BM variants take the 298 K reaction enthalpy as a contract argument, which forms can already state."
 
 [[disposition]]
 construct = "pressure-dependent and falloff rate objects"
-disposition = "model_change"
-ref = "alignment-notes #18"
-reason = "The limiting Arrhenius terms, the PLOG pressure list and the Chebyshev kunits all carry a rate unit that follows the reaction order (the low limit and the third-body form one concentration power more), which needs the order-dependent rate-constant dimension proposed for the Arrhenius construct; efficiencies are a slot group over (reaction, species_form) and the Chebyshev ranges are slots of a multi-index family."
+disposition = "held_by_model"
+ref = "mechanism:quantity type RateConstant"
+reason = "The limiting Arrhenius terms, the PLOG pressure list and the Chebyshev kunits are RateConstant slots whose dimension follows the reaction (the low limit and the third-body form with extra_order 1); efficiencies are a slot group over (reaction, species_form) and the Chebyshev ranges are slots of a multi-index family."
 
 [[disposition]]
 construct = "surface and charge-transfer rate objects"
-disposition = "model_change"
-ref = "alignment-notes #18"
-reason = "Surface Arrhenius rates have an A whose unit follows the order and the surface or bulk dimension of each participant, needing the derived rate-constant dimension of the Arrhenius construct, and the charge-transfer and Marcus forms need a quantity type for an electric potential (V, V0), which physical.toml lacks; coverage dependence is a slot group over (reaction, species_form)."
+disposition = "held_by_model"
+ref = "mechanism:quantity type RateConstant"
+reason = "Surface Arrhenius rates are RateConstant slots whose dimension follows the order and the surface or bulk dimension of each participant, the charge-transfer and Marcus potentials V and V0 are ElectricPotential slots, and coverage dependence is a slot group over (reaction, species_form)."
 
 [[disposition]]
 construct = "KineticsModel with solute transition-state data"

@@ -800,7 +800,7 @@ reason = "k + sqrt((lambda_i - k)(lambda_j - k)) with k = 3 is the named rule ev
 construct = "lambda_squarewell"
 disposition = "held_by_model"
 ref = "kind:selection_policy"
-reason = "The diameter-weighted mean of the pure ranges is the named rule SAFT-VR SW applies to lambda when no cross value is tabulated, recorded as an unasserted named_rule of the carrier's selection_policy; derived values are not imported."
+reason = "The diameter-weighted mean of the pure ranges is the named rule SAFT-VR SW applies to lambda when no cross value is tabulated, recorded as an unasserted named_rule of the carrier's selection_policy whose rule_form is the combining rule declared as a form; derived values are not imported."
 
 [[disposition]]
 construct = "mix_powmean / mix_mean3 (generic means)"
@@ -812,7 +812,7 @@ reason = "The power mean (exponent n) and cube-root mean are building blocks wri
 construct = "bondvol_mix (geometric / Elliott form)"
 disposition = "held_by_model"
 ref = "kind:selection_policy"
-reason = "The geometric mean of the two self values (with the Elliott size factor for esd/elliott) is a combining rule applied only when AssocOptions selects cr1 or esd, recorded as an unasserted named_rule of the carrier's selection_policy scoped to the bondvol slot group; entries of zero stored by a table cannot be told from absent, which the pair-set mapping already records."
+reason = "The geometric mean of the two self values (with the Elliott size factor for esd/elliott) is a combining rule applied only when AssocOptions selects cr1 or esd, recorded as an unasserted named_rule of the carrier's selection_policy scoped to the bondvol slot group, the combining rule being the form named in rule_form; entries of zero stored by a table cannot be told from absent, which the pair-set mapping already records."
 
 [[disposition]]
 construct = "epsilon_assoc_mix"
@@ -836,7 +836,7 @@ reason = "The run-time geometric mean of the association strengths (elliott_runt
 construct = "group_sum / group_pairmean / group_pairmean2"
 disposition = "held_by_model"
 ref = "mechanism:form catalogue"
-reason = "sum_k nu_ik p_k and the pair mean weighted by both components' group counts are the mathematics of the group-contribution forms, with the counts nu taken from group_count through an argument indexed over components and groups at bind time, and no derived component value is stored, so no derivation record per derived slot is needed."
+reason = "sum_k nu_ik p_k and the pair mean weighted by both components' group counts are the mathematics of the group-contribution forms, with the counts nu read from the group_count rows of each component's assignment as an argument indexed over the groups of the scheme (and over the components for a mixture) at bind time, as a fixture shows for the size and surface sums of a molecule, and no derived component value is stored, so no derivation record per derived slot is needed."
 
 [[disposition]]
 construct = "mix_segment! (MixedGCSegmentParam)"

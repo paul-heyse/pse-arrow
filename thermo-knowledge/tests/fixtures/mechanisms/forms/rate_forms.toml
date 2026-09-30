@@ -1,0 +1,73 @@
+module = "rate_forms"
+uses = ["physical", "provenance", "identity", "systems", "conventions", "observables", "parameters", "reactions"]
+doc = "Rate-constant forms that show the dimension of a rate constant following its reaction (TK2g, alignment item 18): an Arrhenius expression whose pre-exponential factor has the dimension of the reaction, and a Lindemann falloff whose low-pressure limit has one more concentration power."
+
+[contracts.rate_constant_fixture]
+doc = "The rate constant of a reaction as a function of temperature."
+roles.r = { type = "reaction", doc = "The reaction." }
+arguments.T = { type = "Temperature", observable = "temperature", doc = "Temperature." }
+outputs.k = { type = "RateConstant", doc = "The rate constant, of the dimension the reaction gives." }
+
+[forms.arrhenius_fixture]
+doc = "The modified Arrhenius expression: A * (T / 1 K)^b * exp(-Ea / (R T))."
+implements = "rate_constant_fixture"
+completeness = "fully_declared"
+status = "expressed"
+conventions = ["gas_constant"]
+
+[forms.arrhenius_fixture.slot_groups.rate]
+doc = "The three coefficients of one reaction."
+subject.r = { type = "reaction", doc = "The reaction." }
+
+[forms.arrhenius_fixture.slot_groups.rate.slots]
+A = { type = "RateConstant", doc = "Pre-exponential factor; its dimension follows the reaction." }
+b = { type = "Scalar", doc = "Temperature exponent." }
+Ea = { type = "MolarEnergy", doc = "Activation energy." }
+
+[forms.arrhenius_fixture.outputs]
+k = "rate.A[r] * (T / unit('K')) ** rate.b[r] * exp(-rate.Ea[r] / (convention.gas_constant * T))"
+
+[contracts.falloff_fixture]
+doc = "The rate constant of a pressure-dependent reaction at a third-body concentration."
+roles.r = { type = "reaction", doc = "The reaction." }
+arguments.T = { type = "Temperature", observable = "temperature", doc = "Temperature." }
+arguments.M = { type = "MolarDensity", doc = "Concentration of the third body." }
+outputs.k = { type = "RateConstant", doc = "The effective rate constant, of the dimension the reaction gives." }
+
+[forms.lindemann_fixture]
+doc = "The Lindemann falloff: k = k_inf Pr / (1 + Pr) with Pr = k_0 [M] / k_inf. The low-pressure limit has one more concentration power than the high-pressure limit."
+implements = "falloff_fixture"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.lindemann_fixture.slot_groups.limits]
+doc = "The two limits of one reaction."
+subject.r = { type = "reaction", doc = "The reaction." }
+
+[forms.lindemann_fixture.slot_groups.limits.slots]
+k_inf = { type = "RateConstant", doc = "High-pressure limit; the dimension of the reaction." }
+k_0 = { type = "RateConstant", extra_order = 1, doc = "Low-pressure limit; one more concentration power." }
+
+[forms.lindemann_fixture.let]
+Pr = "limits.k_0[r] * M / limits.k_inf[r]"
+
+[forms.lindemann_fixture.outputs]
+k = "limits.k_inf[r] * Pr / (1 + Pr)"
+
+[forms.rate_table_fixture]
+doc = "A rate constant tabulated at pressures: a family whose slot has the dimension of the reaction."
+implements = "rate_constant_fixture"
+completeness = "structure_declared_equation_external"
+status = "catalogued"
+
+[forms.rate_table_fixture.slot_groups.plog]
+doc = "The rows of one reaction."
+subject.r = { type = "reaction", doc = "The reaction." }
+
+[forms.rate_table_fixture.slot_groups.plog.families.row]
+doc = "One pressure of the table."
+index.n = { type = "Integer", min = 1, doc = "Row number." }
+
+[forms.rate_table_fixture.slot_groups.plog.families.row.slots]
+P = { type = "Pressure", doc = "Pressure of the row." }
+k = { type = "RateConstant", doc = "The rate constant at the row's pressure." }

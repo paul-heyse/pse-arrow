@@ -143,6 +143,14 @@ def meta_rows(decl: m.Declaration) -> dict[str, list[tuple[object, ...]]]:
             unit=quantity.unit,
             scale=quantity.scale,
             production=quantity.production,
+            depends_on=None if quantity.dependent is None else quantity.dependent.on,
+            surface_unit=None if quantity.dependent is None else quantity.dependent.surface_unit,
+            concentration_unit=(
+                None if quantity.dependent is None else quantity.dependent.concentration
+            ),
+            surface_concentration_unit=(
+                None if quantity.dependent is None else quantity.dependent.surface_concentration
+            ),
             pg_type=naming.quantity_domain(quantity.name),
             doc=quantity.doc,
         )
@@ -304,6 +312,7 @@ def meta_rows(decl: m.Declaration) -> dict[str, list[tuple[object, ...]]]:
                 **_type(output.type),
                 observable=_observable_id(decl, output.observable),
                 observable_from_set=output.observable_from_set,
+                extra_order=output.extra_order,
                 doc=output.doc,
             )
             mark(output.construct, output.traces, output.pse)
@@ -363,6 +372,8 @@ def meta_rows(decl: m.Declaration) -> dict[str, list[tuple[object, ...]]]:
                 name=convention.name,
                 position=position,
                 kind=declaring,
+                slot_group=convention.group,
+                over=convention.over,
             )
         for position, block in enumerate(form.implicit, start=1):
             _implicit_block(add, mark, form, position, block)
@@ -592,6 +603,7 @@ def _slot(
         references_contract=slot.references,
         presence=slot.presence,
         observable=_observable_id(decl, slot.observable),
+        extra_order=slot.extra_order,
         doc=slot.doc,
     )
     mark(slot.construct, slot.traces, slot.pse)

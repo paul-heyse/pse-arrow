@@ -323,6 +323,18 @@ def load_subjects(resolution_dir: Path, carrier: CarrierInfo) -> dict[tuple[str,
     }
 
 
+def load_form_aggregations(resolution_dir: Path) -> dict[uuid.UUID, uuid.UUID]:
+    """The aggregation of each species form resolution wrote (species form to aggregation): the
+    phase of a reaction's participants, which fixes the dimension of its rate constants."""
+    form = pc.SPECIES_FORM
+    path = resolution_dir / store.file_name(form.table)
+    if not path.is_file():  # a resolution of no species forms writes no table
+        return {}
+    return {
+        row["id"]: row[form.aggregation] for row in pq.read_table(path).to_pylist()
+    }
+
+
 def _check_identity(env: Environment, prepared: Prepared) -> tuple[Path, CanonicalManifest]:
     directory = env.source_dir(prepared.source_id) / claims.IDENTITY_DIR
     recorded = _recorded(directory)
@@ -377,7 +389,11 @@ def run_records(
     run = _entry_point(load_module(prepared), RECORDS, source_id)
     carriers = Carriers()
     carriers.add(prepared.carrier, prepared.tree)
-    writer = CanonicalWriter(prepared.decl, carriers)
+    writer = CanonicalWriter(
+        prepared.decl,
+        carriers,
+        form_aggregations=load_form_aggregations(env.resolution_dir),
+    )
     ctx = RecordContext(
         writer=writer,
         subjects=load_subjects(env.resolution_dir, prepared.carrier),

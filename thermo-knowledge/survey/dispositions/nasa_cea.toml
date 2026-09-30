@@ -43,7 +43,7 @@ reason = "A record with ntl = 0 maps to a parameter set of a constant-enthalpy f
 [[disposition]]
 construct = "compiled thermo library (thermo.lib) and its derived fits"
 disposition = "out_of_scope"
-reason = "The compiled library is derived content generated at build time by the program (forced 200 to 20000 K grid, synthesised third fit, interval choice at a boundary): the knowledge is the thermo.inp record mapped under constructs 3 to 5, and the runtime difference is a survey discrepancy that matters to qualification cases against the program (alignment-notes #15, #47), not to mapped data."
+reason = "The compiled library is derived content generated at build time by the program (forced 200 to 20000 K grid, synthesised third fit, interval choice at a boundary): the knowledge is the thermo.inp record mapped under constructs 3 to 5, and the runtime difference is a survey discrepancy that matters to qualification cases against the program, where a case's `[pieces]` policy states how a boundary is read, not to mapped data."
 
 [[disposition]]
 construct = "trans.inp entry header"

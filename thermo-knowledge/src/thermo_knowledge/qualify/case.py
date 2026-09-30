@@ -114,6 +114,17 @@ class ValiditySpec(Struct, **_STRICT):
     outside: Literal["compare", "exclude"] = "compare"
 
 
+class PiecesSpec(Struct, **_STRICT):
+    """What the case's evaluation does at and beyond the boundaries of the pieces of a piecewise
+    form (`at`): which side a boundary point belongs to (`upper_piece`: the intervals are
+    `[low, high)`, `lower_piece`: `(low, high]`) and whether a point beyond the pieces is
+    `refuse`d or given to the `nearest` piece. The stored pieces never change; this is a policy of
+    the case, as a library's own reading of the boundaries is what the case compares with."""
+
+    boundary: Literal["upper_piece", "lower_piece"] = "upper_piece"
+    outside: Literal["refuse", "nearest"] = "refuse"
+
+
 class HarnessSpec(Struct, **_STRICT):
     """The oracle harness: `oracles/<library>.py`, run in `environment` (`core`, or a side
     environment of `envs/`), evaluating its `call`."""
@@ -139,6 +150,7 @@ class CaseSpec(Struct, **_STRICT):
     comparison: ComparisonSpec
     harness: HarnessSpec
     validity: ValiditySpec | None = None
+    pieces: PiecesSpec = msgspec.field(default_factory=PiecesSpec)
     subforms: dict[str, list[SubformChoiceSpec]] = {}
 
 

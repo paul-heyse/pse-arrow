@@ -107,6 +107,7 @@ p_sat = "exp(pure.A[i] - pure.B[i] / theta) * unit('Pa')"
 | `theta` | a local from `let`; `r[i]` for a local indexed over sets |
 | `X`, `X[a]` | an unknown of an implicit block, subscripted by its sets when it has any |
 | `convention.gas_constant` | a convention fact the form declares in `conventions`, of the convention set of the parameterization in force; it has the type of the convention-set attribute of that name |
+| `convention.gas_constant[i]` | a convention fact the form declares in `component_conventions`: that of the parameterization that supplied the set of its slot group for the component `i` of a contract set |
 | `alpha.value(i=i, T=T)` | output `value` of the form chosen for sub-form slot `alpha`, called with the accepted contract's roles, sets and arguments by keyword |
 | `c.alpha_r(...) for c in residual` | each contribution of a sub-form slot with multiplicity `many` |
 
@@ -141,6 +142,13 @@ unknown or non-quantity attribute is a located diagnostic. `convention.<fact>` h
 that attribute's type and is checked like any quantity. Reading a fact the form has not declared is
 refused. `convention` is a reserved name: no argument, role, set, slot group, sub-form slot, local or
 unknown may have it.
+
+A fact the parameterizations of a mixture's components may state differently (the gas constant a multifluid
+mixture averages over its components) is declared in `component_conventions = { gas_constant = "pure" }`:
+the slot group, whose one subject is bound to a contract set, names where each component's fact comes from,
+and `convention.gas_constant[i]` reads it for the component `i`, with the same type. A fact is read one way
+or the other: `convention.gas_constant` for a fact in `conventions`, `convention.gas_constant[i]` for one in
+`component_conventions`, and the wrong form is a located diagnostic.
 
 ### Grammar
 
@@ -245,8 +253,11 @@ locals that do, each group in declared order.
 Loading a declaration with expressions refuses, with a diagnostic that names the form, the output
 or local and the position in the text. Expressions are checked by dimension, not by quantity type:
 two quantity types of one dimension are interchangeable inside an expression (a `Temperature` and a
-`TemperatureDifference` add without complaint). Only the declared basis of a composition is compared beyond the dimension, at calls. The
-refusals:
+`TemperatureDifference` add without complaint). Only the declared basis of a composition is compared beyond the dimension, at calls. A
+slot or an output of a dependent quantity type (meta-model section 3.3) has the dimension of one opaque symbol,
+`[RateConstant]` for a rate constant, times a bulk concentration to the power minus its extra order: two such
+values add or compare only when they have the type and the extra order in common, and the concrete dimension
+follows the reaction of each set and is checked when the set is written. The refusals:
 
 - syntax outside the grammar; an unknown function; a call to anything else
 - an unknown name, a convention fact the form does not declare included; a slot subscripted with the
@@ -312,7 +323,14 @@ the evaluator asks for it only after the source has found no set for the subject
 transposition makes equivalent.
 
 `at(...)` selects by half-open intervals `[lower, upper)`, with the last piece closed at its
-upper bound; an argument outside every piece is refused when the expression is evaluated.
+upper bound; an argument outside every piece is refused when the expression is evaluated. That is the
+default reading of the stored pieces. A binding may be given a `PiecePolicy` (`bind(..., pieces=...)`, which a
+qualification case states in its `[pieces]` table): `boundary = "lower_piece"` reads the pieces as
+`(lower, upper]`, with the first piece closed at its lower bound, and `outside = "nearest"` gives a point
+beyond the pieces to the nearest one instead of refusing it (a point in a gap between pieces goes to the
+nearer, the middle of the gap to the side the boundary rule names; a gap's middle is an expression of the
+two stored bounds and is formed when the function is evaluated, never while compiling). The data is never
+changed: the policy is the caller's.
 
 **Solving a block at a point.** A block with one unknown that has both bounds has every root in
 the interval found: the real roots of the residual when it is a polynomial in the unknown (from
@@ -344,7 +362,13 @@ arguments):
 
 - a clause is **decidable** when it limits an observable that exactly one argument of the contract
   names and has a value here, and is about no component and no aggregation; it holds when the
-  argument's value lies in its closed interval;
+  argument's value lies in its closed interval. A bound stated as an offset from another observable of
+  the subject (`lower_relative_to`, `upper_relative_to`) is placed at that observable's value plus the
+  offset, and the clause is decidable only when the evaluation has a value of the observable: one passed
+  to `validity(..., references={observable: value})`, else the value of a slot that denotes the
+  observable in a set the evaluation read, when the sets read give it one value. A passed value takes
+  precedence. Without a value the clause cannot be decided, so the region is undetermined unless
+  another clause fails;
 - a region is a conjunction of its clauses, so for a point it is **outside** when a decidable clause
   fails, whatever the clauses that cannot be decided say; else **undetermined** when some clause
   cannot be decided from the arguments (a clause on a component or an aggregation, on an observable no
@@ -392,6 +416,10 @@ consequence is in the expression:
   finished, from the parameterizations that supplied the sets the forms read: every source used
   states the fact, and the values of all of them are equal, otherwise the evaluation is refused,
   naming the fact, the two parameterizations and the two values (`pipeline.md` section 5.3).
+  A fact a form declares per component is one symbol for each component, settled from the
+  parameterization that supplied the set of the fact's slot group for that component; the set is read
+  when the fact is, and each component's parameterization states the fact, but the values are not
+  compared between components.
 
 What is and is not guaranteed about the floating-point operations:
 
