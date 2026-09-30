@@ -1122,6 +1122,17 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `method` | `` | false |
 | `lexicographic` | `` | false |
 
+## `NativeInfeasibilityWitness`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `candidate` | `` | false |
+| `pool` | `` | false |
+| `incumbent` | `` | false |
+| `seed` | `` | false |
+| `start` | `` | false |
+| `local_solution` | `` | false |
+
 ## `NativeMetricKind`
 
 | Member | IDAES name | Deprecated |

@@ -1409,6 +1409,34 @@ pub struct Evidence {
         Option<Result<crate::kkt::InverseReducedHessian, crate::kkt::Withheld>>,
     /// Global bound evidence of a certifying adapter.
     pub global: Option<GlobalEvidence>,
+    /// A known point that contradicts the certifying adapter's infeasibility conclusion
+    /// (Plan 23 H10), recorded by the factorable runner; qualification then grants no
+    /// assurance.
+    pub contradiction: Option<Arc<InfeasibilityContradiction>>,
+}
+/// Registry-owned source of a point that contradicts an infeasibility conclusion.
+pub use pse_model::generated::enums::NativeInfeasibilityWitness as WitnessSource;
+/// A backend's infeasibility conclusion contradicted by a known point of the same problem
+/// (Plan 23 H10, PS-10). The witness meets every original row, the declared box,
+/// integrality and every native form within its original acceptance budget: the convention
+/// under which a certificate must exceed those budgets before it proves infeasibility. The
+/// conclusion then grants no assurance, so it is never reported as infeasible and never
+/// becomes a certificate. The witness is evidence only, never the report's candidate or
+/// a seed.
+#[derive(Clone, Debug)]
+pub struct InfeasibilityContradiction {
+    /// Where the witness comes from.
+    pub witness: WitnessSource,
+    /// Its rank in the solution pool, or its ordinal among the attempt's incumbents;
+    /// absent for every other source.
+    pub ordinal: Option<usize>,
+    /// The witness in the report's variable order, in original coordinates.
+    pub primal: Vec<f64>,
+    /// The authored objective's fresh value at the witness, when one is declared.
+    pub objective: Option<f64>,
+    /// Its residuals against every original row, bound, integrality and native form, each
+    /// with its source identity and tolerance; all are within their tolerances.
+    pub quality: crate::quality::Quality,
 }
 /// The label of a candidate that minimizes constraint violation instead of satisfying the
 /// constraints: the point a local infeasibility stop returns, including the ℓ1 exact-penalty

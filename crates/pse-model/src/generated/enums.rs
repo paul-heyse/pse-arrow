@@ -11026,6 +11026,135 @@ impl core::str::FromStr for NativeIneligibility {
     clippy::enum_variant_names,
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
+pub enum NativeInfeasibilityWitness {
+    ///The point the backend reported beside its infeasibility conclusion.
+    #[serde(rename = "candidate")]
+    Candidate,
+    ///A solution the backend stored in its solution pool.
+    #[serde(rename = "pool")]
+    Pool,
+    ///An incumbent the backend reported while it searched.
+    #[serde(rename = "incumbent")]
+    Incumbent,
+    ///The primal warm start submitted to the backend.
+    #[serde(rename = "seed")]
+    Seed,
+    ///The case's start values.
+    #[serde(rename = "start")]
+    Start,
+    ///The candidate of a local solve of the same problem from the start, run through the one NLP runner.
+    #[serde(rename = "local_solution")]
+    LocalSolution,
+}
+impl crate::SemanticEq for NativeInfeasibilityWitness {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl NativeInfeasibilityWitness {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 6usize] = [
+        Self::Candidate,
+        Self::Pool,
+        Self::Incumbent,
+        Self::Seed,
+        Self::Start,
+        Self::LocalSolution,
+    ];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Candidate => "candidate",
+            Self::Pool => "pool",
+            Self::Incumbent => "incumbent",
+            Self::Seed => "seed",
+            Self::Start => "start",
+            Self::LocalSolution => "local_solution",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Candidate => 0usize,
+            Self::Pool => 1usize,
+            Self::Incumbent => 2usize,
+            Self::Seed => 3usize,
+            Self::Start => 4usize,
+            Self::LocalSolution => 5usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Candidate => None,
+            Self::Pool => None,
+            Self::Incumbent => None,
+            Self::Seed => None,
+            Self::Start => None,
+            Self::LocalSolution => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for NativeInfeasibilityWitness {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(NativeInfeasibilityWitness))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(NativeInfeasibilityWitness)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["candidate", "pool", "incumbent", "seed",
+            "start", "local_solution"] }
+        )
+    }
+}
+impl core::str::FromStr for NativeInfeasibilityWitness {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "candidate" => Ok(Self::Candidate),
+            "pool" => Ok(Self::Pool),
+            "incumbent" => Ok(Self::Incumbent),
+            "seed" => Ok(Self::Seed),
+            "start" => Ok(Self::Start),
+            "local_solution" => Ok(Self::LocalSolution),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(NativeInfeasibilityWitness).to_owned(),
+                    enumeration: stringify!(NativeInfeasibilityWitness).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
 pub enum NativeMetricKind {
     ///real
     #[serde(rename = "real")]
@@ -17522,6 +17651,16 @@ impl crate::HeapUsage for NativeIneligibility {
     }
 }
 impl crate::SemanticFrame for NativeIneligibility {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for NativeInfeasibilityWitness {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for NativeInfeasibilityWitness {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }

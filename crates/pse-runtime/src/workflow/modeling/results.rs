@@ -105,6 +105,12 @@ impl ModelingResult {
                 .unwrap_or_default(),
             _ => Vec::new(),
         };
+        // A global infeasibility conclusion that a known point contradicts is its own
+        // outcome, never an infeasibility (Plan 23 H10, PS-10).
+        let contradiction = match &self.outcome {
+            Outcome::Native(native) => native.evidence.contradiction.as_deref(),
+            _ => None,
+        };
         let mut result = D::new(
             C::TrialRejected,
             "modeling-result",
@@ -113,11 +119,33 @@ impl ModelingResult {
                 .filter(|c| !c.satisfied)
                 .map(|c| c.source_id.as_id())
                 .chain(violated),
-            "modeling.qualification.rejected",
+            if contradiction.is_some() {
+                "modeling.qualification.infeasibility_contradicted"
+            } else {
+                "modeling.qualification.rejected"
+            },
         );
+        if let Some(witness) = contradiction {
+            result.observations.insert(
+                "witness".into(),
+                Observation::Text(witness.witness.as_str().into()),
+            );
+            if let Some(ordinal) = witness.ordinal {
+                result.observations.insert(
+                    "witness_ordinal".into(),
+                    Observation::Integer(i64::try_from(ordinal).unwrap_or(i64::MAX)),
+                );
+            }
+            // The witness's worst residual relative to its tolerance, at most one.
+            result.observations.insert(
+                "witness_violation".into(),
+                Observation::Real(witness.quality.normalized_max),
+            );
+        }
         if let Outcome::Native(native) = &self.outcome {
             use pse_backend_native::solve::Termination as T;
             result.class = match native.termination.category {
+                _ if contradiction.is_some() => C::Inconclusive,
                 T::Cancelled => C::Cancelled,
                 T::TimeLimit | T::IterationLimit => C::ResourceLimit,
                 T::Numerical => C::Numerical,

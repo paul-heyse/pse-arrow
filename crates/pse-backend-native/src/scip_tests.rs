@@ -19,7 +19,7 @@ use crate::{
     solve::{
         Assurance, Backend, BoundSource, Controls, Execution, IisMember, IpoptLinearSolver,
         OptionValue, PrimalSource, Qualification, ResolvedAccuracy, SolveIntent, SolveReport,
-        Termination, WarmCapability,
+        Termination, WarmCapability, WitnessSource,
     },
     solver_tests::stamp,
 };
@@ -1374,6 +1374,221 @@ fn global_infeasibility_proof() {
     assert_eq!(report.termination.category, Termination::Success);
     assert_ne!(report.termination.assurance, Assurance::ProvenInfeasible);
     assert_eq!(report.qualification, Qualification::Feasible);
+}
+
+/// [`run`] on the certify intent under one resolved feasibility budget, which is both the
+/// native accuracy (SCIP's tolerance is it clamped to [10⁻⁹, 10⁻⁶]) and every original
+/// row and variable tolerance, as a resolved numerical policy states them.
+fn run_budgeted(
+    case: &Case,
+    program: &FactorableProgram,
+    resolve: bool,
+    budget: f64,
+) -> Result<SolveReport, ProblemError> {
+    let (n, m) = (program.variables.len(), program.rows.len());
+    let accuracy = ResolvedAccuracy {
+        feasibility: budget,
+        ..ResolvedAccuracy::nominal()
+    };
+    let tolerances = Tolerances {
+        variables: vec![budget; n],
+        rows: vec![budget; m],
+        integrality: 1e-7,
+    };
+    let mut original = Original(case);
+    let mut relaxed = || case.relaxed_oracle();
+    let presolve = crate::presolve::Policy::Auto;
+    let initial = case.initial();
+    execution::factorable(
+        Step {
+            adapter: execution::adapter(Backend::Scip),
+            settings: &BackendSettings::Scip(ScipSettings::default()),
+            controls: &Controls::default(),
+            accuracy: &accuracy,
+            execution: execution(false),
+            tolerances: &tolerances,
+            normalization: &Normalization::identity(n, m),
+            compatibility: stamp(Backend::Scip),
+            warm: None,
+        },
+        &mut Retained::default(),
+        Factorable {
+            program,
+            initial: &initial,
+            intent: SolveIntent::Certify,
+            original: &mut original,
+            resolve: resolve.then_some(Resolve {
+                oracle: &mut relaxed,
+                presolve: &presolve,
+                limit: 100_000,
+                sensitivity: None,
+            }),
+        },
+    )
+}
+/// x·x ≤ 1 and x·x ≥ 1 + 10⁻⁵ over x ∈ [0, 2], from `start`. Under a resolved budget of
+/// 10⁻⁴, SCIP's tolerance is 10⁻⁶, so it proves the rows infeasible, while every x with
+/// x² between 1 and 1 + 10⁻⁵ meets both within their original budgets: SCIP's claim, not
+/// the model, is what a known point contradicts.
+fn narrow_gap(registry: &QuantityRegistry, start: f64) -> Case {
+    let mut b = Body::new(registry, 1);
+    let x = b.x[0].clone();
+    let xx = b.op(Binary::Mul, &x, &x);
+    let body = b.b.prepare(&[xx.clone(), xx]).unwrap();
+    case(
+        registry,
+        body,
+        &[(
+            ModelingVariableDomain::Continuous,
+            Some(0.0),
+            Some(2.0),
+            start,
+        )],
+        &[(f64::NEG_INFINITY, 1.0), (1.0 + 1e-5, f64::INFINITY)],
+        None,
+        DerivativeOrder::Second,
+    )
+}
+
+/// Plan 23 H10 (PS-10): a global infeasibility conclusion is compared with every point known
+/// for the problem, and one that meets the original rows and bounds within their budgets
+/// contradicts it. The contradicted conclusion keeps SCIP's native stop but grants no
+/// assurance, never becomes a candidate, and names its witness with its residuals by row
+/// identity. Known points are compared first; a local solve from the start follows only
+/// when none contradicts the conclusion. The saved SCIP reproducer of the case that
+/// motivated this is `scip_falsely_proves_the_bt_pr_liquid_tpd_infeasible`.
+#[test]
+fn global_infeasibility_contradicted_by_a_known_feasible_point() {
+    let registry = standard_registry().unwrap();
+    let budget = 1e-4;
+    // The start meets both rows within the budget: it is the witness.
+    let witness = (1.0 + 0.5e-5_f64).sqrt();
+    let case = narrow_gap(&registry, witness);
+    let program = case.program(&FactorableRequest::default());
+    let report = run_budgeted(&case, &program, true, budget).unwrap();
+    assert_eq!(report.termination.category, Termination::Infeasible);
+    assert_eq!(report.termination.name, "SCIP_STATUS_INFEASIBLE");
+    let g = report.evidence.global.unwrap();
+    assert!(g.infeasible && g.readback, "{g:?}");
+    assert_eq!(report.termination.assurance, Assurance::None);
+    assert_eq!(report.qualification, Qualification::Unqualified);
+    assert!(report.candidate.is_none());
+    let c = report.evidence.contradiction.as_deref().unwrap();
+    assert_eq!((c.witness, c.ordinal), (WitnessSource::Start, None));
+    assert_eq!(c.primal, [witness]);
+    assert!(c.quality.feasible(), "{c:?}");
+    // Each residual names its row and its original budget: x² misses each side by 5e-6.
+    for (violation, row) in c.quality.rows.iter().zip([id(101), id(102)]) {
+        assert_eq!((violation.id, violation.tolerance), (row, budget));
+        assert!((violation.physical - 0.5e-5).abs() < 1e-12, "{violation:?}");
+    }
+    // A known point contradicted the conclusion, so no local solve ran.
+    assert!(!report.metrics.contains_key("local.termination"));
+    // A start far from both rows is no witness; a local solve from it finds one.
+    let case = narrow_gap(&registry, 0.5);
+    let program = case.program(&FactorableRequest::default());
+    let report = run_budgeted(&case, &program, true, budget).unwrap();
+    assert_eq!(report.termination.category, Termination::Infeasible);
+    assert_eq!(report.termination.assurance, Assurance::None);
+    assert!(report.candidate.is_none());
+    let c = report.evidence.contradiction.as_deref().unwrap();
+    assert_eq!((c.witness, c.ordinal), (WitnessSource::LocalSolution, None));
+    assert!(c.quality.feasible(), "{c:?}");
+    assert!(report.metrics.contains_key("local.termination"));
+    // Without a local phase nothing known contradicts SCIP, whose claim then stands.
+    let report = run_budgeted(&case, &program, false, budget).unwrap();
+    assert!(report.evidence.contradiction.is_none());
+    assert_eq!(report.termination.assurance, Assurance::ProvenInfeasible);
+}
+
+/// Plan 23 H10: a model no point satisfies keeps SCIP's proof. Neither the start nor a
+/// local solve from it meets the obstructing rows, under the default budget or the wider
+/// one of the contradicted case.
+#[test]
+fn genuinely_infeasible_model_still_reports_infeasible() {
+    let registry = standard_registry().unwrap();
+    let case = obstruction(&registry);
+    let program = case.program(&FactorableRequest::default());
+    for report in [
+        run(&case, &program, SolveIntent::Certify, true, false).unwrap(),
+        run_budgeted(&case, &program, true, 1e-4).unwrap(),
+    ] {
+        assert_eq!(report.termination.category, Termination::Infeasible);
+        assert_eq!(report.termination.assurance, Assurance::ProvenInfeasible);
+        assert!(report.evidence.contradiction.is_none());
+        assert!(report.candidate.is_none());
+        // The local phase ran and found no witness.
+        assert!(
+            report.metrics.contains_key("local.termination"),
+            "{:?}",
+            report.metrics
+        );
+    }
+}
+
+/// Register R-52's saved reproducer (Plan 23 H10). SCIP 10.0.2's convex nonlinear handler
+/// falsely proves the Peng–Robinson liquid tangent-plane problem of the campaign fixture
+/// `bt_pr_liquid_stability` infeasible. `tests/fixtures/scip/bt-pr-liquid-tpd.cip` is that
+/// fixture's exported problem as SCIP's CIP writer writes the adapter's native model,
+/// reduced by deletion to the rows SCIP needs for the false conclusion: the reference
+/// pressure row in its normalized coordinate (`c1`), the compressibility obligation
+/// Z ≥ 10⁻⁹ (`c386`) and three bound rows every point in the box meets, with the
+/// temperature and the feed composition fixed at the model's values. The liquid root
+/// ρ = 9352.947072747278 mol/m³ meets every row, and SCIP's own check accepts it; at the
+/// adapter's tolerance of 10⁻⁸ SCIP still concludes infeasibility, and with the convex
+/// handler disabled it finds a solution. In the fixture the factorable runner's check
+/// contradicts the conclusion with a local solution instead
+/// (`global_infeasibility_contradicted_by_a_known_feasible_point` covers that mechanism).
+///
+/// The status assertion holds while the defect does: when it fails, the pinned SCIP no
+/// longer reproduces it and R-52's trigger has fired. To check a newer SCIP without
+/// relinking, run its command line on the saved file from the repository root:
+///
+/// ```text
+/// scip -c "set numerics feastol 1e-8 read tests/fixtures/scip/bt-pr-liquid-tpd.cip optimize display status quit"
+/// ```
+///
+/// `infeasible` means the defect remains; `optimal solution found` means it is fixed. The
+/// pinned binary is `$SCIPOPTDIR/bin/scip` after `source scripts/native-execution-env.sh`,
+/// and PySCIPOpt's `Model.readProblem` reads the same file.
+#[test]
+fn scip_falsely_proves_the_bt_pr_liquid_tpd_infeasible() {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tests/fixtures/scip/bt-pr-liquid-tpd.cip");
+    let accuracy = ResolvedAccuracy {
+        feasibility: 1e-8,
+        ..ResolvedAccuracy::nominal()
+    };
+    // x1 is the reference density, x3 the temperature, x5 and x6 the feed amounts; x0 and
+    // x4 enter only bound rows.
+    let liquid = [
+        ("x0", 0.5843),
+        ("x1", 9352.947072747278),
+        ("x3", 368.0),
+        ("x4", 0.4157),
+        ("x5", 0.4157),
+        ("x6", 0.5843),
+    ];
+    let (accepted, status) =
+        scip::testing::check_then_solve(&path, &accuracy, &Controls::default(), &liquid)
+            .unwrap();
+    assert!(accepted, "SCIP's own check rejects the liquid root");
+    assert_eq!(
+        status,
+        Status::Infeasible,
+        "R-52: the pinned SCIP no longer proves the saved reproducer infeasible"
+    );
+    // The convex nonlinear handler is the cause: without it SCIP finds a solution.
+    let without = Controls {
+        options: BTreeMap::from([(
+            "nlhdlr/convex/enabled".to_owned(),
+            OptionValue::Bool(false),
+        )]),
+        ..Controls::default()
+    };
+    let (_, status) =
+        scip::testing::check_then_solve(&path, &accuracy, &without, &liquid).unwrap();
+    assert_eq!(status, Status::Optimal);
 }
 
 #[test]

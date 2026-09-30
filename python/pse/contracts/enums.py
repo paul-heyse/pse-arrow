@@ -1122,6 +1122,17 @@ class NativeIneligibility(StrEnum):
     LEXICOGRAPHIC = "lexicographic"
 
 
+class NativeInfeasibilityWitness(StrEnum):
+    """The declared NativeInfeasibilityWitness enumeration."""
+
+    CANDIDATE = "candidate"
+    POOL = "pool"
+    INCUMBENT = "incumbent"
+    SEED = "seed"
+    START = "start"
+    LOCAL_SOLUTION = "local_solution"
+
+
 class NativeMetricKind(StrEnum):
     """The declared NativeMetricKind enumeration."""
 

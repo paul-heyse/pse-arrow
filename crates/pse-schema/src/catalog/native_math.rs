@@ -408,6 +408,28 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             ),
         ],
     ));
+    // Plan 23 H10 (PS-10): a backend's infeasibility conclusion is checked against every
+    // point known for the same problem; the witness that contradicts it names its source.
+    b.declare_enum(EnumDecl::platform(
+        "NativeInfeasibilityWitness",
+        vec![
+            EnumMember::new(
+                "candidate",
+                "The point the backend reported beside its infeasibility conclusion.",
+            ),
+            EnumMember::new("pool", "A solution the backend stored in its solution pool."),
+            EnumMember::new(
+                "incumbent",
+                "An incumbent the backend reported while it searched.",
+            ),
+            EnumMember::new("seed", "The primal warm start submitted to the backend."),
+            EnumMember::new("start", "The case's start values."),
+            EnumMember::new(
+                "local_solution",
+                "The candidate of a local solve of the same problem from the start, run through the one NLP runner.",
+            ),
+        ],
+    ));
     enumeration(
         b,
         "NativeRunState",

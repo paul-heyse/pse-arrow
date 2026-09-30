@@ -603,7 +603,9 @@ pub fn qualify(report: &mut crate::solve::SolveReport, accuracy: &crate::solve::
 /// original-feasible candidate from a result source, whose fresh original objective lies
 /// within the recorded gap of the dual bound. A relaxed incumbent never becomes a
 /// solution claim. A conclusion reached in rational arithmetic over an exact export is an
-/// exact certificate, the only rigorous assurance (ADR-0106 §9).
+/// exact certificate, the only rigorous assurance (ADR-0106 §9). An infeasibility
+/// conclusion that a known original-feasible point contradicts grants no assurance
+/// (Plan 23 H10).
 fn qualify_global(report: &mut crate::solve::SolveReport, g: crate::solve::GlobalEvidence) {
     use crate::solve::{Assurance, BoundSource, PrimalSource, Qualification, Termination};
     let feasible = report.validation_failure().is_none()
@@ -618,12 +620,15 @@ fn qualify_global(report: &mut crate::solve::SolveReport, g: crate::solve::Globa
     }
     let exact = g.exact && g.dual == BoundSource::ExactExport;
     match report.termination.category {
+        // A conclusion that a known point contradicts grants nothing (Plan 23 H10).
         Termination::Infeasible if g.infeasible => {
-            report.termination.assurance = if exact {
-                Assurance::ExactCertificate
-            } else {
-                Assurance::ProvenInfeasible
-            };
+            if report.evidence.contradiction.is_none() {
+                report.termination.assurance = if exact {
+                    Assurance::ExactCertificate
+                } else {
+                    Assurance::ProvenInfeasible
+                };
+            }
             return;
         }
         Termination::Success => {}
@@ -848,6 +853,56 @@ mod qualification_tests {
         });
         qualify(&mut conic, &accuracy);
         assert_eq!(conic.qualification, Qualification::OptimalWithinTolerance);
+    }
+    /// Plan 23 H10: a certifying backend's infeasibility conclusion grants
+    /// `proven_infeasible` (or an exact certificate) only while no known point contradicts
+    /// it; a contradicted one grants nothing, and the native stop is kept.
+    #[test]
+    fn contradicted_infeasibility_grants_no_assurance() {
+        let accuracy = ResolvedAccuracy::nominal();
+        let mut r = report(Backend::Scip, Termination::Infeasible);
+        r.candidate = None;
+        r.quality = None;
+        let concluded = GlobalEvidence {
+            fidelity: pse_math::factorable::Fidelity::Exact,
+            domain: pse_ids::ContentHash::from_bytes([2; 32]),
+            sense: pse_math::binding::ObjectiveSense::Minimize,
+            feasibility: 1e-8,
+            gap_relative: 1e-6,
+            gap_absolute: 1e-9,
+            dual_bound: None,
+            primal_bound: None,
+            gap: None,
+            nodes: 1,
+            readback: true,
+            dual: BoundSource::ExactExport,
+            primal: PrimalSource::Backend,
+            infeasible: true,
+            exact: false,
+        };
+        for (exact, assurance) in [
+            (false, Assurance::ProvenInfeasible),
+            (true, Assurance::ExactCertificate),
+        ] {
+            r.evidence.global = Some(GlobalEvidence {
+                exact,
+                ..concluded
+            });
+            r.evidence.contradiction = None;
+            qualify(&mut r, &accuracy);
+            assert_eq!(r.termination.assurance, assurance);
+            r.evidence.contradiction = Some(std::sync::Arc::new(InfeasibilityContradiction {
+                witness: WitnessSource::LocalSolution,
+                ordinal: None,
+                primal: vec![0.0],
+                objective: None,
+                quality: Quality::new(vec![], vec![], vec![]).unwrap(),
+            }));
+            qualify(&mut r, &accuracy);
+            assert_eq!(r.termination.assurance, Assurance::None);
+            assert_eq!(r.qualification, Qualification::Unqualified);
+            assert_eq!(r.termination.category, Termination::Infeasible);
+        }
     }
     #[test]
     fn gaps_and_limits_have_separate_meanings() {

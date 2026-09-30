@@ -3247,6 +3247,66 @@ pub(crate) mod testing {
         }
         Ok(worst)
     }
+    /// Read a problem file through SCIP's own readers, configured as the adapter configures
+    /// an attempt at `accuracy` with `controls`; check `point` (original variable names and
+    /// values) with SCIP's own check of the original problem, then solve. Returns whether
+    /// the check accepted the point and the status the solve concluded.
+    pub(crate) fn check_then_solve(
+        path: &std::path::Path,
+        accuracy: &ResolvedAccuracy,
+        controls: &Controls,
+        point: &[(&str, f64)],
+    ) -> Result<(bool, Status), ProblemError> {
+        let mut execution = Execution::new(Arc::default(), controls);
+        execution.memory = Some(256 << 20);
+        let instance = Instance::new(&execution, Modes::default())?;
+        let s = instance.ptr();
+        let file = cstring(
+            path.to_str()
+                .ok_or_else(|| ProblemError::internal("problem path"))?,
+        )?;
+        native!(
+            "SCIPreadProb",
+            ffi::SCIPreadProb(s, file.as_ptr(), ptr::null())
+        )?;
+        configure(
+            &instance,
+            &Settings::default(),
+            controls,
+            accuracy,
+            &execution,
+            1e-6,
+        )?;
+        let mut sol = ptr::null_mut();
+        native!(
+            "SCIPcreateOrigSol",
+            ffi::SCIPcreateOrigSol(s, &mut sol, ptr::null_mut())
+        )?;
+        let checked = (|| {
+            for (name, value) in point {
+                let name = cstring(name)?;
+                // SAFETY: a name lookup in the problem just read.
+                let var = unsafe { ffi::SCIPfindVar(s, name.as_ptr()) };
+                if var.is_null() {
+                    return Err(ProblemError::internal("unknown variable name"));
+                }
+                native!("SCIPsetSolVal", ffi::SCIPsetSolVal(s, sol, var, *value))?;
+            }
+            let mut feasible = 0;
+            native!(
+                "SCIPcheckSolOrig",
+                ffi::SCIPcheckSolOrig(s, sol, &mut feasible, 0, 1)
+            )?;
+            Ok(feasible != 0)
+        })();
+        native!("SCIPfreeSol", ffi::SCIPfreeSol(s, &mut sol))?;
+        let accepted = checked?;
+        native!("SCIPsolve", ffi::SCIPsolve(s))?;
+        // SAFETY: a status query after `SCIPsolve` returned.
+        let raw = unsafe { ffi::SCIPgetStatus(s) };
+        let status = Status::from_raw(raw).ok_or_else(|| ProblemError::internal("status"))?;
+        Ok((accepted, status))
+    }
     /// The effective native options after configuration.
     pub(crate) fn configured(
         settings: &Settings,

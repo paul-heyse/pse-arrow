@@ -25,8 +25,9 @@ use crate::{
     quality::{self, Observation, Quality, Violation},
     routing::{self, Requirements, Route},
     solve::{
-        BoundSource, Candidate, Compatibility, Controls, ExportTransformation, Metric, Options,
-        PrimalSource, SolveIntent, SolveReport, SolverSelection, WarmPayload, WarmStart,
+        BoundSource, Candidate, Compatibility, Controls, ExportTransformation,
+        InfeasibilityContradiction, Metric, Options, PrimalSource, SolveIntent, SolveReport,
+        SolverSelection, WarmPayload, WarmStart, WitnessSource,
     },
     transform::{Commitment, Pinned, Relaxed},
 };
@@ -813,7 +814,8 @@ impl std::fmt::Debug for Factorable<'_> {
 /// - without a re-solve, a relaxed export's incumbent is an observation only.
 ///
 /// The dual bound and the candidate are recorded with their sources; `quality` grants a
-/// gap only from both.
+/// gap only from both. An infeasibility conclusion is compared with every point known for
+/// the problem, and a contradicting witness withholds its assurance (Plan 23 H10).
 ///
 /// # Errors
 /// A typed export refusal, or native execution failed before a report existed.
@@ -877,12 +879,22 @@ pub fn factorable(
         } else {
             PrimalSource::RelaxedIncumbent
         };
-        if report.candidate.is_some()
-            && proposal
+        if global.infeasible {
+            // The conclusion is compared with every point known for the problem (H10).
+            report.evidence.contradiction = contradiction(
+                &step,
+                &mut report,
+                &plan,
+                run.original,
+                run.initial,
+                run.resolve,
+            )
+            .map(std::sync::Arc::new);
+        } else if let Some(incumbent) = report.candidate.as_ref().filter(|_| proposal)
             && let Some(resolve) = run.resolve
         {
             let objective = plan.objective.is_some();
-            match fixed_assignment(&step, &report, &plan, resolve, objective) {
+            match fixed_assignment(&step, &incumbent.primal, &plan, resolve, objective) {
                 Ok((resolved, commitment)) => {
                     if adopt(
                         &mut report,
@@ -1091,29 +1103,123 @@ fn native_violations(
         .collect()
 }
 
-/// The continuous problem of the backend's discrete assignment, solved through the one NLP
-/// runner by the automatic NLP route and seeded there: every integer column is fixed at its
-/// rounded incumbent value; a semi column on its zero branch is fixed at zero, and on its
-/// active branch kept in `[l, u]` (a semi-integer one fixed at its rounded value); every
-/// SOS or cardinality member at zero stays zero, and a row whose indicator is inactive
-/// under the assignment is unconstrained. These committed boxes are the returned
-/// [`Commitment`]. The re-solve's native state is its own and never replaces a retained
-/// global session.
+/// The first point known for the problem that contradicts the backend's infeasibility
+/// conclusion (Plan 23 H10, PS-10). The backend's own candidate, its pooled solutions by
+/// rank, its captured incumbents in stream order, the submitted seed and the start are
+/// compared first; when none contradicts it and a re-solve is available, so is the
+/// candidate of a local solve from the start through the one NLP runner (the
+/// fixed-assignment re-solve of the start's discrete assignment). A point counts only when
+/// it meets every original row, the declared box, integrality and the native forms within
+/// their original budgets ([`assess`]).
+fn contradiction(
+    step: &Step<'_>,
+    report: &mut SolveReport,
+    plan: &Plan<'_>,
+    original: &mut dyn OriginalModel,
+    start: &[f64],
+    resolve: Option<Resolve<'_>>,
+) -> Option<InfeasibilityContradiction> {
+    let tolerances = step.tolerances;
+    let seed = step.warm.and_then(|seed| match &seed.payload {
+        WarmPayload::Nlp { primal, .. } => Some(primal.as_slice()),
+        WarmPayload::Root(primal) => Some(primal.as_slice()),
+        WarmPayload::Highs { primal, .. } => primal.as_deref(),
+    });
+    let known = report
+        .candidate
+        .iter()
+        .map(|c| (WitnessSource::Candidate, None, c.primal.as_slice()))
+        .chain(report.global.iter().flat_map(|g| {
+            g.pool
+                .iter()
+                .map(|s| (WitnessSource::Pool, Some(s.rank), s.primal.as_slice()))
+        }))
+        .chain(
+            report
+                .events
+                .iter()
+                .filter_map(|e| e.incumbent.as_ref())
+                .enumerate()
+                .filter_map(|(k, i)| Some((WitnessSource::Incumbent, Some(k), i.primal.as_deref()?))),
+        )
+        .chain(seed.map(|x| (WitnessSource::Seed, None, x)))
+        .chain(std::iter::once((WitnessSource::Start, None, start)))
+        .find_map(|(source, ordinal, x)| witness(plan, original, tolerances, source, ordinal, x));
+    if known.is_some() {
+        return known;
+    }
+    let resolve = resolve?;
+    let objective = plan.objective.is_some();
+    match fixed_assignment(step, start, plan, resolve, objective) {
+        Ok((local, _)) => {
+            for (key, value) in [
+                ("local.backend", local.backend.as_str()),
+                ("local.termination", local.termination.category.as_str()),
+                ("local.qualification", local.qualification.as_str()),
+            ] {
+                report.metrics.insert(key.into(), Metric::Text(value.into()));
+            }
+            let x = local.candidate?.primal;
+            witness(
+                plan,
+                original,
+                tolerances,
+                WitnessSource::LocalSolution,
+                None,
+                &x,
+            )
+        }
+        Err(e) => {
+            report
+                .metrics
+                .insert("local.refused".into(), Metric::Text(e.to_string()));
+            None
+        }
+    }
+}
+/// `x` as a contradicting witness, when it is original-feasible.
+fn witness(
+    plan: &Plan<'_>,
+    original: &mut dyn OriginalModel,
+    tolerances: &quality::Tolerances,
+    source: WitnessSource,
+    ordinal: Option<usize>,
+    x: &[f64],
+) -> Option<InfeasibilityContradiction> {
+    let (quality, observation) = assess(plan, original, tolerances, x).ok()?;
+    quality.feasible().then(|| InfeasibilityContradiction {
+        witness: source,
+        ordinal,
+        primal: x.to_vec(),
+        objective: observation.objective,
+        quality,
+    })
+}
+
+/// The continuous problem of a discrete assignment proposed by `proposal` (the backend's
+/// incumbent, or the start of a local phase), solved through the one NLP runner by the
+/// automatic NLP route and seeded there: every integer column is fixed at its rounded
+/// value; a semi column on its zero branch is fixed at zero, and on its active branch kept
+/// in `[l, u]` (a semi-integer one fixed at its rounded value); every SOS or cardinality
+/// member at zero stays zero, and a row whose indicator is inactive under the assignment is
+/// unconstrained. These committed boxes are the returned [`Commitment`]. The re-solve's
+/// native state is its own and never replaces a retained global session.
 fn fixed_assignment(
     step: &Step<'_>,
-    report: &SolveReport,
+    proposal: &[f64],
     plan: &Plan<'_>,
     resolve: Resolve<'_>,
     objective: bool,
 ) -> Result<(SolveReport, Commitment), ProblemError> {
     let program = plan.program;
-    let incumbent = report
-        .candidate
-        .as_ref()
-        .ok_or_else(|| ProblemError::Internal("fixed assignment without an incumbent".into()))?;
+    if proposal.len() != program.variables.len() {
+        return Err(ProblemError::Internal(
+            "fixed assignment proposal dimensions".into(),
+        ));
+    }
     let mut assignment: BTreeMap<usize, (f64, f64)> = BTreeMap::new();
     for (i, v) in program.variables.iter().enumerate() {
-        let x = incumbent.primal[i];
+        let x = proposal[i];
         let committed = match plan.semi_of(i) {
             Some(s) if !s.active(x) => Some((0.0, 0.0)),
             Some(s) if v.domain.is_integer() => {
@@ -1136,13 +1242,13 @@ fn fixed_assignment(
         };
         for member in members {
             if let NativeOperand::Column(c) = member
-                && incumbent.primal[c].abs() <= step.tolerances.variables[c]
+                && proposal[c].abs() <= step.tolerances.variables[c]
             {
                 assignment.insert(c, (0.0, 0.0));
             }
         }
     }
-    let mut start = incumbent.primal.clone();
+    let mut start = proposal.to_vec();
     for (i, (lower, upper)) in &assignment {
         start[*i] = start[*i].clamp(*lower, *upper);
     }
