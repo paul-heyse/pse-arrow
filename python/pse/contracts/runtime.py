@@ -351,6 +351,8 @@ class RuntimeModelingConformanceRow:
     message: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     failure_ordinal: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
     oracle_source_id: i.DeclarationId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    deviation: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    tolerance: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
 
 
 @attrs.frozen(kw_only=True)
@@ -920,6 +922,25 @@ class RuntimeModelingNonlinearExplanationsRow:
     nominals: b.tuple[RuntimeModelingNonlinearExplanationsFieldNominalsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeModelingNonlinearExplanationsFieldNominalsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     penalty_tolerance: b.float = attrs.field(validator=v.finite_float)
     attempts: b.tuple[RuntimeModelingNonlinearExplanationsFieldAttemptsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeModelingNonlinearExplanationsFieldAttemptsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeModelingParityRow:
+    """Declared relation row or nested value."""
+
+    run_id: i.RunId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    definition_id: i.DeclarationId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    oracle_source_id: i.DeclarationId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    release_id: i.DeclarationId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    fixture_id: i.DeclarationId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    sample_index: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+    target_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    source_id: i.DeclarationId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    kind: e.ModelingConformanceKind = attrs.field(validator=attrs.validators.instance_of(e.ModelingConformanceKind))
+    status: e.ModelingConformanceStatus = attrs.field(validator=attrs.validators.instance_of(e.ModelingConformanceStatus))
+    fixture_status: e.ModelingConformanceStatus = attrs.field(validator=attrs.validators.instance_of(e.ModelingConformanceStatus))
+    deviation: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    tolerance: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
 
 
 @attrs.frozen(kw_only=True)

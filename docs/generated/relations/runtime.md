@@ -361,9 +361,9 @@ Version: 3. Snapshot class: `derived`. Primary key: `run_id, step, sample_index,
 
 ## `modeling_conformance`
 
-Bounded shared checks over authored fixtures. The oracle source is the entity a fixture names as the source of its expected values; it identifies asserted source values and does not claim an upstream run. Uncovered concrete definitions and incomplete samples are explicit. Version two replaces the verbatim oracle reference and revision text with the oracle's source entity identity (ADR-0123 Outcome 5).
+Bounded shared checks over authored fixtures. The oracle source is the entity a fixture names as the source of its expected values; it identifies asserted source values and does not claim an upstream run. Uncovered concrete definitions and incomplete samples are explicit. Version two replaces the verbatim oracle reference and revision text with the oracle's source entity identity (ADR-0123 Outcome 5). Version three adds, exactly on an evaluated expectation, its deviation, the absolute difference between the observed and the expected canonical value, and the combined tolerance it is compared with (Plan 23 H6).
 
-Version: 2. Snapshot class: `derived`. Primary key: `run_id, fixture_id, sample_index, target_id, source_id, kind`.
+Version: 3. Snapshot class: `derived`. Primary key: `run_id, fixture_id, sample_index, target_id, source_id, kind`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
@@ -378,6 +378,8 @@ Version: 2. Snapshot class: `derived`. Primary key: `run_id, fixture_id, sample_
 | `message` | `Utf8` | false | `payload` | — | — |
 | `failure_ordinal` | `Int64` | true | `payload` | — | — |
 | `oracle_source_id` | `semantic_id` | true | `payload` | — | — |
+| `deviation` | `Float64` | true | `payload` | — | — |
+| `tolerance` | `Float64` | true | `payload` | — | — |
 
 ## `modeling_diagnostic_samples`
 
@@ -726,6 +728,28 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id`.
 | `attempts.item.error` | `Utf8` | true | `payload` | — | — |
 | `attempts.item.interruption_class` | `enum:NativeBoundaryClass` | true | `payload` | — | — |
 | `attempts.item.interruption` | `Utf8` | true | `payload` | — | — |
+
+## `modeling_parity`
+
+Oracle parity of one conformance run, projected from its checks. Every check of a fixture that names an oracle appears once for each definition the fixture instantiates directly (the units under test), or once under the fixture itself when it instantiates none; a check that merely did not apply is omitted. The release is the oracle entity itself when its kind carries the release facet, else the first release its attributes reference, else absent. Deviation and tolerance are the check's own; status is the check's disposition and fixture_status the fixture's.
+
+Version: 1. Snapshot class: `derived`. Primary key: `run_id, definition_id, oracle_source_id, fixture_id, sample_index, target_id, source_id, kind`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `definition_id` | `semantic_id` | false | `key` | — | — |
+| `oracle_source_id` | `semantic_id` | false | `key` | — | — |
+| `release_id` | `semantic_id` | true | `payload` | — | — |
+| `fixture_id` | `semantic_id` | false | `key` | — | — |
+| `sample_index` | `Int64` | false | `key` | — | — |
+| `target_id` | `semantic_id` | false | `key` | — | — |
+| `source_id` | `semantic_id` | false | `key` | — | — |
+| `kind` | `enum:ModelingConformanceKind` | false | `key` | — | — |
+| `status` | `enum:ModelingConformanceStatus` | false | `payload` | — | — |
+| `fixture_status` | `enum:ModelingConformanceStatus` | false | `payload` | — | — |
+| `deviation` | `Float64` | true | `payload` | — | — |
+| `tolerance` | `Float64` | true | `payload` | — | — |
 
 ## `modeling_reports`
 

@@ -1837,6 +1837,12 @@ impl NativeModelingConformance {
             .map(inspection::TableStream::from_batch)
             .map_err(|e| errors::diagnostic(py, &e))
     }
+    /// The oracle parity report projected from the run's checks (Plan 23 H6).
+    fn parity(&self, py: Python<'_>) -> PyResult<inspection::TableStream> {
+        py.detach(|| self.inner.parity_table())
+            .map(inspection::TableStream::from_batch)
+            .map_err(|e| errors::diagnostic(py, &e))
+    }
     fn failure(&self, py: Python<'_>, ordinal: usize) -> PyResult<inspection::DiagnosticReport> {
         self.inner
             .failures

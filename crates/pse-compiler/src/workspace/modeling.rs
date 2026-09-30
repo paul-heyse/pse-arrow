@@ -48,6 +48,10 @@ impl ModelingRevision {
     pub fn oracle(&self, test: DeclarationId) -> Option<DeclarationId> {
         self.checked.oracle(test)
     }
+    /// The release an oracle's values come from (Plan 23 H6).
+    pub fn release_of(&self, oracle: DeclarationId) -> Option<DeclarationId> {
+        self.checked.release_of(oracle)
+    }
     /// The physical name bindings the admitted source resolves with (ADR-0123 Outcome 8).
     pub fn physical_bindings(&self) -> BTreeMap<String, SemanticId> {
         self.checked.physical_bindings()

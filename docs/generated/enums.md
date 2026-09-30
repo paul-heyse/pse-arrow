@@ -843,6 +843,7 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | Member | IDAES name | Deprecated |
 |---|---|---|
 | `provenance` | `` | false |
+| `release` | `` | false |
 
 ## `ModelingLineageKind`
 

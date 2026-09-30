@@ -165,6 +165,7 @@ pub async fn conform_pure_documents(
             for (index, (row, limits)) in fixtures.iter().zip(fixture_limits).enumerate() {
                 let fixture = row.declaration_id;
                 let oracle = revision.oracle(fixture);
+                report.note_oracle(oracle, |oracle| revision.release_of(oracle));
                 let data = row.value.scope.as_ref().and_then(|s| s.fixture.as_ref());
                 if index >= maximum_fixtures
                     || worker_flag.load(Ordering::Acquire)
@@ -216,6 +217,7 @@ pub async fn conform_pure_documents(
                     }
                 };
                 covered.extend(model.model.instances.values().map(|i| i.definition));
+                report.note_units(fixture, &model.model);
                 let checked = compiler
                     .check_modeling_point(
                         fixture,

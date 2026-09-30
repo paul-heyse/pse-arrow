@@ -842,6 +842,7 @@ class ModelingKindFacet(StrEnum):
     """The declared ModelingKindFacet enumeration."""
 
     PROVENANCE = "provenance"
+    RELEASE = "release"
 
 
 class ModelingLineageKind(StrEnum):

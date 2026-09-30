@@ -209,6 +209,11 @@ pub struct ModelingConformanceReport {
     pub fixture_statuses: BTreeMap<DeclarationId, Status>,
     /// The fixtures the run executed; a selected run assesses no package coverage.
     pub selection: ModelingFixtureSelection,
+    /// The definitions each prepared fixture instantiates directly: its units under test
+    /// (Plan 23 H6).
+    pub units: BTreeMap<DeclarationId, BTreeSet<DeclarationId>>,
+    /// The release each named oracle's values come from, if its kind names one (Plan 23 H6).
+    pub releases: BTreeMap<DeclarationId, Option<DeclarationId>>,
     pub(super) registry: Arc<pse_schema::Registry>,
     pub(super) pool: Arc<dyn pse_columnar::MemoryPool>,
     _owner: pse_columnar::MemoryReservation,
@@ -254,6 +259,8 @@ impl ModelingConformanceReport {
                 .iter()
                 .map(|id| (*id, Status::Unattempted))
                 .collect(),
+            units: BTreeMap::new(),
+            releases: BTreeMap::new(),
             complete: true,
             selection: ModelingFixtureSelection::Package,
             registry,
@@ -391,7 +398,17 @@ impl ModelingConformanceReport {
             message: message.as_ref().to_owned(),
             failure_ordinal: None,
             oracle_source_id: oracle,
+            deviation: None,
+            tolerance: None,
         });
+    }
+    /// The deviation and combined tolerance of the expectation recorded at `check`
+    /// (Plan 23 H6).
+    fn compared(&mut self, check: usize, deviation: f64, tolerance: Option<f64>) {
+        if let Some(row) = self.checks.get_mut(check) {
+            row.deviation = Some(deviation);
+            row.tolerance = tolerance;
+        }
     }
     /// A check about the fixture as a whole: it is its own target and source.
     pub(super) fn record_fixture(
@@ -437,6 +454,85 @@ impl ModelingConformanceReport {
                 run_id: self.run_id,
                 fixture_id: *id,
                 status: *status,
+            })
+            .collect::<Vec<_>>();
+        self.export(&rows)
+    }
+    /// Note the oracle a fixture names and its release (Plan 23 H6).
+    pub(super) fn note_oracle(&mut self, oracle: Option<DeclarationId>, release: impl FnOnce(DeclarationId) -> Option<DeclarationId>) {
+        if let Some(oracle) = oracle
+            && !self.releases.contains_key(&oracle)
+        {
+            self.releases.insert(oracle, release(oracle));
+        }
+    }
+    /// Note the definitions a prepared fixture's root instantiates directly (Plan 23 H6).
+    pub(super) fn note_units(&mut self, fixture: DeclarationId, model: &pse_modeling::specialize::SpecializedModel) {
+        let root = pse_modeling::specialize::root_instance(fixture);
+        self.units.insert(
+            fixture,
+            model
+                .instances
+                .values()
+                .filter(|i| i.parent == Some(root))
+                .map(|i| i.definition)
+                .collect(),
+        );
+    }
+    /// The oracle parity report (Plan 23 H6, CT-S14) as a checked `modeling_parity`
+    /// relation: a projection of this run's checks, never a second record of them. Every
+    /// check of a fixture naming an oracle that is not merely inapplicable appears once for
+    /// each definition the fixture instantiates directly, or once under the fixture itself
+    /// when it instantiates none or was not prepared, with the oracle's release, the check's
+    /// deviation and tolerance and both dispositions.
+    pub fn parity_table(
+        &self,
+    ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
+        use pse_model::generated::runtime::modeling_parity::Row;
+        let fixture_only = BTreeSet::new();
+        let checks = || {
+            self.checks
+                .iter()
+                .filter(|c| c.status != Status::NotApplicable)
+                .filter_map(|c| c.oracle_source_id.map(|oracle| (c, oracle)))
+        };
+        let count = checks()
+            .map(|(c, _)| self.units.get(&c.fixture_id).map_or(1, |u| u.len().max(1)))
+            .sum::<usize>();
+        let scratch =
+            pse_columnar::MemoryConsumer::new("conformance:parity-copy").register(&self.pool);
+        scratch
+            .try_grow(count * size_of::<Row>())
+            .map_err(pse_columnar::CanonError::from)
+            .map_err(pse_relations::RelationError::from)
+            .map_err(relation)?;
+        let rows = checks()
+            .flat_map(|(c, oracle)| {
+                let units = self.units.get(&c.fixture_id).unwrap_or(&fixture_only);
+                let definitions = if units.is_empty() {
+                    vec![c.fixture_id]
+                } else {
+                    units.iter().copied().collect()
+                };
+                definitions.into_iter().map(move |definition| Row {
+                    run_id: self.run_id,
+                    definition_id: definition,
+                    oracle_source_id: oracle,
+                    release_id: self.releases.get(&oracle).copied().flatten(),
+                    fixture_id: c.fixture_id,
+                    sample_index: c.sample_index,
+                    target_id: c.target_id,
+                    source_id: c.source_id,
+                    kind: c.kind,
+                    status: c.status,
+                    fixture_status: self
+                        .fixture_statuses
+                        .get(&c.fixture_id)
+                        .copied()
+                        .unwrap_or(Status::Unattempted),
+                    deviation: c.deviation,
+                    tolerance: c.tolerance,
+                })
             })
             .collect::<Vec<_>>();
         self.export(&rows)
@@ -559,6 +655,9 @@ impl ModelingConformanceReport {
                 row.sample_index = check.sample_index;
                 row.time = check.time;
             }
+            if kind == Kind::Expectation {
+                self.compared(index, check.value, check.tolerance);
+            }
         }
         if !closure {
             self.record_fixture(
@@ -639,6 +738,7 @@ impl ModelingConformanceReport {
                             format!("pure point evaluation; structural DoF {dof}; expected {expected}; no solve attempted"), oracle, cap);
                 self.point_validity(fixture, &checks.validity, oracle, cap);
                 for check in checks.expectations {
+                    let index = self.checks.len();
                     self.record(
                         fixture,
                         check.id,
@@ -659,6 +759,11 @@ impl ModelingConformanceReport {
                         ),
                         oracle,
                         cap,
+                    );
+                    self.compared(
+                        index,
+                        (check.actual - check.expected).abs(),
+                        Some(check.tolerance),
                     );
                 }
                 if expected_failure.is_some() {
@@ -841,6 +946,7 @@ impl ModelingPackage {
             };
 
             let oracle = self.revision.oracle(fixture);
+            report.note_oracle(oracle, |oracle| self.revision.release_of(oracle));
             let authored = row.value.scope.as_ref().and_then(|s| s.fixture.as_ref());
             let execution = authored
                 .and_then(|f| f.execution)
@@ -876,6 +982,7 @@ impl ModelingPackage {
                     .values()
                     .map(|i| i.definition),
             );
+            report.note_units(fixture, &model.compiled().model);
             let data = model
                 .compiled()
                 .model
@@ -2586,6 +2693,89 @@ mod tests {
         assert_eq!(closure.members.len(), 1);
         // Without a selection the data guard rejects, and no envelope check passes it over.
         assert!(envelopes("static_rejected").is_empty());
+    }
+    /// Plan 23 H6 (CT-S14): the parity report lists every fixture that names an oracle,
+    /// grouped by the definition it exercises and by its oracle, with the oracle's release,
+    /// each check's deviation and tolerance and both dispositions; a fixture without an
+    /// oracle is not parity evidence. It is a projection of the run's checks.
+    #[tokio::test]
+    async fn parity_report_lists_every_oracle_fixture_with_release_and_tolerance() {
+        use pse_model::generated::runtime::modeling_parity::Row;
+        let p = package(
+            r#"package p {
+ entity kind source provenance { attribute title: Text; }
+ entity kind software_release extends source release { attribute version: Text; }
+ entity kind oracle_test extends source { attribute release: software_release; attribute locator: Text; }
+ entity kind publication extends source { attribute year: Integer; }
+ entity software_release upstream { title = "Upstream", version = "2.13.0" }
+ entity oracle_test upstream_test { title = "Upstream unit test", release = upstream, locator = "tests/test_unit.py" }
+ entity publication handbook { title = "Handbook", year = 1997 }
+ fn positive(x: Scalar) -> Scalar valid(x > 0) = x;
+ def Unit { param x: Scalar; let y: Scalar = x*x; }
+ test unit_fixture oracle upstream_test fixture { dof 0; run pure; value root.x = 2; } { child root: Unit = Unit(); expect root.y == 4 tolerance 1e-9; }
+ test release_fixture oracle upstream fixture { dof 0; run pure; } { expect positive(3) == 3 tolerance 1e-6 relative 1e-3; }
+ test handbook_fixture oracle handbook fixture { dof 0; run pure; failure trial_rejected validity(form) form(positive) variable(x); } { expect positive(-1) == 1 tolerance 0.1; }
+ test analytic fixture { dof 0; run pure; } { expect positive(1) == 1 tolerance 1e-9; }
+}"#,
+        );
+        let id = |name: &str| p.declarations().iter().find(|r| r.name == name).unwrap().declaration_id;
+        let report = p.conform(policy(), &crate::CancelSource::new()).await.unwrap();
+        assert!(report.passed(), "{:?}", report.checks);
+        let table = report.parity_table().unwrap();
+        let rows = Row::rows(&table).unwrap();
+        // Every oracle fixture, and only those, with its oracle and release.
+        let fixtures = rows
+            .iter()
+            .map(|r| (r.fixture_id, r.definition_id, r.oracle_source_id, r.release_id))
+            .collect::<BTreeSet<_>>();
+        assert_eq!(
+            fixtures,
+            BTreeSet::from([
+                (id("unit_fixture"), id("Unit"), id("upstream_test"), Some(id("upstream"))),
+                (id("release_fixture"), id("release_fixture"), id("upstream"), Some(id("upstream"))),
+                (id("handbook_fixture"), id("handbook_fixture"), id("handbook"), None),
+            ])
+        );
+        assert!(rows.iter().all(|r| r.status != Status::NotApplicable
+            && r.fixture_status == Status::Passed
+            && r.run_id == report.run_id));
+        // Each compared value carries its deviation and combined tolerance.
+        let compared = |fixture: &str| {
+            rows.iter()
+                .filter(|r| r.fixture_id == id(fixture) && r.kind == Kind::Expectation)
+                .map(|r| (r.deviation.unwrap(), r.tolerance.unwrap(), r.status))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(compared("unit_fixture"), [(0.0, 1e-9, Status::Passed)]);
+        let [(deviation, tolerance, Status::Passed)] = compared("release_fixture")[..] else {
+            panic!("{rows:?}");
+        };
+        assert_eq!(deviation, 0.0);
+        assert!((tolerance - (1e-6 + 3e-3)).abs() < 1e-15);
+        // An expected failure is parity evidence too: its check passes without a value.
+        assert!(rows.iter().any(|r| r.fixture_id == id("handbook_fixture")
+            && r.status == Status::Passed
+            && r.deviation.is_none()
+            && r.tolerance.is_none()));
+        // The projection is exactly the run's oracle checks that applied, per unit.
+        let applied = report
+            .checks
+            .iter()
+            .filter(|c| c.oracle_source_id.is_some() && c.status != Status::NotApplicable)
+            .count();
+        assert_eq!(rows.len(), applied);
+        // A release is a source.
+        let refused = super::super::super::tests::runtime().modeling_package(
+            pse_authoring::language::parse(
+                "package q { entity kind version release { attribute name: Text; } }",
+                SemanticId::NIL,
+                pse_authoring::language::IdentityPolicy::Named,
+                pse_authoring::ParseBudget::default(),
+            )
+            .unwrap(),
+            super::super::super::tests::physical(),
+        );
+        assert!(refused.unwrap_err().to_string().contains("which are sources"));
     }
     /// The authored price-taker package fixture runs through admission, routing, HiGHS and
     /// the original-model checks; its optimum differs from the linear relaxation (85 W).

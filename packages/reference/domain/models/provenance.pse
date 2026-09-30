@@ -16,7 +16,8 @@
 @id("01a0ef5e6c16730593968f216daed6b3") attribute doi: Id<doi>?;
 @id("01a0ef5e6c16730593968f2206c36ffd") attribute isbn: Id<isbn>?;
 }
-@id("01a0ef5e6c16730593968f239d0f0550") entity kind software_release extends source {
+// A release is the software an oracle's values come from; an oracle test names its release.
+@id("01a0ef5e6c16730593968f239d0f0550") entity kind software_release extends source release {
 @id("01a0ef5e6c16730593968f246a268366") attribute version: Text;
 @id("01a0ef5e6c16730593968f25e24ae751") attribute locator: Text?;
 }

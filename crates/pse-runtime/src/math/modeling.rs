@@ -47,6 +47,10 @@ impl ModelingRevision {
     pub(crate) fn oracle(&self, test: DeclarationId) -> Option<DeclarationId> {
         self.admitted.oracle(test)
     }
+    /// The release an oracle's values come from (Plan 23 H6).
+    pub(crate) fn release_of(&self, oracle: DeclarationId) -> Option<DeclarationId> {
+        self.admitted.release_of(oracle)
+    }
 }
 /// The identity of a modeling source revision (ADR-0123 Outcome 8): the structured
 /// declaration rows in order, the identity of the physical inventory they are admitted

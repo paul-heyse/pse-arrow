@@ -167,6 +167,8 @@ pub enum FactBatch {
     r#RuntimeModelingNonlinearExplanations(
         Vec<super::r#runtime::r#modeling_nonlinear_explanations::Row>,
     ),
+    #[doc = stringify!(r#RuntimeModelingParity)]
+    r#RuntimeModelingParity(Vec<super::r#runtime::r#modeling_parity::Row>),
     #[doc = stringify!(r#RuntimeModelingReports)]
     r#RuntimeModelingReports(Vec<super::r#runtime::r#modeling_reports::Row>),
     #[doc = stringify!(r#RuntimeModelingStudies)]
@@ -664,8 +666,8 @@ impl FactBatch {
             }
             Self::r#RuntimeModelingConformance(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    218u8, 97u8, 74u8, 141u8, 243u8, 141u8, 97u8, 120u8, 208u8, 215u8,
-                    19u8, 115u8, 190u8, 152u8, 6u8, 70u8,
+                    33u8, 71u8, 162u8, 219u8, 236u8, 197u8, 94u8, 143u8, 183u8, 203u8,
+                    51u8, 210u8, 11u8, 247u8, 219u8, 190u8,
                 ])
             }
             Self::r#RuntimeModelingDiagnosticSamples(_) => {
@@ -714,6 +716,12 @@ impl FactBatch {
                 pse_ids::SemanticId::from_bytes([
                     169u8, 27u8, 21u8, 156u8, 217u8, 63u8, 27u8, 218u8, 67u8, 162u8,
                     186u8, 251u8, 185u8, 148u8, 53u8, 144u8,
+                ])
+            }
+            Self::r#RuntimeModelingParity(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    250u8, 64u8, 122u8, 219u8, 43u8, 79u8, 220u8, 146u8, 75u8, 187u8,
+                    233u8, 244u8, 87u8, 239u8, 154u8, 133u8,
                 ])
             }
             Self::r#RuntimeModelingReports(_) => {
@@ -1078,6 +1086,7 @@ impl FactBatch {
             Self::r#RuntimeModelingJacobianOptimization(rows) => rows.len(),
             Self::r#RuntimeModelingLinearDiagnostics(rows) => rows.len(),
             Self::r#RuntimeModelingNonlinearExplanations(rows) => rows.len(),
+            Self::r#RuntimeModelingParity(rows) => rows.len(),
             Self::r#RuntimeModelingReports(rows) => rows.len(),
             Self::r#RuntimeModelingStudies(rows) => rows.len(),
             Self::r#RuntimeModelingTrajectoryModes(rows) => rows.len(),
@@ -1479,6 +1488,11 @@ impl FactBatch {
                 }
             }
             Self::r#RuntimeModelingNonlinearExplanations(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeModelingParity(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -2003,6 +2017,10 @@ impl FactBatch {
                     .map(|row| Self::r#RuntimeModelingNonlinearExplanations(
                         vec![row.clone()],
                     ))
+            }
+            Self::r#RuntimeModelingParity(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeModelingParity(vec![row.clone()]))
             }
             Self::r#RuntimeModelingReports(rows) => {
                 rows.get(index)
@@ -2907,6 +2925,17 @@ impl FactBatch {
             (
                 Self::r#RuntimeModelingNonlinearExplanations(left),
                 Self::r#RuntimeModelingNonlinearExplanations(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeModelingParity(left),
+                Self::r#RuntimeModelingParity(right),
             ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -3908,6 +3937,13 @@ impl FactBatch {
                     })
             }
             Self::r#RuntimeModelingNonlinearExplanations(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeModelingParity(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
@@ -5191,6 +5227,45 @@ impl FactBatch {
                 }
             }
             (
+                Self::r#RuntimeModelingParity(left),
+                Self::r#RuntimeModelingParity(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#run_id, &right.r#run_id)
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#definition_id,
+                                &right.r#definition_id,
+                            )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#oracle_source_id,
+                                &right.r#oracle_source_id,
+                            )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#fixture_id,
+                                &right.r#fixture_id,
+                            )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#sample_index,
+                                &right.r#sample_index,
+                            )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#target_id,
+                                &right.r#target_id,
+                            )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#source_id,
+                                &right.r#source_id,
+                            )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#kind,
+                                &right.r#kind,
+                            )
+                    }
+                    _ => false,
+                }
+            }
+            (
                 Self::r#RuntimeModelingReports(left),
                 Self::r#RuntimeModelingReports(right),
             ) => {
@@ -6322,6 +6397,17 @@ impl FactBatch {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
             }
+            Self::r#RuntimeModelingParity(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#definition_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#oracle_source_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#fixture_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#sample_index, &mut hash);
+                crate::SemanticFrame::frame(&row.r#target_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#source_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#kind, &mut hash);
+            }
             Self::r#RuntimeModelingReports(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
@@ -7040,6 +7126,13 @@ impl FactBatch {
                 Ok(())
             }
             (
+                Self::r#RuntimeModelingParity(left),
+                Self::r#RuntimeModelingParity(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
                 Self::r#RuntimeModelingReports(left),
                 Self::r#RuntimeModelingReports(mut right),
             ) => {
@@ -7493,6 +7586,7 @@ impl crate::HeapUsage for FactBatch {
             Self::r#RuntimeModelingNonlinearExplanations(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
+            Self::r#RuntimeModelingParity(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeModelingReports(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeModelingStudies(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeModelingTrajectoryModes(rows) => {

@@ -244,6 +244,10 @@ class ModelingConformance:
     def findings(self) -> TableStream:
         return TableStream(self._handle.findings())
 
+    def parity(self) -> TableStream:
+        """Oracle parity: every oracle fixture's checks by unit and oracle, with its release."""
+        return TableStream(self._handle.parity())
+
     def failure(self, ordinal: int) -> DiagnosticReport:
         return self._handle.failure(ordinal)
 

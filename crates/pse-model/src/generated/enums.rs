@@ -7871,6 +7871,9 @@ pub enum ModelingKindFacet {
     ///provenance
     #[serde(rename = "provenance")]
     Provenance,
+    ///release
+    #[serde(rename = "release")]
+    Release,
 }
 impl crate::SemanticEq for ModelingKindFacet {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -7879,17 +7882,19 @@ impl crate::SemanticEq for ModelingKindFacet {
 }
 impl ModelingKindFacet {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 1usize] = [Self::Provenance];
+    pub const ALL: [Self; 2usize] = [Self::Provenance, Self::Release];
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Provenance => "provenance",
+            Self::Release => "release",
         }
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
         match self {
             Self::Provenance => 0usize,
+            Self::Release => 1usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -7901,6 +7906,7 @@ impl ModelingKindFacet {
     pub const fn idaes_name(self) -> Option<&'static str> {
         match self {
             Self::Provenance => None,
+            Self::Release => None,
         }
     }
 }
@@ -7914,7 +7920,7 @@ impl schemars::JsonSchema for ModelingKindFacet {
         std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(ModelingKindFacet)))
     }
     fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
-        schemars::json_schema!({ "type" : "string", "enum" : ["provenance"] })
+        schemars::json_schema!({ "type" : "string", "enum" : ["provenance", "release"] })
     }
 }
 impl core::str::FromStr for ModelingKindFacet {
@@ -7922,6 +7928,7 @@ impl core::str::FromStr for ModelingKindFacet {
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value {
             "provenance" => Ok(Self::Provenance),
+            "release" => Ok(Self::Release),
             _ => {
                 Err(crate::ModelError::EnumMember {
                     field: stringify!(ModelingKindFacet).to_owned(),

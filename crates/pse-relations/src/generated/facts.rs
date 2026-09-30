@@ -731,8 +731,8 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
-            218u8, 97u8, 74u8, 141u8, 243u8, 141u8, 97u8, 120u8, 208u8, 215u8, 19u8,
-            115u8, 190u8, 152u8, 6u8, 70u8,
+            33u8, 71u8, 162u8, 219u8, 236u8, 197u8, 94u8, 143u8, 183u8, 203u8, 51u8,
+            210u8, 11u8, 247u8, 219u8, 190u8,
         ])
     {
         return Ok(
@@ -834,6 +834,18 @@ pub fn decode(
         return Ok(
             pse_model::generated::facts::FactBatch::r#RuntimeModelingNonlinearExplanations(
                 super::r#runtime::r#modeling_nonlinear_explanations::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            250u8, 64u8, 122u8, 219u8, 43u8, 79u8, 220u8, 146u8, 75u8, 187u8, 233u8,
+            244u8, 87u8, 239u8, 154u8, 133u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeModelingParity(
+                super::r#runtime::r#modeling_parity::Row::rows(batch)?,
             ),
         );
     }
@@ -1634,6 +1646,9 @@ pub fn encode(
         pse_model::generated::facts::FactBatch::r#RuntimeModelingNonlinearExplanations(
             rows,
         ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
+        pse_model::generated::facts::FactBatch::r#RuntimeModelingParity(rows) => {
+            crate::columnar::encode_rows(rows, registry, pool, cancel)
+        }
         pse_model::generated::facts::FactBatch::r#RuntimeModelingReports(rows) => {
             crate::columnar::encode_rows(rows, registry, pool, cancel)
         }

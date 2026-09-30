@@ -8,15 +8,19 @@
     reason = "field names are the authoritative relation contract"
 )]
 #[derive(Clone, Debug)]
-pub struct RuntimeModelingConformanceRow {
+pub struct RuntimeModelingParityRow {
     ///The run that produced the row: minted once when a run starts or a job is enqueued, and shared by the job's retried attempts. It names the execution, not the request's content.
     pub r#run_id: crate::generated::identities::RunId,
+    ///definition_id
+    pub r#definition_id: crate::generated::identities::DeclarationId,
+    ///oracle_source_id
+    pub r#oracle_source_id: crate::generated::identities::DeclarationId,
+    ///release_id
+    pub r#release_id: Option<crate::generated::identities::DeclarationId>,
     ///fixture_id
     pub r#fixture_id: crate::generated::identities::DeclarationId,
     ///sample_index
     pub r#sample_index: i64,
-    ///time
-    pub r#time: Option<f64>,
     ///target_id
     pub r#target_id: pse_ids::SemanticId,
     ///source_id
@@ -25,58 +29,60 @@ pub struct RuntimeModelingConformanceRow {
     pub r#kind: crate::generated::enums::ModelingConformanceKind,
     ///status
     pub r#status: crate::generated::enums::ModelingConformanceStatus,
-    ///message
-    pub r#message: String,
-    ///failure_ordinal
-    pub r#failure_ordinal: Option<i64>,
-    ///oracle_source_id
-    pub r#oracle_source_id: Option<crate::generated::identities::DeclarationId>,
+    ///fixture_status
+    pub r#fixture_status: crate::generated::enums::ModelingConformanceStatus,
     ///deviation
     pub r#deviation: Option<f64>,
     ///tolerance
     pub r#tolerance: Option<f64>,
 }
-impl crate::SemanticEq for RuntimeModelingConformanceRow {
+impl crate::SemanticEq for RuntimeModelingParityRow {
     fn semantic_eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(&self.r#run_id, &other.r#run_id)
-            && crate::SemanticEq::semantic_eq(&self.r#fixture_id, &other.r#fixture_id)
             && crate::SemanticEq::semantic_eq(
-                &self.r#sample_index,
-                &other.r#sample_index,
-            ) && crate::SemanticEq::semantic_eq(&self.r#time, &other.r#time)
-            && crate::SemanticEq::semantic_eq(&self.r#target_id, &other.r#target_id)
-            && crate::SemanticEq::semantic_eq(&self.r#source_id, &other.r#source_id)
-            && crate::SemanticEq::semantic_eq(&self.r#kind, &other.r#kind)
-            && crate::SemanticEq::semantic_eq(&self.r#status, &other.r#status)
-            && crate::SemanticEq::semantic_eq(&self.r#message, &other.r#message)
-            && crate::SemanticEq::semantic_eq(
-                &self.r#failure_ordinal,
-                &other.r#failure_ordinal,
+                &self.r#definition_id,
+                &other.r#definition_id,
             )
             && crate::SemanticEq::semantic_eq(
                 &self.r#oracle_source_id,
                 &other.r#oracle_source_id,
+            ) && crate::SemanticEq::semantic_eq(&self.r#release_id, &other.r#release_id)
+            && crate::SemanticEq::semantic_eq(&self.r#fixture_id, &other.r#fixture_id)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#sample_index,
+                &other.r#sample_index,
+            ) && crate::SemanticEq::semantic_eq(&self.r#target_id, &other.r#target_id)
+            && crate::SemanticEq::semantic_eq(&self.r#source_id, &other.r#source_id)
+            && crate::SemanticEq::semantic_eq(&self.r#kind, &other.r#kind)
+            && crate::SemanticEq::semantic_eq(&self.r#status, &other.r#status)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#fixture_status,
+                &other.r#fixture_status,
             ) && crate::SemanticEq::semantic_eq(&self.r#deviation, &other.r#deviation)
             && crate::SemanticEq::semantic_eq(&self.r#tolerance, &other.r#tolerance)
     }
 }
-impl PartialEq for RuntimeModelingConformanceRow {
+impl PartialEq for RuntimeModelingParityRow {
     fn eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
 /// The concrete generated relation row.
-pub type Row = RuntimeModelingConformanceRow;
-impl crate::SemanticFrame for RuntimeModelingConformanceRow {
+pub type Row = RuntimeModelingParityRow;
+impl crate::SemanticFrame for RuntimeModelingParityRow {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(stringify!(r#run_id));
         crate::SemanticFrame::frame(&self.r#run_id, hash);
+        hash.str(stringify!(r#definition_id));
+        crate::SemanticFrame::frame(&self.r#definition_id, hash);
+        hash.str(stringify!(r#oracle_source_id));
+        crate::SemanticFrame::frame(&self.r#oracle_source_id, hash);
+        hash.str(stringify!(r#release_id));
+        crate::SemanticFrame::frame(&self.r#release_id, hash);
         hash.str(stringify!(r#fixture_id));
         crate::SemanticFrame::frame(&self.r#fixture_id, hash);
         hash.str(stringify!(r#sample_index));
         crate::SemanticFrame::frame(&self.r#sample_index, hash);
-        hash.str(stringify!(r#time));
-        crate::SemanticFrame::frame(&self.r#time, hash);
         hash.str(stringify!(r#target_id));
         crate::SemanticFrame::frame(&self.r#target_id, hash);
         hash.str(stringify!(r#source_id));
@@ -85,32 +91,28 @@ impl crate::SemanticFrame for RuntimeModelingConformanceRow {
         crate::SemanticFrame::frame(&self.r#kind, hash);
         hash.str(stringify!(r#status));
         crate::SemanticFrame::frame(&self.r#status, hash);
-        hash.str(stringify!(r#message));
-        crate::SemanticFrame::frame(&self.r#message, hash);
-        hash.str(stringify!(r#failure_ordinal));
-        crate::SemanticFrame::frame(&self.r#failure_ordinal, hash);
-        hash.str(stringify!(r#oracle_source_id));
-        crate::SemanticFrame::frame(&self.r#oracle_source_id, hash);
+        hash.str(stringify!(r#fixture_status));
+        crate::SemanticFrame::frame(&self.r#fixture_status, hash);
         hash.str(stringify!(r#deviation));
         crate::SemanticFrame::frame(&self.r#deviation, hash);
         hash.str(stringify!(r#tolerance));
         crate::SemanticFrame::frame(&self.r#tolerance, hash);
     }
 }
-impl crate::HeapUsage for RuntimeModelingConformanceRow {
+impl crate::HeapUsage for RuntimeModelingParityRow {
     fn heap_bytes(&self) -> usize {
         0usize
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#run_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#definition_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#oracle_source_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#release_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#fixture_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#sample_index))
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#time))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#target_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#source_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#kind))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#status))
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#message))
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#failure_ordinal))
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#oracle_source_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#fixture_status))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#deviation))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#tolerance))
     }

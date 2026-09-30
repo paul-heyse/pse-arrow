@@ -72,8 +72,13 @@ execution = "pure"
     (line,) = capsys.readouterr().out.splitlines()
     assert line.startswith("tiny: passed=True complete=True coverage=package checks=")
     assert line.endswith("fixtures=1 (passed 1)")
-    for suffix in (".arrow", ".fixtures.arrow", ".findings.arrow"):
+    for suffix in (".arrow", ".fixtures.arrow", ".findings.arrow", ".parity.arrow"):
         assert (reports / f"tiny{suffix}").is_file()
+    # Plan 23 H6: the parity report is written beside the checks; this fixture names no
+    # oracle, so it is not parity evidence.
+    parity = pa.ipc.open_file(str(reports / "tiny.parity.arrow")).read_all()
+    assert parity.num_rows == 0
+    assert "release_id" in parity.column_names
     # A failed fixture fails the command.
     (package / "models/pure.pse").write_text(source.replace("==4", "==5"))
     assert conformance_main(arguments) == 1

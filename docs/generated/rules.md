@@ -134,6 +134,7 @@
 | `runtime.modeling_jacobian_optimization` | `unique:pk` | `SELECT s."run_id" FROM "runtime"."modeling_jacobian_optimization" s GROUP BY s."run_id" HAVING COUNT(*) > 1` |
 | `runtime.modeling_linear_diagnostics` | `unique:pk` | `SELECT s."run_id" FROM "runtime"."modeling_linear_diagnostics" s GROUP BY s."run_id" HAVING COUNT(*) > 1` |
 | `runtime.modeling_nonlinear_explanations` | `unique:pk` | `SELECT s."run_id" FROM "runtime"."modeling_nonlinear_explanations" s GROUP BY s."run_id" HAVING COUNT(*) > 1` |
+| `runtime.modeling_parity` | `unique:pk` | `SELECT s."run_id", s."definition_id", s."oracle_source_id", s."fixture_id", s."sample_index", s."target_id", s."source_id", s."kind" FROM "runtime"."modeling_parity" s GROUP BY s."run_id", s."definition_id", s."oracle_source_id", s."fixture_id", s."sample_index", s."target_id", s."source_id", s."kind" HAVING COUNT(*) > 1` |
 | `runtime.modeling_reports` | `unique:pk` | `SELECT s."run_id", s."step", s."target_id", s."source_id" FROM "runtime"."modeling_reports" s GROUP BY s."run_id", s."step", s."target_id", s."source_id" HAVING COUNT(*) > 1` |
 | `runtime.modeling_studies` | `unique:pk` | `SELECT s."run_id" FROM "runtime"."modeling_studies" s GROUP BY s."run_id" HAVING COUNT(*) > 1` |
 | `runtime.modeling_trajectory_modes` | `unique:pk` | `SELECT s."run_id", s."sample" FROM "runtime"."modeling_trajectory_modes" s GROUP BY s."run_id", s."sample" HAVING COUNT(*) > 1` |

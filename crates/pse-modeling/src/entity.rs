@@ -63,6 +63,9 @@ pub struct Kind {
     /// Whether the kind or an ancestor carries the provenance facet, so its entities may be
     /// sources (ADR-0123 Outcome 5).
     pub provenance: bool,
+    /// Whether the kind or an ancestor carries the release facet: its entities are releases
+    /// of the software an oracle's values come from (Plan 23 H6).
+    pub release: bool,
     /// Validity envelopes, inherited ones first, each bounded by two attributes of every
     /// entity of the kind (ADR-0123 Outcome 4).
     pub envelopes: Vec<crate::envelope::Envelope>,
@@ -134,6 +137,22 @@ pub fn keyed_identity(key_kind: DeclarationId, keys: &[Value]) -> DeclarationId 
 }
 
 impl CheckedPackage {
+    /// The release an oracle's values come from (Plan 23 H6): the oracle entity itself when
+    /// its kind carries the release facet, else the first release its attributes reference,
+    /// in declaration order.
+    pub fn release_of(&self, oracle: DeclarationId) -> Option<DeclarationId> {
+        let record = self.record(oracle)?;
+        let kind = self.kinds.get(&record.kind)?;
+        if kind.release {
+            return Some(oracle);
+        }
+        kind.attributes.iter().find_map(|(name, _)| match record.values.get(name) {
+            Some(Value::Entity { id, kind }) if self.kinds.get(kind).is_some_and(|k| k.release) => {
+                Some(*id)
+            }
+            _ => None,
+        })
+    }
     /// Whether `kind` is `ancestor` or one of its refinements.
     pub(crate) fn refines(&self, mut kind: DeclarationId, ancestor: DeclarationId) -> bool {
         for _ in 0..=self.kinds.len() {
@@ -784,12 +803,26 @@ fn admit_kinds(p: &mut CheckedPackage, c: &TypeContext<'_>) -> Result<()> {
         let base = p.kinds[&id].base;
         let mut kind = base.map(|b| p.kinds[&b].clone()).unwrap_or_default();
         kind.base = base;
-        // ADR-0123 Outcome 5: a refinement inherits the provenance facet.
-        kind.provenance |= p.declarations[&id].value.scope.as_ref().is_some_and(|scope| {
-            scope
-                .facets
-                .contains(&pse_model::generated::enums::ModelingKindFacet::Provenance)
-        });
+        // ADR-0123 Outcome 5: a refinement inherits the provenance facet, and a release is a
+        // source (Plan 23 H6).
+        let facet = |facet| {
+            p.declarations[&id]
+                .value
+                .scope
+                .as_ref()
+                .is_some_and(|scope| scope.facets.contains(&facet))
+        };
+        kind.provenance |= facet(pse_model::generated::enums::ModelingKindFacet::Provenance);
+        kind.release |= facet(pse_model::generated::enums::ModelingKindFacet::Release);
+        if kind.release && !kind.provenance {
+            return Err(invalid(
+                id,
+                format!(
+                    "kind {} declares releases, which are sources: it or a kind it refines carries the provenance facet",
+                    p.declarations[&id].name
+                ),
+            ));
+        }
         let mut own_keys = Vec::new();
         let mut envelopes = Vec::new();
         for child in p.children.get(&id).cloned().unwrap_or_default() {

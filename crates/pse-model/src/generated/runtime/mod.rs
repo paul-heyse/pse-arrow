@@ -55,6 +55,8 @@ pub mod r#modeling_linear_diagnostics;
 ///Generated relation contract.
 pub mod r#modeling_nonlinear_explanations;
 ///Generated relation contract.
+pub mod r#modeling_parity;
+///Generated relation contract.
 pub mod r#modeling_reports;
 ///Generated relation contract.
 pub mod r#modeling_studies;

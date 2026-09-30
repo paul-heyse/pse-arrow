@@ -896,8 +896,10 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         ["test_only", "requires_lineage"],
     );
     // ADR-0123 Outcome 5: the facets of an entity kind. An entity is a source exactly when
-    // its kind or an ancestor kind carries `provenance`.
-    enumeration(builder, "ModelingKindFacet", ["provenance"]);
+    // its kind or an ancestor kind carries `provenance`, and a release (of the software an
+    // oracle's values come from) exactly when it carries `release`, which a source kind
+    // alone may declare (Plan 23 H6).
+    enumeration(builder, "ModelingKindFacet", ["provenance", "release"]);
     // ADR-0123 Outcome 5: what a lineage entry names: a dataset or a source entity.
     enumeration(builder, "ModelingLineageKind", ["dataset", "source"]);
     enumeration(
@@ -1139,7 +1141,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         builder,
         N::Runtime,
         "modeling_conformance",
-        2,
+        3,
         S::Derived,
         &[
             "run_id",
@@ -1163,8 +1165,51 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             column("oracle_source_id", T::id())
                 .with_identity("declaration")
                 .optional(),
+            column("deviation", T::native(D::Float64)).optional(),
+            column("tolerance", T::native(D::Float64)).optional(),
         ],
-        "Bounded shared checks over authored fixtures. The oracle source is the entity a fixture names as the source of its expected values; it identifies asserted source values and does not claim an upstream run. Uncovered concrete definitions and incomplete samples are explicit. Version two replaces the verbatim oracle reference and revision text with the oracle's source entity identity (ADR-0123 Outcome 5).",
+        "Bounded shared checks over authored fixtures. The oracle source is the entity a fixture names as the source of its expected values; it identifies asserted source values and does not claim an upstream run. Uncovered concrete definitions and incomplete samples are explicit. Version two replaces the verbatim oracle reference and revision text with the oracle's source entity identity (ADR-0123 Outcome 5). Version three adds, exactly on an evaluated expectation, its deviation, the absolute difference between the observed and the expected canonical value, and the combined tolerance it is compared with (Plan 23 H6).",
+    );
+    // Plan 23 H6 (CT-S14): the parity report is a projection of one conformance run, never a
+    // second record of it: every check of an oracle fixture that is not merely inapplicable,
+    // grouped by the definition or unit the fixture exercises and by its oracle, with the
+    // oracle's release, the check's deviation and tolerance and both dispositions.
+    relation(
+        builder,
+        N::Runtime,
+        "modeling_parity",
+        S::Derived,
+        &[
+            "run_id",
+            "definition_id",
+            "oracle_source_id",
+            "fixture_id",
+            "sample_index",
+            "target_id",
+            "source_id",
+            "kind",
+        ],
+        vec![
+            run_id(),
+            column("definition_id", T::id()).with_identity("declaration"),
+            column("oracle_source_id", T::id()).with_identity("declaration"),
+            column("release_id", T::id())
+                .with_identity("declaration")
+                .optional(),
+            column("fixture_id", T::id()).with_identity("declaration"),
+            column("sample_index", T::nonnegative(i64::MAX)),
+            column("target_id", T::id()),
+            column("source_id", T::id()).with_identity("declaration"),
+            column("kind", T::enumeration("ModelingConformanceKind")),
+            column("status", T::enumeration("ModelingConformanceStatus")),
+            column(
+                "fixture_status",
+                T::enumeration("ModelingConformanceStatus"),
+            ),
+            column("deviation", T::native(D::Float64)).optional(),
+            column("tolerance", T::native(D::Float64)).optional(),
+        ],
+        "Oracle parity of one conformance run, projected from its checks. Every check of a fixture that names an oracle appears once for each definition the fixture instantiates directly (the units under test), or once under the fixture itself when it instantiates none; a check that merely did not apply is omitted. The release is the oracle entity itself when its kind carries the release facet, else the first release its attributes reference, else absent. Deviation and tolerance are the check's own; status is the check's disposition and fixture_status the fixture's.",
     );
     relation(
         builder,

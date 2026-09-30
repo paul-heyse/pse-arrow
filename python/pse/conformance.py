@@ -143,11 +143,12 @@ def _documents(root: Path) -> dict[str, str]:
 
 
 def _write(report: Path, result: ModelingConformance) -> None:
-    """Write the checks, fixture inventory and findings beside each other."""
+    """Write the checks, fixture inventory, findings and oracle parity beside each other."""
     for path, payload in (
         (report, pa.table(result.table())),
         (report.with_suffix(".fixtures.arrow"), pa.table(result.fixture_statuses())),
         (report.with_suffix(".findings.arrow"), pa.table(result.findings())),
+        (report.with_suffix(".parity.arrow"), pa.table(result.parity())),
     ):
         with (
             pa.OSFile(str(path), "wb") as destination,
