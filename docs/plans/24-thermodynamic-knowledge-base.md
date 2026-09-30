@@ -373,7 +373,7 @@ report, and adds that wave's libraries to the capability inventory.
 | TK2e Survey dispositions | core review F14: a survey loader, one disposition per construct with a stated loss, the residue report. Depends on TK2b–TK2d for the dispositions themselves | the report lists no construct without a disposition | none | done: 945 of 945 constructs dispositioned; every model change is scheduled by an alignment-notes item (#8, #17–#36) |
 | TK2f Model revision: declaration additions | alignment-notes #10, #17, #20–#34 and #36: conserved quantities beyond elements; temperature scales; group identity by the scheme's code, group bonds and repeated assignments; stated-value energy datums; the COSMO-SAC dispersion class; site-class-qualified dataset columns; order–disorder pairing; accuracy statements; uncertainty kinds; Boltzmann and Avogadro constants as conventions; level of theory; sample, component and transformed-quantity description; unstated-convention members; missing quantity types; attribution locators; composition basis and reference volume of a parameterisation. Depends on TK2e | each item's construct is declared, generates, builds and loads a fixture that satisfies every invariant; each alignment item that the declaration now holds and a fixture proves (including items 1–7, 9 and 11–14) is removed, and the dispositions that named it become `held_by_model` with the construct as `ref`; `tk survey --report --strict` still exits 0 | the free-text stand-ins the additions replace | done: all items declared with tests (`tests/test_declaration_additions.py`, extended `tests/test_verify.py`); `zero_at_state`, `sample.purity`/`purity_basis` and group identity by label deleted; items #10, #17, #20–#34, #36 and the older #1, #2, #3, #6, #13 removed from the alignment notes; 54 dispositions moved to what now holds them; the CoolProp slice rebuilds, verifies and qualifies |
 | TK2g Model revision: mechanisms | alignment-notes #5, #7, #8, #15, #16, #18, #19 and #35: a carrier's own selection facts (which repeated row wins, the default among competing tables); a rate-constant dimension derived from the subject reaction; a validity bound relative to another observable of the subject; typed stated defaults of a selection policy, with a value state for a slot the source leaves at its stated default (an empty pair record) and parameterless sites; a standard-state assembly chosen per species form; extrapolation outside piece intervals as a qualification-case policy. Fixtures also prove the mechanisms the dispositions assume but no test yet shows: a sub-form choice per ternary (Kohler or Toop), group counts read by an expression as an indexed argument, a combining rule declared as a form, a gas constant averaged from component conventions, complex constants held as real pairs. Depends on TK2f | each mechanism's tests; the CoolProp slice rebuilds, verifies and qualifies; the survey report stays strict-clean | `selection_policy.rule` as a stated default | done: all items and the five proof fixtures pass (`tests/test_rate_constant_dimension.py`, `test_relative_bounds.py`, `test_stated_defaults.py`, `test_selection_facts.py`, `test_entity_assembly.py`, `test_piece_policy.py`, `test_ternary_choice.py`, `test_group_sum.py`, `test_combining_rule.py`, `test_component_conventions.py`, `test_complex_pairs.py`); a per-component convention fact was the one model change a proof fixture needed; `selection_policy.rule` deleted; no model change remains unscheduled in the dispositions |
-| W1 | pure-component data and standard-state thermochemistry; ThermoML schema to the observable vocabulary | residue explained; representative forms qualified | none | in progress: source-faithful readers for chemicals, thermo, Cantera, NASA CEA, JANAF, FeOS, IDAES and the ThermoML schema are done, each with independent counts and a round trip on the real store (`tests/test_reader_*.py`); mapping follows as M0 (done: 226 observables, an alias for each of ThermoML's 193 property names, `tests/test_thermoml_vocabulary.py`), M1 (standard-state thermochemistry: Cantera, NASA CEA, JANAF, qualified against the libraries and against JANAF), M2 (pure-component constants and correlations: chemicals, thermo, FeOS, IDAES) |
+| W1 | pure-component data and standard-state thermochemistry; ThermoML schema to the observable vocabulary | residue explained; representative forms qualified | none | in progress: readers done for chemicals, thermo, Cantera, NASA CEA, JANAF, FeOS, IDAES and the ThermoML schema (`tests/test_reader_*.py`, independent counts and a round trip on the real store); M0 done (226 observables, an alias for each of ThermoML's 193 property names, `tests/test_thermoml_vocabulary.py`); M1 partly done: Cantera, NASA CEA and JANAF mapped through identity, resolution, records, build and verify (`tests/test_mapping_{cantera,nasa_cea,janaf}.py`), not yet qualified; M1 qualification, M2a (chemicals) and M2b (thermo, FeOS, IDAES pure-component data) remain |
 | W2 | equations of state: Helmholtz and multifluid, cubic, SAFT, GERG, IAPWS | same; IAPWS and AGA8/GERG verification values reproduced from canonical records | none | not started |
 | W3 | activity models, group contribution, sigma profiles, RMG thermo groups | same | none | not started |
 | W4 | aqueous, electrolyte, reaction equilibrium, standard-state species models | same; reactions conserve elements and charge | none | not started |
@@ -447,13 +447,22 @@ recipe in `thermo-knowledge/justfile`:
   curated decision in `identity/decisions.toml`.
 
 - DDBST: proceeding without retrieving its pages; written permission remains an option.
-- Left by TK2g for the packets that first need them: an assembly choice has no invariants yet that
-  its form implements the slot's contract and that every single-valued slot is decided (HC2, case b);
-  the Toop odd-one-out member is supplied by the caller, not derived from the constituent array's
-  positions (HC3, case e); an uncertainty whose unit comes from a reaction-dependent slot is refused
-  (W7); a qualification case cannot pass the reference values a relative validity bound needs (W1);
-  stated defaults are applied only when a policy is passed to evaluation, since snapshot selection is
-  TK9.
+- Left by TK2g for the packets that first need them: an uncertainty whose unit comes from a
+  reaction-dependent slot is refused (W7); a qualification case cannot pass the reference values a
+  relative validity bound needs (W1-M2a, chemicals); stated defaults are applied only when a policy is
+  passed to evaluation, since snapshot selection is TK9.
+- Formula-scope identity (found by W1-M1): the formula-scope rule joins species across sources by
+  formula, charge and aggregation. 1,478 curated rejects in `identity/decisions.toml` cover formulas
+  a source itself lists several species under, but a formula that two sources each use for a single,
+  different isomer is joined unchecked. When M2a brings chemicals' structural identifiers, restrict the
+  formula-scope rule to formulas with one known structure and re-resolve.
+- Electrons stay provisional in Cantera, NASA CEA and JANAF: an identity assertion cannot carry an
+  empty formula.
+- W1-M1 held rows that need a decision before W1 closes: Cantera 1,463 rows for missing conventions
+  (condensed phases no phase includes; phases that state no aggregation) and 1,070 unknown subjects;
+  JANAF 862 missing-convention rows (13 reference-form tables with no single phase, the electron table)
+  and 66 pattern mismatches (fused numbers); CEA 53, 80 and 34 (propellant names without a phase
+  suffix, element placeholders, 11 records whose first interval the source writes reversed).
 - Left by HC1: slots have no integer type, so term exponents (IF97 I and J, Helmholtz d and l) are
   held as `Scalar`; whether an integral exponent is a declared slot type or a check is decided in W2.
 - Left by HC3: `position(t, s)` refuses a species that one array places on more than one site class
@@ -462,39 +471,104 @@ recipe in `thermo-knowledge/justfile`:
 - Pseudo-components cannot yet be declared as a resolution class, because a provisional one needs
   its kind stated and no scope states it; the class rule comes with Wave 8.
 - Julia is not installed; it is needed for the Clapeyron oracle in W2.
-- The environment grouping has not been through a resolver.
-- Several reader API names and the IF97 verification table numbers were reported from memory by
-  reconnaissance and are confirmed when each reader is written.
+- The IF97 verification table numbers were reported from memory by reconnaissance and are
+  confirmed when W2 reads IAPWS.
 - Shared-configuration touchpoints outside the tree: `.gitignore`, the root `pyproject.toml`
   lint excludes, `REUSE.toml`, and the link in `docs/plans/README.md`.
 
 ## Current checkpoint
 
-2026-09-30. The contracts the packets implement are the pages under `thermo-knowledge/docs/`:
-`meta-model.md`, `expressions.md`, `acquisition.md`, `survey.md` and `pipeline.md`.
+2026-10-01. The contracts the packets implement are the pages under `thermo-knowledge/docs/`:
+`meta-model.md`, `expressions.md`, `acquisition.md`, `survey.md` and `pipeline.md`. The packet table
+above owns packet status; this section summarises what exists and what remains.
 
-State:
+### Implemented
 
-- Every stage from acquisition to qualification exists with its tests: `tk acquire`, `read`,
-  `load-src`, `map`, `resolve`, `build`, `verify`, `qualify`. `tk project` is the one stub.
-- The first end-to-end slice is through: CoolProp fluid identities and 123 saturation-pressure
-  ancillary curves are read, resolved, mapped, built into `pse_thermo`, verified (no check
-  failing) and qualified against CoolProp 8.0.0 itself (3,075 points, worst relative deviation
-  4.5e-12 against a tolerance of 1e-10 set from the formula's conditioning).
-- The construct inventory is complete: 37 survey records under `thermo-knowledge/survey/`.
-- Every construct that states a loss has a disposition (`survey/dispositions/`): 621 losses the
-  mappings will declare, 179 held by the current declaration, 80 out of scope and 65 that need a
-  model change. The model changes fall into twenty new alignment items (#17–#36); with the older
-  open items #8, #10, #15 and #16 they are packaged as TK2f and TK2g. The largest are the rate-constant
-  dimension (8 constructs), missing quantity types (7) and non-element conserved quantities (6).
-  ThermoML's schema alone needs 18 (sample, component and standard-state description).
-- The core model is in `model/` with the changes the surveys and the hard cases required. The
-  form catalogue under `forms/` holds the forms of every hard case: standard-state polynomials,
-  IF97, multifluid Helmholtz, cubic parts, excess Gibbs models, SAFT, UNIFAC, group additivity,
-  COSMO-SAC, polymer solutions, CALPHAD, aqueous electrolytes, petroleum characterisation,
-  adsorption, liquid-state inputs and kinetic theory. Most are expressed and evaluated against an
-  independent calculation in their hard-case tests; the rest are catalogued with their equations
-  external. The alignment worklist is empty.
+- **Pipeline.** Every stage from acquisition to qualification exists with its tests: `tk acquire`
+  (concurrent runs are safe: each recorded source is a locked read-modify-write of `sources.lock`),
+  `read`, `load-src`, `map` (identity and records phases), `resolve`, `build`, `verify` (80 named
+  checks), `qualify`, `survey`, `generate`. `tk project` is the one stub.
+- **Procurement.** 39 of 42 manifests are in the lock with verified tree hashes, JANAF complete (1,796
+  tables). Not acquired: the ThermoML data archive (NIST's file service not answering), ATcT (403 to
+  the pipeline's client) and DDBST (terms; by decision). See Open items.
+- **Survey.** 37 survey records with 956 constructs; every one of the 945 that states a loss has a
+  disposition (`survey/dispositions/`), and no model change is left unscheduled. The residue report is
+  strict-clean.
+- **Model.** The declaration in `model/` holds everything the surveys and the design review required
+  (TK2b–TK2g): referenced and nested sets, values stored as asserted with transposition on reading,
+  standard states by member role, convention facts read by forms (including per-component facts),
+  validity regions with relative bounds, evidence uncertainty, fit lineage, accuracy statements,
+  conserved quantities beyond elements, reaction-dependent rate-constant dimensions, typed stated
+  defaults and a carrier's selection facts, piece policies per qualification case. The alignment
+  worklist is empty.
+- **Forms.** The catalogue in `forms/` (17 modules) holds the forms of every hard case:
+  standard-state polynomials, IAPWS-IF97, multifluid Helmholtz, cubic parts, excess Gibbs models,
+  SAFT, UNIFAC, group additivity, COSMO-SAC, polymer solutions, CALPHAD, aqueous electrolytes,
+  petroleum characterisation, adsorption, liquid-state inputs and kinetic theory. Most are expressed
+  and evaluated against an independent numpy calculation in their hard-case tests; the rest are
+  catalogued with their equations external.
+- **Hard cases.** All 14 load, verify and evaluate (`tests/test_hard_case_*.py`).
+- **Observable vocabulary.** 226 observables; every one of ThermoML's 193 property names has an
+  alias with its precision and stated loss (W1-M0).
+- **Readers.** Source-faithful readers for CoolProp and the eight Wave 1 sources (chemicals, thermo,
+  Cantera, NASA CEA, JANAF, FeOS, IDAES values including its Helmholtz parameter JSON, the ThermoML
+  schema), each with independent counts and a round trip on the real store.
+- **Mapped and qualified.** The CoolProp slice (fluid identities, 123 saturation-pressure ancillaries)
+  is built, verified and qualified against CoolProp 8.0.0 (3,075 points, worst relative deviation
+  4.5e-12, tolerance 1e-10 from the formula's conditioning). W1-M1 mapped Cantera, NASA CEA and
+  JANAF through identity, resolution, records, build and verify: 2,578 NASA-7, 22 NASA-9, 11 Shomate, 25 constant-cp and 4 piecewise-Gibbs sets from Cantera;
+  2,035 NASA-9 and 37 assigned-enthalpy sets from CEA; the 2,073 JANAF tables as evaluated datasets
+  (84,507 points). No staged row is unexplained (held rows carry typed reasons, listed in Open
+  items), `tk verify` passes all 80 checks, and these forms are not yet qualified.
+- **Tests.** The tree's suite last ran whole at 2,665 passed after W1-M0 (`just -f
+  thermo-knowledge/justfile tk-test`); W1-M1 ran its targeted tests (92 passed at the checkpoint:
+  the three mapping test files, the framework, identity-decision, resolution and CoolProp mapping
+  tests). `tk generate --check` is current and `tk survey --report --strict` is clean.
+
+### Remaining
+
+In dependency order:
+
+1. **W1, rest of mapping.**
+   - *W1-M1 completion:* `oracles/cantera.py` and a CEA oracle (the `cantera` 3.2.0 and `cea` 3.3.4
+     libraries are installed and match the data pins); qualification cases for NASA-7, NASA-9 and
+     Shomate (the case's library-key lookup needs a key-prefix filter for per-file cases; Cantera
+     assigns a tie at the mid temperature to the lower piece; the Shomate oracle reads `test/data`
+     from the raw tree, since the wheel bundles only `data/`); the JANAF equivalence assessments
+     against the NASA fits, computed by the pipeline with a tolerance from JANAF's printed rounding;
+     JANAF formation reactions; decisions for the held rows listed in Open items.
+   - *W1-M2a, chemicals:* the identifier tables as the identity backbone (76,500 compounds; InChIKeys
+     computed with RDKit, CAS as registry cross-reference; profile `tk resolve` at this scale), then
+     restrict the formula-scope rule (Open items); pure-component constants and every
+     temperature-dependent correlation table, one form per equation in `forms/`; qualification
+     against the `chemicals` library (1.5.2, the data pin) through `oracles/chemicals.py`; its JANAF
+     and Shomate point sets as second carriers with equivalence assessments; psi4 results as computed
+     records; the Law inventories out of scope.
+   - *W1-M2b:* the pure-component parts of thermo (fitted correlation leaves, qualified against the
+     `thermo` library 0.6.1; its Law and Bell copies as a second carrier), FeOS (identities and DIPPR
+     records; PC-SAFT, binary, group-contribution and multiparameter data deferred to W2 and W3) and
+     IDAES (pure-component parameter values as `oracle_input`, equivalence against other carriers;
+     EOS and Helmholtz data deferred to W2; update `survey/idaes.toml`, which still calls the Helmholtz
+     JSON unread).
+   - Then the W1 residue report, and the representative forms of the wave qualified.
+2. **W2** equations of state (Helmholtz and multifluid, cubic, SAFT, GERG, IAPWS; readers for
+   CoolProp's EOS, teqp, AGA8, IAPWS, Clapeyron, ThermoPack, NeqSim, KineticGas' EOS parts; FeOS and
+   IDAES EOS data); decide the integer slot type; install Julia for the Clapeyron oracle.
+3. **W3** activity models, group contribution, sigma profiles, RMG thermo groups; decide review F20
+   (tabulated values in expressions) with `cosmosac_2010`.
+4. **W4** aqueous, electrolyte, reaction equilibrium (PHREEQC, Reaktoro, ThermoFun, ThermoHub, GEMS3K).
+5. **W5** CALPHAD, solids, fit lineage (pycalphad, SGTE, Thermochimica, ESPEI); per-class addressing
+   in `position(t, s)` for ordered phases.
+6. **W6** evidence at scale (ThermoML data, ISODB, scoped WebBook); acquire the ThermoML archive and
+   the remaining ThermoML vocabularies (methods, constraints, sample descriptions).
+7. **W7** transport and reaction kinetics (Cantera reactions and transport, CEA `trans.inp`, RMG,
+   KineticGas); uncertainty on reaction-dependent slots.
+8. **W8** petroleum characterisation, polymers, adsorption models, interfaces, liquid-state theory
+   (form inventory); the pseudo-component resolution class.
+9. **TK9** consolidate and qualify: clean rebuild from the lock; coverage, kernel-gap and schema-delta
+   reports; `tk project` (the `.pse` rendering and the resolved-snapshot export with selection
+   policies applied, reproducing the repository's seed); formatting, lint and the full check set;
+   the final design review.
 
 Decisions made during execution:
 
@@ -508,8 +582,12 @@ Decisions made during execution:
   scope; otherwise to a provisional entity that is never joined across carriers.
 - Structure data that a form needs (group counts, site multiplicities, formula matrices) enters
   an expression as an indexed contract argument, so expressions read only what they name.
-- One equation used for several observables (a saturation curve form used for bubble and dew
-  pressure) is an open modelling question; only the single-curve case is declared.
+- One equation used for several observables (a saturation curve for bubble and dew pressure of a
+  pseudo-pure fluid) is one form whose output takes its observable from the set (TK2a).
+- The Shomate entropy term is written `log(T / unit('kK'))`, so NIST-convention coefficients map by
+  unit conversion alone (W1-M1).
+- A mapping names each source's own convention set: Cantera's 2019 SI gas constant, CEA's legacy
+  constant, JANAF's energy reference inferred from its tables; nothing is re-based at import.
 - The first end-to-end slice is CoolProp fluid identities and saturation-pressure ancillaries,
   because its reader and survey exist; it exercises resolution, mapping, build, verify and
   qualification before any wave scales out.
@@ -544,11 +622,6 @@ The design review of the core model (`review_sources`) returned Revise: the arch
 open-world store with a closed-world export, forms as data, qualification derived from runs), and
 a set of model concepts and four pipeline contracts must change before the hard-case fixtures and
 Wave 1. Every finding is dispositioned above.
-
-Next, in dependency order: make `tk acquire` safe to run concurrently (each run rewrites
-`sources.lock` from the copy it read at start, so two runs lose an entry); finish the JANAF
-retrieval and retry the ThermoML archive; then Wave 1, starting with readers for chemicals, thermo,
-Cantera, NASA CEA, JANAF, FeOS and the ThermoML schema.
 
 ## Outcome (recorded after implementation)
 
