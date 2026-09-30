@@ -43,6 +43,15 @@ packet or review is not a backlog and creates no obligation. The most recent com
 qualification basis is summarized in
 [§24.2](../authoritative_design/sections/operations-and-validation.md#section-24-2).
 
+## Workflow entrypoints
+
+Use the [local process skills](../../.codex/skills/README.md) to prepare or conduct reviews,
+create implementation plans, and plan or execute authorized work. This index routes to the
+owning plan or active packet checkpoint for current state, decisions and next steps; it does
+not duplicate packet status. Handoff updates that owner when the actual tree changes.
+The role and workflow rollout is owned by [§24.4](../authoritative_design/sections/design-change-workflow.md)
+and ADR-0138; it changes no production plan's lifecycle or qualification status.
+
 ## Norms
 
 - **Naming.** `docs/plans/NN-kebab-case.md`, numbered in the order they were started.

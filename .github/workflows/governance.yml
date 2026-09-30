@@ -80,12 +80,11 @@ jobs:
         uses: taiki-e/install-action@3f74d7c16a4242f1c95561e98edc25d36adb4375 # v2.87.12
         with:
           tool: just@1.58.0
-      - name: materialize native configuration
+      - name: materialize skill aliases
         run: python3 scripts/agent-config.py
-      - name: agent configuration is canonical
-        # .claude/ and .codex/ share content through symlinks in one direction only;
-        # this fails when a copy has been made where a link belongs, or when AGENTS.md
-        # and CLAUDE.md have drifted apart.
+      - name: skill aliases and native role contracts are consistent
+        # Skill aliases share the canonical .codex/skills tree. Native adapters remain
+        # independent and load shared role contracts; synchronization never overwrites them.
         run: |
           python3 scripts/check_agent_config.py
           python3 scripts/solver-images.py check

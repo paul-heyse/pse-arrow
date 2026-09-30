@@ -16,15 +16,17 @@ space and runtime configuration are writable, under the scope AGENTS.md describe
 Hook timeouts are seconds. Shell writes remain governed by AGENTS.md; the edit hook
 is not a shell sandbox. Do not ask again for actions already authorized by the user.
 
-Path-scoped guidance is in `.claude/rules/`. The role definitions in
-`.claude/agents/` are canonical; `just agent-config-sync` produces Codex's native TOML
-roles. Delegate every code change through the `implementer` role, which runs on
-Sonnet 5.5: never hand edits to a general-purpose agent or a fork, and never pass a model
-override when spawning it. `design-reviewer` runs on Opus; the built-in exploring and
-planning agents keep their defaults. Skills are canonical in `.codex/skills/`, exposed through `.claude/skills` and
-`.agents/skills`; library skills there are local-only and gitignored. On Windows, run
-`just agent-config-sync` to materialize aliases when symlinks are unavailable.
-`just lint-agents` checks drift and `just setup-test` checks behavior.
+Path-scoped guidance is in `.claude/rules/`. Shared role behavior is in
+`.agents/roles/`; `.claude/agents/` and `.codex/agents/` are independent native adapters.
+Use the named Claude roles from the shared routing table: `implementer` is the executor adapter
+on Sonnet, and `design-reviewer` runs on Opus. The coordinator owns design, integration and
+acceptance; explicit user runtime choices take precedence. Native definitions load shared
+contracts rather than copying role behavior between runtimes.
+
+Skills are canonical in `.codex/skills/`, exposed through `.claude/skills` and `.agents/skills`;
+library skills there are local-only and gitignored. On Windows, `just agent-config-sync`
+materializes skill aliases when symlinks are unavailable; it never regenerates native agents.
+`just lint-agents` checks references, aliases and shared contracts; `just setup-test` checks behavior.
 
 Use planning for architecture, pinned-family-major, generation and Python-boundary
 changes. Adding a third-party dependency is not one of them: no library and no licence is

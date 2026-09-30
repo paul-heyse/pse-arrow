@@ -9,7 +9,8 @@ status: current
 
 > Decision: [ADR-0094](../../adr/0094-architecture-first-design-review.md),
 > [ADR-0096](../../adr/0096-current-rationale-and-selective-retirement.md),
-> [ADR-0129](../../adr/0129-domain-model-review-scope.md) (accepted).
+> [ADR-0129](../../adr/0129-domain-model-review-scope.md),
+> [ADR-0138](../../adr/0138-agent-workflow-roles.md) (accepted).
 
 The [selected design standard](../../design_review/design_principles/standard.toml) governs
 architecture review. Its core foundations organize assessment around separation of concerns,
@@ -27,6 +28,23 @@ passing one does not establish the other. Mechanism-level investigation follows 
 uncertainty. Library eligibility under §3.3.1 remains; integration cost and dependency exposure
 are assessed against the architecture. Internal contracts may evolve deliberately without
 freezing an immature API, while durable/external compatibility remains explicit.
+
+The [process skills](../../../.codex/skills/README.md) own review planning, plan authoring and
+execution. Each has a conversational planning companion and an action skill; companions use an
+available planning interface without switching runtime modes or creating another durable ledger.
+`create-plan` assesses the affected foundations as part of authoring the target and dependency
+sequence. That focused assessment does not certify an enclosing subsystem or initiate recurring
+model assessment during ordinary implementation.
+
+The [shared roles](../../../.agents/roles/README.md) own reusable worker behavior and coordination;
+the separate native adapters own model, effort and tool defaults. The root coordinator retains
+design decisions, integration and acceptance; executors choose local details inside their brief.
+Use concurrency as you see fit; strive for parallel execution.
+Process skills are canonical in `.codex/skills/`, with `.claude/skills` and `.agents/skills` as
+aliases. The existing alias synchronizer never generates or modifies native agent definitions.
+These workflow/configuration surfaces are Implemented (2026-09-30); model-allocation quality and
+native agent behavior are unmeasured. The current-work index routes to the active plan or packet
+checkpoint for execution and handoff; no root STATUS file or second status owner is introduced.
 
 Reviews record the standard version and evidence scope. Their findings take effect through the
 existing decision and plan routes. The owning plan tracks adopted finding dispositions and

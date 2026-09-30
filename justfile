@@ -943,7 +943,7 @@ lock-upgrade pkg:
     uv lock --upgrade-package {{ pkg }}
 
 [group('mutating')]
-[doc('Regenerate native Codex roles and materialize shared skill aliases')]
+[doc('Materialize shared skill aliases; native agent adapters are maintained separately')]
 agent-config-sync:
     python3 scripts/agent-config.py
 

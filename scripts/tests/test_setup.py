@@ -267,7 +267,7 @@ class EditPolicyTests(unittest.TestCase):
 
 
 class ConfigurationTests(unittest.TestCase):
-    def test_instruction_scan_excludes_all_skill_contents(self) -> None:
+    def test_instruction_scan_includes_local_contracts_but_excludes_library_contents(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             expected = [
@@ -275,6 +275,10 @@ class ConfigurationTests(unittest.TestCase):
                 "CLAUDE.md",
                 ".claude/rules/python.md",
                 ".claude/agents/reviewer.md",
+                ".codex/agents/reviewer.toml",
+                ".agents/roles/reviewer.md",
+                ".codex/skills/README.md",
+                ".codex/skills/execute-plan/SKILL.md",
             ]
             skill_files = [
                 f"{runtime}/skills/example/{name}"
@@ -380,7 +384,7 @@ class ConfigurationTests(unittest.TestCase):
             with patch.object(cache, "solver_image", side_effect=ValueError):
                 self.assertIsNone(cache.prepared_solver(base))
 
-    def test_materialized_skills_and_native_roles_detect_drift(self) -> None:
+    def test_materialized_skill_aliases_preserve_native_adapters_and_live_links(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             shutil.copytree(ROOT / ".claude/agents", root / ".claude/agents")
@@ -390,7 +394,18 @@ class ConfigurationTests(unittest.TestCase):
                 shutil.copytree(
                     ROOT / ".codex/skills" / skill, root / ".codex/skills" / skill
                 )
-            (root / ".codex/agents").write_text("../.claude/agents")
+            native = root / ".codex/agents/executor.toml"
+            native.parent.mkdir(parents=True)
+            native.write_text('name = "executor"\nmodel = "custom-runtime-default"\n')
+            native_before = native.read_bytes()
+            claude = root / ".claude/agents/implementer.md"
+            claude_before = claude.read_bytes()
+            # Synchronization must preserve live library links without copying their contents.
+            bundle = root / "shared-library"
+            bundle.mkdir()
+            (bundle / "SKILL.md").write_text("live library source")
+            live = root / ".codex/skills/library-example"
+            live.symlink_to(bundle, target_is_directory=True)
             (root / ".claude/skills").write_text("../.codex/skills")
             with patch.object(
                 Path, "symlink_to", side_effect=OSError("no Windows privilege")
@@ -398,9 +413,25 @@ class ConfigurationTests(unittest.TestCase):
                 self.assertEqual(agents.synchronize(root, check=False), [])
             self.assertTrue((root / ".agents/skills/adr/SKILL.md").is_file())
             self.assertEqual(agents.synchronize(root, check=True), [])
-            native = root / ".codex/agents/implementer.toml"
-            native.write_text(native.read_text() + 'sandbox_mode = "read-only"\n')
+            for directory in (".claude", ".agents"):
+                self.assertTrue((root / directory / "skills/library-example").is_symlink())
+            self.assertEqual(native.read_bytes(), native_before)
+            self.assertEqual(claude.read_bytes(), claude_before)
+            (root / ".agents/skills/adr/SKILL.md").write_text("changed alias")
             self.assertTrue(agents.synchronize(root, check=True))
+            self.assertEqual(native.read_bytes(), native_before)
+            self.assertEqual((bundle / "SKILL.md").read_text(), "live library source")
+
+    def test_skill_alias_sync_does_not_create_native_agents(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            skill = root / ".codex/skills/example/SKILL.md"
+            skill.parent.mkdir(parents=True)
+            skill.write_text("local process skill")
+            self.assertEqual(agents.synchronize(root, check=False), [])
+            self.assertEqual(agents.synchronize(root, check=True), [])
+            self.assertFalse((root / ".codex/agents").exists())
+            self.assertFalse((root / ".claude/agents").exists())
 
     def test_solver_pins_require_matching_trees_and_digests(self) -> None:
         pins = json.loads((ROOT / ".github/setup/solver-images.json").read_text())

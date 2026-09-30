@@ -51,6 +51,14 @@ and material test dependencies. Use the least investigation sufficient for the s
 follow a flow only to resolve a concrete uncertainty, without a prescribed tracing sequence.
 A change review can compress that reasoning to its affected scenario and foundations.
 
+## Shared review roles
+
+Use the [shared roles](../../../.agents/roles/README.md) for bounded code mapping and library
+research when useful. Give a fresh design reviewer the target, requirements and source evidence
+for an independent judgment. Inspect decisive evidence yourself; the coordinator owns
+integration and finding disposition. Focused design advice for plan creation can be incorporated
+in that plan and does not replace a formal review due under the binding.
+
 ## What to establish
 
 - **Architecture:** verdicts for the applicable foundations, grounded in responsibilities,
@@ -112,6 +120,8 @@ a bounded requested scope into whole-system qualification.
 ## Output
 
 Follow the selected template and relevant profile additions, with proportional detail.
+A read-only delegated reviewer returns the complete review text and intended path to the
+coordinator, who publishes it while preserving the reviewer’s judgment.
 Keep finding IDs linkable and record standard version, inspected scope and disposition owner.
 State architectural fitness, behavioral adequacy, overall decision and evidence limits. A target
 accepted as a design remains unqualified implementation until supported by execution evidence.

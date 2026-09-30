@@ -46,14 +46,32 @@ lcov.info
 !/.codex/skills/adr/
 !/.codex/skills/design-review/
 !/.codex/skills/design-review-process-simulator/
+!/.codex/skills/README.md
+!/.codex/skills/plan-design-review/
+!/.codex/skills/plan-creation/
+!/.codex/skills/create-plan/
+!/.codex/skills/plan-execution/
+!/.codex/skills/execute-plan/
 /.claude/skills/*
 !/.claude/skills/adr/
 !/.claude/skills/design-review/
 !/.claude/skills/design-review-process-simulator/
+!/.claude/skills/README.md
+!/.claude/skills/plan-design-review/
+!/.claude/skills/plan-creation/
+!/.claude/skills/create-plan/
+!/.claude/skills/plan-execution/
+!/.claude/skills/execute-plan/
 /.agents/skills/*
 !/.agents/skills/adr/
 !/.agents/skills/design-review/
 !/.agents/skills/design-review-process-simulator/
+!/.agents/skills/README.md
+!/.agents/skills/plan-design-review/
+!/.agents/skills/plan-creation/
+!/.agents/skills/create-plan/
+!/.agents/skills/plan-execution/
+!/.agents/skills/execute-plan/
 
 # Local overrides (templates are committed)
 .envrc.local
