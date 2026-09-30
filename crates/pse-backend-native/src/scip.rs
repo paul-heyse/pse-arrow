@@ -16,7 +16,7 @@
 //! auxiliaries and its links are linear constraints. A nonlinear objective is exported
 //! through an epigraph variable. The native model is read back and evaluated against
 //! [`FactorableProgram::evaluate`] before any claim transfers.
-use crate::execution::factorable::{Affine, Expression, Plan, Semi};
+use crate::execution::factorable::{Affine, Expression, Origin, Plan, Semi};
 use crate::{
     LimitKind, NativeStatus, OracleContract, ProblemError, Variable,
     execution::ScipSettings as Settings,
@@ -1208,6 +1208,8 @@ struct Exported {
     expression: Expression,
     lower: f64,
     upper: f64,
+    /// The row nominal the native constraint is divided by ([`nominals`]).
+    nominal: f64,
     kind: Kind,
 }
 /// The native model of one plan.
@@ -1592,15 +1594,84 @@ fn coefficients(form: &Affine, coordinates: usize) -> Vec<f64> {
     }
     out
 }
+/// The nominal each exported function is stated in, in plan order. SCIP checks a nonlinear
+/// constraint's violation absolutely against `numerics/feastol`, which [`feasibility`]
+/// derives from the normalized budget; so a selected row is exported divided by its row
+/// nominal, and the tolerance bounds the normalized residual, as on every other route.
+/// Obligations, implicit residuals and bounds and semi links keep nominal one. Exact mode
+/// states its rational rows unscaled.
+fn nominals(
+    plan: &Plan<'_>,
+    normalization: &Normalization,
+    exact: bool,
+) -> Result<Vec<f64>, ProblemError> {
+    if normalization.rows.len() != plan.program.rows.len() {
+        return Err(ProblemError::Contract(
+            "SCIP export row nominals differ from the program rows".into(),
+        ));
+    }
+    plan.constraints
+        .iter()
+        .map(|c| {
+            let nominal = match c.origin {
+                Origin::Row(r) if !exact => normalization.rows[r],
+                _ => 1.0,
+            };
+            if nominal.is_finite() && nominal > 0.0 {
+                Ok(nominal)
+            } else {
+                Err(ProblemError::Contract(format!(
+                    "SCIP export row nominal {nominal} is not positive and finite"
+                )))
+            }
+        })
+        .collect()
+}
+/// `expr / nominal` as an expression reference the caller releases: the expression itself,
+/// captured, at nominal one.
+fn scaled(
+    instance: &Instance,
+    expr: *mut ffi::SCIP_EXPR,
+    nominal: f64,
+) -> Result<*mut ffi::SCIP_EXPR, ProblemError> {
+    if nominal == 1.0 {
+        // SAFETY: a live expression of this instance gains the reference the caller releases.
+        unsafe { ffi::SCIPcaptureExpr(expr) };
+        return Ok(expr);
+    }
+    let mut children = [expr];
+    let mut coefficients = [1.0 / nominal];
+    let mut sum = ptr::null_mut();
+    native!(
+        "SCIPcreateExprSum",
+        ffi::SCIPcreateExprSum(
+            instance.ptr(),
+            &mut sum,
+            1,
+            children.as_mut_ptr(),
+            coefficients.as_mut_ptr(),
+            0.0,
+            None,
+            ptr::null_mut()
+        )
+    )?;
+    Ok(sum)
+}
 /// Export a plan: variables with their boxes and domains (semi columns lowered to binary
 /// indicators and linear links), linear, nonlinear, conditional and native constraints,
-/// and the objective (coefficients when affine, an epigraph otherwise). Exact mode admits
-/// only linear programs without native forms; a reoptimization session only affine
-/// objectives and constraints.
-pub(crate) fn export(instance: &mut Instance, plan: &Plan<'_>) -> Result<Export, ProblemError> {
+/// each selected row in its normalized coordinate ([`nominals`]), and the objective
+/// (coefficients when affine, an epigraph otherwise). Exact mode admits only linear
+/// programs without native forms; a reoptimization session only affine objectives and
+/// constraints.
+pub(crate) fn export(
+    instance: &mut Instance,
+    plan: &Plan<'_>,
+    normalization: &Normalization,
+) -> Result<Export, ProblemError> {
     let program = plan.program;
     let columns = program.variables.len();
     let modes = instance.modes;
+    let nominals = nominals(plan, normalization, modes.exact)?;
     let conditional = plan.constraints.iter().any(|c| c.condition.is_some());
     if modes.exact
         && (plan.nonlinear()
@@ -1703,6 +1774,7 @@ pub(crate) fn export(instance: &mut Instance, plan: &Plan<'_>) -> Result<Export,
     let (mut linear, mut nonlinear) = (0, 0);
     for (k, c) in plan.constraints.iter().enumerate() {
         let name = cstring(&format!("c{k}"))?;
+        let nominal = nominals[k];
         let condition = c
             .condition
             .map(|c| instance.literal(coordinates[c.column], !c.active))
@@ -1717,8 +1789,8 @@ pub(crate) fn export(instance: &mut Instance, plan: &Plan<'_>) -> Result<Export,
                 let mut vars: Vec<_> = form.terms.iter().map(|(j, _)| coordinates[*j]).collect();
                 let mut cons = ptr::null_mut();
                 let n = arity(vars.len())?;
-                let lhs = instance.native(c.lower - form.constant)?;
-                let rhs = instance.native(c.upper - form.constant)?;
+                let lhs = instance.native((c.lower - form.constant) / nominal)?;
+                let rhs = instance.native((c.upper - form.constant) / nominal)?;
                 let kind = if modes.exact {
                     let mut owned = Vec::with_capacity(form.terms.len());
                     for (_, v) in &form.terms {
@@ -1746,7 +1818,7 @@ pub(crate) fn export(instance: &mut Instance, plan: &Plan<'_>) -> Result<Export,
                         constant: form.constant,
                     }
                 } else {
-                    let mut vals: Vec<_> = form.terms.iter().map(|(_, v)| *v).collect();
+                    let mut vals: Vec<_> = form.terms.iter().map(|(_, v)| *v / nominal).collect();
                     native!(
                         "SCIPcreateConsBasicLinear",
                         ffi::SCIPcreateConsBasicLinear(
@@ -1771,6 +1843,7 @@ pub(crate) fn export(instance: &mut Instance, plan: &Plan<'_>) -> Result<Export,
                     expression: c.expression,
                     lower: c.lower,
                     upper: c.upper,
+                    nominal,
                     kind,
                 });
             }
@@ -1782,8 +1855,9 @@ pub(crate) fn export(instance: &mut Instance, plan: &Plan<'_>) -> Result<Export,
                     }
                     let mut vars: Vec<_> =
                         form.terms.iter().map(|(j, _)| coordinates[*j]).collect();
-                    let mut vals: Vec<_> = form.terms.iter().map(|(_, v)| sign * v).collect();
-                    let rhs = instance.native(sign * (side - form.constant))?;
+                    let mut vals: Vec<_> =
+                        form.terms.iter().map(|(_, v)| sign * v / nominal).collect();
+                    let rhs = instance.native(sign * (side - form.constant) / nominal)?;
                     let mut cons = ptr::null_mut();
                     native!(
                         "SCIPcreateConsBasicIndicator",
@@ -1805,6 +1879,7 @@ pub(crate) fn export(instance: &mut Instance, plan: &Plan<'_>) -> Result<Export,
                         expression: c.expression,
                         lower: c.lower,
                         upper: c.upper,
+                        nominal,
                         kind: Kind::Indicator {
                             constant: form.constant,
                             sign,
@@ -1813,20 +1888,25 @@ pub(crate) fn export(instance: &mut Instance, plan: &Plan<'_>) -> Result<Export,
                 }
             }
             (None, None) => {
-                let lhs = instance.native(c.lower)?;
-                let rhs = instance.native(c.upper)?;
+                let lhs = instance.native(c.lower / nominal)?;
+                let rhs = instance.native(c.upper / nominal)?;
+                let mut expr = scaled(instance, node()?, nominal)?;
                 let mut cons = ptr::null_mut();
-                native!(
+                let created = native!(
                     "SCIPcreateConsBasicNonlinear",
                     ffi::SCIPcreateConsBasicNonlinear(
                         instance.ptr(),
                         &mut cons,
                         name.as_ptr(),
-                        node()?,
+                        expr,
                         lhs,
                         rhs
                     )
-                )?;
+                );
+                // SAFETY: releases the scaled expression's creation reference; the
+                // constraint holds one.
+                let _ = unsafe { ffi::SCIPreleaseExpr(instance.ptr(), &mut expr) };
+                created?;
                 instance.hold(cons)?;
                 nonlinear += 1;
                 constraints.push(Exported {
@@ -1834,6 +1914,7 @@ pub(crate) fn export(instance: &mut Instance, plan: &Plan<'_>) -> Result<Export,
                     expression: c.expression,
                     lower: c.lower,
                     upper: c.upper,
+                    nominal,
                     kind: Kind::Nonlinear,
                 });
             }
@@ -1865,7 +1946,7 @@ pub(crate) fn export(instance: &mut Instance, plan: &Plan<'_>) -> Result<Export,
                         )
                     )?;
                     let mut terms = [node()?, slack_expr];
-                    let mut weights = [1.0, if upper { -1.0 } else { 1.0 }];
+                    let mut weights = [1.0 / nominal, if upper { -1.0 } else { 1.0 }];
                     let mut expr = ptr::null_mut();
                     let created = native!(
                         "SCIPcreateExprSum",
@@ -1885,9 +1966,9 @@ pub(crate) fn export(instance: &mut Instance, plan: &Plan<'_>) -> Result<Export,
                     let _ = unsafe { ffi::SCIPreleaseExpr(instance.ptr(), &mut slack_expr) };
                     created?;
                     let (lhs, rhs) = if upper {
-                        (-instance.infinity, instance.native(side)?)
+                        (-instance.infinity, instance.native(side / nominal)?)
                     } else {
-                        (instance.native(side)?, instance.infinity)
+                        (instance.native(side / nominal)?, instance.infinity)
                     };
                     let mut cons = ptr::null_mut();
                     let created = native!(
@@ -1912,6 +1993,7 @@ pub(crate) fn export(instance: &mut Instance, plan: &Plan<'_>) -> Result<Export,
                         expression: c.expression,
                         lower: if upper { f64::NEG_INFINITY } else { c.lower },
                         upper: if upper { c.upper } else { f64::INFINITY },
+                        nominal,
                         kind: Kind::Nonlinear,
                     });
                     let mut vars = [slack];
@@ -1991,6 +2073,7 @@ pub(crate) fn export(instance: &mut Instance, plan: &Plan<'_>) -> Result<Export,
             expression: Expression::Node(node),
             lower: f64::NEG_INFINITY,
             upper: f64::INFINITY,
+            nominal: 1.0,
             kind: Kind::Epigraph,
         });
     }
@@ -2265,6 +2348,14 @@ pub(crate) fn readback(
             deviation(native, neutral)
         }
     };
+    // A finite native side of a row exported in its normalized coordinate, in original units.
+    let unscaled = |native: f64, nominal: f64| {
+        if native.abs() >= instance.infinity {
+            native
+        } else {
+            native * nominal
+        }
+    };
     let nonlinear = |cons: *mut ffi::SCIP_CONS| -> Result<(f64, f64, f64), ProblemError> {
         // SAFETY: the constraint is a live nonlinear constraint held by the instance.
         let expr = unsafe { ffi::SCIPgetExprNonlinear(cons) };
@@ -2301,9 +2392,9 @@ pub(crate) fn readback(
                 // SAFETY: as above.
                 let rhs = unsafe { ffi::SCIPgetRhsLinear(s, c.cons) };
                 worst = worst
-                    .max(deviation(a + constant, neutral))
-                    .max(side(lhs + constant, c.lower))
-                    .max(side(rhs + constant, c.upper));
+                    .max(deviation(a * c.nominal + constant, neutral))
+                    .max(side(unscaled(lhs, c.nominal) + constant, c.lower))
+                    .max(side(unscaled(rhs, c.nominal) + constant, c.upper));
             }
             Kind::ExactLinear { constant } => {
                 // SAFETY: a live exact linear constraint held by the instance.
@@ -2333,9 +2424,9 @@ pub(crate) fn readback(
                 // SAFETY: as above.
                 let rhs = unsafe { ffi::SCIPrationalGetReal(rhs) };
                 worst = worst
-                    .max(deviation(a + constant, neutral))
-                    .max(side(lhs + constant, c.lower))
-                    .max(side(rhs + constant, c.upper));
+                    .max(deviation(a * c.nominal + constant, neutral))
+                    .max(side(unscaled(lhs, c.nominal) + constant, c.lower))
+                    .max(side(unscaled(rhs, c.nominal) + constant, c.upper));
             }
             Kind::Indicator { constant, sign } => {
                 // SAFETY: a live indicator constraint held by the instance; its linear
@@ -2362,21 +2453,22 @@ pub(crate) fn readback(
                 let a = unsafe { activity(&at, vars, value, n, slack) }?;
                 // SAFETY: a side query of the same live linear constraint.
                 let rhs = unsafe { ffi::SCIPgetRhsLinear(s, lin) };
+                let rhs = unscaled(rhs, c.nominal);
                 let (bound, expected) = if sign > 0.0 {
                     (rhs + constant, c.upper)
                 } else {
                     (constant - rhs, c.lower)
                 };
                 worst = worst
-                    .max(deviation(sign * a + constant, neutral))
+                    .max(deviation(sign * a * c.nominal + constant, neutral))
                     .max(side(bound, expected));
             }
             Kind::Nonlinear => {
                 let (native, lhs, rhs) = nonlinear(c.cons)?;
                 worst = worst
-                    .max(deviation(native, neutral))
-                    .max(side(lhs, c.lower))
-                    .max(side(rhs, c.upper));
+                    .max(deviation(native * c.nominal, neutral))
+                    .max(side(unscaled(lhs, c.nominal), c.lower))
+                    .max(side(unscaled(rhs, c.nominal), c.upper));
             }
             Kind::Epigraph => {
                 let (native, ..) = nonlinear(c.cons)?;
@@ -2582,7 +2674,7 @@ fn build(r: &Request<'_>, plan: &Plan<'_>, gap_absolute: f64) -> Result<Session,
         r.execution,
         gap_absolute,
     )?;
-    let export = export(&mut instance, plan)?;
+    let export = export(&mut instance, plan, r.normalization)?;
     let system = if r.settings.reoptimize {
         system(plan)?
     } else {
@@ -3085,6 +3177,10 @@ pub(crate) fn solve(
 pub(crate) mod testing {
     //! Native access for the adapter's unit tests.
     use super::*;
+    /// Unit row nominals: the program's rows are exported as declared.
+    fn identity(program: &FactorableProgram) -> Normalization {
+        Normalization::identity(program.variables.len(), program.rows.len())
+    }
     /// Solve the exported plan directly, without the adapter's report.
     pub(crate) fn raw_status(
         program: &FactorableProgram,
@@ -3102,7 +3198,7 @@ pub(crate) mod testing {
             execution,
             1e-6,
         )?;
-        export(&mut instance, &plan)?;
+        export(&mut instance, &plan, &identity(program))?;
         native!("SCIPsolve", ffi::SCIPsolve(instance.ptr()))?;
         // SAFETY: a status query after `SCIPsolve` returned.
         let raw = unsafe { ffi::SCIPgetStatus(instance.ptr()) };
@@ -3124,7 +3220,7 @@ pub(crate) mod testing {
             .map_err(|r| ProblemError::Unsupported(format!("{r:?}")))?;
         let execution = Execution::new(Arc::default(), &Controls::default());
         let mut instance = Instance::new(&execution, Modes::default())?;
-        let export = export(&mut instance, &plan)?;
+        let export = export(&mut instance, &plan, &identity(program))?;
         let mut worst: f64 = 0.0;
         for (x, a) in points {
             worst = worst.max(readback(&instance, &export, &plan, x, a)?);
@@ -3144,7 +3240,7 @@ pub(crate) mod testing {
             .map_err(|r| ProblemError::Unsupported(format!("{r:?}")))?;
         let execution = Execution::new(Arc::default(), &Controls::default());
         let mut instance = Instance::new(&execution, Modes::default())?;
-        let export = export(&mut instance, &plan)?;
+        let export = export(&mut instance, &plan, &identity(exported))?;
         let mut worst: f64 = 0.0;
         for (x, a) in points {
             worst = worst.max(readback(&instance, &export, &reference, x, a)?);

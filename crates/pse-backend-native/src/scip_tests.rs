@@ -390,11 +390,39 @@ fn run_with(
     controls: &Controls,
     retained: &mut Retained,
 ) -> Result<SolveReport, ProblemError> {
+    let normalization = Normalization::identity(program.variables.len(), program.rows.len());
+    run_normalized(
+        case,
+        program,
+        intent,
+        resolve,
+        cancel,
+        settings,
+        controls,
+        retained,
+        &normalization,
+    )
+}
+/// [`run_with`] under explicit row and variable nominals.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "a test run binds its case, program, intent, re-solve, cancellation, settings, controls, session and nominals"
+)]
+fn run_normalized(
+    case: &Case,
+    program: &FactorableProgram,
+    intent: SolveIntent,
+    resolve: bool,
+    cancel: bool,
+    settings: &ScipSettings,
+    controls: &Controls,
+    retained: &mut Retained,
+    normalization: &Normalization,
+) -> Result<SolveReport, ProblemError> {
     let n = program.variables.len();
     let m = program.rows.len();
     let accuracy = ResolvedAccuracy::nominal();
     let tolerances = tolerances(n, m);
-    let normalization = Normalization::identity(n, m);
     let mut original = Original(case);
     let mut relaxed = || case.relaxed_oracle();
     let presolve = crate::presolve::Policy::Auto;
@@ -409,7 +437,7 @@ fn run_with(
             accuracy: &accuracy,
             execution,
             tolerances: &tolerances,
-            normalization: &normalization,
+            normalization,
             compatibility: stamp(Backend::Scip),
             warm: None,
         },
@@ -468,6 +496,64 @@ fn quartic_root(mut x: f64) -> f64 {
 }
 fn quartic_value(x: f64) -> f64 {
     x.powi(4) - 3.0 * x * x + x
+}
+
+/// A row in large original units: `1e9·x² − 2e9 = 0` over `x ∈ [1, 2]`. At the doubles
+/// nearest `√2`, `x·x` misses 2 by at least 4.4e-16, so the raw residual is at least
+/// 4.4e-7, above SCIP's feasibility tolerance of 1e-8; in its normalized coordinate (row
+/// nominal 1e9) it is 4.4e-16. The export states each row in that coordinate, so the
+/// tolerance, derived from the normalized budget, means what it means on every route.
+#[test]
+fn rows_are_exported_in_their_normalized_coordinate() {
+    let registry = standard_registry().unwrap();
+    let mut b = Body::new(&registry, 1);
+    let x = b.x[0].clone();
+    let xx = b.op(Binary::Mul, &x, &x);
+    let scale = b.c(1e9);
+    let scaled = b.op(Binary::Mul, &scale, &xx);
+    let target = b.c(2e9);
+    let row = b.op(Binary::Sub, &scaled, &target);
+    let body = b.b.prepare(&[row]).unwrap();
+    let case = case(
+        &registry,
+        body,
+        &[(ModelingVariableDomain::Continuous, Some(1.0), Some(2.0), 1.0)],
+        &[(0.0, 0.0)],
+        None,
+        DerivativeOrder::Second,
+    );
+    let program = case.program(&FactorableRequest::default());
+    let solve = |row_nominal: f64| {
+        let normalization = Normalization {
+            variables: vec![1.0],
+            rows: vec![row_nominal],
+            objective: 1.0,
+        };
+        run_normalized(
+            &case,
+            &program,
+            SolveIntent::FeasiblePoint,
+            false,
+            false,
+            &ScipSettings::default(),
+            &Controls::default(),
+            &mut Retained::default(),
+            &normalization,
+        )
+        .unwrap()
+    };
+    let report = solve(1e9);
+    assert_eq!(report.termination.category, Termination::Success, "{:?}", report.termination);
+    let x = report.candidate.as_ref().unwrap().primal[0];
+    assert!((x - std::f64::consts::SQRT_2).abs() < 1e-12, "{x}");
+    // The native model reads back as the program: the scaled constraint and its sides.
+    assert_eq!(
+        report.metrics["export.readback.deviation"],
+        crate::solve::Metric::Real(0.0)
+    );
+    // Control: stated in original units, no double satisfies the row within 1e-8.
+    let raw = solve(1.0);
+    assert!(raw.candidate.is_none(), "{:?}", raw.termination);
 }
 /// Superstructure synthesis: build a unit (binary y) whose product x·y meets a demand of
 /// 3 together with purchases s. min 2y + x²/2 + 4s  s.t.  x·y + s ≥ 3, x ∈ [0, 4],
