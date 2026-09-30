@@ -75,7 +75,30 @@ title = { type = "Text", optional = true, doc = "Title or description as the sou
 method = { type = "Text", optional = true, doc = "Experimental or evaluation method as the source names it." }
 convention_set = { type = "convention_set", optional = true, doc = "The conventions its values assume, where the dataset reports reference-dependent quantities." }
 reaction = { type = "reaction", optional = true, doc = "The reaction, for a dataset of reaction properties." }
-verifies = { type = "Record", optional = true, doc = "For a verification dataset: the model assembly or parameterisation whose implementation its values check." }
+
+[[kinds.dataset.requires]]
+name = "verification_has_a_target"
+doc = "A dataset of kind `verification` states at least one record whose implementation its values check (`dataset_verifies`): the values a standard publishes are values of a formulation, and a check table that names no formulation checks nothing."
+enforced = "verify"
+
+[relations.dataset_verifies]
+doc = "A record whose implementation a verification dataset checks. The values of a check table depend on both the formulation and the coefficients it was computed with, so a dataset names the model assembly and the parameterisation it verifies, each by a row (a published test value of the GERG-2008 and DETAIL assemblies, of the IAPWS-IF97 assembly with the coefficient set of the release, of a COSMO-SAC parameterisation together with the profile set). Only verification datasets state one."
+provenance = "inherit:dataset"
+absence = "optional"
+
+[[relations.dataset_verifies.requires]]
+name = "dataset_is_verification"
+doc = "The dataset is of kind `verification`."
+enforced = "verify"
+
+[[relations.dataset_verifies.requires]]
+name = "target_is_assembly_or_parameterization"
+doc = "The record verified is a model assembly or a parameterization."
+enforced = "verify"
+
+[relations.dataset_verifies.keys]
+dataset = { type = "dataset", doc = "The verification dataset." }
+target = { type = "Record", doc = "The model assembly or parameterization whose implementation the values check." }
 
 [kinds.dataset_component]
 doc = "An entity present in the system a dataset describes."

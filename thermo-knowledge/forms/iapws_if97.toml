@@ -1,0 +1,399 @@
+module = "iapws_if97"
+uses = [
+  "physical",
+  "provenance",
+  "identity",
+  "systems",
+  "conventions",
+  "observables",
+  "parameters",
+  "saturation",
+]
+doc = """
+The regional industrial formulation of the thermodynamic properties of water (the structure of
+IAPWS-IF97): Gibbs energy in pressure and temperature for regions 1, 2 and 5, Helmholtz energy in
+density and temperature for region 3 with its implicit solve for the density at a given pressure
+and temperature, the saturation equation of region 4, the quadratic boundary between regions 2 and
+3, a backward equation for the temperature from pressure and enthalpy, and the wrapper that selects
+the region of a state. A regional formulation is a set of (predicate, form) pairs over the state
+(T, p): the wrapper states the predicates as a conditional expression that calls the boundary
+equation and the saturation equation as sub-forms, and the model assembly of the formulation
+chooses the form of each region. The range each region states for its own equation is a validity
+region of its parameter set; the wrapper's predicates are what selects among them.
+
+The exponents of the terms are whole numbers held as dimensionless slots.
+
+Each equation states its specific gas constant as the molar gas constant of the convention set of
+its parameterisation and the molar mass of the water its coefficient set assumes (`M`).
+"""
+
+# ---------------------------------------------------------------- contracts
+
+[contracts.water_state_tp]
+doc = "Specific volume and specific enthalpy of pure water at a temperature and a pressure, in one region of a regional formulation."
+roles.i = { type = "material_entity", doc = "The water." }
+arguments.T = { type = "Temperature", observable = "temperature", doc = "Temperature." }
+arguments.p = { type = "Pressure", observable = "pressure", doc = "Pressure." }
+outputs.v = { type = "Scalar / MassDensity", doc = "Specific volume." }
+outputs.h = { type = "SpecificEnergy", doc = "Specific enthalpy relative to the energy reference of the convention set." }
+
+[contracts.water_regional_tp]
+doc = "Specific volume and specific enthalpy of pure water at a temperature and a pressure, and the region of the formulation the state lies in."
+roles.i = { type = "material_entity", doc = "The water." }
+arguments.T = { type = "Temperature", observable = "temperature", doc = "Temperature." }
+arguments.p = { type = "Pressure", observable = "pressure", doc = "Pressure." }
+outputs.v = { type = "Scalar / MassDensity", doc = "Specific volume." }
+outputs.h = { type = "SpecificEnergy", doc = "Specific enthalpy relative to the energy reference of the convention set." }
+outputs.region = { type = "Scalar", doc = "The number of the region the state lies in: 1, 2, 3 or 5." }
+
+[contracts.water_boundary_pressure]
+doc = "The pressure of a boundary curve between two regions, as a function of temperature."
+roles.i = { type = "material_entity", doc = "The water." }
+arguments.T = { type = "Temperature", observable = "temperature", doc = "Temperature." }
+outputs.p = { type = "Pressure", doc = "Pressure of the boundary." }
+
+[contracts.water_backward_t_ph]
+doc = "Temperature of pure water from its pressure and specific enthalpy: a backward equation, which inverts a forward equation of the regional formulation without iteration."
+roles.i = { type = "material_entity", doc = "The water." }
+arguments.p = { type = "Pressure", observable = "pressure", doc = "Pressure." }
+arguments.h = { type = "SpecificEnergy", observable = "specific_enthalpy", doc = "Specific enthalpy." }
+outputs.T = { type = "Temperature", observable = "temperature", doc = "Temperature." }
+
+# ---------------------------------------------------------------- region 1
+
+[forms.if97_gibbs_region1]
+doc = "Region 1 (liquid): the dimensionless Gibbs energy as a sum of terms n (shift_pi - pi)^I (tau - shift_tau)^J in the reduced pressure pi = p / p_star and inverse reduced temperature tau = T_star / T."
+implements = "water_state_tp"
+completeness = "fully_declared"
+status = "expressed"
+conventions = ["gas_constant"]
+
+[forms.if97_gibbs_region1.slot_groups.basic]
+doc = "The reducing constants and terms of the equation."
+subject.i = { type = "material_entity", doc = "The water." }
+
+[forms.if97_gibbs_region1.slot_groups.basic.slots]
+p_star = { type = "Pressure", doc = "Reducing pressure." }
+T_star = { type = "Temperature", doc = "Reducing temperature." }
+shift_pi = { type = "Scalar", doc = "The constant the reduced pressure is subtracted from." }
+shift_tau = { type = "Scalar", doc = "The constant subtracted from the inverse reduced temperature." }
+M = { type = "MolarMass", doc = "Molar mass of the water the coefficients assume, which turns the molar gas constant into the specific one." }
+
+[forms.if97_gibbs_region1.slot_groups.basic.families.term]
+doc = "One term of the Gibbs energy."
+index.k = { type = "Integer", min = 1, doc = "Term number." }
+
+[forms.if97_gibbs_region1.slot_groups.basic.families.term.slots]
+n = { type = "Scalar", doc = "Coefficient." }
+I = { type = "Scalar", doc = "Exponent of (shift_pi - pi)." }
+J = { type = "Scalar", doc = "Exponent of (tau - shift_tau)." }
+
+[forms.if97_gibbs_region1.let]
+R = "convention.gas_constant / basic.M[i]"
+pi = "p / basic.p_star[i]"
+tau = "basic.T_star[i] / T"
+gamma = "sum(basic.term.n[i, k] * (basic.shift_pi[i] - pi) ** basic.term.I[i, k] * (tau - basic.shift_tau[i]) ** basic.term.J[i, k] for k in basic.term(i))"
+
+[forms.if97_gibbs_region1.outputs]
+v = "R * T / p * pi * d(gamma, pi)"
+h = "R * T * tau * d(gamma, tau)"
+
+# ---------------------------------------------------------------- region 2
+
+[forms.if97_gibbs_region2]
+doc = "Region 2 (vapour): the dimensionless Gibbs energy as the sum of an ideal-gas part, ln pi plus terms n tau^J, and a residual part of terms n pi^I (tau - shift_tau)^J."
+implements = "water_state_tp"
+completeness = "fully_declared"
+status = "expressed"
+conventions = ["gas_constant"]
+
+[forms.if97_gibbs_region2.slot_groups.basic]
+doc = "The reducing constants and terms of the equation."
+subject.i = { type = "material_entity", doc = "The water." }
+
+[forms.if97_gibbs_region2.slot_groups.basic.slots]
+p_star = { type = "Pressure", doc = "Reducing pressure." }
+T_star = { type = "Temperature", doc = "Reducing temperature." }
+shift_tau = { type = "Scalar", doc = "The constant subtracted from the inverse reduced temperature in the residual part." }
+M = { type = "MolarMass", doc = "Molar mass of the water the coefficients assume." }
+
+[forms.if97_gibbs_region2.slot_groups.basic.families.ideal]
+doc = "One term of the ideal-gas part."
+index.k = { type = "Integer", min = 1, doc = "Term number." }
+
+[forms.if97_gibbs_region2.slot_groups.basic.families.ideal.slots]
+n = { type = "Scalar", doc = "Coefficient." }
+J = { type = "Scalar", doc = "Exponent of tau." }
+
+[forms.if97_gibbs_region2.slot_groups.basic.families.residual]
+doc = "One term of the residual part."
+index.k = { type = "Integer", min = 1, doc = "Term number." }
+
+[forms.if97_gibbs_region2.slot_groups.basic.families.residual.slots]
+n = { type = "Scalar", doc = "Coefficient." }
+I = { type = "Scalar", doc = "Exponent of pi." }
+J = { type = "Scalar", doc = "Exponent of (tau - shift_tau)." }
+
+[forms.if97_gibbs_region2.let]
+R = "convention.gas_constant / basic.M[i]"
+pi = "p / basic.p_star[i]"
+tau = "basic.T_star[i] / T"
+gamma_ideal = "log(pi) + sum(basic.ideal.n[i, k] * tau ** basic.ideal.J[i, k] for k in basic.ideal(i))"
+gamma_residual = "sum(basic.residual.n[i, k] * pi ** basic.residual.I[i, k] * (tau - basic.shift_tau[i]) ** basic.residual.J[i, k] for k in basic.residual(i))"
+gamma = "gamma_ideal + gamma_residual"
+
+[forms.if97_gibbs_region2.outputs]
+v = "R * T / p * pi * d(gamma, pi)"
+h = "R * T * tau * d(gamma, tau)"
+
+# ---------------------------------------------------------------- region 3
+
+[forms.if97_helmholtz_region3]
+doc = "Region 3 (around the critical point): the dimensionless Helmholtz energy in the reduced density delta = rho / rho_star and tau = T_star / T, phi = n1 ln delta + sum of terms n delta^I tau^J. The state is given as (T, p), so the density solves p = rho R T delta phi_delta: an implicit block with one bounded unknown whose root is unique."
+implements = "water_state_tp"
+completeness = "fully_declared"
+status = "expressed"
+conventions = ["gas_constant"]
+
+[forms.if97_helmholtz_region3.slot_groups.basic]
+doc = "The reducing constants and terms of the equation."
+subject.i = { type = "material_entity", doc = "The water." }
+
+[forms.if97_helmholtz_region3.slot_groups.basic.slots]
+rho_star = { type = "MassDensity", doc = "Reducing density." }
+T_star = { type = "Temperature", doc = "Reducing temperature." }
+n1 = { type = "Scalar", doc = "Coefficient of the logarithmic term." }
+M = { type = "MolarMass", doc = "Molar mass of the water the coefficients assume." }
+
+[forms.if97_helmholtz_region3.slot_groups.basic.families.term]
+doc = "One term of the Helmholtz energy."
+index.k = { type = "Integer", min = 1, doc = "Term number." }
+
+[forms.if97_helmholtz_region3.slot_groups.basic.families.term.slots]
+n = { type = "Scalar", doc = "Coefficient." }
+I = { type = "Scalar", doc = "Exponent of delta." }
+J = { type = "Scalar", doc = "Exponent of tau." }
+
+[forms.if97_helmholtz_region3.let]
+R = "convention.gas_constant / basic.M[i]"
+tau = "basic.T_star[i] / T"
+delta = "rho / basic.rho_star[i]"
+z = "basic.n1[i] + sum(basic.term.n[i, k] * basic.term.I[i, k] * delta ** basic.term.I[i, k] * tau ** basic.term.J[i, k] for k in basic.term(i))"
+phi_tau = "sum(basic.term.n[i, k] * basic.term.J[i, k] * delta ** basic.term.I[i, k] * tau ** (basic.term.J[i, k] - 1) for k in basic.term(i))"
+
+[forms.if97_helmholtz_region3.implicit.density]
+doc = "The density at which the pressure of the equation is the given pressure."
+unknowns.rho = { type = "MassDensity", lower = 0.001, upper = 1500 }
+residuals = [
+  "p - rho * R * T * (basic.n1[i] + sum(basic.term.n[i, k] * basic.term.I[i, k] * (rho / basic.rho_star[i]) ** basic.term.I[i, k] * tau ** basic.term.J[i, k] for k in basic.term(i)))",
+]
+select = "unique"
+
+[forms.if97_helmholtz_region3.outputs]
+v = "1 / rho"
+h = "R * T * (tau * phi_tau + z)"
+
+# ---------------------------------------------------------------- region 4
+
+[forms.if97_saturation]
+doc = "Region 4 (the saturation line): the saturation pressure from the quadratic of the saturation equation, p_s = p_star (2 C / (-B + sqrt(B^2 - 4 A C)))^4, in the variable theta = T / T_star + n9 / (T / T_star - n10) with A, B and C quadratics in theta."
+implements = "pure_vapor_pressure"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.if97_saturation.slot_groups.basic]
+doc = "The reducing constants and coefficients of the equation."
+subject.i = { type = "material_entity", doc = "The water." }
+
+[forms.if97_saturation.slot_groups.basic.slots]
+p_star = { type = "Pressure", doc = "Reducing pressure." }
+T_star = { type = "Temperature", doc = "Reducing temperature." }
+n1 = { type = "Scalar", doc = "Coefficient of theta in A." }
+n2 = { type = "Scalar", doc = "Constant term of A." }
+n3 = { type = "Scalar", doc = "Coefficient of theta^2 in B." }
+n4 = { type = "Scalar", doc = "Coefficient of theta in B." }
+n5 = { type = "Scalar", doc = "Constant term of B." }
+n6 = { type = "Scalar", doc = "Coefficient of theta^2 in C." }
+n7 = { type = "Scalar", doc = "Coefficient of theta in C." }
+n8 = { type = "Scalar", doc = "Constant term of C." }
+n9 = { type = "Scalar", doc = "Numerator of the pole term of theta." }
+n10 = { type = "Scalar", doc = "Reduced temperature of the pole of theta." }
+
+[forms.if97_saturation.let]
+theta = "T / basic.T_star[i] + basic.n9[i] / (T / basic.T_star[i] - basic.n10[i])"
+A = "theta ** 2 + basic.n1[i] * theta + basic.n2[i]"
+B = "basic.n3[i] * theta ** 2 + basic.n4[i] * theta + basic.n5[i]"
+C = "basic.n6[i] * theta ** 2 + basic.n7[i] * theta + basic.n8[i]"
+
+[forms.if97_saturation.outputs]
+p_sat = "basic.p_star[i] * (2 * C / (-B + sqrt(B ** 2 - 4 * A * C))) ** 4"
+
+# ---------------------------------------------------------------- region 5
+
+[forms.if97_gibbs_region5]
+doc = "Region 5 (high temperature): the dimensionless Gibbs energy as the sum of an ideal-gas part, ln pi plus terms n tau^J, and a residual part of terms n pi^I tau^J."
+implements = "water_state_tp"
+completeness = "fully_declared"
+status = "expressed"
+conventions = ["gas_constant"]
+
+[forms.if97_gibbs_region5.slot_groups.basic]
+doc = "The reducing constants and terms of the equation."
+subject.i = { type = "material_entity", doc = "The water." }
+
+[forms.if97_gibbs_region5.slot_groups.basic.slots]
+p_star = { type = "Pressure", doc = "Reducing pressure." }
+T_star = { type = "Temperature", doc = "Reducing temperature." }
+M = { type = "MolarMass", doc = "Molar mass of the water the coefficients assume." }
+
+[forms.if97_gibbs_region5.slot_groups.basic.families.ideal]
+doc = "One term of the ideal-gas part."
+index.k = { type = "Integer", min = 1, doc = "Term number." }
+
+[forms.if97_gibbs_region5.slot_groups.basic.families.ideal.slots]
+n = { type = "Scalar", doc = "Coefficient." }
+J = { type = "Scalar", doc = "Exponent of tau." }
+
+[forms.if97_gibbs_region5.slot_groups.basic.families.residual]
+doc = "One term of the residual part."
+index.k = { type = "Integer", min = 1, doc = "Term number." }
+
+[forms.if97_gibbs_region5.slot_groups.basic.families.residual.slots]
+n = { type = "Scalar", doc = "Coefficient." }
+I = { type = "Scalar", doc = "Exponent of pi." }
+J = { type = "Scalar", doc = "Exponent of tau." }
+
+[forms.if97_gibbs_region5.let]
+R = "convention.gas_constant / basic.M[i]"
+pi = "p / basic.p_star[i]"
+tau = "basic.T_star[i] / T"
+gamma_ideal = "log(pi) + sum(basic.ideal.n[i, k] * tau ** basic.ideal.J[i, k] for k in basic.ideal(i))"
+gamma_residual = "sum(basic.residual.n[i, k] * pi ** basic.residual.I[i, k] * tau ** basic.residual.J[i, k] for k in basic.residual(i))"
+gamma = "gamma_ideal + gamma_residual"
+
+[forms.if97_gibbs_region5.outputs]
+v = "R * T / p * pi * d(gamma, pi)"
+h = "R * T * tau * d(gamma, tau)"
+
+# ---------------------------------------------------------------- the 2/3 boundary
+
+[forms.if97_boundary_23]
+doc = "The boundary between regions 2 and 3: a quadratic p(T), p = n1 + n2 (T / 1 K) + n3 (T / 1 K)^2 in megapascal."
+implements = "water_boundary_pressure"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.if97_boundary_23.slot_groups.basic]
+doc = "The coefficients of the boundary."
+subject.i = { type = "material_entity", doc = "The water." }
+
+[forms.if97_boundary_23.slot_groups.basic.slots]
+n1 = { type = "Scalar", doc = "Constant term, in megapascal." }
+n2 = { type = "Scalar", doc = "Coefficient of T in kelvin, in megapascal." }
+n3 = { type = "Scalar", doc = "Coefficient of the square of T in kelvin, in megapascal." }
+
+[forms.if97_boundary_23.outputs]
+p = "(basic.n1[i] + basic.n2[i] * (T / unit('K')) + basic.n3[i] * (T / unit('K')) ** 2) * unit('MPa')"
+
+# ---------------------------------------------------------------- a backward equation
+
+[forms.if97_backward_region1_t_ph]
+doc = "A backward equation of region 1: the temperature as a sum of terms n pi^I (eta + shift)^J in the reduced pressure pi = p / p_star and the reduced enthalpy eta = h / h_star, which inverts the region 1 equation approximately and without iteration."
+implements = "water_backward_t_ph"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.if97_backward_region1_t_ph.slot_groups.basic]
+doc = "The reducing constants and terms of the equation."
+subject.i = { type = "material_entity", doc = "The water." }
+
+[forms.if97_backward_region1_t_ph.slot_groups.basic.slots]
+p_star = { type = "Pressure", doc = "Reducing pressure." }
+h_star = { type = "SpecificEnergy", doc = "Reducing enthalpy." }
+shift = { type = "Scalar", doc = "The constant added to the reduced enthalpy." }
+
+[forms.if97_backward_region1_t_ph.slot_groups.basic.families.term]
+doc = "One term of the temperature."
+index.k = { type = "Integer", min = 1, doc = "Term number." }
+
+[forms.if97_backward_region1_t_ph.slot_groups.basic.families.term.slots]
+n = { type = "Scalar", doc = "Coefficient, in kelvin." }
+I = { type = "Scalar", doc = "Exponent of pi." }
+J = { type = "Scalar", doc = "Exponent of (eta + shift)." }
+
+[forms.if97_backward_region1_t_ph.let]
+pi = "p / basic.p_star[i]"
+eta = "h / basic.h_star[i]"
+
+[forms.if97_backward_region1_t_ph.outputs]
+T = "sum(basic.term.n[i, k] * pi ** basic.term.I[i, k] * (eta + basic.shift[i]) ** basic.term.J[i, k] for k in basic.term(i)) * unit('K')"
+
+# ---------------------------------------------------------------- the regional formulation
+
+[forms.if97_regions]
+doc = "The regional formulation: the region of a state (T, p) from the limits of the temperature, the boundary equation and the saturation equation, and the specific volume and enthalpy of the region's equation."
+implements = "water_regional_tp"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.if97_regions.subforms.region1]
+doc = "The equation of region 1."
+accepts = "water_state_tp"
+multiplicity = "one"
+per = "model"
+
+[forms.if97_regions.subforms.region2]
+doc = "The equation of region 2."
+accepts = "water_state_tp"
+multiplicity = "one"
+per = "model"
+
+[forms.if97_regions.subforms.region3]
+doc = "The equation of region 3."
+accepts = "water_state_tp"
+multiplicity = "one"
+per = "model"
+
+[forms.if97_regions.subforms.region5]
+doc = "The equation of region 5."
+accepts = "water_state_tp"
+multiplicity = "one"
+per = "model"
+
+[forms.if97_regions.subforms.saturation]
+doc = "The saturation equation: the boundary between regions 1 and 2 below the lowest temperature of region 3."
+accepts = "pure_vapor_pressure"
+multiplicity = "one"
+per = "model"
+
+[forms.if97_regions.subforms.boundary]
+doc = "The boundary equation between regions 2 and 3."
+accepts = "water_boundary_pressure"
+multiplicity = "one"
+per = "model"
+
+[forms.if97_regions.slot_groups.limits]
+doc = "The temperatures that separate the regions."
+subject.i = { type = "material_entity", doc = "The water." }
+
+[forms.if97_regions.slot_groups.limits.slots]
+T_13 = { type = "Temperature", doc = "The highest temperature of region 1 and the lowest of region 3." }
+T_23 = { type = "Temperature", doc = "The temperature above which every state below the highest temperature of region 2 is region 2." }
+T_25 = { type = "Temperature", doc = "The highest temperature of region 2 and the lowest of region 5." }
+
+[forms.if97_regions.let]
+v1 = "region1.v(i=i, T=T, p=p)"
+v2 = "region2.v(i=i, T=T, p=p)"
+v3 = "region3.v(i=i, T=T, p=p)"
+v5 = "region5.v(i=i, T=T, p=p)"
+h1 = "region1.h(i=i, T=T, p=p)"
+h2 = "region2.h(i=i, T=T, p=p)"
+h3 = "region3.h(i=i, T=T, p=p)"
+h5 = "region5.h(i=i, T=T, p=p)"
+
+# The predicate is written in each output: a test of a local that is itself a conditional
+# expression (`r == 3`) did not finish (expressions.md, regional forms).
+[forms.if97_regions.outputs]
+region = "5 if T > limits.T_25[i] else (2 if T > limits.T_23[i] else ((2 if p < boundary.p(i=i, T=T) else 3) if T > limits.T_13[i] else (1 if p > saturation.p_sat(i=i, T=T) else 2)))"
+v = "v5 if T > limits.T_25[i] else (v2 if T > limits.T_23[i] else ((v2 if p < boundary.p(i=i, T=T) else v3) if T > limits.T_13[i] else (v1 if p > saturation.p_sat(i=i, T=T) else v2)))"
+h = "h5 if T > limits.T_25[i] else (h2 if T > limits.T_23[i] else ((h2 if p < boundary.p(i=i, T=T) else h3) if T > limits.T_13[i] else (h1 if p > saturation.p_sat(i=i, T=T) else h2)))"

@@ -621,7 +621,17 @@ or why there is none.
 
 - `datum` holds a state (`known`, `not_measured`, `censored_below` or `censored_above`: the true value
   is below or above the limit the value column then holds) and, for the three states that carry a value,
-  the value and its digits.
+  the value and its digits. A cell a source states as infinite (the Gibbs energy function and log Kf of
+  a JANAF table at 0 K) has no datum row: the absence of a row means "not asserted", `not_measured`
+  would say the value was sought, and no state for a divergence is declared because nothing a consumer
+  can use is lost (a divergence is not a number to interpolate, and its sign follows from the other
+  quantities of the row).
+- A dataset of kind `verification` states the records whose implementation its values check, one
+  `dataset_verifies` row each: the model assembly and the parameterisation it was computed with, because
+  the values of a published check table depend on both the formulation and its coefficients. A
+  verification dataset states at least one (`dataset.verification_has_a_target`), only verification
+  datasets state any (`dataset_verifies.dataset_is_verification`), and a target is a model assembly or a
+  parameterisation (`dataset_verifies.target_is_assembly_or_parameterization`); all three are verify checks.
 - `uncertainty_assessment` is one way the uncertainty of a column's values is assessed, numbered from
   one within the column: its kind (`uncertainty_kind`: standard, expanded, combined, relative, interval,
   repeatability, device specification, curve deviation, multiplicative factor, unspecified, exact or not

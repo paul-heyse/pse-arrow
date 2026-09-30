@@ -50,7 +50,7 @@ reason = "A rights_determination with scope profiles/UD/**, basis terms_of_use, 
 construct = "Hsieh 2014 verification table (test data)"
 disposition = "mapping_loss"
 ref = "kind:dataset"
-reason = "Held as a verification dataset whose verifies names the COSMO-SAC-2010 parameterization together with the UD profile set; the temperature unit is not stated and K is assumed from values such as 298.15. The combinatorial, residual and dispersive parts of ln gamma at infinite dilution need observables declared with the mapping, as the starting set has none."
+reason = "Held as a verification dataset whose `dataset_verifies` rows name the COSMO-SAC-2010 parameterization and the UD profile set; the temperature unit is not stated and K is assumed from values such as 298.15. The combinatorial, residual and dispersive parts of ln gamma at infinite dilution need observables declared with the mapping, as the starting set has none."
 
 [[disposition]]
 construct = "dispersive atom-type parameter table"

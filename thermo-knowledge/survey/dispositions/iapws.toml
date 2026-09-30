@@ -13,8 +13,8 @@ reason = "Each cover statement becomes a rights_determination quoting it, but th
 [[disposition]]
 construct = "computer-program verification values (IAPWS-95, R6-95(2018))"
 disposition = "held_by_model"
-ref = "kind:dataset"
-reason = "A verification dataset linked to the IAPWS-95 assembly by `verifies`, with T and density as variable columns and pressure as a property column, so a qualification run takes inputs and outputs as the tables give them; origin computed."
+ref = "relation:dataset_verifies"
+reason = "A verification dataset linked by `dataset_verifies` rows to the IAPWS-95 assembly and to the parameterisation of its coefficients, with T and density as variable columns and pressure as a property column, so a qualification run takes inputs and outputs as the tables give them; origin computed."
 
 [[disposition]]
 construct = "computer-program verification values (IAPWS-IF97, R7-97(2012))"

@@ -67,13 +67,14 @@ def test_an_argument_observable_is_reified_as_the_entity_it_names() -> None:
                 "WHERE contract = 'pure_vapor_pressure' AND name = 'T'"
             ).fetchone()
             unnamed = conn.execute(
-                "SELECT count(*) FROM meta.contract_argument WHERE observable IS NULL"
+                "SELECT count(*) FROM meta.contract_argument WHERE name = 'T' AND observable IS DISTINCT FROM %s",
+                (temperature.id,),
             ).fetchone()
             target = conn.execute(
                 "SELECT count(*) FROM pg_constraint WHERE conname = 'contract_argument__fk__observable'"
             ).fetchone()
     assert row == (temperature.id,)
-    assert unnamed is not None and unnamed[0] == 0, "every committed argument is a temperature"
+    assert unnamed is not None and unnamed[0] == 0, "every committed argument named T is the temperature"
     assert target == (1,), "the column references the observable kind"
 
 

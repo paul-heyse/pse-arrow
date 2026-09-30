@@ -1565,7 +1565,6 @@ CREATE TABLE "ev"."dataset" (
     "method" text,
     "convention_set" uuid,
     "reaction" uuid,
-    "verifies" uuid,
     CONSTRAINT "dataset__pk" PRIMARY KEY ("id"),
     CONSTRAINT "dataset__identity" UNIQUE ("carrier", "local_key")
 );
@@ -1578,7 +1577,6 @@ COMMENT ON COLUMN "ev"."dataset"."title" IS 'Title or description as the source 
 COMMENT ON COLUMN "ev"."dataset"."method" IS 'Experimental or evaluation method as the source names it.';
 COMMENT ON COLUMN "ev"."dataset"."convention_set" IS 'The conventions its values assume, where the dataset reports reference-dependent quantities.';
 COMMENT ON COLUMN "ev"."dataset"."reaction" IS 'The reaction, for a dataset of reaction properties.';
-COMMENT ON COLUMN "ev"."dataset"."verifies" IS 'For a verification dataset: the model assembly or parameterisation whose implementation its values check.';
 
 CREATE TABLE "ev"."dataset_column" (
     "id" uuid NOT NULL,
@@ -1849,6 +1847,28 @@ COMMENT ON COLUMN "qual"."held_row"."state" IS 'The state the row ended in.';
 COMMENT ON COLUMN "qual"."held_row"."reason" IS 'Why it was not loaded.';
 COMMENT ON COLUMN "qual"."held_row"."detail" IS 'The reason in words: what about this row led to it.';
 
+CREATE TABLE "param"."helmholtz_pure_fluid__pure" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT '4eb579cd-05be-5e7d-943d-c03d91662d7c'::uuid,
+    "i" uuid NOT NULL,
+    "T_r" "meta"."temperature" NOT NULL,
+    "rho_r" "meta"."molar_density" NOT NULL,
+    "a1" "meta"."scalar" NOT NULL,
+    "a2" "meta"."scalar" NOT NULL,
+    "c" "meta"."scalar" NOT NULL,
+    CONSTRAINT "helmholtz_pure_fluid__pure__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "helmholtz_pure_fluid__pure__ck__slot_group" CHECK ("slot_group" = '4eb579cd-05be-5e7d-943d-c03d91662d7c'::uuid)
+);
+COMMENT ON TABLE "param"."helmholtz_pure_fluid__pure" IS 'The reducing parameters, the ideal-gas constants and the term lists of one fluid.';
+COMMENT ON COLUMN "param"."helmholtz_pure_fluid__pure"."id" IS 'Deterministic identifier of the helmholtz_pure_fluid__pure instance.';
+COMMENT ON COLUMN "param"."helmholtz_pure_fluid__pure"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."helmholtz_pure_fluid__pure"."i" IS 'The fluid.';
+COMMENT ON COLUMN "param"."helmholtz_pure_fluid__pure"."T_r" IS 'Reducing temperature.';
+COMMENT ON COLUMN "param"."helmholtz_pure_fluid__pure"."rho_r" IS 'Reducing density.';
+COMMENT ON COLUMN "param"."helmholtz_pure_fluid__pure"."a1" IS 'Constant term of the ideal-gas part.';
+COMMENT ON COLUMN "param"."helmholtz_pure_fluid__pure"."a2" IS 'Coefficient of tau in the ideal-gas part.';
+COMMENT ON COLUMN "param"."helmholtz_pure_fluid__pure"."c" IS 'Coefficient of ln tau in the ideal-gas part.';
+
 CREATE TABLE "tk"."identity_assertion" (
     "id" uuid NOT NULL,
     "source_entity" uuid NOT NULL,
@@ -1863,6 +1883,176 @@ COMMENT ON COLUMN "tk"."identity_assertion"."id" IS 'Deterministic identifier of
 COMMENT ON COLUMN "tk"."identity_assertion"."source_entity" IS 'The source entity the identifier is given for.';
 COMMENT ON COLUMN "tk"."identity_assertion"."scheme" IS 'The naming scheme of the value.';
 COMMENT ON COLUMN "tk"."identity_assertion"."value" IS 'The identifier or name, verbatim.';
+
+CREATE TABLE "param"."if97_backward_region1_t_ph__basic" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT 'd85c25d6-dd7e-51c1-b650-1be079f05005'::uuid,
+    "i" uuid NOT NULL,
+    "p_star" "meta"."pressure" NOT NULL,
+    "h_star" "meta"."specific_energy" NOT NULL,
+    "shift" "meta"."scalar" NOT NULL,
+    CONSTRAINT "if97_backward_region1_t_ph__basic__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "if97_backward_region1_t_ph__basic__ck__slot_group" CHECK ("slot_group" = 'd85c25d6-dd7e-51c1-b650-1be079f05005'::uuid)
+);
+COMMENT ON TABLE "param"."if97_backward_region1_t_ph__basic" IS 'The reducing constants and terms of the equation.';
+COMMENT ON COLUMN "param"."if97_backward_region1_t_ph__basic"."id" IS 'Deterministic identifier of the if97_backward_region1_t_ph__basic instance.';
+COMMENT ON COLUMN "param"."if97_backward_region1_t_ph__basic"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."if97_backward_region1_t_ph__basic"."i" IS 'The water.';
+COMMENT ON COLUMN "param"."if97_backward_region1_t_ph__basic"."p_star" IS 'Reducing pressure.';
+COMMENT ON COLUMN "param"."if97_backward_region1_t_ph__basic"."h_star" IS 'Reducing enthalpy.';
+COMMENT ON COLUMN "param"."if97_backward_region1_t_ph__basic"."shift" IS 'The constant added to the reduced enthalpy.';
+
+CREATE TABLE "param"."if97_boundary_23__basic" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT 'f33b9f43-0e28-54d9-8d0b-73b266aded67'::uuid,
+    "i" uuid NOT NULL,
+    "n1" "meta"."scalar" NOT NULL,
+    "n2" "meta"."scalar" NOT NULL,
+    "n3" "meta"."scalar" NOT NULL,
+    CONSTRAINT "if97_boundary_23__basic__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "if97_boundary_23__basic__ck__slot_group" CHECK ("slot_group" = 'f33b9f43-0e28-54d9-8d0b-73b266aded67'::uuid)
+);
+COMMENT ON TABLE "param"."if97_boundary_23__basic" IS 'The coefficients of the boundary.';
+COMMENT ON COLUMN "param"."if97_boundary_23__basic"."id" IS 'Deterministic identifier of the if97_boundary_23__basic instance.';
+COMMENT ON COLUMN "param"."if97_boundary_23__basic"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."if97_boundary_23__basic"."i" IS 'The water.';
+COMMENT ON COLUMN "param"."if97_boundary_23__basic"."n1" IS 'Constant term, in megapascal.';
+COMMENT ON COLUMN "param"."if97_boundary_23__basic"."n2" IS 'Coefficient of T in kelvin, in megapascal.';
+COMMENT ON COLUMN "param"."if97_boundary_23__basic"."n3" IS 'Coefficient of the square of T in kelvin, in megapascal.';
+
+CREATE TABLE "param"."if97_gibbs_region1__basic" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT '02750d32-4f49-5449-a4c1-f73760421d31'::uuid,
+    "i" uuid NOT NULL,
+    "p_star" "meta"."pressure" NOT NULL,
+    "T_star" "meta"."temperature" NOT NULL,
+    "shift_pi" "meta"."scalar" NOT NULL,
+    "shift_tau" "meta"."scalar" NOT NULL,
+    "M" "meta"."molar_mass" NOT NULL,
+    CONSTRAINT "if97_gibbs_region1__basic__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "if97_gibbs_region1__basic__ck__slot_group" CHECK ("slot_group" = '02750d32-4f49-5449-a4c1-f73760421d31'::uuid)
+);
+COMMENT ON TABLE "param"."if97_gibbs_region1__basic" IS 'The reducing constants and terms of the equation.';
+COMMENT ON COLUMN "param"."if97_gibbs_region1__basic"."id" IS 'Deterministic identifier of the if97_gibbs_region1__basic instance.';
+COMMENT ON COLUMN "param"."if97_gibbs_region1__basic"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."if97_gibbs_region1__basic"."i" IS 'The water.';
+COMMENT ON COLUMN "param"."if97_gibbs_region1__basic"."p_star" IS 'Reducing pressure.';
+COMMENT ON COLUMN "param"."if97_gibbs_region1__basic"."T_star" IS 'Reducing temperature.';
+COMMENT ON COLUMN "param"."if97_gibbs_region1__basic"."shift_pi" IS 'The constant the reduced pressure is subtracted from.';
+COMMENT ON COLUMN "param"."if97_gibbs_region1__basic"."shift_tau" IS 'The constant subtracted from the inverse reduced temperature.';
+COMMENT ON COLUMN "param"."if97_gibbs_region1__basic"."M" IS 'Molar mass of the water the coefficients assume, which turns the molar gas constant into the specific one.';
+
+CREATE TABLE "param"."if97_gibbs_region2__basic" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT '45483c07-59d2-5e30-baa5-bbd42922b762'::uuid,
+    "i" uuid NOT NULL,
+    "p_star" "meta"."pressure" NOT NULL,
+    "T_star" "meta"."temperature" NOT NULL,
+    "shift_tau" "meta"."scalar" NOT NULL,
+    "M" "meta"."molar_mass" NOT NULL,
+    CONSTRAINT "if97_gibbs_region2__basic__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "if97_gibbs_region2__basic__ck__slot_group" CHECK ("slot_group" = '45483c07-59d2-5e30-baa5-bbd42922b762'::uuid)
+);
+COMMENT ON TABLE "param"."if97_gibbs_region2__basic" IS 'The reducing constants and terms of the equation.';
+COMMENT ON COLUMN "param"."if97_gibbs_region2__basic"."id" IS 'Deterministic identifier of the if97_gibbs_region2__basic instance.';
+COMMENT ON COLUMN "param"."if97_gibbs_region2__basic"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."if97_gibbs_region2__basic"."i" IS 'The water.';
+COMMENT ON COLUMN "param"."if97_gibbs_region2__basic"."p_star" IS 'Reducing pressure.';
+COMMENT ON COLUMN "param"."if97_gibbs_region2__basic"."T_star" IS 'Reducing temperature.';
+COMMENT ON COLUMN "param"."if97_gibbs_region2__basic"."shift_tau" IS 'The constant subtracted from the inverse reduced temperature in the residual part.';
+COMMENT ON COLUMN "param"."if97_gibbs_region2__basic"."M" IS 'Molar mass of the water the coefficients assume.';
+
+CREATE TABLE "param"."if97_gibbs_region5__basic" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT 'cd2e3410-a552-57bc-ab2b-b0a8e001c62e'::uuid,
+    "i" uuid NOT NULL,
+    "p_star" "meta"."pressure" NOT NULL,
+    "T_star" "meta"."temperature" NOT NULL,
+    "M" "meta"."molar_mass" NOT NULL,
+    CONSTRAINT "if97_gibbs_region5__basic__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "if97_gibbs_region5__basic__ck__slot_group" CHECK ("slot_group" = 'cd2e3410-a552-57bc-ab2b-b0a8e001c62e'::uuid)
+);
+COMMENT ON TABLE "param"."if97_gibbs_region5__basic" IS 'The reducing constants and terms of the equation.';
+COMMENT ON COLUMN "param"."if97_gibbs_region5__basic"."id" IS 'Deterministic identifier of the if97_gibbs_region5__basic instance.';
+COMMENT ON COLUMN "param"."if97_gibbs_region5__basic"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."if97_gibbs_region5__basic"."i" IS 'The water.';
+COMMENT ON COLUMN "param"."if97_gibbs_region5__basic"."p_star" IS 'Reducing pressure.';
+COMMENT ON COLUMN "param"."if97_gibbs_region5__basic"."T_star" IS 'Reducing temperature.';
+COMMENT ON COLUMN "param"."if97_gibbs_region5__basic"."M" IS 'Molar mass of the water the coefficients assume.';
+
+CREATE TABLE "param"."if97_helmholtz_region3__basic" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT '55dfa5d1-168b-529a-9f8d-f0c937f41ef5'::uuid,
+    "i" uuid NOT NULL,
+    "rho_star" "meta"."mass_density" NOT NULL,
+    "T_star" "meta"."temperature" NOT NULL,
+    "n1" "meta"."scalar" NOT NULL,
+    "M" "meta"."molar_mass" NOT NULL,
+    CONSTRAINT "if97_helmholtz_region3__basic__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "if97_helmholtz_region3__basic__ck__slot_group" CHECK ("slot_group" = '55dfa5d1-168b-529a-9f8d-f0c937f41ef5'::uuid)
+);
+COMMENT ON TABLE "param"."if97_helmholtz_region3__basic" IS 'The reducing constants and terms of the equation.';
+COMMENT ON COLUMN "param"."if97_helmholtz_region3__basic"."id" IS 'Deterministic identifier of the if97_helmholtz_region3__basic instance.';
+COMMENT ON COLUMN "param"."if97_helmholtz_region3__basic"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."if97_helmholtz_region3__basic"."i" IS 'The water.';
+COMMENT ON COLUMN "param"."if97_helmholtz_region3__basic"."rho_star" IS 'Reducing density.';
+COMMENT ON COLUMN "param"."if97_helmholtz_region3__basic"."T_star" IS 'Reducing temperature.';
+COMMENT ON COLUMN "param"."if97_helmholtz_region3__basic"."n1" IS 'Coefficient of the logarithmic term.';
+COMMENT ON COLUMN "param"."if97_helmholtz_region3__basic"."M" IS 'Molar mass of the water the coefficients assume.';
+
+CREATE TABLE "param"."if97_regions__limits" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT '1c364c34-aaa2-59ce-8d6a-b44963f4dbe4'::uuid,
+    "i" uuid NOT NULL,
+    "T_13" "meta"."temperature" NOT NULL,
+    "T_23" "meta"."temperature" NOT NULL,
+    "T_25" "meta"."temperature" NOT NULL,
+    CONSTRAINT "if97_regions__limits__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "if97_regions__limits__ck__slot_group" CHECK ("slot_group" = '1c364c34-aaa2-59ce-8d6a-b44963f4dbe4'::uuid)
+);
+COMMENT ON TABLE "param"."if97_regions__limits" IS 'The temperatures that separate the regions.';
+COMMENT ON COLUMN "param"."if97_regions__limits"."id" IS 'Deterministic identifier of the if97_regions__limits instance.';
+COMMENT ON COLUMN "param"."if97_regions__limits"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."if97_regions__limits"."i" IS 'The water.';
+COMMENT ON COLUMN "param"."if97_regions__limits"."T_13" IS 'The highest temperature of region 1 and the lowest of region 3.';
+COMMENT ON COLUMN "param"."if97_regions__limits"."T_23" IS 'The temperature above which every state below the highest temperature of region 2 is region 2.';
+COMMENT ON COLUMN "param"."if97_regions__limits"."T_25" IS 'The highest temperature of region 2 and the lowest of region 5.';
+
+CREATE TABLE "param"."if97_saturation__basic" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT 'bffdf06e-7f10-5eb6-a75b-906c1fc0b5ff'::uuid,
+    "i" uuid NOT NULL,
+    "p_star" "meta"."pressure" NOT NULL,
+    "T_star" "meta"."temperature" NOT NULL,
+    "n1" "meta"."scalar" NOT NULL,
+    "n2" "meta"."scalar" NOT NULL,
+    "n3" "meta"."scalar" NOT NULL,
+    "n4" "meta"."scalar" NOT NULL,
+    "n5" "meta"."scalar" NOT NULL,
+    "n6" "meta"."scalar" NOT NULL,
+    "n7" "meta"."scalar" NOT NULL,
+    "n8" "meta"."scalar" NOT NULL,
+    "n9" "meta"."scalar" NOT NULL,
+    "n10" "meta"."scalar" NOT NULL,
+    CONSTRAINT "if97_saturation__basic__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "if97_saturation__basic__ck__slot_group" CHECK ("slot_group" = 'bffdf06e-7f10-5eb6-a75b-906c1fc0b5ff'::uuid)
+);
+COMMENT ON TABLE "param"."if97_saturation__basic" IS 'The reducing constants and coefficients of the equation.';
+COMMENT ON COLUMN "param"."if97_saturation__basic"."id" IS 'Deterministic identifier of the if97_saturation__basic instance.';
+COMMENT ON COLUMN "param"."if97_saturation__basic"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."if97_saturation__basic"."i" IS 'The water.';
+COMMENT ON COLUMN "param"."if97_saturation__basic"."p_star" IS 'Reducing pressure.';
+COMMENT ON COLUMN "param"."if97_saturation__basic"."T_star" IS 'Reducing temperature.';
+COMMENT ON COLUMN "param"."if97_saturation__basic"."n1" IS 'Coefficient of theta in A.';
+COMMENT ON COLUMN "param"."if97_saturation__basic"."n2" IS 'Constant term of A.';
+COMMENT ON COLUMN "param"."if97_saturation__basic"."n3" IS 'Coefficient of theta^2 in B.';
+COMMENT ON COLUMN "param"."if97_saturation__basic"."n4" IS 'Coefficient of theta in B.';
+COMMENT ON COLUMN "param"."if97_saturation__basic"."n5" IS 'Constant term of B.';
+COMMENT ON COLUMN "param"."if97_saturation__basic"."n6" IS 'Coefficient of theta^2 in C.';
+COMMENT ON COLUMN "param"."if97_saturation__basic"."n7" IS 'Coefficient of theta in C.';
+COMMENT ON COLUMN "param"."if97_saturation__basic"."n8" IS 'Constant term of C.';
+COMMENT ON COLUMN "param"."if97_saturation__basic"."n9" IS 'Numerator of the pole term of theta.';
+COMMENT ON COLUMN "param"."if97_saturation__basic"."n10" IS 'Reduced temperature of the pole of theta.';
 
 CREATE TABLE "prov"."import_record" (
     "id" uuid NOT NULL,
@@ -2045,6 +2235,81 @@ COMMENT ON TABLE "tk"."model_component" IS 'A named component of a model that pa
 COMMENT ON COLUMN "tk"."model_component"."id" IS 'Deterministic identifier of the model_component instance.';
 COMMENT ON COLUMN "tk"."model_component"."parameterization" IS 'The parameterisation the component''s name belongs to.';
 COMMENT ON COLUMN "tk"."model_component"."name" IS 'The name the source gives the component.';
+
+CREATE TABLE "param"."multifluid_departure_terms__core" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT 'd437b70d-d70f-5e20-98a9-94760f442254'::uuid,
+    "c" uuid NOT NULL,
+    CONSTRAINT "multifluid_departure_terms__core__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "multifluid_departure_terms__core__ck__slot_group" CHECK ("slot_group" = 'd437b70d-d70f-5e20-98a9-94760f442254'::uuid)
+);
+COMMENT ON TABLE "param"."multifluid_departure_terms__core" IS 'The term lists of one departure function.';
+COMMENT ON COLUMN "param"."multifluid_departure_terms__core"."id" IS 'Deterministic identifier of the multifluid_departure_terms__core instance.';
+COMMENT ON COLUMN "param"."multifluid_departure_terms__core"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."multifluid_departure_terms__core"."c" IS 'The function.';
+
+CREATE TABLE "param"."multifluid_pair_departure_scaled__pair" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT '1e45c0ef-a8af-5128-9154-875f7d089215'::uuid,
+    "i" uuid NOT NULL,
+    "j" uuid NOT NULL,
+    "F" "meta"."scalar" NOT NULL,
+    "departure" uuid NOT NULL,
+    CONSTRAINT "multifluid_pair_departure_scaled__pair__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "multifluid_pair_departure_scaled__pair__ck__slot_group" CHECK ("slot_group" = '1e45c0ef-a8af-5128-9154-875f7d089215'::uuid),
+    CONSTRAINT "multifluid_pair_departure_scaled__pair__ck__canonical" CHECK ("i" <= "j"),
+    CONSTRAINT "multifluid_pair_departure_scaled__pair__ck__diagonal" CHECK ("i" <> "j")
+);
+COMMENT ON TABLE "param"."multifluid_pair_departure_scaled__pair" IS 'The scale factor and the departure function of one pair.';
+COMMENT ON COLUMN "param"."multifluid_pair_departure_scaled__pair"."id" IS 'Deterministic identifier of the multifluid_pair_departure_scaled__pair instance.';
+COMMENT ON COLUMN "param"."multifluid_pair_departure_scaled__pair"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."multifluid_pair_departure_scaled__pair"."i" IS 'The first component.';
+COMMENT ON COLUMN "param"."multifluid_pair_departure_scaled__pair"."j" IS 'The second component.';
+COMMENT ON COLUMN "param"."multifluid_pair_departure_scaled__pair"."F" IS 'The scale factor F_ij of the pair; zero where the pair has no departure function.';
+COMMENT ON COLUMN "param"."multifluid_pair_departure_scaled__pair"."departure" IS 'The departure function of the pair, shared with the pairs that use the same one.';
+
+CREATE TABLE "param"."multifluid_reducing__pair" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT '91f581ee-ab66-513b-ab84-b9cbc8c8127b'::uuid,
+    "i" uuid NOT NULL,
+    "j" uuid NOT NULL,
+    "arrangement" bigint NOT NULL,
+    "beta_T" "meta"."scalar" NOT NULL,
+    "gamma_T" "meta"."scalar" NOT NULL,
+    "beta_v" "meta"."scalar" NOT NULL,
+    "gamma_v" "meta"."scalar" NOT NULL,
+    CONSTRAINT "multifluid_reducing__pair__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "multifluid_reducing__pair__ck__slot_group" CHECK ("slot_group" = '91f581ee-ab66-513b-ab84-b9cbc8c8127b'::uuid),
+    CONSTRAINT "multifluid_reducing__pair__ck__arrangement_range" CHECK ("arrangement" >= 0 AND "arrangement" <= 1),
+    CONSTRAINT "multifluid_reducing__pair__ck__canonical" CHECK ("i" <= "j"),
+    CONSTRAINT "multifluid_reducing__pair__ck__diagonal" CHECK ("i" <> "j")
+);
+COMMENT ON TABLE "param"."multifluid_reducing__pair" IS 'The binary reducing parameters of one pair, held for the order the source asserted.';
+COMMENT ON COLUMN "param"."multifluid_reducing__pair"."id" IS 'Deterministic identifier of the multifluid_reducing__pair instance.';
+COMMENT ON COLUMN "param"."multifluid_reducing__pair"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."multifluid_reducing__pair"."i" IS 'The first component.';
+COMMENT ON COLUMN "param"."multifluid_reducing__pair"."j" IS 'The second component.';
+COMMENT ON COLUMN "param"."multifluid_reducing__pair"."arrangement" IS 'For which order of the subjects the values were asserted: 0 when the values were asserted for the canonical order of the subjects, 1 when they were asserted for the swapped order.';
+COMMENT ON COLUMN "param"."multifluid_reducing__pair"."beta_T" IS 'Temperature reducing ratio; its reciprocal when the pair is swapped.';
+COMMENT ON COLUMN "param"."multifluid_reducing__pair"."gamma_T" IS 'Temperature reducing factor; the same in both orders.';
+COMMENT ON COLUMN "param"."multifluid_reducing__pair"."beta_v" IS 'Volume reducing ratio; its reciprocal when the pair is swapped.';
+COMMENT ON COLUMN "param"."multifluid_reducing__pair"."gamma_v" IS 'Volume reducing factor; the same in both orders.';
+
+CREATE TABLE "param"."multifluid_reducing__pure" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT 'b8c589f1-f5e3-549a-9589-ff38c303fc13'::uuid,
+    "i" uuid NOT NULL,
+    "T_c" "meta"."temperature" NOT NULL,
+    "rho_c" "meta"."molar_density" NOT NULL,
+    CONSTRAINT "multifluid_reducing__pure__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "multifluid_reducing__pure__ck__slot_group" CHECK ("slot_group" = 'b8c589f1-f5e3-549a-9589-ff38c303fc13'::uuid)
+);
+COMMENT ON TABLE "param"."multifluid_reducing__pure" IS 'The critical parameters of one component that the reducing functions use.';
+COMMENT ON COLUMN "param"."multifluid_reducing__pure"."id" IS 'Deterministic identifier of the multifluid_reducing__pure instance.';
+COMMENT ON COLUMN "param"."multifluid_reducing__pure"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."multifluid_reducing__pure"."i" IS 'The component.';
+COMMENT ON COLUMN "param"."multifluid_reducing__pure"."T_c" IS 'Critical temperature.';
+COMMENT ON COLUMN "param"."multifluid_reducing__pure"."rho_c" IS 'Critical density.';
 
 CREATE TABLE "tk"."naming_scheme" (
     "id" uuid NOT NULL,
@@ -2883,6 +3148,18 @@ COMMENT ON COLUMN "tk"."convention_standard_state"."convention_set" IS 'The conv
 COMMENT ON COLUMN "tk"."convention_standard_state"."member_role" IS 'The part a species form plays in a chemical system that the standard state applies to.';
 COMMENT ON COLUMN "tk"."convention_standard_state"."value" IS 'The value.';
 
+CREATE TABLE "ev"."dataset_verifies" (
+    "id" uuid NOT NULL,
+    "dataset" uuid NOT NULL,
+    "target" uuid NOT NULL,
+    CONSTRAINT "dataset_verifies__pk" PRIMARY KEY ("dataset", "target"),
+    CONSTRAINT "dataset_verifies__uq__id" UNIQUE ("id")
+);
+COMMENT ON TABLE "ev"."dataset_verifies" IS 'A record whose implementation a verification dataset checks. The values of a check table depend on both the formulation and the coefficients it was computed with, so a dataset names the model assembly and the parameterisation it verifies, each by a row (a published test value of the GERG-2008 and DETAIL assemblies, of the IAPWS-IF97 assembly with the coefficient set of the release, of a COSMO-SAC parameterisation together with the profile set). Only verification datasets state one.';
+COMMENT ON COLUMN "ev"."dataset_verifies"."id" IS 'Deterministic identifier of the row, computed from its keys.';
+COMMENT ON COLUMN "ev"."dataset_verifies"."dataset" IS 'The verification dataset.';
+COMMENT ON COLUMN "ev"."dataset_verifies"."target" IS 'The model assembly or parameterization whose implementation the values check.';
+
 CREATE TABLE "ev"."datum" (
     "id" uuid NOT NULL,
     "point" uuid NOT NULL,
@@ -3438,6 +3715,252 @@ COMMENT ON COLUMN "tk"."validity_coverage"."record" IS 'The record.';
 COMMENT ON COLUMN "tk"."validity_coverage"."kind" IS 'The kind of region.';
 COMMENT ON COLUMN "tk"."validity_coverage"."value" IS 'Whether regions of this kind are stated.';
 
+CREATE TABLE "param"."helmholtz_pure_fluid__pure__planck_einstein" (
+    "set_id" uuid NOT NULL,
+    "k" bigint NOT NULL,
+    "n" "meta"."scalar" NOT NULL,
+    "theta" "meta"."scalar" NOT NULL,
+    CONSTRAINT "helmholtz_pure_fluid__pure__planck_einstein__ck__k__minimum" CHECK ("k" >= 1),
+    CONSTRAINT "helmholtz_pure_fluid__pure__planck_einstein__pk" PRIMARY KEY ("set_id", "k")
+);
+COMMENT ON TABLE "param"."helmholtz_pure_fluid__pure__planck_einstein" IS 'One Planck-Einstein term of the ideal-gas part.';
+COMMENT ON COLUMN "param"."helmholtz_pure_fluid__pure__planck_einstein"."set_id" IS 'The parameter set this row belongs to.';
+COMMENT ON COLUMN "param"."helmholtz_pure_fluid__pure__planck_einstein"."k" IS 'Term number.';
+COMMENT ON COLUMN "param"."helmholtz_pure_fluid__pure__planck_einstein"."n" IS 'Coefficient.';
+COMMENT ON COLUMN "param"."helmholtz_pure_fluid__pure__planck_einstein"."theta" IS 'Characteristic temperature over the reducing temperature.';
+
+CREATE TABLE "param"."helmholtz_pure_fluid__pure__power" (
+    "set_id" uuid NOT NULL,
+    "k" bigint NOT NULL,
+    "n" "meta"."scalar" NOT NULL,
+    "d" "meta"."scalar" NOT NULL,
+    "t" "meta"."scalar" NOT NULL,
+    CONSTRAINT "helmholtz_pure_fluid__pure__power__ck__k__minimum" CHECK ("k" >= 1),
+    CONSTRAINT "helmholtz_pure_fluid__pure__power__pk" PRIMARY KEY ("set_id", "k")
+);
+COMMENT ON TABLE "param"."helmholtz_pure_fluid__pure__power" IS 'One polynomial term of the residual part.';
+COMMENT ON COLUMN "param"."helmholtz_pure_fluid__pure__power"."set_id" IS 'The parameter set this row belongs to.';
+COMMENT ON COLUMN "param"."helmholtz_pure_fluid__pure__power"."k" IS 'Term number.';
+COMMENT ON COLUMN "param"."helmholtz_pure_fluid__pure__power"."n" IS 'Coefficient.';
+COMMENT ON COLUMN "param"."helmholtz_pure_fluid__pure__power"."d" IS 'Exponent of delta.';
+COMMENT ON COLUMN "param"."helmholtz_pure_fluid__pure__power"."t" IS 'Exponent of tau.';
+
+CREATE TABLE "param"."helmholtz_pure_fluid__pure__exponential" (
+    "set_id" uuid NOT NULL,
+    "k" bigint NOT NULL,
+    "n" "meta"."scalar" NOT NULL,
+    "d" "meta"."scalar" NOT NULL,
+    "t" "meta"."scalar" NOT NULL,
+    "l" "meta"."scalar" NOT NULL,
+    CONSTRAINT "helmholtz_pure_fluid__pure__exponential__ck__k__minimum" CHECK ("k" >= 1),
+    CONSTRAINT "helmholtz_pure_fluid__pure__exponential__pk" PRIMARY KEY ("set_id", "k")
+);
+COMMENT ON TABLE "param"."helmholtz_pure_fluid__pure__exponential" IS 'One exponential term of the residual part.';
+COMMENT ON COLUMN "param"."helmholtz_pure_fluid__pure__exponential"."set_id" IS 'The parameter set this row belongs to.';
+COMMENT ON COLUMN "param"."helmholtz_pure_fluid__pure__exponential"."k" IS 'Term number.';
+COMMENT ON COLUMN "param"."helmholtz_pure_fluid__pure__exponential"."n" IS 'Coefficient.';
+COMMENT ON COLUMN "param"."helmholtz_pure_fluid__pure__exponential"."d" IS 'Exponent of delta.';
+COMMENT ON COLUMN "param"."helmholtz_pure_fluid__pure__exponential"."t" IS 'Exponent of tau.';
+COMMENT ON COLUMN "param"."helmholtz_pure_fluid__pure__exponential"."l" IS 'Exponent of delta in the exponential.';
+
+CREATE TABLE "param"."helmholtz_pure_fluid__pure__gaussian" (
+    "set_id" uuid NOT NULL,
+    "k" bigint NOT NULL,
+    "n" "meta"."scalar" NOT NULL,
+    "d" "meta"."scalar" NOT NULL,
+    "t" "meta"."scalar" NOT NULL,
+    "eta" "meta"."scalar" NOT NULL,
+    "epsilon" "meta"."scalar" NOT NULL,
+    "beta" "meta"."scalar" NOT NULL,
+    "gamma" "meta"."scalar" NOT NULL,
+    CONSTRAINT "helmholtz_pure_fluid__pure__gaussian__ck__k__minimum" CHECK ("k" >= 1),
+    CONSTRAINT "helmholtz_pure_fluid__pure__gaussian__pk" PRIMARY KEY ("set_id", "k")
+);
+COMMENT ON TABLE "param"."helmholtz_pure_fluid__pure__gaussian" IS 'One Gaussian term of the residual part.';
+COMMENT ON COLUMN "param"."helmholtz_pure_fluid__pure__gaussian"."set_id" IS 'The parameter set this row belongs to.';
+COMMENT ON COLUMN "param"."helmholtz_pure_fluid__pure__gaussian"."k" IS 'Term number.';
+COMMENT ON COLUMN "param"."helmholtz_pure_fluid__pure__gaussian"."n" IS 'Coefficient.';
+COMMENT ON COLUMN "param"."helmholtz_pure_fluid__pure__gaussian"."d" IS 'Exponent of delta.';
+COMMENT ON COLUMN "param"."helmholtz_pure_fluid__pure__gaussian"."t" IS 'Exponent of tau.';
+COMMENT ON COLUMN "param"."helmholtz_pure_fluid__pure__gaussian"."eta" IS 'Coefficient of the square of (delta - epsilon).';
+COMMENT ON COLUMN "param"."helmholtz_pure_fluid__pure__gaussian"."epsilon" IS 'Centre in delta.';
+COMMENT ON COLUMN "param"."helmholtz_pure_fluid__pure__gaussian"."beta" IS 'Coefficient of the square of (tau - gamma).';
+COMMENT ON COLUMN "param"."helmholtz_pure_fluid__pure__gaussian"."gamma" IS 'Centre in tau.';
+
+CREATE TABLE "param"."helmholtz_pure_fluid__pure__nonanalytic" (
+    "set_id" uuid NOT NULL,
+    "k" bigint NOT NULL,
+    "n" "meta"."scalar" NOT NULL,
+    "a" "meta"."scalar" NOT NULL,
+    "b" "meta"."scalar" NOT NULL,
+    "beta" "meta"."scalar" NOT NULL,
+    "A" "meta"."scalar" NOT NULL,
+    "B" "meta"."scalar" NOT NULL,
+    "C" "meta"."scalar" NOT NULL,
+    "D" "meta"."scalar" NOT NULL,
+    CONSTRAINT "helmholtz_pure_fluid__pure__nonanalytic__ck__k__minimum" CHECK ("k" >= 1),
+    CONSTRAINT "helmholtz_pure_fluid__pure__nonanalytic__pk" PRIMARY KEY ("set_id", "k")
+);
+COMMENT ON TABLE "param"."helmholtz_pure_fluid__pure__nonanalytic" IS 'One non-analytic term of the residual part.';
+COMMENT ON COLUMN "param"."helmholtz_pure_fluid__pure__nonanalytic"."set_id" IS 'The parameter set this row belongs to.';
+COMMENT ON COLUMN "param"."helmholtz_pure_fluid__pure__nonanalytic"."k" IS 'Term number.';
+COMMENT ON COLUMN "param"."helmholtz_pure_fluid__pure__nonanalytic"."n" IS 'Coefficient.';
+COMMENT ON COLUMN "param"."helmholtz_pure_fluid__pure__nonanalytic"."a" IS 'Exponent of the square of (delta - 1) in Delta.';
+COMMENT ON COLUMN "param"."helmholtz_pure_fluid__pure__nonanalytic"."b" IS 'Exponent of Delta.';
+COMMENT ON COLUMN "param"."helmholtz_pure_fluid__pure__nonanalytic"."beta" IS 'Exponent parameter of theta.';
+COMMENT ON COLUMN "param"."helmholtz_pure_fluid__pure__nonanalytic"."A" IS 'Coefficient of theta.';
+COMMENT ON COLUMN "param"."helmholtz_pure_fluid__pure__nonanalytic"."B" IS 'Coefficient of Delta.';
+COMMENT ON COLUMN "param"."helmholtz_pure_fluid__pure__nonanalytic"."C" IS 'Coefficient of the square of (delta - 1) in psi.';
+COMMENT ON COLUMN "param"."helmholtz_pure_fluid__pure__nonanalytic"."D" IS 'Coefficient of the square of (tau - 1) in psi.';
+
+CREATE TABLE "param"."if97_backward_region1_t_ph__basic__term" (
+    "set_id" uuid NOT NULL,
+    "k" bigint NOT NULL,
+    "n" "meta"."scalar" NOT NULL,
+    "I" "meta"."scalar" NOT NULL,
+    "J" "meta"."scalar" NOT NULL,
+    CONSTRAINT "if97_backward_region1_t_ph__basic__term__ck__k__minimum" CHECK ("k" >= 1),
+    CONSTRAINT "if97_backward_region1_t_ph__basic__term__pk" PRIMARY KEY ("set_id", "k")
+);
+COMMENT ON TABLE "param"."if97_backward_region1_t_ph__basic__term" IS 'One term of the temperature.';
+COMMENT ON COLUMN "param"."if97_backward_region1_t_ph__basic__term"."set_id" IS 'The parameter set this row belongs to.';
+COMMENT ON COLUMN "param"."if97_backward_region1_t_ph__basic__term"."k" IS 'Term number.';
+COMMENT ON COLUMN "param"."if97_backward_region1_t_ph__basic__term"."n" IS 'Coefficient, in kelvin.';
+COMMENT ON COLUMN "param"."if97_backward_region1_t_ph__basic__term"."I" IS 'Exponent of pi.';
+COMMENT ON COLUMN "param"."if97_backward_region1_t_ph__basic__term"."J" IS 'Exponent of (eta + shift).';
+
+CREATE TABLE "param"."if97_gibbs_region1__basic__term" (
+    "set_id" uuid NOT NULL,
+    "k" bigint NOT NULL,
+    "n" "meta"."scalar" NOT NULL,
+    "I" "meta"."scalar" NOT NULL,
+    "J" "meta"."scalar" NOT NULL,
+    CONSTRAINT "if97_gibbs_region1__basic__term__ck__k__minimum" CHECK ("k" >= 1),
+    CONSTRAINT "if97_gibbs_region1__basic__term__pk" PRIMARY KEY ("set_id", "k")
+);
+COMMENT ON TABLE "param"."if97_gibbs_region1__basic__term" IS 'One term of the Gibbs energy.';
+COMMENT ON COLUMN "param"."if97_gibbs_region1__basic__term"."set_id" IS 'The parameter set this row belongs to.';
+COMMENT ON COLUMN "param"."if97_gibbs_region1__basic__term"."k" IS 'Term number.';
+COMMENT ON COLUMN "param"."if97_gibbs_region1__basic__term"."n" IS 'Coefficient.';
+COMMENT ON COLUMN "param"."if97_gibbs_region1__basic__term"."I" IS 'Exponent of (shift_pi - pi).';
+COMMENT ON COLUMN "param"."if97_gibbs_region1__basic__term"."J" IS 'Exponent of (tau - shift_tau).';
+
+CREATE TABLE "param"."if97_gibbs_region2__basic__ideal" (
+    "set_id" uuid NOT NULL,
+    "k" bigint NOT NULL,
+    "n" "meta"."scalar" NOT NULL,
+    "J" "meta"."scalar" NOT NULL,
+    CONSTRAINT "if97_gibbs_region2__basic__ideal__ck__k__minimum" CHECK ("k" >= 1),
+    CONSTRAINT "if97_gibbs_region2__basic__ideal__pk" PRIMARY KEY ("set_id", "k")
+);
+COMMENT ON TABLE "param"."if97_gibbs_region2__basic__ideal" IS 'One term of the ideal-gas part.';
+COMMENT ON COLUMN "param"."if97_gibbs_region2__basic__ideal"."set_id" IS 'The parameter set this row belongs to.';
+COMMENT ON COLUMN "param"."if97_gibbs_region2__basic__ideal"."k" IS 'Term number.';
+COMMENT ON COLUMN "param"."if97_gibbs_region2__basic__ideal"."n" IS 'Coefficient.';
+COMMENT ON COLUMN "param"."if97_gibbs_region2__basic__ideal"."J" IS 'Exponent of tau.';
+
+CREATE TABLE "param"."if97_gibbs_region2__basic__residual" (
+    "set_id" uuid NOT NULL,
+    "k" bigint NOT NULL,
+    "n" "meta"."scalar" NOT NULL,
+    "I" "meta"."scalar" NOT NULL,
+    "J" "meta"."scalar" NOT NULL,
+    CONSTRAINT "if97_gibbs_region2__basic__residual__ck__k__minimum" CHECK ("k" >= 1),
+    CONSTRAINT "if97_gibbs_region2__basic__residual__pk" PRIMARY KEY ("set_id", "k")
+);
+COMMENT ON TABLE "param"."if97_gibbs_region2__basic__residual" IS 'One term of the residual part.';
+COMMENT ON COLUMN "param"."if97_gibbs_region2__basic__residual"."set_id" IS 'The parameter set this row belongs to.';
+COMMENT ON COLUMN "param"."if97_gibbs_region2__basic__residual"."k" IS 'Term number.';
+COMMENT ON COLUMN "param"."if97_gibbs_region2__basic__residual"."n" IS 'Coefficient.';
+COMMENT ON COLUMN "param"."if97_gibbs_region2__basic__residual"."I" IS 'Exponent of pi.';
+COMMENT ON COLUMN "param"."if97_gibbs_region2__basic__residual"."J" IS 'Exponent of (tau - shift_tau).';
+
+CREATE TABLE "param"."if97_gibbs_region5__basic__ideal" (
+    "set_id" uuid NOT NULL,
+    "k" bigint NOT NULL,
+    "n" "meta"."scalar" NOT NULL,
+    "J" "meta"."scalar" NOT NULL,
+    CONSTRAINT "if97_gibbs_region5__basic__ideal__ck__k__minimum" CHECK ("k" >= 1),
+    CONSTRAINT "if97_gibbs_region5__basic__ideal__pk" PRIMARY KEY ("set_id", "k")
+);
+COMMENT ON TABLE "param"."if97_gibbs_region5__basic__ideal" IS 'One term of the ideal-gas part.';
+COMMENT ON COLUMN "param"."if97_gibbs_region5__basic__ideal"."set_id" IS 'The parameter set this row belongs to.';
+COMMENT ON COLUMN "param"."if97_gibbs_region5__basic__ideal"."k" IS 'Term number.';
+COMMENT ON COLUMN "param"."if97_gibbs_region5__basic__ideal"."n" IS 'Coefficient.';
+COMMENT ON COLUMN "param"."if97_gibbs_region5__basic__ideal"."J" IS 'Exponent of tau.';
+
+CREATE TABLE "param"."if97_gibbs_region5__basic__residual" (
+    "set_id" uuid NOT NULL,
+    "k" bigint NOT NULL,
+    "n" "meta"."scalar" NOT NULL,
+    "I" "meta"."scalar" NOT NULL,
+    "J" "meta"."scalar" NOT NULL,
+    CONSTRAINT "if97_gibbs_region5__basic__residual__ck__k__minimum" CHECK ("k" >= 1),
+    CONSTRAINT "if97_gibbs_region5__basic__residual__pk" PRIMARY KEY ("set_id", "k")
+);
+COMMENT ON TABLE "param"."if97_gibbs_region5__basic__residual" IS 'One term of the residual part.';
+COMMENT ON COLUMN "param"."if97_gibbs_region5__basic__residual"."set_id" IS 'The parameter set this row belongs to.';
+COMMENT ON COLUMN "param"."if97_gibbs_region5__basic__residual"."k" IS 'Term number.';
+COMMENT ON COLUMN "param"."if97_gibbs_region5__basic__residual"."n" IS 'Coefficient.';
+COMMENT ON COLUMN "param"."if97_gibbs_region5__basic__residual"."I" IS 'Exponent of pi.';
+COMMENT ON COLUMN "param"."if97_gibbs_region5__basic__residual"."J" IS 'Exponent of tau.';
+
+CREATE TABLE "param"."if97_helmholtz_region3__basic__term" (
+    "set_id" uuid NOT NULL,
+    "k" bigint NOT NULL,
+    "n" "meta"."scalar" NOT NULL,
+    "I" "meta"."scalar" NOT NULL,
+    "J" "meta"."scalar" NOT NULL,
+    CONSTRAINT "if97_helmholtz_region3__basic__term__ck__k__minimum" CHECK ("k" >= 1),
+    CONSTRAINT "if97_helmholtz_region3__basic__term__pk" PRIMARY KEY ("set_id", "k")
+);
+COMMENT ON TABLE "param"."if97_helmholtz_region3__basic__term" IS 'One term of the Helmholtz energy.';
+COMMENT ON COLUMN "param"."if97_helmholtz_region3__basic__term"."set_id" IS 'The parameter set this row belongs to.';
+COMMENT ON COLUMN "param"."if97_helmholtz_region3__basic__term"."k" IS 'Term number.';
+COMMENT ON COLUMN "param"."if97_helmholtz_region3__basic__term"."n" IS 'Coefficient.';
+COMMENT ON COLUMN "param"."if97_helmholtz_region3__basic__term"."I" IS 'Exponent of delta.';
+COMMENT ON COLUMN "param"."if97_helmholtz_region3__basic__term"."J" IS 'Exponent of tau.';
+
+CREATE TABLE "param"."multifluid_departure_terms__core__power" (
+    "set_id" uuid NOT NULL,
+    "k" bigint NOT NULL,
+    "n" "meta"."scalar" NOT NULL,
+    "d" "meta"."scalar" NOT NULL,
+    "t" "meta"."scalar" NOT NULL,
+    CONSTRAINT "multifluid_departure_terms__core__power__ck__k__minimum" CHECK ("k" >= 1),
+    CONSTRAINT "multifluid_departure_terms__core__power__pk" PRIMARY KEY ("set_id", "k")
+);
+COMMENT ON TABLE "param"."multifluid_departure_terms__core__power" IS 'One power term.';
+COMMENT ON COLUMN "param"."multifluid_departure_terms__core__power"."set_id" IS 'The parameter set this row belongs to.';
+COMMENT ON COLUMN "param"."multifluid_departure_terms__core__power"."k" IS 'Term number.';
+COMMENT ON COLUMN "param"."multifluid_departure_terms__core__power"."n" IS 'Coefficient.';
+COMMENT ON COLUMN "param"."multifluid_departure_terms__core__power"."d" IS 'Exponent of delta.';
+COMMENT ON COLUMN "param"."multifluid_departure_terms__core__power"."t" IS 'Exponent of tau.';
+
+CREATE TABLE "param"."multifluid_departure_terms__core__gaussian" (
+    "set_id" uuid NOT NULL,
+    "k" bigint NOT NULL,
+    "n" "meta"."scalar" NOT NULL,
+    "d" "meta"."scalar" NOT NULL,
+    "t" "meta"."scalar" NOT NULL,
+    "eta" "meta"."scalar" NOT NULL,
+    "epsilon" "meta"."scalar" NOT NULL,
+    "beta" "meta"."scalar" NOT NULL,
+    "gamma" "meta"."scalar" NOT NULL,
+    CONSTRAINT "multifluid_departure_terms__core__gaussian__ck__k__minimum" CHECK ("k" >= 1),
+    CONSTRAINT "multifluid_departure_terms__core__gaussian__pk" PRIMARY KEY ("set_id", "k")
+);
+COMMENT ON TABLE "param"."multifluid_departure_terms__core__gaussian" IS 'One Gaussian term.';
+COMMENT ON COLUMN "param"."multifluid_departure_terms__core__gaussian"."set_id" IS 'The parameter set this row belongs to.';
+COMMENT ON COLUMN "param"."multifluid_departure_terms__core__gaussian"."k" IS 'Term number.';
+COMMENT ON COLUMN "param"."multifluid_departure_terms__core__gaussian"."n" IS 'Coefficient.';
+COMMENT ON COLUMN "param"."multifluid_departure_terms__core__gaussian"."d" IS 'Exponent of delta.';
+COMMENT ON COLUMN "param"."multifluid_departure_terms__core__gaussian"."t" IS 'Exponent of tau.';
+COMMENT ON COLUMN "param"."multifluid_departure_terms__core__gaussian"."eta" IS 'Coefficient of the square of (delta - epsilon).';
+COMMENT ON COLUMN "param"."multifluid_departure_terms__core__gaussian"."epsilon" IS 'Centre in delta.';
+COMMENT ON COLUMN "param"."multifluid_departure_terms__core__gaussian"."beta" IS 'Coefficient of (delta - gamma).';
+COMMENT ON COLUMN "param"."multifluid_departure_terms__core__gaussian"."gamma" IS 'Centre in delta of the linear term.';
+
 CREATE TABLE "param"."nasa7__pure__piece" (
     "set_id" uuid NOT NULL,
     "n" bigint NOT NULL,
@@ -3754,8 +4277,6 @@ ALTER TABLE "ev"."dataset" ADD CONSTRAINT "dataset__fk__convention_set" FOREIGN 
 
 ALTER TABLE "ev"."dataset" ADD CONSTRAINT "dataset__fk__reaction" FOREIGN KEY ("reaction") REFERENCES "tk"."reaction" ("id") DEFERRABLE INITIALLY DEFERRED;
 
-ALTER TABLE "ev"."dataset" ADD CONSTRAINT "dataset__fk__verifies" FOREIGN KEY ("verifies") REFERENCES "prov"."record" ("id") DEFERRABLE INITIALLY DEFERRED;
-
 ALTER TABLE "ev"."dataset_column" ADD CONSTRAINT "dataset_column__fk__dataset" FOREIGN KEY ("dataset") REFERENCES "ev"."dataset" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "ev"."dataset_column" ADD CONSTRAINT "dataset_column__fk__observable" FOREIGN KEY ("observable") REFERENCES "tk"."observable" ("id") DEFERRABLE INITIALLY DEFERRED;
@@ -3822,9 +4343,45 @@ ALTER TABLE "tk"."group_assignment" ADD CONSTRAINT "group_assignment__fk__assert
 
 ALTER TABLE "tk"."group_scheme" ADD CONSTRAINT "group_scheme__fk__id" FOREIGN KEY ("id") REFERENCES "prov"."record" ("id") DEFERRABLE INITIALLY DEFERRED;
 
+ALTER TABLE "param"."helmholtz_pure_fluid__pure" ADD CONSTRAINT "helmholtz_pure_fluid__pure__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."helmholtz_pure_fluid__pure" ADD CONSTRAINT "helmholtz_pure_fluid__pure__fk__i" FOREIGN KEY ("i") REFERENCES "tk"."material_entity" ("id") DEFERRABLE INITIALLY DEFERRED;
+
 ALTER TABLE "tk"."identity_assertion" ADD CONSTRAINT "identity_assertion__fk__source_entity" FOREIGN KEY ("source_entity") REFERENCES "tk"."source_entity" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."identity_assertion" ADD CONSTRAINT "identity_assertion__fk__scheme" FOREIGN KEY ("scheme") REFERENCES "tk"."naming_scheme" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."if97_backward_region1_t_ph__basic" ADD CONSTRAINT "if97_backward_region1_t_ph__basic__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."if97_backward_region1_t_ph__basic" ADD CONSTRAINT "if97_backward_region1_t_ph__basic__fk__i" FOREIGN KEY ("i") REFERENCES "tk"."material_entity" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."if97_boundary_23__basic" ADD CONSTRAINT "if97_boundary_23__basic__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."if97_boundary_23__basic" ADD CONSTRAINT "if97_boundary_23__basic__fk__i" FOREIGN KEY ("i") REFERENCES "tk"."material_entity" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."if97_gibbs_region1__basic" ADD CONSTRAINT "if97_gibbs_region1__basic__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."if97_gibbs_region1__basic" ADD CONSTRAINT "if97_gibbs_region1__basic__fk__i" FOREIGN KEY ("i") REFERENCES "tk"."material_entity" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."if97_gibbs_region2__basic" ADD CONSTRAINT "if97_gibbs_region2__basic__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."if97_gibbs_region2__basic" ADD CONSTRAINT "if97_gibbs_region2__basic__fk__i" FOREIGN KEY ("i") REFERENCES "tk"."material_entity" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."if97_gibbs_region5__basic" ADD CONSTRAINT "if97_gibbs_region5__basic__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."if97_gibbs_region5__basic" ADD CONSTRAINT "if97_gibbs_region5__basic__fk__i" FOREIGN KEY ("i") REFERENCES "tk"."material_entity" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."if97_helmholtz_region3__basic" ADD CONSTRAINT "if97_helmholtz_region3__basic__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."if97_helmholtz_region3__basic" ADD CONSTRAINT "if97_helmholtz_region3__basic__fk__i" FOREIGN KEY ("i") REFERENCES "tk"."material_entity" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."if97_regions__limits" ADD CONSTRAINT "if97_regions__limits__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."if97_regions__limits" ADD CONSTRAINT "if97_regions__limits__fk__i" FOREIGN KEY ("i") REFERENCES "tk"."material_entity" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."if97_saturation__basic" ADD CONSTRAINT "if97_saturation__basic__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."if97_saturation__basic" ADD CONSTRAINT "if97_saturation__basic__fk__i" FOREIGN KEY ("i") REFERENCES "tk"."material_entity" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "prov"."import_record" ADD CONSTRAINT "import_record__fk__artifact" FOREIGN KEY ("artifact") REFERENCES "prov"."artifact" ("id") DEFERRABLE INITIALLY DEFERRED;
 
@@ -3849,6 +4406,28 @@ ALTER TABLE "tk"."model_assembly" ADD CONSTRAINT "model_assembly__fk__root" FORE
 ALTER TABLE "tk"."model_component" ADD CONSTRAINT "model_component__fk__id" FOREIGN KEY ("id") REFERENCES "prov"."record" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."model_component" ADD CONSTRAINT "model_component__fk__parameterization" FOREIGN KEY ("parameterization") REFERENCES "tk"."parameterization" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."multifluid_departure_terms__core" ADD CONSTRAINT "multifluid_departure_terms__core__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."multifluid_departure_terms__core" ADD CONSTRAINT "multifluid_departure_terms__core__fk__c" FOREIGN KEY ("c") REFERENCES "tk"."model_component" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."multifluid_pair_departure_scaled__pair" ADD CONSTRAINT "multifluid_pair_departure_scaled__pair__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."multifluid_pair_departure_scaled__pair" ADD CONSTRAINT "multifluid_pair_departure_scaled__pair__fk__i" FOREIGN KEY ("i") REFERENCES "tk"."species" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."multifluid_pair_departure_scaled__pair" ADD CONSTRAINT "multifluid_pair_departure_scaled__pair__fk__j" FOREIGN KEY ("j") REFERENCES "tk"."species" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."multifluid_pair_departure_scaled__pair" ADD CONSTRAINT "multifluid_pair_departure_scaled__pair__fk__departure" FOREIGN KEY ("departure") REFERENCES "tk"."parameter_set" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."multifluid_reducing__pair" ADD CONSTRAINT "multifluid_reducing__pair__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."multifluid_reducing__pair" ADD CONSTRAINT "multifluid_reducing__pair__fk__i" FOREIGN KEY ("i") REFERENCES "tk"."species" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."multifluid_reducing__pair" ADD CONSTRAINT "multifluid_reducing__pair__fk__j" FOREIGN KEY ("j") REFERENCES "tk"."species" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."multifluid_reducing__pure" ADD CONSTRAINT "multifluid_reducing__pure__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."multifluid_reducing__pure" ADD CONSTRAINT "multifluid_reducing__pure__fk__i" FOREIGN KEY ("i") REFERENCES "tk"."species" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "param"."nasa7__pure" ADD CONSTRAINT "nasa7__pure__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
 
@@ -4054,6 +4633,10 @@ ALTER TABLE "tk"."convention_standard_state" ADD CONSTRAINT "convention_standard
 
 ALTER TABLE "tk"."convention_standard_state" ADD CONSTRAINT "convention_standard_state__fk__value" FOREIGN KEY ("value") REFERENCES "tk"."standard_state" ("id") DEFERRABLE INITIALLY DEFERRED;
 
+ALTER TABLE "ev"."dataset_verifies" ADD CONSTRAINT "dataset_verifies__fk__dataset" FOREIGN KEY ("dataset") REFERENCES "ev"."dataset" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "ev"."dataset_verifies" ADD CONSTRAINT "dataset_verifies__fk__target" FOREIGN KEY ("target") REFERENCES "prov"."record" ("id") DEFERRABLE INITIALLY DEFERRED;
+
 ALTER TABLE "ev"."datum" ADD CONSTRAINT "datum__fk__point" FOREIGN KEY ("point") REFERENCES "ev"."data_point" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "ev"."datum" ADD CONSTRAINT "datum__fk__column" FOREIGN KEY ("column") REFERENCES "ev"."dataset_column" ("id") DEFERRABLE INITIALLY DEFERRED;
@@ -4219,6 +4802,34 @@ ALTER TABLE "tk"."system_reaction" ADD CONSTRAINT "system_reaction__fk__reaction
 ALTER TABLE "tk"."system_reaction" ADD CONSTRAINT "system_reaction__fk__defines" FOREIGN KEY ("defines") REFERENCES "tk"."species_form" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."validity_coverage" ADD CONSTRAINT "validity_coverage__fk__record" FOREIGN KEY ("record") REFERENCES "prov"."record" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."helmholtz_pure_fluid__pure__planck_einstein" ADD CONSTRAINT "helmholtz_pure_fluid__pure__planck_einstein__fk__set_id" FOREIGN KEY ("set_id") REFERENCES "param"."helmholtz_pure_fluid__pure" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."helmholtz_pure_fluid__pure__power" ADD CONSTRAINT "helmholtz_pure_fluid__pure__power__fk__set_id" FOREIGN KEY ("set_id") REFERENCES "param"."helmholtz_pure_fluid__pure" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."helmholtz_pure_fluid__pure__exponential" ADD CONSTRAINT "helmholtz_pure_fluid__pure__exponential__fk__set_id" FOREIGN KEY ("set_id") REFERENCES "param"."helmholtz_pure_fluid__pure" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."helmholtz_pure_fluid__pure__gaussian" ADD CONSTRAINT "helmholtz_pure_fluid__pure__gaussian__fk__set_id" FOREIGN KEY ("set_id") REFERENCES "param"."helmholtz_pure_fluid__pure" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."helmholtz_pure_fluid__pure__nonanalytic" ADD CONSTRAINT "helmholtz_pure_fluid__pure__nonanalytic__fk__set_id" FOREIGN KEY ("set_id") REFERENCES "param"."helmholtz_pure_fluid__pure" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."if97_backward_region1_t_ph__basic__term" ADD CONSTRAINT "if97_backward_region1_t_ph__basic__term__fk__set_id" FOREIGN KEY ("set_id") REFERENCES "param"."if97_backward_region1_t_ph__basic" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."if97_gibbs_region1__basic__term" ADD CONSTRAINT "if97_gibbs_region1__basic__term__fk__set_id" FOREIGN KEY ("set_id") REFERENCES "param"."if97_gibbs_region1__basic" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."if97_gibbs_region2__basic__ideal" ADD CONSTRAINT "if97_gibbs_region2__basic__ideal__fk__set_id" FOREIGN KEY ("set_id") REFERENCES "param"."if97_gibbs_region2__basic" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."if97_gibbs_region2__basic__residual" ADD CONSTRAINT "if97_gibbs_region2__basic__residual__fk__set_id" FOREIGN KEY ("set_id") REFERENCES "param"."if97_gibbs_region2__basic" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."if97_gibbs_region5__basic__ideal" ADD CONSTRAINT "if97_gibbs_region5__basic__ideal__fk__set_id" FOREIGN KEY ("set_id") REFERENCES "param"."if97_gibbs_region5__basic" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."if97_gibbs_region5__basic__residual" ADD CONSTRAINT "if97_gibbs_region5__basic__residual__fk__set_id" FOREIGN KEY ("set_id") REFERENCES "param"."if97_gibbs_region5__basic" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."if97_helmholtz_region3__basic__term" ADD CONSTRAINT "if97_helmholtz_region3__basic__term__fk__set_id" FOREIGN KEY ("set_id") REFERENCES "param"."if97_helmholtz_region3__basic" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."multifluid_departure_terms__core__power" ADD CONSTRAINT "multifluid_departure_terms__core__power__fk__set_id" FOREIGN KEY ("set_id") REFERENCES "param"."multifluid_departure_terms__core" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."multifluid_departure_terms__core__gaussian" ADD CONSTRAINT "multifluid_departure_terms__core__gaussian__fk__set_id" FOREIGN KEY ("set_id") REFERENCES "param"."multifluid_departure_terms__core" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "param"."nasa7__pure__piece" ADD CONSTRAINT "nasa7__pure__piece__fk__set_id" FOREIGN KEY ("set_id") REFERENCES "param"."nasa7__pure" ("id") DEFERRABLE INITIALLY DEFERRED;
 

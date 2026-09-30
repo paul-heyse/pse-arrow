@@ -50,7 +50,7 @@ reason = "T_max and p_max become clauses of a validity_region, but the source st
 construct = "ResidualHelmholtzPower"
 disposition = "held_by_model"
 ref = "mechanism:form catalogue"
-reason = "The parallel arrays become family rows of a power-term form, with d and l typed Integer and validated on load because some files store them as floats, and l = 0 is a structural value, not a missing one."
+reason = "The parallel arrays become family rows of a power-term form, with d and l held as dimensionless slots whose whole numbers the mapping validates on load because some files store them as floats, and l = 0 is a structural value, not a missing one."
 
 [[disposition]]
 construct = "ResidualHelmholtzExponential"

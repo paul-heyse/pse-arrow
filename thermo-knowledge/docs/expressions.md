@@ -441,6 +441,20 @@ What is and is not guaranteed about the floating-point operations:
 - Conditioning is the formula's own: an evaluation as written in double precision has the error
   of the formula, and the evaluator does not reduce it.
 
+### Regional forms
+
+A formulation defined by regions of the state (IAPWS-IF97) is a wrapper form with one sub-form slot
+for the equation of each region and a conditional expression of the state for each output. The
+condition involves arguments, so it stays in the expression as a piecewise function and every branch
+is evaluated at every point, selected afterwards: an equation has to give a number, or a NaN that the
+selection discards, at the points of the other regions, and an implicit block of a region is solved at
+all of them. A condition compares arguments and stored values with each other, and is written in each
+output that selects by it: a test of a local that is itself a conditional (`r == 3` for a local `r`
+that holds the region) did not finish in the IF97 fixture, where it ran in SymPy's simplification of
+the saturation equation. The wrapper's expansion reads the parameters of every
+region, more than the 64 arrays `numpy.broadcast` takes, so the evaluator takes the shape of the result
+from `numpy.broadcast_shapes`.
+
 ### Prepare once, execute many
 
 What is compiled is the structure of an expansion. A `CompileCache` holds the compiled function

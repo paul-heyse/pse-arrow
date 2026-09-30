@@ -1482,7 +1482,9 @@ class BoundForm:
         compiled = self.cache.entry(("output", prepared.expr), lambda: self._output(prepared.expr))
         result = np.asarray(compiled.function(*(values[s] for s in compiled.symbols)), dtype=float)
         shape = (
-            np.broadcast(*(values[s] for s in prepared.symbols)).shape if prepared.symbols else ()
+            np.broadcast_shapes(*(np.shape(values[s]) for s in prepared.symbols))
+            if prepared.symbols
+            else ()
         )
         return np.broadcast_to(result, shape).copy() if shape else result.reshape(())
 

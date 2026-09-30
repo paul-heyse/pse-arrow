@@ -14,7 +14,7 @@ reason = "Dc, Tc and MMiGERG are slots of a pure group of the GERG-2008 reducing
 construct = "GERG-2008 pure-fluid residual terms (noik, doik, toik, coik, kpol, kexp)"
 disposition = "held_by_model"
 ref = "mechanism:form catalogue"
-reason = "The 304 terms are family rows of power and exponential term forms per pure species, with the d and c slots typed Integer; repeating the shared 12- and 24-term exponent layouts for each fluid is a difference of arrangement, and evaluation at the mixture reducing variables belongs to the model assembly."
+reason = "The 304 terms are family rows of power and exponential term forms per pure species, with the d and c exponents held as dimensionless slots; repeating the shared 12- and 24-term exponent layouts for each fluid is a difference of arrangement, and evaluation at the mixture reducing variables belongs to the model assembly."
 
 [[disposition]]
 construct = "GERG-2008 ideal-gas terms (n0i, th0i)"
@@ -61,8 +61,8 @@ reason = "The B and C correlation constants and heating values map to a form wit
 [[disposition]]
 construct = "C test programs and in-source reference values"
 disposition = "held_by_model"
-ref = "kind:dataset"
-reason = "A dataset of kind verification linked by `verifies` to the GERG-2008 and DETAIL assemblies, origin computed and uncertainty kind not_stated; the two conflicting d2P/dD2 references (1130.48 and 1129.53) are in two datasets joined by an equivalence_assessment of level conflicting, and the unused U_reference check is program behaviour."
+ref = "relation:dataset_verifies"
+reason = "A dataset of kind verification linked by `dataset_verifies` rows to the GERG-2008 and DETAIL assemblies and to the parameterisations they were computed with, origin computed and uncertainty kind not_stated; the two conflicting d2P/dD2 references (1130.48 and 1129.53) are in two datasets joined by an equivalence_assessment of level conflicting, and the unused U_reference check is program behaviour."
 
 [[disposition]]
 construct = "TESTDATA workbooks (validation point sets)"

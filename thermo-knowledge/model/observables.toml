@@ -235,6 +235,24 @@ basis = "none"
 relation = "absolute"
 path = "none"
 
+[entities.observable.mass_density]
+doc = "Mass per volume of a phase."
+key = "mass_density"
+quantity = "MassDensity"
+subject = "mixture"
+basis = "none"
+relation = "absolute"
+path = "none"
+
+[entities.observable.specific_enthalpy]
+doc = "Enthalpy per mass of a phase, relative to the zero of enthalpy of the energy reference of its convention set."
+key = "specific_enthalpy"
+quantity = "SpecificEnergy"
+subject = "mixture"
+basis = "mass"
+relation = "absolute"
+path = "none"
+
 [entities.observable.molar_heat_capacity_isobaric]
 doc = "Molar heat capacity at constant pressure."
 key = "molar_heat_capacity_isobaric"
@@ -278,6 +296,24 @@ quantity = "MolarEnergy"
 subject = "pure"
 basis = "molar"
 relation = "standard"
+path = "none"
+
+[entities.observable.standard_gibbs_energy_function]
+doc = "Standard-state Gibbs energy function of a species form: minus the difference between its Gibbs energy at the temperature and its enthalpy at a reference temperature, divided by the temperature, -(G - H(Tr)) / T. It has the dimension of a molar entropy and is not the entropy. The reference temperature Tr is the temperature of the energy reference of the convention set the dataset that reports it assumes."
+key = "standard_gibbs_energy_function"
+quantity = "MolarEntropy"
+subject = "pure"
+basis = "molar"
+relation = "standard"
+path = "none"
+
+[entities.observable.molar_gibbs_energy_of_formation]
+doc = "Standard molar Gibbs energy of formation from the elements in their reference forms."
+key = "molar_gibbs_energy_of_formation"
+quantity = "MolarEnergy"
+subject = "pure"
+basis = "molar"
+relation = "formation"
 path = "none"
 
 [entities.observable.molar_enthalpy_of_formation]
