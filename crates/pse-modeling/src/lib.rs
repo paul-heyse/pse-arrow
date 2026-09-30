@@ -9,6 +9,7 @@ pub mod check;
 pub mod continuous;
 pub mod data;
 pub mod entity;
+pub mod envelope;
 pub mod expression;
 mod extent;
 pub mod external;
@@ -556,3 +557,5 @@ mod kernel_entities;
 mod kernel_relations;
 #[cfg(test)]
 mod kernel_provenance;
+#[cfg(test)]
+mod kernel_envelopes;

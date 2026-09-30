@@ -812,6 +812,7 @@ fn call(
         indirect = crate::Function {
             reduction: None,
             validity: None,
+            envelopes: Vec::new(),
             external: None,
             continuity: None,
             id: at,
@@ -1324,11 +1325,25 @@ pub(crate) fn check_all(p: &CheckedPackage, context: &TypeContext<'_>) -> Result
                     ));
                 }
             }
+            // The form layer's predicate and the data layer's generated guards take one
+            // domain-predicate path (ADR-0123 Outcome 4).
+            let domain = f
+                .validity
+                .iter()
+                .chain(f.envelopes.iter().map(|guard| &guard.predicate))
+                .cloned()
+                .reduce(|a, b| Predicate {
+                    kind: PredicateKind::And(Box::new(a), Box::new(b)),
+                    span: Default::default(),
+                });
             if let Some(validity) = &f.validity {
                 predicate(validity, &env, p, context, *id)?;
             }
+            for guard in &f.envelopes {
+                predicate(&guard.predicate, &env, p, context, *id)?;
+            }
             let zero = dsl::parse_expr("0").map_err(|e| invalid(*id, e.to_string()))?;
-            let dependency_expression = if let Some(validity) = &f.validity {
+            let dependency_expression = if let Some(validity) = &domain {
                 Expr {
                     kind: ExprKind::Conditional {
                         guard: Box::new(validity.clone()),

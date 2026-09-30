@@ -831,6 +831,50 @@ impl Cursor<'_> {
             self.expect(",")?;
         }
     }
+    /// ADR-0123 Outcome 4: `: Type in lower..upper` after an envelope's axis name, the axis
+    /// quantity type and the two typed columns or attributes bounding it.
+    fn envelope_bounds(&mut self) -> Result<(Vec<TypeNode>, String, String)> {
+        self.expect(":")?;
+        let r#type = self.type_expr()?;
+        self.expect("in")?;
+        let lower = self.word()?;
+        self.expect("..")?;
+        let upper = self.word()?;
+        Ok((r#type, lower, upper))
+    }
+    /// ADR-0123 Outcome 4: `guards(carrier.axis: argument, carrier.axis: [start, end], …)`,
+    /// the envelopes of row or entity arguments a function guards: at one argument, or
+    /// over the integration interval between two.
+    fn guards(&mut self) -> Result<Vec<ModelingEnvelopeGuard>> {
+        use pse_model::generated::enums::ModelingEnvelopeExtent as Extent;
+        self.expect("(")?;
+        let mut guards = Vec::new();
+        loop {
+            let carrier = self.word()?;
+            self.expect(".")?;
+            let envelope = self.word()?;
+            self.expect(":")?;
+            let (extent, arguments) = if self.eat("[") {
+                let start = self.word()?;
+                self.expect(",")?;
+                let end = self.word()?;
+                self.expect("]")?;
+                (Extent::Interval, vec![start, end])
+            } else {
+                (Extent::Point, vec![self.word()?])
+            };
+            guards.push(ModelingEnvelopeGuard {
+                carrier,
+                envelope,
+                extent,
+                arguments,
+            });
+            if self.eat(")") {
+                return Ok(guards);
+            }
+            self.expect(",")?;
+        }
+    }
     fn fixture_literal<T: std::str::FromStr>(&mut self) -> Result<T> {
         self.expect("(")?;
         let value = self.until(&[")"])?;
@@ -1187,7 +1231,13 @@ impl Cursor<'_> {
         }
         let anonymous = matches!(
             keyword.as_str(),
-            "when" | "require" | "connect" | "contribute" | "expect" | "annotation"
+            "when"
+                | "require"
+                | "connect"
+                | "contribute"
+                | "expect"
+                | "annotation"
+                | "extrapolation"
         );
         let entity_kind = if keyword == "entity" {
             Some(self.path()?)
@@ -2142,6 +2192,11 @@ impl Cursor<'_> {
                     .collect();
                 self.expect("->")?;
                 let return_type = self.type_expr()?;
+                let guards = if self.eat("guards") {
+                    self.guards()?
+                } else {
+                    Vec::new()
+                };
                 let validity = if self.eat("valid") {
                     self.expect("(")?;
                     let predicate = self.until(&[")"])?;
@@ -2206,6 +2261,7 @@ impl Cursor<'_> {
                 Value::from_function(AuthoredModelingDeclarationsFieldValueFunction {
                     external,
                     validity,
+                    guards,
                     continuity,
                     type_parameters,
                     arguments,
@@ -2394,9 +2450,10 @@ impl Cursor<'_> {
                 })
             }
             // ADR-0123 Outcome 3: `table name[key: T, k: 0..2]: T | {col: T, derived d: T = e}
-            // [symmetric(i, j) [diagonal allowed|excluded]] [unique(names)]...
-            // [complete_over(key [in set | in lo..hi], ...)] [missing required|optional|default
-            // cell] [require predicate]... ;`, clauses in this order.
+            // [envelope axis: Q in lower..upper]... [symmetric(i, j) [diagonal
+            // allowed|excluded]] [unique(names)]... [complete_over(key [in set | in lo..hi],
+            // ...)] [missing required|optional|default cell] [require predicate]... ;`,
+            // clauses in this order; an envelope is bounded by two columns (Outcome 4).
             "table" => {
                 let mut keys = Vec::new();
                 if self.eat("[") {
@@ -2448,6 +2505,17 @@ impl Cursor<'_> {
                 } else {
                     Some(self.type_expr()?)
                 };
+                let mut envelopes = Vec::new();
+                while self.eat("envelope") {
+                    let name = self.word()?;
+                    let (r#type, lower, upper) = self.envelope_bounds()?;
+                    envelopes.push(ModelingEnvelope {
+                        name,
+                        r#type,
+                        lower,
+                        upper,
+                    });
+                }
                 let symmetry = if self.eat("symmetric") {
                     self.expect("(")?;
                     let first = self.word()?;
@@ -2504,6 +2572,31 @@ impl Cursor<'_> {
                     symmetry,
                     unique,
                     requirements,
+                    envelopes,
+                })
+            }
+            // ADR-0123 Outcome 4: `envelope axis: Q in lower..upper;` in an entity kind, the
+            // axis bounded by two of the kind's attributes.
+            "envelope" => {
+                let (r#type, lower, upper) = self.envelope_bounds()?;
+                self.expect(";")?;
+                Value::from_envelope(AuthoredModelingDeclarationsFieldValueEnvelope {
+                    r#type,
+                    lower,
+                    upper,
+                })
+            }
+            // ADR-0123 Outcome 4: `extrapolation layer policy;` in a definition, test or case
+            // selects the extrapolation policy of one validity layer for its instances.
+            "extrapolation" => {
+                let layer = self.vocabulary::<pse_model::generated::enums::ModelingValidityLayer>(
+                    "validity layer form, data or closure",
+                )?;
+                let policy = self.vocabulary("extrapolation policy reject or extrapolate")?;
+                self.expect(";")?;
+                Value::from_extrapolation(AuthoredModelingDeclarationsFieldValueExtrapolation {
+                    layer,
+                    policy,
                 })
             }
             // `dataset name: target [bind(key = cell, …)] [complete_over(…)]

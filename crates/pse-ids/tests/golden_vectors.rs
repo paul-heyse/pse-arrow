@@ -43,8 +43,9 @@ const UNIT_PRODUCT_ID: &str = "b65b26cc780fb634de036e1195b0af54";
 /// frame over canonical DSL spellings, whose unit literals print as canonical products
 /// since ADR-0124. The source revision's preimage layout is pinned beside its derivation
 /// (`pse_runtime::math::modeling::source_revision`).
-/// `ModelingFiniteFunctionV2` was one of them until KR4 replaced it (below).
-const STRUCTURED_IR_FRAMES: [(Frame, &str, &str); 7] = [
+/// `ModelingFiniteFunctionV2` was one of them until KR4 replaced it, and
+/// `ModelingImplicitResidualV2` and `MathTypedDefinitionV3` until KR7 replaced them (below).
+const STRUCTURED_IR_FRAMES: [(Frame, &str, &str); 5] = [
     (
         Frame::ModelingSourceRevisionV2,
         "pse.modeling.source-revision.v2",
@@ -70,22 +71,13 @@ const STRUCTURED_IR_FRAMES: [(Frame, &str, &str); 7] = [
         "pse.modeling.consumer-body.v2",
         "5610f7db50b756a20b7a5253db954773c1028e8d1506b0a035138b0d5b179e59",
     ),
-    (
-        Frame::ModelingImplicitResidualV2,
-        "pse.modeling.implicit-residual.v2",
-        "b60062d9ef33991edb88ead0ccd261a0e13316aeeeba1a6262d8943c83a5abd8",
-    ),
-    (
-        Frame::MathTypedDefinitionV3,
-        "pse.math.typed-definition.v3",
-        "ab5d37e55b80a098e63ea38db0d0106cd5d1dba776b1d088482abfe924d1aaa7",
-    ),
 ];
 
 /// `derive_hash(frame, [b"pse"])` for each frame variant Plan 23 KR4 added (ADR-0123
-/// Outcome 2, DP-24): the keyed entity identity, and the coordinate and function
-/// specialization frames, whose preimages now frame an enumeration member by identity.
-const ENTITY_RECORD_FRAMES: [(Frame, &str, &str); 3] = [
+/// Outcome 2, DP-24): the keyed entity identity, and the coordinate frame, whose preimage
+/// now frames an enumeration member by identity. KR4's function specialization frame was
+/// replaced by KR7 (below).
+const ENTITY_RECORD_FRAMES: [(Frame, &str, &str); 2] = [
     (
         Frame::ModelingKeyedEntityV1,
         "pse.modeling.keyed-entity.v1",
@@ -96,10 +88,27 @@ const ENTITY_RECORD_FRAMES: [(Frame, &str, &str); 3] = [
         "pse.modeling.coordinate.v2",
         "efff8910923a963ad18268dc4dfb8ba9238d08a9c32dbcfdc183e441ff22495f",
     ),
+];
+
+/// `derive_hash(frame, [b"pse"])` for each frame variant Plan 23 KR7 added (ADR-0123
+/// Outcomes 4 and 8, DP-24): the function specialization, typed definition and implicit
+/// residual frames, whose preimages now frame a function's data-layer guards, each with the
+/// declaration of its envelope and, where specialized, its selected policy.
+const ENVELOPE_FRAMES: [(Frame, &str, &str); 3] = [
     (
-        Frame::ModelingFiniteFunctionV3,
-        "pse.modeling.finite-function.v3",
-        "3ddbbe58c760b5d63816de0e66aeea4ec8968bb59d1e5a52b2a067109821ef6f",
+        Frame::ModelingFiniteFunctionV4,
+        "pse.modeling.finite-function.v4",
+        "40407f7f00f16a3e22a92481a5ba44797c753e46b2dba2b6f5b5a07b7c6ed0f4",
+    ),
+    (
+        Frame::MathTypedDefinitionV4,
+        "pse.math.typed-definition.v4",
+        "3843fe39398fa0454021f53fad746252d841fa8433b759844b3f126f67fbc4c5",
+    ),
+    (
+        Frame::ModelingImplicitResidualV3,
+        "pse.modeling.implicit-residual.v3",
+        "1883a743d40d8712f8e7f31447aa34336be4471ca62cc0e06eb5e55a604d202e",
     ),
 ];
 
@@ -170,6 +179,18 @@ fn the_unit_product_identity_is_frozen() {
 #[test]
 fn the_structured_ir_frame_variants_are_frozen() {
     for (frame, spelling, vector) in STRUCTURED_IR_FRAMES {
+        assert_eq!(frame.as_str(), spelling);
+        assert_eq!(
+            derive_hash(frame, &[b"pse"]).to_hex(),
+            vector,
+            "{spelling}"
+        );
+    }
+}
+
+#[test]
+fn the_envelope_frame_variants_are_frozen() {
+    for (frame, spelling, vector) in ENVELOPE_FRAMES {
         assert_eq!(frame.as_str(), spelling);
         assert_eq!(
             derive_hash(frame, &[b"pse"]).to_hex(),

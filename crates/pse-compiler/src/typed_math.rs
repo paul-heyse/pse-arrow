@@ -268,7 +268,7 @@ impl Request<'_> {
             self.limits,
         )?;
         let mut paths = BTreeMap::new();
-        let mut hash = FramedHasher::new(pse_ids::Frame::MathTypedDefinitionV3);
+        let mut hash = FramedHasher::new(pse_ids::Frame::MathTypedDefinitionV4);
         hash.u64(self.formals.len() as u64);
         for (slot, formal) in self.formals.iter().enumerate() {
             if paths.insert(formal.path.clone(), slot).is_some() {
@@ -730,7 +730,24 @@ impl Lower<'_, '_> {
             }
             return Ok(value);
         }
-        let assumption = if let Some(validity) = &f.validity {
+        // ADR-0123 Outcome 4: the form layer's domain and each rejecting data-layer guard are
+        // domain predicates, each attributed to its own source: the function, or the
+        // declaration of the guarded envelope. An extrapolating guard is observed instead.
+        let domains = f
+            .validity
+            .iter()
+            .map(|validity| ("function-validity", f.id.as_id(), validity))
+            .chain(
+                f.envelopes
+                    .iter()
+                    .filter(|guard| {
+                        guard.policy == pse_model::generated::enums::ExtrapolationPolicy::Reject
+                    })
+                    .map(|guard| ("envelope-guard", guard.envelope.owner.as_id(), &guard.predicate)),
+            )
+            .collect::<Vec<_>>();
+        let mut assumptions = Vec::with_capacity(domains.len());
+        for (label, domain_source, validity) in domains {
             let saved = std::mem::replace(
                 &mut self.locals,
                 f.arguments
@@ -741,19 +758,18 @@ impl Lower<'_, '_> {
             );
             self.calls.push(f.id);
             self.hash
-                .str("function-validity")
+                .str(label)
+                .id(&domain_source)
                 .str(&dsl::render_predicate(validity));
             let yes = dsl::parse_expr("1").map_err(|e| MathError::Contract(e.to_string()))?;
             let no = dsl::parse_expr("0").map_err(|e| MathError::Contract(e.to_string()))?;
-            let predicate = builder.domain(f.id.as_id(), |builder| {
-                self.conditional(validity, &yes, &no, builder, depth + 1, f.id.as_id())
+            let predicate = builder.domain(domain_source, |builder| {
+                self.conditional(validity, &yes, &no, builder, depth + 1, domain_source)
             });
             self.calls.pop();
             self.locals = saved;
-            Some(predicate?)
-        } else {
-            None
-        };
+            assumptions.push(predicate?);
+        }
         if let Some(external) = &f.external {
             let call = self
                 .request
@@ -865,11 +881,9 @@ impl Lower<'_, '_> {
             for i in partial {
                 self.hash.u64(i as u64);
             }
-            let value = if let Some(assumption) = &assumption {
-                builder.with_assumption(value, assumption)
-            } else {
-                value
-            };
+            let value = assumptions
+                .iter()
+                .fold(value, |value, assumption| builder.with_assumption(value, assumption));
             return builder.bind(value);
         }
         let scope = builder.function_scope();
@@ -955,11 +969,9 @@ impl Lower<'_, '_> {
                 .collect::<Result<Vec<_>, MathError>>()?;
             value = builder.partial(scope, value, &variables, source)?;
         }
-        let value = if let Some(assumption) = &assumption {
-            builder.with_assumption(value, assumption)
-        } else {
-            value
-        };
+        let value = assumptions
+            .iter()
+            .fold(value, |value, assumption| builder.with_assumption(value, assumption));
         builder.bind(value)
     }
     fn group(

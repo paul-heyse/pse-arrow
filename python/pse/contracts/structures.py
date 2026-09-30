@@ -210,23 +210,6 @@ class ModelingCompleteness:
 
 
 @attrs.frozen(kw_only=True)
-class ModelingLineageEntry:
-    """Declared relation row or nested value."""
-
-    kind: e.ModelingLineageKind = attrs.field(validator=attrs.validators.instance_of(e.ModelingLineageKind))
-    path: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
-
-
-@attrs.frozen(kw_only=True)
-class ModelingProvenance:
-    """Declared relation row or nested value."""
-
-    source: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    role: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    lineage: b.tuple[ModelingLineageEntry, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ModelingLineageEntry), iterable_validator=attrs.validators.instance_of(b.tuple)))
-
-
-@attrs.frozen(kw_only=True)
 class ModelingTypeArenaNodeExponent:
     """Declared relation row or nested value."""
 
@@ -243,6 +226,43 @@ class ModelingTypeArenaNode:
     name: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     exponent: ModelingTypeArenaNodeExponent | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ModelingTypeArenaNodeExponent)))
     children: b.tuple[b.int, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.integer_range(0, 4294967295), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+
+@attrs.frozen(kw_only=True)
+class ModelingEnvelope:
+    """Declared relation row or nested value."""
+
+    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    type: b.tuple[ModelingTypeArenaNode, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ModelingTypeArenaNode), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    lower: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    upper: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+
+@attrs.frozen(kw_only=True)
+class ModelingEnvelopeGuard:
+    """Declared relation row or nested value."""
+
+    carrier: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    envelope: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    extent: e.ModelingEnvelopeExtent = attrs.field(validator=attrs.validators.instance_of(e.ModelingEnvelopeExtent))
+    arguments: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+
+@attrs.frozen(kw_only=True)
+class ModelingLineageEntry:
+    """Declared relation row or nested value."""
+
+    kind: e.ModelingLineageKind = attrs.field(validator=attrs.validators.instance_of(e.ModelingLineageKind))
+    path: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+
+@attrs.frozen(kw_only=True)
+class ModelingProvenance:
+    """Declared relation row or nested value."""
+
+    source: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    role: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    lineage: b.tuple[ModelingLineageEntry, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ModelingLineageEntry), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
 
 @attrs.frozen(kw_only=True)

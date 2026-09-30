@@ -20,11 +20,12 @@ pub use pse_model::generated::r#enums::{
     ModelingCellKind, ModelingCheckBasis, ModelingCheckKind, ModelingConformanceKind,
     ModelingConformanceStatus, ModelingContributionRole, ModelingDataFacet,
     ModelingDeclarationKind, ModelingDiagnosticSampleStop, ModelingDiagonalPolicy,
-    ModelingDiscreteInitialization, ModelingElasticObservation, ModelingFactNamespace,
-    ModelingFixtureBinding, ModelingFixtureExecution, ModelingInitializationStep,
-    ModelingKeyCellKind, ModelingKindFacet, ModelingLineageKind, ModelingMissingPolicy,
-    ModelingObjectiveRoute, ModelingRealValueKind, ModelingRealizationPolicy,
-    ModelingStructuralRequirement, ModelingTypeNode, ModelingUncertaintyKind,
+    ModelingDiscreteInitialization, ModelingElasticObservation, ModelingEnvelopeExtent,
+    ModelingFactNamespace, ModelingFixtureBinding, ModelingFixtureExecution,
+    ModelingInitializationStep, ModelingKeyCellKind, ModelingKindFacet,
+    ModelingLineageKind, ModelingMissingPolicy, ModelingObjectiveRoute,
+    ModelingRealValueKind, ModelingRealizationPolicy, ModelingStructuralRequirement,
+    ModelingTypeNode, ModelingUncertaintyKind, ModelingValidityLayer,
     ModelingVariableDomain, ModelingVersionOperator, MuStrategy, MumpsOrdering,
     Namespace, NativeAssurance, NativeBackend, NativeBoundaryClass, NativeCandidateKind,
     NativeCertificateAccuracy, NativeCertificateKind, NativeConstraintForm,
@@ -1478,6 +1479,25 @@ impl crate::columnar::ArrowValue for ModelingElasticObservation {
         crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
     }
 }
+impl crate::columnar::ArrowValue for ModelingEnvelopeExtent {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
 impl crate::columnar::ArrowValue for ModelingFactNamespace {
     fn append(
         &self,
@@ -1726,6 +1746,25 @@ impl crate::columnar::ArrowValue for ModelingTypeNode {
     }
 }
 impl crate::columnar::ArrowValue for ModelingUncertaintyKind {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for ModelingValidityLayer {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,

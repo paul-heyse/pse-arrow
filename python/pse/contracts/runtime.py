@@ -333,6 +333,7 @@ class RuntimeModelingChecksRow:
     within_validity: b.bool | None = attrs.field(validator=attrs.validators.optional(v.exact_type(b.bool)))
     extrapolation_allowed: b.bool | None = attrs.field(validator=attrs.validators.optional(v.exact_type(b.bool)))
     basis: e.ModelingCheckBasis = attrs.field(validator=attrs.validators.instance_of(e.ModelingCheckBasis))
+    layer: e.ModelingValidityLayer | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.ModelingValidityLayer)))
 
 
 @attrs.frozen(kw_only=True)

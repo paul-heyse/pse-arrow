@@ -21,8 +21,12 @@
 //! cells; a row value carries its column names for member access and framing.
 //!
 //! Each row carries its test-only taint (ADR-0123 Outcome 5): its dataset's role is
-//! test-only, or it references a test-only entity or row, or a derived column read
-//! test-only data. A lookup by a root outside a test fixture refuses a test-only row.
+//! test-only or its dataset's lineage reaches test-only data, or it references a test-only
+//! entity or row, or a derived column read test-only data. A lookup by a root outside a test
+//! fixture refuses a test-only row.
+//!
+//! A table may declare validity envelopes as data (ADR-0123 Outcome 4): an axis, its
+//! quantity type and the two typed columns of each row that bound it.
 use crate::entity::{Rows, typed};
 use crate::provenance::Reader;
 use crate::specialize::value::{Environment, Evaluator, Value, conforms};
@@ -156,6 +160,9 @@ pub struct Table {
     pub symmetry: Option<Symmetry>,
     /// Admitted rows by canonical key.
     pub rows: BTreeMap<Vec<Value>, Row>,
+    /// Validity envelopes, each bounded by two typed columns of every row (ADR-0123
+    /// Outcome 4).
+    pub envelopes: Vec<crate::envelope::Envelope>,
     /// Whether every row is admitted; a table is read only once it is.
     pub(crate) complete: bool,
 }
@@ -317,6 +324,17 @@ impl Table {
                 .map(|c| c.name.capacity() + ty(&c.ty) + size_of::<Column>())
                 .sum::<usize>()
             + self.names.iter().map(|n| n.capacity() + size_of::<String>()).sum::<usize>()
+            + self
+                .envelopes
+                .iter()
+                .map(|e| {
+                    size_of::<crate::envelope::Envelope>()
+                        + e.axis.capacity()
+                        + e.lower.capacity()
+                        + e.upper.capacity()
+                        + ty(&e.ty)
+                })
+                .sum::<usize>()
             + ty(&self.result)
             + match &self.absence {
                 Absence::Required(claims) => claims
@@ -563,6 +581,29 @@ pub(crate) fn admit(p: &mut CheckedPackage, c: &TypeContext<'_>) -> Result<()> {
     }
     for table in declared.values() {
         requirements(p, table)?;
+        envelopes(p, table.id)?;
+    }
+    Ok(())
+}
+
+/// Every row orders the bounds of each envelope of its table (ADR-0123 Outcome 4).
+fn envelopes(p: &CheckedPackage, id: DeclarationId) -> Result<()> {
+    let table = &p.tables[&id];
+    for envelope in &table.envelopes {
+        let position = |name: &str| table.columns.iter().position(|c| c.name == name);
+        let (Some(lower), Some(upper)) = (position(&envelope.lower), position(&envelope.upper))
+        else {
+            return Err(invalid(id, "envelope bounds are columns"));
+        };
+        for (keys, row) in &table.rows {
+            crate::envelope::ordered(envelope, &row.cells[lower], &row.cells[upper], row.origin, || {
+                format!(
+                    "row {}[{}]",
+                    p.declarations[&id].name,
+                    display_keys(p, keys)
+                )
+            })?;
+        }
     }
     Ok(())
 }
@@ -652,6 +693,30 @@ fn schema(
                 ty,
                 derived: column.derived.is_some(),
             })
+        })
+        .collect::<Result<Vec<_>>>()?;
+    // ADR-0123 Outcome 4: an envelope is data, bounded by two typed columns of each row.
+    let mut axes = BTreeSet::new();
+    let envelopes = declaration
+        .envelopes
+        .iter()
+        .map(|e| {
+            if !axes.insert(e.name.as_str()) {
+                return Err(invalid(
+                    id,
+                    format!("table {table_name} declares envelope {} twice", e.name),
+                ));
+            }
+            crate::envelope::resolve(
+                c,
+                id,
+                &format!("table {table_name}"),
+                &e.name,
+                c.resolve(&e.r#type, &variables, &names, id)?,
+                &e.lower,
+                &e.upper,
+                |name| columns.iter().find(|col| col.name == name).map(|col| col.ty.clone()),
+            )
         })
         .collect::<Result<Vec<_>>>()?;
     let result = match &declaration.value_type {
@@ -780,6 +845,7 @@ fn schema(
             absence,
             symmetry,
             rows: BTreeMap::new(),
+            envelopes,
             complete: false,
         },
         derived,
@@ -1543,9 +1609,7 @@ fn derive(
     partial: &Table,
 ) -> Result<(Vec<Value>, bool)> {
     let tainted = std::cell::Cell::new(
-        p.provenance(row.origin)
-            .is_some_and(crate::provenance::Provenance::test_only)
-            || keys.iter().any(|key| p.references_test_only(key)),
+        p.supplies_test_only(row.origin) || keys.iter().any(|key| p.references_test_only(key)),
     );
     let mut cells = row
         .cells

@@ -183,6 +183,7 @@ impl ModelingSimulation {
                         within_validity: None,
                         extrapolation_allowed: None,
                         basis: pse_model::generated::enums::ModelingCheckBasis::Point,
+                        layer: None,
                     });
                 }
                 for check in &mut sample_checks {

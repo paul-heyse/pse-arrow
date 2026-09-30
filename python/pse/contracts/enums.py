@@ -727,6 +727,8 @@ class ModelingDeclarationKind(StrEnum):
     LOGIC = "logic"
     COMPLEMENTARITY = "complementarity"
     TABLE = "table"
+    ENVELOPE = "envelope"
+    EXTRAPOLATION = "extrapolation"
     ATTRIBUTE = "attribute"
     DATASET = "dataset"
     ENTITY = "entity"
@@ -779,6 +781,13 @@ class ModelingElasticObservation(StrEnum):
     FEASIBLE_WITNESS = "feasible_witness"
     LOCAL_OBSTRUCTION = "local_obstruction"
     INCONCLUSIVE = "inconclusive"
+
+
+class ModelingEnvelopeExtent(StrEnum):
+    """The declared ModelingEnvelopeExtent enumeration."""
+
+    POINT = "point"
+    INTERVAL = "interval"
 
 
 class ModelingFactNamespace(StrEnum):
@@ -922,6 +931,14 @@ class ModelingUncertaintyKind(StrEnum):
     STANDARD = "standard"
     RELATIVE = "relative"
     BOUND = "bound"
+
+
+class ModelingValidityLayer(StrEnum):
+    """The declared ModelingValidityLayer enumeration."""
+
+    FORM = "form"
+    DATA = "data"
+    CLOSURE = "closure"
 
 
 class ModelingVariableDomain(StrEnum):

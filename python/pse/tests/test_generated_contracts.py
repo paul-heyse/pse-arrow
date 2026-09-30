@@ -16,10 +16,20 @@ from pse.contracts.authored import (
     AuthoredModelingDeclarationsFieldValue,
     AuthoredPackagesRow,
 )
-from pse.contracts.enums import ModelingVariableDomain, PackageKind
+from pse.contracts.enums import (
+    ExtrapolationPolicy,
+    ModelingEnvelopeExtent,
+    ModelingValidityLayer,
+    ModelingVariableDomain,
+    PackageKind,
+)
 from pse.contracts.extension_types import PseEnum, PseOrdinalRef
 from pse.contracts.reference import ReferenceUnitsRow
-from pse.contracts.structures import MemberDescriptor, MemberDescriptorSelection
+from pse.contracts.structures import (
+    MemberDescriptor,
+    MemberDescriptorSelection,
+    ModelingEnvelopeGuard,
+)
 from pse.contracts.values import FIELD_NAME_METADATA, ContentHash, SemanticId
 
 
@@ -247,3 +257,32 @@ def test_modeling_declaration_tag_has_one_typed_payload() -> None:
     ):
         with pytest.raises((ValueError, cattrs.BaseValidationError)):
             converter().structure(invalid, AuthoredModelingDeclarationsFieldValue)
+
+
+@pytest.mark.unit
+def test_validity_selection_and_envelope_guards_are_typed() -> None:
+    # ADR-0123 Outcome 4: a consumer's selection and a form's guards are registry
+    # vocabulary, never text.
+    empty: dict[str, object] = {
+        field.metadata.get(FIELD_NAME_METADATA, field.name): None
+        for field in attrs.fields(AuthoredModelingDeclarationsFieldValue)
+    }
+    selection = empty | {
+        "kind": "extrapolation",
+        "extrapolation": {"layer": "data", "policy": "extrapolate"},
+    }
+    value = converter().structure(selection, AuthoredModelingDeclarationsFieldValue)
+    assert value.extrapolation is not None
+    assert value.extrapolation.layer is ModelingValidityLayer.DATA
+    assert value.extrapolation.policy is ExtrapolationPolicy.EXTRAPOLATE
+    with pytest.raises((ValueError, cattrs.BaseValidationError)):
+        converter().structure(
+            selection | {"extrapolation": {"layer": "everywhere", "policy": "extrapolate"}},
+            AuthoredModelingDeclarationsFieldValue,
+        )
+    guard = converter().structure(
+        {"carrier": "p", "envelope": "T", "extent": "interval", "arguments": ["T0", "T"]},
+        ModelingEnvelopeGuard,
+    )
+    assert guard.extent is ModelingEnvelopeExtent.INTERVAL
+    assert guard.arguments == ("T0", "T")

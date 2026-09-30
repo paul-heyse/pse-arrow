@@ -219,6 +219,58 @@ fn lineage_facet_requires_acyclic_lineage() {
     assert!(error.contains("remark is a note, which does not"), "{error}");
 }
 
+/// Data derived from test-only data is test-only, whatever its own role: a dataset whose
+/// lineage reaches test-only data, through other datasets or through a source that itself
+/// references test-only data, supplies test-only rows, so a derived dataset cannot launder
+/// oracle data into production. A fixture reads it; lineage to published data taints nothing.
+#[test]
+fn lineage_from_test_only_data_is_test_only() {
+    let text = format!(
+        r#"package p {{ {SCHEMA}
+ table fit[j: item]: Scalar complete_over(j);
+ table refit[j: item]: Scalar complete_over(j);
+ dataset frozen: cp complete_over(j in items) provenance(upstream, role.oracle_input) {{ [a] = [1.0]; [b] = [2.0]; }}
+ dataset derived: fit complete_over(j in first) provenance(handbook, role.fitted, lineage(dataset frozen)) {{ [a] = [3.0]; }}
+ dataset again: refit complete_over(j in first) provenance(handbook, role.published, lineage(dataset derived)) {{ [a] = [4.0]; }}
+ entity kind form {{ key subject: item; attribute value: Scalar; }}
+ dataset forms: form provenance(upstream, role.oracle_input) {{ [a] = [5.0]; }}
+ entity kind digest extends source {{ attribute basis: form; }}
+ entity digest summary {{ title = "a summary of oracle rows", basis = form[a] }}
+ dataset summarized: fit complete_over(j in second) provenance(handbook, role.fitted, lineage(source summary)) {{ [b] = [6.0]; }}
+ constant k: Scalar = 7.0 provenance(handbook, role.fitted, lineage(dataset again));
+ def Derived {{ require fit[a] > 0 : "positive"; }}
+ def Again {{ require refit[a] > 0 : "positive"; }}
+ def Summarized {{ require fit[b] > 0 : "positive"; }}
+ def Constant {{ require k > 0 : "positive"; }}
+ test fixture {{ require fit[a] + refit[a] + fit[b] + k > 0 : "positive"; }}
+}}"#
+    );
+    let p = admitted(&text).unwrap();
+    for data in ["p.frozen", "p.derived", "p.again", "p.forms", "p.summarized", "p.k"] {
+        assert!(p.supplies_test_only(p.names[data]), "{data}");
+    }
+    assert!(p.is_test_only(p.names["p.summary"]) && p.is_test_only(p.names["p.k"]));
+    // Each root outside a fixture reading derived data is refused, naming its dataset.
+    let error = refused(&text, "Derived");
+    assert!(
+        error.contains("row fit[a] supplied by derived with role fitted, whose lineage reaches test-only data"),
+        "{error}"
+    );
+    assert!(refused(&text, "Again").contains("row refit[a] supplied by again with role published, whose lineage reaches test-only data"));
+    assert!(refused(&text, "Summarized").contains("row fit[b] supplied by summarized"));
+    assert!(refused(&text, "Constant").contains("constant k supplied by k with role fitted"));
+    root(&text, "fixture").unwrap();
+    // Lineage to published data taints nothing.
+    let published = text.replace("role.oracle_input", "role.published");
+    let p = admitted(&published).unwrap();
+    assert!(["p.derived", "p.again", "p.summarized", "p.k"]
+        .iter()
+        .all(|data| !p.supplies_test_only(p.names[*data])));
+    for name in ["Derived", "Again", "Summarized", "Constant"] {
+        root(&published, name).unwrap();
+    }
+}
+
 /// A role is a package enumeration member: a new one, with any name, is a package edit, and
 /// the kernel acts only on the facets it declares.
 #[test]

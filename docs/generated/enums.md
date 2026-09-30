@@ -728,6 +728,8 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `logic` | `` | false |
 | `complementarity` | `` | false |
 | `table` | `` | false |
+| `envelope` | `` | false |
+| `extrapolation` | `` | false |
 | `attribute` | `` | false |
 | `dataset` | `` | false |
 | `entity` | `` | false |
@@ -780,6 +782,13 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `feasible_witness` | `` | false |
 | `local_obstruction` | `` | false |
 | `inconclusive` | `` | false |
+
+## `ModelingEnvelopeExtent`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `point` | `` | false |
+| `interval` | `` | false |
 
 ## `ModelingFactNamespace`
 
@@ -923,6 +932,14 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `standard` | `` | false |
 | `relative` | `` | false |
 | `bound` | `` | false |
+
+## `ModelingValidityLayer`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `form` | `` | false |
+| `data` | `` | false |
+| `closure` | `` | false |
 
 ## `ModelingVariableDomain`
 

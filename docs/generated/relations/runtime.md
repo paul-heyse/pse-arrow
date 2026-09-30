@@ -338,9 +338,9 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `table_uri`.
 
 ## `modeling_checks`
 
-Independent model checks supplement native outcomes. Step identifies the requested solve within a finite sequence; standalone analyses use zero. Static checks use sample_index zero without time; trajectory checks identify the requested sample and physical time in seconds. Validity membership and permission to extrapolate remain distinct observations. Version two adds basis: point for a check evaluated at the step's point, global_bound for an objective-bound check evaluated against the step's certified dual bound (ADR-0119); a point result states no global property.
+Independent model checks supplement native outcomes. Step identifies the requested solve within a finite sequence; standalone analyses use zero. Static checks use sample_index zero without time; trajectory checks identify the requested sample and physical time in seconds. Validity membership and permission to extrapolate remain distinct observations. Version two adds basis: point for a check evaluated at the step's point, global_bound for an objective-bound check evaluated against the step's certified dual bound (ADR-0119); a point result states no global property. Version three adds the validity layer a validity check observes, present exactly on validity checks (ADR-0123 Outcome 4): closure for an annotated range, whose source is the annotation, and data for a declared envelope whose consumer selected extrapolation, whose source is the relation or kind declaring it. The form layer never extrapolates, so a value outside it is a rejected evaluation, not a check.
 
-Version: 2. Snapshot class: `derived`. Primary key: `run_id, step, sample_index, target_id, source_id, kind`.
+Version: 3. Snapshot class: `derived`. Primary key: `run_id, step, sample_index, target_id, source_id, kind`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
@@ -357,6 +357,7 @@ Version: 2. Snapshot class: `derived`. Primary key: `run_id, step, sample_index,
 | `within_validity` | `Boolean` | true | `payload` | — | — |
 | `extrapolation_allowed` | `Boolean` | true | `payload` | — | — |
 | `basis` | `enum:ModelingCheckBasis` | false | `payload` | — | — |
+| `layer` | `enum:ModelingValidityLayer` | true | `payload` | — | — |
 
 ## `modeling_conformance`
 

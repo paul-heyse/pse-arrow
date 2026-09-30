@@ -15,12 +15,15 @@
 //! Test-only taint is the one authority for "production reads no test-only data". Each
 //! row's origin role is the role of the dataset that supplied it, which the kernel
 //! provides; it is not a declared attribute. Data a test-only role supplies is test-only,
-//! and the taint propagates along resolved references: an entity, keyed row, table row or
-//! constant that references test-only data is itself test-only. A relation holding rows of
-//! several datasets is tainted row by row, so its production rows stay readable. A
-//! specialization root outside a test fixture that reads test-only data is refused where it
-//! reads it ([`Reader`]): a lookup whose keys are literal resolves its row statically, any
-//! other lookup once specialization binds its keys.
+//! and so is data derived from it: a dataset or constant whose lineage reaches test-only
+//! data, through datasets or a test-only source, is test-only whatever its own role, so a
+//! derived dataset cannot launder oracle data into production. The taint propagates along
+//! resolved references: an entity, keyed row, table row or constant that references
+//! test-only data is itself test-only. A relation holding rows of several datasets is
+//! tainted row by row, so its production rows stay readable. A specialization root outside a
+//! test fixture that reads test-only data is refused where it reads it ([`Reader`]): a
+//! lookup whose keys are literal resolves its row statically, any other lookup once
+//! specialization binds its keys.
 use crate::specialize::value::Value;
 use crate::{CheckedPackage, DeclarationId, ModelingError, Result, Type, invalid};
 use pse_authoring::language::ModelingProvenance;
@@ -76,6 +79,11 @@ impl CheckedPackage {
     /// Whether an admitted entity, keyed row or constant is test-only.
     pub fn is_test_only(&self, id: DeclarationId) -> bool {
         self.test_only.contains(&id)
+    }
+    /// Whether a dataset or constant supplies test-only data: its role is test-only, or its
+    /// lineage reaches test-only data.
+    pub fn supplies_test_only(&self, origin: DeclarationId) -> bool {
+        self.test_only_data.contains(&origin)
     }
     /// Whether `value` references test-only data: a test-only entity or keyed row, through
     /// sets, tuples and materialized rows.
@@ -157,8 +165,13 @@ pub(crate) fn supplied_by(p: &CheckedPackage, origin: DeclarationId) -> String {
             .map_or_else(|| id.to_string(), |row| row.name.clone())
     };
     match p.provenance.get(&origin) {
-        Some(provenance) => format!(
+        Some(provenance) if provenance.test_only() => format!(
             "supplied by {} with role {}",
+            name(&origin),
+            member_name(p, &provenance.role)
+        ),
+        Some(provenance) => format!(
+            "supplied by {} with role {}, whose lineage reaches test-only data",
             name(&origin),
             member_name(p, &provenance.role)
         ),
@@ -333,9 +346,43 @@ fn acyclic(p: &CheckedPackage, provenance: &BTreeMap<DeclarationId, Provenance>)
     Ok(())
 }
 
-/// Taint the admitted entities, keyed rows and constants: the rows a test-only role
-/// supplies, and every entity or constant that references test-only data.
+/// Taint the test-only data: the datasets and constants whose role is test-only or whose
+/// lineage reaches test-only data, the rows they supply, and every entity or constant that
+/// references test-only data. A lineage source is test-only data when its entity is, so the
+/// two closures are taken together until neither grows.
 fn taint(p: &mut CheckedPackage) {
+    let mut data = p
+        .provenance
+        .iter()
+        .filter(|(_, provenance)| provenance.test_only())
+        .map(|(id, _)| *id)
+        .collect::<BTreeSet<_>>();
+    loop {
+        let tainted = referenced(p, &data);
+        let derived = p
+            .provenance
+            .iter()
+            .filter(|(id, provenance)| {
+                !data.contains(*id)
+                    && provenance.lineage.iter().any(|(kind, target)| match kind {
+                        Lineage::Dataset => data.contains(target),
+                        Lineage::Source => tainted.contains(target),
+                    })
+            })
+            .map(|(id, _)| *id)
+            .collect::<Vec<_>>();
+        if derived.is_empty() {
+            p.test_only = tainted;
+            p.test_only_data = data;
+            return;
+        }
+        data.extend(derived);
+    }
+}
+
+/// The entities, keyed rows and constants that `data` supplies or that reference test-only
+/// data.
+fn referenced(p: &CheckedPackage, data: &BTreeSet<DeclarationId>) -> BTreeSet<DeclarationId> {
     let mut tainted = BTreeSet::new();
     let mut referrers = BTreeMap::<DeclarationId, Vec<DeclarationId>>::new();
     fn references(value: &Value, out: &mut Vec<DeclarationId>) {
@@ -354,7 +401,7 @@ fn taint(p: &mut CheckedPackage) {
             _ => {}
         }
     }
-    let supplied = |origin: &DeclarationId| p.provenance.get(origin).is_some_and(Provenance::test_only);
+    let supplied = |origin: &DeclarationId| data.contains(origin);
     for (id, record) in &p.entities {
         if supplied(&record.origin) {
             tainted.insert(*id);
@@ -385,5 +432,5 @@ fn taint(p: &mut CheckedPackage) {
             }
         }
     }
-    p.test_only = tainted;
+    tainted
 }

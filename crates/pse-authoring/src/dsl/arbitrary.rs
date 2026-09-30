@@ -366,7 +366,8 @@ fn plain_name() -> impl Strategy<Value = String> {
 /// Well-formed table declarations over every relation constraint (ADR-0123 Outcome 3,
 /// Plan 23 KR5): integer-range and typed keys, supplied and derived columns or a value
 /// type, symmetry with either diagonal policy, uniqueness, completeness over sets, ranges
-/// and open keys, each missing policy with its typed default cell, and requirements.
+/// and open keys, each missing policy with its typed default cell, requirements, and
+/// envelopes bounded by two columns (ADR-0123 Outcome 4).
 pub fn tables()
 -> impl Strategy<Value = crate::language::AuthoredModelingDeclarationsFieldValueTable> {
     use crate::language::{
@@ -375,7 +376,7 @@ pub fn tables()
         AuthoredModelingDeclarationsFieldValueTableKeysItem as Key,
         AuthoredModelingDeclarationsFieldValueTableSymmetry as Symmetry,
         AuthoredModelingDeclarationsFieldValueTableUniqueItem as Unique, ModelingCompleteness,
-        ModelingIntegerRange, parse_type,
+        ModelingEnvelope, ModelingIntegerRange, parse_type,
     };
     use pse_model::generated::enums::{ModelingDiagonalPolicy, ModelingMissingPolicy};
     let ty = || {
@@ -429,6 +430,20 @@ pub fn tables()
         ],
     )
         .prop_map(|(key, (set, range))| ModelingCompleteness { key, set, range });
+    // ADR-0123 Outcome 4: an envelope bounds an axis by two typed columns.
+    let envelope = (
+        plain_name(),
+        prop::sample::select(vec!["Temperature", "Pressure", "Mass"])
+            .prop_map(|text| parse_type(text, &[]).unwrap_or_default()),
+        plain_name(),
+        plain_name(),
+    )
+        .prop_map(|(name, r#type, lower, upper)| ModelingEnvelope {
+            name,
+            r#type,
+            lower,
+            upper,
+        });
     (
         prop::collection::vec(key, 0..4),
         prop_oneof![
@@ -448,9 +463,10 @@ pub fn tables()
             prop::sample::select(vec!["v > 0{kg}", "present(a) and b == c", "j in s"]),
             0..3,
         ),
+        prop::collection::vec(envelope, 0..3),
     )
         .prop_map(
-            |(keys, (value_type, columns), symmetry, unique, complete_over, policy, default, requirements)| {
+            |(keys, (value_type, columns), symmetry, unique, complete_over, policy, default, requirements, envelopes)| {
                 Table {
                     keys,
                     columns,
@@ -465,6 +481,7 @@ pub fn tables()
                     }),
                     unique: unique.into_iter().map(|names| Unique { names }).collect(),
                     requirements: requirements.into_iter().map(str::to_owned).collect(),
+                    envelopes,
                 }
             },
         )

@@ -19,7 +19,7 @@ fn roundtrip_all_declarations_and_explicit_identity() {
  use other @ "1.0.0";
  identifier scheme cas;
  entity kind component { attribute mass: Mass; attribute cas: Id<cas>? = missing; attribute tags: Set<Choice> = {first}; }
- entity kind parameter_set { key subject: component; key variant: Integer = 1; attribute cp: Fn(x: Mass)->Mass; }
+ entity kind parameter_set { key subject: component; key variant: Integer = 1; attribute cp: Fn(x: Mass)->Mass; attribute low: Temperature; attribute high: Temperature; envelope T: Temperature in low..high; }
  entity kind linear extends parameter_set { attribute slope: Scalar = 0.5 ± relative(0.01); cp = identity; }
  entity component a { mass = 2{kg}, cas = Id<cas>("71-43-2") }
  enum Choice { first, @id("0123456789abcdef0123456789abcdef") second }
@@ -32,12 +32,15 @@ fn roundtrip_all_declarations_and_explicit_identity() {
  table coefficient[j: component]: Mass complete_over(j in members) missing required;
  table pairing[i: component, j: component, k: 0..2]: {v: Mass, derived w: Mass = 2*v, set: parameter_set} symmetric(i, j) diagonal excluded unique(v, k) complete_over(i, j in members, k in 0..2) missing required require v > 0{kg} require w >= v;
  table fallback[j: component]: Scalar missing default 0.5 ± relative(0.1);
+ table band[j: component]: {cp: Mass, low: Temperature, high: Temperature, plow: Pressure, phigh: Pressure} envelope T: Temperature in low..high envelope P: Pressure in plow..phigh complete_over(j in members) missing required;
+ fn band_cp(T0: Temperature, T: Temperature, P: Pressure, p: Row<band>, s: parameter_set) -> Mass guards(p.T: [T0, T], p.P: P, s.T: T) valid(T > 0{K}) = p.cp;
  dataset values: coefficient provenance(upstream, Role.published) { [a] = [2{kg}]; }
  dataset pairs: pairing complete_over(i in members) provenance(synthetic.upstream, Role.fitted, lineage(dataset values, source upstream)) { [a, a, 0] = [1{kg}, linear[a, 2]]; }
  dataset lines: linear bind(variant = 2) provenance(upstream, Role.oracle_input, lineage(dataset pairs)) { [a] = [-1.5]; [b] = []; }
  fn square<Q>(x: Q) -> Q^2 = x*x;
  interface I { fn f(x: Mass) -> Mass; let doubled: Mass = x+x; }
  def D(enabled: Boolean = true) : I {
+ extrapolation data extrapolate;
  param p: Mass = 2{kg};
  var x: Mass defined by x == p;
  override let doubled: Mass = 2*x;
@@ -66,9 +69,48 @@ fn roundtrip_all_declarations_and_explicit_identity() {
  preset Small = D(enabled=true);
  case run { child root = Small(); }
  test check { expect square(2) == 4 tolerance 1e-9; }
- test compared oracle synthetic.upstream fixture { dof 0; run pure; } { expect square(2) == 4 tolerance 1e-9; }
+ test compared oracle synthetic.upstream fixture { dof 0; run pure; } { extrapolation data reject; expect square(2) == 4 tolerance 1e-9; }
  }"#;
     let rows = parse_named(source);
+    // ADR-0123 Outcome 4: envelopes, guards and selections are typed, not text.
+    use pse_model::generated::enums::{
+        ExtrapolationPolicy, ModelingEnvelopeExtent, ModelingValidityLayer,
+    };
+    let band = rows.iter().find_map(|r| r.value.table.as_ref().filter(|t| !t.envelopes.is_empty())).unwrap();
+    assert_eq!(
+        band.envelopes.iter().map(|e| (e.name.as_str(), e.lower.as_str(), e.upper.as_str())).collect::<Vec<_>>(),
+        [("T", "low", "high"), ("P", "plow", "phigh")]
+    );
+    let guards = &rows.iter().find_map(|r| r.value.function.as_ref().filter(|f| !f.guards.is_empty())).unwrap().guards;
+    assert_eq!(
+        guards.iter().map(|g| (g.carrier.as_str(), g.envelope.as_str(), g.extent, g.arguments.clone())).collect::<Vec<_>>(),
+        [
+            ("p", "T", ModelingEnvelopeExtent::Interval, vec!["T0".to_owned(), "T".to_owned()]),
+            ("p", "P", ModelingEnvelopeExtent::Point, vec!["P".to_owned()]),
+            ("s", "T", ModelingEnvelopeExtent::Point, vec!["T".to_owned()]),
+        ]
+    );
+    assert!(rows.iter().any(|r| r.name == "T" && r.value.envelope.as_ref().is_some_and(|e| (e.lower.as_str(), e.upper.as_str()) == ("low", "high"))));
+    let selections = rows.iter().filter_map(|r| r.value.extrapolation.as_ref()).map(|e| (e.layer, e.policy)).collect::<Vec<_>>();
+    assert_eq!(
+        selections,
+        [
+            (ModelingValidityLayer::Data, ExtrapolationPolicy::Extrapolate),
+            (ModelingValidityLayer::Data, ExtrapolationPolicy::Reject),
+        ]
+    );
+    for malformed in [
+        "package p { fn f(T: Temperature, p: Row<t>) -> Scalar guards(p.T: [T]) = 1; }",
+        "package p { fn f(T: Temperature, p: Row<t>) -> Scalar guards(p: T) = 1; }",
+        "package p { table t[j: c]: {a: Temperature} envelope T: Temperature a..a missing optional; }",
+        "package p { def D { extrapolation data sometimes; } }",
+        "package p { def D { extrapolation everywhere extrapolate; } }",
+    ] {
+        assert!(
+            parse(malformed, SemanticId::NIL, IdentityPolicy::Named, ParseBudget::default()).is_err(),
+            "{malformed}"
+        );
+    }
     let printed = render(&rows).unwrap();
     let again = parse(
         &printed,

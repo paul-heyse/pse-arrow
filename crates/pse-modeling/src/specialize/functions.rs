@@ -156,6 +156,7 @@ impl Engine<'_, '_> {
             .or_insert(crate::Function {
                 reduction: None,
                 validity: None,
+                envelopes: Vec::new(),
                 external: None,
                 continuity: None,
                 id,
@@ -352,7 +353,11 @@ impl Engine<'_, '_> {
         let mut indexed = BTreeMap::new();
         let mut statics = Environment::new();
         let mut selectors = BTreeMap::new();
-        let mut identity = FramedHasher::new(pse_ids::Frame::ModelingFiniteFunctionV3);
+        // The scalar formal of each physical argument and its source, which data-layer
+        // observations resolve against (ADR-0123 Outcome 4).
+        let mut scalar_formals = BTreeMap::new();
+        let mut scalar_sources = BTreeMap::new();
+        let mut identity = FramedHasher::new(pse_ids::Frame::ModelingFiniteFunctionV4);
         identity.id(&function.as_id());
         for quantity in substitution.values() {
             identity.id(&quantity.as_id());
@@ -378,6 +383,8 @@ impl Engine<'_, '_> {
             };
             match ty {
                 Type::Quantity(_) => {
+                    scalar_formals.insert(name.clone(), start);
+                    scalar_sources.insert(start, (expr, ty.clone()));
                     let expr = self.rewrite(instance, expr, env, chain)?;
                     lexical.insert(name.clone(), bind(vec![], expr, ty.clone()).1);
                 }
@@ -503,6 +510,7 @@ impl Engine<'_, '_> {
             contract.arguments.iter().cloned().collect(),
         );
         self.function_stack.push(function);
+        self.open_lifts();
         let body = if let Some(external) = &mut contract.external {
             let output = Evaluator {
                 package: self.p,
@@ -556,6 +564,16 @@ impl Engine<'_, '_> {
             .as_ref()
             .map(|p| self.rewrite_predicate(instance, p, &statics, &[function]))
             .transpose();
+        // The data layer: guards specialized in the frame under the consumer's policy
+        // (ADR-0123 Outcome 4).
+        let guards = self.specialize_guards(
+            instance,
+            function,
+            &contract.envelopes,
+            &statics,
+            &scalar_formals,
+        );
+        let nested = self.close_lifts();
         self.function_stack.pop();
         self.lexical = saved_lexical;
         self.indexed_arguments = saved_indexed;
@@ -563,9 +581,19 @@ impl Engine<'_, '_> {
         self.function_types = saved_types;
         let mut body = body?;
         let mut validity = validity?;
+        let (guards, mut lifts) = guards?;
+        lifts.extend(nested);
         if let Some(p) = &mut validity {
             p.strip_spans();
             identity.str("validity").str(&dsl::render_predicate(p));
+        }
+        identity.u64(guards.len() as u64);
+        for guard in &guards {
+            identity
+                .str("envelope")
+                .id(&guard.envelope.owner.as_id())
+                .str(guard.policy.as_str())
+                .str(&dsl::render_predicate(&guard.predicate));
         }
         if let Some(body) = &mut body {
             body.strip_spans();
@@ -579,6 +607,7 @@ impl Engine<'_, '_> {
         let function = crate::Function {
             reduction: None,
             validity,
+            envelopes: guards,
             external: contract.external,
             continuity: contract.continuity,
             id: contract.id,
@@ -593,6 +622,10 @@ impl Engine<'_, '_> {
             return Err(invalid(id, "function specialization identity collision"));
         }
         self.model.functions.insert(name.clone(), function);
+        let sources = (0..actual.len())
+            .map(|formal| scalar_sources.remove(&formal))
+            .collect::<Vec<_>>();
+        self.resolve_lifts(instance, contract.id, lifts, &actual, &sources, env, chain)?;
         Ok(if selected.is_empty() {
             ExprKind::NamedCall { name, args: actual }
         } else {

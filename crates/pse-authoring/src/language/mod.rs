@@ -19,8 +19,8 @@ pub use pse_model::generated::authored::modeling_declarations::{
     AuthoredModelingDeclarationsFieldValueSelected as Selected, Row as Declaration,
 };
 pub use pse_model::generated::structures::{
-    ModelingCompleteness, ModelingIntegerRange, ModelingLineageEntry, ModelingProvenance,
-    VersionRequirement,
+    ModelingCompleteness, ModelingEnvelope, ModelingEnvelopeGuard, ModelingIntegerRange,
+    ModelingLineageEntry, ModelingProvenance, VersionRequirement,
 };
 pub use cells::{
     Cell, CellBoolean, CellIdentifier, CellInteger, CellKind, CellPath, CellQuantity,

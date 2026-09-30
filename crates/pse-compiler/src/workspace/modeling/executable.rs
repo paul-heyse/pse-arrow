@@ -362,9 +362,15 @@ fn projection(
             lower,
             upper,
             policy,
+            layer,
+            ..
         } = &a.value
         {
-            if !validity_targets.insert(a.target) {
+            // One closure range per member; data-layer observations are one per member and
+            // envelope, and are observed, never enforced (ADR-0123 Outcome 4).
+            if *layer == pse_model::generated::enums::ModelingValidityLayer::Closure
+                && !validity_targets.insert(a.target)
+            {
                 return Err(CompileError::Missing(
                     "competing validity intervals for a model member".into(),
                 ));

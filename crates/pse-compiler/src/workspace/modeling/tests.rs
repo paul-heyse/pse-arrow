@@ -3921,3 +3921,131 @@ fn objective_bound_check_classified() {
         }
     }
 }
+
+/// A bank row whose temperature envelope is declared as data (ADR-0123 Outcome 4).
+const ENVELOPE_BANK: &str = r#"entity kind source provenance { attribute title: Text; } enum role { given } entity source s { title = "synthetic test data" }
+ entity kind item {} entity item a {} set items: Set<item> = {a};
+ table cp_data[j: item]: {c: MolarCp, low: Temperature, high: Temperature} envelope T: Temperature in low..high complete_over(j in items);
+ dataset bank: cp_data provenance(s, role.given) { [a] = [75{J/(mol*K)}, 250{K}, 400{K}]; }"#;
+/// Evaluate the constraints of `root` with each input named by its member path.
+fn evaluate_named(
+    text: &str,
+) -> impl FnMut(&[(&str, f64)]) -> std::result::Result<Vec<f64>, MathError> + use<> {
+    let (mut workspace, _, _, root) = setup(text);
+    let admitted = admit(&mut workspace, root);
+    let model = workspace
+        .specialize_modeling(
+            root,
+            InstanceId::from_id(SemanticId::NIL),
+            Bindings::default(),
+            Limits::default(),
+        )
+        .unwrap();
+    let cancel = Arc::new(AtomicBool::new(false));
+    let artifact = fixture(
+        &admitted,
+        workspace.inputs.quantities.clone(),
+        DerivativeOrder::Value,
+        &cancel,
+    )
+    .unwrap();
+    let paths = admitted
+        .inputs
+        .iter()
+        .map(|id| model.symbols[id].lineage.path.clone())
+        .collect::<Vec<_>>();
+    move |values: &[(&str, f64)]| {
+        let case = CaseValues {
+            scalars: admitted
+                .inputs
+                .iter()
+                .zip(&paths)
+                .map(|(id, path)| {
+                    let value = values
+                        .iter()
+                        .find(|(name, _)| format!("Root.{name}") == *path)
+                        .map_or(1., |(_, value)| *value);
+                    (*id, value)
+                })
+                .collect(),
+        };
+        artifact
+            .assembly
+            .worker(BTreeMap::new(), cancel.clone())
+            .constraints(&case)
+    }
+}
+/// The source a domain refusal names, through its instance attribution.
+fn domain_source(error: &MathError) -> Option<SemanticId> {
+    match error {
+        MathError::Instance { cause, .. } => domain_source(cause),
+        MathError::Domain { source_id, .. } => Some(*source_id),
+        _ => None,
+    }
+}
+
+/// ADR-0123 Outcome 4: an increment integrates its correlation over [T0, T], so the data
+/// envelope guards both endpoints. Either endpoint outside the row's envelope refuses the
+/// evaluation, naming the envelope's relation, whichever way the interval runs.
+#[test]
+fn increment_guards_its_integration_interval() {
+    let text = format!(
+        "package p {{ {ENVELOPE_BANK}
+ fn dh(T0: Temperature, T: Temperature, p: Row<cp_data>) -> DeltaH guards(p.T: [T0, T]) = p.c*(T - T0);
+ def Root {{ var T0: Temperature; var T: Temperature; var h: DeltaH; eq e: h == dh(T0, T, cp_data[a]); }}
+}}"
+    );
+    let rows = source(&text);
+    let table = rows.iter().find(|r| r.name == "cp_data").unwrap().declaration_id;
+    let mut evaluate = evaluate_named(&text);
+    for (t0, t) in [(300., 350.), (380., 260.), (250., 400.)] {
+        evaluate(&[("T0", t0), ("T", t)]).unwrap_or_else(|e| panic!("[{t0}, {t}]: {e}"));
+    }
+    for (t0, t) in [(298.15 - 60., 350.), (300., 410.), (410., 300.), (200., 450.)] {
+        let error = evaluate(&[("T0", t0), ("T", t)]).expect_err("outside the envelope");
+        assert_eq!(domain_source(&error), Some(table.as_id()), "[{t0}, {t}]: {error}");
+    }
+}
+
+/// ADR-0123 Outcome 4: validity is the intersection of the form, data and closure layers.
+/// A consumer selecting extrapolation relaxes only the data layer: the form layer's domain
+/// never extrapolates and a rejecting closure range still holds; under reject, the data
+/// layer refuses and names its relation. A selection of the form layer is refused.
+#[test]
+fn layers_intersect_and_form_never_extrapolates() {
+    let text = format!(
+        "package p {{ {ENVELOPE_BANK}
+ fn cp(T: Temperature, p: Row<cp_data>) -> MolarCp guards(p.T: T) valid(T > 200{{K}}) = p.c;
+ def Root {{ extrapolation data extrapolate; var T: Temperature; var c: MolarCp; eq e: c == cp(T, cp_data[a]); annotation valid T(100{{K}}, 450{{K}}, reject); }}
+}}"
+    );
+    let rows = source(&text);
+    let id = |name: &str| rows.iter().find(|r| r.name == name).unwrap().declaration_id;
+    let mut extrapolating = evaluate_named(&text);
+    // Inside every layer, and outside only the data layer, whose consumer extrapolates.
+    extrapolating(&[("T", 300.)]).unwrap();
+    extrapolating(&[("T", 420.)]).unwrap();
+    // Outside the form layer: refused whatever the data layer's policy.
+    let error = extrapolating(&[("T", 150.)]).expect_err("the form layer never extrapolates");
+    assert_eq!(domain_source(&error), Some(id("cp").as_id()), "{error}");
+    // Outside the rejecting closure range: refused.
+    assert!(extrapolating(&[("T", 470.)]).is_err());
+    // Without the selection the data layer rejects and names its relation.
+    let mut rejecting = evaluate_named(&text.replace("extrapolation data extrapolate; ", ""));
+    rejecting(&[("T", 300.)]).unwrap();
+    let error = rejecting(&[("T", 420.)]).expect_err("the data layer rejects by default");
+    assert_eq!(domain_source(&error), Some(id("cp_data").as_id()), "{error}");
+    // The form layer is not selectable.
+    for selection in ["extrapolation form extrapolate;", "extrapolation form reject;"] {
+        let mut workspace =
+            CompilerWorkspace::new(super::super::tests::inputs(), WorkspaceLimits::default())
+                .unwrap();
+        let error = workspace
+            .publish_modeling(
+                source(&text.replace("extrapolation data extrapolate;", selection)),
+                PhysicalScope::default(),
+            )
+            .expect_err("form layer selection");
+        assert!(error.to_string().contains("the form layer never extrapolates"), "{error}");
+    }
+}

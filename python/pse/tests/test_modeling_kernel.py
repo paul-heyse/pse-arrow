@@ -682,8 +682,15 @@ def test_modeling_authored_fixture_shared_checks_and_owned_tables(
     assert isolated_rows[2]["predecessor"] == 1
     assert not isolated_rows[2]["accepted"]
     assert reports.column("value").to_pylist() == [2.0]
+    # ADR-0123 Outcome 4: a validity check names its layer; an annotated range is closure.
     assert any(
-        row["within_validity"] is False and row["extrapolation_allowed"] is True
+        row["within_validity"] is False
+        and row["extrapolation_allowed"] is True
+        and row["layer"] == "closure"
+        for row in validation.to_pylist()
+    )
+    assert all(
+        (row["layer"] is None) == (row["kind"] != "validity")
         for row in validation.to_pylist()
     )
     assert "coverage" in checks.column("kind").to_pylist()

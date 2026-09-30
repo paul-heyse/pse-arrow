@@ -91,6 +91,40 @@ fn provenance(value: &super::ModelingProvenance) -> String {
 fn ty(nodes: &[super::TypeNode]) -> Result<String, AuthoringError> {
     Ok(super::render_type(nodes)?)
 }
+/// ADR-0123 Outcome 4: `axis: Type in lower..upper`, an envelope after its keyword.
+fn envelope(
+    axis: &str,
+    nodes: &[super::TypeNode],
+    lower: &str,
+    upper: &str,
+) -> Result<String, AuthoringError> {
+    Ok(format!(
+        "{}: {} in {}..{}",
+        name(axis),
+        ty(nodes)?,
+        name(lower),
+        name(upper)
+    ))
+}
+/// ADR-0123 Outcome 4: ` guards(carrier.axis: argument, carrier.axis: [start, end])`.
+fn guards(guards: &[super::ModelingEnvelopeGuard]) -> Result<String, AuthoringError> {
+    use pse_model::generated::enums::ModelingEnvelopeExtent as Extent;
+    if guards.is_empty() {
+        return Ok(String::new());
+    }
+    let entries = guards
+        .iter()
+        .map(|g| {
+            let covered = match (g.extent, g.arguments.as_slice()) {
+                (Extent::Point, [argument]) => name(argument),
+                (Extent::Interval, [start, end]) => format!("[{}, {}]", name(start), name(end)),
+                _ => return Err(bad("a guard covers one argument or an interval between two")),
+            };
+            Ok(format!("{}.{}: {covered}", name(&g.carrier), name(&g.envelope)))
+        })
+        .collect::<Result<Vec<_>, AuthoringError>>()?;
+    Ok(format!(" guards({})", entries.join(", ")))
+}
 fn parameters<'a>(
     items: impl Iterator<Item = (&'a str, &'a [super::TypeNode], Option<&'a str>)>,
 ) -> Result<String, AuthoringError> {
@@ -426,7 +460,7 @@ fn print_block(
                 )
             }
             Selected::Function(v) => format!(
-                "fn {n}{}{} -> {}{}{}{}{};",
+                "fn {n}{}{} -> {}{}{}{}{}{};",
                 list(&v.type_parameters, "<", ">"),
                 if v.arguments.is_empty() {
                     "()".into()
@@ -440,6 +474,7 @@ fn print_block(
                     }))?
                 },
                 ty(&v.return_type)?,
+                guards(&v.guards)?,
                 v.validity.as_ref().map_or(String::new(),|p|format!(" valid({p})")),
                 v.continuity
                     .map_or(String::new(), |order| format!(" piecewise {order}")),
@@ -500,6 +535,13 @@ fn print_block(
                 _ => return Err(bad("a binding carries a value and no key or type")),
             },
             Selected::IdentifierScheme => format!("identifier scheme {n};"),
+            Selected::Envelope(v) => format!(
+                "envelope {};",
+                envelope(&row.name, &v.r#type, &v.lower, &v.upper)?
+            ),
+            Selected::Extrapolation(v) => {
+                format!("extrapolation {} {};", v.layer.as_str(), v.policy.as_str())
+            }
             Selected::Constant(v) => format!(
                 "constant {n}: {} = {} {};",
                 super::render_type(&v.r#type)?,
@@ -558,6 +600,12 @@ fn print_block(
             Selected::Table(v) => {
                 use pse_model::generated::enums::ModelingMissingPolicy as Missing;
                 let mut clauses = String::new();
+                for e in &v.envelopes {
+                    clauses.push_str(&format!(
+                        " envelope {}",
+                        envelope(&e.name, &e.r#type, &e.lower, &e.upper)?
+                    ));
+                }
                 if let Some(symmetry) = &v.symmetry {
                     clauses.push_str(&format!(
                         " symmetric({}, {}) diagonal {}",

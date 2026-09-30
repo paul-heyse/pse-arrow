@@ -20,8 +20,13 @@ use std::{
 pub struct Function {
     /// Generic finite reduction generated from a checked lexical reduction.
     pub reduction: Option<FiniteReduction>,
-    /// Strict authored domain predicate over explicit arguments, checked before any function evaluation.
+    /// Strict authored domain predicate over explicit arguments, checked before any function
+    /// evaluation: the form layer, which never extrapolates (ADR-0123 Outcome 4).
     pub validity: Option<dsl::Predicate>,
+    /// The data layer: the generated guards of the envelopes its row and entity arguments
+    /// carry (ADR-0123 Outcome 4). A rejecting guard is checked like the form layer's
+    /// predicate; specialization selects the consumer's policy.
+    pub envelopes: Vec<crate::envelope::Guard>,
     /// A checked foreign implementation; factories are supplied only by the runtime.
     pub external: Option<crate::external::External>,
     /// Claimed boundary agreement, proved by the mathematical consumer before derivative admission.
@@ -85,6 +90,9 @@ pub struct CheckedPackage {
     pub(crate) oracles: BTreeMap<DeclarationId, DeclarationId>,
     /// Test-only entities, keyed rows and constants; table rows carry their own taint.
     pub(crate) test_only: BTreeSet<DeclarationId>,
+    /// Test-only datasets and constants: their role is test-only, or their lineage reaches
+    /// test-only data (ADR-0123 Outcome 5).
+    pub(crate) test_only_data: BTreeSet<DeclarationId>,
 }
 impl CheckedPackage {
     /// The immutable physical environment used to admit this package.
@@ -431,6 +439,7 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
         provenance: BTreeMap::new(),
         oracles: BTreeMap::new(),
         test_only: BTreeSet::new(),
+        test_only_data: BTreeSet::new(),
     };
     for row in rows {
         if row.declaration_id.as_id() == SemanticId::NIL {
@@ -453,6 +462,7 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
         .map(|id| (*id, graph.add_node(*id)))
         .collect::<BTreeMap<_, _>>();
     let mut siblings = BTreeSet::new();
+    let mut selections = BTreeSet::new();
     for row in rows {
         {
             // ADR-0104: constraint forms belong to a definition's own rows (possibly guarded),
@@ -737,6 +747,58 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
                             .map_err(|e| invalid(row.declaration_id, e.to_string()))?;
                     }
                 }
+            }
+        }
+        {
+            // ADR-0123 Outcome 4: a property package (a definition) or an analysis (a test or
+            // a case) selects the data layer's extrapolation policy, once per scope. The form
+            // layer never extrapolates; the closure layer's consumer states its policy on its
+            // validity annotation. An entity kind declares its envelopes as declarations; a
+            // table declares its own inline.
+            use pse_model::generated::enums::{
+                ModelingDeclarationKind as Kind, ModelingValidityLayer as Layer,
+            };
+            let parent = row
+                .parent_id
+                .and_then(|id| p.declarations.get(&id))
+                .map(|r| r.value.kind);
+            if let Some(selection) = &row.value.extrapolation {
+                if !matches!(parent, Some(Kind::Definition | Kind::Test | Kind::Case)) {
+                    return Err(invalid(
+                        row.declaration_id,
+                        "a property package's definition, a test or a case selects an extrapolation policy",
+                    ));
+                }
+                match selection.layer {
+                    Layer::Form => {
+                        return Err(invalid(
+                            row.declaration_id,
+                            "the form layer never extrapolates: a function's own domain has no selectable policy",
+                        ));
+                    }
+                    Layer::Closure => {
+                        return Err(invalid(
+                            row.declaration_id,
+                            "the closure layer's policy is stated by its validity annotation",
+                        ));
+                    }
+                    Layer::Data => {}
+                }
+                if !selections.insert((row.parent_id, selection.layer)) {
+                    return Err(invalid(
+                        row.declaration_id,
+                        format!(
+                            "one extrapolation policy per scope selects the {} layer",
+                            selection.layer.as_str()
+                        ),
+                    ));
+                }
+            }
+            if row.value.envelope.is_some() && parent != Some(Kind::EntityKind) {
+                return Err(invalid(
+                    row.declaration_id,
+                    "an envelope declaration belongs to an entity kind; a table declares its envelopes inline",
+                ));
             }
         }
         if !siblings.insert((row.parent_id, row.name.clone())) {
@@ -1077,6 +1139,8 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
                         .as_ref()
                         .map(|p| dsl::parse_predicate(p).map_err(|e| invalid(id, e.to_string())))
                         .transpose()?,
+                    // Resolved once tables and kinds are admitted (`envelope::admit`).
+                    envelopes: Vec::new(),
                     external: v
                         .external
                         .as_ref()
@@ -1145,6 +1209,11 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
                 .cloned()
                 .unwrap_or_default();
             for child in p.children.get(&id).cloned().unwrap_or_default() {
+                // An envelope bounds the kind's attributes; it is not a member (ADR-0123
+                // Outcome 4).
+                if p.declarations[&child].value.envelope.is_some() {
+                    continue;
+                }
                 let name = p.declarations[&child].name.clone();
                 if p.declarations[&child]
                     .value
@@ -1404,6 +1473,7 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
     crate::entity::admit(&mut p, context)?;
     crate::provenance::admit(&mut p)?;
     crate::data::admit(&mut p, context)?;
+    crate::envelope::admit(&mut p, context)?;
     crate::expression::check_all(&p, context)?;
     Ok(p)
 }
@@ -1530,6 +1600,10 @@ impl CheckedPackage {
                 texts.extend(v.columns.iter().filter_map(|c| c.derived.as_deref()));
                 texts.extend(v.requirements.iter().map(String::as_str));
                 sets.extend(v.complete_over.iter().filter_map(|e| e.set.as_ref()));
+                types.extend(v.envelopes.iter().map(|e| &e.r#type));
+            }
+            if let Some(v) = &row.value.envelope {
+                types.push(&v.r#type);
             }
             // A table or a kind depends on the datasets that supply its rows, a kind also on
             // those of its refinements.
@@ -1741,6 +1815,7 @@ impl CheckedPackage {
         p.identifiers.retain(|entity| entities.contains(&entity));
         p.test_only
             .retain(|id| entities.contains(id) || p.constants.contains_key(id));
+        p.test_only_data.retain(|id| selected.contains(id));
         Ok(p)
     }
 }

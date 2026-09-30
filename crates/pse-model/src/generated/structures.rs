@@ -719,6 +719,66 @@ impl PartialEq for ModelingCompleteness {
     clippy::struct_field_names,
     reason = "field names are the authoritative relation contract"
 )]
+pub struct ModelingEnvelope {
+    ///name
+    pub r#name: String,
+    ///type
+    pub r#type: Vec<ModelingTypeArenaNode>,
+    ///lower
+    pub r#lower: String,
+    ///upper
+    pub r#upper: String,
+}
+impl crate::SemanticEq for ModelingEnvelope {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#name, &other.r#name)
+            && crate::SemanticEq::semantic_eq(&self.r#type, &other.r#type)
+            && crate::SemanticEq::semantic_eq(&self.r#lower, &other.r#lower)
+            && crate::SemanticEq::semantic_eq(&self.r#upper, &other.r#upper)
+    }
+}
+impl PartialEq for ModelingEnvelope {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct ModelingEnvelopeGuard {
+    ///carrier
+    pub r#carrier: String,
+    ///envelope
+    pub r#envelope: String,
+    ///extent
+    pub r#extent: crate::generated::enums::ModelingEnvelopeExtent,
+    ///arguments
+    pub r#arguments: Vec<String>,
+}
+impl crate::SemanticEq for ModelingEnvelopeGuard {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#carrier, &other.r#carrier)
+            && crate::SemanticEq::semantic_eq(&self.r#envelope, &other.r#envelope)
+            && crate::SemanticEq::semantic_eq(&self.r#extent, &other.r#extent)
+            && crate::SemanticEq::semantic_eq(&self.r#arguments, &other.r#arguments)
+    }
+}
+impl PartialEq for ModelingEnvelopeGuard {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
 pub struct ModelingIntegerRange {
     ///lower
     pub r#lower: i64,
@@ -1395,6 +1455,48 @@ impl crate::HeapUsage for ModelingCompleteness {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#key))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#set))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#range))
+    }
+}
+impl crate::SemanticFrame for ModelingEnvelope {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#name));
+        crate::SemanticFrame::frame(&self.r#name, hash);
+        hash.str(stringify!(r#type));
+        crate::SemanticFrame::frame(&self.r#type, hash);
+        hash.str(stringify!(r#lower));
+        crate::SemanticFrame::frame(&self.r#lower, hash);
+        hash.str(stringify!(r#upper));
+        crate::SemanticFrame::frame(&self.r#upper, hash);
+    }
+}
+impl crate::HeapUsage for ModelingEnvelope {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#name))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#type))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#lower))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#upper))
+    }
+}
+impl crate::SemanticFrame for ModelingEnvelopeGuard {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#carrier));
+        crate::SemanticFrame::frame(&self.r#carrier, hash);
+        hash.str(stringify!(r#envelope));
+        crate::SemanticFrame::frame(&self.r#envelope, hash);
+        hash.str(stringify!(r#extent));
+        crate::SemanticFrame::frame(&self.r#extent, hash);
+        hash.str(stringify!(r#arguments));
+        crate::SemanticFrame::frame(&self.r#arguments, hash);
+    }
+}
+impl crate::HeapUsage for ModelingEnvelopeGuard {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#carrier))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#envelope))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#extent))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#arguments))
     }
 }
 impl crate::SemanticFrame for ModelingIntegerRange {

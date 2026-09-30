@@ -42,7 +42,6 @@ pse.math.local-occurrence.v2
 pse.math.normalization.v1
 pse.math.normalized-facts.v1
 pse.math.physical-pass.v1
-pse.math.typed-definition.v3
 pse.modeling.consumer-body.v2
 pse.modeling.continuity.v2
 pse.modeling.definite-integral.v2
@@ -51,7 +50,6 @@ pse.modeling.dynamic-modes.v1
 pse.modeling.finite-reduction.v1
 pse.modeling.fit-execution.v1
 pse.modeling.fit-source.v1
-pse.modeling.implicit-residual.v2
 pse.modeling.implicit-trial-hints.v1
 pse.modeling.member.v1
 pse.modeling.mesh-coordinate.v1
@@ -178,8 +176,15 @@ pse.quantity.unit-product.v1
 pse.math.physical-inventory.v5
 # Plan 23 KR4 (ADR-0123 Outcome 2): a keyed entity's identity over its key-declaring kind and
 # typed key values; enumeration members have identities, so coordinates and function
-# specializations frame a member by identity. coordinate.v2 replaces coordinate.v1 and
-# finite-function.v3 replaces finite-function.v2, neither of which is declared any longer.
+# specializations frame a member by identity. coordinate.v2 replaces coordinate.v1, which is
+# no longer declared; KR4's finite-function.v3 is replaced below.
 pse.modeling.keyed-entity.v1
 pse.modeling.coordinate.v2
-pse.modeling.finite-function.v3
+# Plan 23 KR7 (ADR-0123 Outcome 4): a function's data-layer guards enter the preimages of its
+# specializations, its typed definition and the implicit residuals that frame it.
+# finite-function.v4 replaces finite-function.v3, typed-definition.v4 replaces
+# typed-definition.v3 and implicit-residual.v3 replaces implicit-residual.v2, none of which
+# is declared any longer.
+pse.modeling.finite-function.v4
+pse.math.typed-definition.v4
+pse.modeling.implicit-residual.v3

@@ -100,7 +100,9 @@ pub enum AnnotationValue {
     Objective(ObjectiveDeclaration),
     /// Output label.
     Report(String),
-    /// Physical validity range and explicit extrapolation policy.
+    /// Physical validity range, its layer and its selected extrapolation policy (ADR-0123
+    /// Outcome 4): an annotated closure range, or a data envelope whose consumer selected
+    /// extrapolation, which is observed rather than enforced.
     Valid {
         /// Lower endpoint of the validity range.
         lower: Expr,
@@ -108,6 +110,11 @@ pub enum AnnotationValue {
         upper: Expr,
         /// What evaluation outside the range does.
         policy: pse_model::generated::enums::ExtrapolationPolicy,
+        /// The validity layer the range belongs to.
+        layer: pse_model::generated::enums::ModelingValidityLayer,
+        /// The declaration that selected the data layer's policy; a closure range states
+        /// its own.
+        selection: Option<DeclarationId>,
     },
     /// Knowledge-specific post-solve check, not a new equation.
     Check(Predicate),
@@ -296,6 +303,8 @@ impl Engine<'_, '_> {
                     policy: a
                         .extrapolation
                         .ok_or_else(|| invalid(at, "validity extrapolation policy"))?,
+                    layer: pse_model::generated::enums::ModelingValidityLayer::Closure,
+                    selection: None,
                 },
                 AnnotationKind::Check => {
                     let predicate = dsl::parse_predicate(&a.arguments[0])

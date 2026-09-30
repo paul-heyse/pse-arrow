@@ -3,6 +3,7 @@
 
 //! Bounded finite specialization. No solver, store, query runtime or native library startup.
 mod continuous;
+mod envelopes;
 mod fold;
 mod functions;
 mod group;
@@ -299,8 +300,12 @@ pub struct SpecializedModel {
     pub connections: BTreeMap<SemanticId, Connection>,
     /// Selected pure function bodies keyed by resolved semantic call identity.
     pub functions: BTreeMap<String, crate::Function>,
-    /// Typed authored annotations and their instantiated owner.
+    /// Typed authored annotations and their instantiated owner, and the data envelopes
+    /// whose consumer selected extrapolation, observed at the members they guard.
     pub annotations: Vec<crate::annotation::Annotation>,
+    /// Data envelopes whose consumer selected extrapolation, observed at static arguments
+    /// (ADR-0123 Outcome 4).
+    pub observations: Vec<crate::envelope::StaticObservation>,
     /// Named lowerings of constraint forms and disjunctions, inner-first (ADR-0104).
     pub lowerings: Vec<Lowering>,
     /// Constraints left to a backend's native handlers; routing refuses them elsewhere.
@@ -351,6 +356,9 @@ struct State {
     children: BTreeMap<(String, Vec<SemanticId>), InstanceId>,
     symbols: BTreeMap<(DeclarationId, Vec<SemanticId>), SemanticId>,
     stack: Vec<DeclarationId>,
+    /// The data layer's extrapolation policy for this instance and the declaration that
+    /// selected it: the nearest instance that selects one decides (ADR-0123 Outcome 4).
+    extrapolation: Option<(pse_model::generated::enums::ExtrapolationPolicy, DeclarationId)>,
 }
 pub(crate) struct Engine<'a, 'b> {
     pub(crate) p: &'a CheckedPackage,
@@ -376,6 +384,15 @@ pub(crate) struct Engine<'a, 'b> {
     /// The root's reader: a test fixture reads any admitted data; any other root reads no
     /// test-only data (ADR-0123 Outcome 5).
     reader: crate::provenance::Reader<'static>,
+    /// Data-layer observations the enclosing function bodies pass on to their call sites,
+    /// innermost last (ADR-0123 Outcome 4).
+    lifted: Vec<Vec<envelopes::Lift>>,
+    /// Dynamic conditional branches enclosing the expression being rewritten.
+    branches: usize,
+    /// Extrapolating data envelopes observed at members, keyed by member and envelope.
+    observed: BTreeMap<(SemanticId, DeclarationId), envelopes::Resolved>,
+    /// Extrapolating data envelopes observed at static arguments, keyed by envelope and value.
+    observed_static: BTreeMap<(DeclarationId, u64), envelopes::Resolved>,
 }
 
 /// The identity a declared analysis gives its root instance: the root declaration's own.
@@ -486,6 +503,10 @@ pub fn specialize_with_discretizer(
         discretizer,
         cancel,
         reader: crate::provenance::Reader::of(package, root),
+        lifted: Vec::new(),
+        branches: 0,
+        observed: BTreeMap::new(),
+        observed_static: BTreeMap::new(),
     };
     engine.checkpoint()?;
     let mut args = bindings.arguments.clone();
@@ -524,6 +545,7 @@ pub fn specialize_with_discretizer(
         }
     }
     engine.check_connectivity()?;
+    engine.publish_observations()?;
     engine.finish(&bindings.formulation)?;
     Ok(engine.model)
 }
@@ -850,6 +872,23 @@ impl Engine<'_, '_> {
                 );
             }
         }
+        // ADR-0123 Outcome 4: the data layer's policy is the one this definition, test or case
+        // selects, else its parent instance's; none selects reject.
+        let extrapolation = members
+            .values()
+            .find_map(|member| {
+                self.p.declarations[member]
+                    .value
+                    .extrapolation
+                    .as_ref()
+                    .filter(|s| s.layer == pse_model::generated::enums::ModelingValidityLayer::Data)
+                    .map(|s| (s.policy, *member))
+            })
+            .or_else(|| {
+                parent
+                    .and_then(|owner| self.states.get(&owner))
+                    .and_then(|state| state.extrapolation)
+            });
         self.states.insert(
             id,
             State {
@@ -863,6 +902,7 @@ impl Engine<'_, '_> {
                 children: BTreeMap::new(),
                 symbols: BTreeMap::new(),
                 stack: Vec::new(),
+                extrapolation,
             },
         );
         self.model.instances.insert(

@@ -154,6 +154,19 @@ fn lineage(v: &Lineage) -> usize {
 }
 fn function(v: &Function) -> usize {
     v.validity.as_ref().map_or(0, predicate)
+        + v.envelopes.capacity() * size_of::<crate::envelope::Guard>()
+        + v.envelopes
+            .iter()
+            .map(|g| {
+                predicate(&g.predicate)
+                    + g.carrier.capacity()
+                    + g.envelope.axis.capacity()
+                    + g.envelope.lower.capacity()
+                    + g.envelope.upper.capacity()
+                    + ty(&g.envelope.ty)
+                    + g.arguments.iter().map(|a| a.capacity() + size_of::<String>()).sum::<usize>()
+            })
+            .sum::<usize>()
         + v.external
             .as_ref()
             .map_or(0, crate::external::External::retained_bytes)
@@ -408,6 +421,12 @@ impl SpecializedModel {
                 .annotations
                 .iter()
                 .map(|v| lineage(&v.lineage) + annotation(&v.value))
+                .sum::<usize>()
+            + self.observations.capacity() * size_of::<crate::envelope::StaticObservation>()
+            + self
+                .observations
+                .iter()
+                .map(|v| lineage(&v.lineage))
                 .sum::<usize>()
     }
 }

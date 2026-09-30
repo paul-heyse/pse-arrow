@@ -793,7 +793,7 @@ pub(super) fn project(
                 quantity: ports[id].quantity,
             })
             .collect::<Vec<_>>();
-        let mut h = FramedHasher::new(pse_ids::Frame::ModelingImplicitResidualV2);
+        let mut h = FramedHasher::new(pse_ids::Frame::ModelingImplicitResidualV3);
         h.id(stage).str(&algorithm.key());
         for residual in &residuals {
             h.id(&residual.id);
@@ -829,6 +829,13 @@ pub(super) fn project(
             h.id(&function.id.as_id());
             if let Some(validity) = &function.validity {
                 h.str(&dsl::render_predicate(validity));
+            }
+            // ADR-0123 Outcome 4: the data-layer guards, their envelopes and policies.
+            h.u64(function.envelopes.len() as u64);
+            for guard in &function.envelopes {
+                h.id(&guard.envelope.owner.as_id())
+                    .str(guard.policy.as_str())
+                    .str(&dsl::render_predicate(&guard.predicate));
             }
             if let Some(external) = &function.external {
                 h.hash(&external.revision)

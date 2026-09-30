@@ -373,6 +373,7 @@ impl Engine<'_, '_> {
                                 prototype: quantity,
                             }),
                             validity: None,
+                            envelopes: Vec::new(),
                             external: None,
                             continuity: None,
                             id,
@@ -512,10 +513,19 @@ impl Engine<'_, '_> {
                         chain,
                     );
                 }
+                let guard = self.rewrite_predicate(instance, guard, &env, chain)?;
+                // A call in a branch is evaluated only where the branch is selected; the data
+                // layer cannot observe it unconditionally (ADR-0123 Outcome 4).
+                self.branches += 1;
+                let branches = self
+                    .rewrite(instance, then, &env, chain)
+                    .and_then(|then| Ok((then, self.rewrite(instance, otherwise, &env, chain)?)));
+                self.branches -= 1;
+                let (then, otherwise) = branches?;
                 ExprKind::Conditional {
-                    guard: Box::new(self.rewrite_predicate(instance, guard, &env, chain)?),
-                    then: Box::new(self.rewrite(instance, then, &env, chain)?),
-                    otherwise: Box::new(self.rewrite(instance, otherwise, &env, chain)?),
+                    guard: Box::new(guard),
+                    then: Box::new(then),
+                    otherwise: Box::new(otherwise),
                 }
             }
             ExprKind::Derivative { body, wrt } => {

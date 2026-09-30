@@ -796,6 +796,8 @@ pub struct AuthoredModelingDeclarationsFieldValueFunction {
     pub r#body: Option<String>,
     ///validity
     pub r#validity: Option<String>,
+    ///guards
+    pub r#guards: Vec<crate::generated::structures::ModelingEnvelopeGuard>,
     ///continuity
     pub r#continuity: Option<i64>,
     ///external
@@ -808,6 +810,7 @@ impl crate::SemanticEq for AuthoredModelingDeclarationsFieldValueFunction {
             && crate::SemanticEq::semantic_eq(&self.r#return_type, &other.r#return_type)
             && crate::SemanticEq::semantic_eq(&self.r#body, &other.r#body)
             && crate::SemanticEq::semantic_eq(&self.r#validity, &other.r#validity)
+            && crate::SemanticEq::semantic_eq(&self.r#guards, &other.r#guards)
             && crate::SemanticEq::semantic_eq(&self.r#continuity, &other.r#continuity)
             && crate::SemanticEq::semantic_eq(&self.r#external, &other.r#external)
     }
@@ -1279,6 +1282,8 @@ pub struct AuthoredModelingDeclarationsFieldValueTable {
     pub r#unique: Vec<AuthoredModelingDeclarationsFieldValueTableUniqueItem>,
     ///requirements
     pub r#requirements: Vec<String>,
+    ///envelopes
+    pub r#envelopes: Vec<crate::generated::structures::ModelingEnvelope>,
 }
 impl crate::SemanticEq for AuthoredModelingDeclarationsFieldValueTable {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -1301,10 +1306,61 @@ impl crate::SemanticEq for AuthoredModelingDeclarationsFieldValueTable {
             && crate::SemanticEq::semantic_eq(
                 &self.r#requirements,
                 &other.r#requirements,
-            )
+            ) && crate::SemanticEq::semantic_eq(&self.r#envelopes, &other.r#envelopes)
     }
 }
 impl PartialEq for AuthoredModelingDeclarationsFieldValueTable {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct AuthoredModelingDeclarationsFieldValueEnvelope {
+    ///type
+    pub r#type: Vec<crate::generated::structures::ModelingTypeArenaNode>,
+    ///lower
+    pub r#lower: String,
+    ///upper
+    pub r#upper: String,
+}
+impl crate::SemanticEq for AuthoredModelingDeclarationsFieldValueEnvelope {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#type, &other.r#type)
+            && crate::SemanticEq::semantic_eq(&self.r#lower, &other.r#lower)
+            && crate::SemanticEq::semantic_eq(&self.r#upper, &other.r#upper)
+    }
+}
+impl PartialEq for AuthoredModelingDeclarationsFieldValueEnvelope {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct AuthoredModelingDeclarationsFieldValueExtrapolation {
+    ///layer
+    pub r#layer: crate::generated::enums::ModelingValidityLayer,
+    ///policy
+    pub r#policy: crate::generated::enums::ExtrapolationPolicy,
+}
+impl crate::SemanticEq for AuthoredModelingDeclarationsFieldValueExtrapolation {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#layer, &other.r#layer)
+            && crate::SemanticEq::semantic_eq(&self.r#policy, &other.r#policy)
+    }
+}
+impl PartialEq for AuthoredModelingDeclarationsFieldValueExtrapolation {
     fn eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(self, other)
     }
@@ -2084,6 +2140,10 @@ pub struct AuthoredModelingDeclarationsFieldValue {
     pub r#complementarity: Option<AuthoredModelingDeclarationsFieldValueComplementarity>,
     ///table
     pub r#table: Option<AuthoredModelingDeclarationsFieldValueTable>,
+    ///envelope
+    pub r#envelope: Option<AuthoredModelingDeclarationsFieldValueEnvelope>,
+    ///extrapolation
+    pub r#extrapolation: Option<AuthoredModelingDeclarationsFieldValueExtrapolation>,
     ///attribute
     pub r#attribute: Option<AuthoredModelingDeclarationsFieldValueAttribute>,
     ///dataset
@@ -2144,7 +2204,11 @@ impl crate::SemanticEq for AuthoredModelingDeclarationsFieldValue {
                 &self.r#complementarity,
                 &other.r#complementarity,
             ) && crate::SemanticEq::semantic_eq(&self.r#table, &other.r#table)
-            && crate::SemanticEq::semantic_eq(&self.r#attribute, &other.r#attribute)
+            && crate::SemanticEq::semantic_eq(&self.r#envelope, &other.r#envelope)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#extrapolation,
+                &other.r#extrapolation,
+            ) && crate::SemanticEq::semantic_eq(&self.r#attribute, &other.r#attribute)
             && crate::SemanticEq::semantic_eq(&self.r#dataset, &other.r#dataset)
             && crate::SemanticEq::semantic_eq(&self.r#entity, &other.r#entity)
             && crate::SemanticEq::semantic_eq(&self.r#enumeration, &other.r#enumeration)
@@ -2231,12 +2295,16 @@ pub enum AuthoredModelingDeclarationsFieldValueSelected<'a> {
     EntityKind(&'a AuthoredModelingDeclarationsFieldValueScope),
     ///enum
     Enum(&'a AuthoredModelingDeclarationsFieldValueEnumeration),
+    ///envelope
+    Envelope(&'a AuthoredModelingDeclarationsFieldValueEnvelope),
     ///equation
     Equation(&'a AuthoredModelingDeclarationsFieldValueEquation),
     ///exactly
     Exactly(&'a AuthoredModelingDeclarationsFieldValueCardinality),
     ///expectation
     Expectation(&'a AuthoredModelingDeclarationsFieldValueExpectation),
+    ///extrapolation
+    Extrapolation(&'a AuthoredModelingDeclarationsFieldValueExtrapolation),
     ///function
     Function(&'a AuthoredModelingDeclarationsFieldValueFunction),
     ///identifier_scheme
@@ -2316,8 +2384,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: None,
             r#enumeration: None,
+            r#envelope: None,
             r#equation: None,
             r#expectation: None,
+            r#extrapolation: None,
             r#function: None,
             r#guard: None,
             r#import: None,
@@ -2352,8 +2422,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: None,
             r#enumeration: None,
+            r#envelope: None,
             r#equation: None,
             r#expectation: None,
+            r#extrapolation: None,
             r#function: None,
             r#guard: None,
             r#import: None,
@@ -2392,8 +2464,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: None,
             r#enumeration: None,
+            r#envelope: None,
             r#equation: None,
             r#expectation: None,
+            r#extrapolation: None,
             r#function: None,
             r#guard: None,
             r#import: None,
@@ -2430,8 +2504,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: None,
             r#enumeration: None,
+            r#envelope: None,
             r#equation: None,
             r#expectation: None,
+            r#extrapolation: None,
             r#function: None,
             r#guard: None,
             r#import: None,
@@ -2468,8 +2544,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: None,
             r#enumeration: None,
+            r#envelope: None,
             r#equation: None,
             r#expectation: None,
+            r#extrapolation: None,
             r#function: None,
             r#guard: None,
             r#import: None,
@@ -2506,8 +2584,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: None,
             r#enumeration: None,
+            r#envelope: None,
             r#equation: None,
             r#expectation: None,
+            r#extrapolation: None,
             r#function: None,
             r#guard: None,
             r#import: None,
@@ -2544,8 +2624,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: None,
             r#enumeration: None,
+            r#envelope: None,
             r#equation: None,
             r#expectation: None,
+            r#extrapolation: None,
             r#function: None,
             r#guard: None,
             r#import: None,
@@ -2580,8 +2662,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: None,
             r#enumeration: None,
+            r#envelope: None,
             r#equation: None,
             r#expectation: None,
+            r#extrapolation: None,
             r#function: None,
             r#guard: None,
             r#import: None,
@@ -2616,8 +2700,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: None,
             r#enumeration: None,
+            r#envelope: None,
             r#equation: None,
             r#expectation: None,
+            r#extrapolation: None,
             r#function: None,
             r#guard: None,
             r#import: None,
@@ -2658,8 +2744,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: None,
             r#enumeration: None,
+            r#envelope: None,
             r#equation: None,
             r#expectation: None,
+            r#extrapolation: None,
             r#function: None,
             r#guard: None,
             r#import: None,
@@ -2700,8 +2788,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: None,
             r#enumeration: None,
+            r#envelope: None,
             r#equation: None,
             r#expectation: None,
+            r#extrapolation: None,
             r#function: None,
             r#guard: None,
             r#import: None,
@@ -2738,8 +2828,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: None,
             r#enumeration: None,
+            r#envelope: None,
             r#equation: None,
             r#expectation: None,
+            r#extrapolation: None,
             r#function: None,
             r#guard: None,
             r#import: None,
@@ -2774,8 +2866,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: None,
             r#enumeration: None,
+            r#envelope: None,
             r#equation: None,
             r#expectation: None,
+            r#extrapolation: None,
             r#function: None,
             r#guard: None,
             r#import: None,
@@ -2816,8 +2910,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: None,
             r#enumeration: None,
+            r#envelope: None,
             r#equation: None,
             r#expectation: None,
+            r#extrapolation: None,
             r#function: None,
             r#guard: None,
             r#import: None,
@@ -2854,8 +2950,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: None,
             r#enumeration: None,
+            r#envelope: None,
             r#equation: None,
             r#expectation: None,
+            r#extrapolation: None,
             r#function: None,
             r#guard: None,
             r#import: None,
@@ -2896,8 +2994,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: None,
             r#enumeration: None,
+            r#envelope: None,
             r#equation: None,
             r#expectation: None,
+            r#extrapolation: None,
             r#function: None,
             r#guard: None,
             r#import: None,
@@ -2932,8 +3032,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: None,
             r#enumeration: None,
+            r#envelope: None,
             r#equation: None,
             r#expectation: None,
+            r#extrapolation: None,
             r#function: None,
             r#guard: None,
             r#import: None,
@@ -2968,8 +3070,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: None,
             r#enumeration: None,
+            r#envelope: None,
             r#equation: None,
             r#expectation: None,
+            r#extrapolation: None,
             r#function: None,
             r#guard: None,
             r#import: None,
@@ -3010,8 +3114,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: None,
             r#enumeration: None,
+            r#envelope: None,
             r#equation: None,
             r#expectation: None,
+            r#extrapolation: None,
             r#function: None,
             r#guard: None,
             r#import: None,
@@ -3052,8 +3158,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: Some(value),
             r#entity: None,
             r#enumeration: None,
+            r#envelope: None,
             r#equation: None,
             r#expectation: None,
+            r#extrapolation: None,
             r#function: None,
             r#guard: None,
             r#import: None,
@@ -3092,8 +3200,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: None,
             r#enumeration: None,
+            r#envelope: None,
             r#equation: None,
             r#expectation: None,
+            r#extrapolation: None,
             r#function: None,
             r#guard: None,
             r#import: None,
@@ -3128,8 +3238,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: Some(value),
             r#enumeration: None,
+            r#envelope: None,
             r#equation: None,
             r#expectation: None,
+            r#extrapolation: None,
             r#function: None,
             r#guard: None,
             r#import: None,
@@ -3168,8 +3280,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: None,
             r#enumeration: None,
+            r#envelope: None,
             r#equation: None,
             r#expectation: None,
+            r#extrapolation: None,
             r#function: None,
             r#guard: None,
             r#import: None,
@@ -3204,8 +3318,48 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: None,
             r#enumeration: Some(value),
+            r#envelope: None,
             r#equation: None,
             r#expectation: None,
+            r#extrapolation: None,
+            r#function: None,
+            r#guard: None,
+            r#import: None,
+            r#logic: None,
+            r#ordered_set: None,
+            r#piecewise: None,
+            r#realization: None,
+            r#relaxation: None,
+            r#requirement: None,
+            r#scope: None,
+            r#table: None,
+        }
+    }
+    #[doc = concat!("Construct the ", "envelope", " arm with every other arm absent.")]
+    pub fn from_envelope(value: AuthoredModelingDeclarationsFieldValueEnvelope) -> Self {
+        Self {
+            r#kind: crate::generated::enums::ModelingDeclarationKind::Envelope,
+            r#accumulator: None,
+            r#annotation: None,
+            r#attribute: None,
+            r#binding: None,
+            r#cardinality: None,
+            r#collocation_scheme: None,
+            r#complementarity: None,
+            r#connection: None,
+            r#constant: None,
+            r#continuation: None,
+            r#continuous: None,
+            r#contribution: None,
+            r#dataset: None,
+            r#difference_scheme: None,
+            r#discretization: None,
+            r#entity: None,
+            r#enumeration: None,
+            r#envelope: Some(value),
+            r#equation: None,
+            r#expectation: None,
+            r#extrapolation: None,
             r#function: None,
             r#guard: None,
             r#import: None,
@@ -3240,8 +3394,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: None,
             r#enumeration: None,
+            r#envelope: None,
             r#equation: Some(value),
             r#expectation: None,
+            r#extrapolation: None,
             r#function: None,
             r#guard: None,
             r#import: None,
@@ -3278,8 +3434,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: None,
             r#enumeration: None,
+            r#envelope: None,
             r#equation: None,
             r#expectation: None,
+            r#extrapolation: None,
             r#function: None,
             r#guard: None,
             r#import: None,
@@ -3320,8 +3478,54 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: None,
             r#enumeration: None,
+            r#envelope: None,
             r#equation: None,
             r#expectation: Some(value),
+            r#extrapolation: None,
+            r#function: None,
+            r#guard: None,
+            r#import: None,
+            r#logic: None,
+            r#ordered_set: None,
+            r#piecewise: None,
+            r#realization: None,
+            r#relaxation: None,
+            r#requirement: None,
+            r#scope: None,
+            r#table: None,
+        }
+    }
+    #[doc = concat!(
+        "Construct the ",
+        "extrapolation",
+        " arm with every other arm absent.",
+    )]
+    pub fn from_extrapolation(
+        value: AuthoredModelingDeclarationsFieldValueExtrapolation,
+    ) -> Self {
+        Self {
+            r#kind: crate::generated::enums::ModelingDeclarationKind::Extrapolation,
+            r#accumulator: None,
+            r#annotation: None,
+            r#attribute: None,
+            r#binding: None,
+            r#cardinality: None,
+            r#collocation_scheme: None,
+            r#complementarity: None,
+            r#connection: None,
+            r#constant: None,
+            r#continuation: None,
+            r#continuous: None,
+            r#contribution: None,
+            r#dataset: None,
+            r#difference_scheme: None,
+            r#discretization: None,
+            r#entity: None,
+            r#enumeration: None,
+            r#envelope: None,
+            r#equation: None,
+            r#expectation: None,
+            r#extrapolation: Some(value),
             r#function: None,
             r#guard: None,
             r#import: None,
@@ -3356,8 +3560,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: None,
             r#enumeration: None,
+            r#envelope: None,
             r#equation: None,
             r#expectation: None,
+            r#extrapolation: None,
             r#function: Some(value),
             r#guard: None,
             r#import: None,
@@ -3396,8 +3602,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: None,
             r#enumeration: None,
+            r#envelope: None,
             r#equation: None,
             r#expectation: None,
+            r#extrapolation: None,
             r#function: None,
             r#guard: None,
             r#import: None,
@@ -3432,8 +3640,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: None,
             r#enumeration: None,
+            r#envelope: None,
             r#equation: None,
             r#expectation: None,
+            r#extrapolation: None,
             r#function: None,
             r#guard: None,
             r#import: None,
@@ -3468,8 +3678,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: None,
             r#enumeration: None,
+            r#envelope: None,
             r#equation: None,
             r#expectation: None,
+            r#extrapolation: None,
             r#function: None,
             r#guard: None,
             r#import: Some(value),
@@ -3504,8 +3716,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: None,
             r#enumeration: None,
+            r#envelope: None,
             r#equation: None,
             r#expectation: None,
+            r#extrapolation: None,
             r#function: None,
             r#guard: None,
             r#import: None,
@@ -3540,8 +3754,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: None,
             r#enumeration: None,
+            r#envelope: None,
             r#equation: None,
             r#expectation: None,
+            r#extrapolation: None,
             r#function: None,
             r#guard: None,
             r#import: None,
@@ -3576,8 +3792,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: None,
             r#enumeration: None,
+            r#envelope: None,
             r#equation: None,
             r#expectation: None,
+            r#extrapolation: None,
             r#function: None,
             r#guard: None,
             r#import: None,
@@ -3612,8 +3830,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: None,
             r#enumeration: None,
+            r#envelope: None,
             r#equation: None,
             r#expectation: None,
+            r#extrapolation: None,
             r#function: None,
             r#guard: None,
             r#import: None,
@@ -3648,8 +3868,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: None,
             r#enumeration: None,
+            r#envelope: None,
             r#equation: None,
             r#expectation: None,
+            r#extrapolation: None,
             r#function: None,
             r#guard: None,
             r#import: None,
@@ -3686,8 +3908,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: None,
             r#enumeration: None,
+            r#envelope: None,
             r#equation: None,
             r#expectation: None,
+            r#extrapolation: None,
             r#function: None,
             r#guard: None,
             r#import: None,
@@ -3722,8 +3946,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: None,
             r#enumeration: None,
+            r#envelope: None,
             r#equation: None,
             r#expectation: None,
+            r#extrapolation: None,
             r#function: None,
             r#guard: None,
             r#import: None,
@@ -3758,8 +3984,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: None,
             r#enumeration: None,
+            r#envelope: None,
             r#equation: None,
             r#expectation: None,
+            r#extrapolation: None,
             r#function: None,
             r#guard: None,
             r#import: None,
@@ -3800,8 +4028,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: None,
             r#enumeration: None,
+            r#envelope: None,
             r#equation: None,
             r#expectation: None,
+            r#extrapolation: None,
             r#function: None,
             r#guard: None,
             r#import: None,
@@ -3836,8 +4066,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: None,
             r#enumeration: None,
+            r#envelope: None,
             r#equation: None,
             r#expectation: None,
+            r#extrapolation: None,
             r#function: None,
             r#guard: None,
             r#import: None,
@@ -3874,8 +4106,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: None,
             r#enumeration: None,
+            r#envelope: None,
             r#equation: None,
             r#expectation: None,
+            r#extrapolation: None,
             r#function: None,
             r#guard: None,
             r#import: None,
@@ -3916,8 +4150,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: None,
             r#enumeration: None,
+            r#envelope: None,
             r#equation: None,
             r#expectation: None,
+            r#extrapolation: None,
             r#function: None,
             r#guard: None,
             r#import: None,
@@ -3958,8 +4194,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: None,
             r#enumeration: None,
+            r#envelope: None,
             r#equation: None,
             r#expectation: None,
+            r#extrapolation: None,
             r#function: None,
             r#guard: None,
             r#import: None,
@@ -3994,8 +4232,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: None,
             r#enumeration: None,
+            r#envelope: None,
             r#equation: None,
             r#expectation: None,
+            r#extrapolation: None,
             r#function: None,
             r#guard: None,
             r#import: None,
@@ -4030,8 +4270,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: None,
             r#enumeration: None,
+            r#envelope: None,
             r#equation: None,
             r#expectation: None,
+            r#extrapolation: None,
             r#function: None,
             r#guard: None,
             r#import: None,
@@ -4066,8 +4308,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: None,
             r#enumeration: None,
+            r#envelope: None,
             r#equation: None,
             r#expectation: None,
+            r#extrapolation: None,
             r#function: None,
             r#guard: None,
             r#import: None,
@@ -4102,8 +4346,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: None,
             r#enumeration: None,
+            r#envelope: None,
             r#equation: None,
             r#expectation: None,
+            r#extrapolation: None,
             r#function: None,
             r#guard: None,
             r#import: None,
@@ -4138,8 +4384,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: None,
             r#enumeration: None,
+            r#envelope: None,
             r#equation: None,
             r#expectation: None,
+            r#extrapolation: None,
             r#function: None,
             r#guard: None,
             r#import: None,
@@ -4174,8 +4422,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: None,
             r#enumeration: None,
+            r#envelope: None,
             r#equation: None,
             r#expectation: None,
+            r#extrapolation: None,
             r#function: None,
             r#guard: None,
             r#import: None,
@@ -4210,8 +4460,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: None,
             r#enumeration: None,
+            r#envelope: None,
             r#equation: None,
             r#expectation: None,
+            r#extrapolation: None,
             r#function: None,
             r#guard: None,
             r#import: None,
@@ -4246,8 +4498,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#discretization: None,
             r#entity: None,
             r#enumeration: None,
+            r#envelope: None,
             r#equation: None,
             r#expectation: None,
+            r#extrapolation: None,
             r#function: None,
             r#guard: Some(value),
             r#import: None,
@@ -4286,8 +4540,10 @@ impl AuthoredModelingDeclarationsFieldValue {
             self.r#discretization.as_ref(),
             self.r#entity.as_ref(),
             self.r#enumeration.as_ref(),
+            self.r#envelope.as_ref(),
             self.r#equation.as_ref(),
             self.r#expectation.as_ref(),
+            self.r#extrapolation.as_ref(),
             self.r#function.as_ref(),
             self.r#guard.as_ref(),
             self.r#import.as_ref(),
@@ -4303,6 +4559,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             (
                 "accumulator",
                 Some(value),
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -4365,9 +4623,13 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Alias(value)),
             (
                 "alternative",
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -4431,6 +4693,8 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Annotation(value)),
             (
                 "atleast",
@@ -4439,6 +4703,8 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 Some(value),
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -4497,6 +4763,8 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Atmost(value)),
             (
                 "attribute",
@@ -4530,9 +4798,13 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Attribute(value)),
             (
                 "case",
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -4596,6 +4868,8 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Child(value)),
             (
                 "collocation_scheme",
@@ -4605,6 +4879,8 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 Some(value),
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -4668,6 +4944,8 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
+                None,
             ) => {
                 Ok(
                     AuthoredModelingDeclarationsFieldValueSelected::Complementarity(
@@ -4685,6 +4963,8 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 Some(value),
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -4740,6 +5020,8 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Constant(value)),
             (
                 "continuation",
@@ -4753,6 +5035,8 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 Some(value),
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -4806,6 +5090,8 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Continuous(value)),
             (
                 "contribution",
@@ -4821,6 +5107,8 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 Some(value),
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -4872,9 +5160,13 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Dataset(value)),
             (
                 "definition",
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -4938,6 +5230,8 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
+                None,
             ) => {
                 Ok(
                     AuthoredModelingDeclarationsFieldValueSelected::DifferenceScheme(
@@ -4977,11 +5271,15 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
+                None,
             ) => {
                 Ok(AuthoredModelingDeclarationsFieldValueSelected::Discretization(value))
             }
             (
                 "disjunction",
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -5045,9 +5343,13 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Entity(value)),
             (
                 "entity_kind",
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -5111,7 +5413,44 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Enum(value)),
+            (
+                "envelope",
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(value),
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+            ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Envelope(value)),
             (
                 "equation",
                 None,
@@ -5131,7 +5470,9 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
                 Some(value),
+                None,
                 None,
                 None,
                 None,
@@ -5152,6 +5493,8 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 Some(value),
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -5198,7 +5541,9 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
                 Some(value),
+                None,
                 None,
                 None,
                 None,
@@ -5212,7 +5557,44 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Expectation(value)),
             (
+                "extrapolation",
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(value),
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+            ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Extrapolation(value)),
+            (
                 "function",
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -5276,9 +5658,13 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::IdentifierScheme),
             (
                 "implicit",
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -5333,6 +5719,8 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
+                None,
                 Some(value),
                 None,
                 None,
@@ -5345,6 +5733,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Import(value)),
             (
                 "interface",
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -5408,9 +5798,13 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Let(value)),
             (
                 "logic",
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -5444,6 +5838,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Logic(value)),
             (
                 "package",
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -5507,9 +5903,13 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Parameter(value)),
             (
                 "piecewise",
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -5573,6 +5973,8 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Port(value)),
             (
                 "preset",
@@ -5606,9 +6008,13 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Preset(value)),
             (
                 "realization",
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -5670,11 +6076,15 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
+                None,
                 Some(value),
                 None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Regime(value)),
             (
                 "relaxation",
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -5708,6 +6118,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Relaxation(value)),
             (
                 "requirement",
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -5771,6 +6183,8 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::ScopeValue(value)),
             (
                 "set",
@@ -5804,9 +6218,13 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Set(value)),
             (
                 "sos1",
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -5863,6 +6281,8 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
+                None,
                 Some(value),
                 None,
                 None,
@@ -5873,6 +6293,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Sos2(value)),
             (
                 "stage",
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -5935,10 +6357,14 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
+                None,
                 Some(value),
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Table(value)),
             (
                 "test",
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -6002,9 +6428,13 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Variable(value)),
             (
                 "when",
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -6611,6 +7041,8 @@ impl crate::SemanticFrame for AuthoredModelingDeclarationsFieldValueFunction {
         crate::SemanticFrame::frame(&self.r#body, hash);
         hash.str(stringify!(r#validity));
         crate::SemanticFrame::frame(&self.r#validity, hash);
+        hash.str(stringify!(r#guards));
+        crate::SemanticFrame::frame(&self.r#guards, hash);
         hash.str(stringify!(r#continuity));
         crate::SemanticFrame::frame(&self.r#continuity, hash);
         hash.str(stringify!(r#external));
@@ -6625,6 +7057,7 @@ impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueFunction {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#return_type))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#body))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#validity))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#guards))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#continuity))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#external))
     }
@@ -6935,6 +7368,8 @@ impl crate::SemanticFrame for AuthoredModelingDeclarationsFieldValueTable {
         crate::SemanticFrame::frame(&self.r#unique, hash);
         hash.str(stringify!(r#requirements));
         crate::SemanticFrame::frame(&self.r#requirements, hash);
+        hash.str(stringify!(r#envelopes));
+        crate::SemanticFrame::frame(&self.r#envelopes, hash);
     }
 }
 impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueTable {
@@ -6949,6 +7384,40 @@ impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueTable {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#symmetry))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#unique))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#requirements))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#envelopes))
+    }
+}
+impl crate::SemanticFrame for AuthoredModelingDeclarationsFieldValueEnvelope {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#type));
+        crate::SemanticFrame::frame(&self.r#type, hash);
+        hash.str(stringify!(r#lower));
+        crate::SemanticFrame::frame(&self.r#lower, hash);
+        hash.str(stringify!(r#upper));
+        crate::SemanticFrame::frame(&self.r#upper, hash);
+    }
+}
+impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueEnvelope {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#type))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#lower))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#upper))
+    }
+}
+impl crate::SemanticFrame for AuthoredModelingDeclarationsFieldValueExtrapolation {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#layer));
+        crate::SemanticFrame::frame(&self.r#layer, hash);
+        hash.str(stringify!(r#policy));
+        crate::SemanticFrame::frame(&self.r#policy, hash);
+    }
+}
+impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueExtrapolation {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#layer))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#policy))
     }
 }
 impl crate::SemanticFrame for AuthoredModelingDeclarationsFieldValueAttribute {
@@ -7462,6 +7931,10 @@ impl crate::SemanticFrame for AuthoredModelingDeclarationsFieldValue {
         crate::SemanticFrame::frame(&self.r#complementarity, hash);
         hash.str(stringify!(r#table));
         crate::SemanticFrame::frame(&self.r#table, hash);
+        hash.str(stringify!(r#envelope));
+        crate::SemanticFrame::frame(&self.r#envelope, hash);
+        hash.str(stringify!(r#extrapolation));
+        crate::SemanticFrame::frame(&self.r#extrapolation, hash);
         hash.str(stringify!(r#attribute));
         crate::SemanticFrame::frame(&self.r#attribute, hash);
         hash.str(stringify!(r#dataset));
@@ -7516,6 +7989,8 @@ impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValue {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#logic))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#complementarity))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#table))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#envelope))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#extrapolation))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#attribute))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#dataset))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#entity))

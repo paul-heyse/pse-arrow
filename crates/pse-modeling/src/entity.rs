@@ -63,6 +63,9 @@ pub struct Kind {
     /// Whether the kind or an ancestor carries the provenance facet, so its entities may be
     /// sources (ADR-0123 Outcome 5).
     pub provenance: bool,
+    /// Validity envelopes, inherited ones first, each bounded by two attributes of every
+    /// entity of the kind (ADR-0123 Outcome 4).
+    pub envelopes: Vec<crate::envelope::Envelope>,
 }
 
 /// An admitted entity: a declared entity or a row of a keyed kind.
@@ -647,6 +650,27 @@ pub(crate) fn admit(p: &mut CheckedPackage, c: &TypeContext<'_>) -> Result<()> {
         }
         p.entities.insert(id, record);
     }
+    // ADR-0123 Outcome 4: every entity orders the bounds of its kind's envelopes.
+    for (id, record) in &p.entities {
+        for envelope in &p.kinds[&record.kind].envelopes {
+            let bound = |name: &str| record.values.get(name).cloned().unwrap_or(Value::Missing);
+            crate::envelope::ordered(
+                envelope,
+                &bound(&envelope.lower),
+                &bound(&envelope.upper),
+                record.origin,
+                || {
+                    crate::data::display(
+                        p,
+                        &Value::Entity {
+                            id: *id,
+                            kind: record.kind,
+                        },
+                    )
+                },
+            )?;
+        }
+    }
     lineage(p)
 }
 
@@ -737,12 +761,17 @@ fn admit_kinds(p: &mut CheckedPackage, c: &TypeContext<'_>) -> Result<()> {
                 .contains(&pse_model::generated::enums::ModelingKindFacet::Provenance)
         });
         let mut own_keys = Vec::new();
+        let mut envelopes = Vec::new();
         for child in p.children.get(&id).cloned().unwrap_or_default() {
             let row = &p.declarations[&child];
+            if row.value.envelope.is_some() {
+                envelopes.push(child);
+                continue;
+            }
             let Some(attribute) = &row.value.attribute else {
                 return Err(invalid(
                     child,
-                    "an entity kind declares attributes and binds inherited ones only",
+                    "an entity kind declares attributes and envelopes and binds inherited attributes only",
                 ));
             };
             let name = row.name.clone();
@@ -836,6 +865,44 @@ fn admit_kinds(p: &mut CheckedPackage, c: &TypeContext<'_>) -> Result<()> {
             }
             kind.key_kind = Some(id);
             kind.keys = own_keys;
+        }
+        // ADR-0123 Outcome 4: an envelope is data, bounded by two of the kind's attributes,
+        // declared or inherited; a refinement inherits its kind's envelopes.
+        let what = format!("kind {}", p.declarations[&id].name);
+        for child in envelopes {
+            let row = &p.declarations[&child];
+            let declared = row
+                .value
+                .envelope
+                .as_ref()
+                .ok_or_else(|| invalid(child, "envelope payload"))?;
+            if let Some(previous) = kind.envelopes.iter().find(|e| e.axis == row.name) {
+                let owner = p.declarations[&previous.owner].parent_id.unwrap_or(previous.owner);
+                return Err(invalid(
+                    child,
+                    format!(
+                        "{what} redeclares envelope {}, declared by kind {}",
+                        row.name, p.declarations[&owner].name
+                    ),
+                ));
+            }
+            let ty = c.resolve(&declared.r#type, &BTreeSet::new(), &p.named_types(child), child)?;
+            let envelope = crate::envelope::resolve(
+                c,
+                child,
+                &what,
+                &row.name,
+                ty,
+                &declared.lower,
+                &declared.upper,
+                |name| {
+                    kind.attributes
+                        .iter()
+                        .find(|(attribute, _)| attribute == name)
+                        .and_then(|(_, declaration)| p.types.get(declaration).cloned())
+                },
+            )?;
+            kind.envelopes.push(envelope);
         }
         p.kinds.insert(id, kind);
     }
