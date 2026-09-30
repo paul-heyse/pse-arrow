@@ -477,12 +477,20 @@ for the equation of each region and a conditional expression of the state for ea
 condition involves arguments, so it stays in the expression as a piecewise function and every branch
 is evaluated at every point, selected afterwards: an equation has to give a number, or a NaN that the
 selection discards, at the points of the other regions, and an implicit block of a region is solved at
-all of them. A condition compares arguments and stored values with each other, and is written in each
-output that selects by it: a test of a local that is itself a conditional (`r == 3` for a local `r`
-that holds the region) did not finish in the IF97 fixture, where it ran in SymPy's simplification of
-the saturation equation. The wrapper's expansion reads the parameters of every
-region, more than the 64 arrays `numpy.broadcast` takes, so the evaluator takes the shape of the result
-from `numpy.broadcast_shapes`.
+all of them. A condition compares arguments and stored values with each other. The region may be held
+in a local that is itself a conditional expression (`r = 5 if T > T_25 else (2 if ... else 1)`), and
+each output may select by it (`v = v5 if r == 5 else (v2 if r == 2 else ...)`): a comparison of a
+conditional expression with a value, through a local or written in the condition, is stated as the
+condition that selects each of its branches, the disjunction over the branches of "this branch is the
+one selected and the comparison holds of its value". Only the conditions are
+restructured, never the arithmetic: each branch value is compared as it stands, and a branch that is
+NaN (`at(...)` beyond its pieces) compares as NumPy compares a NaN. A condition with a NaN operand is
+false, and so is the negation of it that the selection of a later branch carries (SymPy writes
+`not (a > b)` as `a <= b`); at such a point, outside the domain of the equation the condition
+compares, the selection can differ from that of the nested conditional, which takes its last branch.
+The compiled condition is the size of the predicates written out in each output. The wrapper's
+expansion reads the parameters of every region, more than the 64 arrays `numpy.broadcast` takes, so the
+evaluator takes the shape of the result from `numpy.broadcast_shapes`.
 
 ### Prepare once, execute many
 

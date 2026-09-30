@@ -29,6 +29,8 @@ import numpy as np
 import scipy.optimize
 import sympy
 
+from thermo_knowledge.expression.lowering import substitute
+
 _EPS = float(np.finfo(float).eps)
 _SCAN_POINTS = 4001
 _POLE = 1.0e-3
@@ -98,20 +100,20 @@ class Block:
         sub-form's arguments replaced by the values its caller passed."""
 
         def one(expr: sympy.Expr | None) -> sympy.Expr | None:
-            return None if expr is None else expr.xreplace(mapping)
+            return None if expr is None else substitute(expr, mapping)
 
         return Block(
             form=self.form,
             name=self.name,
             unknowns=self.unknowns,
             labels=self.labels,
-            residuals=tuple(e.xreplace(mapping) for e in self.residuals),
+            residuals=tuple(substitute(e, mapping) for e in self.residuals),
             lower=tuple(one(e) for e in self.lower),
             upper=tuple(one(e) for e in self.upper),
             start=tuple(one(e) for e in self.start),
             select=self.select,
             by=one(self.by),
-            guards=[(text, cond.xreplace(mapping)) for text, cond in self.guards],
+            guards=[(text, substitute(cond, mapping)) for text, cond in self.guards],
         )
 
 

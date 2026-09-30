@@ -390,10 +390,9 @@ h1 = "region1.h(i=i, T=T, p=p)"
 h2 = "region2.h(i=i, T=T, p=p)"
 h3 = "region3.h(i=i, T=T, p=p)"
 h5 = "region5.h(i=i, T=T, p=p)"
+r = "5 if T > limits.T_25[i] else (2 if T > limits.T_23[i] else ((2 if p < boundary.p(i=i, T=T) else 3) if T > limits.T_13[i] else (1 if p > saturation.p_sat(i=i, T=T) else 2)))"
 
-# The predicate is written in each output: a test of a local that is itself a conditional
-# expression (`r == 3`) did not finish (expressions.md, regional forms).
 [forms.if97_regions.outputs]
-region = "5 if T > limits.T_25[i] else (2 if T > limits.T_23[i] else ((2 if p < boundary.p(i=i, T=T) else 3) if T > limits.T_13[i] else (1 if p > saturation.p_sat(i=i, T=T) else 2)))"
-v = "v5 if T > limits.T_25[i] else (v2 if T > limits.T_23[i] else ((v2 if p < boundary.p(i=i, T=T) else v3) if T > limits.T_13[i] else (v1 if p > saturation.p_sat(i=i, T=T) else v2)))"
-h = "h5 if T > limits.T_25[i] else (h2 if T > limits.T_23[i] else ((h2 if p < boundary.p(i=i, T=T) else h3) if T > limits.T_13[i] else (h1 if p > saturation.p_sat(i=i, T=T) else h2)))"
+region = "r"
+v = "v5 if r == 5 else (v2 if r == 2 else (v3 if r == 3 else v1))"
+h = "h5 if r == 5 else (h2 if r == 2 else (h3 if r == 3 else h1))"

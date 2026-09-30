@@ -456,9 +456,6 @@ recipe in `thermo-knowledge/justfile`:
   TK9.
 - Left by HC1: slots have no integer type, so term exponents (IF97 I and J, Helmholtz d and l) are
   held as `Scalar`; whether an integral exponent is a declared slot type or a check is decided in W2.
-  A conditional whose test is itself a conditional local did not finish (the stack pointed into
-  SymPy simplification, root cause unconfirmed); the IF97 wrapper states its predicate in each
-  output instead. Investigate before W2 maps IF97.
 - Left by HC3: `position(t, s)` refuses a species that one array places on more than one site class
   (an ordered phase such as `BCC_B2:Fe:Fe:Va`); per-class addressing is needed when W5 maps ordered
   CALPHAD phases.
@@ -519,6 +516,12 @@ Decisions made during execution:
 - WebBook acquisition waits for W6, when the species list that scopes it exists.
 - `tk build` replaces the canonical schemas in one transaction instead of swapping databases,
   so the source-faithful `src_<id>` schemas stay in the same database.
+- A comparison with a conditional operand is lowered to the predicate that selects each branch
+  before compilation. SymPy otherwise folds the conditional into the condition and its code printer
+  simplifies the result, which did not finish for the IF97 region wrapper (found by HC1, fixed with
+  `tests/test_expression_conditional_locals.py`). At a point where a condition's own operand is NaN
+  the lowered form may pick a different branch than the flat form; that is outside every equation's
+  domain.
 - Whether a form is qualified is derived from recorded runs, not declared: a declared status
   would change the declaration fingerprint the run was made against.
 - A qualification tolerance is set from the conditioning of the formula, recorded in the case

@@ -66,6 +66,7 @@ from thermo_knowledge.expression.scope import (
     classify_call,
     classify_slot,
 )
+from thermo_knowledge.expression.lowering import lower_relation, substitute
 from thermo_knowledge.expression.units import unit_literal
 from thermo_knowledge.expression.validity import membership
 
@@ -556,7 +557,7 @@ class _Machine:
     def inline(self, frame: _Frame, expr: sympy.Basic) -> sympy.Basic:
         """`expr` with every local replaced by its definition."""
         for _, symbol, definition in reversed(list(self.local_definitions(frame))):
-            expr = expr.xreplace({symbol: definition})
+            expr = substitute(expr, {symbol: definition})
         return expr
 
     def used_locals(self, frame: _Frame, expr: sympy.Basic) -> list[str]:
@@ -583,7 +584,7 @@ class _Machine:
                 dependent.add(symbol)
                 chain.append((symbol, definition))
         for symbol, definition in reversed(chain):
-            expr = expr.xreplace({symbol: definition})
+            expr = substitute(expr, {symbol: definition})
         return expr
 
     # -- expansion -------------------------------------------------------------------------
@@ -701,8 +702,8 @@ class _Machine:
             ">=": sympy.Ge,
             "==": sympy.Eq,
             "!=": sympy.Ne,
-        }[node.op](x, y)
-        return self.decide(frame, relation)
+        }[node.op]
+        return self.decide(frame, lower_relation(relation, x, y))
 
     def boolean(self, frame: _Frame, node: t.BoolOp, env: dict[str, Value]) -> Value:
         is_and = node.op == "and"
@@ -1070,7 +1071,7 @@ class _Machine:
         expr, guards = self.output(callee, output)
         for text, condition in guards:
             frame.guards.append(
-                (text, sympy.Or(sympy.Not(frame.path), condition.xreplace(substitution)))
+                (text, sympy.Or(sympy.Not(frame.path), substitute(condition, substitution)))
             )
         used = set(expr.free_symbols)
         for _, condition in guards:
@@ -1078,7 +1079,7 @@ class _Machine:
         for block in callee.blocks:
             if set(block.unknowns) & used:
                 frame.blocks.append(block.substituted(substitution))
-        return _normal(expr.xreplace(substitution))
+        return _normal(substitute(expr, substitution))
 
     # -- sums and iteration ----------------------------------------------------------------
 
