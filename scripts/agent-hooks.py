@@ -9,7 +9,6 @@ from __future__ import annotations
 import json
 import os
 import re
-import subprocess
 import sys
 from pathlib import Path
 
@@ -77,30 +76,6 @@ def protected(root: Path, path: str, *, design_edit: bool = False) -> str | None
 
 def main() -> int:
     action = sys.argv[1]
-    if action == "session":
-        result = subprocess.run(
-            [sys.executable, str(ROOT / "scripts/doctor.py")],
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=45,
-        )
-        # A clean report is one line: a full PASS list primes agents to re-verify
-        # the environment instead of working on the change (AGENTS.md).
-        report = result.stdout + result.stderr
-        if result.returncode == 0 and not re.search(r"\[(FAIL|WARN)\]", report):
-            report = "doctor: environment ready (all checks pass); do not rerun it."
-        print(
-            json.dumps(
-                {
-                    "hookSpecificOutput": {
-                        "hookEventName": "SessionStart",
-                        "additionalContext": report,
-                    }
-                }
-            )
-        )
-        return 0
     try:
         payload = json.load(sys.stdin)
         paths = edit_paths(payload)

@@ -45,14 +45,16 @@ New work starts only when the maintainer authorizes it. Build a target directly 
 code/callers/tests without compatibility APIs or a second production path. Correctness
 tests retain explicit force-validation. Full library eligibility remains in force.
 
-## Execution rhythm: functional scope first, integrate and lint at the end
+## Execution rhythm: functional scope first; the end-of-turn hooks format and check
 
 The work is moving the codebase onto the target design and deleting what it replaces.
-Spend attention there. Formatting, linting and integrated testing happen once, after all
-functional scope in the plan is implemented; they are not commit, push or merge
-prerequisites. Formatting and lint fixes mid-plan add no value while code is still
-changing, and they rewrite lines you did not author, so you (and every other agent) must
-re-assess changes that are not yours.
+Spend attention there. Formatting, generators and every non-functional check run in the
+end-of-turn hooks when you stop (`scripts/after_turn.py`, ADR-0137): `just fmt` and the
+generators first, then every `just hygiene` check in the background, with a fixer agent for
+what fails and the rest shown to the maintainer. Integrated testing happens once, after all
+functional scope in the plan is implemented. None of these is a commit, push or merge
+prerequisite. Formatting and lint fixes mid-work rewrite lines you did not author, so you (and
+every other agent) would have to re-assess changes that are not yours.
 
 **While implementing a plan** — compile checks and targeted tests only:
 
@@ -60,25 +62,27 @@ re-assess changes that are not yours.
 - Run, or write, the targeted unit tests that show the new behaviour:
   `just unit-package <pkg> <filter>`. A new mechanism gets its tests in the same change.
 - Run `just codegen` when a generator or registry declaration changes — regeneration is
-  part of the change, not polish. Run `just family-check` only when a pinned-family
-  dependency moves.
+  part of the change, not polish. The end-of-turn checks confirm it (`codegen-*-check`) and
+  run `family-check`.
 - **Delete legacy code as soon as it is provably replaced** — the replacement's targeted
   tests pass and every caller has moved. Remove the old mechanism, its callers, its tests
   and its fixtures in the same change. Do not port tests for a deleted mechanism, keep a
   shim, or retain a path "as evidence".
 
-**After all functional scope is implemented:** run formatting and lint, then select the
-relevant integration, component, solver and Python journeys; performance campaigns;
-governance, codegen, ADR and documentation checks. Report the commands, scope and
+**After all functional scope is implemented:** select the relevant integration, component,
+solver and Python journeys, performance campaigns and the checks the end-of-turn hooks leave
+manual (`just governance`, `just docs`, the native and powerset lints). Report the commands, scope and
 results. The maintainer may also request this comprehensive qualification at any other
 time.
 
 **Don't, mid-plan:**
 
-- Run `just doctor` — the SessionStart hook already reports it. Run it only when that
-  report shows a failure or a command fails in an environment-shaped way.
-- Run formatters, linters (`cargo fmt`, `just clippy`, `ruff`, `just quality`, `just ci-fast`)
-  or integration suites. No hook formats edits either; formatting is one pass at the end.
+- Run `just doctor` — the end-of-turn hooks run it and show a failure to the maintainer. Run
+  it only when a command fails in an environment-shaped way.
+- Run formatters, linters, type checks or any other `just hygiene` check (`cargo fmt`,
+  `just clippy`, `ruff`, `just quality`, `just ci-fast`), or integration suites, and don't
+  troubleshoot their failures: the end-of-turn hooks run them and a fixer agent repairs what it
+  can.
 - Rerun static checks after documentation-only edits.
 - Write per-command receipts, numbered rerun logs or "documentation checkpoint"
   validations into plan documents. A checkpoint records state, decisions and next steps.
@@ -91,7 +95,7 @@ Outcome, PR descriptions and ADRs (prime directives 4 and 7).
 
 ```bash
 just --list        # the command surface
-just bootstrap     # only if the session's doctor report shows a failure -- idempotent
+just bootstrap     # only if the end-of-turn doctor check reports a failure -- idempotent
 ```
 
 `just --list` is the contract. Prefer a recipe over an ad hoc command: recipes own the
@@ -267,8 +271,9 @@ Each of these is a real incident, not a hypothetical.
 ## Verifying work — what each command actually proves
 
 During implementation the inner loop is `just check-package`/`just check`, targeted
-`just unit-package` and `just codegen` (see *Execution rhythm*). The table describes
-checks available for manual qualification.
+`just unit-package` and `just codegen` (see *Execution rhythm*); the end-of-turn hooks run the
+static subset (`just hygiene`) after every turn. The table describes checks available for
+manual qualification.
 
 | Command | Run | Proves | Does not prove |
 |---|---|---|---|
@@ -382,18 +387,19 @@ different sources (ADR-0122).
 
 - `AGENTS.md` is the shared authority. `CLAUDE.md` starts with `@AGENTS.md` and
   describes Claude-specific behavior. Codex reads this file directly.
-- Select library skills in `.config/library-skills.toml`, then run `just skills-sync` or
-  `just skills-check`. Gitignored `.codex/skills/<name>` links expose one live copy per skill
+- Select library skills in `.config/library-skills.toml`; the end-of-turn hooks run
+  `just skills-sync` (`just skills-check` inspects). Gitignored `.codex/skills/<name>` links expose one live copy per skill
   from `~/.local/share/library-skills/skills/`; `.claude/skills` and `.agents/skills` expose
   that selection to both runtimes. Improvements reach every selecting repo. Process skills
   remain local and tracked. Set `LIBRARY_SKILLS_ROOT` if the shared store is elsewhere.
-  New worktrees need `just skills-sync`. Windows needs directory symlink support for the
+  A new worktree gets its links when its first turn ends. Windows needs directory symlink support for the
   shared bundles; `just agent-config-sync` preserves their links when copying local aliases.
 - Role instructions are canonical in `.claude/agents/`. Native Codex TOML roles
-  in `.codex/agents/` are generated by `just agent-config-sync`; never edit them
-  directly. Codex roles inherit the user's model; read-only roles remain read-only.
-- Both runtimes use `scripts/agent-hooks.py` for startup diagnostics and protected
-  edit checks; no hook formats edited files (see *Execution rhythm*).
+  in `.codex/agents/` are generated by `just agent-config-sync`, which the end-of-turn hooks
+  run; never edit them directly. Codex roles inherit the user's model; read-only roles remain read-only.
+- Both runtimes use `scripts/agent-hooks.py` for protected edit checks and
+  `scripts/after_turn.py` for the end-of-turn pipeline (ADR-0137, `.config/after-turn.toml`); no
+  hook formats files as you edit (see *Execution rhythm*).
   `.codex/hooks.json` and `.claude/settings.json` contain the runtime wiring. Hooks guard supported file-edit tools; they are not a
   sandbox for arbitrary shell commands or tools. Follow the same protection policy
   for all other actions. Existing session authorization remains authoritative.

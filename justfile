@@ -13,6 +13,10 @@
 #   decisions   ADRs, plans, the deferred-trigger register
 #   mutating    CHANGES SOURCE, ENVIRONMENT OR GITHUB
 #
+# The end-of-turn hooks (scripts/after_turn.py, configured in .config/after-turn.toml) run the
+# `fmt` and generator recipes when the main agent stops, then every dependency of `hygiene`;
+# agents run compile checks and functional tests only.
+#
 # Every check passes `--locked`: there is no cargo config key for it, and an unlocked
 # resolve would silently move a pin.
 
@@ -687,6 +691,10 @@ seed-conformance:
 lint-repo:
     python3 -m scripts.validation --group lint-repo
 
+[group('manual')]
+[doc('Every non-functional check, one check id per dependency; the end-of-turn hooks run them after each turn (scripts/after_turn.py check <id> re-runs one), agents do not')]
+hygiene: lint-agents adr-frontmatter-check adr-index-check register-lint lint-typos lint-license lint-actions lint-shell lint-ast lint-py typecheck lint-imports engine-boundary-check solver-pin-check family-check codegen-hakari-check codegen-relations-check codegen-rust-contracts-check codegen-docs-check codegen-postgres-check codegen-queries-check clippy-default clippy-no-default docs-rust conformance-fixtures-check
+
 [group('local')]
 [doc('Agent configuration: symlinks resolve, every referenced doc path exists')]
 lint-agents:
@@ -851,10 +859,11 @@ register-check:
 # ----------------------------------------------------------------- mutating --
 
 [group('mutating')]
-[doc('Format Rust, TOML and Python in place')]
+[doc('Format Rust, TOML and Python in place and apply ruff auto-fixes; lint-py reports the rest')]
 fmt:
     cargo fmt --all
     "{{ taplo }}" fmt
+    "{{ ruff }}" check --config pyproject.toml --fix --quiet --exit-zero
     "{{ ruff }}" format --config pyproject.toml
 
 [group('mutating')]

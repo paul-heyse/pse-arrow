@@ -4,11 +4,13 @@
 
 This is a real file so the shared import survives a Windows checkout without symlinks.
 
-`.claude/settings.json` configures permissions and two lifecycle hooks; AGENTS.md
+`.claude/settings.json` configures permissions and the lifecycle hooks; AGENTS.md
 describes which permission layers survive an unprompted session. Both Claude
-and Codex call `scripts/agent-hooks.py`: startup reports doctor status and pre-edit checks
-protect generated files and decided documents. No hook formats edits; formatting and lint
-run once after a plan's functional scope is implemented (AGENTS.md *Execution rhythm*).
+and Codex call `scripts/agent-hooks.py`, whose pre-edit checks protect generated files and
+decided documents, and `scripts/after_turn.py`, the end-of-turn pipeline (ADR-0137): when the
+main agent stops it formats, regenerates and runs every `just hygiene` check, a headless fixer
+(Sonnet 5.5 at the session's effort) repairs what it can, and the maintainer sees the rest. It is
+silent to the model; subagents stopping don't trigger it. No hook formats edits as you work.
 The guard does not stand between you and your own runtime directories — memory, scratch
 space and runtime configuration are writable, under the scope AGENTS.md describes.
 Hook timeouts are seconds. Shell writes remain governed by AGENTS.md; the edit hook

@@ -214,6 +214,26 @@ FILE_TOOLS = ("Edit", "Read", "Write", "NotebookEdit", "MultiEdit", "Glob")
 ANCHORS = ("/", "~/")
 
 
+# The shared hook scripts: protected-edit policy, and the end-of-turn pipeline.
+HOOK_SCRIPTS = ("scripts/agent-hooks.py", "scripts/after_turn.py")
+REQUIRED_HOOK_EVENTS = ("PreToolUse", "Stop", "UserPromptSubmit")
+
+
+def check_hook_wiring(config: Path, problems: list[str]) -> None:
+    """Both runtimes wire the required events, and every hook runs a shared hook script."""
+    hooks = json.loads(config.read_text())["hooks"]
+    for event in REQUIRED_HOOK_EVENTS:
+        if not hooks.get(event):
+            problems.append(f"{config}: missing {event} hook")
+    for event, groups in hooks.items():
+        for group in groups:
+            for hook in group["hooks"]:
+                if not any(script in hook["command"] for script in HOOK_SCRIPTS):
+                    problems.append(
+                        f"{config}: {event} hook does not use shared policy"
+                    )
+
+
 def check_deny_rules(settings: Path, problems: list[str]) -> int:
     """Every file-path deny rule must be an ``Edit``/``Read`` rule anchored at a fixed root."""
     rules = json.loads(settings.read_text()).get("permissions", {}).get("deny", [])
@@ -257,14 +277,7 @@ def main() -> int:
     if native.returncode:
         problems.append(native.stdout + native.stderr)
     for config in (ROOT / ".codex/hooks.json", ROOT / ".claude/settings.json"):
-        hooks = json.loads(config.read_text())["hooks"]
-        for event in ("SessionStart", "PreToolUse"):
-            if not hooks.get(event):
-                problems.append(f"{config}: missing {event} hook")
-            for group in hooks.get(event, []):
-                for hook in group["hooks"]:
-                    if "scripts/agent-hooks.py" not in hook["command"]:
-                        problems.append(f"{config}: hook does not use shared policy")
+        check_hook_wiring(config, problems)
 
     deny_rules = check_deny_rules(ROOT / ".claude/settings.json", problems)
 

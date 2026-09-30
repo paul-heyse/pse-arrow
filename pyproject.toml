@@ -197,6 +197,9 @@ extend-exclude = [
   "thermodynamics_complete_conversation_handoff/**",
   # Standalone tree (Plan 24): own environment and configuration; it lints itself.
   "thermo-knowledge/**",
+  # The end-of-turn pipeline: shared verbatim with project-template, 3.14 syntax (uv-pinned).
+  "scripts/after_turn.py",
+  "scripts/tests/test_after_turn.py",
   # The library-utilization catalog tooling: a maintainer script set, developed on 3.14 syntax.
   "scripts/library_*.py",
   "scripts/tests/test_library_*.py",
@@ -356,6 +359,8 @@ project-excludes = [
   "thermo-knowledge/**",
   "scripts/library_*.py",
   "scripts/tests/test_library_*.py",
+  "scripts/after_turn.py",
+  "scripts/tests/test_after_turn.py",
 ]
 search-path = ["python", "python/stubs"]
 # Check against the floor, not the 3.14 we develop on.

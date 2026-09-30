@@ -59,9 +59,8 @@ raises a `UsageError` at collection listing every offender. `just py-test` runs 
 
 Tools come from `.venv/bin`, declared with floors in `pyproject.toml`
 `[dependency-groups]` and resolved by `uv.lock`, never from `$PATH` and never via
-`pip install`. `just quality`
-runs ruff, pyrefly, import-linter and the repository linters together once a plan's
-functional scope is implemented, or when the maintainer requests it (AGENTS.md
-*Execution rhythm*). While implementing, run only `just py-sync` when the native API
-changed and the targeted `just py-test` units for what you changed; do not run ruff
-format or lint mid-plan.
+`pip install`. The end-of-turn hooks run ruff, pyrefly, import-linter and the repository
+linters after every turn (ADR-0137); `just quality` runs them together when the maintainer
+requests it. While implementing, run only `just py-sync` when the native API changed and the
+targeted `just py-test` units for what you changed; do not run ruff, pyrefly or other linters
+yourself.

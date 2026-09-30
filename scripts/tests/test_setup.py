@@ -113,6 +113,24 @@ class EditPolicyTests(unittest.TestCase):
         body = body.replace(r"\*\*", ".*").replace(r"\*", "[^/]*")
         return re.fullmatch(body, relative) is not None
 
+    def test_both_runtimes_wire_the_shared_hook_scripts(self) -> None:
+        for config in (ROOT / ".codex/hooks.json", ROOT / ".claude/settings.json"):
+            problems: list[str] = []
+            agent_checks.check_hook_wiring(config, problems)
+            self.assertEqual(problems, [], config)
+
+    def test_hook_wiring_rejects_a_foreign_hook_and_a_missing_event(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            config = Path(tmp) / "hooks.json"
+            hook = {"type": "command", "command": "echo not shared"}
+            config.write_text(
+                json.dumps({"hooks": {"PreToolUse": [{"hooks": [hook]}]}})
+            )
+            problems: list[str] = []
+            agent_checks.check_hook_wiring(config, problems)
+        self.assertTrue(any("does not use shared policy" in p for p in problems))
+        self.assertTrue(any("missing Stop hook" in p for p in problems))
+
     def test_settings_deny_rules_are_anchored_edit_rules(self) -> None:
         problems: list[str] = []
         agent_checks.check_deny_rules(ROOT / ".claude/settings.json", problems)
