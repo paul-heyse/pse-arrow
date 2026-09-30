@@ -353,6 +353,9 @@ class _Converter:
             if name == "at":
                 family, value = self.count(node, "at", 2)
                 return t.At(family=family, value=value, pos=pos)
+            if name == "position":
+                array, member = self.count(node, "position", 2)
+                return t.Position(array=array, member=member, pos=pos)
             if name == "integral":
                 body, variable, lower, upper = self.count(node, "integral", 4)
                 if not isinstance(variable, t.Name):

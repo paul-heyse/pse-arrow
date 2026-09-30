@@ -594,6 +594,21 @@ class _Backend:
             for holder, label in holders
         ]
 
+    def positions(self, array: Subject, member: Subject) -> tuple[int, ...]:
+        """The positions the constituent array gives the species among the members it places on a
+        site class, from `constituent_array_member`, ascending."""
+        try:
+            array_id, member_id = uuid.UUID(array), uuid.UUID(member)
+        except ValueError:
+            return ()
+        placed = pc.CONSTITUENT_ARRAY_MEMBER
+        rows = self.conn.execute(
+            f'SELECT "{placed.position}" FROM {placed.table} '  # noqa: S608
+            f'WHERE "{placed.array}" = %s AND "{placed.species}" = %s ORDER BY "{placed.position}"',
+            (array_id, member_id),
+        ).fetchall()
+        return tuple(int(row[0]) for row in rows)
+
     def choices(
         self, slot: str, subjects: tuple[Subject, ...], parameterizations: Sequence[uuid.UUID]
     ) -> list[tuple[str, uuid.UUID]]:
@@ -841,6 +856,11 @@ class DatabaseSource:
                     found.setdefault(record.parameterization)
             supplying = list(found) or list(self._scope.parameterizations[:1])
         return tuple(self._backend.convention_fact(p, name) for p in supplying)
+
+    def member_positions(self, array: Subject, member: Subject) -> tuple[int, ...]:
+        """The positions the constituent array gives the species, as `constituent_array_member`
+        holds them."""
+        return self._backend.positions(array, member)
 
     def validity(self, kind: str, reads: tuple[SetRead, ...]) -> tuple[RecordValidity, ...]:
         """The validity of `kind` that each set of the `reads` and the parameterization it belongs

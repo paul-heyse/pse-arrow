@@ -143,6 +143,13 @@ class ParameterSource(Protocol):
         of the parameterization the source is in force for."""
         ...
 
+    def member_positions(self, array: Subject, member: Subject) -> tuple[int, ...]:
+        """The positions the constituent array `array` gives the species `member` among the
+        species it places on a site class, counting from one, in ascending order: one when the
+        array places the species once, none when it does not, several when it places it on more
+        than one site class. The positions are the array's own, as its source asserted them."""
+        ...
+
     def validity(self, kind: str, reads: tuple[SetRead, ...]) -> tuple[RecordValidity, ...]:
         """What the records that supplied the sets `reads` to this source state about their
         validity for regions of `kind`, once each: each set and the parameterization it belongs
@@ -185,6 +192,8 @@ class InMemorySource:
     )
     """What the record of each set states about its validity, by (group, subjects) as written in
     the set's key: one `RecordValidity` per kind stated."""
+    positions: Mapping[tuple[Subject, Subject], tuple[int, ...]] = field(default_factory=dict)
+    """The positions each constituent array gives each species, by (array, species)."""
 
     def _group(self, group: str) -> m.SlotGroup | None:
         if self.declaration is None:
@@ -247,6 +256,9 @@ class InMemorySource:
                 ),
             )
         return (ConventionFact(self.parameterization, float(value)),)
+
+    def member_positions(self, array: Subject, member: Subject) -> tuple[int, ...]:
+        return tuple(sorted(self.positions.get((array, member), ())))
 
     def validity(self, kind: str, reads: tuple[SetRead, ...]) -> tuple[RecordValidity, ...]:
         found: list[RecordValidity] = []

@@ -623,6 +623,8 @@ class _Machine:
                 return self.derivative(frame, node, env)
             case t.At():
                 return self.at(frame, node, env)
+            case t.Position():
+                return self.position(frame, node, env)
             case t.Integral():
                 return self.integral(frame, node, env)
         raise EvaluationRefusal(f"cannot evaluate {type(node).__name__}")
@@ -1265,6 +1267,23 @@ class _Machine:
                 )
             )
         return _normal(sympy.Piecewise(*branches, (sympy.nan, True)))
+
+    def position(self, frame: _Frame, node: t.Position, env: dict[str, Value]) -> Value:
+        """The position a constituent array gives a species, read from the array's stored
+        members: a whole number decided here, from the stored facts, so a condition on it is
+        decided when the function is expanded and only its consequence is in the expression."""
+        array, member = self.ev(frame, node.array, env), self.ev(frame, node.member, env)
+        assert isinstance(array, str) and isinstance(member, str)
+        found = frame.source.member_positions(array, member)
+        if len(found) != 1:
+            what = (
+                "places it nowhere" if not found else f"places it {len(found)} times ({found})"
+            )
+            raise EvaluationRefusal(
+                f"the position of species {member} in constituent array {array} is undefined: "
+                f"the array {what}"
+            )
+        return found[0]
 
     def integral(self, frame: _Frame, node: t.Integral, env: dict[str, Value]) -> Value:
         variable = self.fresh(node.var)

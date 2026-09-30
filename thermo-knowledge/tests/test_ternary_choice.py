@@ -7,8 +7,10 @@ Thermochimica's dispositions assume).
 `subject_subform_choice` names the form that fills a per-subject sub-form slot for one subject
 under a parameterisation. Here the subject is a constituent array of three species and the two
 forms are the Kohler and the Toop extrapolation of a ternary excess energy from the binaries of
-its pairs: one ternary subsystem is extrapolated one way, another the other way, by the records
-alone. The evaluation reads the choice of each array from the database.
+its pairs (the committed forms of `forms/calphad.toml`): one ternary subsystem is extrapolated one
+way, another the other way, by the records alone. The evaluation reads the choice of each array
+from the database, and the species a Toop extrapolation singles out is the one the array puts
+first, read from the array's member positions without any input from the caller.
 """
 
 from __future__ import annotations
@@ -21,13 +23,13 @@ import numpy as np
 import psycopg
 import pytest
 from build_support import fingerprint, inputs_of, write_source
-from mapping_support import origin
-from mechanisms_support import entity_id, mechanism_declaration
+from hard_case_support import entity_id
+from mapping_support import origin, real_declaration
 
 from thermo_knowledge import config, db
 from thermo_knowledge.build import build_database
 from thermo_knowledge.canonical.values import Quantity
-from thermo_knowledge.canonical.writer import CanonicalWriter
+from thermo_knowledge.canonical.writer import CanonicalWriter, FamilyRow
 from thermo_knowledge.declaration import Declaration
 from thermo_knowledge.expression.evaluate import EvaluationRefusal, bind
 from thermo_knowledge.qualify.source import DatabaseSource, SubformBinding
@@ -36,8 +38,8 @@ from thermo_knowledge.verify.checks import VERIFY_DIR, load_checks
 from thermo_knowledge.verify.run import run_checks
 
 CHECKS = {c.target: c for c in load_checks(config.TREE_DIR / VERIFY_DIR)[0]}
-SLOT = "ternary_excess_fixture.extrapolation"
-ROOT = "ternary_excess_fixture"
+SLOT = "ternary_excess_choice.extrapolation"
+ROOT = "ternary_excess_choice"
 # the binaries, as asserted: (i, j) -> (L0, L1) in J/mol
 BINARIES = {
     ("a", "b"): (4000.0, 900.0),
@@ -46,8 +48,10 @@ BINARIES = {
     ("a", "d"): (3000.0, -300.0),
     ("b", "d"): (-1000.0, 650.0),
 }
-ARRAYS = {"first": ("a", "b", "c"), "second": ("a", "b", "d")}
-CHOSEN = {"first": "kohler_fixture", "second": "toop_fixture"}
+# the arrays, each with the species in the order the source asserts them: two ternary subsystems
+# of one phase, and the second subsystem asserted again with its first two species exchanged
+ARRAYS = {"first": ("a", "b", "c"), "second": ("a", "b", "d"), "reordered": ("b", "a", "d")}
+CHOSEN = {"first": "ternary_kohler", "second": "ternary_toop", "reordered": "ternary_toop"}
 
 
 @dataclass
@@ -83,6 +87,8 @@ def write_world(w: CanonicalWriter, decl: Declaration, ids: dict[str, uuid.UUID]
         {"phase": phase, "index": 1, "ratio_kind": "constant", "ratio": 1},
         origins=at("site"),
     )
+    for name, member in species.items():
+        w.relation("site_occupant", {"site_class": site, "occupant": member}, {}, at="a.json#/occupant")
     p = w.kind(
         "parameterization",
         {"key": "ternaries", "revision": "1", "title": "t", "coherence": "independent_records"},
@@ -113,16 +119,22 @@ def write_world(w: CanonicalWriter, decl: Declaration, ids: dict[str, uuid.UUID]
     for (first, second), (l0, l1) in BINARIES.items():
         w.parameter_set(
             parameterization=p,
-            slot_group="redlich_kister_fixture.pair",
+            slot_group="redlich_kister_pair.pair",
             subjects=[species[first], species[second]],
-            slots={"L0": Quantity(l0, "J/mol"), "L1": Quantity(l1, "J/mol")},
+            slots={},
+            families={
+                "order": [
+                    FamilyRow({"k": 0}, {"L": Quantity(l0, "J/mol")}),
+                    FamilyRow({"k": 1}, {"L": Quantity(l1, "J/mol")}),
+                ]
+            },
             origins=at(f"binary-{first}{second}"),
         )
 
 
 @pytest.fixture(scope="module")
 def world(tmp_path_factory: pytest.TempPathFactory) -> Iterator[World]:
-    decl = mechanism_declaration(tmp_path_factory.mktemp("ternary-declaration"))
+    decl = real_declaration()
     canonical = tmp_path_factory.mktemp("ternary-canonical")
     ids: dict[str, uuid.UUID] = {}
     write_source(canonical, "src", lambda w: write_world(w, decl, ids), decl=decl, declaration=fingerprint(decl))
@@ -175,12 +187,12 @@ COMPOSITION = {"a": 0.2, "b": 0.5, "c": 0.3}
 
 def source_for(world: World, conn: psycopg.Connection) -> DatabaseSource:
     p = world.ids["parameterization"]
-    binding = [SubformBinding("redlich_kister_fixture", (p,))]
+    binding = [SubformBinding("redlich_kister_pair", (p,))]
     return DatabaseSource(
         conn,
         world.decl,
         [p],
-        subforms={"kohler_fixture.binary": binding, "toop_fixture.binary": binding},
+        subforms={"ternary_kohler.binary": binding, "ternary_toop.binary": binding},
     )
 
 
@@ -190,13 +202,8 @@ def ternary(
     array: str,
     order: tuple[str, ...],
     x: dict[str, float],
-    *,
-    special: str | None = None,
 ) -> float:
-    """The excess energy of the ternary `array` with its components passed in `order`; the species
-    singled out by the array (its first) unless `special` names another."""
-    members = ARRAYS[array]
-    chosen = special or members[0]
+    """The excess energy of the ternary `array` with its components passed in `order`."""
     ids = {name: str(world.ids[f"species_{name}"]) for name in order}
     bound = bind(
         world.decl,
@@ -206,13 +213,7 @@ def ternary(
         sets={"components": [ids[name] for name in order]},
     )
     return float(
-        np.asarray(
-            bound.evaluate(
-                "gE",
-                x={ids[name]: np.array([x[name]]) for name in order},
-                first={ids[name]: np.array([1.0 if name == chosen else 0.0]) for name in order},
-            )
-        ).reshape(-1)[0]
+        np.asarray(bound.evaluate("gE", x={ids[name]: np.array([x[name]]) for name in order})).reshape(-1)[0]
     )
 
 
@@ -229,10 +230,12 @@ def test_each_ternary_array_has_its_own_choice_of_form(world: World, conn: psyco
         "SELECT sc.subject_key, f.name FROM tk.subject_subform_choice sc JOIN meta.form f ON f.id = sc.form "
         "ORDER BY f.name"
     ).fetchall()
-    assert len(rows) == 2
-    by_form = {form: key for key, form in rows}
-    assert set(by_form) == {"kohler_fixture", "toop_fixture"}
-    assert by_form["kohler_fixture"] != by_form["toop_fixture"]
+    assert len(rows) == 3
+    by_form: dict[str, set[str]] = {}
+    for key, form in rows:
+        by_form.setdefault(form, set()).add(key)
+    assert {form: len(keys) for form, keys in by_form.items()} == {"ternary_kohler": 1, "ternary_toop": 2}
+    assert not by_form["ternary_kohler"] & by_form["ternary_toop"]
 
 
 def test_the_subject_of_a_choice_is_the_constituent_array(world: World, conn: psycopg.Connection) -> None:
@@ -268,19 +271,21 @@ def test_kohler_does_not_depend_on_the_order_the_components_are_passed_in(
         assert ternary(world, conn, "first", order, COMPOSITION) == pytest.approx(reference, rel=1e-12)
 
 
-def test_toop_follows_the_species_the_array_puts_first(world: World, conn: psycopg.Connection) -> None:
+def test_toop_follows_the_species_the_array_puts_first_without_input_from_the_caller(
+    world: World, conn: psycopg.Connection
+) -> None:
+    """The same species and binaries, asserted in two orders: the array (a, b, d) singles out a and
+    the array (b, a, d) singles out b, whichever order the caller passes the components in."""
     x = {"a": 0.25, "b": 0.45, "d": 0.30}
-    first = ternary(world, conn, "second", ("a", "b", "d"), x, special="a")
-    other = ternary(world, conn, "second", ("a", "b", "d"), x, special="b")
-    assert first == pytest.approx(toop(("a", "b", "d"), x, "a"), rel=1e-12)
-    assert other == pytest.approx(toop(("a", "b", "d"), x, "b"), rel=1e-12)
-    assert abs(first - other) > 1.0
+    for order in (("a", "b", "d"), ("d", "b", "a")):
+        assert ternary(world, conn, "second", order, x) == pytest.approx(toop(("a", "b", "d"), x, "a"), rel=1e-12)
+        assert ternary(world, conn, "reordered", order, x) == pytest.approx(toop(("a", "b", "d"), x, "b"), rel=1e-12)
+    assert abs(toop(("a", "b", "d"), x, "a") - toop(("a", "b", "d"), x, "b")) > 1.0
 
 
 def test_a_ternary_with_no_choice_is_refused_naming_the_sub_form_slot(
     world: World, conn: psycopg.Connection
 ) -> None:
-    x = {"a": 0.2, "b": 0.5, "c": 0.3}
     ids = {name: str(world.ids[f"species_{name}"]) for name in "abc"}
     unchosen = uuid.uuid4()
     bound = bind(
@@ -290,9 +295,5 @@ def test_a_ternary_with_no_choice_is_refused_naming_the_sub_form_slot(
         roles={"t": str(unchosen)},
         sets={"components": [ids[name] for name in "abc"]},
     )
-    with pytest.raises(EvaluationRefusal, match=r"ternary_excess_fixture\.extrapolation"):
-        bound.evaluate(
-            "gE",
-            x={ids[name]: np.array([x[name]]) for name in "abc"},
-            first={ids[name]: np.array([1.0 if name == "a" else 0.0]) for name in "abc"},
-        )
+    with pytest.raises(EvaluationRefusal, match=r"ternary_excess_choice\.extrapolation"):
+        bound.evaluate("gE", x={ids[name]: np.array([COMPOSITION[name]]) for name in "abc"})

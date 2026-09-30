@@ -16,6 +16,7 @@ import keyword
 from collections import Counter
 from dataclasses import dataclass
 
+from thermo_knowledge import pipeline_contract as pc
 from thermo_knowledge.declaration import model as m
 from thermo_knowledge.declaration.diagnostics import Code, Diagnostic
 from thermo_knowledge.expression import tree as t
@@ -270,6 +271,8 @@ class Checker:
                 return self.derivative(node, env)
             case t.At():
                 return self.at(node, env)
+            case t.Position():
+                return self.position(node, env)
             case t.Integral():
                 return self.integral(node, env)
             case t.Range():
@@ -1318,6 +1321,37 @@ class Checker:
             )
             return None
         return NumTy(DIMENSIONLESS, integer=True)
+
+    def position(self, node: t.Position, env: Env) -> Ty | None:
+        """`position(t, s)`: a subject of kind `constituent_array` and a subject of kind `species`;
+        an integer known without argument values, the position of `s` in `t`."""
+        ok = True
+        for operand, kind, what in (
+            (node.array, pc.CONSTITUENT_ARRAY.declared, "the first argument of `position` is an array"),
+            (node.member, pc.SPECIES.declared, "the second argument of `position` is a species"),
+        ):
+            if not isinstance(operand, t.Name):
+                self.fail(
+                    operand,
+                    Code.SLOT_SUBJECTS,
+                    f"{what}: a role or an index variable of a set, found an expression",
+                )
+                ok = False
+                continue
+            ty = self.visit(operand, env)
+            if ty is None:
+                ok = False
+            elif not isinstance(ty, SubjectTy):
+                self.fail(operand, Code.SLOT_SUBJECTS, f"{what}, `{operand.id}` is {_describe(ty)}")
+                ok = False
+            elif not self.scope.decl.is_a(ty.kind, kind):
+                self.fail(
+                    operand,
+                    Code.SLOT_SUBJECTS,
+                    f"{what} of kind `{kind}`, `{operand.id}` is a subject of kind `{ty.kind}`",
+                )
+                ok = False
+        return NumTy(DIMENSIONLESS, integer=True, static=True) if ok else None
 
     def integral(self, node: t.Integral, env: Env) -> Ty | None:
         lower = self.number(node.lower, env)

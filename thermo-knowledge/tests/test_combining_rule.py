@@ -196,8 +196,8 @@ def violations(
     def fill(w: CanonicalWriter) -> None:
         for key, form, scope in (
             ("sound", RULE, TABLE),
-            ("wrong-contract", "redlich_kister_fixture", TABLE),
-            ("unscoped", "redlich_kister_fixture", None),
+            ("wrong-contract", "nrtl_excess_gibbs", TABLE),
+            ("unscoped", "nrtl_excess_gibbs", None),
         ):
             ids[key] = w.kind(
                 "selection_policy",

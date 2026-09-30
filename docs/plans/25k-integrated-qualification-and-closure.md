@@ -59,11 +59,11 @@ and fixture inputs authored alongside the implementation that supplies the behav
 
 | Packet | Prerequisite | Responsibility and acceptance | Status |
 |---|---|---|---|
-| K1 Functional readiness | All functional packets in 25a–25j | Confirm target consumers are migrated, replacement/deletion obligations are complete, required decision routes are satisfied and fixtures exist for the journeys above. Resolve remaining functional work in its owning plan before starting K2 | planned |
-| K2 Format and static qualification | K1 | Run the single series-wide formatting/lint pass and relevant Rust/Python compilation, generation, family, governance and documentation checks; repair to zero | planned |
-| K3 Behavioral and scientific qualification | K2 | Run the selected Rust, native, Python, conformance and compatibility journeys; independently assess physical closure, domains, original-space residuals, outcome truth and durable lifecycle | planned |
-| K4 Reuse and performance measurement | K3 | Measure cold/warm preparation, one-body edits, in-process/durable value studies, retention after eviction and worker admission; report counts, timing distributions, memory and all refusals/failures | planned |
-| K5 Architectural assessment and closure | K3/K4 | Conduct one bounded target-design review of the assembled change, reconcile every finding with its evidence, update enduring owners and close only demonstrated scope | planned |
+| <a id="k1"></a>K1 Functional readiness | All functional packets in 25a–25j | Confirm target consumers are migrated, replacement/deletion obligations are complete, required decision routes are satisfied and fixtures exist for the journeys above. Resolve remaining functional work in its owning plan before starting K2 | planned |
+| <a id="k2"></a>K2 Format and static qualification | K1 | Run the single series-wide formatting/lint pass and relevant Rust/Python compilation, generation, family, governance and documentation checks; repair to zero | planned |
+| <a id="k3"></a>K3 Behavioral and scientific qualification | K2 | Run the selected Rust, native, Python, conformance and compatibility journeys; independently assess physical closure, domains, original-space residuals, outcome truth and durable lifecycle | planned |
+| <a id="k4"></a>K4 Reuse and performance measurement | K3 | Measure cold/warm preparation, one-body edits, in-process/durable value studies, retention after eviction and worker admission; report counts, timing distributions, memory and all refusals/failures | planned |
+| <a id="k5"></a>K5 Architectural assessment and closure | K3/K4 | Conduct one bounded target-design review of the assembled change, reconcile every finding with its evidence, update enduring owners and close only demonstrated scope | planned |
 
 ### K1 — Readiness without a new governance framework
 
@@ -96,10 +96,12 @@ that any current command has run or passed.
 
 ### K4 — Measurements that distinguish the design
 
-Count actual body admissions and prepared products: an unchanged body must reuse its admitted
-product; changing one equation invalidates its dependency closure; a span-only edit changes
-attribution without unnecessary arithmetic rebuilding. Compare an N-point durable study on one
-worker with equivalent in-process execution, separating structural preparation from binding and
+Count actual body admissions and prepared products: an unchanged body with a retained warm entry
+and unchanged complete admission context must reuse its admitted product; changing one equation
+invalidates its dependency closure; a span-only edit changes attribution without unnecessary
+arithmetic rebuilding. Measure resident reuse separately from lawful recomputation after eviction
+or denied retention. Compare an N-point durable study on one worker with equivalent in-process
+execution, separating structural preparation from binding and
 attempt-owned solver work. Count repeated occurrences as separate experiments even when they
 share preparation.
 

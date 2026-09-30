@@ -1495,6 +1495,64 @@ COMMENT ON COLUMN "prov"."carrier"."resolved_pin" IS 'The commit, DOI version or
 COMMENT ON COLUMN "prov"."carrier"."tree_hash" IS 'The lock''s tree hash of the acquired files.';
 COMMENT ON COLUMN "prov"."carrier"."retrieved" IS 'When the bytes were acquired.';
 
+CREATE TABLE "param"."cef_endmember__endmember" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT '66a7a480-c3e3-55f6-8295-cb1376b88f8b'::uuid,
+    "t" uuid NOT NULL,
+    "function" uuid NOT NULL,
+    CONSTRAINT "cef_endmember__endmember__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "cef_endmember__endmember__ck__slot_group" CHECK ("slot_group" = '66a7a480-c3e3-55f6-8295-cb1376b88f8b'::uuid)
+);
+COMMENT ON TABLE "param"."cef_endmember__endmember" IS 'The function of one endmember.';
+COMMENT ON COLUMN "param"."cef_endmember__endmember"."id" IS 'Deterministic identifier of the cef_endmember__endmember instance.';
+COMMENT ON COLUMN "param"."cef_endmember__endmember"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."cef_endmember__endmember"."t" IS 'The endmember.';
+COMMENT ON COLUMN "param"."cef_endmember__endmember"."function" IS 'The temperature function that gives the energy of the endmember.';
+
+CREATE TABLE "param"."cef_magnetic_ihj__magnetic" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT 'd212127f-2fac-5a9f-be48-abe7756fe654'::uuid,
+    "t" uuid NOT NULL,
+    "Tc" "meta"."temperature_difference" NOT NULL,
+    "beta" "meta"."scalar" NOT NULL,
+    CONSTRAINT "cef_magnetic_ihj__magnetic__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "cef_magnetic_ihj__magnetic__ck__slot_group" CHECK ("slot_group" = 'd212127f-2fac-5a9f-be48-abe7756fe654'::uuid)
+);
+COMMENT ON TABLE "param"."cef_magnetic_ihj__magnetic" IS 'The Curie temperature and the magnetic moment of one array.';
+COMMENT ON COLUMN "param"."cef_magnetic_ihj__magnetic"."id" IS 'Deterministic identifier of the cef_magnetic_ihj__magnetic instance.';
+COMMENT ON COLUMN "param"."cef_magnetic_ihj__magnetic"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."cef_magnetic_ihj__magnetic"."t" IS 'The array.';
+COMMENT ON COLUMN "param"."cef_magnetic_ihj__magnetic"."Tc" IS 'Curie temperature, negative where the source states an antiferromagnetic transition.';
+COMMENT ON COLUMN "param"."cef_magnetic_ihj__magnetic"."beta" IS 'Magnetic moment in Bohr magnetons, negative where the source states an antiferromagnetic one.';
+
+CREATE TABLE "param"."cef_magnetic_ihj__structure" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT 'a8bd7852-f4e4-5394-a660-6ac2207c7a1a'::uuid,
+    "ph" uuid NOT NULL,
+    "afm" "meta"."scalar" NOT NULL,
+    "p" "meta"."scalar" NOT NULL,
+    CONSTRAINT "cef_magnetic_ihj__structure__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "cef_magnetic_ihj__structure__ck__slot_group" CHECK ("slot_group" = 'a8bd7852-f4e4-5394-a660-6ac2207c7a1a'::uuid)
+);
+COMMENT ON TABLE "param"."cef_magnetic_ihj__structure" IS 'The magnetic constants of one phase.';
+COMMENT ON COLUMN "param"."cef_magnetic_ihj__structure"."id" IS 'Deterministic identifier of the cef_magnetic_ihj__structure instance.';
+COMMENT ON COLUMN "param"."cef_magnetic_ihj__structure"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."cef_magnetic_ihj__structure"."ph" IS 'The phase.';
+COMMENT ON COLUMN "param"."cef_magnetic_ihj__structure"."afm" IS 'Antiferromagnetic factor, by which a negative Curie temperature or moment is divided.';
+COMMENT ON COLUMN "param"."cef_magnetic_ihj__structure"."p" IS 'Structure factor: the fraction of the magnetic enthalpy above the Curie temperature.';
+
+CREATE TABLE "param"."cef_redlich_kister__interaction" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT 'a594f771-dfe3-5de6-81f7-bab9d2bcac43'::uuid,
+    "t" uuid NOT NULL,
+    CONSTRAINT "cef_redlich_kister__interaction__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "cef_redlich_kister__interaction__ck__slot_group" CHECK ("slot_group" = 'a594f771-dfe3-5de6-81f7-bab9d2bcac43'::uuid)
+);
+COMMENT ON TABLE "param"."cef_redlich_kister__interaction" IS 'The polynomial coefficients of one array.';
+COMMENT ON COLUMN "param"."cef_redlich_kister__interaction"."id" IS 'Deterministic identifier of the cef_redlich_kister__interaction instance.';
+COMMENT ON COLUMN "param"."cef_redlich_kister__interaction"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."cef_redlich_kister__interaction"."t" IS 'The array.';
+
 CREATE TABLE "tk"."chemical_system" (
     "id" uuid NOT NULL,
     "key" text NOT NULL,
@@ -1540,10 +1598,10 @@ CREATE TABLE "tk"."constituent_array" (
     CONSTRAINT "constituent_array__pk" PRIMARY KEY ("id"),
     CONSTRAINT "constituent_array__identity" UNIQUE ("phase", "canonical_key")
 );
-COMMENT ON TABLE "tk"."constituent_array" IS 'A choice of one or more species on each site class of a phase, in a stated order: the subject of a compound-energy parameter. The order of interacting species on a site class fixes the sign of odd-order interaction terms and which species a ternary index selects, so it is part of the array. Canonical key: the phase and, per site class in order, the species in position order as the source asserted them. Two arrays that differ only in that order are different arrays; that they describe one physical array is an equivalence assessment, not part of identity.';
+COMMENT ON TABLE "tk"."constituent_array" IS 'A choice of one or more species on each site class of a phase, in a stated order: the subject of a compound-energy parameter. The order of interacting species on a site class fixes the sign of odd-order interaction terms and which species a ternary index selects, so it is part of the array, and an expression reads it as the position of a species in the array (`position(t, s)`). The canonical key has one declared form, the ordering convention: the key of the phase definition, then for each site class that has members, in ascending site class index, a colon and the canonical keys of the species the array places on it, in position order as the source asserted them and joined by commas (`BCC_B2:Al,Fe:Va`). Two arrays that differ only in that order are different arrays, and that they describe one physical array is an equivalence assessment, not part of identity.';
 COMMENT ON COLUMN "tk"."constituent_array"."id" IS 'Deterministic identifier of the constituent_array instance.';
 COMMENT ON COLUMN "tk"."constituent_array"."phase" IS 'The phase.';
-COMMENT ON COLUMN "tk"."constituent_array"."canonical_key" IS 'The canonical encoding of the array.';
+COMMENT ON COLUMN "tk"."constituent_array"."canonical_key" IS 'The canonical encoding of the array, in the ordering convention stated by the kind.';
 
 CREATE TABLE "tk"."convention_set" (
     "id" uuid NOT NULL,
@@ -1888,6 +1946,18 @@ COMMENT ON COLUMN "param"."flory_huggins_excess_gibbs__pair"."i" IS 'The first c
 COMMENT ON COLUMN "param"."flory_huggins_excess_gibbs__pair"."j" IS 'The second component.';
 COMMENT ON COLUMN "param"."flory_huggins_excess_gibbs__pair"."chi0" IS 'Temperature-independent part of the interaction parameter.';
 COMMENT ON COLUMN "param"."flory_huggins_excess_gibbs__pair"."chi1" IS 'Coefficient of 1 / T in the interaction parameter.';
+
+CREATE TABLE "param"."gibbs_polynomial__function" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT '5660ac10-8902-574a-bef5-a4926b975169'::uuid,
+    "fn" uuid NOT NULL,
+    CONSTRAINT "gibbs_polynomial__function__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "gibbs_polynomial__function__ck__slot_group" CHECK ("slot_group" = '5660ac10-8902-574a-bef5-a4926b975169'::uuid)
+);
+COMMENT ON TABLE "param"."gibbs_polynomial__function" IS 'The pieces of one function.';
+COMMENT ON COLUMN "param"."gibbs_polynomial__function"."id" IS 'Deterministic identifier of the gibbs_polynomial__function instance.';
+COMMENT ON COLUMN "param"."gibbs_polynomial__function"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."gibbs_polynomial__function"."fn" IS 'The function.';
 
 CREATE TABLE "tk"."group" (
     "id" uuid NOT NULL,
@@ -2855,6 +2925,25 @@ COMMENT ON COLUMN "tk"."reaction"."id" IS 'Deterministic identifier of the react
 COMMENT ON COLUMN "tk"."reaction"."canonical_key" IS 'Canonical encoding of the normalised stoichiometry.';
 COMMENT ON COLUMN "tk"."reaction"."extent" IS 'How the stoichiometry is normalised.';
 COMMENT ON COLUMN "tk"."reaction"."equation" IS 'The reaction as the source writes it. Retained; nothing branches on it.';
+
+CREATE TABLE "param"."redlich_kister_pair__pair" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT 'd3d4b7d8-6eb2-50cd-94e1-f94cf0e59b89'::uuid,
+    "i" uuid NOT NULL,
+    "j" uuid NOT NULL,
+    "arrangement" bigint NOT NULL,
+    CONSTRAINT "redlich_kister_pair__pair__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "redlich_kister_pair__pair__ck__slot_group" CHECK ("slot_group" = 'd3d4b7d8-6eb2-50cd-94e1-f94cf0e59b89'::uuid),
+    CONSTRAINT "redlich_kister_pair__pair__ck__arrangement_range" CHECK ("arrangement" >= 0 AND "arrangement" <= 1),
+    CONSTRAINT "redlich_kister_pair__pair__ck__canonical" CHECK ("i" <= "j"),
+    CONSTRAINT "redlich_kister_pair__pair__ck__diagonal" CHECK ("i" <> "j")
+);
+COMMENT ON TABLE "param"."redlich_kister_pair__pair" IS 'The polynomial coefficients of one pair, as asserted for one order of the species.';
+COMMENT ON COLUMN "param"."redlich_kister_pair__pair"."id" IS 'Deterministic identifier of the redlich_kister_pair__pair instance.';
+COMMENT ON COLUMN "param"."redlich_kister_pair__pair"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."redlich_kister_pair__pair"."i" IS 'The first species.';
+COMMENT ON COLUMN "param"."redlich_kister_pair__pair"."j" IS 'The second species.';
+COMMENT ON COLUMN "param"."redlich_kister_pair__pair"."arrangement" IS 'For which order of the subjects the values were asserted: 0 when the values were asserted for the canonical order of the subjects, 1 when they were asserted for the swapped order.';
 
 CREATE TABLE "tk"."region_clause" (
     "id" uuid NOT NULL,
@@ -4136,6 +4225,52 @@ COMMENT ON COLUMN "param"."benson_group_additivity__node__cp"."n" IS 'Position i
 COMMENT ON COLUMN "param"."benson_group_additivity__node__cp"."T" IS 'The temperature.';
 COMMENT ON COLUMN "param"."benson_group_additivity__node__cp"."value" IS 'Heat capacity at that temperature.';
 
+CREATE TABLE "param"."cef_redlich_kister__interaction__order" (
+    "set_id" uuid NOT NULL,
+    "k" bigint NOT NULL,
+    "L" "meta"."molar_energy" NOT NULL,
+    CONSTRAINT "cef_redlich_kister__interaction__order__ck__k__minimum" CHECK ("k" >= 0),
+    CONSTRAINT "cef_redlich_kister__interaction__order__pk" PRIMARY KEY ("set_id", "k")
+);
+COMMENT ON TABLE "param"."cef_redlich_kister__interaction__order" IS 'One coefficient per order.';
+COMMENT ON COLUMN "param"."cef_redlich_kister__interaction__order"."set_id" IS 'The parameter set this row belongs to.';
+COMMENT ON COLUMN "param"."cef_redlich_kister__interaction__order"."k" IS 'Order of the term: the power of the difference of the site fractions.';
+COMMENT ON COLUMN "param"."cef_redlich_kister__interaction__order"."L" IS 'Coefficient of the term.';
+
+CREATE TABLE "param"."gibbs_polynomial__function__piece" (
+    "set_id" uuid NOT NULL,
+    "n" bigint NOT NULL,
+    "T_low" "meta"."temperature" NOT NULL,
+    "T_high" "meta"."temperature" NOT NULL,
+    "a" "meta"."molar_energy" NOT NULL,
+    "b" "meta"."molar_entropy" NOT NULL,
+    "c" "meta"."molar_entropy" NOT NULL,
+    "d" "meta"."finite_real" NOT NULL,
+    "e" "meta"."finite_real" NOT NULL,
+    "f" "meta"."finite_real" NOT NULL,
+    "g" "meta"."finite_real" NOT NULL,
+    "h" "meta"."finite_real" NOT NULL,
+    "interval" "meta"."float8range" GENERATED ALWAYS AS ("meta"."float8range"("T_low", "T_high", '[)')) STORED,
+    CONSTRAINT "gibbs_polynomial__function__piece__ck__n__minimum" CHECK ("n" >= 1),
+    CONSTRAINT "gibbs_polynomial__function__piece__pk" PRIMARY KEY ("set_id", "n"),
+    CONSTRAINT "gibbs_polynomial__function__piece__ck__interval" CHECK ("T_low" < "T_high"),
+    CONSTRAINT "gibbs_polynomial__function__piece__xc__interval" EXCLUDE USING gist ("set_id" WITH =, "interval" WITH &&)
+);
+COMMENT ON TABLE "param"."gibbs_polynomial__function__piece" IS 'One block of coefficients per temperature interval.';
+COMMENT ON COLUMN "param"."gibbs_polynomial__function__piece"."set_id" IS 'The parameter set this row belongs to.';
+COMMENT ON COLUMN "param"."gibbs_polynomial__function__piece"."n" IS 'Piece number, ascending in temperature.';
+COMMENT ON COLUMN "param"."gibbs_polynomial__function__piece"."T_low" IS 'Lower bound of the interval.';
+COMMENT ON COLUMN "param"."gibbs_polynomial__function__piece"."T_high" IS 'Upper bound of the interval.';
+COMMENT ON COLUMN "param"."gibbs_polynomial__function__piece"."a" IS 'Constant term.';
+COMMENT ON COLUMN "param"."gibbs_polynomial__function__piece"."b" IS 'Coefficient of T.';
+COMMENT ON COLUMN "param"."gibbs_polynomial__function__piece"."c" IS 'Coefficient of T ln T.';
+COMMENT ON COLUMN "param"."gibbs_polynomial__function__piece"."d" IS 'Coefficient of T^2.';
+COMMENT ON COLUMN "param"."gibbs_polynomial__function__piece"."e" IS 'Coefficient of 1 / T.';
+COMMENT ON COLUMN "param"."gibbs_polynomial__function__piece"."f" IS 'Coefficient of T^3.';
+COMMENT ON COLUMN "param"."gibbs_polynomial__function__piece"."g" IS 'Coefficient of T^7.';
+COMMENT ON COLUMN "param"."gibbs_polynomial__function__piece"."h" IS 'Coefficient of 1 / T^9.';
+COMMENT ON COLUMN "param"."gibbs_polynomial__function__piece"."interval" IS 'The half-open interval [lower, upper) the piece covers.';
+
 CREATE TABLE "param"."helmholtz_pure_fluid__pure__planck_einstein" (
     "set_id" uuid NOT NULL,
     "k" bigint NOT NULL,
@@ -4450,6 +4585,18 @@ COMMENT ON COLUMN "param"."nasa9__pure__piece"."b1" IS 'Enthalpy integration con
 COMMENT ON COLUMN "param"."nasa9__pure__piece"."b2" IS 'Entropy integration constant over R.';
 COMMENT ON COLUMN "param"."nasa9__pure__piece"."interval" IS 'The half-open interval [lower, upper) the piece covers.';
 
+CREATE TABLE "param"."redlich_kister_pair__pair__order" (
+    "set_id" uuid NOT NULL,
+    "k" bigint NOT NULL,
+    "L" "meta"."molar_energy" NOT NULL,
+    CONSTRAINT "redlich_kister_pair__pair__order__ck__k__minimum" CHECK ("k" >= 0),
+    CONSTRAINT "redlich_kister_pair__pair__order__pk" PRIMARY KEY ("set_id", "k")
+);
+COMMENT ON TABLE "param"."redlich_kister_pair__pair__order" IS 'One coefficient per order.';
+COMMENT ON COLUMN "param"."redlich_kister_pair__pair__order"."set_id" IS 'The parameter set this row belongs to.';
+COMMENT ON COLUMN "param"."redlich_kister_pair__pair__order"."k" IS 'Order of the term.';
+COMMENT ON COLUMN "param"."redlich_kister_pair__pair__order"."L" IS 'Coefficient of the term.';
+
 CREATE TABLE "param"."shomate__pure__piece" (
     "set_id" uuid NOT NULL,
     "n" bigint NOT NULL,
@@ -4680,6 +4827,24 @@ ALTER TABLE "param"."benson_group_additivity__node" ADD CONSTRAINT "benson_group
 
 ALTER TABLE "prov"."carrier" ADD CONSTRAINT "carrier__fk__id" FOREIGN KEY ("id") REFERENCES "prov"."source" ("id") DEFERRABLE INITIALLY DEFERRED;
 
+ALTER TABLE "param"."cef_endmember__endmember" ADD CONSTRAINT "cef_endmember__endmember__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."cef_endmember__endmember" ADD CONSTRAINT "cef_endmember__endmember__fk__t" FOREIGN KEY ("t") REFERENCES "tk"."constituent_array" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."cef_endmember__endmember" ADD CONSTRAINT "cef_endmember__endmember__fk__function" FOREIGN KEY ("function") REFERENCES "tk"."parameter_set" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."cef_magnetic_ihj__magnetic" ADD CONSTRAINT "cef_magnetic_ihj__magnetic__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."cef_magnetic_ihj__magnetic" ADD CONSTRAINT "cef_magnetic_ihj__magnetic__fk__t" FOREIGN KEY ("t") REFERENCES "tk"."constituent_array" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."cef_magnetic_ihj__structure" ADD CONSTRAINT "cef_magnetic_ihj__structure__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."cef_magnetic_ihj__structure" ADD CONSTRAINT "cef_magnetic_ihj__structure__fk__ph" FOREIGN KEY ("ph") REFERENCES "tk"."phase_definition" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."cef_redlich_kister__interaction" ADD CONSTRAINT "cef_redlich_kister__interaction__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."cef_redlich_kister__interaction" ADD CONSTRAINT "cef_redlich_kister__interaction__fk__t" FOREIGN KEY ("t") REFERENCES "tk"."constituent_array" ("id") DEFERRABLE INITIALLY DEFERRED;
+
 ALTER TABLE "tk"."chemical_system" ADD CONSTRAINT "chemical_system__fk__id" FOREIGN KEY ("id") REFERENCES "prov"."record" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."conserved_quantity" ADD CONSTRAINT "conserved_quantity__fk__id" FOREIGN KEY ("id") REFERENCES "prov"."record" ("id") DEFERRABLE INITIALLY DEFERRED;
@@ -4773,6 +4938,10 @@ ALTER TABLE "param"."flory_huggins_excess_gibbs__pair" ADD CONSTRAINT "flory_hug
 ALTER TABLE "param"."flory_huggins_excess_gibbs__pair" ADD CONSTRAINT "flory_huggins_excess_gibbs__pair__fk__i" FOREIGN KEY ("i") REFERENCES "tk"."material_entity" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "param"."flory_huggins_excess_gibbs__pair" ADD CONSTRAINT "flory_huggins_excess_gibbs__pair__fk__j" FOREIGN KEY ("j") REFERENCES "tk"."material_entity" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."gibbs_polynomial__function" ADD CONSTRAINT "gibbs_polynomial__function__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."gibbs_polynomial__function" ADD CONSTRAINT "gibbs_polynomial__function__fk__fn" FOREIGN KEY ("fn") REFERENCES "tk"."model_component" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."group" ADD CONSTRAINT "group__fk__id" FOREIGN KEY ("id") REFERENCES "prov"."record" ("id") DEFERRABLE INITIALLY DEFERRED;
 
@@ -4979,6 +5148,12 @@ ALTER TABLE "qual"."qualification_run" ADD CONSTRAINT "qualification_run__fk__re
 ALTER TABLE "qual"."qualification_run" ADD CONSTRAINT "qualification_run__fk__observable" FOREIGN KEY ("observable") REFERENCES "tk"."observable" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."reaction" ADD CONSTRAINT "reaction__fk__id" FOREIGN KEY ("id") REFERENCES "prov"."record" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."redlich_kister_pair__pair" ADD CONSTRAINT "redlich_kister_pair__pair__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."redlich_kister_pair__pair" ADD CONSTRAINT "redlich_kister_pair__pair__fk__i" FOREIGN KEY ("i") REFERENCES "tk"."species" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."redlich_kister_pair__pair" ADD CONSTRAINT "redlich_kister_pair__pair__fk__j" FOREIGN KEY ("j") REFERENCES "tk"."species" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."region_clause" ADD CONSTRAINT "region_clause__fk__region" FOREIGN KEY ("region") REFERENCES "tk"."validity_region" ("id") DEFERRABLE INITIALLY DEFERRED;
 
@@ -5330,6 +5505,10 @@ ALTER TABLE "tk"."validity_coverage" ADD CONSTRAINT "validity_coverage__fk__reco
 
 ALTER TABLE "param"."benson_group_additivity__node__cp" ADD CONSTRAINT "benson_group_additivity__node__cp__fk__set_id" FOREIGN KEY ("set_id") REFERENCES "param"."benson_group_additivity__node" ("id") DEFERRABLE INITIALLY DEFERRED;
 
+ALTER TABLE "param"."cef_redlich_kister__interaction__order" ADD CONSTRAINT "cef_redlich_kister__interaction__order__fk__set_id" FOREIGN KEY ("set_id") REFERENCES "param"."cef_redlich_kister__interaction" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."gibbs_polynomial__function__piece" ADD CONSTRAINT "gibbs_polynomial__function__piece__fk__set_id" FOREIGN KEY ("set_id") REFERENCES "param"."gibbs_polynomial__function" ("id") DEFERRABLE INITIALLY DEFERRED;
+
 ALTER TABLE "param"."helmholtz_pure_fluid__pure__planck_einstein" ADD CONSTRAINT "helmholtz_pure_fluid__pure__planck_einstein__fk__set_id" FOREIGN KEY ("set_id") REFERENCES "param"."helmholtz_pure_fluid__pure" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "param"."helmholtz_pure_fluid__pure__power" ADD CONSTRAINT "helmholtz_pure_fluid__pure__power__fk__set_id" FOREIGN KEY ("set_id") REFERENCES "param"."helmholtz_pure_fluid__pure" ("id") DEFERRABLE INITIALLY DEFERRED;
@@ -5361,6 +5540,8 @@ ALTER TABLE "param"."multifluid_departure_terms__core__gaussian" ADD CONSTRAINT 
 ALTER TABLE "param"."nasa7__pure__piece" ADD CONSTRAINT "nasa7__pure__piece__fk__set_id" FOREIGN KEY ("set_id") REFERENCES "param"."nasa7__pure" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "param"."nasa9__pure__piece" ADD CONSTRAINT "nasa9__pure__piece__fk__set_id" FOREIGN KEY ("set_id") REFERENCES "param"."nasa9__pure" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."redlich_kister_pair__pair__order" ADD CONSTRAINT "redlich_kister_pair__pair__order__fk__set_id" FOREIGN KEY ("set_id") REFERENCES "param"."redlich_kister_pair__pair" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "param"."shomate__pure__piece" ADD CONSTRAINT "shomate__pure__piece__fk__set_id" FOREIGN KEY ("set_id") REFERENCES "param"."shomate__pure" ("id") DEFERRABLE INITIALLY DEFERRED;
 

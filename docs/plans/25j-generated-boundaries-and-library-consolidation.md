@@ -49,7 +49,10 @@ the examples that happened to be counted in the review.
   the Python emitter, attrs cardinality validators, and linear-time uniqueness using the
   contract's admitted equality/key. Preserve deterministic output order. A uniqueness
   implementation must support the admitted element domain: hashable values can use a set;
-  structured values use the existing canonical element key rather than becoming newly invalid.
+  structured values use a type-directed equality-consistent key rather than becoming newly invalid.
+  Defining that key is implementation work, not an existing facility assumed here. Do not reuse
+  I1 content identity: it distinguishes signed zero, while collection equality can identify
+  -0.0 and +0.0. Preserve map and nested-value equality as well.
 - Hex conversion is owned by I1, closed-vocabulary semantics/derive policy by F1. J3 migrates
   their generated consumers. This avoids a second utility owner here.
 
@@ -61,9 +64,9 @@ No accepted ADR is edited in place and no new crate is required.
 
 | Packet | Prerequisites | Responsibility and target | Deletion | Status |
 |---|---|---|---|---|
-| J1 Owned document and admission boundary | Settled A/F/E/C contracts for each migrated operation; F1 vocabulary | Move adapter-owned request meanings into the Rust owner; register actual request/results with generation; use one typed document bridge | Ad hoc JSON shape construction, adapter policy and duplicate schema definitions for migrated operations | planned |
-| J2 Python consumer cutover | J1; F2/F3/F4, E2/E3/E4 and C1 interfaces as applicable; G2 for changed persisted representations | Generate models, enums and native stubs; migrate all Python/public Rust boundary consumers and defaults | Hand-written mirrors, string enum getters, parallel wire types and copied defaults | planned |
-| J3 Generator/library consolidation | J1; F1 and I1 utility contracts | Generate common vocabulary surfaces; use adopted graph/cardinality mechanisms; review regenerated outputs | Bespoke emitter DFS, repeated enum glue and quadratic cardinality/uniqueness mechanisms | planned |
+| <a id="j1"></a>J1 Owned document and admission boundary | F1/F2/F3; E2/E4; C1 | Move adapter-owned request meanings into the Rust owner; register actual request/results with generation; use one typed document bridge | Ad hoc JSON shape construction, adapter policy and duplicate schema definitions for migrated operations | planned |
+| <a id="j2"></a>J2 Python consumer cutover | J1; F2/F3/F4, E2/E3/E4 and C1 interfaces as applicable; G2 for changed persisted representations | Generate models, enums and native stubs; migrate all Python/public Rust boundary consumers and defaults | Hand-written mirrors, string enum getters, parallel wire types and copied defaults | planned |
+| <a id="j3"></a>J3 Generator/library consolidation | F1 and I1 utility contracts | Generate common vocabulary surfaces; use adopted graph/cardinality mechanisms; review regenerated outputs | Bespoke emitter DFS, repeated enum glue and quadratic cardinality/uniqueness mechanisms | planned |
 
 J1/J2 proceed by complete operation slices after their owner is ready; they need not wait for
 every operation before starting. No slice retains an old and new public API in parallel.
@@ -72,6 +75,15 @@ checks accompany the migration. Generate whenever a declaration/generator change
 recipe-owned bootstrap path when generation itself depends on newly changed contracts.
 
 ### J1 — Shape and semantic admission
+
+**Implementation vision.** The operation has a decoded transport structure and, where context matters, a distinct admitted
+product. Generation exposes fields, discriminants, defaults, enum membership and syntactic
+constraints. The native owner resolves identities and validates cross-field/contextual conditions,
+returning a request bound to its selected revision. A Python flow-selection constructor can check
+shape; only runtime admission establishes that its connections belong to the model and its
+strategy is supported. The boundary inventory maps every exported operation to this owner,
+admission operation and generated request/result/diagnostic products. Source-authoring omissions
+and aliases remain governed by their source schema, not a hydrated-document substitute.
 
 Separate decoded transport from admitted requests where the operation has contextual invariants.
 For example, a flow selector is decoded once, then admitted against the chosen model; an overlay
@@ -85,6 +97,15 @@ valid scientific result just to serialize a refusal.
 
 ### J2 — Consumer behavior
 
+**Implementation vision.** The final pipeline is owned Rust declaration → schema/document registration → generated Python
+models/enums/stubs → typed codec bridge → native admission/execution → generated result or
+diagnostic decoding. Python performs mechanical conversion, not another quantity conversion,
+route decision or default choice. Unknown discriminants/malformed fields fail decoding; physically
+or contextually incompatible values fail native admission with F1's envelope. Omitted and explicit
+defaults have the same native behavior. Partial runs carry a typed decision and available output
+roles; cancellation and pre-result refusal remain distinct products. Builders, getters,
+exceptions and readers migrate as one operation slice.
+
 Migrate request builders, handle/result readers, exception conversion, getters and stub
 signatures together. A success path alone is insufficient: partial execution, cancellation,
 pre-solve refusal, failed attempts, qualified incumbents and event-ended trajectories all
@@ -97,13 +118,26 @@ stability. Preserve source/display data as attribution without making it semanti
 
 ### J3 — Small libraries with unchanged contracts
 
+**Implementation vision.** Vocabulary declarations provide member spellings/descriptions; common strum-based mechanics
+provide enumeration, parsing and display. Semantic projections still come from their operation
+owners. The emitter's dependency declarations form a graph yielding a deterministic order or an
+attributable cycle, not hidden recursive traversal state. Collection declarations supply element
+type, cardinality and equality. Emit length checks directly and derive an equality-consistent
+uniqueness key for each supported element family. Signed zeros and nested/reordered maps must
+follow collection equality, not content-hash identity. Regenerated consumers then preserve both
+accepted values and refusals while obsolete utility implementations disappear.
+
 The original review contains pinned fit evidence for strum, hex, petgraph and attrs. Check
 their selected-release capability records when implementing; use current documentation where
 API details need confirmation. Library adoption must preserve unknown-member errors, const
 surfaces where consumed, lowercase canonical literals and deterministic generated ordering.
 A cycle in declaration dependencies remains an attributable generator error.
 
-For collection uniqueness, test duplicates of each admitted element family. A faster
+Preserve the distinction between source-authoring schemas and hydrated Rust document schemas;
+schemars output for an admitted document cannot automatically replace a source grammar schema.
+
+For collection uniqueness, test duplicates of each admitted element family, including scalar and
+nested signed zeros and maps with reordered entries. A faster
 implementation that refuses a formerly valid structured element is not equivalent. Remove the
 old mechanisms and their mechanism-specific tests; retain semantic contract controls using the
 new owner. Regeneration is functional work, not deferred polish.
@@ -143,4 +177,3 @@ Record an actual implementation correction at closure.
 ### Deviations from the plan, deliberate
 
 None recorded; decision changes follow their owning ADR/design route.
-

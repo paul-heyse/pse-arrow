@@ -248,13 +248,18 @@ doc = "Both site classes have the same host key."
 enforced = "verify"
 
 [kinds.constituent_array]
-doc = "A choice of one or more species on each site class of a phase, in a stated order: the subject of a compound-energy parameter. The order of interacting species on a site class fixes the sign of odd-order interaction terms and which species a ternary index selects, so it is part of the array. Canonical key: the phase and, per site class in order, the species in position order as the source asserted them. Two arrays that differ only in that order are different arrays; that they describe one physical array is an equivalence assessment, not part of identity."
+doc = "A choice of one or more species on each site class of a phase, in a stated order: the subject of a compound-energy parameter. The order of interacting species on a site class fixes the sign of odd-order interaction terms and which species a ternary index selects, so it is part of the array, and an expression reads it as the position of a species in the array (`position(t, s)`). The canonical key has one declared form, the ordering convention: the key of the phase definition, then for each site class that has members, in ascending site class index, a colon and the canonical keys of the species the array places on it, in position order as the source asserted them and joined by commas (`BCC_B2:Al,Fe:Va`). Two arrays that differ only in that order are different arrays, and that they describe one physical array is an equivalence assessment, not part of identity."
 identity = ["phase", "canonical_key"]
 provenance = "own"
 
 [kinds.constituent_array.attributes]
 phase = { type = "phase_definition", doc = "The phase." }
-canonical_key = { type = "Text", doc = "The canonical encoding of the array." }
+canonical_key = { type = "Text", doc = "The canonical encoding of the array, in the ordering convention stated by the kind." }
+
+[[kinds.constituent_array.requires]]
+name = "key_follows_members"
+doc = "The canonical key is the ordering convention applied to the members the array places: the phase definition's key, then for each site class that has members in ascending class index a colon and the canonical keys of its species in position order, joined by commas."
+enforced = "verify"
 
 [relations.constituent_array_member]
 doc = "A species an array places on a site class."
@@ -274,6 +279,21 @@ name = "position_from_one"
 doc = "The species an array places on a site class are numbered from one."
 enforced = "ddl"
 check = { positive = "position" }
+
+[[relations.constituent_array_member.requires]]
+name = "positions_contiguous"
+doc = "The positions an array gives on one site class run from one without a gap, since a position is what fixes the sign of an odd-order term and the species a ternary index selects."
+enforced = "verify"
+
+[[relations.constituent_array_member.requires]]
+name = "site_class_of_array_phase"
+doc = "The site class an array places a species on belongs to the array's own phase definition."
+enforced = "verify"
+
+[[relations.constituent_array_member.requires]]
+name = "species_may_occupy_site_class"
+doc = "A species an array places on a site class is one of the admissible occupants of that site class (`site_occupant`)."
+enforced = "verify"
 
 [kinds.speciation_map]
 doc = "The relation between an apparent description of a material and its true species within a chemical system. Apparent and true are two descriptions of one material account, never two inventories."

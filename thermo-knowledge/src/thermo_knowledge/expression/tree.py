@@ -40,7 +40,7 @@ ELEMENTARY = (
 SPECIAL = ("erf", "chebyshev_t", "debye")
 FUNCTIONS = (*ELEMENTARY, *SPECIAL)
 """Functions called as `f(x, ...)`; `Func` nodes carry exactly these names."""
-HEADS = ("sum", "prod", "d", "at", "integral", "unit", "range", "basis")
+HEADS = ("sum", "prod", "d", "at", "integral", "unit", "range", "basis", "position")
 """The other names the grammar reserves for its own constructs."""
 
 
@@ -208,6 +208,16 @@ class Integral(Node):
     upper: Expr
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class Position(Node):
+    """`position(t, s)`: the position the constituent array `t` gives the species `s` among the
+    members it places on its site class, counting from one. A stored fact of the array, read
+    through the parameter source like a slot value."""
+
+    array: Expr
+    member: Expr
+
+
 type Expr = (
     Num
     | UnitLiteral
@@ -227,6 +237,7 @@ type Expr = (
     | Derivative
     | At
     | Integral
+    | Position
 )
 
 

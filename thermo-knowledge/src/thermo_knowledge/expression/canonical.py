@@ -97,6 +97,8 @@ def _emit(node: t.Expr) -> str:
             return f"d({_emit(node.expr)}, {_emit(node.wrt)})"
         case t.At():
             return f"at({_emit(node.family)}, {_emit(node.value)})"
+        case t.Position():
+            return f"position({_emit(node.array)}, {_emit(node.member)})"
         case t.Integral():
             return f"integral({_emit(node.body)}, {node.var}, {_emit(node.lower)}, {_emit(node.upper)})"
     raise TypeError(f"not an expression node: {node!r}")

@@ -367,6 +367,16 @@ class CanonicalWriter:
 
     # -- values -------------------------------------------------------------------------------
 
+    def _kind_written(self, reference: uuid.UUID) -> str | None:
+        """The kind of a declared entity or of an instance this writer registered as a record,
+        or `None` when the writer has not seen it (a record of another run, written by another
+        stage, is checked by the database's foreign keys at build)."""
+        entity = self._entities.get(reference)
+        if entity is not None:
+            return entity.kind
+        stored = self._tables.get(RECORD, {}).get((reference,))
+        return None if stored is None else str(stored.row["kind"])
+
     def _instance(self, reference: uuid.UUID) -> tuple[str, Mapping[str, Converted]] | None:
         """The kind and attribute values of an instance the writer can see: a declared entity or
         one it has written (of a kind some `unit_from` path goes through)."""
@@ -1261,6 +1271,15 @@ class CanonicalWriter:
             )
         for name in sorted(set(slots) & {s.name for s in group.subjects}):
             raise ValidationError(locator, [f"{name}: is a subject role, not a slot"])
+        wrong = [
+            f"subject `{role.name}` is a {found}, and the role of `{slot_group}` is of kind "
+            f"`{role.type.element}`"
+            for role, subject in zip(group.subjects, subjects, strict=True)
+            if (found := self._kind_written(subject)) is not None
+            and not decl.is_a(found, role.type.element)
+        ]
+        if wrong:
+            raise ValidationError(locator, wrong)
         if m.ARRANGEMENT in slots:
             raise ValidationError(
                 locator,

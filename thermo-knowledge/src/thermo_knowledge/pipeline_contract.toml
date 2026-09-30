@@ -325,6 +325,12 @@ attributes.host_key = { type = "Text" }
 attributes.phase = { type = "phase_definition", optional = true }
 attributes.material = { type = "material", optional = true }
 
+[kinds.constituent_array]
+schema = "tk"
+identity = ["phase", "canonical_key"]
+attributes.phase = { type = "phase_definition" }
+attributes.canonical_key = { type = "Text" }
+
 [kinds.association_site]
 schema = "tk"
 identity = ["scheme", "carrier_key", "label"]
@@ -406,6 +412,13 @@ keys.subject_key = { type = "Text" }
 keys.ordinal = { type = "Integer" }
 columns.form = { type = "Meta<form>" }
 columns.source_parameterization = { type = "parameterization", optional = true }
+
+[relations.constituent_array_member]
+schema = "tk"
+keys.array = { type = "constituent_array" }
+keys.site_class = { type = "site_class" }
+keys.position = { type = "Integer" }
+columns.species = { type = "species" }
 
 [relations.fit_free_parameter]
 schema = "prov"

@@ -4,6 +4,13 @@ Plans own the execution status of work that is actually active; packets may own 
 progress. The current architecture and its supported scope live in the
 [architecture sections](../authoritative_design/README.md), not in plans.
 
+[Plan 25](25-design-remediation.md) coordinates the proposed remediation of the two
+codebase domain-alignment reviews. Its 25a–25k plans describe the target contracts,
+implementation packets, dependency order and final qualification. The coordinator owns
+finding dispositions; the linked plans own packet progress. Production execution has not
+started. The series reserves full integration and qualification for 25k after all functional
+work, with focused checks and immediate deletion of replaced mechanisms during the pivot.
+
 [Plan 23](23-thermodynamic-domain-and-campaign.md) (the thermodynamic domain model and
 integrated kernel campaign) is **done** (2026-09-30). Its
 [Outcome](23-thermodynamic-domain-and-campaign.md#outcome-recorded-after-implementation)
@@ -40,6 +47,9 @@ qualification basis is summarized in
 - **Naming.** `docs/plans/NN-kebab-case.md`, numbered in the order they were started.
   Numbers are never reused: `just plan` allocates the highest retained number plus one,
   so the highest-numbered plan stays until a newer plan exists.
+  A coordinated series retains one numeric owner (for example `25-design-remediation.md`)
+  and may use alphabetic companion plans (`25a-...md`, `25b-...md`). The numeric owner
+  reserves the number; `just plan` does not allocate the alphabetic companions.
 - **Front matter.** `title`, `status` (`draft` | `in-progress` | `done` | `abandoned`),
   `date` and `adrs` (the decision records the plan implements). Optional
   `review_sources` and `scenario_sources` link existing definitions.
