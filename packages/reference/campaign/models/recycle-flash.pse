@@ -123,7 +123,7 @@
 // recycled liquid is saturated, so the derivative sample at the solution resolves that
 // smoothing in its re-flash with a 1e-7 step, whose roundoff on the 1e5 W energy rows and
 // truncation on the smoothing both stay below 1 %.
-@id("01a0f053c2807589b9b24cf0b26a07c9") test recycle_flash_converges_from_defaults oracle campaign_references.analytic_recycle_flash fixture {dof 0; run initialized; stages("tear"); policy { derivatives step(1e-7) tolerance(1e-2); }} {
+@id("01a0f053c2807589b9b24cf0b26a07c9") test recycle_flash_converges_from_defaults oracle campaign_references.analytic_recycle_flash fixture {dof 0; run initialized; stages("tear"); initialize homotopy(false) step(0.5) minimum(1e-6) growth(2) attempts(4) seconds(600); policy { derivatives step(1e-7) tolerance(1e-2); }} {
 @id("01a0f053c2807589b9b24cf1e6db2076") child root:RecycleFlashStudy=RecycleFlashStudy;
 @id("01a0f053c2807589b9b24cf202b31e73") expect root.point[cold_lean].flash.vapor_composition[chem.benzene]==0.633977{1} tolerance 0.00001{1};
 @id("01a0f053c2807589b9b24cf3b9a99eb9") expect root.point[cold_lean].flash.liquid_composition[chem.benzene]==0.412118{1} tolerance 0.00001{1};
@@ -154,7 +154,7 @@
 // attempt commits nothing, and the unchanged specification, RecycleFlash's at the IDAES
 // test_BTIdeal feed (1 mol/s, equimolar, 368 K, 101325 Pa) with a quarter purged, is solved
 // from its own starts and answers to the same steady state.
-@id("01a0f053f157702a825ee1acc5a50f11") test recycle_flash_failure_restores_specification oracle campaign_references.analytic_recycle_flash fixture {dof 0; run initialized; stages("overheated_tear"); failure trial_rejected "modeling.qualification.rejected"; fix root.feed.state.flow=1{mol/s}; fix root.feed.state.T=368{K}; fix root.feed.state.pressure=101325{Pa}; fix root.feed.state.z[chem.benzene]=0.5{1}; fix root.feed.state.z[chem.toluene]=0.5{1};} {
+@id("01a0f053f157702a825ee1acc5a50f11") test recycle_flash_failure_restores_specification oracle campaign_references.analytic_recycle_flash fixture {dof 0; run initialized; stages("overheated_tear"); initialize homotopy(false) step(0.5) minimum(1e-6) growth(2) attempts(4) seconds(600); failure trial_rejected "modeling.qualification.rejected"; fix root.feed.state.flow=1{mol/s}; fix root.feed.state.T=368{K}; fix root.feed.state.pressure=101325{Pa}; fix root.feed.state.z[chem.benzene]=0.5{1}; fix root.feed.state.z[chem.toluene]=0.5{1};} {
 @id("01a0f05f996477f09a4b59bf39131cec") child root:OverheatedTear=OverheatedTear;
 @id("01a0f05f996477f09a4b59c0cd740ceb") expect root.flash.vapor_composition[chem.benzene]==0.633977{1} tolerance 0.00001{1};
 @id("01a0f05f996477f09a4b59c1a7dff362") expect root.flash.liquid_composition[chem.benzene]==0.412118{1} tolerance 0.00001{1};
