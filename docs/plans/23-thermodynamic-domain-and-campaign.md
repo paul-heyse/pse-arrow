@@ -339,11 +339,21 @@ its implementation evidence exists:
 
 ## Verification
 
-Targeted checks accompany each packet: `just unit-package <pkg> '<filter>'`,
-`just native-test -E '…'` for solver-backed checks, `just seed-conformance` after
-package-data packets, `just codegen`, `just python-stubs` with targeted
-`just py-unit-native` for Python-visible changes, and `just adr-lint` for decisions.
-No formatting, lint or integration suites run mid-plan.
+Mid-plan, each packet runs only targeted checks:
+- `just unit-package <pkg> '<filter>'` for its own tests;
+- `just native-test -E '…'` for its solver-backed tests;
+- the golden vectors of any frame it touched, and the store round trip if the store
+  schema changed;
+- `just codegen` after a registry edit, and `just python-stubs` with targeted
+  `just py-unit-native` for Python-visible changes;
+- for package-data changes, one conformance run of the affected fixtures selected with
+  `--fixture` (a selected run still admits every package);
+- `just adr-lint` for decisions.
+
+The coordinator integrates each packet by rebasing it onto main, running this targeted set
+once in the main checkout, then fast-forwarding. Agents do not run verification-only passes.
+The whole seed, broad native filters and every crate's suite run once, at Q (maintainer,
+2026-09-30). No formatting, lint or integration suites run mid-plan.
 
 Q reports each check against the zero baseline with its command and conditions:
 `just fmt-check`, `just clippy`, `just lint-solver-contracts`, `just quality`,
