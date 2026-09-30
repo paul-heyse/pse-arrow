@@ -243,7 +243,7 @@ and after.
 
 | Packet | Responsibility / dependencies | Acceptance | Deletion | Status |
 |---|---|---|---|---|
-| D0 Domain schema; KR4–KR8 | The schema above without rows (the chemistry kinds already moved in SM0); refusal corpus `tests/fixtures/domain-refusals/` | `domain_schema_refusals_name_the_violated_constraint` (duplicate CAS, unknown formula element, selection subject mismatch, missing pair selection, oracle row in a production root, conflicting symmetric pair rows, coefficient-unit mismatch, reaction element closure, apparent electroneutrality, cation charge); `derived_molar_mass`, `two_group_unifac_admission` | — | pending |
+| D0 Domain schema; KR4–KR8 | The schema above without rows (the chemistry kinds already moved in SM0); refusal corpus `tests/fixtures/domain-refusals/` | `domain_schema_refusals_name_the_violated_constraint` (duplicate CAS, unknown formula element, selection subject mismatch, missing pair selection, oracle row in a production root, conflicting symmetric pair rows, coefficient-unit mismatch, reaction element closure, apparent electroneutrality, cation charge); `derived_molar_mass`, `two_group_unifac_admission` | — | done (on main; `authored.modeling_declarations` version 14). Chemical core in `pse.physical` chemistry: identifier schemes, charge, formula, derived molar mass, apparent species with electroneutrality, stoichiometry closure, phase type. `pse.domain`: `properties` (property, keyed parameter sets, caloric, vapor-pressure and liquid-density families with envelopes, `property_package`, `selection`, `component_role`, operation contracts `cp`, `enthalpy_increment`, `entropy_increment`, `psat` and `liquid_density`, ADR-0128); `interactions` (symmetric `pair`, `pair_selection`, groups); `constants` (`gas_constant: GasConstant`, CODATA 2018). Kernel gaps closed: kind-level derived attributes, kind-level `require`, attribute `unique`. The refusal corpus covers 10 cases with controls. Pure fixtures live in `pse.domain-fixtures` (a `domain` run) |
 | SM1 Chemistry; D0 | `chem` splits into the `data/species` catalogue (CAS, InChIKey, formula, charge) and `data/ciaaw` elements; component sets move to the packages that bind them | `formula_weights` as a derived-attribute check | `atoms`, `atomic_mass` free tables | pending |
 | SM2 Provenance as data; SM1 | Source entities (NIST Chase 1998, Perry 7 tables 2-196/2-30, RPP4, Poling 2000, Gross–Sadowski 2001, CIAAW 2024, IDAES 2.13 and its tests, teqp 0.23.1, FeOS 0.10.1, derived SciPy references); every dataset and test typed; reference scripts emit oracle Parquet | H1 unchanged | Every `source`/`revision` string, data prose in `sources.md`, `crates/pse-kernels/data/*`, `tests/fixtures/plan14/thermo-reference.json` once unread | provenance part done with KR6, on main: `pse.domain` with provenance kinds and roles, 57 source entities, typed sources on every seed dataset and seed-data test. Remaining: oracle Parquet generation, and deleting `crates/pse-kernels/data/*` and `thermo-reference.json` (after KR9) |
 | SM3 Pure-component forms; SM2 | Forms `shomate`, `dippr100`, `dippr105`, `rpp4_cp`, `rpp4_wagner`, `antoine`, `constant`; increments `dh(T0,T)`, `ds(T0,T)`; rows to banks | Caloric (8) and phase-data (3) fixtures; indexed `∂dh/∂T == cp` over every caloric set | `fit` kind, `polynomial`/`scale`, species-keyed `shomate`, 13 name-encoded fits, unit helper functions, entropy-coordinate helpers, `PolynomialLiquid/Gas`, `liquid_density`/`vapor_pressure` tables | pending |
@@ -476,6 +476,24 @@ Plan 23. Owner: H5, or its own packet.
 Track C is on main (CT-S05, CT-S06, CT-S07; `--fixture` typed selection; SCIP rows exported
 in normalized coordinates; campaign provenance typed). `just seed-conformance` now covers
 seed + campaign: 103/103 passed, complete, memory-capped.
+
+D0 is on main. Verified on main's tree:
+- seed + campaign 103/103, and the `domain` run 6/6;
+- targeted native tests 107/107;
+- kernel and runtime unit suites pass;
+- linked Python 24 passed.
+
+Deviations accepted:
+- The element `symbol` is a unique optional attribute, not a key.
+- `molar_mass` is optional until SM1 supplies formulas.
+- Fixtures live in their own `pse.domain-fixtures` distribution, so no production closure
+  admits synthetic entities.
+
+Limits carried into W4 (data-bank scale):
+- Checks that range over all entities of a kind are bounded by the evaluation limit, so
+  nested closures over hundreds of species may need a set-based admission path (DM1).
+- `pair` values are `Scalar` only, and dimensioned pair parameters need a typed value (DM5).
+- Abstract kinds are not enforced.
 
 Carried into KR5 (resolved):
 - A cell can reference declared entities but not keyed rows. KR5 adds a typed keyed-row
