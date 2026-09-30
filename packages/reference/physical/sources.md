@@ -136,3 +136,15 @@ quantity. A singleton returns its value; an empty selection refuses because no p
 minimum exists. `fold(acc, value; i in members | input[i]; step)` binds `acc` and `value`
 only in the step and checks the step's complete output type. Library differentiation
 operates on the resulting shared expression bindings.
+
+The `chemistry` module holds the chemical core (ADR-0127). Identifier schemes (`cas`,
+`inchikey`) are opaque: values are compared byte for byte and held by one entity of an
+admitted closure. An element's symbol and atomic number are unique; a species' molar mass
+is derived from its `formula` and the standard atomic weights of its elements, and is
+absent without a formula. Charge is a charge number, the dimensionless signed charge in
+units of the elementary charge (`ChargeNumber`, neutral by default). An apparent species'
+dissociation products carry its charge, and a reaction's stoichiometry conserves every
+element and charge. A phase carries its `compatibility.PhaseType`; the canonical liquid and
+vapor phases declare theirs. The module declares the schema only; data banks supply the
+rows. The existing molar gas constant type is named `GasConstant` so that a package can
+declare the constant with its own kind.

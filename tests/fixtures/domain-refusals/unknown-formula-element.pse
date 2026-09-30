@@ -1,0 +1,13 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+// A formula cites declared elements only.
+// refusal: row 1 of dataset formulas: key e of formula
+// refusal: unknown entity nitrogen
+// control: [ammonia, nitrogen] => [ammonia, corpus.N]
+package refusal {
+ use chemistry @"1.0.0";
+ use corpus @"1.0.0";
+ use provenance @"1.0.0";
+ entity chemistry.species ammonia {}
+ dataset formulas: chemistry.formula provenance(corpus.bank, provenance.Role.published) { [ammonia, corpus.H] = [3{1}]; [ammonia, nitrogen] = [1{1}]; }
+}

@@ -815,9 +815,14 @@ impl Evaluator<'_, '_> {
                         matches!(definition, Value::Definition { .. })
                             .then_some((count, definition))
                     });
+                    // A lexical binding shadows a declaration of its name, as in typing (Plan 23
+                    // D0: a kind's attribute named like a declaration).
+                    let lexical = self.env.contains_key(&first.name);
                     // A qualified declaration path is resolved before entity attribute traversal.
                     // Package names are scopes, not runtime values to be evaluated.
-                    if definition_prefix.is_none() && self.package.resolve(self.at, &name).is_some()
+                    if definition_prefix.is_none()
+                        && !lexical
+                        && self.package.resolve(self.at, &name).is_some()
                     {
                         return self.reference(&name, depth + 1);
                     }
@@ -826,7 +831,8 @@ impl Evaluator<'_, '_> {
                         .map(|segment| segment.name.as_str())
                         .collect::<Vec<_>>()
                         .join(".");
-                    if let Some(id) = self.package.resolve(self.at, &enum_name)
+                    if !lexical
+                        && let Some(id) = self.package.resolve(self.at, &enum_name)
                         && self.package.declarations[&id].value.enumeration.is_some()
                     {
                         let member = &path.segments[path.segments.len() - 1].name;

@@ -170,8 +170,13 @@ pub(crate) fn supplied_by(p: &CheckedPackage, origin: DeclarationId) -> String {
             name(&origin),
             member_name(p, &provenance.role)
         ),
-        Some(provenance) => format!(
+        Some(provenance) if p.supplies_test_only(origin) => format!(
             "supplied by {} with role {}, whose lineage reaches test-only data",
+            name(&origin),
+            member_name(p, &provenance.role)
+        ),
+        Some(provenance) => format!(
+            "supplied by {} with role {}, referencing test-only data",
             name(&origin),
             member_name(p, &provenance.role)
         ),

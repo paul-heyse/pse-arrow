@@ -1,0 +1,13 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+// A form's coefficient is stated in its declared quantity.
+// refusal: row 0 of dataset ethane_sets: attribute c0: 70.0{J/(K*kg)} is not a MolarCp
+// control: 70{J/(kg*K)} => 70{J/(mol*K)}
+package refusal {
+ use corpus @"1.0.0";
+ use properties @"1.0.0";
+ use provenance @"1.0.0";
+ dataset ethane_sets: corpus.constant_cp bind(source = corpus.bank, property = properties.heat_capacity) provenance(corpus.bank, provenance.Role.published) {
+  [corpus.ethane, liquidPhase] = [250{K}, 400{K}, 70{J/(kg*K)}];
+ }
+}

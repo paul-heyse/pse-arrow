@@ -1,0 +1,16 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+// A package reads pair data only from the source it selects for the pair property.
+// root: refusal.Root
+// refusal: lookup pair_selection[pkg, kij] is outside the completeness of pair_selection
+// control: def Root { => dataset chosen: interactions.pair_selection complete_over(k in corpus.packages, p in kijs) provenance(corpus.bank, provenance.Role.published) { [corpus.pkg, kij] = [corpus.bank]; } def Root {
+package refusal {
+ use corpus @"1.0.0";
+ use interactions @"1.0.0";
+ use properties @"1.0.0";
+ use provenance @"1.0.0";
+ entity properties.property kij { quantity = Scalar, shape = properties.IndexShape.pair, applies = {liquidPhase, vaporPhase} }
+ set kijs: Set<properties.property> = {kij};
+ dataset kij_values: interactions.pair complete_over(s in corpus.banks, p in kijs, i in corpus.aromatics, j in corpus.aromatics) provenance(corpus.bank, provenance.Role.published) { [corpus.bank, kij, corpus.benzene, corpus.toluene] = [0.01]; }
+ def Root { var k: Scalar; eq e: k == interactions.pair_parameter(corpus.pkg, kij, corpus.toluene, corpus.benzene); }
+}

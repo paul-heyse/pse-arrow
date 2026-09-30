@@ -561,3 +561,5 @@ mod kernel_provenance;
 mod kernel_envelopes;
 #[cfg(test)]
 mod kernel_domain;
+#[cfg(test)]
+mod domain_schema;

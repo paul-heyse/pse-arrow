@@ -1,0 +1,9 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+// Physical constants as typed declarations with their provenance (ADR-0123 Outcome 2).
+@id("01a0f00c1fbc7251b799a7b60a8d581e") package constants {
+@id("01a0f00c1fbc7251b799a7b7aa14c100") use provenance @"1.0.0";
+@id("01a0f00c1fbc7251b799a7b807ecdc01") entity provenance.publication codata_2018 { title = "CODATA recommended values of the fundamental physical constants: 2018", year = 2021, doi = Id<provenance.doi>("10.1103/RevModPhys.93.025010") }
+// The molar gas constant, exact since the 2019 SI redefinition: R = N_A k.
+@id("01a0f00c1fbc7251b799a7b988b5cf2e") constant gas_constant: GasConstant = 8.31446261815324{J/(mol*K)} provenance(codata_2018, provenance.Role.published);
+}

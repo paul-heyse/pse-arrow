@@ -1012,7 +1012,15 @@ fn identities(
             .iter()
             .zip(&table.table.keys)
             .map(|(cell, key)| {
-                let value = scalar(p, c, dataset, cell, &key.ty, rows)?;
+                let value = scalar(p, c, dataset, cell, &key.ty, rows).map_err(|e| {
+                    context(
+                        e,
+                        &format!(
+                            "row {position} of dataset {}: key {} of {name}",
+                            p.declarations[&dataset].name, key.name
+                        ),
+                    )
+                })?;
                 if let (Some((lower, upper)), Value::Integer(v)) = (key.range, &value)
                     && !(lower..=upper).contains(v)
                 {
@@ -1124,7 +1132,17 @@ fn values(
             if entry.values.len() != 1 {
                 return Err(invalid(dataset, "scalar table row arity"));
             }
-            vec![Pending::Value(scalar(p, c, dataset, &entry.values[0], &schema.result, rows)?)]
+            vec![Pending::Value(
+                scalar(p, c, dataset, &entry.values[0], &schema.result, rows).map_err(|e| {
+                    context(
+                        e,
+                        &format!(
+                            "row {position} of dataset {}: value of {}",
+                            p.declarations[&dataset].name, p.declarations[&table].name
+                        ),
+                    )
+                })?,
+            )]
         } else {
             if entry.values.len() != supplied {
                 return Err(invalid(
@@ -1146,7 +1164,17 @@ fn values(
                         return Ok(Pending::Derived);
                     }
                     let cell = cells.next().ok_or_else(|| invalid(dataset, "row arity"))?;
-                    reference(p, c, declared, dataset, cell, &column.ty, rows, staged)
+                    reference(p, c, declared, dataset, cell, &column.ty, rows, staged).map_err(
+                        |e| {
+                            context(
+                                e,
+                                &format!(
+                                    "row {position} of dataset {}: column {}",
+                                    p.declarations[&dataset].name, column.name
+                                ),
+                            )
+                        },
+                    )
                 })
                 .collect::<Result<Vec<_>>>()?
         };

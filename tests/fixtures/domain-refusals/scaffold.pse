@@ -1,0 +1,50 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+// The shared scaffold of the domain refusal corpus (Plan 23 D0): a source, elements with
+// standard atomic weights, species with formulas and charges, a property package and one
+// caloric form. It is admissible on its own; each case adds one violation to it. The values
+// are synthetic test data, not a scientific source.
+package corpus {
+ use chemistry @"1.0.0";
+ use compatibility @"1.0.0";
+ use properties @"1.0.0";
+ use provenance @"1.0.0";
+ entity provenance.source bank { title = "Domain refusal corpus data" }
+ entity provenance.software_release oracle_release { title = "Domain refusal corpus oracle", version = "0" }
+ entity chemistry.element H { symbol = "H", atomic_number = 1, standard_atomic_weight = 0.001008{kg/mol} }
+ entity chemistry.element C { symbol = "C", atomic_number = 6, standard_atomic_weight = 0.012011{kg/mol} }
+ entity chemistry.element N { symbol = "N", atomic_number = 7, standard_atomic_weight = 0.014007{kg/mol} }
+ entity chemistry.element O { symbol = "O", atomic_number = 8, standard_atomic_weight = 0.015999{kg/mol} }
+ entity chemistry.element Na { symbol = "Na", atomic_number = 11, standard_atomic_weight = 0.02299{kg/mol} }
+ entity chemistry.element Cl { symbol = "Cl", atomic_number = 17, standard_atomic_weight = 0.03545{kg/mol} }
+ entity chemistry.species benzene { cas = Id<chemistry.cas>("71-43-2") }
+ entity chemistry.species toluene { cas = Id<chemistry.cas>("108-88-3") }
+ entity chemistry.species ethane {}
+ entity chemistry.species methane {}
+ entity chemistry.species oxygen {}
+ entity chemistry.species carbon_dioxide {}
+ entity chemistry.species water {}
+ entity chemistry.species sodium_ion { charge = 1{1} }
+ entity chemistry.species chloride_ion { charge = -1{1} }
+ dataset formulas: chemistry.formula provenance(bank, provenance.Role.published) {
+  [benzene, C] = [6{1}]; [benzene, H] = [6{1}]; [toluene, C] = [7{1}]; [toluene, H] = [8{1}];
+  [ethane, C] = [2{1}]; [ethane, H] = [6{1}]; [methane, C] = [1{1}]; [methane, H] = [4{1}];
+  [oxygen, O] = [2{1}]; [carbon_dioxide, C] = [1{1}]; [carbon_dioxide, O] = [2{1}];
+  [water, H] = [2{1}]; [water, O] = [1{1}]; [sodium_ion, Na] = [1{1}]; [chloride_ion, Cl] = [1{1}];
+ }
+ entity properties.property_package pkg {}
+ set packages: Set<properties.property_package> = {pkg};
+ set heat: Set<properties.property> = {properties.heat_capacity};
+ set liquid: Set<compatibility.PhaseType> = {compatibility.PhaseType.liquidPhase};
+ set banks: Set<provenance.source> = {bank};
+ set aromatics: Set<chemistry.species> = {benzene, toluene};
+ // A constant heat capacity form: one dimensioned coefficient and its bound functions.
+ entity kind constant_cp extends properties.caloric_set { attribute c0: MolarCp; cp = constant_value; dh = constant_dh; ds = constant_ds; }
+ fn constant_value(T: Temperature, s: constant_cp) -> MolarCp = s.c0;
+ fn constant_dh(T0: Temperature, T: Temperature, s: constant_cp) -> DeltaH = s.c0 * (T - T0);
+ fn constant_ds(T0: Temperature, T: Temperature, s: constant_cp) -> DeltaS = s.c0 * log(T / T0);
+ dataset sets: constant_cp bind(source = bank, property = properties.heat_capacity) provenance(bank, provenance.Role.published) {
+  [benzene, liquidPhase] = [250{K}, 400{K}, 136{J/(mol*K)}];
+  [toluene, liquidPhase] = [250{K}, 400{K}, 157{J/(mol*K)}];
+ }
+}

@@ -3,10 +3,42 @@
 // The chemical core: every chemistry kind has one owner here, beside the physical
 // quantity types that name them as subjects. This module is the single phase authority.
 @id("01a0ede5082274a785901e3183244ee3") package chemistry {
-@id("1c998211e5d74955863f377662f56526") entity kind species {}
-@id("1fe263f6a81d4a9fb4584520b4dd4a0b") entity kind element {}
-@id("0d15cb60062d4ee79e10ae2aea8c397e") entity kind reaction {}
-@id("7d986668d824439f9b5828046038365d") entity kind phase {}
-@id("c1ac28b6694144a890b9854d887fa26c") entity phase liquid {}
-@id("c2e7b1a320d24eb482bfb7301782f55c") entity phase vapor {}
+@id("01a0f00baca572638a494affcb8b27a2") use compatibility @"1.0.0";
+// Opaque identifier schemes: values are compared byte for byte, never parsed, and each is
+// held by one entity of an admitted closure.
+@id("01a0f00baca572638a494b002533568b") identifier scheme cas;
+@id("01a0f00baca572638a494b0152d49f48") identifier scheme inchikey;
+// An element: its symbol, atomic number and standard atomic weight are data a bank supplies.
+@id("1fe263f6a81d4a9fb4584520b4dd4a0b") entity kind element {
+@id("01a0f00baca572638a494b02d777da58") attribute symbol: Text? unique;
+@id("01a0f00baca572638a494b03c02f0737") attribute atomic_number: Integer? unique;
+@id("01a0f00baca572638a494b04eaa8ca32") attribute standard_atomic_weight: MolarMass?;
+}
+// A species: its identifiers and charge are data; its molar mass is derived from its formula
+// and the standard atomic weights of its elements, and is absent without a formula.
+@id("1c998211e5d74955863f377662f56526") entity kind species {
+@id("01a0f00baca572638a494b058360aedf") attribute cas: Id<cas>?;
+@id("01a0f00baca572638a494b06a4b56f4f") attribute inchikey: Id<inchikey>?;
+@id("01a0f00baca572638a494b079c5cc336") attribute charge: ChargeNumber = 0{1};
+@id("01a0f00baca572638a494b0850df2605") derived molar_mass: MolarMass? = if sum(e in element | formula[self, e]) > 0{1} then sum(e in element | if present(e.standard_atomic_weight) then formula[self, e] * e.standard_atomic_weight else 0{kg/mol}) else missing;
+}
+// The element counts of a species; each element a formula cites has a standard atomic weight.
+@id("01a0f00baca572638a494b09890ccbf4") table formula[j: species, e: element]: Count missing default 0{1} require present(e.standard_atomic_weight);
+// An apparent species dissociates into true species whose charges sum to its own.
+@id("01a0f00baca572638a494b0a43b4cfc4") entity kind apparent extends species {
+@id("01a0f00baca572638a494b0bc8fbc911") require sum(j in species | dissociation[self, j] * j.charge) == charge : "an apparent species is electroneutral: its dissociation products' charges sum to its own charge";
+}
+@id("01a0f00baca572638a494b0c5a84b230") table dissociation[a: apparent, j: species]: Count missing default 0{1};
+// A reaction conserves every element and charge over its stoichiometry.
+@id("0d15cb60062d4ee79e10ae2aea8c397e") entity kind reaction {
+@id("01a0f00baca572638a494b0dad768f4e") require sum(e in element | abs(sum(j in species | stoichiometry[self, j] * formula[j, e]))) == 0 : "a reaction conserves every element";
+@id("01a0f00baca572638a494b0eec9e5b89") require sum(j in species | stoichiometry[self, j] * j.charge) == 0{1} : "a reaction conserves charge";
+}
+@id("01a0f00baca572638a494b0f90fda40f") table stoichiometry[r: reaction, j: species]: Scalar missing default 0;
+// A phase and its type; a phase's behaviour is read from its type, never from its identity.
+@id("7d986668d824439f9b5828046038365d") entity kind phase {
+@id("01a0f00baca572638a494b10b457c403") attribute type: compatibility.PhaseType;
+}
+@id("c1ac28b6694144a890b9854d887fa26c") entity phase liquid { type = compatibility.PhaseType.liquidPhase }
+@id("c2e7b1a320d24eb482bfb7301782f55c") entity phase vapor { type = compatibility.PhaseType.vaporPhase }
 }

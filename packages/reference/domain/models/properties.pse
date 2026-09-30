@@ -1,0 +1,75 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+// The property schema (ADR-0127): what a property is, how a method library parameterizes a
+// pure-component property, how a property package selects the parameterization it uses, and
+// the generic operations that read a property through that selection. A parameter set has
+// no reference attribute: the datum of what it computes is its form's result type.
+@id("01a0f00c1fbb76f19ac7c8046ca7927c") package properties {
+@id("01a0f00c1fbb76f19ac7c805b7932988") use chemistry @"1.0.0";
+@id("01a0f00c1fbb76f19ac7c8069dccbd04") use compatibility @"1.0.0";
+@id("01a0f00c1fbb76f19ac7c8071b1c6a79") use provenance @"1.0.0";
+// How a property is indexed: per species, per unordered species pair, per group or per mixture.
+@id("01a0f00c1fbb76f19ac7c808dc72a304") enum IndexShape {@id("01a0f00c1fbb76f19ac7c8098ac11c80") pure, @id("01a0f00c1fbb76f19ac7c80ad8f59d93") pair, @id("01a0f00c1fbb76f19ac7c80bd30c1c2d") group, @id("01a0f00c1fbb76f19ac7c80cd5a77df3") mixture}
+@id("01a0f00c1fbb76f19ac7c80d10610aec") entity kind property {
+@id("01a0f00c1fbb76f19ac7c80e3ebbd3c3") attribute quantity: QuantityType;
+@id("01a0f00c1fbb76f19ac7c80f0ad429da") attribute shape: IndexShape;
+@id("01a0f00c1fbb76f19ac7c8104e828c31") attribute applies: Set<compatibility.PhaseType>;
+}
+// The pure-component properties the generic operations read.
+@id("01a0f00c1fbb76f19ac7c81198741731") entity property heat_capacity { quantity = MolarCp, shape = IndexShape.pure, applies = {liquidPhase, vaporPhase, solidPhase} }
+@id("01a0f00c1fbb76f19ac7c81214d2507e") entity property vapor_pressure { quantity = Pressure, shape = IndexShape.pure, applies = {liquidPhase} }
+@id("01a0f00c1fbb76f19ac7c8130b8eb83a") entity property liquid_molar_density { quantity = MolarDensity, shape = IndexShape.pure, applies = {liquidPhase} }
+// One source's parameterization of one pure-component property of one species in one phase
+// type. Its identity is its keys, whatever form refines it; a form adds dimensioned
+// coefficients and binds its functions.
+@id("01a0f00c1fbb76f19ac7c8147dcefbfa") entity kind parameter_set {
+@id("01a0f00c1fbb76f19ac7c815f8471b7e") key subject: chemistry.species;
+@id("01a0f00c1fbb76f19ac7c8163a1c40e3") key property: property;
+@id("01a0f00c1fbb76f19ac7c8179ab8e717") key phase_type: compatibility.PhaseType;
+@id("01a0f00c1fbb76f19ac7c8189d4d8448") key source: provenance.source;
+@id("01a0f00c1fbb76f19ac7c819fd23b069") key variant: Integer = 1;
+@id("01a0f00c1fbb76f19ac7c81a172ab97f") require phase_type in property.applies : "a parameter set's phase type is one its property applies to";
+@id("01a0f00c1fbb76f19ac7c81b10aa675d") require property.shape == IndexShape.pure : "a parameter set parameterizes a pure-component property";
+}
+// A correlation in temperature, valid over the range its data states.
+@id("01a0f00c1fbb76f19ac7c81c28af9f08") entity kind temperature_correlation extends parameter_set {
+@id("01a0f00c1fbb76f19ac7c81db95a5cd5") attribute minimum_temperature: Temperature;
+@id("01a0f00c1fbb76f19ac7c81ee8549c4f") attribute maximum_temperature: Temperature;
+@id("01a0f00c1fbb76f19ac7c81f71157cbd") envelope T: Temperature in minimum_temperature..maximum_temperature;
+}
+// Heat capacity, and the enthalpy and entropy increments between two temperatures.
+@id("01a0f00c1fbb76f19ac7c820944fcc27") entity kind caloric_set extends temperature_correlation {
+@id("01a0f00c1fbb76f19ac7c821f44ae9b3") attribute cp: Fn(T: Temperature, s: caloric_set) -> MolarCp;
+@id("01a0f00c1fbb76f19ac7c8225bd62227") attribute dh: Fn(T0: Temperature, T: Temperature, s: caloric_set) -> DeltaH;
+@id("01a0f00c1fbb76f19ac7c823d352e7f2") attribute ds: Fn(T0: Temperature, T: Temperature, s: caloric_set) -> DeltaS;
+@id("01a0f00c1fbb76f19ac7c8249667f4bc") require property == heat_capacity : "a caloric set parameterizes heat capacity";
+}
+@id("01a0f00c1fbb76f19ac7c825d3fd2b42") entity kind vapor_pressure_set extends temperature_correlation {
+@id("01a0f00c1fbb76f19ac7c8268ab9eaaa") attribute psat: Fn(T: Temperature, s: vapor_pressure_set) -> Pressure;
+@id("01a0f00c1fbb76f19ac7c827d8234d79") require property == vapor_pressure : "a vapor pressure set parameterizes vapor pressure";
+}
+@id("01a0f00c1fbb76f19ac7c828f06a78ce") entity kind liquid_density_set extends temperature_correlation {
+@id("01a0f00c1fbb76f19ac7c829c1b4f5e5") attribute density: Fn(T: Temperature, s: liquid_density_set) -> MolarDensity;
+@id("01a0f00c1fbb76f19ac7c82a55d5bffe") require property == liquid_molar_density : "a liquid density set parameterizes liquid molar density";
+}
+// A property package: the parameter sets, pair sources and component roles it uses. Its
+// phase formulation is a definition binding of its model.
+@id("01a0f00c1fbb76f19ac7c82b8f313387") entity kind property_package {}
+// The parameter set a package uses for a species, a property and a phase type. A lookup
+// without a row is refused, naming the package, species, property and phase type.
+@id("01a0f00c1fbb76f19ac7c82c941a0271") table selection[k: property_package, j: chemistry.species, p: property, t: compatibility.PhaseType]: parameter_set complete_over(k, j, p, t) require value.subject == j and value.property == p and value.phase_type == t;
+// The role a package gives a species; a species it gives none is a plain component.
+@id("01a0f00c1fbb76f19ac7c82dcb710095") table component_role[k: property_package, j: chemistry.species]: compatibility.ComponentType missing default compatibility.ComponentType.Component require value != compatibility.ComponentType.Cation or j.charge > 0{1} require value != compatibility.ComponentType.Anion or j.charge < 0{1} require value != compatibility.ComponentType.Ion or j.charge != 0{1};
+// The generic operations: each resolves the package's selection, narrows the selected set to
+// its family by its keys, and evaluates the form's bound function inside the set's envelope.
+@id("01a0f00c1fbb76f19ac7c82e8a7d2375") fn caloric_cp(s: caloric_set, T: Temperature) -> MolarCp guards(s.T: T) = s.cp(T, s);
+@id("01a0f00c1fbb76f19ac7c82fb411b473") fn caloric_dh(s: caloric_set, T0: Temperature, T: Temperature) -> DeltaH guards(s.T: [T0, T]) = s.dh(T0, T, s);
+@id("01a0f00c1fbb76f19ac7c83033f168c8") fn caloric_ds(s: caloric_set, T0: Temperature, T: Temperature) -> DeltaS guards(s.T: [T0, T]) = s.ds(T0, T, s);
+@id("01a0f00c1fbb76f19ac7c8314bc6071f") fn saturation_pressure(s: vapor_pressure_set, T: Temperature) -> Pressure guards(s.T: T) = s.psat(T, s);
+@id("01a0f00c1fbb76f19ac7c83283cc61bf") fn saturated_density(s: liquid_density_set, T: Temperature) -> MolarDensity guards(s.T: T) = s.density(T, s);
+@id("01a0f00c1fbb76f19ac7c833a24040ff") fn cp(k: property_package, p: chemistry.phase, j: chemistry.species, T: Temperature) -> MolarCp = caloric_cp(c, T) where s = selection[k, j, heat_capacity, p.type], c = caloric_set[s.subject, s.property, s.phase_type, s.source, s.variant];
+@id("01a0f00c1fbb76f19ac7c834fad7a814") fn enthalpy_increment(k: property_package, p: chemistry.phase, j: chemistry.species, T0: Temperature, T: Temperature) -> DeltaH = caloric_dh(c, T0, T) where s = selection[k, j, heat_capacity, p.type], c = caloric_set[s.subject, s.property, s.phase_type, s.source, s.variant];
+@id("01a0f00c1fbb76f19ac7c835016ba69f") fn entropy_increment(k: property_package, p: chemistry.phase, j: chemistry.species, T0: Temperature, T: Temperature) -> DeltaS = caloric_ds(c, T0, T) where s = selection[k, j, heat_capacity, p.type], c = caloric_set[s.subject, s.property, s.phase_type, s.source, s.variant];
+@id("01a0f00c1fbb76f19ac7c83687be5644") fn psat(k: property_package, p: chemistry.phase, j: chemistry.species, T: Temperature) -> Pressure = saturation_pressure(v, T) where s = selection[k, j, vapor_pressure, p.type], v = vapor_pressure_set[s.subject, s.property, s.phase_type, s.source, s.variant];
+@id("01a0f00c1fbb76f19ac7c8377ca6f8bd") fn liquid_density(k: property_package, p: chemistry.phase, j: chemistry.species, T: Temperature) -> MolarDensity = saturated_density(d, T) where s = selection[k, j, liquid_molar_density, p.type], d = liquid_density_set[s.subject, s.property, s.phase_type, s.source, s.variant];
+}

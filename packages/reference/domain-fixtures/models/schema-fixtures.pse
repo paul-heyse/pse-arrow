@@ -1,0 +1,84 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+// Pure fixtures of the domain schema over synthetic data (see sources.md).
+@id("01a0f014fa44727ba187db302a4bf9fd") package schema_fixtures {
+@id("01a0f014fa44727ba187db31f28db1a3") use chemistry @"1.0.0";
+@id("01a0f014fa44727ba187db327933ccc2") use compatibility @"1.0.0";
+@id("01a0f014fa44727ba187db334b075b4b") use interactions @"1.0.0";
+@id("01a0f014fa44727ba187db34b018fe5f") use properties @"1.0.0";
+@id("01a0f014fa44727ba187db3538f4fe43") use provenance @"1.0.0";
+@id("01a0f014fa44727ba187db363fb8f6b1") entity provenance.source schema_fixture_data { title = "Synthetic values exercising the domain schema; not a scientific source" }
+@id("01a0f014fa44727ba187db37debda849") entity chemistry.element light { symbol = "Lt", atomic_number = 1, standard_atomic_weight = 0.001{kg/mol} }
+@id("01a0f014fa44727ba187db38d398d677") entity chemistry.element heavy { symbol = "Hv", atomic_number = 8, standard_atomic_weight = 0.016{kg/mol} }
+@id("01a0f014fa44727ba187db39d29e3cdc") entity chemistry.species light_heavy {}
+@id("01a0f014fa44727ba187db3a1b310862") entity chemistry.species heavy_pair {}
+@id("01a0f014fa44727ba187db3b86cbd03d") entity chemistry.species unformulated {}
+@id("01a0f014fa44727ba187db3cd9cbca23") dataset formulas: chemistry.formula provenance(schema_fixture_data, provenance.Role.synthetic) { [light_heavy, light] = [2{1}]; [light_heavy, heavy] = [1{1}]; [heavy_pair, heavy] = [2{1}]; }
+@id("01a0f014fa44727ba187db3d8be68cc3") fn molar_mass_or_zero(j: chemistry.species) -> MolarMass = if present(j.molar_mass) then j.molar_mass else 0{kg/mol};
+@id("01a0f014fa44727ba187db3eb4c56e9a") test derived_molar_mass oracle schema_fixture_data fixture {dof 0; run pure;} {
+@id("01a0f014fa44727ba187db3fd01d3cca") expect molar_mass_or_zero(light_heavy) == 0.018{kg/mol} tolerance 1e-15{kg/mol};
+@id("01a0f014fa44727ba187db4092e16beb") expect molar_mass_or_zero(heavy_pair) == 0.032{kg/mol} tolerance 1e-15{kg/mol};
+@id("01a0f014fa44727ba187db4112cfe825") expect molar_mass_or_zero(unformulated) == 0{kg/mol} tolerance 1e-15{kg/mol};
+}
+// Two subgroups of two main groups and one species' subgroup counts.
+@id("01a0f014fa44727ba187db42a6e98ac0") entity interactions.main_group chain_group {}
+@id("01a0f014fa44727ba187db430c1dc717") entity interactions.main_group polar_group {}
+@id("01a0f014fa44727ba187db441b0fc45e") entity interactions.subgroup chain_segment { main = chain_group, r = 1.0, q = 0.8 }
+@id("01a0f014fa44727ba187db45436f0757") entity interactions.subgroup polar_head { main = polar_group, r = 0.5, q = 0.4 }
+@id("01a0f014fa44727ba187db46fca91403") set subgroups: Set<interactions.subgroup> = {chain_segment, polar_head};
+@id("01a0f014fa44727ba187db47604fbfef") dataset group_counts: interactions.group_count provenance(schema_fixture_data, provenance.Role.synthetic) { [light_heavy, chain_segment] = [2{1}]; [light_heavy, polar_head] = [3{1}]; }
+@id("01a0f014fa44727ba187db4848f673c5") test two_group_unifac_admission oracle schema_fixture_data fixture {dof 0; run pure;} {
+@id("01a0f014fa44727ba187db49084f0991") expect sum(g in subgroups | interactions.group_count[light_heavy, g] * g.r) == 3.5 tolerance 1e-12;
+@id("01a0f014fa44727ba187db4a5705b2ca") expect sum(g in subgroups | interactions.group_count[light_heavy, g] * g.q) == 2.8 tolerance 1e-12;
+@id("01a0f014fa44727ba187db4b002b5af3") expect sum(g in subgroups | interactions.group_count[light_heavy, g]) == 5{1} tolerance 1e-12{1};
+@id("01a0f014fa44727ba187db4c83c2893c") expect sum(g in subgroups | interactions.group_count[heavy_pair, g]) == 0{1} tolerance 1e-12{1};
+}
+// Constant forms of three pure-component properties, one package selecting them, and a pair
+// property whose source the package selects.
+@id("01a0f014fa44727ba187db4d3cc86354") entity kind constant_heat_capacity extends properties.caloric_set {
+@id("01a0f014fa44727ba187db4eec6afea0") attribute c0: MolarCp;
+@id("01a0f014fa44727ba187db4fbf7ab767") cp = constant_cp;
+@id("01a0f014fa44727ba187db50346ccf71") dh = constant_dh;
+@id("01a0f014fa44727ba187db517a7d5810") ds = constant_ds;
+}
+@id("01a0f014fa44727ba187db523cbd796b") fn constant_cp(T: Temperature, s: constant_heat_capacity) -> MolarCp = s.c0;
+@id("01a0f014fa44727ba187db53e7ef0fdc") fn constant_dh(T0: Temperature, T: Temperature, s: constant_heat_capacity) -> DeltaH = s.c0 * (T - T0);
+@id("01a0f014fa44727ba187db5428c10f5c") fn constant_ds(T0: Temperature, T: Temperature, s: constant_heat_capacity) -> DeltaS = s.c0 * log(T / T0);
+@id("01a0f014fa44727ba187db550af01157") entity kind constant_vapor_pressure extends properties.vapor_pressure_set {
+@id("01a0f014fa44727ba187db5680a3ea8b") attribute p0: Pressure;
+@id("01a0f014fa44727ba187db57831e873b") psat = constant_psat;
+}
+@id("01a0f014fa44727ba187db58b9822fde") fn constant_psat(T: Temperature, s: constant_vapor_pressure) -> Pressure = s.p0;
+@id("01a0f014fa44727ba187db59a7f239f5") entity kind constant_liquid_density extends properties.liquid_density_set {
+@id("01a0f014fa44727ba187db5ac0898e9d") attribute rho: MolarDensity;
+@id("01a0f014fa44727ba187db5bdd4abfe3") density = constant_density;
+}
+@id("01a0f014fa44727ba187db5cc9825c51") fn constant_density(T: Temperature, s: constant_liquid_density) -> MolarDensity = s.rho;
+@id("01a0f014fa44727ba187db5d808f0b1d") dataset heat_capacities: constant_heat_capacity bind(source = schema_fixture_data, property = properties.heat_capacity) provenance(schema_fixture_data, provenance.Role.synthetic) { [light_heavy, liquidPhase] = [250{K}, 400{K}, 100{J/(mol*K)}]; }
+@id("01a0f014fa44727ba187db5e8e7b9ce7") dataset vapor_pressures: constant_vapor_pressure bind(source = schema_fixture_data, property = properties.vapor_pressure) provenance(schema_fixture_data, provenance.Role.synthetic) { [light_heavy, liquidPhase] = [250{K}, 400{K}, 5000{Pa}]; }
+@id("01a0f014fa44727ba187db5faf4b08b4") dataset liquid_densities: constant_liquid_density bind(source = schema_fixture_data, property = properties.liquid_molar_density) provenance(schema_fixture_data, provenance.Role.synthetic) { [light_heavy, liquidPhase] = [250{K}, 400{K}, 50000{mol/m^3}]; }
+@id("01a0f014fa44727ba187db60f10bf7e2") entity properties.property_package fixture_package {}
+@id("01a0f014fa44727ba187db61ebef9c54") set packages: Set<properties.property_package> = {fixture_package};
+@id("01a0f014fa44727ba187db62f10d613b") set selected_species: Set<chemistry.species> = {light_heavy};
+@id("01a0f014fa44727ba187db632487774b") set pure_properties: Set<properties.property> = {properties.heat_capacity, properties.vapor_pressure, properties.liquid_molar_density};
+@id("01a0f014fa44727ba187db64bba82077") set liquid: Set<compatibility.PhaseType> = {compatibility.PhaseType.liquidPhase};
+@id("01a0f014fa44727ba187db651ee8f7ec") dataset selections: properties.selection complete_over(k in packages, j in selected_species, p in pure_properties, t in liquid) provenance(schema_fixture_data, provenance.Role.synthetic) {
+[fixture_package, light_heavy, properties.heat_capacity, liquidPhase] = [properties.parameter_set[light_heavy, properties.heat_capacity, liquidPhase, schema_fixture_data]];
+[fixture_package, light_heavy, properties.vapor_pressure, liquidPhase] = [properties.parameter_set[light_heavy, properties.vapor_pressure, liquidPhase, schema_fixture_data]];
+[fixture_package, light_heavy, properties.liquid_molar_density, liquidPhase] = [properties.parameter_set[light_heavy, properties.liquid_molar_density, liquidPhase, schema_fixture_data]];
+}
+@id("01a0f014fa44727ba187db66db418ba7") entity properties.property binary { quantity = Scalar, shape = properties.IndexShape.pair, applies = {liquidPhase, vaporPhase} }
+@id("01a0f014fa44727ba187db675bb722f8") set binaries: Set<properties.property> = {binary};
+@id("01a0f014fa44727ba187db683f552e9a") set sources: Set<provenance.source> = {schema_fixture_data};
+@id("01a0f014fa44727ba187db6999c6f3ef") set pair_species: Set<chemistry.species> = {light_heavy, heavy_pair};
+@id("01a0f014fa44727ba187db6a938a3873") dataset binary_values: interactions.pair complete_over(s in sources, p in binaries, i in pair_species, j in pair_species) provenance(schema_fixture_data, provenance.Role.synthetic) { [schema_fixture_data, binary, light_heavy, heavy_pair] = [0.25]; }
+@id("01a0f014fa44727ba187db6be0ccf048") dataset binary_sources: interactions.pair_selection complete_over(k in packages, p in binaries) provenance(schema_fixture_data, provenance.Role.synthetic) { [fixture_package, binary] = [schema_fixture_data]; }
+@id("01a0f014fa44727ba187db6c12cf8da2") test property_operations_read_the_selected_form oracle schema_fixture_data fixture {dof 0; run pure;} {
+@id("01a0f014fa44727ba187db6deec53e04") expect properties.cp(fixture_package, chemistry.liquid, light_heavy, 300{K}) == 100{J/(mol*K)} tolerance 1e-12{J/(mol*K)};
+@id("01a0f014fa44727ba187db6e45631edd") expect properties.enthalpy_increment(fixture_package, chemistry.liquid, light_heavy, 298.15{K}, 300{K}) == 185{J/mol} tolerance 1e-9{J/mol};
+@id("01a0f014fa44727ba187db6fcafb98e8") expect properties.entropy_increment(fixture_package, chemistry.liquid, light_heavy, 298.15{K}, 300{K}) == 0.6185759087086321{J/(mol*K)} tolerance 1e-12{J/(mol*K)};
+@id("01a0f014fa44727ba187db70f68c6740") expect properties.psat(fixture_package, chemistry.liquid, light_heavy, 300{K}) == 5000{Pa} tolerance 1e-9{Pa};
+@id("01a0f014fa44727ba187db71e4433162") expect properties.liquid_density(fixture_package, chemistry.liquid, light_heavy, 300{K}) == 50000{mol/m^3} tolerance 1e-9{mol/m^3};
+@id("01a0f014fa44727ba187db72fa2c5531") expect interactions.pair_parameter(fixture_package, binary, heavy_pair, light_heavy) == 0.25 tolerance 1e-15;
+}
+}

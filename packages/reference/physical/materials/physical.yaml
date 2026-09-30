@@ -1560,6 +1560,47 @@
       "doc": "A dimensionless number of discrete things (units in operation, trays, modules); the kind of an integer decision (ADR-0103)."
     },
     {
+      "quantity_kind_id": "01a0effad1837610ae871706a5947b8f",
+      "name": "charge_number",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "extensive": false,
+      "addition_kind": "additive",
+      "doc": "The dimensionless signed charge of a species in units of the elementary charge (Plan 23 D0)."
+    },
+    {
       "quantity_kind_id": "9e4b2c7d1f6a4d3e8b5c0a9f2e7d1c64",
       "name": "indicator",
       "dimension": [
@@ -4299,6 +4340,7 @@
     },
     {
       "quantity_type_id": "e61574b6363397441bcbe123a28a1351",
+      "name": "GasConstant",
       "quantity_kind_id": "5d58ab2cfbbcd19fd27bf2de1442d2ec",
       "basis_id": "04d4600b17cbfb717ec549e688ea3503",
       "reference_state_id": null,
@@ -5557,6 +5599,19 @@
       "canonical_unit_id": "6c6f8deca198f4660f039d926c317b43",
       "nominal_magnitude": null,
       "doc": "Inverse elapsed time."
+    },
+    {
+      "quantity_type_id": "01a0effad1837610ae871707d59c4dc0",
+      "name": "ChargeNumber",
+      "quantity_kind_id": "01a0effad1837610ae871706a5947b8f",
+      "basis_id": null,
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "cd44727295e77c03f21ac3117e36df23",
+      "nominal_magnitude": null,
+      "doc": "Complete physical contract of the charge number of a species."
     },
     {
       "quantity_type_id": "3a8f6d2c9b1e4f7a8c5d0e3b6a9f2c18",

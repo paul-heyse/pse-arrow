@@ -1,0 +1,15 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+// An apparent species' dissociation products carry its charge.
+// refusal: sodium_chloride of kind apparent violates the requirement `sum(j in species | dissociation[self, j] * j.charge) == charge`
+// refusal: an apparent species is electroneutral
+// control: [sodium_chloride, corpus.chloride_ion] = [2{1}] => [sodium_chloride, corpus.chloride_ion] = [1{1}]
+package refusal {
+ use chemistry @"1.0.0";
+ use corpus @"1.0.0";
+ use provenance @"1.0.0";
+ entity chemistry.apparent sodium_chloride {}
+ dataset split: chemistry.dissociation provenance(corpus.bank, provenance.Role.published) {
+  [sodium_chloride, corpus.sodium_ion] = [1{1}]; [sodium_chloride, corpus.chloride_ion] = [2{1}];
+ }
+}

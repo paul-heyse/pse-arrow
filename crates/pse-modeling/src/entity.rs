@@ -282,7 +282,17 @@ pub(crate) fn typed(
                 exact_integer: None,
                 unit,
             };
-            let (value, scale) = value::number(c, at, &number, Some(ty))?;
+            // A refusal names the value as written and the quantity it is not.
+            let (value, scale) = value::number(c, at, &number, Some(ty)).map_err(|e| {
+                crate::data::context(
+                    e,
+                    &format!(
+                        "{} is not a {}",
+                        pse_authoring::language::render_cell(cell).unwrap_or_default(),
+                        quantity_name(c, ty)
+                    ),
+                )
+            })?;
             (value, Some(scale))
         }
         (CellSelected::Text(v), Type::Text) => (Value::Text(v.value.clone()), None),
@@ -352,6 +362,18 @@ pub(crate) fn typed(
         }
     };
     Ok(Typed { value, uncertainty })
+}
+
+/// A quantity type as a refusal names it: its physical-document name where it has one.
+fn quantity_name(c: &TypeContext<'_>, ty: &Type) -> String {
+    let Type::Quantity(pse_quantity::scheme::Scheme::Concrete(id)) = ty else {
+        return format!("{ty:?}");
+    };
+    c.quantities
+        .quantity_type(*id)
+        .ok()
+        .and_then(|t| t.name.clone())
+        .unwrap_or_else(|| format!("quantity type {}", id.as_id()))
 }
 
 fn kind_name(selected: CellSelected<'_>) -> &'static str {

@@ -28,3 +28,13 @@ package = "campaign"
 dependencies = ["seed-data", "process", "thermodynamics", "methods", "domain", "physical"]
 physical = "physical"
 execution = "native"
+
+# The domain schema's pure fixtures over synthetic data. They live in their own distribution
+# so that no production closure admits their synthetic elements, species and groups; the
+# physical fixtures this closure also discovers run again here.
+[[runs]]
+name = "domain"
+package = "domain-fixtures"
+dependencies = ["domain", "physical"]
+physical = "physical"
+execution = "pure"

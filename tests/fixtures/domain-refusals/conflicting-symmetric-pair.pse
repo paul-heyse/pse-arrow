@@ -1,0 +1,17 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+// A symmetric pair is written once; its two orders are one row.
+// refusal: is written in both orientations, by row 0 of dataset kij_values and row 1 of dataset kij_values
+// refusal: symmetric pair pair[bank, kij,
+// control: [corpus.bank, kij, corpus.toluene, corpus.benzene] = [0.02]; =>
+package refusal {
+ use corpus @"1.0.0";
+ use interactions @"1.0.0";
+ use properties @"1.0.0";
+ use provenance @"1.0.0";
+ entity properties.property kij { quantity = Scalar, shape = properties.IndexShape.pair, applies = {liquidPhase, vaporPhase} }
+ dataset kij_values: interactions.pair provenance(corpus.bank, provenance.Role.published) {
+  [corpus.bank, kij, corpus.benzene, corpus.toluene] = [0.01];
+  [corpus.bank, kij, corpus.toluene, corpus.benzene] = [0.02];
+ }
+}

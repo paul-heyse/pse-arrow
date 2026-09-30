@@ -1,0 +1,14 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+// A package's cation carries a positive charge.
+// refusal: row component_role[pkg, chloride_ion] of dataset roles violates the requirement `value != compatibility.ComponentType.Cation or j.charge > 0{1}`
+// control: compatibility.ComponentType.Cation] => compatibility.ComponentType.Anion]
+package refusal {
+ use compatibility @"1.0.0";
+ use corpus @"1.0.0";
+ use properties @"1.0.0";
+ use provenance @"1.0.0";
+ dataset roles: properties.component_role provenance(corpus.bank, provenance.Role.published) {
+  [corpus.pkg, corpus.chloride_ion] = [compatibility.ComponentType.Cation];
+ }
+}

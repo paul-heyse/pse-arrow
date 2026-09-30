@@ -1,0 +1,11 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+// A CAS number identifies one species of the admitted closure.
+// refusal: identifier cas "71-43-2" is held by
+// refusal: benzene
+// refusal: benzene_again
+// control: Id<chemistry.cas>("71-43-2") => Id<chemistry.cas>("71-43-3")
+package refusal {
+ use chemistry @"1.0.0";
+ entity chemistry.species benzene_again { cas = Id<chemistry.cas>("71-43-2") }
+}
