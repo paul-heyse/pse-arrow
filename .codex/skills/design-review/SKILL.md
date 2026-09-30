@@ -67,6 +67,16 @@ A change review can compress that reasoning to its affected scenario and foundat
 - **Library fit:** assess semantic fit, integration owner, exposed types, lifecycle, testing,
   upgrade/replacement cost and bespoke machinery removed. Full capability eligibility remains;
   integration cost is assessed independently of whether a consumer already exists.
+
+  **Optional context: existing library use.** A focused look at relevant entries in
+  docs/library-utilization.jsonl, where available, can be especially helpful when considering
+  implementation alternatives. The catalog highlights library capabilities and integration
+  patterns already found useful in the codebase, and may reveal opportunities to reuse
+  established mechanisms instead of introducing ad hoc equivalents. It remains useful as a
+  source of ideas even when some entries lag the implementation. Consultation is optional;
+  catalog entries inform the alternatives, while alignment with the design principles governs
+  the judgment.
+
 - **Decision and follow-up:** distinguish architectural fitness from behavioral adequacy, apply
   the template's decision rules, and link findings to one disposition owner. Do not implement
   recommendations merely because a review identified them.

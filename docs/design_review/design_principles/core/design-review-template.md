@@ -193,6 +193,9 @@ owner in slot 11, not to a second independently edited copy in this review.
 
 ### 8. Library fit and ownership cost
 
+Relevant entries in docs/library-utilization.jsonl, where available, may offer particularly
+useful leads on established capabilities and integration patterns. Consulting them is optional.
+
 | Capability / contract | Integration owner / exposed types | Candidate or current mechanism | Fit and limits | Coupling, lifecycle, test, upgrade/replacement cost | Bespoke code removed / recommendation |
 |---|---|---|---|---|---|
 
