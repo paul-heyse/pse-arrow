@@ -989,7 +989,7 @@ impl ModelingPackage {
                 .fixtures
                 .get(&pse_modeling::specialize::root_instance(fixture));
             let expected = data.map_or(0, |f| f.expected_degrees_of_freedom);
-            let expected_failure = data.and_then(|f| f.expected_failure.as_ref());
+            let mut expected_failure = data.and_then(|f| f.expected_failure.as_ref());
             let case = data.map(ModelingCaseBindings::from).unwrap_or_default();
             if execution == Execution::Pure {
                 let checked = self
@@ -1276,17 +1276,44 @@ impl ModelingPackage {
                                 ))
                             })
                         };
+                        let committed = initialization.committed.is_some();
                         report.initializations.insert(fixture, initialization);
                         if let Some(failure) = failure {
+                            let error: WorkflowError = failure.into();
+                            let observed = expected_failure
+                                .is_some_and(|e| e.matches(&error.boundary_diagnostic()));
                             report.failed(
                                 fixture,
                                 Kind::StartToSolve,
-                                &failure.into(),
+                                &error,
                                 expected_failure,
                                 oracle,
                                 cap,
                             );
-                            continue;
+                            if !observed {
+                                continue;
+                            }
+                            // An expected initialization failure leaves the specification
+                            // intact (PS-08): the failed attempts commit nothing, and the
+                            // unchanged specification is solved from its own starts and
+                            // answers to the fixture's checks and expectations.
+                            report.record_fixture(
+                                fixture,
+                                Kind::Check,
+                                if committed {
+                                    Status::Failed
+                                } else {
+                                    Status::Passed
+                                },
+                                if committed {
+                                    "a failed initialization committed values"
+                                } else {
+                                    "the failed initialization committed nothing; the unchanged specification is solved from its own starts"
+                                },
+                                oracle,
+                                cap,
+                            );
+                            expected_failure = None;
                         }
                     }
                     Err(error) => {
@@ -2228,6 +2255,66 @@ mod tests {
         assert_eq!(initialization.attempts.len(), 2);
         assert!(initialization.attempts[0].accepted());
         assert!(!initialization.attempts[1].accepted());
+    }
+    /// An initialized fixture that expects its initialization to fail asserts that the
+    /// failure leaves the specification intact: nothing is committed, and the unchanged
+    /// specification is solved from its own starts and meets the fixture's expectations.
+    #[cfg(feature = "solver-ipopt")]
+    #[tokio::test]
+    async fn expected_initialization_failure_leaves_the_specification_intact() {
+        let source = r#"package p {
+ def D {var x:Scalar; eq e:x==4; annotation start x(1); annotation bounds x(0,10);
+   stage "out_of_range" {override eq e:x==20;} }
+ test failed fixture {dof 0; run initialized; stages("out_of_range");FAILURE}
+ {child root:D=D; expect root.x==4 tolerance 1e-8;}
+ }"#;
+        let run = |text: String| async move {
+            package(&text)
+                .conform(policy(), &crate::CancelSource::new())
+                .await
+                .unwrap()
+        };
+        // Unexpected, the stage's failure fails the fixture and nothing else is solved.
+        let unexpected = run(source.replace("FAILURE", "")).await;
+        assert!(!unexpected.passed());
+        assert!(unexpected.results.is_empty());
+        let initialization = unexpected.initializations.values().next().unwrap();
+        assert!(!initialization.completed && initialization.committed.is_none());
+        assert_eq!(initialization.attempts.len(), 1);
+        let failure = &unexpected.failures[0];
+        let expected = format!(
+            " failure {} \"{}\";",
+            failure.class.as_str(),
+            failure.rule
+        );
+        // Expected, the failure passes and the intact specification is solved and checked.
+        let intact = run(source.replace("FAILURE", &expected)).await;
+        assert!(intact.passed(), "{:?}", intact.checks);
+        assert_eq!(intact.results.len(), 1);
+        assert!(intact.results.values().next().unwrap().accepted);
+        assert!(intact.checks.iter().any(|c| c.kind == Kind::Check
+            && c.status == Status::Passed
+            && c.message.contains("committed nothing")));
+        assert!(
+            intact
+                .checks
+                .iter()
+                .any(|c| c.kind == Kind::Expectation && c.status == Status::Passed)
+        );
+        // The intact specification still answers to the fixture's expectations.
+        let wrong = run(source
+            .replace("FAILURE", &expected)
+            .replace("root.x==4", "root.x==5"))
+        .await;
+        assert!(!wrong.passed());
+        // A different expected failure is not observed; the specification is not solved.
+        let other = run(source.replace(
+            "FAILURE",
+            " failure invalid_model \"compiler.missing\";",
+        ))
+        .await;
+        assert!(!other.passed());
+        assert!(other.results.is_empty());
     }
     /// Each fixture runs under the run's policy with the solve intent and execution policy
     /// its declaration states, for that fixture only (ADR-0119); the specialized kernel

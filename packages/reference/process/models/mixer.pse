@@ -5,16 +5,25 @@
 @id("01a0ee04daa670cda7ed74b076406be5") use chemistry @"1.0.0";
 @id("4b83b792951d41c1875ddf220e20ae53") use equilibrium @"1.0.0";
 @id("965d150600a14d82ad54a7a98e46c7b1") use math @"1.0.0";
-@id("ad9e7e09fb5e43e29f663be91fb9bd5c") def Mixer(inlet_pkg:equilibrium.ThermoPackage,outlet_pkg:equilibrium.ThermoPackage,inlets:Set<kinds.port_set>) {
+@id("01a0f04afd5876089ffcc796fdba7fb0") use compatibility @"1.0.0";
+@id("ad9e7e09fb5e43e29f663be91fb9bd5c") def Mixer(inlet_pkg:equilibrium.ThermoPackage,outlet_pkg:equilibrium.ThermoPackage,inlets:Set<kinds.port_set>,momentum_mixing:compatibility.MomentumMixingType=compatibility.MomentumMixingType.minimize) {
 @id("9462bb04f86b48e6a4fd4b357f1b3487") param components:Set<chemistry.species>=outlet_pkg.components;
 @id("850888c6170b4fec8ba0d7155da115e0") require inlet_pkg.components==components : "all mixer states use one component membership";
 @id("6c80630f504947349b3980e0ec2c20a3") require inlet_pkg.defined and not outlet_pkg.defined : "specified inlets and normalized outlet are required";
 @id("2cd22b18f8254baca76844727d28f7b3") require not analysis.dynamic : "this mixer has no holdup";
+@id("01a0f04afd5876089ffcc797a6f1895d") require not (momentum_mixing==compatibility.MomentumMixingType.minimize_and_equality) : "this mixer selects one outlet pressure relation: minimize, equality or none";
 @id("48e4c60fba3f440480979e5e2f0edd0a") param epsilon:DeltaPressure=0.001{Pa};
 @id("2f6c0c13ea5d4350bf6d0e725f277bc6") child inlet[i in inlets]:equilibrium.ThermoPackage=inlet_pkg;
 @id("e85983a28af44088b84ccc5209a05366") child outlet:equilibrium.ThermoPackage=outlet_pkg;
 @id("6309208e7e5e4ecaaff7a8b806c4ff38") let inlet_pressure[i in inlets]:Pressure=inlet[i].pressure;
+// The outlet pressure is the smooth minimum of the inlet pressures, every inlet pressure, or,
+// with none, stated by the flowsheet: a closed isobaric recycle loop has no minimum to select.
+@id("01a0f04afd5876089ffcc7989e5ba33d") when momentum_mixing==compatibility.MomentumMixingType.minimize {
 @id("e3d942b4f14d45e9b2f109c173a2dfb7") eq pressure_selection:outlet.pressure==math.smooth_min_over(inlet_pressure,inlets,epsilon);
+}
+@id("01a0f04afd5876089ffcc799956e58e9") when momentum_mixing==compatibility.MomentumMixingType.equality {
+@id("01a0f04afd5876089ffcc79a1f925671") eq pressure_equality[i in inlets]:inlet[i].pressure==outlet.pressure;
+}
 @id("793374b8eee3446baef623734362250d") accumulate material[j in components]:ComponentFlow conservation tolerance 1e-7{mol/s};
 @id("0b4f71dde784450584919d66498599a6") contribute [i in inlets,j in components] material[j] role inflow = inlet[i].component_flow[j];
 @id("4b0241ee929f4125b64eb9746d2ca671") contribute [j in components] material[j] role outflow = outlet.component_flow[j];

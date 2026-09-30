@@ -59,3 +59,19 @@ allows. The expected costs are the SSLW U-tube, stainless/stainless, 12 ft corre
 evaluated by hand at 1 m² and 0 psig; 1 m² lies far below the exchanger sizes the
 correlation is published for, so the fixture checks the costing's reading and arithmetic,
 not a purchase price.
+
+`models/recycle-flash.pse` holds `RecycleFlash`: Feed, Mixer, Heater, Flash and a liquid
+Separator on the BTIdeal package, whose flash liquid is split between a purge and a recycle
+to the mixer. The heater sets the flash temperature; the flash is adiabatic and isobaric.
+The mixer states no pressure relation (`MomentumMixingType.none`): a closed isobaric loop
+has no minimum inlet pressure to select, and the loop runs at the feed pressure. The
+recycle closure is a set of named flowsheet equations, so the `tear` stage replaces it with
+an empty recycle at the feed's state; the original specification then closes the loop.
+`recycle_flash_converges_from_defaults` solves four synthetic feeds (0.5 to 50 mol/s,
+300 to 400 K, 0.45 to 0.6 benzene) with 90 % of the liquid recycled, from start annotations
+and the tear stage only, and compares with the analytic steady state: the vapor product is
+the equilibrium flash of the fresh feed at 368 K and 101325 Pa (the IDAES test_BTIdeal
+phases, the lever rule for V/F), and the recycle is (1 - purge)(F - V)/purge.
+`recycle_flash_failure_restores_specification` selects a tear stage whose 500 K recycle
+estimate exceeds the BTIdeal temperature bound: the stage fails, nothing is committed, and
+the unchanged specification solves from its own starts to the same steady state.

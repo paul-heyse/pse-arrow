@@ -1019,3 +1019,44 @@ fn each_instance_realizes_its_own_constraint_forms() {
     );
     assert!(run(&competing, "p.Root", Bindings::default()).is_err());
 }
+#[test]
+fn stage_overrides_an_equation_its_definition_inherits() {
+    // A definition implementing an interface adds an initialization stage over an inherited
+    // equation; the stage replaces it only while selected, and never a variable.
+    let text = "package p {
+        interface Loop { var x:Scalar; var y:Scalar; eq closure:x==y; eq source:y==2; }
+        def Torn:Loop { stage tear { override eq closure:x==0; } }
+    }";
+    let closure = |bindings: Bindings| {
+        let model = run(text, "p.Torn", bindings).unwrap();
+        assert_eq!(model.equations.len(), 2);
+        model
+            .equations
+            .iter()
+            .find(|row| row.lineage.path.ends_with("closure"))
+            .unwrap()
+            .lineage
+            .clone()
+    };
+    let original = closure(Bindings::default());
+    let mut staged = Bindings::default();
+    staged
+        .facts
+        .insert(analysis::Fact::Stage("tear".into()), Value::Boolean(true));
+    let torn = closure(staged);
+    assert_ne!(original.declaration, torn.declaration);
+    assert!(torn.is_override && !original.is_override);
+    for (invalid, message) in [
+        (
+            text.replace("override eq closure:x==0;", "override eq absent:x==0;"),
+            "stage override target absent",
+        ),
+        (
+            text.replace("override eq closure:x==0;", "override var x:Scalar;"),
+            "stage overrides replace equations",
+        ),
+    ] {
+        let error = run(&invalid, "p.Torn", Bindings::default()).unwrap_err();
+        assert!(error.to_string().contains(message), "{error}");
+    }
+}

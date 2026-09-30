@@ -1072,6 +1072,14 @@ fn check_declarations(
                 }
                 inheritance.add_edge(inode[&base], inode[&row.declaration_id], ());
             }
+            // A stage replaces equations of its definition, its own or inherited, so the
+            // definition's effective members are resolved before its stages.
+            if row.value.kind == DeclarationKind::Stage
+                && let Some(parent) = row.parent_id
+                && let Some(owner) = inode.get(&parent)
+            {
+                inheritance.add_edge(*owner, inode[&row.declaration_id], ());
+            }
         }
     }
     if let Some(cycle) = kosaraju_scc(&inheritance)
@@ -1448,12 +1456,12 @@ fn check_declarations(
                     let parent = row
                         .parent_id
                         .ok_or_else(|| invalid(member, "stage parent absent"))?;
+                    // The target is a member of the stage's definition, declared there or
+                    // inherited from an interface it implements.
                     let base = p
-                        .children
+                        .members
                         .get(&parent)
-                        .into_iter()
-                        .flatten()
-                        .find(|id| p.declarations[id].name == name)
+                        .and_then(|members| members.get(&name))
                         .copied()
                         .ok_or_else(|| invalid(member, "stage override target absent"))?;
                     if p.declarations[&base].value.equation.is_none()
