@@ -1440,6 +1440,34 @@ COMMENT ON COLUMN "tk"."association_site"."on_entity" IS 'The entity carrying th
 COMMENT ON COLUMN "tk"."association_site"."on_group" IS 'The group carrying the site.';
 COMMENT ON COLUMN "tk"."association_site"."multiplicity" IS 'How many such sites the carrier has.';
 
+CREATE TABLE "param"."benson_group_additivity__node" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT '9cae31b3-9541-583c-b6d6-2654ef80c5d0'::uuid,
+    "k" uuid NOT NULL,
+    "H298" "meta"."molar_energy",
+    "H298__state" "meta"."value_state" NOT NULL,
+    "H298__redirect" uuid,
+    "S298" "meta"."molar_entropy",
+    "S298__state" "meta"."value_state" NOT NULL,
+    "S298__redirect" uuid,
+    CONSTRAINT "benson_group_additivity__node__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "benson_group_additivity__node__ck__slot_group" CHECK ("slot_group" = '9cae31b3-9541-583c-b6d6-2654ef80c5d0'::uuid),
+    CONSTRAINT "benson_group_additivity__node__ck__H298__state" CHECK (("H298__state" = 'known') = ("H298" IS NOT NULL) AND ("H298__state" = 'redirect') = ("H298__redirect" IS NOT NULL)),
+    CONSTRAINT "benson_group_additivity__node__ck__H298__redirect" CHECK ("H298__redirect" IS DISTINCT FROM "id"),
+    CONSTRAINT "benson_group_additivity__node__ck__S298__state" CHECK (("S298__state" = 'known') = ("S298" IS NOT NULL) AND ("S298__state" = 'redirect') = ("S298__redirect" IS NOT NULL)),
+    CONSTRAINT "benson_group_additivity__node__ck__S298__redirect" CHECK ("S298__redirect" IS DISTINCT FROM "id")
+);
+COMMENT ON TABLE "param"."benson_group_additivity__node" IS 'The values of one node of the tree. A node with no data holds no set.';
+COMMENT ON COLUMN "param"."benson_group_additivity__node"."id" IS 'Deterministic identifier of the benson_group_additivity__node instance.';
+COMMENT ON COLUMN "param"."benson_group_additivity__node"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."benson_group_additivity__node"."k" IS 'The node.';
+COMMENT ON COLUMN "param"."benson_group_additivity__node"."H298" IS 'Standard enthalpy of formation of the group at 298.15 K; a pointer states the value of another node.';
+COMMENT ON COLUMN "param"."benson_group_additivity__node"."H298__state" IS 'Whether `H298` holds a value and, if not, why.';
+COMMENT ON COLUMN "param"."benson_group_additivity__node"."H298__redirect" IS 'The parameter set `H298` takes its value from, when its state is redirect.';
+COMMENT ON COLUMN "param"."benson_group_additivity__node"."S298" IS 'Standard entropy of the group at 298.15 K; a pointer states the value of another node.';
+COMMENT ON COLUMN "param"."benson_group_additivity__node"."S298__state" IS 'Whether `S298` holds a value and, if not, why.';
+COMMENT ON COLUMN "param"."benson_group_additivity__node"."S298__redirect" IS 'The parameter set `S298` takes its value from, when its state is redirect.';
+
 CREATE TABLE "qual"."calculation" (
     "id" uuid NOT NULL,
     "key" text NOT NULL,
@@ -2208,6 +2236,50 @@ COMMENT ON TABLE "tk"."member_role" IS 'The part a species form plays in the pha
 COMMENT ON COLUMN "tk"."member_role"."id" IS 'Deterministic identifier of the member_role instance.';
 COMMENT ON COLUMN "tk"."member_role"."name" IS 'Name of the role.';
 
+CREATE TABLE "param"."mie_group_combining__group" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT 'b4d4c7d2-c894-5e25-bf5f-e5642662a82f'::uuid,
+    "k" uuid NOT NULL,
+    "sigma" "meta"."length" NOT NULL,
+    "lambda_r" "meta"."scalar" NOT NULL,
+    "lambda_a" "meta"."scalar" NOT NULL,
+    "epsilon" "meta"."energy_temperature" NOT NULL,
+    CONSTRAINT "mie_group_combining__group__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "mie_group_combining__group__ck__slot_group" CHECK ("slot_group" = 'b4d4c7d2-c894-5e25-bf5f-e5642662a82f'::uuid)
+);
+COMMENT ON TABLE "param"."mie_group_combining__group" IS 'The like-group Mie parameters of one group.';
+COMMENT ON COLUMN "param"."mie_group_combining__group"."id" IS 'Deterministic identifier of the mie_group_combining__group instance.';
+COMMENT ON COLUMN "param"."mie_group_combining__group"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."mie_group_combining__group"."k" IS 'The group.';
+COMMENT ON COLUMN "param"."mie_group_combining__group"."sigma" IS 'Segment diameter.';
+COMMENT ON COLUMN "param"."mie_group_combining__group"."lambda_r" IS 'Repulsive exponent.';
+COMMENT ON COLUMN "param"."mie_group_combining__group"."lambda_a" IS 'Attractive exponent.';
+COMMENT ON COLUMN "param"."mie_group_combining__group"."epsilon" IS 'Mie potential depth over the Boltzmann constant.';
+
+CREATE TABLE "param"."mie_group_pair_table__pair" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT '22167466-f001-55d6-b8b6-0ca2e6d6c07b'::uuid,
+    "k" uuid NOT NULL,
+    "l" uuid NOT NULL,
+    "sigma" "meta"."length" NOT NULL,
+    "lambda_r" "meta"."scalar" NOT NULL,
+    "lambda_a" "meta"."scalar" NOT NULL,
+    "epsilon" "meta"."energy_temperature" NOT NULL,
+    CONSTRAINT "mie_group_pair_table__pair__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "mie_group_pair_table__pair__ck__slot_group" CHECK ("slot_group" = '22167466-f001-55d6-b8b6-0ca2e6d6c07b'::uuid),
+    CONSTRAINT "mie_group_pair_table__pair__ck__canonical" CHECK ("k" <= "l"),
+    CONSTRAINT "mie_group_pair_table__pair__ck__diagonal" CHECK ("k" <> "l")
+);
+COMMENT ON TABLE "param"."mie_group_pair_table__pair" IS 'The values of one unordered pair of groups.';
+COMMENT ON COLUMN "param"."mie_group_pair_table__pair"."id" IS 'Deterministic identifier of the mie_group_pair_table__pair instance.';
+COMMENT ON COLUMN "param"."mie_group_pair_table__pair"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."mie_group_pair_table__pair"."k" IS 'The first group.';
+COMMENT ON COLUMN "param"."mie_group_pair_table__pair"."l" IS 'The second group.';
+COMMENT ON COLUMN "param"."mie_group_pair_table__pair"."sigma" IS 'Segment diameter of the pair.';
+COMMENT ON COLUMN "param"."mie_group_pair_table__pair"."lambda_r" IS 'Repulsive exponent of the pair.';
+COMMENT ON COLUMN "param"."mie_group_pair_table__pair"."lambda_a" IS 'Attractive exponent of the pair.';
+COMMENT ON COLUMN "param"."mie_group_pair_table__pair"."epsilon" IS 'Mie potential depth of the pair over the Boltzmann constant.';
+
 CREATE TABLE "tk"."model_assembly" (
     "id" uuid NOT NULL,
     "key" text NOT NULL,
@@ -2349,6 +2421,41 @@ COMMENT ON COLUMN "param"."nasa9__pure"."id" IS 'Deterministic identifier of the
 COMMENT ON COLUMN "param"."nasa9__pure"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
 COMMENT ON COLUMN "param"."nasa9__pure"."i" IS 'The species form.';
 
+CREATE TABLE "param"."nrtl_excess_gibbs__pair" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT '757bc0b9-97db-52db-9e4b-2694addbaf87'::uuid,
+    "i" uuid NOT NULL,
+    "j" uuid NOT NULL,
+    "arrangement" bigint NOT NULL,
+    "a12" "meta"."scalar" NOT NULL,
+    "a21" "meta"."scalar" NOT NULL,
+    "b12" "meta"."temperature" NOT NULL,
+    "b21" "meta"."temperature" NOT NULL,
+    "alpha" "meta"."scalar",
+    "alpha__state" "meta"."value_state" NOT NULL,
+    "alpha__redirect" uuid,
+    CONSTRAINT "nrtl_excess_gibbs__pair__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "nrtl_excess_gibbs__pair__ck__slot_group" CHECK ("slot_group" = '757bc0b9-97db-52db-9e4b-2694addbaf87'::uuid),
+    CONSTRAINT "nrtl_excess_gibbs__pair__ck__alpha__state" CHECK (("alpha__state" = 'known') = ("alpha" IS NOT NULL) AND ("alpha__state" = 'redirect') = ("alpha__redirect" IS NOT NULL)),
+    CONSTRAINT "nrtl_excess_gibbs__pair__ck__alpha__redirect" CHECK ("alpha__redirect" IS DISTINCT FROM "id"),
+    CONSTRAINT "nrtl_excess_gibbs__pair__ck__arrangement_range" CHECK ("arrangement" >= 0 AND "arrangement" <= 1),
+    CONSTRAINT "nrtl_excess_gibbs__pair__ck__canonical" CHECK ("i" <= "j"),
+    CONSTRAINT "nrtl_excess_gibbs__pair__ck__diagonal" CHECK ("i" <> "j")
+);
+COMMENT ON TABLE "param"."nrtl_excess_gibbs__pair" IS 'The interaction parameters of one pair of components, as asserted for one order of the pair.';
+COMMENT ON COLUMN "param"."nrtl_excess_gibbs__pair"."id" IS 'Deterministic identifier of the nrtl_excess_gibbs__pair instance.';
+COMMENT ON COLUMN "param"."nrtl_excess_gibbs__pair"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."nrtl_excess_gibbs__pair"."i" IS 'The first component.';
+COMMENT ON COLUMN "param"."nrtl_excess_gibbs__pair"."j" IS 'The second component.';
+COMMENT ON COLUMN "param"."nrtl_excess_gibbs__pair"."arrangement" IS 'For which order of the subjects the values were asserted: 0 when the values were asserted for the canonical order of the subjects, 1 when they were asserted for the swapped order.';
+COMMENT ON COLUMN "param"."nrtl_excess_gibbs__pair"."a12" IS 'Constant term of tau_12, the interaction of the first component as the source asserted the pair; the constant term of tau_21 when the pair is read the other way round.';
+COMMENT ON COLUMN "param"."nrtl_excess_gibbs__pair"."a21" IS 'Constant term of tau_21.';
+COMMENT ON COLUMN "param"."nrtl_excess_gibbs__pair"."b12" IS 'Coefficient of 1 / T in tau_12.';
+COMMENT ON COLUMN "param"."nrtl_excess_gibbs__pair"."b21" IS 'Coefficient of 1 / T in tau_21.';
+COMMENT ON COLUMN "param"."nrtl_excess_gibbs__pair"."alpha" IS 'Non-randomness of the pair, the same in both orders; a source may leave it at its stated default.';
+COMMENT ON COLUMN "param"."nrtl_excess_gibbs__pair"."alpha__state" IS 'Whether `alpha` holds a value and, if not, why.';
+COMMENT ON COLUMN "param"."nrtl_excess_gibbs__pair"."alpha__redirect" IS 'The parameter set `alpha` takes its value from, when its state is redirect.';
+
 CREATE TABLE "tk"."observable" (
     "id" uuid NOT NULL,
     "key" text NOT NULL,
@@ -2440,6 +2547,85 @@ COMMENT ON COLUMN "tk"."parameterization"."group_scheme" IS 'The group scheme it
 COMMENT ON COLUMN "tk"."parameterization"."chemical_system" IS 'The chemical system its sets belong to, where one applies.';
 COMMENT ON COLUMN "tk"."parameterization"."composition_basis" IS 'The composition basis its interaction values assume, where the form leaves it open.';
 COMMENT ON COLUMN "tk"."parameterization"."reference_volume" IS 'The reference volume its size ratios and interaction values are relative to, where the form leaves it open.';
+
+CREATE TABLE "param"."pcsaft_association__pair" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT 'da0b29c1-1f4a-549b-a812-2c89eea536bf'::uuid,
+    "a" uuid NOT NULL,
+    "b" uuid NOT NULL,
+    "kappa" "meta"."scalar",
+    "kappa__state" "meta"."value_state" NOT NULL,
+    "kappa__redirect" uuid,
+    "epsilon_over_k" "meta"."energy_temperature",
+    "epsilon_over_k__state" "meta"."value_state" NOT NULL,
+    "epsilon_over_k__redirect" uuid,
+    CONSTRAINT "pcsaft_association__pair__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "pcsaft_association__pair__ck__slot_group" CHECK ("slot_group" = 'da0b29c1-1f4a-549b-a812-2c89eea536bf'::uuid),
+    CONSTRAINT "pcsaft_association__pair__ck__kappa__state" CHECK (("kappa__state" = 'known') = ("kappa" IS NOT NULL) AND ("kappa__state" = 'redirect') = ("kappa__redirect" IS NOT NULL)),
+    CONSTRAINT "pcsaft_association__pair__ck__kappa__redirect" CHECK ("kappa__redirect" IS DISTINCT FROM "id"),
+    CONSTRAINT "pcsaft_association__pair__ck__epsilon_over_k__state" CHECK (("epsilon_over_k__state" = 'known') = ("epsilon_over_k" IS NOT NULL) AND ("epsilon_over_k__state" = 'redirect') = ("epsilon_over_k__redirect" IS NOT NULL)),
+    CONSTRAINT "pcsaft_association__pair__ck__epsilon_over_k__redirect" CHECK ("epsilon_over_k__redirect" IS DISTINCT FROM "id"),
+    CONSTRAINT "pcsaft_association__pair__ck__canonical" CHECK ("a" <= "b")
+);
+COMMENT ON TABLE "param"."pcsaft_association__pair" IS 'The bond parameters of one pair of association sites, held once for the pair in either order; the pair of a site with itself is allowed. A site with no parameters of its own (induced association) holds a set whose slots are not applicable.';
+COMMENT ON COLUMN "param"."pcsaft_association__pair"."id" IS 'Deterministic identifier of the pcsaft_association__pair instance.';
+COMMENT ON COLUMN "param"."pcsaft_association__pair"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."pcsaft_association__pair"."a" IS 'One site.';
+COMMENT ON COLUMN "param"."pcsaft_association__pair"."b" IS 'The other site.';
+COMMENT ON COLUMN "param"."pcsaft_association__pair"."kappa" IS 'Association volume parameter, dimensionless.';
+COMMENT ON COLUMN "param"."pcsaft_association__pair"."kappa__state" IS 'Whether `kappa` holds a value and, if not, why.';
+COMMENT ON COLUMN "param"."pcsaft_association__pair"."kappa__redirect" IS 'The parameter set `kappa` takes its value from, when its state is redirect.';
+COMMENT ON COLUMN "param"."pcsaft_association__pair"."epsilon_over_k" IS 'Association energy over the Boltzmann constant.';
+COMMENT ON COLUMN "param"."pcsaft_association__pair"."epsilon_over_k__state" IS 'Whether `epsilon_over_k` holds a value and, if not, why.';
+COMMENT ON COLUMN "param"."pcsaft_association__pair"."epsilon_over_k__redirect" IS 'The parameter set `epsilon_over_k` takes its value from, when its state is redirect.';
+
+CREATE TABLE "param"."pcsaft_association__pure" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT '96b421e8-da67-5b92-8f5c-c0231d11a8da'::uuid,
+    "i" uuid NOT NULL,
+    "m" "meta"."scalar" NOT NULL,
+    "sigma" "meta"."length" NOT NULL,
+    "epsilon_over_k" "meta"."energy_temperature" NOT NULL,
+    CONSTRAINT "pcsaft_association__pure__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "pcsaft_association__pure__ck__slot_group" CHECK ("slot_group" = '96b421e8-da67-5b92-8f5c-c0231d11a8da'::uuid)
+);
+COMMENT ON TABLE "param"."pcsaft_association__pure" IS 'The segment parameters of one fluid.';
+COMMENT ON COLUMN "param"."pcsaft_association__pure"."id" IS 'Deterministic identifier of the pcsaft_association__pure instance.';
+COMMENT ON COLUMN "param"."pcsaft_association__pure"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."pcsaft_association__pure"."i" IS 'The fluid.';
+COMMENT ON COLUMN "param"."pcsaft_association__pure"."m" IS 'Number of segments of a molecule.';
+COMMENT ON COLUMN "param"."pcsaft_association__pure"."sigma" IS 'Segment diameter.';
+COMMENT ON COLUMN "param"."pcsaft_association__pure"."epsilon_over_k" IS 'Dispersion energy over the Boltzmann constant.';
+
+CREATE TABLE "param"."peneloux_translation__pure" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT 'e6178da5-7a2c-5d04-b9dd-e083ae1db931'::uuid,
+    "i" uuid NOT NULL,
+    "c" "meta"."molar_volume" NOT NULL,
+    CONSTRAINT "peneloux_translation__pure__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "peneloux_translation__pure__ck__slot_group" CHECK ("slot_group" = 'e6178da5-7a2c-5d04-b9dd-e083ae1db931'::uuid)
+);
+COMMENT ON TABLE "param"."peneloux_translation__pure" IS 'The translation of one component.';
+COMMENT ON COLUMN "param"."peneloux_translation__pure"."id" IS 'Deterministic identifier of the peneloux_translation__pure instance.';
+COMMENT ON COLUMN "param"."peneloux_translation__pure"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."peneloux_translation__pure"."i" IS 'The component.';
+COMMENT ON COLUMN "param"."peneloux_translation__pure"."c" IS 'Volume translation of the component.';
+
+CREATE TABLE "param"."peng_robinson_core__pure" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT '1af2e04d-5cd0-503e-a8ae-2236b78282a0'::uuid,
+    "i" uuid NOT NULL,
+    "Tc" "meta"."temperature" NOT NULL,
+    "Pc" "meta"."pressure" NOT NULL,
+    CONSTRAINT "peng_robinson_core__pure__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "peng_robinson_core__pure__ck__slot_group" CHECK ("slot_group" = '1af2e04d-5cd0-503e-a8ae-2236b78282a0'::uuid)
+);
+COMMENT ON TABLE "param"."peng_robinson_core__pure" IS 'The critical constants of one component.';
+COMMENT ON COLUMN "param"."peng_robinson_core__pure"."id" IS 'Deterministic identifier of the peng_robinson_core__pure instance.';
+COMMENT ON COLUMN "param"."peng_robinson_core__pure"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."peng_robinson_core__pure"."i" IS 'The component.';
+COMMENT ON COLUMN "param"."peng_robinson_core__pure"."Tc" IS 'Critical temperature.';
+COMMENT ON COLUMN "param"."peng_robinson_core__pure"."Pc" IS 'Critical pressure.';
 
 CREATE TABLE "tk"."phase_definition" (
     "id" uuid NOT NULL,
@@ -2639,6 +2825,49 @@ COMMENT ON COLUMN "prov"."rights_determination"."commercial" IS 'Commercial use.
 COMMENT ON COLUMN "prov"."rights_determination"."attribution_required" IS 'Whether attribution is required.';
 COMMENT ON COLUMN "prov"."rights_determination"."share_alike" IS 'Whether derived works must carry the same terms.';
 COMMENT ON COLUMN "prov"."rights_determination"."observed" IS 'When and how the claim was established.';
+
+CREATE TABLE "param"."saftgamma_mie__association" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT '3447301e-99dc-5b22-90d1-8f68f99a419a'::uuid,
+    "a" uuid NOT NULL,
+    "b" uuid NOT NULL,
+    "epsilon_hb_over_k" "meta"."energy_temperature" NOT NULL,
+    "bonding_volume" "meta"."volume" NOT NULL,
+    CONSTRAINT "saftgamma_mie__association__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "saftgamma_mie__association__ck__slot_group" CHECK ("slot_group" = '3447301e-99dc-5b22-90d1-8f68f99a419a'::uuid),
+    CONSTRAINT "saftgamma_mie__association__ck__canonical" CHECK ("a" <= "b")
+);
+COMMENT ON TABLE "param"."saftgamma_mie__association" IS 'The bond parameters of one pair of association sites on groups, held once for the pair in either order.';
+COMMENT ON COLUMN "param"."saftgamma_mie__association"."id" IS 'Deterministic identifier of the saftgamma_mie__association instance.';
+COMMENT ON COLUMN "param"."saftgamma_mie__association"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."saftgamma_mie__association"."a" IS 'One site.';
+COMMENT ON COLUMN "param"."saftgamma_mie__association"."b" IS 'The other site.';
+COMMENT ON COLUMN "param"."saftgamma_mie__association"."epsilon_hb_over_k" IS 'Association energy over the Boltzmann constant.';
+COMMENT ON COLUMN "param"."saftgamma_mie__association"."bonding_volume" IS 'Bonding volume of the site pair.';
+
+CREATE TABLE "param"."saftgamma_mie__group" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT '98c9aeda-f368-5cf8-b2f2-fa4e04c970a3'::uuid,
+    "k" uuid NOT NULL,
+    "nu_star" "meta"."scalar" NOT NULL,
+    "S" "meta"."scalar" NOT NULL,
+    "sigma" "meta"."length" NOT NULL,
+    "epsilon_over_k" "meta"."energy_temperature" NOT NULL,
+    "lambda_r" "meta"."scalar" NOT NULL,
+    "lambda_a" "meta"."scalar" NOT NULL,
+    CONSTRAINT "saftgamma_mie__group__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "saftgamma_mie__group__ck__slot_group" CHECK ("slot_group" = '98c9aeda-f368-5cf8-b2f2-fa4e04c970a3'::uuid)
+);
+COMMENT ON TABLE "param"."saftgamma_mie__group" IS 'The like-group parameters of one group: the number of segments it contributes, its shape factor and the Mie potential of its segments.';
+COMMENT ON COLUMN "param"."saftgamma_mie__group"."id" IS 'Deterministic identifier of the saftgamma_mie__group instance.';
+COMMENT ON COLUMN "param"."saftgamma_mie__group"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."saftgamma_mie__group"."k" IS 'The group.';
+COMMENT ON COLUMN "param"."saftgamma_mie__group"."nu_star" IS 'Number of segments the group contributes to a molecule, a whole number.';
+COMMENT ON COLUMN "param"."saftgamma_mie__group"."S" IS 'Shape factor of the group: the fraction of a segment''s size and interaction it contributes.';
+COMMENT ON COLUMN "param"."saftgamma_mie__group"."sigma" IS 'Segment diameter.';
+COMMENT ON COLUMN "param"."saftgamma_mie__group"."epsilon_over_k" IS 'Mie potential depth over the Boltzmann constant.';
+COMMENT ON COLUMN "param"."saftgamma_mie__group"."lambda_r" IS 'Repulsive exponent.';
+COMMENT ON COLUMN "param"."saftgamma_mie__group"."lambda_a" IS 'Attractive exponent.';
 
 CREATE TABLE "tk"."sample" (
     "id" uuid NOT NULL,
@@ -2922,6 +3151,24 @@ COMMENT ON COLUMN "tk"."tabulated_series"."name" IS 'Name of the series; `value`
 COMMENT ON COLUMN "tk"."tabulated_series"."value_type" IS 'Quantity type of the values.';
 COMMENT ON COLUMN "tk"."tabulated_series"."values" IS 'Values in the value type''s storage unit, in row-major order over the axes.';
 
+CREATE TABLE "param"."twu_alpha__pure" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT 'e2407663-6fc8-552a-a1c4-7c7a26adc3aa'::uuid,
+    "i" uuid NOT NULL,
+    "L" "meta"."scalar" NOT NULL,
+    "M" "meta"."scalar" NOT NULL,
+    "N" "meta"."scalar" NOT NULL,
+    CONSTRAINT "twu_alpha__pure__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "twu_alpha__pure__ck__slot_group" CHECK ("slot_group" = 'e2407663-6fc8-552a-a1c4-7c7a26adc3aa'::uuid)
+);
+COMMENT ON TABLE "param"."twu_alpha__pure" IS 'The three Twu parameters of one component.';
+COMMENT ON COLUMN "param"."twu_alpha__pure"."id" IS 'Deterministic identifier of the twu_alpha__pure instance.';
+COMMENT ON COLUMN "param"."twu_alpha__pure"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."twu_alpha__pure"."i" IS 'The component.';
+COMMENT ON COLUMN "param"."twu_alpha__pure"."L" IS 'Parameter L.';
+COMMENT ON COLUMN "param"."twu_alpha__pure"."M" IS 'Parameter M.';
+COMMENT ON COLUMN "param"."twu_alpha__pure"."N" IS 'Parameter N.';
+
 CREATE TABLE "ev"."uncertainty_assessment" (
     "id" uuid NOT NULL,
     "column" uuid NOT NULL,
@@ -2951,6 +3198,58 @@ CREATE TABLE "tk"."unclassified_entity" (
 );
 COMMENT ON TABLE "tk"."unclassified_entity" IS 'An entity whose class its source does not establish; it is never joined across carriers. It is the provisional entity of a source entity of class `undetermined`.';
 COMMENT ON COLUMN "tk"."unclassified_entity"."id" IS 'Deterministic identifier of the unclassified_entity instance.';
+
+CREATE TABLE "param"."unifac_group_sizes__group" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT '33e786e6-2216-5173-af42-c8f99b5eb541'::uuid,
+    "k" uuid NOT NULL,
+    "R" "meta"."scalar" NOT NULL,
+    "Q" "meta"."scalar" NOT NULL,
+    CONSTRAINT "unifac_group_sizes__group__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "unifac_group_sizes__group__ck__slot_group" CHECK ("slot_group" = '33e786e6-2216-5173-af42-c8f99b5eb541'::uuid)
+);
+COMMENT ON TABLE "param"."unifac_group_sizes__group" IS 'The volume and surface area parameters of one subgroup.';
+COMMENT ON COLUMN "param"."unifac_group_sizes__group"."id" IS 'Deterministic identifier of the unifac_group_sizes__group instance.';
+COMMENT ON COLUMN "param"."unifac_group_sizes__group"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."unifac_group_sizes__group"."k" IS 'The subgroup.';
+COMMENT ON COLUMN "param"."unifac_group_sizes__group"."R" IS 'Relative van der Waals volume of the subgroup.';
+COMMENT ON COLUMN "param"."unifac_group_sizes__group"."Q" IS 'Relative van der Waals surface area of the subgroup.';
+
+CREATE TABLE "param"."unifac_interaction_dortmund__main" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT 'cad75e0a-516e-5331-81f5-f0ea4835eacd'::uuid,
+    "m" uuid NOT NULL,
+    "n" uuid NOT NULL,
+    "a0" "meta"."temperature" NOT NULL,
+    "a1" "meta"."scalar" NOT NULL,
+    "a2" "meta"."finite_real" NOT NULL,
+    CONSTRAINT "unifac_interaction_dortmund__main__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "unifac_interaction_dortmund__main__ck__slot_group" CHECK ("slot_group" = 'cad75e0a-516e-5331-81f5-f0ea4835eacd'::uuid)
+);
+COMMENT ON TABLE "param"."unifac_interaction_dortmund__main" IS 'The three interaction coefficients of an ordered pair of main groups.';
+COMMENT ON COLUMN "param"."unifac_interaction_dortmund__main"."id" IS 'Deterministic identifier of the unifac_interaction_dortmund__main instance.';
+COMMENT ON COLUMN "param"."unifac_interaction_dortmund__main"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."unifac_interaction_dortmund__main"."m" IS 'The first main group.';
+COMMENT ON COLUMN "param"."unifac_interaction_dortmund__main"."n" IS 'The second main group.';
+COMMENT ON COLUMN "param"."unifac_interaction_dortmund__main"."a0" IS 'Constant coefficient a0_mn, in kelvin.';
+COMMENT ON COLUMN "param"."unifac_interaction_dortmund__main"."a1" IS 'Coefficient a1_mn of T.';
+COMMENT ON COLUMN "param"."unifac_interaction_dortmund__main"."a2" IS 'Coefficient a2_mn of T^2, per kelvin.';
+
+CREATE TABLE "param"."unifac_interaction_original__main" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT '0df1e7d6-45f2-5e94-ab40-15248c0bcef0'::uuid,
+    "m" uuid NOT NULL,
+    "n" uuid NOT NULL,
+    "a" "meta"."temperature" NOT NULL,
+    CONSTRAINT "unifac_interaction_original__main__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "unifac_interaction_original__main__ck__slot_group" CHECK ("slot_group" = '0df1e7d6-45f2-5e94-ab40-15248c0bcef0'::uuid)
+);
+COMMENT ON TABLE "param"."unifac_interaction_original__main" IS 'The interaction parameter of an ordered pair of main groups (partition classes of the scheme); the pair of a main group with itself is allowed and is zero by definition where a source does not state it.';
+COMMENT ON COLUMN "param"."unifac_interaction_original__main"."id" IS 'Deterministic identifier of the unifac_interaction_original__main instance.';
+COMMENT ON COLUMN "param"."unifac_interaction_original__main"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."unifac_interaction_original__main"."m" IS 'The first main group.';
+COMMENT ON COLUMN "param"."unifac_interaction_original__main"."n" IS 'The second main group.';
+COMMENT ON COLUMN "param"."unifac_interaction_original__main"."a" IS 'Interaction parameter a_mn.';
 
 CREATE TABLE "tk"."validity_region" (
     "id" uuid NOT NULL,
@@ -3715,6 +4014,20 @@ COMMENT ON COLUMN "tk"."validity_coverage"."record" IS 'The record.';
 COMMENT ON COLUMN "tk"."validity_coverage"."kind" IS 'The kind of region.';
 COMMENT ON COLUMN "tk"."validity_coverage"."value" IS 'Whether regions of this kind are stated.';
 
+CREATE TABLE "param"."benson_group_additivity__node__cp" (
+    "set_id" uuid NOT NULL,
+    "n" bigint NOT NULL,
+    "T" "meta"."temperature" NOT NULL,
+    "value" "meta"."molar_entropy" NOT NULL,
+    CONSTRAINT "benson_group_additivity__node__cp__ck__n__minimum" CHECK ("n" >= 1),
+    CONSTRAINT "benson_group_additivity__node__cp__pk" PRIMARY KEY ("set_id", "n")
+);
+COMMENT ON TABLE "param"."benson_group_additivity__node__cp" IS 'One value of the heat capacity of the group at a temperature.';
+COMMENT ON COLUMN "param"."benson_group_additivity__node__cp"."set_id" IS 'The parameter set this row belongs to.';
+COMMENT ON COLUMN "param"."benson_group_additivity__node__cp"."n" IS 'Position in the temperature grid.';
+COMMENT ON COLUMN "param"."benson_group_additivity__node__cp"."T" IS 'The temperature.';
+COMMENT ON COLUMN "param"."benson_group_additivity__node__cp"."value" IS 'Heat capacity at that temperature.';
+
 CREATE TABLE "param"."helmholtz_pure_fluid__pure__planck_einstein" (
     "set_id" uuid NOT NULL,
     "k" bigint NOT NULL,
@@ -4249,6 +4562,14 @@ ALTER TABLE "tk"."association_site" ADD CONSTRAINT "association_site__fk__on_ent
 
 ALTER TABLE "tk"."association_site" ADD CONSTRAINT "association_site__fk__on_group" FOREIGN KEY ("on_group") REFERENCES "tk"."group" ("id") DEFERRABLE INITIALLY DEFERRED;
 
+ALTER TABLE "param"."benson_group_additivity__node" ADD CONSTRAINT "benson_group_additivity__node__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."benson_group_additivity__node" ADD CONSTRAINT "benson_group_additivity__node__fk__k" FOREIGN KEY ("k") REFERENCES "tk"."group" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."benson_group_additivity__node" ADD CONSTRAINT "benson_group_additivity__node__fk__H298__redirect" FOREIGN KEY ("H298__redirect", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."benson_group_additivity__node" ADD CONSTRAINT "benson_group_additivity__node__fk__S298__redirect" FOREIGN KEY ("S298__redirect", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
 ALTER TABLE "prov"."carrier" ADD CONSTRAINT "carrier__fk__id" FOREIGN KEY ("id") REFERENCES "prov"."source" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."chemical_system" ADD CONSTRAINT "chemical_system__fk__id" FOREIGN KEY ("id") REFERENCES "prov"."record" ("id") DEFERRABLE INITIALLY DEFERRED;
@@ -4399,6 +4720,16 @@ ALTER TABLE "tk"."material" ADD CONSTRAINT "material__fk__id" FOREIGN KEY ("id")
 
 ALTER TABLE "tk"."material_entity" ADD CONSTRAINT "material_entity__fk__id" FOREIGN KEY ("id") REFERENCES "prov"."record" ("id") DEFERRABLE INITIALLY DEFERRED;
 
+ALTER TABLE "param"."mie_group_combining__group" ADD CONSTRAINT "mie_group_combining__group__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."mie_group_combining__group" ADD CONSTRAINT "mie_group_combining__group__fk__k" FOREIGN KEY ("k") REFERENCES "tk"."group" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."mie_group_pair_table__pair" ADD CONSTRAINT "mie_group_pair_table__pair__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."mie_group_pair_table__pair" ADD CONSTRAINT "mie_group_pair_table__pair__fk__k" FOREIGN KEY ("k") REFERENCES "tk"."group" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."mie_group_pair_table__pair" ADD CONSTRAINT "mie_group_pair_table__pair__fk__l" FOREIGN KEY ("l") REFERENCES "tk"."group" ("id") DEFERRABLE INITIALLY DEFERRED;
+
 ALTER TABLE "tk"."model_assembly" ADD CONSTRAINT "model_assembly__fk__id" FOREIGN KEY ("id") REFERENCES "prov"."record" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."model_assembly" ADD CONSTRAINT "model_assembly__fk__root" FOREIGN KEY ("root") REFERENCES "meta"."form" ("id") DEFERRABLE INITIALLY DEFERRED;
@@ -4437,6 +4768,14 @@ ALTER TABLE "param"."nasa9__pure" ADD CONSTRAINT "nasa9__pure__fk__id" FOREIGN K
 
 ALTER TABLE "param"."nasa9__pure" ADD CONSTRAINT "nasa9__pure__fk__i" FOREIGN KEY ("i") REFERENCES "tk"."species_form" ("id") DEFERRABLE INITIALLY DEFERRED;
 
+ALTER TABLE "param"."nrtl_excess_gibbs__pair" ADD CONSTRAINT "nrtl_excess_gibbs__pair__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."nrtl_excess_gibbs__pair" ADD CONSTRAINT "nrtl_excess_gibbs__pair__fk__i" FOREIGN KEY ("i") REFERENCES "tk"."species" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."nrtl_excess_gibbs__pair" ADD CONSTRAINT "nrtl_excess_gibbs__pair__fk__j" FOREIGN KEY ("j") REFERENCES "tk"."species" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."nrtl_excess_gibbs__pair" ADD CONSTRAINT "nrtl_excess_gibbs__pair__fk__alpha__redirect" FOREIGN KEY ("alpha__redirect", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
 ALTER TABLE "tk"."observable" ADD CONSTRAINT "observable__fk__quantity" FOREIGN KEY ("quantity") REFERENCES "meta"."quantity_type" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."observable_alias" ADD CONSTRAINT "observable_alias__fk__observable" FOREIGN KEY ("observable") REFERENCES "tk"."observable" ("id") DEFERRABLE INITIALLY DEFERRED;
@@ -4462,6 +4801,28 @@ ALTER TABLE "tk"."parameterization" ADD CONSTRAINT "parameterization__fk__group_
 ALTER TABLE "tk"."parameterization" ADD CONSTRAINT "parameterization__fk__chemical_system" FOREIGN KEY ("chemical_system") REFERENCES "tk"."chemical_system" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."parameterization" ADD CONSTRAINT "parameterization__fk__composition_basis" FOREIGN KEY ("composition_basis") REFERENCES "tk"."composition_basis" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."pcsaft_association__pair" ADD CONSTRAINT "pcsaft_association__pair__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."pcsaft_association__pair" ADD CONSTRAINT "pcsaft_association__pair__fk__a" FOREIGN KEY ("a") REFERENCES "tk"."association_site" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."pcsaft_association__pair" ADD CONSTRAINT "pcsaft_association__pair__fk__b" FOREIGN KEY ("b") REFERENCES "tk"."association_site" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."pcsaft_association__pair" ADD CONSTRAINT "pcsaft_association__pair__fk__kappa__redirect" FOREIGN KEY ("kappa__redirect", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."pcsaft_association__pair" ADD CONSTRAINT "pcsaft_association__pair__fk__epsilon_over_k__redirect" FOREIGN KEY ("epsilon_over_k__redirect", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."pcsaft_association__pure" ADD CONSTRAINT "pcsaft_association__pure__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."pcsaft_association__pure" ADD CONSTRAINT "pcsaft_association__pure__fk__i" FOREIGN KEY ("i") REFERENCES "tk"."species" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."peneloux_translation__pure" ADD CONSTRAINT "peneloux_translation__pure__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."peneloux_translation__pure" ADD CONSTRAINT "peneloux_translation__pure__fk__i" FOREIGN KEY ("i") REFERENCES "tk"."species" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."peng_robinson_core__pure" ADD CONSTRAINT "peng_robinson_core__pure__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."peng_robinson_core__pure" ADD CONSTRAINT "peng_robinson_core__pure__fk__i" FOREIGN KEY ("i") REFERENCES "tk"."species" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."phase_definition" ADD CONSTRAINT "phase_definition__fk__id" FOREIGN KEY ("id") REFERENCES "prov"."record" ("id") DEFERRABLE INITIALLY DEFERRED;
 
@@ -4506,6 +4867,16 @@ ALTER TABLE "tk"."resolved_snapshot" ADD CONSTRAINT "resolved_snapshot__fk__poli
 ALTER TABLE "prov"."rights_determination" ADD CONSTRAINT "rights_determination__fk__carrier" FOREIGN KEY ("carrier") REFERENCES "prov"."carrier" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "prov"."rights_determination" ADD CONSTRAINT "rights_determination__fk__licence" FOREIGN KEY ("licence") REFERENCES "prov"."licence" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."saftgamma_mie__association" ADD CONSTRAINT "saftgamma_mie__association__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."saftgamma_mie__association" ADD CONSTRAINT "saftgamma_mie__association__fk__a" FOREIGN KEY ("a") REFERENCES "tk"."association_site" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."saftgamma_mie__association" ADD CONSTRAINT "saftgamma_mie__association__fk__b" FOREIGN KEY ("b") REFERENCES "tk"."association_site" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."saftgamma_mie__group" ADD CONSTRAINT "saftgamma_mie__group__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."saftgamma_mie__group" ADD CONSTRAINT "saftgamma_mie__group__fk__k" FOREIGN KEY ("k") REFERENCES "tk"."group" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."sample" ADD CONSTRAINT "sample__fk__id" FOREIGN KEY ("id") REFERENCES "prov"."record" ("id") DEFERRABLE INITIALLY DEFERRED;
 
@@ -4579,9 +4950,29 @@ ALTER TABLE "tk"."tabulated_series" ADD CONSTRAINT "tabulated_series__fk__functi
 
 ALTER TABLE "tk"."tabulated_series" ADD CONSTRAINT "tabulated_series__fk__value_type" FOREIGN KEY ("value_type") REFERENCES "meta"."quantity_type" ("id") DEFERRABLE INITIALLY DEFERRED;
 
+ALTER TABLE "param"."twu_alpha__pure" ADD CONSTRAINT "twu_alpha__pure__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."twu_alpha__pure" ADD CONSTRAINT "twu_alpha__pure__fk__i" FOREIGN KEY ("i") REFERENCES "tk"."species" ("id") DEFERRABLE INITIALLY DEFERRED;
+
 ALTER TABLE "ev"."uncertainty_assessment" ADD CONSTRAINT "uncertainty_assessment__fk__column" FOREIGN KEY ("column") REFERENCES "ev"."dataset_column" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."unclassified_entity" ADD CONSTRAINT "unclassified_entity__fk__id" FOREIGN KEY ("id") REFERENCES "tk"."material_entity" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."unifac_group_sizes__group" ADD CONSTRAINT "unifac_group_sizes__group__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."unifac_group_sizes__group" ADD CONSTRAINT "unifac_group_sizes__group__fk__k" FOREIGN KEY ("k") REFERENCES "tk"."group" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."unifac_interaction_dortmund__main" ADD CONSTRAINT "unifac_interaction_dortmund__main__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."unifac_interaction_dortmund__main" ADD CONSTRAINT "unifac_interaction_dortmund__main__fk__m" FOREIGN KEY ("m") REFERENCES "tk"."group" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."unifac_interaction_dortmund__main" ADD CONSTRAINT "unifac_interaction_dortmund__main__fk__n" FOREIGN KEY ("n") REFERENCES "tk"."group" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."unifac_interaction_original__main" ADD CONSTRAINT "unifac_interaction_original__main__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."unifac_interaction_original__main" ADD CONSTRAINT "unifac_interaction_original__main__fk__m" FOREIGN KEY ("m") REFERENCES "tk"."group" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."unifac_interaction_original__main" ADD CONSTRAINT "unifac_interaction_original__main__fk__n" FOREIGN KEY ("n") REFERENCES "tk"."group" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."validity_region" ADD CONSTRAINT "validity_region__fk__id" FOREIGN KEY ("id") REFERENCES "prov"."record" ("id") DEFERRABLE INITIALLY DEFERRED;
 
@@ -4802,6 +5193,8 @@ ALTER TABLE "tk"."system_reaction" ADD CONSTRAINT "system_reaction__fk__reaction
 ALTER TABLE "tk"."system_reaction" ADD CONSTRAINT "system_reaction__fk__defines" FOREIGN KEY ("defines") REFERENCES "tk"."species_form" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."validity_coverage" ADD CONSTRAINT "validity_coverage__fk__record" FOREIGN KEY ("record") REFERENCES "prov"."record" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."benson_group_additivity__node__cp" ADD CONSTRAINT "benson_group_additivity__node__cp__fk__set_id" FOREIGN KEY ("set_id") REFERENCES "param"."benson_group_additivity__node" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "param"."helmholtz_pure_fluid__pure__planck_einstein" ADD CONSTRAINT "helmholtz_pure_fluid__pure__planck_einstein__fk__set_id" FOREIGN KEY ("set_id") REFERENCES "param"."helmholtz_pure_fluid__pure" ("id") DEFERRABLE INITIALLY DEFERRED;
 

@@ -1,0 +1,164 @@
+module = "excess_gibbs"
+uses = [
+  "physical",
+  "provenance",
+  "identity",
+  "systems",
+  "conventions",
+  "observables",
+  "parameters",
+]
+doc = """
+Excess Gibbs energy models of a liquid mixture: the local-composition models (NRTL) and, below them
+in this module, the group-contribution models (UNIFAC). They implement one contract, the molar
+excess Gibbs energy of a mixture of fixed components at a temperature and composition, so that a
+mixing rule of a cubic equation of state, which embeds one of them through a sub-form slot, does
+not know which it holds.
+"""
+
+[contracts.molar_excess_gibbs_mixture]
+doc = "Molar excess Gibbs energy of a mixture of fixed components at a temperature and a composition."
+sets.components = { type = "species", doc = "The components of the mixture, in a fixed order." }
+arguments.T = { type = "Temperature", observable = "temperature", doc = "Temperature." }
+arguments.x = { type = "Fraction", over = ["components"], basis = "mole_fraction", doc = "Composition." }
+outputs.gE = { type = "MolarEnergy", observable = "molar_excess_gibbs_energy", doc = "Molar excess Gibbs energy." }
+
+# ---------------------------------------------------------------- NRTL
+
+[forms.nrtl_excess_gibbs]
+doc = "NRTL: gE / (R T) = sum_i x_i (sum_j x_j tau_ji G_ji) / (sum_k x_k G_ki) with tau_ij = a_ij + b_ij / T and G_ij = exp(-alpha_ij tau_ij). A pair is held once, for the order its source asserted: the two directed taus (a12, a21, b12, b21) change places when the pair is read in the other order, and the non-randomness alpha, symmetric in the pair, may be left at the stated default a selection policy gives."
+implements = "molar_excess_gibbs_mixture"
+completeness = "fully_declared"
+status = "expressed"
+conventions = ["gas_constant"]
+
+[forms.nrtl_excess_gibbs.slot_groups.pair]
+doc = "The interaction parameters of one pair of components, as asserted for one order of the pair."
+subject.i = { type = "species", doc = "The first component." }
+subject.j = { type = "species", doc = "The second component." }
+bind = { i = "components", j = "components" }
+transposition = { rule = "linear", roles = ["i", "j"], slots = ["a12", "a21", "b12", "b21"], matrix = [[0, 1, 0, 0], [1, 0, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0]], diagonal = "forbidden" }
+
+[forms.nrtl_excess_gibbs.slot_groups.pair.slots]
+a12 = { type = "Scalar", doc = "Constant term of tau_12, the interaction of the first component as the source asserted the pair; the constant term of tau_21 when the pair is read the other way round." }
+a21 = { type = "Scalar", doc = "Constant term of tau_21." }
+b12 = { type = "Temperature", doc = "Coefficient of 1 / T in tau_12." }
+b21 = { type = "Temperature", doc = "Coefficient of 1 / T in tau_21." }
+alpha = { type = "Scalar", presence = "stateful", doc = "Non-randomness of the pair, the same in both orders; a source may leave it at its stated default." }
+
+[forms.nrtl_excess_gibbs.let]
+R = "convention.gas_constant"
+tau = "[0 if i == j else pair.a12[i, j] + pair.b12[i, j] / T for i in components for j in components]"
+G = "[1 if i == j else exp(-pair.alpha[i, j] * (pair.a12[i, j] + pair.b12[i, j] / T)) for i in components for j in components]"
+
+[forms.nrtl_excess_gibbs.outputs]
+gE = "R * T * sum(x[i] * sum(x[j] * tau[j, i] * G[j, i] for j in components) / sum(x[k] * G[k, i] for k in components) for i in components)"
+
+# ---------------------------------------------------------------- UNIFAC
+
+[contracts.unifac_molecule_size]
+doc = "The relative van der Waals volume r and surface area q of one molecule, from the number of times each group of the scheme occurs in it."
+roles.i = { type = "species", doc = "The molecule." }
+sets.groups = { type = "group", doc = "The groups of the scheme the molecule is decomposed into, in a fixed order." }
+arguments.nu = { type = "Count", over = ["groups"], doc = "How many times each group occurs in the molecule: the counts of its group assignment." }
+outputs.r = { type = "Scalar", doc = "Relative volume: the sum of the counts times the group volumes." }
+outputs.q = { type = "Scalar", doc = "Relative surface area: the sum of the counts times the group surface areas." }
+
+[forms.unifac_group_sizes]
+doc = "r = sum nu_k R_k and q = sum nu_k Q_k over the subgroups of the molecule: R and Q are parameters of the subgroup, identified by its code in its scheme."
+implements = "unifac_molecule_size"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.unifac_group_sizes.slot_groups.group]
+doc = "The volume and surface area parameters of one subgroup."
+subject.k = { type = "group", doc = "The subgroup." }
+bind = { k = "groups" }
+
+[forms.unifac_group_sizes.slot_groups.group.slots]
+R = { type = "Scalar", doc = "Relative van der Waals volume of the subgroup." }
+Q = { type = "Scalar", doc = "Relative van der Waals surface area of the subgroup." }
+
+[forms.unifac_group_sizes.outputs]
+r = "sum(nu[k] * group.R[k] for k in groups)"
+q = "sum(nu[k] * group.Q[k] for k in groups)"
+
+[contracts.unifac_combinatorial_term]
+doc = "The combinatorial contribution to the molar excess Gibbs energy of a mixture divided by R T, from the relative sizes of its components."
+sets.components = { type = "species", doc = "The components of the mixture, in a fixed order." }
+arguments.x = { type = "Fraction", over = ["components"], basis = "mole_fraction", doc = "Composition." }
+arguments.r = { type = "Scalar", over = ["components"], doc = "Relative volume of each component." }
+arguments.q = { type = "Scalar", over = ["components"], doc = "Relative surface area of each component." }
+outputs.gE_over_RT = { type = "Scalar", doc = "The combinatorial contribution to gE / (R T): the mole-fraction sum of the logarithms of the combinatorial activity coefficients." }
+
+[forms.unifac_combinatorial_original]
+doc = "The Staverman-Guggenheim combinatorial term of original UNIFAC: ln gamma_i = 1 - V_i + ln V_i - 5 q_i (1 - V_i / F_i + ln (V_i / F_i)) with V_i = r_i / sum x_j r_j and F_i = q_i / sum x_j q_j, summed over the mole fractions."
+implements = "unifac_combinatorial_term"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.unifac_combinatorial_original.let]
+V = "[r[i] / sum(x[j] * r[j] for j in components) for i in components]"
+F = "[q[i] / sum(x[j] * q[j] for j in components) for i in components]"
+
+[forms.unifac_combinatorial_original.outputs]
+gE_over_RT = "sum(x[i] * (1 - V[i] + log(V[i]) - 5 * q[i] * (1 - V[i] / F[i] + log(V[i] / F[i]))) for i in components)"
+
+[forms.unifac_combinatorial_dortmund]
+doc = "The combinatorial term of modified UNIFAC (Dortmund): the Staverman-Guggenheim form with the volume fraction V'_i = r_i^(3/4) / sum x_j r_j^(3/4) in place of V_i in the first three terms, and V_i / F_i in the last."
+implements = "unifac_combinatorial_term"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.unifac_combinatorial_dortmund.let]
+V = "[r[i] / sum(x[j] * r[j] for j in components) for i in components]"
+Vp = "[r[i] ** 0.75 / sum(x[j] * r[j] ** 0.75 for j in components) for i in components]"
+F = "[q[i] / sum(x[j] * q[j] for j in components) for i in components]"
+
+[forms.unifac_combinatorial_dortmund.outputs]
+gE_over_RT = "sum(x[i] * (1 - Vp[i] + log(Vp[i]) - 5 * q[i] * (1 - V[i] / F[i] + log(V[i] / F[i]))) for i in components)"
+
+[contracts.unifac_main_group_interaction]
+doc = "The Boltzmann factor psi_mn of the interaction of main group m with main group n at a temperature. The pair is ordered: psi_mn and psi_nm are two facts."
+roles.m = { type = "group", doc = "The first main group." }
+roles.n = { type = "group", doc = "The second main group." }
+arguments.T = { type = "Temperature", observable = "temperature", doc = "Temperature." }
+outputs.psi = { type = "Scalar", doc = "exp(-a_mn(T) / T)." }
+
+[forms.unifac_interaction_original]
+doc = "Original UNIFAC: the interaction of two main groups is one constant a_mn in kelvin, psi_mn = exp(-a_mn / T)."
+implements = "unifac_main_group_interaction"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.unifac_interaction_original.slot_groups.main]
+doc = "The interaction parameter of an ordered pair of main groups (partition classes of the scheme); the pair of a main group with itself is allowed and is zero by definition where a source does not state it."
+subject.m = { type = "group", doc = "The first main group." }
+subject.n = { type = "group", doc = "The second main group." }
+transposition = { rule = "ordered", roles = ["m", "n"], diagonal = "allowed" }
+
+[forms.unifac_interaction_original.slot_groups.main.slots]
+a = { type = "Temperature", doc = "Interaction parameter a_mn." }
+
+[forms.unifac_interaction_original.outputs]
+psi = "exp(-main.a[m, n] / T)"
+
+[forms.unifac_interaction_dortmund]
+doc = "Modified UNIFAC (Dortmund): the interaction of two main groups depends on temperature, psi_mn = exp(-(a0_mn + a1_mn T + a2_mn T^2) / T)."
+implements = "unifac_main_group_interaction"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.unifac_interaction_dortmund.slot_groups.main]
+doc = "The three interaction coefficients of an ordered pair of main groups."
+subject.m = { type = "group", doc = "The first main group." }
+subject.n = { type = "group", doc = "The second main group." }
+transposition = { rule = "ordered", roles = ["m", "n"], diagonal = "allowed" }
+
+[forms.unifac_interaction_dortmund.slot_groups.main.slots]
+a0 = { type = "Temperature", doc = "Constant coefficient a0_mn, in kelvin." }
+a1 = { type = "Scalar", doc = "Coefficient a1_mn of T." }
+a2 = { type = "Scalar / Temperature", doc = "Coefficient a2_mn of T^2, per kelvin." }
+
+[forms.unifac_interaction_dortmund.outputs]
+psi = "exp(-(main.a0[m, n] + main.a1[m, n] * T + main.a2[m, n] * T ** 2) / T)"

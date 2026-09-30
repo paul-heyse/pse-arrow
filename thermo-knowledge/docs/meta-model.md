@@ -540,6 +540,15 @@ equation of state needs are sub-form slots of that equation of state; the assemb
 form of each slot by its `path` of slot names from the root (`eos`, `eos/epsilon`). Which method code of a source
 fills which slot is mapping knowledge (`mapping.toml`), not model: the declaration knows no method code.
 
+An assembly is held to the declared forms by three verify checks, written from `meta`: the chosen form
+implements the contract the slot accepts (`assembly_choice.form_implements_slot_contract`); the last segment
+of the `path` is the slot's name and the slot belongs to the form standing at the rest of the path, which is the
+assembly's `root` for a path of one segment and otherwise a form the assembly chooses at the parent path
+(`assembly_choice.slot_belongs_to_form_at_path`); and every slot with multiplicity `one` that a model decides
+(`per = model`), of the root form and of every form the assembly chooses, has a choice at its path
+(`model_assembly.single_slots_decided`). A slot with `per = subject` is not decided by the assembly but by
+`subject_subform_choice`, so the third check does not ask for it, and an `optional` or `many` slot may stay empty.
+
 ### 4.5 Expressions
 
 The mathematics of a form (contract roles and sets, locals, output expressions and implicit
@@ -692,6 +701,11 @@ Applying a policy is a later packet (the snapshot export); what the declaration 
   parameterisation or overrides to the set and states no default for the slot. The database-backed source given a
   `policy` supplies its defaults to a slot at its default (and none for a default that is `not_applicable`); without
   one the slot has no value and the evaluator refuses.
+  A policy whose `unasserted` is `stated_default` also supplies its defaults to a subject that has no set in a slot
+  group it covers (it has no scope, or that group) when it states a known default for every slot of the group, so a
+  table a source lists only in part (the bonding pairs of an association matrix, the pairs of a binary table that
+  interact) is read as complete: the value of an unlisted subject is the policy's statement, never a zero the
+  evaluator supplies.
 - **A carrier's own behaviour** is a policy whose `asserted_by` names the carrier, recorded with the locator of the
   code or the documentation it was read from (the policy is a record with an origin). Repeated rows a source holds
   for one subject are all kept, distinguished by `occurrence` (meta-model section 5, identity); which of them the

@@ -115,6 +115,30 @@ class Block:
         )
 
 
+_MAX_DEGREE = 16
+
+
+def _polynomial_coefficients(residual: sympy.Expr, unknown: sympy.Symbol) -> list[sympy.Expr] | None:
+    """The coefficients, highest power first, of a residual that is a polynomial of degree one or
+    more in `unknown`, or `None`. The other symbols are constants: their expressions are not
+    expanded, because the coefficient of a cubic whose mixing rule embeds an activity model is an
+    expression of hundreds of thousands of terms once expanded. The coefficient of power k is the
+    k-th derivative at zero over k!, and the degree is the power after which the derivative is
+    free of the unknown."""
+    if not residual.is_polynomial(unknown):
+        return None
+    coefficients: list[sympy.Expr] = []
+    derivative = residual
+    for power in range(_MAX_DEGREE + 1):
+        coefficients.append(derivative.xreplace({unknown: sympy.S.Zero}) / sympy.factorial(power))
+        if not derivative.has(unknown):
+            break
+        derivative = sympy.diff(derivative, unknown)
+    else:
+        return None
+    return coefficients[::-1] if len(coefficients) > 1 else None
+
+
 class BlockSolver:
     """A block turned into NumPy functions of (unknowns..., params...), where `params` are the
     argument and parameter symbols of `Block.params`. It holds nothing of the block it was built
@@ -140,12 +164,9 @@ class BlockSolver:
         self.by = None if block.by is None else compile_(both, block.by)
         self.coefficients: Callable[..., np.ndarray] | None = None
         if self.n == 1:
-            try:
-                poly = sympy.Poly(residuals[0], ys[0])
-            except (sympy.PolynomialError, sympy.GeneratorsNeeded):
-                poly = None
-            if poly is not None and poly.degree() >= 1:
-                self.coefficients = compile_(params, sympy.Tuple(*poly.all_coeffs()))
+            found = _polynomial_coefficients(residuals[0], ys[0])
+            if found is not None:
+                self.coefficients = compile_(params, sympy.Tuple(*found))
 
     # -- evaluation ------------------------------------------------------------------------
 

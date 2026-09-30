@@ -377,6 +377,11 @@ revision = { type = "Text", doc = "Revision." }
 title = { type = "Text", doc = "Name by which the model is known." }
 root = { type = "Meta<form>", doc = "The form at the root of the tree." }
 
+[[kinds.model_assembly.requires]]
+name = "single_slots_decided"
+doc = "Every sub-form slot with multiplicity one that a model decides (`per = model`), of the root form and of every form the assembly chooses, has a choice at its path: a complete model leaves none of its single-valued slots open."
+enforced = "verify"
+
 [kinds.assembly_choice]
 doc = "The form an assembly puts in one sub-form slot. A slot with multiplicity many has several choices, ordered."
 identity = ["assembly", "path", "ordinal"]
@@ -394,6 +399,16 @@ name = "ordinal_from_one"
 doc = "The choices of a sub-form slot are numbered from one."
 enforced = "ddl"
 check = { positive = "ordinal" }
+
+[[kinds.assembly_choice.requires]]
+name = "form_implements_slot_contract"
+doc = "The chosen form implements the contract the sub-form slot accepts."
+enforced = "verify"
+
+[[kinds.assembly_choice.requires]]
+name = "slot_belongs_to_form_at_path"
+doc = "The last segment of the path is the name of the slot, and the slot belongs to the form that stands at the rest of the path: the assembly's root form for a one-segment path, otherwise a form the assembly chooses at the parent path."
+enforced = "verify"
 
 [relations.phase_model]
 doc = "The model assembly that describes a phase definition. One equation of state may describe several phases."

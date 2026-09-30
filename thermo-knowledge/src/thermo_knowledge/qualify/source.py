@@ -10,8 +10,8 @@ sub-form slot (from an explicit choice given by the caller, else for a slot chos
 from the `subject_subform_choice` relation), the convention facts of the parameterizations that
 supplied the sets an evaluation read and the validity regions of those sets and parameterizations. It reads one or several parameterizations in order:
 the first that holds a set for a slot group and subjects answers. It holds no defaults
-(`default_slot_values` is always `None`), so a missing set is reported as missing and the
-evaluator refuses.
+(`default_slot_values` is `None`, so a missing set is reported as missing and the evaluator
+refuses) unless the `policy` the source is given applies stated defaults to unasserted subjects.
 
 Subjects are stored in the canonical orientation, with the `arrangement` the values were asserted
 for where the group's rule acts on values. The source finds a set by the canonical orientation of
@@ -25,7 +25,10 @@ refused.
 A slot a set leaves at its stated default (value state `stated_default`) holds no value: given a
 `policy`, the source supplies the default that policy states for the slot (`policy_default`; a
 default whose state is `not_applicable` supplies none), and without one, or where the policy
-states none, the slot has no value and the evaluator refuses.
+states none, the slot has no value and the evaluator refuses. A policy whose `unasserted` is
+`stated_default` also supplies its defaults for a subject that has no set in a slot group it covers,
+once every slot of the group has a known default (`default_slot_values`): an association matrix
+read as complete where the source lists only the bonding pairs.
 
 One parameterization may hold several sets for one subject (repeated assertions of a source,
 distinguished by their `occurrence`). The source never picks one silently: for each
@@ -193,6 +196,33 @@ class _Backend:
                     found[qualified] = float(value)
             self._policy_defaults = found
         return self._policy_defaults
+
+    def unasserted_defaults(self, group: m.SlotGroup) -> dict[str, float] | None:
+        """The values a subject that has no set in `group` takes under the policy in force, or
+        `None`: the policy must apply stated defaults to unasserted subjects
+        (`unasserted = stated_default`), cover the group (it has no scope, or this one) and state a
+        known default for every slot of the group, since a set is all of its slots."""
+        if self.policy is None:
+            return None
+        policy = pc.SELECTION_POLICY
+        row = self.conn.execute(
+            f"SELECT p.{policy.unasserted}::text, p.{policy.scope_slot_group} FROM {policy.table} p "  # noqa: S608
+            "WHERE p.id = %s",
+            (self.policy,),
+        ).fetchone()
+        if row is None or row[0] != pc.UNASSERTED_POLICY.member("stated_default"):
+            return None
+        scope = self.group_of_marker.get(row[1]) if row[1] is not None else None
+        if row[1] is not None and scope != group.qualified:
+            return None
+        defaults = self.policy_defaults()
+        values: dict[str, float] = {}
+        for slot in group.slots:
+            held = defaults.get(f"{group.qualified}.{slot.name}")
+            if slot.shape != "quantity" or held is None:
+                return None
+            values[slot.name] = held
+        return values
 
     def with_defaults(self, group: m.SlotGroup, record: _Set) -> dict[str, float]:
         """The slot values of `record`, with the policy's default for each slot it leaves at its
@@ -712,7 +742,7 @@ class DatabaseSource:
         )
 
     def default_slot_values(self, group: str, subjects: tuple[Subject, ...]) -> SlotValues | None:
-        return None
+        return self._backend.unasserted_defaults(self._backend.group(group))
 
     def family_rows(
         self, group: str, family: str, subjects: tuple[Subject, ...]

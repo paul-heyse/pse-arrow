@@ -334,7 +334,10 @@ changed: the policy is the caller's.
 
 **Solving a block at a point.** A block with one unknown that has both bounds has every root in
 the interval found: the real roots of the residual when it is a polynomial in the unknown (from
-`numpy.roots`, polished by Newton steps and kept when the residual vanishes to working accuracy),
+`numpy.roots`, polished by Newton steps and kept when the residual vanishes to working accuracy; the
+coefficients are the derivatives of the residual at zero over the factorial, so the expressions of the
+parameters they contain are never expanded: the coefficient of a cubic whose mixing rule embeds an
+activity model has hundreds of thousands of terms once expanded),
 otherwise by scanning the interval (evenly, or geometrically when the upper bound is over a
 hundred times the lower) and bracketing each sign change with `scipy.optimize.brentq`; a sign
 change across a pole is not a root, and two roots closer than the scan spacing are not told apart.

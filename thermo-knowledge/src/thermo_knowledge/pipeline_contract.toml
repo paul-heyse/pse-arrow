@@ -380,6 +380,12 @@ keys.reaction = { type = "reaction" }
 keys.form = { type = "species_form" }
 columns.value = { type = "Scalar" }
 
+[kinds.selection_policy]
+schema = "tk"
+identity = ["key", "revision"]
+attributes.unasserted = { type = "unasserted_policy" }
+attributes.scope_slot_group = { type = "Meta<slot_group>", optional = true }
+
 [relations.policy_default]
 schema = "tk"
 keys.policy = { type = "selection_policy" }
@@ -432,6 +438,9 @@ members = ["unique", "ambiguous", "unresolved", "rejected"]
 
 [enums.entity_class]
 members = ["species", "species_form", "defined_mixture", "material", "pseudo_component", "polymer_type", "undetermined"]
+
+[enums.unasserted_policy]
+members = ["stated_default"]
 
 [enums.mixture_definition]
 members = ["by_definition", "by_measurement"]

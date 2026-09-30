@@ -34,7 +34,8 @@ qualification basis and its exclusions are summarized in
 packets and reviews are not a backlog and authorize nothing.
 
 [Current work](docs/plans/README.md) links the owning packet status and remaining decision
-work. Plan 21 (the modeling kernel, K0–K8) is done. Plan 23 is done (2026-09-30): it adds the typed relational thermodynamic domain model,
+work. Plan 21 (the modeling kernel, K0–K8) is done. Plan 23 is done (2026-09-30):
+it adds the typed relational thermodynamic domain model,
 migrates the seed and implements the transferred K9 functional campaign. Its Outcome
 records production execution results and measurement limits.
 Plan 22 (solver capabilities, discrete decisions, the PostgreSQL operational store and

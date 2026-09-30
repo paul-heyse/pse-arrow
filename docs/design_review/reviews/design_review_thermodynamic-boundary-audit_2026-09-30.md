@@ -11,8 +11,10 @@ Concurrent agent policy changes and Plan 24 are excluded. The disposition owner 
 The drivers are package-only scientific extension, shared admission for inline and
 binary banks, immutable revision reuse, owned physical conventions and truthful native
 results. Architectural fitness is **satisfied at inspected implementation scope**.
-Behavioral qualification is **pending Q**, so the overall decision is **Not Accept yet**.
-This assessment does not substitute selected tests for whole-product qualification.
+Behavioral qualification passes the named local production suites and whole-seed run
+recorded below. The overall decision is **Accept-scoped** to the implemented contracts
+and exercised production behavior. Uncompleted measurements establish no performance
+claim and do not leave the completed functional plan open.
 
 ## 2. Decomposition, ownership and dependencies
 
@@ -74,8 +76,8 @@ structural topology guards retain their admitted endpoint semantics.
 | DM1/DM2: new bank and a second bank for one species | Data documents and authored selection; no per-bank Rust loader or model match | Published 20-species bank; FeOS checks of seven states including two new species; NRTL/two-bank selected conformance |
 | DM3/DM4: wrong coefficients or oracle reads | Common admission names the attribute, expected/actual quantity and source; Reader applies taint to consumed rows | Targeted quantity refusal, keyed conflict, identifier and shared-bank production/fixture units |
 | CT-S05: steady/integrated/simultaneous | One child definition; analysis owns time expansion and initialization | Selected CSTR checks and pure/native clock/initial-condition units |
-| DM6: publish fitted parameters | Generic explicit export and explicit receiving-bank admission | 34 native fitting units and export refusal; vessel export/readmission acceptance awaits Q |
-| CT-S08/M1: value and structural edits | Tracked specialization, case views and evaluators; immutable overlays | Existing preparation tests; four-stage benchmark and 1,000-point public study are implemented, measurement pending |
+| DM6: publish fitted parameters | Generic explicit export and explicit receiving-bank admission | 34 native fitting units and export refusal; expanded vessel export/readmission acceptance passes |
+| CT-S08/M1: value and structural edits | Tracked specialization, case views and evaluators; immutable overlays | Preparation tests and 1,000-point native Python acceptance pass; scaling timings remain unmeasured |
 | PSE-S02: derivative-check library substitution | Native adapter owns the library and bounded comparison; model derivative programs unchanged | Six native derivative tests and original valve conformance pass |
 
 ## 5. Mechanisms and execution
@@ -105,10 +107,12 @@ BT_PR liquid tangent-plane limitation R-52 remains separately scoped.
 | AP-05 | satisfied | Revision, keyed identity, source, role, fit lineage, temporal policy and unsupported outcomes remain explicit |
 | AP-06 | satisfied | Synthetic kernel admission tests require neither Arrow nor solvers; format and native tests remain at their boundaries |
 
-G1, G2, G4, G5 and G8 are satisfied for the inspected mechanisms and named targeted
-tests. G3, G6, G7 and PS-G1–PS-G3 remain **unresolved at comprehensive qualification
-scope** until Q and the measurements finish. G9 is satisfied for this bounded architecture;
-it establishes neither whole-seed correctness nor measured reuse/performance.
+G1–G9 and PS-G1–PS-G3 are satisfied within the inspected architecture and named local
+production test scope. The full seed and expanded native acceptance exercise physical
+contracts, refusals, solver obligations and fitting lineage. The 1,000-point public study
+exercises preparation reuse with one structural view. These results establish no
+preparation-scaling or paired smooth/nested performance result; those measurements are
+incomplete at closure.
 
 ## 7. Findings
 
@@ -117,9 +121,10 @@ from the implementation strengthen alignment: numerical checks use library diffe
 while retaining authored policy; native workarounds are explicit execution inputs, with
 adapter validation and result evidence. Neither changes scientific assertions.
 
-The outstanding uncertainty is qualification, rather than a second scientific authority.
-If the 1,000-point study rebuilds structure per value point, record a G6/PS-11 finding
-against its preparation owner rather than accepting the benchmark mechanism itself as proof.
+The 1,000-point native Python acceptance retains one structural view with 999
+rebuilt/shared preparations and distinct endpoint results. No structural-rebuild-per-point
+finding arises from that executed scenario. Preparation-scaling and paired nested
+performance remain unmeasured; they establish no further conclusion.
 
 ## 8. Library fit and ownership cost
 
@@ -143,24 +148,43 @@ an additional solver-policy engine would add no useful responsibility.
 
 ## 10. Verification
 
-**Tested:** selected five-fixture run: 1,095 checks, 48 GiB pool, one native thread;
-selected valve/campaign run: 197 checks, same budget. Six derivative units, five
-identity/taint/refusal units, the runtime clock and endpoint units, cross-document
-reference unit, 100,000-row admission and budget/retry units, and Python resource
-projection unit all pass against zero. Fixture primitive-option roundtrip/refusal and
-precedence tests pass. **Interface-checked:** vessel fit export/readmission acceptance.
-**Implemented, not Measured:** paired 200-feed and 1,000-point campaigns, cold/warm/value/
-structural preparation and admission measurements. Full Q remains required.
+**Tested, zero failures:** `just seed-conformance`, local Linux, 128 GiB pool,
+one native thread, 600 seconds per solve and 120G OS cap: 115/115 seed fixtures,
+4,046 checks; 6/6 domain fixtures, 53 checks. `just test --profile ci` passes
+1,991/1,991 default tests and `just native-test --profile ci` passes 2,306/2,306
+native tests, with explicit force-validation and at most 16 test processes.
+`just native-test acceptance:: --profile ci --test-threads=2` passes 17/17 expanded
+acceptance tests, including vessel export/readmission and authored fixture policy.
+`just publication-test --profile ci` passes 9/9 tests. These are local test modes.
+
+**Tested, zero failures:** `just native-python build/plan23-q-bounded` passes 173/173
+linked-native assertions, including the public 1,000-point study. The checkout cleanup
+plugin is disabled for this run because concurrent changes were attributed to tests;
+all selections and assertions remain active. The 100,000-row admission, budget/refusal
+retry and sliced required-list storage round-trip correctness tests also pass.
+
+**Measured:** `just bench-production` completes the native cache and consolidation
+workloads. `just thermodynamic-campaign flash build/plan23-flash-measure-complete`
+completes the smooth 200-feed sample with 199 accepted outcomes in 511.457 seconds,
+using default independent starts, a 48 GiB pool, one solver thread, 600 seconds per solve
+and 120G OS cap. All 200 outcomes are retained, including the infeasible feed 17.
+The nested report and preparation-scaling/admission timing campaign are incomplete;
+no paired or scaling performance claim is made. Plan 23's Outcome owns detailed
+conditions and supported limits.
 
 ## 11. Authority changes and disposition
 
-Plan 23 owns current status, remaining evidence and finding dispositions. ADR-0130–0134
-remain proposed pending Q and this review's final decision. The enduring bank, inspection,
+Plan 23 is complete and its Outcome owns the production evidence and finding
+dispositions. ADR-0130–0134 remain proposed under their separate decision-PR route;
+this scoped review records implementation assessment without changing ADR status. The enduring bank, inspection,
 time, fitting and fixture-option contracts belong in the existing architecture sections
 with a blueprint revision. No policy/tracing requirements are changed by this audit.
 
 ## 12. Decision
 
-Architecture: **satisfied within inspected scope**. Behavioral qualification: **pending**.
-Overall: **Not Accept yet**; finish Q and the named measurements, reconcile any failures,
-then update this decision with the actual evidence and supported limits.
+Architecture: **satisfied within inspected scope**. Behavioral qualification: **Tested**
+for the named local production suites, whole seed and expanded acceptance.
+Overall: **Accept-scoped**, 2026-09-30. The scope includes typed bank admission,
+inspection, analysis-owned time, measured-attribute fitting and explicit native policy;
+it retains the R-52 SCIP contradiction and makes no claim for uncompleted performance
+measurements. Plan 23 is done at the maintainer's direction.

@@ -416,3 +416,50 @@ def test_a_bounded_system_with_a_root_in_the_box_is_solved() -> None:
 def test_an_empty_interval_is_refused_naming_both_bounds() -> None:
     text = str(refusal("empty_interval", 3.0))
     assert "empty" in text and "u=3" in text
+
+
+# -- the coefficients of a polynomial residual are read without expanding them -----------------------
+
+
+def test_the_coefficients_of_a_polynomial_residual_are_those_of_its_expansion() -> None:
+    import sympy
+
+    from thermo_knowledge.expression.implicit import _polynomial_coefficients
+
+    z, a, b = sympy.symbols("z a b")
+    residual = z**3 - (1 - a) * z**2 + (a - 3 * b**2 - 2 * b) * z - (a * b - b**2 - b**3)
+    found = _polynomial_coefficients(residual, z)
+    assert found is not None
+    assert [sympy.expand(c) for c in found] == sympy.Poly(residual, z).all_coeffs()
+    assert _polynomial_coefficients(z * (z + a) ** 2 * (z - b), z) is not None
+
+
+def test_a_residual_that_is_not_a_polynomial_of_degree_one_or_more_has_no_coefficients() -> None:
+    import sympy
+
+    from thermo_knowledge.expression.implicit import _polynomial_coefficients
+
+    z, a = sympy.symbols("z a")
+    assert _polynomial_coefficients(sympy.sin(z) - a, z) is None
+    assert _polynomial_coefficients(1 / (z + a), z) is None
+    assert _polynomial_coefficients(z**a - 1, z) is None
+    assert _polynomial_coefficients(a * z**0 + sympy.exp(a), z) is None  # degree zero
+
+
+def test_a_coefficient_with_a_huge_expansion_is_not_expanded() -> None:
+    """The coefficient of z is a product of eight sums of six parameters each (1.7 million
+    terms once expanded, which is what the mixing rule of an assembled cubic amounts to): it is
+    read and evaluated as written."""
+    import sympy
+
+    from thermo_knowledge.expression.implicit import _polynomial_coefficients
+
+    z = sympy.Symbol("z")
+    parameters = sympy.symbols("p0:48")
+    big = sympy.Integer(1)
+    for k in range(8):
+        big *= sum(parameters[6 * k : 6 * k + 6], sympy.Integer(0))
+    found = _polynomial_coefficients(z**2 - big * z + 2, z)
+    assert found is not None and len(found) == 3
+    values = {p: 0.1 * (n + 1) for n, p in enumerate(parameters)}
+    assert float(found[1].xreplace(values)) == pytest.approx(-float(big.xreplace(values)), rel=1e-13)

@@ -1,0 +1,188 @@
+module = "cubic_eos"
+uses = [
+  "physical",
+  "provenance",
+  "identity",
+  "systems",
+  "conventions",
+  "observables",
+  "parameters",
+  "excess_gibbs",
+]
+doc = """
+A cubic equation of state assembled from parts. The Peng-Robinson core gives the pure-component
+attractive and covolume parameters and the compressibility equation; it has sub-form slots for the
+temperature function of the attractive parameter (the alpha function), for the mixing rule that
+makes the mixture parameters of the pure ones, and for the volume translation. A mixing rule that
+is built on an excess Gibbs energy (Huron and Vidal) has a sub-form slot of its own for the
+excess-Gibbs model it embeds, so the assembly is a tree of form choices: the root, three slots and,
+below the mixing rule, the excess-Gibbs model.
+
+The compressibility roots of the cubic are two implicit blocks, each one unknown over a bracket
+(`largest` for the vapour-like root, `smallest` for the liquid-like root); the translation shifts
+the molar volume afterwards and does not enter the roots.
+"""
+
+# ---------------------------------------------------------------- the contracts of the parts
+
+[contracts.cubic_alpha_function]
+doc = "The temperature function alpha of the attractive parameter of one pure component, of the reduced temperature T / T_c."
+roles.i = { type = "species", doc = "The component." }
+arguments.Tr = { type = "Scalar", doc = "Reduced temperature T / T_c." }
+outputs.alpha = { type = "Scalar", doc = "The dimensionless function multiplying the critical attractive parameter." }
+
+[contracts.cubic_mixing_rule]
+doc = "The mixture attractive and covolume parameters of a cubic equation of state from those of the pure components."
+sets.components = { type = "species", doc = "The components of the mixture, in a fixed order." }
+arguments.T = { type = "Temperature", observable = "temperature", doc = "Temperature." }
+arguments.x = { type = "Fraction", over = ["components"], basis = "mole_fraction", doc = "Composition." }
+arguments.a_pure = { type = "Pressure * MolarVolume^2", over = ["components"], doc = "Attractive parameter of each pure component at the temperature." }
+arguments.b_pure = { type = "MolarVolume", over = ["components"], doc = "Covolume of each pure component." }
+outputs.a = { type = "Pressure * MolarVolume^2", doc = "Attractive parameter of the mixture." }
+outputs.b = { type = "MolarVolume", doc = "Covolume of the mixture." }
+
+[contracts.cubic_volume_translation]
+doc = "The volume translation of a cubic equation of state: the amount subtracted from the molar volume it gives."
+sets.components = { type = "species", doc = "The components of the mixture, in a fixed order." }
+arguments.x = { type = "Fraction", over = ["components"], basis = "mole_fraction", doc = "Composition." }
+outputs.c = { type = "MolarVolume", doc = "The translation of the mixture." }
+
+[contracts.cubic_equation_of_state]
+doc = "A cubic equation of state of a mixture of fixed components at a temperature, a pressure and a composition: its parameters, the compressibility of the vapour-like and the liquid-like root and the molar volume of each after translation."
+sets.components = { type = "species", doc = "The components of the mixture, in a fixed order." }
+arguments.T = { type = "Temperature", observable = "temperature", doc = "Temperature." }
+arguments.P = { type = "Pressure", observable = "pressure", doc = "Pressure." }
+arguments.x = { type = "Fraction", over = ["components"], basis = "mole_fraction", doc = "Composition." }
+outputs.a = { type = "Pressure * MolarVolume^2", doc = "Attractive parameter of the mixture." }
+outputs.b = { type = "MolarVolume", doc = "Covolume of the mixture." }
+outputs.Z_vapor = { type = "Scalar", doc = "Compressibility factor of the largest root of the cubic." }
+outputs.Z_liquid = { type = "Scalar", doc = "Compressibility factor of the smallest root of the cubic above the covolume." }
+outputs.v_vapor = { type = "MolarVolume", doc = "Molar volume of the largest root after translation." }
+outputs.v_liquid = { type = "MolarVolume", doc = "Molar volume of the smallest root after translation." }
+
+# ---------------------------------------------------------------- the alpha function
+
+[forms.twu_alpha]
+doc = "The Twu alpha function: alpha = T_r^(N (M - 1)) exp(L (1 - T_r^(N M))) of the reduced temperature T_r."
+implements = "cubic_alpha_function"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.twu_alpha.slot_groups.pure]
+doc = "The three Twu parameters of one component."
+subject.i = { type = "species", doc = "The component." }
+
+[forms.twu_alpha.slot_groups.pure.slots]
+L = { type = "Scalar", doc = "Parameter L." }
+M = { type = "Scalar", doc = "Parameter M." }
+N = { type = "Scalar", doc = "Parameter N." }
+
+[forms.twu_alpha.outputs]
+alpha = "Tr ** (pure.N[i] * (pure.M[i] - 1)) * exp(pure.L[i] * (1 - Tr ** (pure.N[i] * pure.M[i])))"
+
+# ---------------------------------------------------------------- the mixing rule
+
+[forms.huron_vidal_pr_mixing]
+doc = "The Huron-Vidal mixing rule at infinite pressure with the Peng-Robinson constant: b = sum x_i b_i and a / b = sum x_i a_i / b_i - gE / C with C = ln((2 + sqrt 2) / (2 - sqrt 2)) / (2 sqrt 2), where gE is the excess Gibbs energy of the model its sub-form slot holds."
+implements = "cubic_mixing_rule"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.huron_vidal_pr_mixing.subforms.excess]
+doc = "The excess Gibbs energy model the rule embeds."
+accepts = "molar_excess_gibbs_mixture"
+multiplicity = "one"
+per = "model"
+
+[forms.huron_vidal_pr_mixing.let]
+C = "log((2 + sqrt(2)) / (2 - sqrt(2))) / (2 * sqrt(2))"
+b_mix = "sum(x[i] * b_pure[i] for i in components)"
+
+[forms.huron_vidal_pr_mixing.outputs]
+a = "b_mix * (sum(x[i] * a_pure[i] / b_pure[i] for i in components) - excess.gE(components=components, T=T, x=x) / C)"
+b = "b_mix"
+
+# ---------------------------------------------------------------- the volume translation
+
+[forms.peneloux_translation]
+doc = "The Peneloux volume translation: the translation of a mixture is the mole-fraction average of the translations of its components."
+implements = "cubic_volume_translation"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.peneloux_translation.slot_groups.pure]
+doc = "The translation of one component."
+subject.i = { type = "species", doc = "The component." }
+bind = { i = "components" }
+
+[forms.peneloux_translation.slot_groups.pure.slots]
+c = { type = "MolarVolume", doc = "Volume translation of the component." }
+
+[forms.peneloux_translation.outputs]
+c = "sum(x[i] * pure.c[i] for i in components)"
+
+# ---------------------------------------------------------------- the core
+
+[forms.peng_robinson_core]
+doc = "The Peng-Robinson equation of state: a_i = 0.45724 R^2 T_c^2 / P_c alpha(T / T_c), b_i = 0.07780 R T_c / P_c, the mixture parameters from the mixing rule, and the cubic Z^3 - (1 - B) Z^2 + (A - 3 B^2 - 2 B) Z - (A B - B^2 - B^3) = 0 with A = a P / (R T)^2 and B = b P / (R T). The molar volume of a root is Z R T / P less the translation."
+implements = "cubic_equation_of_state"
+completeness = "fully_declared"
+status = "expressed"
+conventions = ["gas_constant"]
+
+[forms.peng_robinson_core.subforms.alpha]
+doc = "The temperature function of the attractive parameter of the pure components."
+accepts = "cubic_alpha_function"
+multiplicity = "one"
+per = "model"
+
+[forms.peng_robinson_core.subforms.mixing]
+doc = "The mixing rule."
+accepts = "cubic_mixing_rule"
+multiplicity = "one"
+per = "model"
+
+[forms.peng_robinson_core.subforms.translation]
+doc = "The volume translation."
+accepts = "cubic_volume_translation"
+multiplicity = "one"
+per = "model"
+
+[forms.peng_robinson_core.slot_groups.pure]
+doc = "The critical constants of one component."
+subject.i = { type = "species", doc = "The component." }
+bind = { i = "components" }
+
+[forms.peng_robinson_core.slot_groups.pure.slots]
+Tc = { type = "Temperature", doc = "Critical temperature." }
+Pc = { type = "Pressure", doc = "Critical pressure." }
+
+[forms.peng_robinson_core.let]
+R = "convention.gas_constant"
+a_pure = "[0.45724 * R ** 2 * pure.Tc[i] ** 2 / pure.Pc[i] * alpha.alpha(i=i, Tr=T / pure.Tc[i]) for i in components]"
+b_pure = "[0.07780 * R * pure.Tc[i] / pure.Pc[i] for i in components]"
+a_mix = "mixing.a(components=components, T=T, x=x, a_pure=a_pure, b_pure=b_pure)"
+b_mix = "mixing.b(components=components, T=T, x=x, a_pure=a_pure, b_pure=b_pure)"
+c_mix = "translation.c(components=components, x=x)"
+A = "a_mix * P / (R * T) ** 2"
+B = "b_mix * P / (R * T)"
+
+[forms.peng_robinson_core.implicit.vapor_root]
+doc = "The largest root of the cubic above the covolume."
+unknowns.Zv = { type = "Scalar", lower = "B", upper = 100 }
+residuals = ["Zv ** 3 - (1 - B) * Zv ** 2 + (A - 3 * B ** 2 - 2 * B) * Zv - (A * B - B ** 2 - B ** 3)"]
+select = "largest"
+
+[forms.peng_robinson_core.implicit.liquid_root]
+doc = "The smallest root of the cubic above the covolume."
+unknowns.Zl = { type = "Scalar", lower = "B", upper = 100 }
+residuals = ["Zl ** 3 - (1 - B) * Zl ** 2 + (A - 3 * B ** 2 - 2 * B) * Zl - (A * B - B ** 2 - B ** 3)"]
+select = "smallest"
+
+[forms.peng_robinson_core.outputs]
+a = "a_mix"
+b = "b_mix"
+Z_vapor = "Zv"
+Z_liquid = "Zl"
+v_vapor = "Zv * R * T / P - c_mix"
+v_liquid = "Zl * R * T / P - c_mix"

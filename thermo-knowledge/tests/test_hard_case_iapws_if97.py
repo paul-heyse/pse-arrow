@@ -50,6 +50,14 @@ RS = R / M  # the specific gas constant the coefficient sets assume
 
 # -- the synthetic coefficients ----------------------------------------------------------------
 
+REGION_CHOICES = (  # the form of each sub-form slot of the wrapper
+    ("region1", "if97_gibbs_region1"),
+    ("region2", "if97_gibbs_region2"),
+    ("region3", "if97_helmholtz_region3"),
+    ("region5", "if97_gibbs_region5"),
+    ("saturation", "if97_saturation"),
+    ("boundary", "if97_boundary_23"),
+)
 REGION1 = dict(p_star=16.53e6, T_star=1386.0, shift_pi=7.1, shift_tau=1.222)
 REGION1_TERMS = [(-0.48, 0, 2), (-0.0258, 1, 1), (-0.0320, 1, 0), (-1.0e-4, 2, 1)]  # (n, I, J)
 REGION2 = dict(p_star=1.0e6, T_star=540.0, shift_tau=0.5)
@@ -352,14 +360,7 @@ def write_model(w: CanonicalWriter, decl: Declaration, ids: dict[str, uuid.UUID]
         origins=at("assembly"),
     )
     ids["assembly"] = assembly
-    for slot, form in (
-        ("region1", "if97_gibbs_region1"),
-        ("region2", "if97_gibbs_region2"),
-        ("region3", "if97_helmholtz_region3"),
-        ("region5", "if97_gibbs_region5"),
-        ("saturation", "if97_saturation"),
-        ("boundary", "if97_boundary_23"),
-    ):
+    for slot, form in REGION_CHOICES:
         w.kind(
             "assembly_choice",
             {"assembly": assembly, "path": slot, "ordinal": 1, "slot": f"if97_regions.{slot}", "form": form},
@@ -722,6 +723,12 @@ def test_the_verify_checks_flag_a_verification_dataset_without_a_target_a_link_f
             {"key": "a", "revision": "1", "title": "a", "root": "if97_regions"},
             origins=at("assembly"),
         )
+        for slot, form in REGION_CHOICES:  # complete, so that only the rules the test is about fail
+            w.kind(
+                "assembly_choice",
+                {"assembly": assembly, "path": slot, "ordinal": 1, "slot": f"if97_regions.{slot}", "form": form},
+                at="a.json#/choice",
+            )
         unlinked = w.kind(
             "dataset",
             {"carrier": CARRIER, "local_key": "unlinked", "kind": "verification"},
