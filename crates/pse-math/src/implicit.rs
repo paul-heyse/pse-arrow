@@ -702,7 +702,7 @@ fn provider_error(error: MathError) -> pse_kernels::ProviderError {
         MathError::Domain { requirement, .. } => {
             pse_kernels::ProviderError::Trial(requirement.into())
         }
-        error @ MathError::OutsideRange { .. } => {
+        error @ (MathError::OutsideRange { .. } | MathError::Validity(_)) => {
             pse_kernels::ProviderError::Trial(error.to_string())
         }
         MathError::Provider { cause, .. } => cause,

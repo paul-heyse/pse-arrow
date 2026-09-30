@@ -645,7 +645,7 @@ fn pcsaft_valid_guard_projects_exactly() {
     let hundredth = number(Atom::num(1) / Atom::num(100));
     // valid(t > 0 and r > 0 and sum(j | if n[j] > 0 then 0 else 1) == 0 and moment < 1)
     let predicate = b
-        .domain(id(230), |b| {
+        .domain(form_lineage(id(230)), |b| {
             select(
                 b,
                 Comparison::Lt,
@@ -894,3 +894,15 @@ fn fbbt_tapes_follow_the_shared_stage_projection() {
 }
 #[path = "curvature_tests.rs"]
 mod curvature_tests;
+
+/// The lineage of a form-layer predicate stated by `source`, reading no parameter set.
+fn form_lineage(source: SemanticId) -> Arc<pse_model::diagnostic::ValidityLineage> {
+    Arc::new(pse_model::diagnostic::ValidityLineage {
+        layer: pse_model::generated::enums::ModelingValidityLayer::Form,
+        source,
+        form: Some(source),
+        sets: Vec::new(),
+        variables: Vec::new(),
+        members: Vec::new(),
+    })
+}

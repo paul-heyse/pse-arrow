@@ -210,7 +210,7 @@ fn domain_predicates_use_value_only_providers_and_remain_demand_scoped() {
         .input(0, spec.inputs[0].quantity, IndexSet::new(), id(1))
         .unwrap();
     let assumption = b
-        .domain(id(22), |b| {
+        .domain(form_lineage(id(22)), |b| {
             Ok(b.provider(&admitted, std::slice::from_ref(&x), id(21))?
                 .remove(0))
         })
@@ -1008,4 +1008,16 @@ fn local_taylor_coordinates_preserve_transitive_and_permuted_derivatives() {
             }
         }
     }
+}
+
+/// The lineage of a form-layer predicate stated by `source`, reading no parameter set.
+fn form_lineage(source: SemanticId) -> Arc<pse_model::diagnostic::ValidityLineage> {
+    Arc::new(pse_model::diagnostic::ValidityLineage {
+        layer: pse_model::generated::enums::ModelingValidityLayer::Form,
+        source,
+        form: Some(source),
+        sets: Vec::new(),
+        variables: Vec::new(),
+        members: Vec::new(),
+    })
 }

@@ -15,6 +15,64 @@ use std::{
     sync::Arc,
 };
 
+/// An expected failure names exactly one typed lineage (Plan 23 H5): a rejected validity
+/// predicate, or the members a structural refusal or a diagnostic finding concerns. A form
+/// or data layer predicate names its form and the arguments it constrains, and a data layer
+/// one the parameter set whose envelope rejects; a closure range belongs to members, not to
+/// a form, so it names only the members it bounds.
+fn expected_failure_shape(
+    at: DeclarationId,
+    expected: &pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailure,
+) -> Result<()> {
+    use pse_model::generated::enums::ModelingValidityLayer as Layer;
+    let parses = |text: &String| {
+        dsl::parse_expr(text)
+            .map(|_| ())
+            .map_err(|e| invalid(at, e.to_string()))
+    };
+    match (&expected.validity, expected.members.is_empty()) {
+        (Some(validity), true) => {
+            if validity.variables.is_empty() {
+                return Err(invalid(
+                    at,
+                    "an expected validity failure names the arguments or members it constrains",
+                ));
+            }
+            match (validity.layer, &validity.form) {
+                (Layer::Closure, None) if validity.sets.is_empty() => {}
+                (Layer::Closure, _) => {
+                    return Err(invalid(
+                        at,
+                        "an expected closure-layer rejection names only the members its range bounds",
+                    ));
+                }
+                (_, None) => {
+                    return Err(invalid(
+                        at,
+                        "an expected form or data layer rejection names its form",
+                    ));
+                }
+                (Layer::Data, Some(_)) if validity.sets.is_empty() => {
+                    return Err(invalid(
+                        at,
+                        "an expected data-layer failure names the parameter set whose envelope rejects",
+                    ));
+                }
+                _ => {}
+            }
+            validity
+                .sets
+                .iter()
+                .chain(&validity.variables)
+                .try_for_each(parses)
+        }
+        (None, false) => expected.members.iter().try_for_each(parses),
+        _ => Err(invalid(
+            at,
+            "an expected failure names exactly one lineage: validity(...) or members(...)",
+        )),
+    }
+}
 /// Resolved function contract and its declaration-owned body.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Function {
@@ -27,6 +85,9 @@ pub struct Function {
     /// carry (ADR-0123 Outcome 4). A rejecting guard is checked like the form layer's
     /// predicate; specialization selects the consumer's policy.
     pub envelopes: Vec<crate::envelope::Guard>,
+    /// What the form layer's predicate reads once specialized: its parameter sets and the
+    /// arguments it constrains (Plan 23 H5).
+    pub validity_reads: crate::envelope::Reads,
     /// A checked foreign implementation; factories are supplied only by the runtime.
     pub external: Option<crate::external::External>,
     /// Claimed boundary agreement, proved by the mathematical consumer before derivative admission.
@@ -568,15 +629,14 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
                     || execution != Execution::Initialized
                         && (!fixture.stages.is_empty() || fixture.initialization.is_some())
                     || fixture.stages.iter().any(|s| s.is_empty())
-                    || fixture
-                        .expected_failure
-                        .as_ref()
-                        .is_some_and(|e| e.rule.trim().is_empty())
                 {
                     return Err(invalid(
                         row.declaration_id,
                         "fixture execution metadata disagrees with its route",
                     ));
+                }
+                if let Some(expected) = &fixture.expected_failure {
+                    expected_failure_shape(row.declaration_id, expected)?;
                 }
                 // ADR-0110 Outcome 5: a shooting fixture declares its method and controls,
                 // schedules held free; single shooting has no inner nodes, multiple shooting
@@ -1141,6 +1201,7 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
                         .transpose()?,
                     // Resolved once tables and kinds are admitted (`envelope::admit`).
                     envelopes: Vec::new(),
+                    validity_reads: crate::envelope::Reads::default(),
                     external: v
                         .external
                         .as_ref()

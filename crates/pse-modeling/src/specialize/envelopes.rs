@@ -70,11 +70,12 @@ impl Engine<'_, '_> {
         &mut self,
         instance: InstanceId,
         function: DeclarationId,
-        guards: &[Guard],
+        contract: &crate::Function,
         statics: &Environment,
         formals: &BTreeMap<String, usize>,
     ) -> Result<(Vec<Guard>, Vec<Lift>)> {
         let (policy, selection) = self.data_policy(instance);
+        let guards = &contract.envelopes;
         let mut specialized = Vec::with_capacity(guards.len());
         let mut lifts = Vec::new();
         for guard in guards {
@@ -99,10 +100,31 @@ impl Engine<'_, '_> {
                     });
                 }
             }
+            // A rejection names the carrier's row or entity and the guarded arguments
+            // (Plan 23 H5).
+            let reads = crate::envelope::Reads {
+                sets: statics
+                    .get(&guard.carrier)
+                    .and_then(|value| self.p.set_identity(value))
+                    .into_iter()
+                    .collect(),
+                variables: guard
+                    .arguments
+                    .iter()
+                    .filter_map(|argument| {
+                        contract
+                            .arguments
+                            .iter()
+                            .position(|(name, _)| name == argument)
+                            .map(|position| position as u32)
+                    })
+                    .collect(),
+            };
             specialized.push(Guard {
                 predicate,
                 policy,
                 selection,
+                reads,
                 ..guard.clone()
             });
         }

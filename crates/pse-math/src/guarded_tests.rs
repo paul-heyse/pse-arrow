@@ -92,6 +92,7 @@ fn domain_survives_symbolic_cancellation() {
                 condition: Condition::Nonzero,
                 order: DerivativeOrder::Value,
                 source: source(),
+                lineage: None,
             },
             block(normalized, 1),
         ],
@@ -118,6 +119,7 @@ fn lazy_branch_and_cloned_workers_do_not_evaluate_inactive_domain() {
             condition: Condition::Positive,
             order: DerivativeOrder::Value,
             source: source(),
+            lineage: None,
         },
         block(x.log(), 2),
     ];
@@ -165,12 +167,14 @@ fn square_root_boundary_has_separate_value_and_derivative_admission() {
                 condition: Condition::Nonnegative,
                 order: DerivativeOrder::Value,
                 source: source(),
+                lineage: None,
             },
             Stage::Require {
                 argument: 0,
                 condition: Condition::Positive,
                 order: DerivativeOrder::First,
                 source: source(),
+                lineage: None,
             },
             block(x.sqrt(), 1),
         ],
@@ -282,7 +286,8 @@ fn schedule_refuses_forward_reads_and_partial_branch_outputs() {
                 argument: 1,
                 condition: Condition::Positive,
                 order: DerivativeOrder::Value,
-                source: source()
+                source: source(),
+                lineage: None,
             },
             block(Atom::num(1), 2)
         ])

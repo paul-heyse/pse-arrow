@@ -1928,6 +1928,10 @@ impl Cursor<'_> {
                             );
                             continue;
                         }
+                        // Plan 23 H5: `failure <class> validity(<layer>) [form(<path>)]
+                        // [set(<expression>, ...)] variable(<argument or member>, ...);` or
+                        // `failure <class> members(<member>, ...);` names the failure's typed
+                        // lineage.
                         if self.eat("failure") {
                             if expected_failure.is_some() {
                                 return Err(self.error("one expected failure"));
@@ -1936,12 +1940,45 @@ impl Cursor<'_> {
                                 .word()?
                                 .parse()
                                 .map_err(|_| self.error("failure class"))?;
-                            let rule = self.word()?;
+                            let (validity, members) = if self.eat("validity") {
+                                self.expect("(")?;
+                                let layer = self.vocabulary::<pse_model::generated::enums::ModelingValidityLayer>("validity layer form or data")?;
+                                self.expect(")")?;
+                                let form = if self.eat("form") {
+                                    self.expect("(")?;
+                                    let form = self.path()?;
+                                    self.expect(")")?;
+                                    Some(form)
+                                } else {
+                                    None
+                                };
+                                let sets = if self.eat("set") {
+                                    self.expressions()?
+                                } else {
+                                    Vec::new()
+                                };
+                                self.expect("variable")?;
+                                let variables = self.expressions()?;
+                                (
+                                    Some(AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureValidity {
+                                        layer,
+                                        form,
+                                        sets,
+                                        variables,
+                                    }),
+                                    Vec::new(),
+                                )
+                            } else if self.eat("members") {
+                                (None, self.expressions()?)
+                            } else {
+                                return Err(self.error("failure lineage validity(...) or members(...)"));
+                            };
                             self.expect(";")?;
                             expected_failure = Some(
                                 AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailure {
                                     class,
-                                    rule,
+                                    validity,
+                                    members,
                                 },
                             );
                             continue;

@@ -206,7 +206,9 @@ pub async fn conform_pure_documents(
                             fixture,
                             Kind::Preparation,
                             &crate::math::MathRuntimeError::from(error).into(),
-                            data.and_then(|f| f.expected_failure.as_ref()),
+                            // An expected failure is resolved with the fixture's model
+                            // (Plan 23 H5).
+                            None,
                             oracle,
                             maximum_checks,
                         );
@@ -215,7 +217,7 @@ pub async fn conform_pure_documents(
                 };
                 covered.extend(model.model.instances.values().map(|i| i.definition));
                 let checked = compiler
-                    .check_modeling_expectations(
+                    .check_modeling_point(
                         fixture,
                         pse_modeling::specialize::root_instance(fixture),
                         bindings,
@@ -228,7 +230,7 @@ pub async fn conform_pure_documents(
                     )
                     .map_err(crate::math::MathRuntimeError::from)
                     .map_err(WorkflowError::from);
-                report.pure_result(fixture, &model, checked, row, maximum_checks);
+                report.pure_result(fixture, &model, checked, maximum_checks);
             }
             report.coverage(revision.declarations(), &covered, maximum_checks);
             Ok(report)

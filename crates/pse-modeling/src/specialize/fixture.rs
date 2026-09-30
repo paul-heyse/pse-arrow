@@ -46,8 +46,72 @@ pub struct Fixture {
     pub modes: Vec<FixtureMode>,
     /// The shooting method and nodes of a shooting fixture.
     pub shooting: Option<ShootingFixture>,
-    /// Failure the fixture expects instead of a result.
-    pub expected_failure: Option<pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailure>,
+    /// Failure the fixture expects instead of a result, its lineage resolved (Plan 23 H5).
+    pub expected_failure: Option<ExpectedFailure>,
+}
+/// The failure a fixture expects instead of a result (Plan 23 H5): its typed class and its
+/// lineage, resolved once to identities. A failure is the expected one only when both agree;
+/// a class alone never matches.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ExpectedFailure {
+    /// The boundary class of the failure.
+    pub class: pse_model::diagnostic::BoundaryClass,
+    /// What the failure concerns.
+    pub lineage: ExpectedLineage,
+}
+/// What an expected failure concerns.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ExpectedLineage {
+    /// A rejected validity predicate (ADR-0123 Outcome 4): its layer; of a form or data
+    /// layer predicate, the form, the parameter sets whose values bound it and the positions
+    /// of the form's arguments it constrains; of a closure range, the members it bounds.
+    /// Each list is sorted.
+    Validity {
+        /// Form, data or closure layer.
+        layer: pse_model::generated::enums::ModelingValidityLayer,
+        /// The form's declaration; none on the closure layer.
+        form: Option<DeclarationId>,
+        /// Table-row or entity identities.
+        sets: Vec<SemanticId>,
+        /// Positions among the form's declared arguments.
+        variables: Vec<u32>,
+        /// The members a closure range bounds.
+        members: Vec<SemanticId>,
+    },
+    /// The members, variables or equations of the fixture's model, that a structural refusal
+    /// or a diagnostic finding names.
+    Members(BTreeSet<SemanticId>),
+}
+impl ExpectedFailure {
+    /// Whether `observed` is this failure: the same class, and a validity rejection with
+    /// exactly this lineage, or a finding naming every expected member.
+    pub fn matches(&self, observed: &pse_model::diagnostic::BoundaryDiagnostic) -> bool {
+        observed.class == self.class
+            && match &self.lineage {
+                ExpectedLineage::Validity {
+                    layer,
+                    form,
+                    sets,
+                    variables,
+                    members,
+                } => observed.validity.as_ref().is_some_and(|lineage| {
+                    let sorted = |mut v: Vec<SemanticId>| {
+                        v.sort_unstable();
+                        v
+                    };
+                    let mut observed_variables = lineage.variables.clone();
+                    observed_variables.sort_unstable();
+                    lineage.layer == *layer
+                        && lineage.form == form.map(DeclarationId::as_id)
+                        && sorted(lineage.sets.clone()) == *sets
+                        && observed_variables == *variables
+                        && sorted(lineage.members.clone()) == *members
+                }),
+                ExpectedLineage::Members(members) => {
+                    members.iter().all(|member| observed.sources.contains(member))
+                }
+            }
+    }
 }
 /// Authored integration samples expressed in the admitted axis's canonical unit.
 #[derive(Clone, Debug, PartialEq)]
@@ -498,6 +562,11 @@ impl Engine<'_, '_> {
                 return Err(invalid(at, "reversed fixture bounds"));
             }
         }
+        let expected_failure = contract
+            .expected_failure
+            .as_ref()
+            .map(|expected| self.expected_failure(instance, at, expected, env))
+            .transpose()?;
         self.reserve(specifications.len() + 1)?;
         self.model.fixtures.insert(
             instance,
@@ -518,9 +587,119 @@ impl Engine<'_, '_> {
                     method: s.method,
                     nodes,
                 }),
-                expected_failure: contract.expected_failure.clone(),
+                expected_failure,
             },
         );
         Ok(())
+    }
+    /// Resolve an expected failure's lineage in the fixture's scope (Plan 23 H5): a form to
+    /// its function, its arguments to their positions and its parameter sets, evaluated
+    /// statically, to their identities; members to the variables and equations they name.
+    fn expected_failure(
+        &mut self,
+        instance: InstanceId,
+        at: DeclarationId,
+        expected: &pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailure,
+        env: &Environment,
+    ) -> Result<ExpectedFailure> {
+        let lineage = if let Some(validity) = &expected.validity {
+            // A closure range names the members it bounds (Plan 23 H5).
+            let Some(named) = &validity.form else {
+                let mut members = Vec::new();
+                for path in &validity.variables {
+                    members.extend(self.members(instance, at, path, env)?);
+                }
+                members.sort_unstable();
+                members.dedup();
+                return Ok(ExpectedFailure {
+                    class: expected.class,
+                    lineage: ExpectedLineage::Validity {
+                        layer: validity.layer,
+                        form: None,
+                        sets: Vec::new(),
+                        variables: Vec::new(),
+                        members,
+                    },
+                });
+            };
+            let form = self
+                .p
+                .resolve(at, named)
+                .filter(|id| self.p.functions.contains_key(id))
+                .ok_or_else(|| {
+                    invalid(
+                        at,
+                        format!("expected failure names form {named}, which is not a function"),
+                    )
+                })?;
+            let arguments = &self.p.functions[&form].arguments;
+            let mut variables = validity
+                .variables
+                .iter()
+                .map(|name| {
+                    arguments
+                        .iter()
+                        .position(|(argument, _)| argument == name)
+                        .map(|position| position as u32)
+                        .ok_or_else(|| {
+                            invalid(
+                                at,
+                                format!(
+                                    "expected failure names {name}, which is not an argument of form {named}"
+                                ),
+                            )
+                        })
+                })
+                .collect::<Result<Vec<_>>>()?;
+            variables.sort_unstable();
+            let mut sets = validity
+                .sets
+                .iter()
+                .map(|text| {
+                    let value = self.eval(at, env, text, None)?;
+                    self.p.set_identity(&value).ok_or_else(|| {
+                        invalid(
+                            at,
+                            format!("expected failure names set {text}, which is not a table row or an entity"),
+                        )
+                    })
+                })
+                .collect::<Result<Vec<_>>>()?;
+            sets.sort_unstable();
+            ExpectedLineage::Validity {
+                layer: validity.layer,
+                form: Some(form),
+                sets,
+                variables,
+                members: Vec::new(),
+            }
+        } else {
+            let mut members = BTreeSet::new();
+            for path in &expected.members {
+                members.extend(self.members(instance, at, path, env)?);
+            }
+            ExpectedLineage::Members(members)
+        };
+        Ok(ExpectedFailure {
+            class: expected.class,
+            lineage,
+        })
+    }
+    /// The variables or equations a member path of the fixture names.
+    fn members(
+        &mut self,
+        instance: InstanceId,
+        at: DeclarationId,
+        path: &str,
+        env: &Environment,
+    ) -> Result<Vec<SemanticId>> {
+        let targets = self.annotation_targets(instance, path, env, at, false)?;
+        if targets.is_empty() {
+            return Err(invalid(
+                at,
+                format!("expected failure names member {path}, which the fixture's model lacks"),
+            ));
+        }
+        Ok(targets.into_iter().map(|(id, ..)| id).collect())
     }
 }

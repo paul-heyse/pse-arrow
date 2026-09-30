@@ -5,24 +5,25 @@
 /// Registry-generated semantic values; native codecs remain local.
 pub use pse_model::generated::r#runtime::r#modeling_findings::{
     RuntimeModelingFindingsFieldObservationsItem,
-    RuntimeModelingFindingsFieldLocationsItem, RuntimeModelingFindingsRow, Row,
+    RuntimeModelingFindingsFieldLocationsItem, RuntimeModelingFindingsFieldValidity,
+    RuntimeModelingFindingsRow, Row,
 };
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    135u8, 221u8, 202u8, 57u8, 252u8, 135u8, 127u8, 104u8, 201u8, 124u8, 116u8, 119u8,
-    51u8, 242u8, 63u8, 51u8,
+    76u8, 76u8, 40u8, 60u8, 178u8, 245u8, 196u8, 93u8, 251u8, 232u8, 81u8, 29u8, 70u8,
+    120u8, 185u8, 174u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "modeling_findings";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Runtime;
 /// The schema generation.
-pub const VERSION: u32 = 2u32;
+pub const VERSION: u32 = 3u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    0u8, 216u8, 8u8, 139u8, 111u8, 120u8, 217u8, 250u8, 31u8, 73u8, 195u8, 203u8, 197u8,
-    165u8, 125u8, 245u8, 83u8, 99u8, 5u8, 177u8, 69u8, 208u8, 224u8, 92u8, 214u8, 205u8,
-    211u8, 57u8, 55u8, 112u8, 115u8, 44u8,
+    108u8, 155u8, 225u8, 87u8, 252u8, 23u8, 221u8, 77u8, 22u8, 200u8, 90u8, 244u8, 11u8,
+    130u8, 199u8, 13u8, 153u8, 40u8, 41u8, 82u8, 107u8, 106u8, 203u8, 2u8, 166u8, 42u8,
+    237u8, 141u8, 73u8, 82u8, 52u8, 112u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeModelingFindingsFieldObservationsItem {
     fn append(
@@ -202,6 +203,103 @@ impl crate::columnar::ArrowValue for RuntimeModelingFindingsFieldLocationsItem {
         })
     }
 }
+impl crate::columnar::ArrowValue for RuntimeModelingFindingsFieldValidity {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#layer, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#source_id,
+            children[1usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#form_id, children[2usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#set_ids, children[3usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#variables,
+            children[4usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#member_ids,
+            children[5usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <crate::generated::enums::ModelingValidityLayer as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[1usize].as_mut(),
+        )?;
+        <Option<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <Vec<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <Vec<
+            i64,
+        > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <Vec<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#layer: <crate::generated::enums::ModelingValidityLayer as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#source_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#form_id: <Option<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#set_ids: <Vec<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#variables: <Vec<
+                i64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#member_ids: <Vec<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
 impl crate::columnar::ArrowValue for RuntimeModelingFindingsRow {
     fn append(
         &self,
@@ -228,6 +326,10 @@ impl crate::columnar::ArrowValue for RuntimeModelingFindingsRow {
         crate::columnar::ArrowValue::append(
             &self.r#locations,
             children[8usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#validity,
+            children[9usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -260,6 +362,9 @@ impl crate::columnar::ArrowValue for RuntimeModelingFindingsRow {
         <Vec<
             RuntimeModelingFindingsFieldLocationsItem,
         > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        <Option<
+            RuntimeModelingFindingsFieldValidity,
+        > as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -310,6 +415,12 @@ impl crate::columnar::ArrowValue for RuntimeModelingFindingsRow {
                 RuntimeModelingFindingsFieldLocationsItem,
             > as crate::columnar::ArrowValue>::read(
                 input.column(8usize).as_ref(),
+                index,
+            )?,
+            r#validity: <Option<
+                RuntimeModelingFindingsFieldValidity,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(9usize).as_ref(),
                 index,
             )?,
         })
@@ -375,6 +486,7 @@ impl crate::columnar::RelationRow for RuntimeModelingFindingsRow {
             &self.r#locations,
             columns[8usize].as_mut(),
         )?;
+        crate::columnar::ArrowValue::append(&self.r#validity, columns[9usize].as_mut())?;
         Ok(())
     }
     fn relation(
@@ -409,10 +521,10 @@ impl crate::columnar::RelationRow for RuntimeModelingFindingsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        47_104_usize + size_of::<Self::Builder>()
+        67_584_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        368usize
+        528usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -589,6 +701,78 @@ impl crate::columnar::RelationRow for RuntimeModelingFindingsRow {
                     ),
                 )?,
         )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#validity).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    {
+                        let mut bytes = 1usize;
+                        bytes = crate::columnar::allocation_add(
+                            bytes,
+                            crate::columnar::allocation_add(
+                                8,
+                                ((value).r#layer).as_str().len(),
+                            )?,
+                        )?;
+                        bytes = crate::columnar::allocation_add(
+                            bytes,
+                            Ok::<usize, crate::RelationError>(16usize)?,
+                        )?;
+                        bytes = crate::columnar::allocation_add(
+                            bytes,
+                            if ((value).r#form_id).is_some() {
+                                crate::columnar::allocation_add(
+                                    1,
+                                    Ok::<usize, crate::RelationError>(16usize)?,
+                                )
+                            } else {
+                                Ok::<usize, crate::RelationError>(1)
+                            }?,
+                        )?;
+                        bytes = crate::columnar::allocation_add(
+                            bytes,
+                            ((value).r#set_ids)
+                                .iter()
+                                .try_fold(
+                                    8usize,
+                                    |bytes, _| crate::columnar::allocation_add(
+                                        bytes,
+                                        Ok::<usize, crate::RelationError>(16usize)?,
+                                    ),
+                                )?,
+                        )?;
+                        bytes = crate::columnar::allocation_add(
+                            bytes,
+                            ((value).r#variables)
+                                .iter()
+                                .try_fold(
+                                    8usize,
+                                    |bytes, _| crate::columnar::allocation_add(
+                                        bytes,
+                                        Ok::<usize, crate::RelationError>(8usize)?,
+                                    ),
+                                )?,
+                        )?;
+                        bytes = crate::columnar::allocation_add(
+                            bytes,
+                            ((value).r#member_ids)
+                                .iter()
+                                .try_fold(
+                                    8usize,
+                                    |bytes, _| crate::columnar::allocation_add(
+                                        bytes,
+                                        Ok::<usize, crate::RelationError>(16usize)?,
+                                    ),
+                                )?,
+                        )?;
+                        Ok::<usize, crate::RelationError>(bytes)
+                    }?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
         Ok(bytes)
     }
 }
@@ -599,7 +783,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 9usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 10usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "run_id",
@@ -645,6 +829,11 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 9usize] = [
         name: "locations",
         position: 8usize,
     },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "validity",
+        position: 9usize,
+    },
 ];
 /// Named native column references derived from the declared field inventory.
 pub mod columns {
@@ -666,6 +855,8 @@ pub mod columns {
     pub const OBSERVATIONS: crate::columnar::ColumnReference = super::COLUMNS[7usize];
     ///locations
     pub const LOCATIONS: crate::columnar::ColumnReference = super::COLUMNS[8usize];
+    ///validity
+    pub const VALIDITY: crate::columnar::ColumnReference = super::COLUMNS[9usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -681,6 +872,7 @@ pub struct RuntimeModelingFindingsView<'a> {
     sources_column: &'a arrow_array::ListArray,
     observations_column: &'a arrow_array::ListArray,
     locations_column: &'a arrow_array::ListArray,
+    validity_column: &'a arrow_array::StructArray,
 }
 impl<'a> RuntimeModelingFindingsView<'a> {
     /// Admits a raw candidate's actual schema and visible local values.
@@ -747,6 +939,9 @@ impl<'a> RuntimeModelingFindingsView<'a> {
             locations_column: crate::columnar::array::<
                 arrow_array::ListArray,
             >(batch.column(8usize).as_ref())?,
+            validity_column: crate::columnar::array::<
+                arrow_array::StructArray,
+            >(batch.column(9usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -869,6 +1064,18 @@ impl<'a> RuntimeModelingFindingsView<'a> {
     pub fn locations_field(&self) -> &'a crate::FieldRef {
         &self.batch.schema_ref().fields()[8usize]
     }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "validity",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn validity_column(&self) -> &'a arrow_array::StructArray {
+        self.validity_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "validity", "`.")]
+    pub fn validity_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[9usize]
+    }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
     /// # Errors
@@ -892,7 +1099,11 @@ impl<'a> RuntimeModelingFindingsView<'a> {
                 self.observations_column,
                 index,
             )?,
-            r#locations: crate::columnar::ArrowValue::read(self.locations_column, index)?,
+            r#locations: crate::columnar::ArrowValue::read(
+                self.locations_column,
+                index,
+            )?,
+            r#validity: crate::columnar::ArrowValue::read(self.validity_column, index)?,
         })
     }
     /// Decodes rows directly from Arrow for an explicit scalar algorithm boundary.

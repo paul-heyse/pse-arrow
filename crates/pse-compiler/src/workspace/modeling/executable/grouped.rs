@@ -232,6 +232,7 @@ fn normalize(
                             lower,
                             upper,
                             source: range.source,
+                            target: range.target,
                         },
                     );
                 }

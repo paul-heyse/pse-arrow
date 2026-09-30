@@ -91,13 +91,16 @@ pub(crate) enum Stage {
         order: DerivativeOrder,
         /// Authored occurrence.
         source: SemanticId,
+        /// The closure-layer range this obligation checks, when it is one (Plan 23 H5).
+        lineage: Option<std::sync::Arc<pse_model::diagnostic::ValidityLineage>>,
     },
-    /// Value-only domain predicate. Its local values cannot enter numerical expressions.
+    /// Value-only domain predicate of an authored form. Its local values cannot enter
+    /// numerical expressions; a rejection names the predicate's lineage.
     Domain {
         stages: Vec<Stage>,
         argument: Slot,
         token: Slot,
-        source: SemanticId,
+        lineage: std::sync::Arc<pse_model::diagnostic::ValidityLineage>,
     },
     /// Lazy regions. Both branches write the same declared result slots.
     Branch {

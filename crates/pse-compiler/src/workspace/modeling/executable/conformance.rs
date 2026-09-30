@@ -22,7 +22,113 @@ pub struct ModelingExpectationResult {
     /// Whether the absolute difference is within the combined tolerance.
     pub passed: bool,
 }
+/// A validity range or data envelope observed at a pure point (Plan 23 H5): the member or
+/// static argument it bounds, the declaration stating it, its layer, the observed value and
+/// bounds in their canonical unit, and whether its consumer selected extrapolation.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ModelingValidityResult {
+    /// The bounded member, or the static observation's identity.
+    pub target: SemanticId,
+    /// The annotation, or the relation or kind declaring the envelope.
+    pub source: DeclarationId,
+    /// Closure or data layer; the form layer never extrapolates and is never observed.
+    pub layer: pse_model::generated::enums::ModelingValidityLayer,
+    /// Observed canonical value.
+    pub value: f64,
+    /// Canonical lower bound.
+    pub lower: f64,
+    /// Canonical upper bound.
+    pub upper: f64,
+    /// Whether the consumer selected extrapolation for this layer.
+    pub extrapolation: bool,
+}
+impl ModelingValidityResult {
+    /// Whether the value lies within its bounds.
+    pub fn within(&self) -> bool {
+        self.lower <= self.value && self.value <= self.upper
+    }
+}
+/// What one pure point establishes (Plan 23 H5): its authored expectations and the same
+/// validity obligations a solved point is assessed against. A rejecting range or guard
+/// refuses the evaluation itself; an extrapolating one is observed here.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ModelingPointChecks {
+    /// Authored comparisons.
+    pub expectations: Vec<ModelingExpectationResult>,
+    /// Observed validity ranges, data envelopes and static observations.
+    pub validity: Vec<ModelingValidityResult>,
+}
 impl PreparedModeling {
+    /// The member and bound rows of every validity range and data observation.
+    pub fn validity_rows(&self) -> BTreeSet<SemanticId> {
+        self.model
+            .annotations
+            .iter()
+            .filter(|a| matches!(a.value, pse_modeling::annotation::AnnotationValue::Valid { .. }))
+            .flat_map(|a| {
+                [
+                    ModelingOutput::Member(a.target),
+                    ModelingOutput::Hint {
+                        target: a.target,
+                        declaration: a.lineage.declaration,
+                        kind: ModelingHint::ValidLower,
+                    },
+                    ModelingOutput::Hint {
+                        target: a.target,
+                        declaration: a.lineage.declaration,
+                        kind: ModelingHint::ValidUpper,
+                    },
+                ]
+            })
+            .map(|output| output.row_id())
+            .collect()
+    }
+    /// Assess every validity range and data observation at the observed point, and every
+    /// static observation decided at specialization.
+    pub fn assess_validity(
+        &self,
+        observations: &BTreeMap<SemanticId, f64>,
+    ) -> Result<Vec<ModelingValidityResult>> {
+        use pse_model::generated::enums::{ExtrapolationPolicy, ModelingValidityLayer};
+        let observed = |output: ModelingOutput| {
+            observations
+                .get(&output.row_id())
+                .copied()
+                .filter(|v| v.is_finite())
+                .ok_or_else(|| CompileError::Missing("validity observation absent or nonfinite".into()))
+        };
+        let mut results = Vec::new();
+        for a in &self.model.annotations {
+            let pse_modeling::annotation::AnnotationValue::Valid { policy, layer, .. } = &a.value
+            else {
+                continue;
+            };
+            let bound = |kind| ModelingOutput::Hint {
+                target: a.target,
+                declaration: a.lineage.declaration,
+                kind,
+            };
+            results.push(ModelingValidityResult {
+                target: a.target,
+                source: a.lineage.declaration,
+                layer: *layer,
+                value: observed(ModelingOutput::Member(a.target))?,
+                lower: observed(bound(ModelingHint::ValidLower))?,
+                upper: observed(bound(ModelingHint::ValidUpper))?,
+                extrapolation: *policy == ExtrapolationPolicy::Extrapolate,
+            });
+        }
+        results.extend(self.model.observations.iter().map(|o| ModelingValidityResult {
+            target: o.id,
+            source: o.lineage.declaration,
+            layer: ModelingValidityLayer::Data,
+            value: o.value,
+            lower: o.lower,
+            upper: o.upper,
+            extrapolation: true,
+        }));
+        Ok(results)
+    }
     /// Select the physical and dimensionless observations for every authored test.
     pub fn expectation_rows(&self) -> BTreeSet<SemanticId> {
         self.admitted
@@ -108,13 +214,15 @@ impl PreparedModeling {
     }
 }
 impl CompilerWorkspace {
-    /// Execute pure expectations without creating a runtime, acquiring solver resources
-    /// or constructing native providers. Models needing a solve use the workflow harness.
+    /// Execute a pure point without creating a runtime, acquiring solver resources or
+    /// constructing native providers: its expectations and the validity obligations a solved
+    /// point is assessed against (Plan 23 H5). Models needing a solve use the workflow
+    /// harness.
     #[expect(
         clippy::too_many_arguments,
         reason = "the specialization request (root, instance, bindings, limits) travels with the case, profiles and cancellation as independent inputs"
     )]
-    pub fn check_modeling_expectations(
+    pub fn check_modeling_point(
         &mut self,
         root: DeclarationId,
         instance: InstanceId,
@@ -123,7 +231,7 @@ impl CompilerWorkspace {
         values: &CaseValues,
         profile: Profile,
         cancel: Arc<AtomicBool>,
-    ) -> Result<Vec<ModelingExpectationResult>> {
+    ) -> Result<ModelingPointChecks> {
         let model =
             self.prepare_modeling_cancellable(root, instance, bindings, limits, cancel.clone())?;
         if model.model.expectations.is_empty() {
@@ -150,12 +258,9 @@ impl CompilerWorkspace {
         inputs
             .scalars
             .extend(values.scalars.iter().map(|(id, v)| (*id, *v)));
-        let prepared = self.prepare_modeling_observations(
-            &model,
-            &model.expectation_rows(),
-            profile,
-            &cancel,
-        )?;
+        let mut observed = model.expectation_rows();
+        observed.extend(model.validity_rows());
+        let prepared = self.prepare_modeling_observations(&model, &observed, profile, &cancel)?;
         if prepared
             .plan
             .bodies()
@@ -184,6 +289,9 @@ impl CompilerWorkspace {
             .map(|r| r.id)
             .zip(output)
             .collect();
-        model.assess_expectations(&rows)
+        Ok(ModelingPointChecks {
+            expectations: model.assess_expectations(&rows)?,
+            validity: model.assess_validity(&rows)?,
+        })
     }
 }

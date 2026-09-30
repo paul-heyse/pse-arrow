@@ -78,6 +78,41 @@ impl PartialEq for RuntimeModelingFindingsFieldLocationsItem {
     reason = "field names are the authoritative relation contract"
 )]
 #[derive(Clone, Debug)]
+pub struct RuntimeModelingFindingsFieldValidity {
+    ///layer
+    pub r#layer: crate::generated::enums::ModelingValidityLayer,
+    ///source_id
+    pub r#source_id: pse_ids::SemanticId,
+    ///form_id
+    pub r#form_id: Option<pse_ids::SemanticId>,
+    ///set_ids
+    pub r#set_ids: Vec<pse_ids::SemanticId>,
+    ///variables
+    pub r#variables: Vec<i64>,
+    ///member_ids
+    pub r#member_ids: Vec<pse_ids::SemanticId>,
+}
+impl crate::SemanticEq for RuntimeModelingFindingsFieldValidity {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#layer, &other.r#layer)
+            && crate::SemanticEq::semantic_eq(&self.r#source_id, &other.r#source_id)
+            && crate::SemanticEq::semantic_eq(&self.r#form_id, &other.r#form_id)
+            && crate::SemanticEq::semantic_eq(&self.r#set_ids, &other.r#set_ids)
+            && crate::SemanticEq::semantic_eq(&self.r#variables, &other.r#variables)
+            && crate::SemanticEq::semantic_eq(&self.r#member_ids, &other.r#member_ids)
+    }
+}
+impl PartialEq for RuntimeModelingFindingsFieldValidity {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+#[derive(Clone, Debug)]
 pub struct RuntimeModelingFindingsRow {
     ///The run that produced the row: minted once when a run starts or a job is enqueued, and shared by the job's retried attempts. It names the execution, not the request's content.
     pub r#run_id: crate::generated::identities::RunId,
@@ -97,6 +132,8 @@ pub struct RuntimeModelingFindingsRow {
     pub r#observations: Vec<RuntimeModelingFindingsFieldObservationsItem>,
     ///locations
     pub r#locations: Vec<RuntimeModelingFindingsFieldLocationsItem>,
+    ///validity
+    pub r#validity: Option<RuntimeModelingFindingsFieldValidity>,
 }
 impl crate::SemanticEq for RuntimeModelingFindingsRow {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -111,6 +148,7 @@ impl crate::SemanticEq for RuntimeModelingFindingsRow {
                 &self.r#observations,
                 &other.r#observations,
             ) && crate::SemanticEq::semantic_eq(&self.r#locations, &other.r#locations)
+            && crate::SemanticEq::semantic_eq(&self.r#validity, &other.r#validity)
     }
 }
 impl PartialEq for RuntimeModelingFindingsRow {
@@ -174,6 +212,33 @@ impl crate::HeapUsage for RuntimeModelingFindingsFieldLocationsItem {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#end))
     }
 }
+impl crate::SemanticFrame for RuntimeModelingFindingsFieldValidity {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#layer));
+        crate::SemanticFrame::frame(&self.r#layer, hash);
+        hash.str(stringify!(r#source_id));
+        crate::SemanticFrame::frame(&self.r#source_id, hash);
+        hash.str(stringify!(r#form_id));
+        crate::SemanticFrame::frame(&self.r#form_id, hash);
+        hash.str(stringify!(r#set_ids));
+        crate::SemanticFrame::frame(&self.r#set_ids, hash);
+        hash.str(stringify!(r#variables));
+        crate::SemanticFrame::frame(&self.r#variables, hash);
+        hash.str(stringify!(r#member_ids));
+        crate::SemanticFrame::frame(&self.r#member_ids, hash);
+    }
+}
+impl crate::HeapUsage for RuntimeModelingFindingsFieldValidity {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#layer))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#source_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#form_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#set_ids))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#variables))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#member_ids))
+    }
+}
 impl crate::SemanticFrame for RuntimeModelingFindingsRow {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(stringify!(r#run_id));
@@ -194,6 +259,8 @@ impl crate::SemanticFrame for RuntimeModelingFindingsRow {
         crate::SemanticFrame::frame(&self.r#observations, hash);
         hash.str(stringify!(r#locations));
         crate::SemanticFrame::frame(&self.r#locations, hash);
+        hash.str(stringify!(r#validity));
+        crate::SemanticFrame::frame(&self.r#validity, hash);
     }
 }
 impl crate::HeapUsage for RuntimeModelingFindingsRow {
@@ -208,5 +275,6 @@ impl crate::HeapUsage for RuntimeModelingFindingsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#sources))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#observations))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#locations))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#validity))
     }
 }

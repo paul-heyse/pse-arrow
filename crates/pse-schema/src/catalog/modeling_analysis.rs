@@ -145,7 +145,7 @@ pub(super) fn register(b: &mut RegistryBuilder) {
         b,
         N::Runtime,
         "modeling_findings",
-        2,
+        3,
         S::Derived,
         &["run_id", "ordinal"],
         vec![
@@ -181,8 +181,21 @@ pub(super) fn register(b: &mut RegistryBuilder) {
                     ("end", count().optional()),
                 ])),
             ),
+            // Plan 23 H5: a rejected validity predicate's typed lineage.
+            column(
+                "validity",
+                record(vec![
+                    ("layer", T::enumeration("ModelingValidityLayer")),
+                    ("source_id", T::id()),
+                    ("form_id", T::id().optional()),
+                    ("set_ids", T::list(T::id())),
+                    ("variables", T::list(count())),
+                    ("member_ids", T::list(T::id())),
+                ]),
+            )
+            .optional(),
         ],
-        "Attributed diagnostic findings with a class and a severity; a warning is never an invalid model. The observation kind selects its payload; real_kind classifies finite, infinite and indeterminate values, with a numeric real payload only when finite. Absent values are not zero. Locations describe source declarations rather than native matrix indices.",
+        "Attributed diagnostic findings with a class and a severity; a warning is never an invalid model. The observation kind selects its payload; real_kind classifies finite, infinite and indeterminate values, with a numeric real payload only when finite. Absent values are not zero. Locations describe source declarations rather than native matrix indices. Version three adds, exactly on a rejected authored validity predicate, its lineage (Plan 23 H5): its layer (ADR-0123 Outcome 4); the declaration stating it, the form itself, the relation or kind declaring the envelope, or the closure range's annotation; for the form and data layers the form, the parameter sets, table rows or entities, whose values bound it and the positions of the form's declared arguments it constrains; and for the closure layer the model members its range bounds.",
     );
     enumeration(
         b,

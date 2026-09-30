@@ -44,6 +44,58 @@ pub struct Envelope {
     pub upper: String,
 }
 
+/// What one validity predicate of a specialized form reads (Plan 23 H5): the parameter
+/// sets whose values bound it and the form's declared arguments it constrains. A rejection
+/// names them as its lineage.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Reads {
+    /// Identities of the table rows or entities read, in argument order.
+    pub sets: Vec<SemanticId>,
+    /// Positions of the constrained arguments among the form's declared arguments.
+    pub variables: Vec<u32>,
+}
+impl Reads {
+    /// Frame the sets by identity and the variables by position.
+    pub(crate) fn frame(&self, h: &mut pse_ids::FramedHasher) {
+        h.str("reads").u64(self.sets.len() as u64);
+        for set in &self.sets {
+            h.id(set);
+        }
+        h.u64(self.variables.len() as u64);
+        for variable in &self.variables {
+            h.u64(u64::from(*variable));
+        }
+    }
+    /// What `predicate` of `function` reads: the static row or entity arguments it names,
+    /// by their identities in `statics`, and the physical arguments it names. Its local
+    /// bindings are not arguments.
+    pub(crate) fn of(
+        p: &CheckedPackage,
+        function: &Function,
+        predicate: &Predicate,
+        statics: &crate::specialize::Environment,
+    ) -> Self {
+        let named = predicate
+            .paths()
+            .into_iter()
+            .filter_map(|path| path.segments.first().map(|s| s.name.as_str()))
+            .collect::<BTreeSet<_>>();
+        let mut reads = Self::default();
+        for (position, (name, ty)) in function.arguments.iter().enumerate() {
+            if !named.contains(name.as_str()) {
+                continue;
+            }
+            match ty {
+                Type::Quantity(_) => reads.variables.push(position as u32),
+                _ => reads
+                    .sets
+                    .extend(statics.get(name).and_then(|value| p.set_identity(value))),
+            }
+        }
+        reads
+    }
+}
+
 /// A data-layer guard of a function: an envelope of a row or entity argument, and the
 /// arguments or the integration interval it guards.
 #[derive(Clone, Debug, PartialEq)]
@@ -63,6 +115,8 @@ pub struct Guard {
     pub policy: ExtrapolationPolicy,
     /// The declaration that selected the policy; none selects reject.
     pub selection: Option<DeclarationId>,
+    /// The carrier's row or entity and the guarded arguments, once specialized.
+    pub reads: Reads,
 }
 
 /// An extrapolating data-layer guard observed at a static argument: its membership is
@@ -322,6 +376,7 @@ fn guard(
         predicate,
         policy: ExtrapolationPolicy::Reject,
         selection: None,
+        reads: Reads::default(),
     })
 }
 

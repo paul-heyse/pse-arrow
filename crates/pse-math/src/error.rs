@@ -34,6 +34,14 @@ pub enum MathError {
         /// Library diagnostic.
         detail: String,
     },
+    /// An authored validity predicate of a form rejected the evaluation: the form's own
+    /// domain or a data envelope it guards (ADR-0123 Outcome 4), named by its lineage.
+    #[error(
+        "{}-layer validity stated by {} rejected the evaluation",
+        .0.layer.as_str(),
+        .0.source
+    )]
+    Validity(Box<pse_model::diagnostic::ValidityLineage>),
     /// A required authored domain condition failed.
     #[error("expression {source_id}: {requirement}")]
     Domain {
@@ -125,6 +133,7 @@ impl MathError {
             Self::Quantity(e) => e.retained_bytes(),
             Self::Provider { cause, .. } => cause.retained_bytes(),
             Self::Native { retained, .. } => *retained,
+            Self::Validity(lineage) => size_of_val(lineage.as_ref()) + lineage.heap_bytes(),
             Self::Domain { .. }
             | Self::OutsideRange { .. }
             | Self::Limit(_)
@@ -158,7 +167,7 @@ mod tests {
 pse_diagnostics::impl_diagnostic! {
     MathError,
     code(this) { match this {
-        Self::Domain {..} | Self::OutsideRange {..} => Some(pse_diagnostics::DiagnosticCode::SolveEvaluationError),
+        Self::Validity(_) | Self::Domain {..} | Self::OutsideRange {..} => Some(pse_diagnostics::DiagnosticCode::SolveEvaluationError),
         Self::Cancelled => Some(pse_diagnostics::DiagnosticCode::RuntimeCancelled),
         Self::Limit(_) | Self::SlotLimit {..} | Self::WorkLimit {..} => Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit),
         Self::Quantity(_) | Self::Provider {..} | Self::Instance {..} => None,

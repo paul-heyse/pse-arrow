@@ -29,7 +29,7 @@ use std::collections::{BTreeMap, BTreeSet};
 pub use value::{Environment, Value};
 mod fixture;
 pub use fixture::{
-    Fixture, FixtureEvent, FixtureMode, FixtureValue, IntegrationFixture, ScheduleControl,
+    ExpectedFailure, ExpectedLineage, Fixture, FixtureEvent, FixtureMode, FixtureValue, IntegrationFixture, ScheduleControl,
     ScheduleFixture, ShootingFixture,
 };
 mod regimes;

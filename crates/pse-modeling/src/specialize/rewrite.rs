@@ -374,6 +374,7 @@ impl Engine<'_, '_> {
                             }),
                             validity: None,
                             envelopes: Vec::new(),
+                            validity_reads: crate::envelope::Reads::default(),
                             external: None,
                             continuity: None,
                             id,

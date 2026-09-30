@@ -46,6 +46,42 @@ const CLAIM_LIMIT: usize = 1_000_000;
 /// The static evaluation allowance of one derived value or requirement.
 pub(crate) const EVALUATION_LIMIT: usize = 100_000;
 
+/// A table row's identity: its table and its canonical, typed key values, framed as a
+/// keyed entity's are (Plan 23 H5). It names the row in a lineage; the row's cells do not
+/// enter it.
+pub fn row_identity(table: DeclarationId, keys: &[Value]) -> pse_ids::SemanticId {
+    let mut h = pse_ids::FramedHasher::new(pse_ids::Frame::ModelingTableRowV1);
+    h.id(&table.as_id()).u64(keys.len() as u64);
+    for key in keys {
+        match key {
+            Value::Entity { id, .. } => {
+                h.str("entity").id(&id.as_id());
+            }
+            other => other.frame(&mut h),
+        }
+    }
+    h.finish_id()
+}
+
+impl CheckedPackage {
+    /// The identity of a parameter set a static value is: an entity's, or the admitted row
+    /// a row value was read from. A row value shares its cells with its admitted row, so
+    /// that row is found by those cells, never by their values.
+    pub fn set_identity(&self, value: &Value) -> Option<pse_ids::SemanticId> {
+        match value {
+            Value::Entity { id, .. } => Some(id.as_id()),
+            Value::Row { table, fields, .. } => self.tables.get(table).and_then(|admitted| {
+                admitted
+                    .rows
+                    .iter()
+                    .find(|(_, row)| Arc::ptr_eq(&row.cells, fields))
+                    .map(|(keys, _)| row_identity(*table, keys))
+            }),
+            _ => None,
+        }
+    }
+}
+
 /// The finite values one key ranges over in a completeness claim.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Domain {

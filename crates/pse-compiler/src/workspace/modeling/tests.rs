@@ -2065,7 +2065,7 @@ fn kernel_pure_authored_tests_use_existing_math_without_runtime_or_solver() {
         .unwrap()
         .declaration_id;
     let results = workspace
-        .check_modeling_expectations(
+        .check_modeling_point(
             test,
             root_instance(test),
             Bindings::default(),
@@ -2076,6 +2076,7 @@ fn kernel_pure_authored_tests_use_existing_math_without_runtime_or_solver() {
             Profile::default(),
             Arc::new(AtomicBool::new(false)),
         )
+        .map(|checks| checks.expectations)
         .unwrap();
     assert_eq!(results.len(), 3);
     assert_eq!(results.iter().filter(|r| r.passed).count(), 2);
@@ -2104,7 +2105,7 @@ fn kernel_expectations_combine_physical_and_relative_tolerances() {
         .unwrap()
         .declaration_id;
     let run = |workspace: &mut CompilerWorkspace| {
-        workspace.check_modeling_expectations(
+        workspace.check_modeling_point(
             test,
             root_instance(test),
             Bindings::default(),
@@ -2115,6 +2116,7 @@ fn kernel_expectations_combine_physical_and_relative_tolerances() {
             Profile::default(),
             Arc::new(AtomicBool::new(false)),
         )
+        .map(|checks| checks.expectations)
     };
     let results = run(&mut workspace).unwrap();
     assert_eq!(results.iter().filter(|r| r.passed).count(), 2);
@@ -2165,7 +2167,7 @@ fn kernel_pure_expectations_apply_authored_fixture_values_without_solving() {
         .unwrap();
     let x = model.model.paths["root.x"];
     let run = |workspace: &mut CompilerWorkspace, scalars, cancelled| {
-        workspace.check_modeling_expectations(
+        workspace.check_modeling_point(
             test,
             instance,
             Bindings::default(),
@@ -2174,6 +2176,7 @@ fn kernel_pure_expectations_apply_authored_fixture_values_without_solving() {
             Profile::default(),
             Arc::new(AtomicBool::new(cancelled)),
         )
+        .map(|checks| checks.expectations)
     };
     let result = run(&mut workspace, BTreeMap::new(), false).unwrap();
     assert_eq!(result.len(), 1);
@@ -2283,7 +2286,7 @@ fn kernel_authored_math_replaces_composite_native_functions() {
             .unwrap()
             .declaration_id;
         let result = workspace
-            .check_modeling_expectations(
+            .check_modeling_point(
                 root,
                 root_instance(root),
                 Bindings::default(),
@@ -2294,6 +2297,7 @@ fn kernel_authored_math_replaces_composite_native_functions() {
                 Profile::default(),
                 Arc::new(AtomicBool::new(false)),
             )
+        .map(|checks| checks.expectations)
             .unwrap_or_else(|e| panic!("{expectation}: {e}"));
         assert_eq!(result.len(), 1);
         assert!(result.iter().all(|r| r.passed), "{expectation}: {result:?}");
@@ -2547,7 +2551,7 @@ fn kernel_child_indices_resolve_in_the_authors_import_scope() {
         .unwrap()
         .declaration_id;
     let results = workspace
-        .check_modeling_expectations(
+        .check_modeling_point(
             fixture,
             root_instance(fixture),
             Bindings::default(),
@@ -2556,6 +2560,7 @@ fn kernel_child_indices_resolve_in_the_authors_import_scope() {
             Profile::default(),
             Arc::new(AtomicBool::new(false)),
         )
+        .map(|checks| checks.expectations)
         .unwrap();
     assert!(results.iter().all(|check| check.passed));
 }
@@ -2595,7 +2600,7 @@ fn kernel_structural_interface_parameters_bind_effective_members_before_guards()
         .unwrap()
         .declaration_id;
     let checks = workspace
-        .check_modeling_expectations(
+        .check_modeling_point(
             fixture,
             root_instance(fixture),
             Bindings::default(),
@@ -2604,6 +2609,7 @@ fn kernel_structural_interface_parameters_bind_effective_members_before_guards()
             Profile::default(),
             Arc::new(AtomicBool::new(false)),
         )
+        .map(|checks| checks.expectations)
         .unwrap();
     assert!(checks.iter().all(|check| check.passed));
     let model = workspace
@@ -2678,7 +2684,7 @@ fn kernel_definition_projection_shares_constructor_defaults_and_effective_member
         .unwrap()
         .declaration_id;
     let checks = workspace
-        .check_modeling_expectations(
+        .check_modeling_point(
             fixture,
             root_instance(fixture),
             Bindings::default(),
@@ -2687,6 +2693,7 @@ fn kernel_definition_projection_shares_constructor_defaults_and_effective_member
             Profile::default(),
             Arc::new(AtomicBool::new(false)),
         )
+        .map(|checks| checks.expectations)
         .unwrap();
     assert!(checks.iter().all(|c| c.passed));
     let missing = text.replace("selected:Set<item>=one", "selected:Set<item>");
@@ -2796,7 +2803,7 @@ fn kernel_immutable_function_data_is_visible_differentiable_and_invalidated() {
         .declaration_id;
     let evaluate = |workspace: &mut CompilerWorkspace| {
         workspace
-            .check_modeling_expectations(
+            .check_modeling_point(
                 fixture,
                 root_instance(fixture),
                 Bindings::default(),
@@ -2805,6 +2812,7 @@ fn kernel_immutable_function_data_is_visible_differentiable_and_invalidated() {
                 Profile::default(),
                 Arc::new(AtomicBool::new(false)),
             )
+        .map(|checks| checks.expectations)
             .unwrap()
     };
     assert!(evaluate(&mut workspace).iter().all(|check| check.passed));
@@ -2860,7 +2868,7 @@ fn kernel_imported_table_paths_preserve_rows_columns_and_visibility() {
         .unwrap()
         .declaration_id;
     let checks = workspace
-        .check_modeling_expectations(
+        .check_modeling_point(
             fixture,
             root_instance(fixture),
             Bindings::default(),
@@ -2869,6 +2877,7 @@ fn kernel_imported_table_paths_preserve_rows_columns_and_visibility() {
             Profile::default(),
             Arc::new(AtomicBool::new(false)),
         )
+        .map(|checks| checks.expectations)
         .unwrap();
     assert_eq!(checks.len(), 2);
     assert!(checks.iter().all(|check| check.passed));
@@ -2915,7 +2924,7 @@ fn kernel_explicit_primitive_functions_preserve_references_and_derivative_checks
         .unwrap()
         .declaration_id;
     let results = workspace
-        .check_modeling_expectations(
+        .check_modeling_point(
             id,
             root_instance(id),
             Bindings::default(),
@@ -2926,6 +2935,7 @@ fn kernel_explicit_primitive_functions_preserve_references_and_derivative_checks
             Profile::default(),
             Arc::new(AtomicBool::new(false)),
         )
+        .map(|checks| checks.expectations)
         .unwrap();
     assert_eq!(results.len(), 4);
     assert!(results.iter().all(|r| r.passed), "{results:?}");
@@ -2945,7 +2955,7 @@ fn kernel_explicit_primitive_functions_preserve_references_and_derivative_checks
         )
         .unwrap();
     let results = workspace
-        .check_modeling_expectations(
+        .check_modeling_point(
             id,
             root_instance(id),
             Bindings::default(),
@@ -2956,6 +2966,7 @@ fn kernel_explicit_primitive_functions_preserve_references_and_derivative_checks
             Profile::default(),
             Arc::new(AtomicBool::new(false)),
         )
+        .map(|checks| checks.expectations)
         .unwrap();
     assert_eq!(results.iter().filter(|r| !r.passed).count(), 2);
 }
@@ -2993,7 +3004,7 @@ fn kernel_function_slots_select_overrides_indexed_methods_and_forward_arguments(
         .unwrap()
         .declaration_id;
     let checks = workspace
-        .check_modeling_expectations(
+        .check_modeling_point(
             test,
             root_instance(test),
             Bindings::default(),
@@ -3002,6 +3013,7 @@ fn kernel_function_slots_select_overrides_indexed_methods_and_forward_arguments(
             Profile::default(),
             Arc::new(AtomicBool::new(false)),
         )
+        .map(|checks| checks.expectations)
         .unwrap();
     assert!(checks.iter().all(|check| check.passed));
     let mut cyclic = rows;
@@ -3021,7 +3033,7 @@ fn kernel_function_slots_select_overrides_indexed_methods_and_forward_arguments(
         )
         .unwrap();
     let error = workspace
-        .check_modeling_expectations(
+        .check_modeling_point(
             test,
             root_instance(test),
             Bindings::default(),
@@ -3030,6 +3042,7 @@ fn kernel_function_slots_select_overrides_indexed_methods_and_forward_arguments(
             Profile::default(),
             Arc::new(AtomicBool::new(false)),
         )
+        .map(|checks| checks.expectations)
         .unwrap_err();
     assert!(
         error.to_string().contains("recursive function parameter"),
@@ -3154,7 +3167,7 @@ fn kernel_negative_literals_keep_the_expected_physical_contract() {
     let mut workspace = CompilerWorkspace::new(inputs, WorkspaceLimits::default()).unwrap();
     workspace.publish_modeling(rows, names).unwrap();
     let checks = workspace
-        .check_modeling_expectations(
+        .check_modeling_point(
             id,
             root_instance(id),
             Bindings::default(),
@@ -3163,6 +3176,7 @@ fn kernel_negative_literals_keep_the_expected_physical_contract() {
             Profile::default(),
             Arc::new(AtomicBool::new(false)),
         )
+        .map(|checks| checks.expectations)
         .unwrap();
     assert_eq!(checks.len(), 1);
     assert!(checks[0].passed);
@@ -3190,7 +3204,7 @@ fn kernel_generic_normalization_requires_the_concrete_physical_operation() {
             .declaration_id;
         let mut workspace = CompilerWorkspace::new(inputs, WorkspaceLimits::default()).unwrap();
         workspace.publish_modeling(rows, names).unwrap();
-        let result = workspace.check_modeling_expectations(
+        let result = workspace.check_modeling_point(
             id,
             root_instance(id),
             Bindings::default(),
@@ -3198,7 +3212,8 @@ fn kernel_generic_normalization_requires_the_concrete_physical_operation() {
             &CaseValues::default(),
             Profile::default(),
             Arc::new(AtomicBool::new(false)),
-        );
+        )
+        .map(|checks| checks.expectations);
         if accepted {
             assert!(result.unwrap().iter().all(|check| check.passed));
         } else {
@@ -3357,7 +3372,7 @@ fn kernel_finite_folds_compose_source_functions_and_library_partials() {
         .unwrap()
         .declaration_id;
     let run = |workspace: &mut CompilerWorkspace| {
-        workspace.check_modeling_expectations(
+        workspace.check_modeling_point(
             case,
             root_instance(case),
             Bindings::default(),
@@ -3366,6 +3381,7 @@ fn kernel_finite_folds_compose_source_functions_and_library_partials() {
             Profile::default(),
             Arc::new(AtomicBool::new(false)),
         )
+        .map(|checks| checks.expectations)
     };
     let checks = run(&mut workspace).unwrap();
     assert_eq!(checks.len(), 6);
@@ -3500,7 +3516,7 @@ fn kernel_pure_function_names_do_not_capture_caller_members() {
         .unwrap()
         .declaration_id;
     let checks = workspace
-        .check_modeling_expectations(
+        .check_modeling_point(
             case,
             root_instance(case),
             Bindings::default(),
@@ -3509,6 +3525,7 @@ fn kernel_pure_function_names_do_not_capture_caller_members() {
             Profile::default(),
             Arc::new(AtomicBool::new(false)),
         )
+        .map(|checks| checks.expectations)
         .unwrap();
     assert!(checks.iter().all(|c| c.passed));
 }
@@ -3975,11 +3992,11 @@ fn evaluate_named(
             .constraints(&case)
     }
 }
-/// The source a domain refusal names, through its instance attribution.
+/// The declaration stating a validity rejection, through its instance attribution.
 fn domain_source(error: &MathError) -> Option<SemanticId> {
     match error {
         MathError::Instance { cause, .. } => domain_source(cause),
-        MathError::Domain { source_id, .. } => Some(*source_id),
+        MathError::Validity(lineage) => Some(lineage.source),
         _ => None,
     }
 }

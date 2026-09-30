@@ -157,6 +157,7 @@ impl Engine<'_, '_> {
                 reduction: None,
                 validity: None,
                 envelopes: Vec::new(),
+                validity_reads: crate::envelope::Reads::default(),
                 external: None,
                 continuity: None,
                 id,
@@ -357,7 +358,7 @@ impl Engine<'_, '_> {
         // observations resolve against (ADR-0123 Outcome 4).
         let mut scalar_formals = BTreeMap::new();
         let mut scalar_sources = BTreeMap::new();
-        let mut identity = FramedHasher::new(pse_ids::Frame::ModelingFiniteFunctionV4);
+        let mut identity = FramedHasher::new(pse_ids::Frame::ModelingFiniteFunctionV5);
         identity.id(&function.as_id());
         for quantity in substitution.values() {
             identity.id(&quantity.as_id());
@@ -564,12 +565,18 @@ impl Engine<'_, '_> {
             .as_ref()
             .map(|p| self.rewrite_predicate(instance, p, &statics, &[function]))
             .transpose();
+        // What the form layer reads is the lineage of its rejection (Plan 23 H5).
+        let validity_reads = contract
+            .validity
+            .as_ref()
+            .map(|p| crate::envelope::Reads::of(self.p, &contract, p, &statics))
+            .unwrap_or_default();
         // The data layer: guards specialized in the frame under the consumer's policy
         // (ADR-0123 Outcome 4).
         let guards = self.specialize_guards(
             instance,
             function,
-            &contract.envelopes,
+            &contract,
             &statics,
             &scalar_formals,
         );
@@ -586,6 +593,7 @@ impl Engine<'_, '_> {
         if let Some(p) = &mut validity {
             p.strip_spans();
             identity.str("validity").str(&dsl::render_predicate(p));
+            validity_reads.frame(&mut identity);
         }
         identity.u64(guards.len() as u64);
         for guard in &guards {
@@ -594,6 +602,7 @@ impl Engine<'_, '_> {
                 .id(&guard.envelope.owner.as_id())
                 .str(guard.policy.as_str())
                 .str(&dsl::render_predicate(&guard.predicate));
+            guard.reads.frame(&mut identity);
         }
         if let Some(body) = &mut body {
             body.strip_spans();
@@ -608,6 +617,7 @@ impl Engine<'_, '_> {
             reduction: None,
             validity,
             envelopes: guards,
+            validity_reads,
             external: contract.external,
             continuity: contract.continuity,
             id: contract.id,

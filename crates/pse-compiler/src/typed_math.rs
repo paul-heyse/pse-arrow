@@ -87,6 +87,8 @@ pub struct Validity {
     pub upper: Expr,
     /// Declaration that authored the range.
     pub source: SemanticId,
+    /// The member the range bounds.
+    pub target: SemanticId,
 }
 /// One authored local body and the exact physical/specialization context it consumes.
 #[derive(Debug)]
@@ -268,7 +270,7 @@ impl Request<'_> {
             self.limits,
         )?;
         let mut paths = BTreeMap::new();
-        let mut hash = FramedHasher::new(pse_ids::Frame::MathTypedDefinitionV4);
+        let mut hash = FramedHasher::new(pse_ids::Frame::MathTypedDefinitionV5);
         hash.u64(self.formals.len() as u64);
         for (slot, formal) in self.formals.iter().enumerate() {
             if paths.insert(formal.path.clone(), slot).is_some() {
@@ -365,13 +367,26 @@ impl Lower<'_, '_> {
             ));
         }
         self.validating.push(name.into());
-        self.hash.str("validity").id(&range.source);
+        // The closure layer's range names the member it bounds (Plan 23 H5).
+        self.hash.str("validity").id(&range.source).id(&range.target);
         let lower =
             self.expression_expected(&range.lower, builder, depth + 1, Some(value.quantity()))?;
         let upper =
             self.expression_expected(&range.upper, builder, depth + 1, Some(value.quantity()))?;
         self.validating.pop();
-        builder.within_range(value, lower, upper, range.source)
+        builder.within_range(
+            value,
+            lower,
+            upper,
+            Arc::new(pse_model::diagnostic::ValidityLineage {
+                layer: pse_model::generated::enums::ModelingValidityLayer::Closure,
+                source: range.source,
+                form: None,
+                sets: Vec::new(),
+                variables: Vec::new(),
+                members: vec![range.target],
+            }),
+        )
     }
     fn source(&mut self, expr: &Expr, depth: usize) -> Result<SemanticId, MathError> {
         if self.cancelled.load(Ordering::Relaxed) {
@@ -732,22 +747,47 @@ impl Lower<'_, '_> {
         }
         // ADR-0123 Outcome 4: the form layer's domain and each rejecting data-layer guard are
         // domain predicates, each attributed to its own source: the function, or the
-        // declaration of the guarded envelope. An extrapolating guard is observed instead.
+        // declaration of the guarded envelope. An extrapolating guard is observed instead. A
+        // rejection names its lineage: its layer, the form, the parameter sets bounding it
+        // and the arguments it constrains (Plan 23 H5).
+        use pse_model::generated::enums::ModelingValidityLayer as Layer;
+        let lineage = |layer: Layer, source: SemanticId, reads: &pse_modeling::envelope::Reads| {
+            Arc::new(pse_model::diagnostic::ValidityLineage {
+                layer,
+                source,
+                form: Some(f.id.as_id()),
+                sets: reads.sets.clone(),
+                variables: reads.variables.clone(),
+                members: Vec::new(),
+            })
+        };
         let domains = f
             .validity
             .iter()
-            .map(|validity| ("function-validity", f.id.as_id(), validity))
+            .map(|validity| {
+                (
+                    "function-validity",
+                    lineage(Layer::Form, f.id.as_id(), &f.validity_reads),
+                    validity,
+                )
+            })
             .chain(
                 f.envelopes
                     .iter()
                     .filter(|guard| {
                         guard.policy == pse_model::generated::enums::ExtrapolationPolicy::Reject
                     })
-                    .map(|guard| ("envelope-guard", guard.envelope.owner.as_id(), &guard.predicate)),
+                    .map(|guard| {
+                        (
+                            "envelope-guard",
+                            lineage(Layer::Data, guard.envelope.owner.as_id(), &guard.reads),
+                            &guard.predicate,
+                        )
+                    }),
             )
             .collect::<Vec<_>>();
         let mut assumptions = Vec::with_capacity(domains.len());
-        for (label, domain_source, validity) in domains {
+        for (label, lineage, validity) in domains {
             let saved = std::mem::replace(
                 &mut self.locals,
                 f.arguments
@@ -757,13 +797,23 @@ impl Lower<'_, '_> {
                     .collect(),
             );
             self.calls.push(f.id);
+            let domain_source = lineage.source;
             self.hash
                 .str(label)
                 .id(&domain_source)
-                .str(&dsl::render_predicate(validity));
+                .id(&f.id.as_id())
+                .u64(lineage.sets.len() as u64);
+            for set in &lineage.sets {
+                self.hash.id(set);
+            }
+            self.hash.u64(lineage.variables.len() as u64);
+            for variable in &lineage.variables {
+                self.hash.u64(u64::from(*variable));
+            }
+            self.hash.str(&dsl::render_predicate(validity));
             let yes = dsl::parse_expr("1").map_err(|e| MathError::Contract(e.to_string()))?;
             let no = dsl::parse_expr("0").map_err(|e| MathError::Contract(e.to_string()))?;
-            let predicate = builder.domain(domain_source, |builder| {
+            let predicate = builder.domain(lineage, |builder| {
                 self.conditional(validity, &yes, &no, builder, depth + 1, domain_source)
             });
             self.calls.pop();

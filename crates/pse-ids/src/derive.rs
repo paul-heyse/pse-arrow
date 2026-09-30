@@ -201,10 +201,11 @@ frames! {
         /// A physical reduction pass.
         MathPhysicalPassV1 => "pse.math.physical-pass.v1",
         /// A typed definition's admitted outputs; function validity predicates and the
-        /// rejecting data-layer guards, each with the declaration of its envelope, are
-        /// framed in their canonical spelling, unit literals by their canonical products
-        /// (ADR-0123 Outcomes 4 and 8).
-        MathTypedDefinitionV4 => "pse.math.typed-definition.v4",
+        /// rejecting data-layer guards, each with its layer, the declaration stating it and
+        /// its lineage (the parameter sets and arguments it reads), are framed in their
+        /// canonical spelling, unit literals by their canonical products (ADR-0123 Outcomes 4
+        /// and 8, Plan 23 H5).
+        MathTypedDefinitionV5 => "pse.math.typed-definition.v5",
         /// A prepared view of a compiled modeling structure.
         CompilerModelingViewV2 => "pse.compiler.modeling-view.v2",
         /// The parametric projection of a prepared modeling view over requested parameters.
@@ -213,9 +214,9 @@ frames! {
         /// (ADR-0123 Outcome 8).
         ModelingConsumerBodyV2 => "pse.modeling.consumer-body.v2",
         /// An implicit residual, its terms, hints and guards in canonical spelling, function
-        /// data-layer guards with their envelopes and policies included (ADR-0123 Outcomes 4
-        /// and 8).
-        ModelingImplicitResidualV3 => "pse.modeling.implicit-residual.v3",
+        /// validity and data-layer guards with their envelopes, policies and lineages included
+        /// (ADR-0123 Outcomes 4 and 8, Plan 23 H5).
+        ModelingImplicitResidualV4 => "pse.modeling.implicit-residual.v4",
     }
 
     "modeling specialization" ("pse-modeling") {
@@ -230,9 +231,10 @@ frames! {
         /// (ADR-0123 Outcome 8).
         ModelingDispatchBodyV2 => "pse.modeling.dispatch-body.v2",
         /// A finite function specialization, its validity, data-layer guards with their
-        /// envelopes and selected policies, and body in canonical spelling, and its static
-        /// arguments, enumeration members by identity (ADR-0123 Outcomes 2, 4 and 8).
-        ModelingFiniteFunctionV4 => "pse.modeling.finite-function.v4",
+        /// envelopes and selected policies, each with the parameter sets and arguments it
+        /// reads, and body in canonical spelling, and its static arguments, enumeration
+        /// members by identity (ADR-0123 Outcomes 2, 4 and 8, Plan 23 H5).
+        ModelingFiniteFunctionV5 => "pse.modeling.finite-function.v5",
         /// A finite reduction rewrite.
         ModelingFiniteReductionV1 => "pse.modeling.finite-reduction.v1",
         /// A keyed entity's identity: its key-declaring kind and its ordered, typed key
@@ -243,6 +245,9 @@ frames! {
         ModelingMemberV1 => "pse.modeling.member.v1",
         /// A realized mesh coordinate.
         ModelingMeshCoordinateV1 => "pse.modeling.mesh-coordinate.v1",
+        /// A table row's identity: its table and its ordered, canonical typed key values
+        /// (Plan 23 H5), framed as a keyed entity's are.
+        ModelingTableRowV1 => "pse.modeling.table-row.v1",
         /// A typed constant.
         ModelingTypedConstantV1 => "pse.modeling.typed-constant.v1",
     }

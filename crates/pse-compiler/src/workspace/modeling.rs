@@ -369,7 +369,8 @@ mod flow;
 pub use executable::{
     AdmittedImplicit, AdmittedModeling, BoundStructure, Derivation, Derived, ImplicitAlgorithm,
     ImplicitScale, ModelingCaseBindings, ModelingExpectationResult, ModelingHint, ModelingOutput,
-    ModelingTestValue, ModelingVariableState, ObjectiveBound, PreparedModeling,
+    ModelingPointChecks, ModelingTestValue, ModelingValidityResult, ModelingVariableState,
+    ObjectiveBound, PreparedModeling,
 };
 pub use flow::ModelingFlowSelection;
 

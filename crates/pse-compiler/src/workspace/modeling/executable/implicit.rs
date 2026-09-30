@@ -793,7 +793,7 @@ pub(super) fn project(
                 quantity: ports[id].quantity,
             })
             .collect::<Vec<_>>();
-        let mut h = FramedHasher::new(pse_ids::Frame::ModelingImplicitResidualV3);
+        let mut h = FramedHasher::new(pse_ids::Frame::ModelingImplicitResidualV4);
         h.id(stage).str(&algorithm.key());
         for residual in &residuals {
             h.id(&residual.id);
@@ -827,8 +827,20 @@ pub(super) fn project(
         // Function bodies and guards affect the executable meaning, including assessor-only calls.
         for function in p.functions.values() {
             h.id(&function.id.as_id());
+            // Plan 23 H5: each validity predicate with the sets and arguments it reads.
+            let reads = |h: &mut FramedHasher, reads: &pse_modeling::envelope::Reads| {
+                h.u64(reads.sets.len() as u64);
+                for set in &reads.sets {
+                    h.id(set);
+                }
+                h.u64(reads.variables.len() as u64);
+                for variable in &reads.variables {
+                    h.u64(u64::from(*variable));
+                }
+            };
             if let Some(validity) = &function.validity {
                 h.str(&dsl::render_predicate(validity));
+                reads(&mut h, &function.validity_reads);
             }
             // ADR-0123 Outcome 4: the data-layer guards, their envelopes and policies.
             h.u64(function.envelopes.len() as u64);
@@ -836,6 +848,7 @@ pub(super) fn project(
                 h.id(&guard.envelope.owner.as_id())
                     .str(guard.policy.as_str())
                     .str(&dsl::render_predicate(&guard.predicate));
+                reads(&mut h, &guard.reads);
             }
             if let Some(external) = &function.external {
                 h.hash(&external.revision)

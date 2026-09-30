@@ -397,6 +397,16 @@ impl<'a> BodyBuilder<'a> {
         order: DerivativeOrder,
         source: SemanticId,
     ) -> Result<(), MathError> {
+        self.obligation(value, condition, order, source, None)
+    }
+    fn obligation(
+        &mut self,
+        value: &mut TypedValue,
+        condition: Condition,
+        order: DerivativeOrder,
+        source: SemanticId,
+        lineage: Option<Arc<pse_model::diagnostic::ValidityLineage>>,
+    ) -> Result<(), MathError> {
         if self.physical_only {
             return Ok(());
         }
@@ -406,6 +416,7 @@ impl<'a> BodyBuilder<'a> {
             condition,
             order,
             source,
+            lineage,
         });
         value.effects.insert(slot);
         value.atom = library::formal(slot)?;
@@ -420,12 +431,18 @@ impl<'a> BodyBuilder<'a> {
         value.effects.extend(assumption.0);
         value
     }
-    /// Evaluate a physically checked predicate only for domain admission, at value order.
+    /// Evaluate a physically checked predicate of an authored form only for domain
+    /// admission, at value order; a rejection names `lineage` (ADR-0123 Outcome 4).
     /// Predicate-local providers and branches do not supply mathematical derivatives.
-    pub fn domain<T>(&mut self, source: SemanticId, build: T) -> Result<DomainAssumption, MathError>
+    pub fn domain<T>(
+        &mut self,
+        lineage: Arc<pse_model::diagnostic::ValidityLineage>,
+        build: T,
+    ) -> Result<DomainAssumption, MathError>
     where
         T: FnOnce(&mut Self) -> Result<TypedValue, MathError>,
     {
+        let source = lineage.source;
         let parent = std::mem::take(&mut self.stages);
         let cache = std::mem::take(&mut self.provider_cache);
         let order = self.provider_order;
@@ -442,32 +459,36 @@ impl<'a> BodyBuilder<'a> {
             stages,
             argument,
             token,
-            source,
+            lineage,
         });
         Ok(DomainAssumption(Some(token)))
     }
     /// Preserve an authored validity interval as original-domain obligations,
     /// independent of symbolic simplification and requested derivative order.
+    /// A rejection names `lineage`, the closure layer's (Plan 23 H5).
     pub fn within_range(
         &mut self,
         mut value: TypedValue,
         lower: TypedValue,
         upper: TypedValue,
-        source: SemanticId,
+        lineage: Arc<pse_model::diagnostic::ValidityLineage>,
     ) -> Result<TypedValue, MathError> {
+        let source = lineage.source;
         let mut lo = self.binary(Binary::Sub, value.clone(), lower, None, source)?;
         let mut hi = self.binary(Binary::Sub, upper, value.clone(), None, source)?;
-        self.require(
+        self.obligation(
             &mut lo,
             Condition::Nonnegative,
             DerivativeOrder::Value,
             source,
+            Some(lineage.clone()),
         )?;
-        self.require(
+        self.obligation(
             &mut hi,
             Condition::Nonnegative,
             DerivativeOrder::Value,
             source,
+            Some(lineage),
         )?;
         value.effects.extend(lo.effects);
         value.effects.extend(hi.effects);

@@ -78,7 +78,7 @@
 @id("01a0e15f7bbc77769bb7a7686128a08e") expect partial(caloric.shomate_entropy_coordinate,t)(300,caloric.shomate[chem.nitrogen])==caloric.s_unit()*(caloric.shomate_cp(300{K},caloric.shomate[chem.nitrogen])/caloric.cp_unit())/300 tolerance 1e-10{J/(mol*K)};
 @id("01a0e15f7bbc77769bb7a769964df2e0") expect partial(caloric.constant_entropy_coordinate,t)(300,75.3{J/(mol*K)})==0.251{J/(mol*K)} tolerance 1e-10{J/(mol*K)};
 }
-@id("01a0e16127e470a5896844b60f09f2ef") test liquid_envelope_rejected oracle references.perry7_table_2_196 fixture {dof 0; run pure; failure trial_rejected "math.domain";} {
+@id("01a0e16127e470a5896844b60f09f2ef") test liquid_envelope_rejected oracle references.perry7_table_2_196 fixture {dof 0; run pure; failure trial_rejected validity(data) form(caloric.polynomial_cp) set(caloric.polynomial[benzene_liquid_perry]) variable(T);} {
 @id("01a0e16127e470a5896844b70942a384") expect caloric.polynomial_cp(400{K},caloric.polynomial[benzene_liquid_perry])==150{J/(mol*K)} tolerance 1{J/(mol*K)};
 }
 @id("01a0e16127e470a5896844b87c45c7ed") test vessel_caloric_reference oracle references.plan14_thermo_reference fixture {dof 0; run pure;} {

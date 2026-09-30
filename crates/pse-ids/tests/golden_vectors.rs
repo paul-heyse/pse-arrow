@@ -44,7 +44,8 @@ const UNIT_PRODUCT_ID: &str = "b65b26cc780fb634de036e1195b0af54";
 /// since ADR-0124. The source revision's preimage layout is pinned beside its derivation
 /// (`pse_runtime::math::modeling::source_revision`).
 /// `ModelingFiniteFunctionV2` was one of them until KR4 replaced it, and
-/// `ModelingImplicitResidualV2` and `MathTypedDefinitionV3` until KR7 replaced them (below).
+/// `ModelingImplicitResidualV2` and `MathTypedDefinitionV3` until KR7 replaced them, whose
+/// replacements H5 replaced in turn (below).
 const STRUCTURED_IR_FRAMES: [(Frame, &str, &str); 5] = [
     (
         Frame::ModelingSourceRevisionV2,
@@ -90,25 +91,31 @@ const ENTITY_RECORD_FRAMES: [(Frame, &str, &str); 2] = [
     ),
 ];
 
-/// `derive_hash(frame, [b"pse"])` for each frame variant Plan 23 KR7 added (ADR-0123
-/// Outcomes 4 and 8, DP-24): the function specialization, typed definition and implicit
-/// residual frames, whose preimages now frame a function's data-layer guards, each with the
-/// declaration of its envelope and, where specialized, its selected policy.
-const ENVELOPE_FRAMES: [(Frame, &str, &str); 3] = [
+/// `derive_hash(frame, [b"pse"])` for each frame variant Plan 23 H5 added (ADR-0123
+/// Outcome 4, DP-24): the function specialization, typed definition and implicit residual
+/// frames, whose preimages now frame each validity predicate's lineage (the parameter sets
+/// and arguments it reads), and the table-row identity those sets are named by. They replace
+/// KR7's finite-function.v4, typed-definition.v4 and implicit-residual.v3.
+const LINEAGE_FRAMES: [(Frame, &str, &str); 4] = [
     (
-        Frame::ModelingFiniteFunctionV4,
-        "pse.modeling.finite-function.v4",
-        "40407f7f00f16a3e22a92481a5ba44797c753e46b2dba2b6f5b5a07b7c6ed0f4",
+        Frame::ModelingFiniteFunctionV5,
+        "pse.modeling.finite-function.v5",
+        "515e2b0f77462244e5d5dff03ca4dffbdb1fccae85bf7cba0d902d03465daea1",
     ),
     (
-        Frame::MathTypedDefinitionV4,
-        "pse.math.typed-definition.v4",
-        "3843fe39398fa0454021f53fad746252d841fa8433b759844b3f126f67fbc4c5",
+        Frame::MathTypedDefinitionV5,
+        "pse.math.typed-definition.v5",
+        "e54b1cee565100a8af8fb55593760b12bec248eb4d949f65c9363342dba4a43c",
     ),
     (
-        Frame::ModelingImplicitResidualV3,
-        "pse.modeling.implicit-residual.v3",
-        "1883a743d40d8712f8e7f31447aa34336be4471ca62cc0e06eb5e55a604d202e",
+        Frame::ModelingImplicitResidualV4,
+        "pse.modeling.implicit-residual.v4",
+        "e3be1448bc4a769032d7f6ad6c35ff497c5e55c8bef50ce37fb5b8be9470de2f",
+    ),
+    (
+        Frame::ModelingTableRowV1,
+        "pse.modeling.table-row.v1",
+        "95833c7ed38842f0d3bb8b15ed869df91335c96ce8253cd9d61b6854fcc49f7e",
     ),
 ];
 
@@ -189,8 +196,8 @@ fn the_structured_ir_frame_variants_are_frozen() {
 }
 
 #[test]
-fn the_envelope_frame_variants_are_frozen() {
-    for (frame, spelling, vector) in ENVELOPE_FRAMES {
+fn the_lineage_frame_variants_are_frozen() {
+    for (frame, spelling, vector) in LINEAGE_FRAMES {
         assert_eq!(frame.as_str(), spelling);
         assert_eq!(
             derive_hash(frame, &[b"pse"]).to_hex(),

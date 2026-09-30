@@ -552,7 +552,7 @@ enum CompiledStage {
         layout: JetLayout,
         argument: usize,
         token: usize,
-        source: SemanticId,
+        lineage: Arc<pse_model::diagnostic::ValidityLineage>,
     },
     Block {
         evaluator: ExpressionEvaluator<f64>,
@@ -568,6 +568,7 @@ enum CompiledStage {
         condition: Condition,
         order: DerivativeOrder,
         source: SemanticId,
+        lineage: Option<Arc<pse_model::diagnostic::ValidityLineage>>,
     },
     Branch {
         require_separation: bool,
@@ -831,7 +832,7 @@ fn compile_stages(
                 stages,
                 argument,
                 token,
-                source,
+                lineage,
             } => {
                 let value_layout = JetLayout::new(vec![], DerivativeOrder::Value, limits)?;
                 allowance.entries = allowance
@@ -855,7 +856,7 @@ fn compile_stages(
                     layout: value_layout,
                     argument: *argument,
                     token: *token,
-                    source: *source,
+                    lineage: lineage.clone(),
                 }
             }
             Stage::Block {
@@ -946,11 +947,13 @@ fn compile_stages(
                 condition,
                 order,
                 source,
+                lineage,
             } => CompiledStage::Require {
                 argument: *argument,
                 condition: *condition,
                 order: *order,
                 source: *source,
+                lineage: lineage.clone(),
             },
             Stage::Branch {
                 continuity,
@@ -1094,17 +1097,14 @@ fn evaluate_stages(
                 layout: value_layout,
                 argument,
                 token,
-                source,
+                lineage,
             } => {
                 for (slot, value) in local.iter_mut().enumerate() {
                     *value = frame[slot * width];
                 }
                 evaluate_stages(stages, local, value_layout, providers, context)?;
                 if !Condition::Positive.permits(local[*argument]) {
-                    return Err(MathError::Domain {
-                        source_id: *source,
-                        requirement: "authored function validity",
-                    });
+                    return Err(MathError::Validity(Box::new(lineage.as_ref().clone())));
                 }
                 frame[*token * width..(*token + 1) * width].fill(0.0);
             }
@@ -1148,11 +1148,16 @@ fn evaluate_stages(
                 condition,
                 order,
                 source,
+                lineage,
             } => {
                 if layout.order >= *order && !condition.permits(frame[*argument * width]) {
-                    return Err(MathError::Domain {
-                        source_id: *source,
-                        requirement: condition.description(),
+                    // A closure range names its lineage (Plan 23 H5).
+                    return Err(match lineage {
+                        Some(lineage) => MathError::Validity(Box::new(lineage.as_ref().clone())),
+                        None => MathError::Domain {
+                            source_id: *source,
+                            requirement: condition.description(),
+                        },
                     });
                 }
             }
@@ -1314,7 +1319,7 @@ fn prune(
                 stages,
                 argument,
                 token,
-                source,
+                lineage,
             } => {
                 if !needed.remove(token) && !all_effects {
                     continue;
@@ -1326,7 +1331,7 @@ fn prune(
                     stages,
                     argument: *argument,
                     token: *token,
-                    source: *source,
+                    lineage: lineage.clone(),
                 });
             }
             Stage::Block {

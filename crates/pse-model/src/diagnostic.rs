@@ -33,6 +33,36 @@ pub struct SourceLocation {
     /// UTF-8 exclusive ending byte offset.
     pub end: Option<u32>,
 }
+/// What a rejected authored validity predicate guards (ADR-0123 Outcome 4, Plan 23 H5): its
+/// layer and the declaration stating it; for the form and data layers the form it belongs
+/// to, the parameter sets whose values bound it and the form's declared arguments it
+/// constrains; for the closure layer the model members its range bounds. A fixture's
+/// expected validity failure is matched against this lineage, not against a rule text.
+#[derive(Clone, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+pub struct ValidityLineage {
+    /// The form layer (a function's own domain), the data layer (a declared envelope) or
+    /// the closure layer (an annotated range).
+    pub layer: crate::generated::enums::ModelingValidityLayer,
+    /// The form itself, the relation or kind declaration declaring the envelope, or the
+    /// closure range's annotation.
+    pub source: SemanticId,
+    /// The form: the function declaration whose evaluation was rejected; absent on the
+    /// closure layer.
+    pub form: Option<SemanticId>,
+    /// The table rows or entities whose values bound the predicate, in order.
+    pub sets: Vec<SemanticId>,
+    /// Positions of the constrained arguments among the form's declared arguments.
+    pub variables: Vec<u32>,
+    /// The model members a closure range bounds; empty on the form and data layers.
+    pub members: Vec<SemanticId>,
+}
+impl ValidityLineage {
+    /// Owned heap extent.
+    pub fn heap_bytes(&self) -> usize {
+        (self.sets.capacity() + self.members.capacity()) * size_of::<SemanticId>()
+            + self.variables.capacity() * size_of::<u32>()
+    }
+}
 /// Stable structured cause shared by Rust and the public error projection.
 #[derive(Clone, Debug, thiserror::Error, serde::Serialize, serde::Deserialize)]
 #[error("{stage}: {rule} ({class:?}; sources {sources:?})")]
@@ -53,6 +83,8 @@ pub struct BoundaryDiagnostic {
     /// Available source locations. Empty means unattributed, not a guessed source.
     #[serde(default)]
     pub locations: Vec<SourceLocation>,
+    /// The lineage of a rejected authored validity predicate; absent on every other finding.
+    pub validity: Option<ValidityLineage>,
 }
 const fn error_severity() -> Severity {
     Severity::Error
@@ -76,6 +108,7 @@ impl BoundaryDiagnostic {
             rule: rule.into(),
             observations: Default::default(),
             locations: Vec::new(),
+            validity: None,
         }
     }
     /// The same finding at another severity; the class is unchanged.
@@ -91,6 +124,7 @@ impl crate::HeapUsage for BoundaryDiagnostic {
             + self.rule.capacity()
             + self.sources.capacity() * size_of::<SemanticId>()
             + self.locations.capacity() * size_of::<SourceLocation>()
+            + self.validity.as_ref().map_or(0, ValidityLineage::heap_bytes)
             + self
                 .locations
                 .iter()

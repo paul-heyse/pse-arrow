@@ -409,7 +409,20 @@ fn print_block(
                                 ));
                             }
                         }
-                        if let Some(failure) = &f.expected_failure { statements.push(format!("failure {} {};", failure.class.as_str(), quoted(&failure.rule))); }
+                        if let Some(failure) = &f.expected_failure {
+                            // Plan 23 H5: the class and the typed lineage.
+                            let lineage = match &failure.validity {
+                                Some(v) => format!(
+                                    "validity({}){}{} variable({})",
+                                    v.layer.as_str(),
+                                    v.form.as_ref().map_or_else(String::new, |form| format!(" form({form})")),
+                                    if v.sets.is_empty() { String::new() } else { format!(" set({})", v.sets.join(", ")) },
+                                    v.variables.join(", ")
+                                ),
+                                None => format!("members({})", failure.members.join(", ")),
+                            };
+                            statements.push(format!("failure {} {lineage};", failure.class.as_str()));
+                        }
                         statements.extend(f.specifications.iter().map(|s|format!("{} {}{};",s.kind.as_str(),s.target,s.expression.as_ref().map_or_else(String::new,|e|format!(" = {e}")))));
                         format!(" fixture {{ {} }}", statements.join(" "))
                     })

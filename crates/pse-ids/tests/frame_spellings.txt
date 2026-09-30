@@ -184,7 +184,14 @@ pse.modeling.coordinate.v2
 # specializations, its typed definition and the implicit residuals that frame it.
 # finite-function.v4 replaces finite-function.v3, typed-definition.v4 replaces
 # typed-definition.v3 and implicit-residual.v3 replaces implicit-residual.v2, none of which
-# is declared any longer.
-pse.modeling.finite-function.v4
-pse.math.typed-definition.v4
-pse.modeling.implicit-residual.v3
+# is declared any longer; H5 replaces all three below.
+# Plan 23 H5 (ADR-0123 Outcome 4): each validity predicate's lineage, the parameter sets and
+# arguments it reads, enters the preimages of a function's specializations, its typed
+# definition and the implicit residuals that frame it; a table row has an identity over its
+# table and typed keys. finite-function.v5, typed-definition.v5 and implicit-residual.v4
+# replace KR7's finite-function.v4, typed-definition.v4 and implicit-residual.v3, none of
+# which is declared any longer.
+pse.modeling.finite-function.v5
+pse.math.typed-definition.v5
+pse.modeling.implicit-residual.v4
+pse.modeling.table-row.v1

@@ -1493,6 +1493,7 @@ impl<'a> Builder<'a> {
                     condition,
                     order,
                     source,
+                    ..
                 } => {
                     // Higher-order requirements admit derivatives; the value domain is the
                     // Value-order obligation.
@@ -1530,14 +1531,14 @@ impl<'a> Builder<'a> {
                     stages,
                     argument,
                     token,
-                    source,
+                    lineage,
                 } => {
                     let mut local = env.clone();
                     self.stages(stages, &mut local, cx)?;
                     if cx.record {
                         let predicate = local.read(*argument)?;
                         let truth = self.holds(&predicate, Test::Positive)?;
-                        self.obligation(cx, *source, ObligationKind::Domain, None, truth)?;
+                        self.obligation(cx, lineage.source, ObligationKind::Domain, None, truth)?;
                     }
                     // The token only orders the obligation; it never carries a value.
                     let zero = self.constant(Constant::integer(0))?;

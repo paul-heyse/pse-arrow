@@ -126,6 +126,13 @@ impl ModelingResult {
             },
         );
         if let Some(witness) = contradiction {
+            // The finding names the members the contradicting point assigns, so a fixture
+            // expecting it names them as its lineage (Plan 23 H5).
+            result
+                .sources
+                .extend(witness.quality.bounds.iter().map(|v| v.id));
+            result.sources.sort_unstable();
+            result.sources.dedup();
             result.observations.insert(
                 "witness".into(),
                 Observation::Text(witness.witness.as_str().into()),

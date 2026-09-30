@@ -313,7 +313,21 @@ impl SpecializedModel {
                                     .sum::<usize>()
                         })
                         .sum::<usize>()
-                    + f.expected_failure.as_ref().map_or(0, HeapUsage::heap_bytes)
+                    + f.expected_failure.as_ref().map_or(0, |e| match &e.lineage {
+                        crate::specialize::ExpectedLineage::Validity {
+                            sets,
+                            variables,
+                            members,
+                            ..
+                        } => {
+                            (sets.capacity() + members.capacity())
+                                * size_of::<pse_ids::SemanticId>()
+                                + variables.capacity() * size_of::<u32>()
+                        }
+                        crate::specialize::ExpectedLineage::Members(members) => {
+                            members.len() * (size_of::<pse_ids::SemanticId>() + 32)
+                        }
+                    })
                     + map(&f.specifications, |p, _| p.capacity())
             })
             + self.initial_equations.len() * 64

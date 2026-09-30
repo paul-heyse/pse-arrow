@@ -918,12 +918,13 @@ def test_pure_conformance_has_no_process_runtime_and_retains_findings(
     ).replace("dependencies = []", PRIMITIVES)
     source = """package pure {
       fn square(x:Scalar)->Scalar=x*x;
+      fn root(x:Scalar)->Scalar valid(x >= 0) = x;
       test positive fixture {dof 0; run pure;} {
         expect square(2)==4 tolerance 1e-12 relative 1e-8;
       }
       test negative fixture {
-        dof 0; run pure; failure invalid_model "compiler.missing";
-      } {expect 1==1 tolerance 0;}
+        dof 0; run pure; failure trial_rejected validity(form) form(root) variable(x);
+      } {expect root(-1)==1 tolerance 0;}
     }"""
     documents = {"package.toml": manifest, "models/pure.pse": source}
     # Distinct budgets must be accepted even if another test already owns the process
@@ -947,8 +948,12 @@ def test_pure_conformance_has_no_process_runtime_and_retains_findings(
         assert inventory.num_rows == 2
         assert inventory.column("status").to_pylist() == ["passed", "passed"]
         findings = pa.table(result.findings())
-        assert findings.column("rule").to_pylist() == ["compiler.missing"]
-        assert result.failure(0).boundary_class == "invalid_model"
+        assert findings.column("rule").to_pylist() == ["math.validity"]
+        # Plan 23 H5: the finding carries the rejected predicate's typed lineage.
+        (lineage,) = findings.column("validity").to_pylist()
+        assert lineage["layer"] == "form"
+        assert lineage["variables"] == [0]
+        assert result.failure(0).boundary_class == "trial_rejected"
         table = result.table()
         del result
         assert pa.table(table).num_rows > 0

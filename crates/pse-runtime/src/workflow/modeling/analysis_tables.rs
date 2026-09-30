@@ -139,6 +139,18 @@ pub(in crate::workflow) fn finding_row(
                 end: l.end.map(i64::from),
             })
             .collect(),
+        // Plan 23 H5: a rejected validity predicate's typed lineage.
+        validity: f
+            .validity
+            .as_ref()
+            .map(|v| RuntimeModelingFindingsFieldValidity {
+                layer: v.layer,
+                source_id: v.source,
+                form_id: v.form,
+                set_ids: v.sets.clone(),
+                variables: v.variables.iter().map(|v| i64::from(*v)).collect(),
+                member_ids: v.members.clone(),
+            }),
     }
 }
 fn export_finding_rows(

@@ -211,8 +211,8 @@ mod modeling;
 pub use modeling::{
     AdmittedImplicit, AdmittedModeling, BoundStructure, Derivation, Derived, ImplicitAlgorithm,
     ImplicitScale, ModelingCaseBindings, ModelingExpectationResult, ModelingFlowSelection,
-    ModelingHint, ModelingOutput, ModelingRevision, ModelingTestValue, ModelingVariableState,
-    ObjectiveBound, PreparedModeling,
+    ModelingHint, ModelingOutput, ModelingPointChecks, ModelingRevision, ModelingTestValue,
+    ModelingValidityResult, ModelingVariableState, ObjectiveBound, PreparedModeling,
 };
 #[salsa::db]
 trait CompilerDb: Database {

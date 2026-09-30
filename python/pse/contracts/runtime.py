@@ -522,6 +522,18 @@ class RuntimeModelingFindingsFieldLocationsItem:
 
 
 @attrs.frozen(kw_only=True)
+class RuntimeModelingFindingsFieldValidity:
+    """Declared relation row or nested value."""
+
+    layer: e.ModelingValidityLayer = attrs.field(validator=attrs.validators.instance_of(e.ModelingValidityLayer))
+    source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    form_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    set_ids: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    variables: b.tuple[b.int, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.integer_range(0, 9223372036854775807), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    member_ids: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+
+@attrs.frozen(kw_only=True)
 class RuntimeModelingFindingsRow:
     """Declared relation row or nested value."""
 
@@ -534,6 +546,7 @@ class RuntimeModelingFindingsRow:
     sources: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
     observations: b.tuple[RuntimeModelingFindingsFieldObservationsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeModelingFindingsFieldObservationsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     locations: b.tuple[RuntimeModelingFindingsFieldLocationsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeModelingFindingsFieldLocationsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    validity: RuntimeModelingFindingsFieldValidity | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(RuntimeModelingFindingsFieldValidity)))
 
 
 @attrs.frozen(kw_only=True)

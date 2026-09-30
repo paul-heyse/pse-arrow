@@ -241,11 +241,22 @@ class AuthoredModelingDeclarationsFieldValueScopeFixtureShooting:
 
 
 @attrs.frozen(kw_only=True)
+class AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureValidity:
+    """Declared relation row or nested value."""
+
+    layer: e.ModelingValidityLayer = attrs.field(validator=attrs.validators.instance_of(e.ModelingValidityLayer))
+    form: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    sets: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    variables: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+
+@attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailure:
     """Declared relation row or nested value."""
 
     class_: e.NativeBoundaryClass = attrs.field(validator=attrs.validators.instance_of(e.NativeBoundaryClass), metadata={v.FIELD_NAME_METADATA: "class"})
-    rule: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    validity: AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureValidity | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureValidity)))
+    members: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
 
 @attrs.frozen(kw_only=True)

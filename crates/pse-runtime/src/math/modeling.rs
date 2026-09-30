@@ -145,7 +145,7 @@ impl MathService {
         clippy::too_many_arguments,
         reason = "one compiler job receives the workspace and revision with the specialization request, profile and cancellation driver"
     )]
-    pub async fn modeling_expectations(
+    pub async fn modeling_point(
         self: &Arc<Self>,
         workspace: Workspace,
         revision: ModelingRevision,
@@ -154,7 +154,7 @@ impl MathService {
         limits: Limits,
         profile: pse_compiler::workspace::Profile,
         driver: &crate::CancelSource,
-    ) -> Result<Vec<pse_compiler::workspace::ModelingExpectationResult>, MathRuntimeError> {
+    ) -> Result<pse_compiler::workspace::ModelingPointChecks, MathRuntimeError> {
         let control = FlightCancellation::default();
         let operation = self.job(1, super::WITHIN_WORKSPACE, control.clone(), move |flag| {
             let _lease = workspace.lease;
@@ -163,7 +163,7 @@ impl MathService {
                 .lock()
                 .map_err(|_| MathRuntimeError::Infrastructure("compiler lock poisoned".into()))?;
             compiler.publish_modeling_revision(revision.admitted.clone())?;
-            Ok(compiler.check_modeling_expectations(
+            Ok(compiler.check_modeling_point(
                 root,
                 pse_modeling::specialize::root_instance(root),
                 bindings,

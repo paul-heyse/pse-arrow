@@ -493,7 +493,7 @@ impl ModelingConformanceReport {
         fixture: DeclarationId,
         kind: Kind,
         error: &WorkflowError,
-        expected: Option<&pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailure>,
+        expected: Option<&pse_modeling::specialize::ExpectedFailure>,
         oracle: Option<DeclarationId>,
         cap: usize,
     ) {
@@ -503,12 +503,13 @@ impl ModelingConformanceReport {
         if interrupted {
             self.complete = false;
         }
+        // Plan 23 H5: an expected failure is its class and its lineage, never a class and a
+        // rule text alone.
         let status = if diagnostic.class == C::Cancelled {
             Status::Cancelled
         } else if interrupted {
             Status::Inconclusive
-        } else if expected.is_some_and(|e| e.class == diagnostic.class && e.rule == diagnostic.rule)
-        {
+        } else if expected.is_some_and(|e| e.matches(&diagnostic)) {
             Status::Passed
         } else {
             Status::Failed
@@ -584,8 +585,7 @@ impl ModelingConformanceReport {
         &mut self,
         fixture: DeclarationId,
         model: &pse_compiler::workspace::PreparedModeling,
-        checked: Result<Vec<pse_compiler::workspace::ModelingExpectationResult>, WorkflowError>,
-        row: &Declaration,
+        checked: Result<pse_compiler::workspace::ModelingPointChecks, WorkflowError>,
         cap: usize,
     ) {
         let data = model
@@ -593,12 +593,7 @@ impl ModelingConformanceReport {
             .fixtures
             .get(&pse_modeling::specialize::root_instance(fixture));
         let expected = data.map_or(0, |f| f.expected_degrees_of_freedom);
-        let expected_failure = row
-            .value
-            .scope
-            .as_ref()
-            .and_then(|s| s.fixture.as_ref())
-            .and_then(|f| f.expected_failure.as_ref());
+        let expected_failure = data.and_then(|f| f.expected_failure.as_ref());
         let oracle = data.and_then(|f| f.oracle);
         match checked {
             Ok(checks) => {
@@ -642,7 +637,8 @@ impl ModelingConformanceReport {
                 self.record_fixture(fixture, Kind::DegreesOfFreedom,
                             if expected == dof { Status::Passed } else { Status::Failed },
                             format!("pure point evaluation; structural DoF {dof}; expected {expected}; no solve attempted"), oracle, cap);
-                for check in checks {
+                self.point_validity(fixture, &checks.validity, oracle, cap);
+                for check in checks.expectations {
                     self.record(
                         fixture,
                         check.id,
@@ -684,6 +680,58 @@ impl ModelingConformanceReport {
                 oracle,
                 cap,
             ),
+        }
+    }
+    /// The validity obligations of a pure point, as a solved point's are assessed (Plan 23
+    /// H5): each observed closure range, data envelope and static observation is an
+    /// envelope check, satisfied within its bounds or where its consumer selected
+    /// extrapolation, which is recorded. A rejecting range or guard refused the evaluation
+    /// itself.
+    fn point_validity(
+        &mut self,
+        fixture: DeclarationId,
+        validity: &[pse_compiler::workspace::ModelingValidityResult],
+        oracle: Option<DeclarationId>,
+        cap: usize,
+    ) {
+        if validity.is_empty() {
+            self.record_fixture(
+                fixture,
+                Kind::Envelope,
+                Status::NotApplicable,
+                "no declared validity envelope",
+                oracle,
+                cap,
+            );
+        }
+        for v in validity {
+            let within = v.within();
+            self.record(
+                fixture,
+                v.target,
+                v.source,
+                Kind::Envelope,
+                if within || v.extrapolation {
+                    Status::Passed
+                } else {
+                    Status::Failed
+                },
+                format!(
+                    "{}-layer value {} {} [{}, {}]{}",
+                    v.layer.as_str(),
+                    v.value,
+                    if within { "within" } else { "outside" },
+                    v.lower,
+                    v.upper,
+                    if v.extrapolation {
+                        "; extrapolation selected"
+                    } else {
+                        ""
+                    }
+                ),
+                oracle,
+                cap,
+            );
         }
     }
     /// The recorded checks as a checked `modeling_conformance` relation.
@@ -794,7 +842,6 @@ impl ModelingPackage {
 
             let oracle = self.revision.oracle(fixture);
             let authored = row.value.scope.as_ref().and_then(|s| s.fixture.as_ref());
-            let expected_failure = authored.and_then(|f| f.expected_failure.as_ref());
             let execution = authored
                 .and_then(|f| f.execution)
                 .unwrap_or(Execution::Steady);
@@ -814,15 +861,10 @@ impl ModelingPackage {
                 .await
             {
                 Ok(model) => model,
+                // An expected failure is resolved with the fixture's model, so a fixture that
+                // cannot be prepared has observed none it expects (Plan 23 H5).
                 Err(error) => {
-                    report.failed(
-                        fixture,
-                        Kind::Preparation,
-                        &error,
-                        expected_failure,
-                        oracle,
-                        cap,
-                    );
+                    report.failed(fixture, Kind::Preparation, &error, None, oracle, cap);
                     continue;
                 }
             };
@@ -840,13 +882,14 @@ impl ModelingPackage {
                 .fixtures
                 .get(&pse_modeling::specialize::root_instance(fixture));
             let expected = data.map_or(0, |f| f.expected_degrees_of_freedom);
+            let expected_failure = data.and_then(|f| f.expected_failure.as_ref());
             let case = data.map(ModelingCaseBindings::from).unwrap_or_default();
             if execution == Execution::Pure {
                 let checked = self
                     .runtime
                     .shared
                     .math()
-                    .modeling_expectations(
+                    .modeling_point(
                         self.workspace.clone(),
                         self.revision.clone(),
                         fixture,
@@ -860,7 +903,6 @@ impl ModelingPackage {
                     fixture,
                     model.compiled(),
                     checked.map_err(WorkflowError::from),
-                    row,
                     cap,
                 );
                 continue;
@@ -1656,6 +1698,8 @@ fn range_rejected(error: &WorkflowError, source: SemanticId) -> bool {
         match e {
             pse_math::MathError::Domain { source_id, .. }
             | pse_math::MathError::OutsideRange { source_id, .. } => *source_id == s,
+            // A closure range's rejection names its annotation (Plan 23 H5).
+            pse_math::MathError::Validity(lineage) => lineage.source == s,
             pse_math::MathError::Instance { cause, .. } => math(cause, s),
             _ => false,
         }
@@ -2286,8 +2330,9 @@ mod tests {
             test pure fixture { dof 0; run pure; } {
                 expect square(3)==9 tolerance 1e-12 relative 1e-6;
             }
-            test negative fixture { dof 0; run pure; failure invalid_model "compiler.missing"; } {
-                expect 1==1 tolerance 0;
+            fn positive(x:Scalar)->Scalar valid(x > 0) = x;
+            test negative fixture { dof 0; run pure; failure trial_rejected validity(form) form(positive) variable(x); } {
+                expect positive(-1)==1 tolerance 0;
             }
         }"#;
         let rows = pse_authoring::language::parse(
@@ -2318,7 +2363,7 @@ mod tests {
         assert_eq!(report.fixtures().len(), 2);
         assert!(report.results.is_empty());
         assert_eq!(report.failures.len(), 1);
-        assert_eq!(report.failures[0].rule, "compiler.missing");
+        assert_eq!(report.failures[0].rule, "math.validity");
         assert!(
             report
                 .checks
@@ -2340,6 +2385,207 @@ mod tests {
                 .iter()
                 .all(|c| c.status == Status::Unattempted)
         );
+    }
+    /// A bank of two rows whose temperature envelope is data, a form guarding it at one
+    /// argument beside its own domain, and an increment guarding its interval (Plan 23 H5).
+    const ENVELOPE_BANK: &str = r#"entity kind source provenance { attribute title: Text; } enum role { given } entity source s { title = "synthetic bank" }
+ entity kind item {} entity item a {} entity item b {} set items: Set<item> = {a, b};
+ table cp_data[j: item]: {c: MolarCp, low: Temperature, high: Temperature} envelope T: Temperature in low..high complete_over(j in items);
+ dataset bank: cp_data provenance(s, role.given) { [a] = [75{J/(mol*K)}, 250{K}, 400{K}]; [b] = [80{J/(mol*K)}, 300{K}, 500{K}]; }
+ fn cp(T: Temperature, p: Row<cp_data>) -> MolarCp guards(p.T: T) valid(T > 0{K}) = p.c;
+ fn dh(T0: Temperature, T: Temperature, p: Row<cp_data>) -> DeltaH guards(p.T: [T0, T]) = p.c*(T - T0);"#;
+    fn statuses(p: &ModelingPackage, report: &ModelingConformanceReport) -> BTreeMap<String, Status> {
+        p.declarations()
+            .iter()
+            .filter(|r| r.value.kind == DeclarationKind::Test)
+            .map(|r| (r.name.clone(), report.fixture_statuses[&r.declaration_id]))
+            .collect()
+    }
+    /// Plan 23 H5: an expected envelope failure matches its class and its lineage: the data
+    /// layer, the form, the row whose envelope rejects and the guarded argument, or the
+    /// whole integration interval. A form-layer rejection names the form's own domain. The
+    /// published finding carries the same typed lineage, and the clause round-trips.
+    #[tokio::test]
+    async fn expected_envelope_failure_matches_set_layer_and_variable() {
+        use pse_model::generated::enums::ModelingValidityLayer as Layer;
+        let source = format!(
+            r#"package p {{ {ENVELOPE_BANK}
+ test above fixture {{ dof 0; run pure; failure trial_rejected validity(data) form(cp) set(cp_data[a]) variable(T); }} {{ expect cp(450{{K}}, cp_data[a]) == 75{{J/(mol*K)}} tolerance 1e-9{{J/(mol*K)}}; }}
+ test interval fixture {{ dof 0; run pure; failure trial_rejected validity(data) form(dh) set(cp_data[b]) variable(T0, T); }} {{ expect dh(250{{K}}, 350{{K}}, cp_data[b]) == 8000{{J/mol}} tolerance 1e-6{{J/mol}}; }}
+ test negative fixture {{ dof 0; run pure; failure trial_rejected validity(form) form(cp) variable(T); }} {{ expect cp(-5{{K}}, cp_data[a]) == 75{{J/(mol*K)}} tolerance 1e-9{{J/(mol*K)}}; }}
+ test inside fixture {{ dof 0; run pure; }} {{ expect cp(300{{K}}, cp_data[a]) == 75{{J/(mol*K)}} tolerance 1e-9{{J/(mol*K)}}; }}
+}}"#
+        );
+        let rows = pse_authoring::language::parse(
+            &source,
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            pse_authoring::ParseBudget::default(),
+        )
+        .unwrap();
+        let rendered = pse_authoring::language::render(&rows).unwrap();
+        assert!(rendered.contains("failure trial_rejected validity(data) form(dh) set(cp_data[b]) variable(T0, T);"), "{rendered}");
+        let roundtrip = pse_authoring::language::parse(
+            &rendered,
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            pse_authoring::ParseBudget::default(),
+        )
+        .unwrap();
+        assert_eq!(
+            rows.iter().map(|r| &r.value).collect::<Vec<_>>(),
+            roundtrip.iter().map(|r| &r.value).collect::<Vec<_>>()
+        );
+        let p = package(&source);
+        let report = p.conform(policy(), &crate::CancelSource::new()).await.unwrap();
+        assert!(report.passed(), "{:?}", report.checks);
+        assert!(statuses(&p, &report).values().all(|s| *s == Status::Passed));
+        let id = |name: &str| p.declarations().iter().find(|r| r.name == name).unwrap().declaration_id;
+        let row = |key: &str| {
+            pse_modeling::data::row_identity(
+                id("cp_data"),
+                &[pse_modeling::specialize::Value::Entity { id: id(key), kind: id("item") }],
+            )
+        };
+        let lineages = report
+            .failures
+            .iter()
+            .map(|f| {
+                assert_eq!(f.class, pse_model::diagnostic::BoundaryClass::TrialRejected);
+                let v = f.validity.clone().expect("a validity rejection carries its lineage");
+                (v.layer, v.source, v.form, v.sets, v.variables)
+            })
+            .collect::<BTreeSet<_>>();
+        assert_eq!(
+            lineages,
+            BTreeSet::from([
+                (Layer::Data, id("cp_data").as_id(), Some(id("cp").as_id()), vec![row("a")], vec![0]),
+                (Layer::Data, id("cp_data").as_id(), Some(id("dh").as_id()), vec![row("b")], vec![0, 1]),
+                (Layer::Form, id("cp").as_id(), Some(id("cp").as_id()), vec![], vec![0]),
+            ])
+        );
+        // The published findings keep the lineage.
+        let findings = report.findings_table().unwrap();
+        let published = pse_model::generated::runtime::modeling_findings::Row::rows(&findings).unwrap();
+        assert_eq!(published.iter().filter(|f| f.validity.is_some()).count(), 3);
+        assert!(published.iter().any(|f| f.validity.as_ref().is_some_and(|v| v.layer == Layer::Data
+            && v.form_id == Some(id("dh").as_id())
+            && v.set_ids == [row("b")]
+            && v.variables == [0, 1])));
+    }
+    /// Plan 23 H5: a failure of the expected class whose lineage differs fails its fixture,
+    /// whichever part differs: the layer, the form, the parameter set or the variable. A
+    /// members lineage matches only a finding naming every expected member. A fixture
+    /// expecting a failure its evaluation does not produce fails too.
+    #[tokio::test]
+    async fn expected_failure_with_wrong_lineage_fails_the_fixture() {
+        let call = "expect cp(450{K}, cp_data[a]) == 75{J/(mol*K)} tolerance 1e-9{J/(mol*K)};";
+        let fixtures = [
+            ("right", "validity(data) form(cp) set(cp_data[a]) variable(T)", Status::Passed),
+            ("wrong_layer", "validity(form) form(cp) set(cp_data[a]) variable(T)", Status::Failed),
+            ("wrong_form", "validity(data) form(dh) set(cp_data[a]) variable(T)", Status::Failed),
+            ("wrong_set", "validity(data) form(cp) set(cp_data[b]) variable(T)", Status::Failed),
+            ("wrong_variable", "validity(data) form(cp) set(cp_data[a]) variable(p)", Status::Failed),
+        ];
+        let tests = fixtures
+            .iter()
+            .map(|(name, lineage, _)| {
+                format!("test {name} fixture {{ dof 0; run pure; failure trial_rejected {lineage}; }} {{ {call} }}")
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        let source = format!(
+            "package p {{ {ENVELOPE_BANK}\n{tests}\n test unobserved fixture {{ dof 0; run pure; failure trial_rejected validity(data) form(cp) set(cp_data[a]) variable(T); }} {{ expect cp(300{{K}}, cp_data[a]) == 75{{J/(mol*K)}} tolerance 1e-9{{J/(mol*K)}}; }} }}"
+        );
+        let p = package(&source);
+        let report = p.conform(policy(), &crate::CancelSource::new()).await.unwrap();
+        let statuses = statuses(&p, &report);
+        for (name, _, expected) in fixtures {
+            assert_eq!(statuses[name], expected, "{name}: {:?}", report.checks);
+        }
+        assert_eq!(statuses["unobserved"], Status::Failed);
+        assert!(!report.passed());
+        // A members lineage: every expected member is named by the finding.
+        let fixture = pse_modeling::specialize::ExpectedFailure {
+            class: pse_model::diagnostic::BoundaryClass::InvalidModel,
+            lineage: pse_modeling::specialize::ExpectedLineage::Members(BTreeSet::from([
+                SemanticId::from_bytes([1; 16]),
+                SemanticId::from_bytes([2; 16]),
+            ])),
+        };
+        let finding = |sources: &[u8]| {
+            pse_model::diagnostic::BoundaryDiagnostic::new(
+                pse_model::diagnostic::BoundaryClass::InvalidModel,
+                "native",
+                sources.iter().map(|b| SemanticId::from_bytes([*b; 16])),
+                "native.structural",
+            )
+        };
+        assert!(fixture.matches(&finding(&[1, 2, 3])));
+        assert!(!fixture.matches(&finding(&[1, 3])));
+        let mut other_class = finding(&[1, 2]);
+        other_class.class = pse_model::diagnostic::BoundaryClass::Numerical;
+        assert!(!fixture.matches(&other_class));
+    }
+    /// Plan 23 H5: a pure point is a static evaluation of the model and meets the validity
+    /// obligations a solved point meets. A rejecting data guard or closure range refuses the
+    /// evaluation, named by its lineage; a data envelope or closure range whose consumer
+    /// selected extrapolation is observed at the member or static argument it bounds and
+    /// recorded as an envelope check, never passed over.
+    #[tokio::test]
+    async fn static_evaluation_enforces_envelopes() {
+        let source = format!(
+            r#"package p {{ {ENVELOPE_BANK}
+ def D {{ param T: Temperature; let c: MolarCp = cp(T, cp_data[a]); annotation valid T(200{{K}}, 600{{K}}, reject); }}
+ test static_rejected fixture {{ dof 0; run pure; failure trial_rejected validity(data) form(cp) set(cp_data[a]) variable(T); }} {{ expect cp(450{{K}}, cp_data[a]) == 75{{J/(mol*K)}} tolerance 1e-9{{J/(mol*K)}}; }}
+ test static_extrapolated fixture {{ dof 0; run pure; }} {{ extrapolation data extrapolate; expect cp(450{{K}}, cp_data[a]) == 75{{J/(mol*K)}} tolerance 1e-9{{J/(mol*K)}}; }}
+ test member_extrapolated fixture {{ dof 0; run pure; value root.T = 450{{K}}; }} {{ extrapolation data extrapolate; child root: D = D(); expect root.c == 75{{J/(mol*K)}} tolerance 1e-9{{J/(mol*K)}}; }}
+ test closure_rejected fixture {{ dof 0; run pure; value root.T = 700{{K}}; failure trial_rejected validity(closure) variable(root.T); }} {{ extrapolation data extrapolate; child root: D = D(); expect root.c == 75{{J/(mol*K)}} tolerance 1e-9{{J/(mol*K)}}; }}
+}}"#
+        );
+        let p = package(&source);
+        let report = p.conform(policy(), &crate::CancelSource::new()).await.unwrap();
+        assert!(report.passed(), "{:?}", report.checks);
+        assert!(statuses(&p, &report).values().all(|s| *s == Status::Passed));
+        let id = |name: &str| p.declarations().iter().find(|r| r.name == name).unwrap().declaration_id;
+        let envelopes = |fixture: &str| {
+            report
+                .checks
+                .iter()
+                .filter(|c| c.fixture_id == id(fixture) && c.kind == Kind::Envelope)
+                .map(|c| (c.source_id, c.status, c.message.clone()))
+                .collect::<Vec<_>>()
+        };
+        // A static argument outside the row's envelope is observed and recorded.
+        assert_eq!(
+            envelopes("static_extrapolated"),
+            [(
+                id("cp_data"),
+                Status::Passed,
+                "data-layer value 450 outside [250, 400]; extrapolation selected".into()
+            )]
+        );
+        // At a member: the data envelope extrapolates and the closure range holds.
+        let member = envelopes("member_extrapolated");
+        assert_eq!(member.len(), 2, "{member:?}");
+        assert!(member.contains(&(
+            id("cp_data"),
+            Status::Passed,
+            "data-layer value 450 outside [250, 400]; extrapolation selected".into()
+        )));
+        assert!(member.iter().any(|(source, status, message)| *source != id("cp_data")
+            && *status == Status::Passed
+            && message == "closure-layer value 450 within [200, 600]"));
+        // A rejecting closure range refuses the evaluation, naming the member it bounds.
+        let closure = report
+            .failures
+            .iter()
+            .find_map(|f| f.validity.clone().filter(|v| v.layer == pse_model::generated::enums::ModelingValidityLayer::Closure))
+            .expect("the closure rejection carries its lineage");
+        assert_eq!(closure.form, None);
+        assert_eq!(closure.members.len(), 1);
+        // Without a selection the data guard rejects, and no envelope check passes it over.
+        assert!(envelopes("static_rejected").is_empty());
     }
     /// The authored price-taker package fixture runs through admission, routing, HiGHS and
     /// the original-model checks; its optimum differs from the linear relaxation (85 W).

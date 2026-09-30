@@ -63,7 +63,7 @@
 // 23 H10): it is neither reported as infeasible nor a certificate. With the handler
 // disabled SCIP finds tpd = 0 but its dual bound is -4.1e-5 after 600 s and 522 506 nodes,
 // like the Plan 22 PR instability case, which does not close in 10 minutes either.
-@id("01a0eef9a1b5764cac354b5a39185826") test bt_pr_liquid_stability oracle campaign_references.analytic_equilibrium_tangent_plane fixture {dof 1; run steady; intent certify; failure inconclusive "modeling.qualification.infeasibility_contradicted"; value root.temperature=368{K}; value root.pressure=101325{Pa}; value root.reference_lower=5000{mol/m^3}; value root.reference_upper=11000{mol/m^3}; value root.trial_upper=10500{mol/m^3}; value root.reference.rho=9460{mol/m^3}; value root.trial.rho=34{mol/m^3};} {
+@id("01a0eef9a1b5764cac354b5a39185826") test bt_pr_liquid_stability oracle campaign_references.analytic_equilibrium_tangent_plane fixture {dof 1; run steady; intent certify; failure inconclusive members(root.reference.rho, root.trial.rho); value root.temperature=368{K}; value root.pressure=101325{Pa}; value root.reference_lower=5000{mol/m^3}; value root.reference_upper=11000{mol/m^3}; value root.trial_upper=10500{mol/m^3}; value root.reference.rho=9460{mol/m^3}; value root.trial.rho=34{mol/m^3};} {
 @id("01a0eef9a1b5764cac354b5bc48b03c1") child root:phase_stability.TangentPlaneStability=phase_stability.TangentPlaneStability(selected=chem.aromatics,law=peng_robinson.potential,feed=liquid_fraction);
 @id("01a0eef9a1b5764cac354b5c78b9cff2") expect root.tpd==0 tolerance 0.000001;
 }

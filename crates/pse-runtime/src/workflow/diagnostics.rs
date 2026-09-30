@@ -73,6 +73,7 @@ pub(super) fn observed(
             use pse_math::MathError as E;
             result.rule = match error {
                 E::Instance { .. } => result.rule.as_str(),
+                E::Validity(_) => "math.validity",
                 E::Domain { .. } => "math.domain",
                 E::OutsideRange { .. } => "math.range",
                 E::Evaluation { .. } => "math.evaluation",
@@ -88,6 +89,15 @@ pub(super) fn observed(
             .into();
             match error {
                 E::Instance { instance, .. } => result.sources.push(*instance),
+                // Plan 23 H5: a rejected validity predicate carries its typed lineage.
+                E::Validity(lineage) => {
+                    result.sources.push(lineage.source);
+                    result.sources.extend(lineage.form);
+                    result.sources.extend(&lineage.sets);
+                    result.sources.extend(&lineage.members);
+                    result.validity = Some(lineage.as_ref().clone());
+                    result.class = Class::TrialRejected;
+                }
                 E::Domain { source_id, .. }
                 | E::OutsideRange { source_id, .. }
                 | E::Evaluation { source_id, .. } => {
