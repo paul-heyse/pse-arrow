@@ -25,7 +25,7 @@ bytes = 42920
 records = "530 data lines (nrtl.ipd 352, pr.ipd 178), counted as lines beginning with a CAS-shaped token; nrtl.ipd holds 329 distinct unordered pairs so 23 pairs occur more than once; token counts per row vary (nrtl 6 to 9, pr 5 to 8) because the trailing comment is free text"
 reader = "none in thermo: no function or script in the tree opens these files (searched for the .ipd extension and file names)"
 read_by_source = "none"
-notes = "nrtl.ipd states Units=cal/mol; pr.ipd states no units (dimensionless k12). The JSON files pr.json and nrtl.json are the machine form the library loads; they agree with these files in pair membership (329 of 329 NRTL unordered pairs, 178 of 178 PR pairs) but the converter that produced the JSON is not in the tree. File encoding is not UTF-8 safe everywhere (read with latin-1 here)."
+notes = "nrtl.ipd states Units=cal/mol; pr.ipd states no units (dimensionless k12). The JSON files pr.json and nrtl.json are the machine form the library loads; they agree with these files in pair membership (329 of 329 NRTL unordered pairs, 178 of 178 PR pairs) but the converter that produced the JSON is not in the tree. Both files are plain ASCII (no byte above 0x7f) with CRLF line ends."
 
 [[payload]]
 paths = ["thermo/Interaction Parameters/ChemSep/Artistic_license_2_0.txt"]

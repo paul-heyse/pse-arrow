@@ -285,7 +285,7 @@ bytes = 3737441
 records = "431 compound elements; counted by parsing the XML"
 reader = "no reader in the package; only the development script dev/data/chemsep_radius_of_gyration.py (which opens ChemSep8.30.xml) and tests/test_identifiers.py:2141 open it"
 read_by_source = "not recorded"
-notes = "Single line file (no newlines). The library attribute states the ChemSep authors and the Artistic licence 2.0 URL."
+notes = "One element per line (95128 physical lines, counted from the bytes). The library attribute states the ChemSep authors and the Artistic licence 2.0 URL."
 
 [[payload]]
 paths = ["Electrolytes/*.tsv"]
