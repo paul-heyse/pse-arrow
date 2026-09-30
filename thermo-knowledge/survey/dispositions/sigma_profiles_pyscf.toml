@@ -1,0 +1,35 @@
+[[disposition]]
+construct = "sigma profile row (main Parquet)"
+disposition = "model_change"
+ref = "alignment-notes #23"
+reason = "Same change as the UD sigma3 file: disp_flag (five values here) needs a dispersion-class enum in model/ for the COSMO-SAC-dsp form's pure slot group, while the three blocks become named series of one tabulated_function. Null disp_e_kB (74,094 rows) maps to a stateful slot state, and an all-zero OH or OT block is stored as a known zero because the source cannot tell an unpopulated block from a missing one."
+
+[[disposition]]
+construct = "sigma profile index row"
+disposition = "mapping_loss"
+ref = "kind:identity_assertion"
+reason = "Empty strings for CAS (352,856 rows), InChIKey and Chemical_Family are declared absent, so a CID without CAS cannot be told from one whose CAS was not looked up; the 19,948 InChIKeys shared by several CIDs resolve to one species whose profiles coexist as parameter sets distinguished by occurrence, unranked by the source. Chemical_Family, Heavy_Atoms and COSMO_Segments have no slot and are not kept."
+
+[[disposition]]
+construct = "sequential refit parameters"
+disposition = "mapping_loss"
+ref = "kind:fit"
+reason = "The five constants become a conditional parameterization with a global-subject set, a fit derivation and a fitted_given dependency on the profile parameterization; the training data are not distributed, so the derivation has no inputs. The stage RMSEs, training counts and split seed have no slot (a fit holds objective and outcome only) and survive only in the derivation's method text, and no covariance exists to store."
+
+[[disposition]]
+construct = "integrity results"
+disposition = "out_of_scope"
+ref = ""
+reason = "The producer's build and verification log of its own deposit (file counts, hashes, extraction statuses, a pass gate) holds no thermodynamic knowledge; the hashes of the acquired files are recorded by the pipeline in artifact rows."
+
+[[disposition]]
+construct = "cavity radii table and cavity settings"
+disposition = "mapping_loss"
+ref = "kind:derivation"
+reason = "The eight Klamt radii (Angstrom), vdw_scale and the density-fitting flag are quantum-chemistry settings of the profile-generation computation; they are kept only as text in that derivation's method, not as typed values."
+
+[[disposition]]
+construct = "rights and citation statement"
+disposition = "held_by_model"
+ref = "kind:rights_determination"
+reason = "Two rights_determination rows, scope code (MIT) and scope data (CC BY 4.0, attribution_required true), hold the terms with the quoted statement. The paper citation 'TBD' that the attribution clause names does not exist, so no publication is created; nothing the declaration could hold is lost."

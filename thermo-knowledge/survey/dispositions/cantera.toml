@@ -1,0 +1,207 @@
+[[disposition]]
+construct = "YAML input document (sections)"
+disposition = "mapping_loss"
+ref = "kind:chemical_system"
+reason = "One YAML file is split into a chemical_system, a parameterization and a convention_set, with the cross-file include graph, the default units and the converter (software_release from the generator field) resolved at import; the free section names that only group entries for the author, and the file-level description and date beyond the converter, are not kept."
+
+[[disposition]]
+construct = "units mapping"
+disposition = "mapping_loss"
+ref = "mechanism:mapping rule source_unit"
+reason = "The units mapping is not kept: the mapping resolves its scope-inherited defaults and in-string suffixes per value into a declared source_unit on each mapping rule, and the unit of a rate constant follows the reaction order; an absent key is assumed to be the Cantera default (SI with kmol), which the file cannot distinguish from a key set to it."
+
+[[disposition]]
+construct = "phase entry"
+disposition = "mapping_loss"
+ref = "kind:phase_definition"
+reason = "A phase entry becomes a phase_definition whose aggregation and structure are derived from the thermo-model name by a mapping table (an assumption), with the thermo model as its phase_model assembly; the initial state, adjacent-phase list and skip-undeclared switches configure a calculation and are not kept, and the kinetics and transport model names are kept only as assembly choices where a form exists."
+
+[[disposition]]
+construct = "section reference (include) syntax"
+disposition = "mapping_loss"
+ref = "relation:system_member"
+reason = "Phase membership is resolved across files at import into system_member and system_reaction rows of one chemical_system, recording the supplying file through the import record of each entry; the 'all' and default-section shorthands are expanded, and the list order that fixes species order in the phase has no slot."
+
+[[disposition]]
+construct = "phase state"
+disposition = "out_of_scope"
+reason = "An initial or reference state (two state variables and a composition, defaulting to 298.15 K and 1 atm) is a state computed or assigned at a process location, so the model holds none; where a model needs a composition as a parameter, such as the reference-state-coverage of a surface phase, it is a model-specific key of the phase entry, not its state."
+
+[[disposition]]
+construct = "element entry"
+disposition = "model_change"
+ref = "alignment-notes #17"
+reason = "Custom isotopes (the named isotopes of Elements.cpp and the section named isotopes) share an atomic number with an element, but the element kind makes atomic_number unique and conserved_kind has no isotope member, so an isotopically labelled element needs its own conserved_quantity refinement with a mass number and atomic mass; the electron E is converted to the charge quantity by the mapping, and custom atomic weights and entropy298 fit an edition and an evaluated dataset."
+
+[[disposition]]
+construct = "species entry"
+disposition = "mapping_loss"
+ref = "kind:species_form"
+reason = "Each entry becomes a species_form with one parameter set per block, its aggregation assumed from the phase that includes it (the entry sits in a section, not a phase), so the same name used by a gas and a condensed phase is two forms; the charge is taken from the E count with the sign converted, the computed molecular weight is not imported, and an absent block cannot be told from an empty one."
+
+[[disposition]]
+construct = "thermo model NASA7"
+disposition = "mapping_loss"
+ref = "form:nasa7"
+reason = "The coefficients map to nasa7 pieces as stored, but the convention set must assert Cantera's code gas constant (8314.46261815324 J/kmol/K, not necessarily the value the fits were built with) and leave the enthalpy datum not_stated, both assumptions; the tie rule at the mid temperature (T <= midT) and the NasaPoly2::validate warning thresholds are program behaviour and are not kept, the intervals being stored as stated."
+
+[[disposition]]
+construct = "thermo model NASA9"
+disposition = "held_by_model"
+ref = "form:nasa9"
+reason = "The n+1 bounds of the range list are paired into intervals on the nasa9 pure.piece family (T_low, T_high, with adjacency checked on mapping), so the list shape is only a difference of arrangement with no value lost."
+
+[[disposition]]
+construct = "thermo model Shomate"
+disposition = "mapping_loss"
+ref = "form:shomate"
+reason = "The coefficients are stored as published in J/mol/K and kJ/mol with no unit attached, so the mapping attaches those units and converts from t = T/1000 to the form's kelvin-based slots, and the WebBook formation-enthalpy datum of H at 298.15 K is inferred, not stated."
+
+[[disposition]]
+construct = "thermo model constant-cp"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "An absent h0, s0 or cp0 is imported as Cantera's documented default 0.0 and the mapping rule records that the source cannot tell a missing key from a stated zero (h0 is given in 50 of 65 entries), while the T-min and T-max that none of the 65 entries states produce no validity region."
+
+[[disposition]]
+construct = "thermo model piecewise-Gibbs"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "The table is held as a form with rows of (temperature, mu0) whose expression states constant heat capacity between points, not as a tabulated_function, so the missing interpolation rule does not arise; the first temperature 298.15 K, an absent h0 as 0.0, and the multiplication of dimensionless data by R T with Cantera's R are assumptions read from code (Mu0Poly.h), and the text-keyed temperatures are parsed to numbers."
+
+[[disposition]]
+construct = "species transport (gas)"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "An absent dipole, polarizability or rotational-relaxation key is imported as the documented default zero and the mapping rule records that the source cannot tell it from a stated zero (polarizability is present in 77 of 241 species); diameter and well-depth units (Angstrom, K) come from species.md, not the file, and the species-to-parameter join is by name through a source entity."
+
+[[disposition]]
+construct = "equation-of-state constant-volume"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "The three alternative spellings (molar-volume, molar-density, density) become one molar-volume value, with density converted through the species molar mass (an assumption about the atomic-weight edition, since Cantera computes it) and the spelling chosen in the file not kept."
+
+[[disposition]]
+construct = "equation-of-state temperature polynomial"
+disposition = "held_by_model"
+ref = "mechanism:form catalogue"
+reason = "The two model names are two forms of the catalogue (a polynomial in T for density and one for molar volume, each with its own slot types), so the choice is the form and is not lost; the density variant's division by the molecular weight is the form's expression."
+
+[[disposition]]
+construct = "equation-of-state HKFT"
+disposition = "mapping_loss"
+ref = "enum:enthalpy_datum"
+reason = "The body of data is assigned the apparent_helgeson enthalpy datum from the SUPCRT92 citation in the code, because no block states it, and the cal/gmol and cal K/gmol units are read from strings; g0 is absent in 2 of 8 entries and Cantera derives it from h0, s0 and the element entropies, so that derived value is not a stated one."
+
+[[disposition]]
+construct = "equation-of-state Redlich-Kwong and Peng-Robinson"
+disposition = "held_by_model"
+ref = "mechanism:form catalogue"
+reason = "Redlich-Kwong (a as a two-term function of T) and Peng-Robinson (constant a with an alpha function) are separate forms, the binary-a group is a symmetric pair group with conflicting double entries kept as occurrences (alignment-notes #5), and the a and b that Cantera computes from critical constants, like the default a_ij combining rule, are rule-derived values of a selection_policy (named_rule), not authored data."
+
+[[disposition]]
+construct = "equation-of-state liquid-water-IAPWS95"
+disposition = "held_by_model"
+ref = "relation:entity_model"
+reason = "The marker is the model choice, recorded by entity_model as a model_assembly rooted in a helmholtz_potential form whose sub-form parameters are supplied by another parameterization (subject_subform_choice.source_parameterization); the IAPWS-95 coefficients are mapped from their own source, not from this file."
+
+[[disposition]]
+construct = "critical-parameters (species) and critical-properties database entry"
+disposition = "mapping_loss"
+ref = "kind:source_entity"
+reason = "The upper-case or free-text name keys become source entities resolved to species identity (an unresolved name stays provisional), and the file's units (Pa, m^3/kmol) are taken from its description since fixtures write MPa in strings; the four unread fields are imported as data, and per-record attribution exists for only 4 of 697 records, the rest carrying file-level attribution."
+
+[[disposition]]
+construct = "coverage-dependencies (species)"
+disposition = "held_by_model"
+ref = "mechanism:form catalogue"
+reason = "The four models are four forms of the catalogue with their own slot groups over an ordered species pair (transposition ordered, the pair key being the affected species and the acting species), with the interpolative model's coverages and values held as a tabulated_function; the quantity each scope unit stands for is resolved by the units mapping."
+
+[[disposition]]
+construct = "Debye-Huckel activity-data and species block"
+disposition = "mapping_loss"
+ref = "kind:model_assembly"
+reason = "The activity-data model choice becomes a model_assembly choice with a global parameter_set and species-level sets, but the solvent is designated by position (the first species) and becomes the solvent member_role by assumption, the units of B-dot, max-ionic-strength and beta are not stated, and an absent model is read as the code's dilute limit."
+
+[[disposition]]
+construct = "HMW-electrolyte activity-data interactions"
+disposition = "mapping_loss"
+ref = "kind:model_assembly"
+reason = "The one-, two- and three-species entries become groups per species count (a permutation_group transposition for psi and zeta, which keeps the file's arbitrary order as arrangement), the coefficient-list length becomes the temperature-model choice of the assembly, and a scalar equals a one-item list; the units of beta0, beta1, beta2, Cphi, theta, lambda, psi, zeta and mu are not stated, and an absent alpha2 is taken as the code's 0."
+
+[[disposition]]
+construct = "Margules and Redlich-Kister interactions"
+disposition = "held_by_model"
+ref = "mechanism:form catalogue"
+reason = "The Margules pair becomes a form whose slot group over an ordered pair declares a linear transposition with matrix [[1, 1], [0, -1]] on (h0, h1), and the Redlich-Kister coefficients a parity transposition by coefficient index, both now in the meta-model (alignment-notes #1), so the stored numbers stay as asserted; an absent entropy or volume key is the documented zero and is written as a stated zero."
+
+[[disposition]]
+construct = "ideal-molal and ideal-condensed phase options"
+disposition = "mapping_loss"
+ref = "kind:standard_state"
+reason = "The standard-concentration basis maps to the standard_state and convention_set of the phase, but unity, species-molar-volume and solvent-molar-volume name concentration scales with no composition_basis entity (vocabulary to be declared with the mapping), unity carries no unit, and the undocumented fixture spelling solvent_volume is unmapped; the cutoff parameters go to a parameter set of a form."
+
+[[disposition]]
+construct = "binary-solution-tabulated tabulated-thermo"
+disposition = "held_by_model"
+ref = "kind:tabulated_function"
+reason = "One tabulated_function has the mole-fraction axis and three series (enthalpy, entropy, molar volume) on one grid, with interpolation linear and the grid range as the validity; the clamping of values outside the grid is the consumer's extrapolation policy (alignment-notes #15) and the per-phase table attaches to the tabulated species form."
+
+[[disposition]]
+construct = "plasma electron-energy-distribution and electron-collisions"
+disposition = "mapping_loss"
+ref = "kind:reaction"
+reason = "Each (target, process) cross-section table becomes a tabulated_function of a form whose subject is the reaction e + target -> product, with the product taken as the target when absent and threshold 0.0 as the code's default, but the process kind has no declared vocabulary and is kept only as source text, and the distribution type and its shape parameters are phase options of a model_assembly."
+
+[[disposition]]
+construct = "reaction entry"
+disposition = "mapping_loss"
+ref = "kind:reaction"
+reason = "The equation string is parsed into reaction_participant rows (names containing plus signs or parentheses are resolved against the species list, an assumption) and kept as SourceText, reversibility and the duplicate flag are carried by the rate form (an optional reverse sub-form, additive contributions by occurrence) and orders and efficiencies by slot groups over (reaction, species_form), while the negative-orders, nonreactant-orders and negative-A permission flags are validation behaviour and are not kept; an absent type or orders is read as the Cantera default."
+
+[[disposition]]
+construct = "rate parameterisation Arrhenius family"
+disposition = "model_change"
+ref = "alignment-notes #18"
+reason = "Give a rate-constant slot (and the contract output of a rate form) a dimension derived from its reaction, the order of the forward rate law and the phase dimension of each participant (per volume for bulk species, per area for surface species), because a slot type is fixed at declaration and cannot hold an A whose unit is concentration^(1-n)/time with n taken from the reaction."
+
+[[disposition]]
+construct = "rate parameterisation falloff family"
+disposition = "model_change"
+ref = "alignment-notes #18"
+reason = "The falloff assembly itself is held (a nested low and high Arrhenius set with a blending sub-form chosen per reaction, chemically-activated as its own form), but the low-pressure limit carries one more concentration power than the high-pressure one, which needs the order-dependent rate-constant dimension of the Arrhenius construct; an absent Troe T2 is the not_applicable value state and absent SRI D and E are the documented 1 and 0."
+
+[[disposition]]
+construct = "rate parameterisation pressure tables (PLOG, Chebyshev, linear-Burke)"
+disposition = "model_change"
+ref = "alignment-notes #18"
+reason = "The Chebyshev matrix is a multi-index family and the collider sets are nested sets, but the PLOG and linear-Burke Arrhenius sets have an A whose unit follows the reaction order, which needs the order-dependent rate-constant dimension of the Arrhenius construct; the base-10 logarithm of the Chebyshev fit and the summing of PLOG entries at one pressure are read from the Chemkin convention, not stated."
+
+[[disposition]]
+construct = "rate parameterisation interface, sticking and electrochemical"
+disposition = "model_change"
+ref = "alignment-notes #18"
+reason = "Interface-Arrhenius and coverage-dependent rates have an A whose unit depends on the reaction order and on the phase dimension of each participant (surface species per area, bulk per volume), which needs the derived rate-constant dimension of the Arrhenius construct; the type inferred by the code from the phase kind and keys and the charge-transfer flag inferred from species charges are chosen by the mapping, and an absent beta is the documented 0.5."
+
+[[disposition]]
+construct = "rate parameterisation electron-collision-plasma and custom"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "A cross-section table maps to the electron-collision form over a tabulated_function (energies in eV or V as the reactions file writes them, cross sections in m^2), with the rate integrated over the phase's distribution; custom-rate-function and other user-defined types carry no data, so nothing of them is mapped."
+
+[[disposition]]
+construct = "tpx pure-fluid substance"
+disposition = "mapping_loss"
+ref = "kind:model_assembly"
+reason = "Each fluid maps to a model_assembly chosen by pure-fluid-name, but the file holds no parameters: the coefficient arrays are unnamed and unitless in C++ code and could be carried only by transcription with assumed units, and the enthalpy datum is moved at run time from another species' thermo, so the energy reference is recorded as not_stated."
+
+[[disposition]]
+construct = "Chemkin input (legacy)"
+disposition = "out_of_scope"
+reason = "Chemkin-II input is a legacy format read only by the converter: the thermo cards, reaction lines and transport table carry nothing that the converted YAML species, reaction and transport entries do not, so the format holds no further knowledge of its own."
+
+[[disposition]]
+construct = "regression table (csv)"
+disposition = "mapping_loss"
+ref = "kind:dataset"
+reason = "The arrays map to a dataset of kind computed with origin role oracle_input, but the columns are unnamed and carry no units, so their meaning and unit are declared by the reader as an assumption, and the values (computed by Cantera under test, with no stated version or conditions) must not serve as independent evidence."

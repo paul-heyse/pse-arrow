@@ -1,0 +1,77 @@
+[[disposition]]
+construct = "thermodataset file header"
+disposition = "mapping_loss"
+ref = "kind:convention_set"
+reason = "The file states only a dataset label, source labels and an export date, so the mapping creates the parameterisation, the chemical system and the convention set from the dataset name and the engine defaults. The conventions object is absent from all seven files, so the default water triple-point reference HKF_HGK_1974 and the engine's 8.31451 J/(mol K) are assumed, and thermodataset labels repeat across files (aq17-gem)."
+
+[[disposition]]
+construct = "element record"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "Entropy and atomic_mass become slots of forms whose subject is the element, the energy reference and atomic-weight edition being the convention set's and unnamed by the record, with J/(mol K) and g/mol assumed as the reader assumes when no unit is given. The charge pseudo-element Zz is a conserved_quantity, so its entropy (-65.34 in psinagra, meaningless for charge) is dropped."
+
+[[disposition]]
+construct = "substance record"
+disposition = "mapping_loss"
+ref = "kind:species_form"
+reason = "The record is split into a species form with composition rows and one parameter set per method (the code-to-slot table lives in the mapping), with G0, H0, S0, Cp0 and V0 at Tst = 298.15 K and Pst = 1e5 Pa as slots of the reference form. The standard state, concentration scale and solvent are not stated and the apparent (Benson-Helgeson) energy convention is assumed, and a stored zero error is read as no error stated, not as zero."
+
+[[disposition]]
+construct = "property block (values, units, errors)"
+disposition = "model_change"
+ref = "alignment-notes #27"
+reason = "enum:uncertainty_kind has no member for a magnitude whose meaning the source does not state, so a non-zero errors entry (standard, expanded or a bound is not said) can only be asserted as one of those kinds or dropped; add an `unspecified` member with no facet. A zero error, which cannot be told from unknown (322 of 331 in aq17), maps to not_stated."
+
+[[disposition]]
+construct = "TPMethods entry"
+disposition = "held_by_model"
+ref = "relation:entity_model"
+reason = "The list is an entity_model assembly of the species form whose sub-form slots (general equation of state, temperature correction, pressure correction, solvent) are filled through the code-to-slot table that mapping.toml declares (alignment-notes #16), with temperature limits as validity regions. The rule that a later entry replaces an earlier one in the same slot is a selection fact, and the {code: name} pairs are read by code."
+
+[[disposition]]
+construct = "method code vocabularies"
+disposition = "held_by_model"
+ref = "mechanism:form catalogue"
+reason = "Each method name is a form of the catalogue (or a choice such as a water equation of state), and a combination such as a water equation of state with its triple-point reference is split between the form and the convention set. Codes that the engine accepts and then ignores (fug_critical_param and mv_equation_dorogokupets88 on substances) are mapped as data and noted as unevaluated by ThermoFun."
+
+[[disposition]]
+construct = "class_ and aggregate_state codes"
+disposition = "held_by_model"
+ref = "relation:system_member"
+reason = "class_ maps to the member_role of the system_member row (solvent, solute, gas, pure_solid) and aggregate_state to aggregation, so the solvent and solute roles that the class carries are kept; AS_AQUEOUS becomes a liquid aggregation with the solute role because the model reserves aqueous for a liquid with a solvent convention. The table from codes to members is mapping knowledge."
+
+[[disposition]]
+construct = "cp_ft_equation parameter blocks (m_heat_capacity_ft_coeffs, m_phase_trans_props)"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "The intervals are a piece family with the phase-transition increments in a second family indexed by boundary, both declarable, and the unread a10 and the unnamed twelfth value are dropped. The a9 term, labelled J/(mol K^1.5) and integrated as T^0.5 for H, S and G, is added to Cp as a constant by the code (integer division 1/2), so the mapping must follow one reading and record which; a9 is non-zero in one of 2049 blocks."
+
+[[disposition]]
+construct = "eos_hkf_coeffs"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "The seven named parameters are slots of an HKF form, but the units array states six units and the third, (cal*K)/mol, is replaced by the reader with (cal*K)/(mol*bar) as a fix for bad data, which the mapping must adopt as an assumption. The eighth value in all 2009 blocks is never read and is dropped, and the charge HKF needs comes from formula_charge."
+
+[[disposition]]
+construct = "eos_akinfiev_diamond_coeffs, m_landau_phase_trans_props, eos_gas_crit_props"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "The three blocks are slots of different forms chosen by the method code and not by the block name, with units from the reader (Landau temperatures in degC, critical pressure in bar) or none stated (Akinfiev-Diamond), and the unlabelled trailing entries of eos_gas_crit_props for the CORK and PRSV layouts are read from the GEMS layout. Unused trailing values stored as 0 cannot be told from real zeros."
+
+[[disposition]]
+construct = "reaction record"
+disposition = "mapping_loss"
+ref = "relation:system_reaction"
+reason = "The reaction and its reference logKr and drsm_* values (J/mol, J/(mol K), J/bar) map directly, the defines link to the substance being made from equal symbols and the substance's reaction field, and the participants' standard states, which the file does not state, come from the convention set. The extrapolation markers (logk_3_term_extrap, logk_nordstrom_munoz88) are not evaluated when logk_fpt_function is listed and are kept as a selection fact, and the pressure limits have no stated unit."
+
+[[disposition]]
+construct = "reaction parameter blocks (logk_ft_coeffs, dr_heat_capacity_ft_coeffs, dr_ryzhenko_coeffs, dr_marshall_franck_coeffs, dr_volume_fpt_coeffs, dr_dolejs_manning10_coeffs)"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "The blocks have no names or units in the files (logk_ft_coeffs A0..A6, dr_heat_capacity_ft_coeffs), so term identity and units come from the reader and are assumed, and the coefficients of a logk_fpt_function entry are joined by the mapping with its separate extrapolation marker, which carries no block. The density-model blocks occur only in fixtures or ThermoHub data."
+
+[[disposition]]
+construct = "reaction-defined substance"
+disposition = "mapping_loss"
+ref = "relation:system_member"
+reason = "The species form is linked by system_reaction.defines to its reaction, and its standard properties are the reaction's minus the coefficient-weighted other participants divided by its own coefficient, which the dependency and the form hold. The file states no chemical system and no basis, so the mapping creates the system from the dataset and infers the roles (secondary for the defined substances, basis for those with methods)."

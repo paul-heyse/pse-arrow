@@ -1,0 +1,34 @@
+[[disposition]]
+construct = "phase boundary (ZPF) dataset file"
+disposition = "mapping_loss"
+ref = "kind:dataset"
+reason = "Each file is split into datasets by phase set, every phase region a data point with its temperature and the mole fractions of all but the dependent component, the 983 null compositions datums of state not_measured and the 7 'disordered' flags kept only in a dataset_phase label. The origin (digitised, by reference) and the units are assumptions because the files state neither, no uncertainty is written, and the 5 files whose tie lines name phases absent from the phases list keep the source's labels (LAVES_36 is not matched to LAVES_C36)."
+
+[[disposition]]
+construct = "single-phase thermochemical dataset file"
+disposition = "model_change"
+ref = "alignment-notes #24"
+reason = "The 474 configurations with their occupancies (52 files) and the site ratios are site fractions per sublattice of one phase, which dataset_column cannot express without a site_class qualifier (the change proposed for the ESPEI solver block). The 9 files with bare HM, SM and CPM outputs also leave the reference relation (formation, absolute or mixing) unstated, which the mapping cannot resolve and must not guess."
+
+[[disposition]]
+construct = "activity dataset file"
+disposition = "mapping_loss"
+ref = "kind:standard_state"
+reason = "Each file becomes a dataset with an activity column at its single temperature and composition values, its reference_state dict (reference phases and the conditions of the pure component) a pure_real standard_state with the phases and reference conditions kept only as a dataset_phase label and reference columns. The units (dimensionless, K, mole fraction) come from the ESPEI documentation and the origin (digitised) is an assumption."
+
+[[disposition]]
+construct = "references.bib entry"
+disposition = "held_by_model"
+ref = "kind:publication"
+reason = "An entry becomes a publication (with its doi for 37 of 73) and its key is kept on a citation row; a dataset's reference string equal to a key (148 of 215) is an attribution of its import record to that publication, and the 67 free-text or unlisted strings become carrier-scoped publications carrying the string as the citation text, so the string equality is a mapping rule and no link is lost. The empty reference of one dataset gets no attribution."
+
+[[disposition]]
+construct = "old phase-model file"
+disposition = "model_change"
+ref = "alignment-notes #25"
+reason = "The sublattice models, site ratios and equivalent_sublattices of the five files map to phase_definition, site_class, site_occupant and site_equivalence rows, but the aliases (BCC_B2 with alias BCC_A2) need the ordered-disordered phase pairing relation proposed for pycalphad's DISORDERED_PART. The refdata key is unread by the source and not kept."
+
+[[disposition]]
+construct = "directory organisation and naming"
+disposition = "out_of_scope"
+reason = "The layout (component count, system, data type, phase and property directories) organises the repository for people and repeats what the file contents state. The relative path is used only as the dataset's local key and the artifact's path, and carries no thermodynamic knowledge."

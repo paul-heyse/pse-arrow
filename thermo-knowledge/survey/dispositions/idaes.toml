@@ -1,0 +1,46 @@
+[[disposition]]
+construct = "property package configuration dictionary (GenericParameterData.CONFIG)"
+disposition = "mapping_loss"
+ref = "kind:model_assembly"
+reason = "The equation-of-state class per phase becomes a model_assembly held by phase_model rows, and pressure_ref, temperature_ref and the enthalpy-of-formation switch become an energy_reference; state_definition, state_bounds and the deprecated default_scaling_factors are solver-interface choices and are not kept. pressure_ref and temperature_ref written as bare numbers (as in the eNRTL and reaction examples) are read as Pa and K, an assumption."
+
+[[disposition]]
+construct = "component configuration (ComponentData.CONFIG) and method slots"
+disposition = "mapping_loss"
+ref = "kind:species_form"
+reason = "A component has no identifier but its name in the dictionary, so identity rests on a source_local name assertion and needs a curated decision or stays a provisional species; each of the 18 method slots becomes a subject_subform_choice naming the library class, and a plain callable given for a slot has no form and is not mapped. NoMethod (deliberately absent viscosity or conductivity) is kept only as the absence of a choice, so the source's distinction from an unset slot is lost."
+
+[[disposition]]
+construct = "phase configuration (PhaseData.CONFIG)"
+disposition = "mapping_loss"
+ref = "kind:phase_definition"
+reason = "The phase type class maps to an aggregation and the equation-of-state class and options to a phase_model assembly; AqueousPhase maps to liquid, and the solvent and solute standard states of a convention_set that the class name implies but the configuration does not state must be assumed by the mapping. The phase-level transport slots (therm_cond_phase, surf_tens_phase, visc_d_phase) become sub-form choices."
+
+[[disposition]]
+construct = "parameter_data layouts"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "Each entry becomes a parameter set of a form slot group keyed by the subject its layout names, the 'cation, anion' strings inside the tau and alpha keys being parsed into the species of a role tuple, with kappa mapped as an ordered pair and alpha as a symmetric one; a pair missing from tau or alpha takes the library default, which is a stated default and not a stored zero. Bare numbers are taken in the declared unit of the Var and tagged entries in their stated unit, and no temperature scale is stated (enum temperature_scale not_stated)."
+
+[[disposition]]
+construct = "method library protocol (get_method)"
+disposition = "mapping_loss"
+ref = "relation:subject_subform_choice"
+reason = "The library class given for a slot is the form chosen for that component or phase, recorded as a subject_subform_choice row; a plain user function carries no structure or parameters and cannot become a form, so such a configuration is held, not mapped. The log-expression fallback with a warning is program behaviour and is not kept."
+
+[[disposition]]
+construct = "property entries of the state block (define_metadata)"
+disposition = "mapping_loss"
+ref = "kind:observable_alias"
+reason = "Each property name becomes an observable_alias with a stated precision and loss, written by hand because amount basis, reference state and path are encoded in the name and in code; flows, compositions and the other per-state quantities are values at a process location and are not mapped. The unit of each property is the metadata default unit, which the mapping assumes."
+
+[[disposition]]
+construct = "state definitions (specification sets)"
+disposition = "out_of_scope"
+reason = "A state definition chooses the state variables and bounds of a process state block, a numerical-formulation choice of the solver interface that holds no thermodynamic knowledge; the specification pairs it implies are the calculations flash_tp and flash_ph, recorded as capabilities."
+
+[[disposition]]
+construct = "bundled example configurations (modular_properties/examples)"
+disposition = "mapping_loss"
+ref = "kind:model_assembly"
+reason = "Each example dictionary maps to a model_assembly with parameter sets whose origin is authored in code and whose provenance is the IDAES software_release and the file, with state bounds and solver choices not kept; they illustrate use and are not a database, so no value carries an independent citation. Reference pressure and temperature written as bare numbers in some files and as (value, unit) tuples in others are read as Pa and K, an assumption."

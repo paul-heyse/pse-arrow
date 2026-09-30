@@ -1,0 +1,59 @@
+[[disposition]]
+construct = ".cosmo file (DMol3/COSMO Results)"
+disposition = "mapping_loss"
+ref = "kind:derivation"
+reason = "Only the derived profile, cavity area and cavity volume are mapped, as outputs of a computation derivation; the segment table (positions, charges, potentials), the car-file geometry, the energies and the cavity inputs stay in the carrier artifact and are not kept as records. No file states the functional, basis set or geometry level, so the derivation's method is only DMol3/COSMO plus what Readme.txt says."
+
+[[disposition]]
+construct = "UD sigma file (single profile)"
+disposition = "mapping_loss"
+ref = "kind:tabulated_function"
+reason = "Held as a tabulated_function (axis converted from e/A^2 to C/m^2, series of bin areas, interpolation bin_weights, distribution sigma_profile) with the dependency on the Mullins-averaged constants asserted by the mapping; meta.averaging, r_av_A, f_decay and sigma_hb have no typed slot and survive only in the derivation's method text. meta.area is a separate value that can differ from the profile sum by up to 4e-6 and is not checked against it."
+
+[[disposition]]
+construct = "UD sigma3 file (three profiles with dispersion descriptor)"
+disposition = "model_change"
+ref = "alignment-notes #23"
+reason = "The three 51-bin blocks become the named series nhb, oh and ot of one tabulated_function (order taken from the file's comment line and the reader), which the declaration holds; but meta.disp. flag (NHB, HB-ACCEPTOR, HB-DONOR-ACCEPTOR, COOH, H2O) needs a declared vocabulary for the COSMO-SAC-dsp form's pure slot group, and model/ declares none: add a dispersion-class enum. A null disp. e/kB is mapped to a stateful slot state, not to a number."
+
+[[disposition]]
+construct = "complist row"
+disposition = "mapping_loss"
+ref = "kind:identity_assertion"
+reason = "Each row is one source entity of class species with assertions for inchikey, cas, inchi, smiles, formula and name; the eight CAS# tokens that are not registry numbers ('-0-1', '1-1-1' to '1-1-5', '?') are declared absent or kept as source_local, not asserted as cas. Names cut at the first space in the space-delimited file cannot be restored."
+
+[[disposition]]
+construct = "VT-2005 sigma profile file"
+disposition = "mapping_loss"
+ref = "kind:tabulated_function"
+reason = "Neither column carries a unit, so the mapping assumes e/A^2 for sigma and A^2 for the area (inferred from the Fortran program and the C++ reader). The averaging and generation settings are unrecorded, so the dependency on the COSMO-SAC-2002 constants is taken from the Fortran program's values, not from the file."
+
+[[disposition]]
+construct = "VT-2005 index row"
+disposition = "mapping_loss"
+ref = "kind:identity_assertion"
+reason = "CAS number, name and the non-standard formula (for example C4H10-2) are kept as assertions only (the formula is never read as a composition) and the index as a source_local assertion; Vcosmo is the cavity volume in the unit of its header, A3. Temp. (K) and ln Pvap are not mapped because the pressure unit, the origin and the role of the temperature are not stated."
+
+[[disposition]]
+construct = "COSMO-SAC model constants"
+disposition = "mapping_loss"
+ref = "kind:convention_set"
+reason = "The gas constant goes to the convention set of each variant's parameterization (the truncated 0.001987 kcal/(mol K) for 2002, k_B N_A/4184 for 2010) and the misfit and combinatorial constants to a global slot group; their units are taken from code comments (AEFFPRIME is A^2 in one comment and A in to_string). N_A, k_B and the iteration options (Gamma_rel_tol, fast_Gamma) are not stored."
+
+[[disposition]]
+construct = "UD database terms"
+disposition = "held_by_model"
+ref = "kind:rights_determination"
+reason = "A rights_determination with scope profiles/UD/**, basis terms_of_use, redistribute with_conditions and the quoted statement holds the non-profit academic use and the authors' consent for redistribution; the statement also carries the BioVia permission, so the permission enum loses nothing the prose conditions say. VT2005 has no statement and gets none."
+
+[[disposition]]
+construct = "Hsieh 2014 verification table (test data)"
+disposition = "mapping_loss"
+ref = "kind:dataset"
+reason = "Held as a verification dataset whose verifies names the COSMO-SAC-2010 parameterization together with the UD profile set; the temperature unit is not stated and K is assumed from values such as 298.15. The combinatorial, residual and dispersive parts of ln gamma at infinite dilution need observables declared with the mapping, as the starting set has none."
+
+[[disposition]]
+construct = "dispersive atom-type parameter table"
+disposition = "mapping_loss"
+ref = "kind:group_scheme"
+reason = "The 14 atom-type values map to a slot group over the groups of a group scheme labelled C(sp3), -O-, =O and so on; the bond-count matching (covalent radii times 1.15, hydrogen class by the bonded atom) is kept only as the group's pattern source text, and the values have no citation."

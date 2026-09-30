@@ -1,0 +1,94 @@
+[[disposition]]
+construct = "Entry and Database (loaded records and tree)"
+disposition = "held_by_model"
+ref = "enum:dataless_node_rule"
+reason = "The loaded Entry and Database are the in-memory form of the files mapped under rmg_database; a string is a redirect value state and a None node has no set, with the estimator's rule held as group_scheme.dataless_rule, so the None instruction the survey found missing is now declared."
+
+[[disposition]]
+construct = "Molecule, Atom and Bond"
+disposition = "mapping_loss"
+ref = "kind:species"
+reason = "The graph reaches the model as a structure assertion on a species (the structural key), so the separate resonance structures collapse into one species, spin multiplicity is not an attribute of species and survives only through the key or a curated decision's discriminator, and the surface site and morphology tokens of atoms have no counterpart."
+
+[[disposition]]
+construct = "Group, GroupAtom and GroupBond (pattern objects)"
+disposition = "out_of_scope"
+reason = "GroupAtom and GroupBond are a parse of the pattern text for subgraph-isomorphism matching, with the atom-type hierarchy deciding specificity, which is the internals of an algorithm (the group_estimation capability); the pattern text itself is mapped verbatim as group.pattern under rmg_database."
+
+[[disposition]]
+construct = "AtomType vocabulary"
+disposition = "out_of_scope"
+reason = "The atom-type vocabulary, its generic and specific lists, its bond-count requirements and its action tables are tables of the pattern matcher and the mechanism generator, the internals of those algorithms, and state nothing about material that the patterns mapped as source text do not."
+
+[[disposition]]
+construct = "LogicOr and LogicAnd"
+disposition = "mapping_loss"
+ref = "kind:group"
+reason = "A logic node is a group whose pattern source text is the OR expression, and the components are named only inside that text, not by a typed relation; AND and inversion are not in the pinned data and would be kept as text only."
+
+[[disposition]]
+construct = "Species"
+disposition = "out_of_scope"
+reason = "A Species is an object assembled during a run (resonance structures, estimated thermo, conformer, bookkeeping such as index and creation_iteration), so it is a state of the program, not knowledge; the species data come from the libraries mapped under rmg_database."
+
+[[disposition]]
+construct = "Reaction, TemplateReaction, LibraryReaction and DepositoryReaction"
+disposition = "out_of_scope"
+reason = "A Reaction is created during a run from library or depository entries or by applying a family, so its knowledge is the entries mapped under rmg_database; the generator flags steer generation, and the 1e5 Pa reference pressure and 2.5e-5 mol/m^2 site density used for reverse rates are program constants, not data of the source."
+
+[[disposition]]
+construct = "KineticsFamily and ReactionRecipe"
+disposition = "out_of_scope"
+reason = "The recipe of atom-level actions and the generation of products from reactants by applying it are an algorithm over labelled atoms, catalogued as a capability and not stored as data; the family's trees and rate rules are mapped from the database files under rmg_database."
+
+[[disposition]]
+construct = "estimate comment strings"
+disposition = "mapping_loss"
+ref = "relation:derivation_input"
+reason = "The comment grammar is parsed into an estimation derivation whose derivation_input rows name the group parameter sets used, with weight +1 or -1 and repeated tokens counted, while tokens that do not resolve to a node (missing(...) groups, QM methods, adsorption strings, matched-reaction notes) stay only in the derivation's method text, and no uncertainty of the estimate exists to record."
+
+[[disposition]]
+construct = "ScalarQuantity, ArrayQuantity and UnitType factories"
+disposition = "out_of_scope"
+reason = "The quantity factories are unit-conversion code (SI storage, molecule units through Avogadro's number, the unit of record kept for output) that holds no thermodynamic knowledge; the mapping converts with pint from each value's declared source unit, and the order-dependent rate-coefficient dimensionalities are the change proposed for the Arrhenius construct of rmg_database."
+
+[[disposition]]
+construct = "physical constants module"
+disposition = "mapping_loss"
+ref = "kind:convention_set"
+reason = "R = 8.314472 J/(mol*K) is asserted as the convention_set gas constant of this source, though no edition of the constants is stated, and the other constants are not stored; the Hartree energy has two values in the trees, and the units of F and epsilon_0 are not stated."
+
+[[disposition]]
+construct = "HeatCapacityModel base attributes and E0"
+disposition = "mapping_loss"
+ref = "kind:validity_region"
+reason = "Tmin and Tmax become a fitted_range validity region (an absent bound means no limit, which a region clause states by omitting it), and the formation-referenced datum goes to the convention set; Cp0, CpInf and E0 have no slot in nasa7 and are carried by a separate form or not kept, and Cp0 and CpInf that the code estimates from structure when missing are not stored."
+
+[[disposition]]
+construct = "SoluteData, SolventData, SolvationCorrection and KfactorParameters"
+disposition = "out_of_scope"
+reason = "These classes compute values at run time (McGowan volume from atom counts, Stokes diffusivity, solvation corrections, a K-factor fitted to CoolProp saturation data), so their results are computed quantities, not stored knowledge; the descriptors and the LSER forms are mapped under rmg_database."
+
+[[disposition]]
+construct = "Conformer and statmech modes"
+disposition = "model_change"
+ref = "alignment-notes #34"
+reason = "The mode lists and the thermodynamic functions as sums over modes (translation, rigid and hindered rotors, harmonic oscillators, spin multiplicity, optical isomers, symmetry) are forms of the catalogue, but their slots need quantity types absent from physical.toml: a wavenumber for frequencies and a moment of inertia for rotor modes."
+
+[[disposition]]
+construct = "TransportData and CriticalPoint"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "Lennard-Jones parameters map as in rmg_database, but the Neufeld omega(2,2) collision-integral coefficients exist only in code, so the collision-integral form's parameters must be transcribed from code with assumed units (epsilon in J/mol, sigma in m); the Joback critical-point intermediates are computed values and the fixed table by heavy-atom count is the estimator's fallback, neither stored."
+
+[[disposition]]
+construct = "LevelOfTheory and CompositeLevelOfTheory"
+disposition = "model_change"
+ref = "alignment-notes #29"
+reason = "A level of theory (method, basis, auxiliary basis, CABS, software release, solvent, solvation method, extra arguments, and a composite of a frequency level and an energy level) needs a declared kind that derivations, fits and parameterizations can reference, because derivation.method is only text and the model has no structured computation-method record."
+
+[[disposition]]
+construct = "rank to accuracy map"
+disposition = "mapping_loss"
+ref = "kind:slot_uncertainty"
+reason = "The rank stays a count-typed slot of the entry and the table is kept only as the method text of an uncertainty assessment, since an accuracy in kcal/mol assigned to an ordinal (ranks 0, None and the empty string sharing 14.0) is unlike any measured uncertainty and no uncertainty_kind member states it."

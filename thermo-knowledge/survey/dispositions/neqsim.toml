@@ -1,0 +1,257 @@
+[[disposition]]
+construct = "COMP (table)"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "The row is split into one parameter set per consuming form, declared per column group in mapping.toml, with Celsius, bar and g/mol converted per column; zero and template values standing for no data in critical, transport and EOS columns are declared absent because the file cannot tell a measured zero from a missing value."
+
+[[disposition]]
+construct = "COMP_EXT (table)"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "Only the identity and the varying constants of the generated rows are loaded, and every template-filled cell (TC 374.15 and PC 220.89 in 22138 rows, the water or methane block in the EOS, transport, hydrate and association columns) is declared absent, since importing it would assert water's parameters for 76 thousand species; the 900/0/0/0 Henry sentinel is likewise absent, and the generating tool is not recorded."
+
+[[disposition]]
+construct = "COMP columns: identity and bookkeeping"
+disposition = "mapping_loss"
+ref = "kind:identity_assertion"
+reason = "NAME, CASnumber, FORMULA and InChIKey become name, cas, formula and inchikey assertions, with the placeholders CAS 0-0-0-0 and FORMULA default or HC declared not asserted and the four mojibake names kept only as verbatim name assertions; COMPTYPE mixes chemical class, phase role and model switches and is used only for the ion charge, and duplicate COMPINDEX values are not keys."
+
+[[disposition]]
+construct = "COMP columns: critical constants, acentric factor and basic state data"
+disposition = "mapping_loss"
+ref = "kind:observable"
+reason = "TC and NORMBOIL are converted from degrees Celsius by the 273.15 offset (temperature scale not stated) and PC from bar, and the ion rows and the default row (ID 64), which carry template critical constants, are declared absent; LIQDENS (g/cm3) and STDDENS (no unit or temperature) are read under assumption, and MWAVG and PVMODEL carry no data and are not mapped."
+
+[[disposition]]
+construct = "COMP columns: ideal-gas heat capacity, formation data and sublimation"
+disposition = "mapping_loss"
+ref = "kind:energy_reference"
+reason = "The CPA to CPE polynomial has no stated temperature range (validity coverage not_stated) and its units of J/(mol*K) per power are inferred, and the sensible enthalpy zero at 273.15 K against the formation datum, switched by a runtime flag, is two energy_reference sets with the gas constant 8.3144621 stated as the parameterization's convention; the water value -242000 in 23185 generated rows is a placeholder declared absent."
+
+[[disposition]]
+construct = "COMP columns: liquid and solid density, liquid and solid heat capacity, heat of vaporisation"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "The equation of each five-cell block (LIQUIDDENSITYCOEFS, HEATOFVAPORIZATIONCOEFS) is fixed only by code that disagrees with the data, so the mapping chooses one reading per column and records the other as a discrepancy; units and validity ranges are not stated, zeros stand for absent, and the water-like block repeated in 131 rows is a template declared absent."
+
+[[disposition]]
+construct = "COMP columns: vapour-pressure, triple point and fusion"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "The form is chosen by the type code plus a side condition on ANTOINEE, a mapping rule, with the evaluator's implicit shift of the pow10 constant by 273.15 written into the form; no fit range is stated, so the only validity is the evaluator's limit up to the critical temperature, applied by the mapping as an upper bound (assumed) from the same row's Tc."
+
+[[disposition]]
+construct = "COMP columns: cubic-EOS alpha-function parameters"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "Each column triple maps to the alpha form its name gives, the choice by attractive-term number being a model_assembly choice, and the MCPR triple is also read as UMR-PRU coefficients with two implied zeros, a second set the mapping asserts; the per-name parameter sets hard-coded in the alpha classes (water, TEG, methane, ethane, nitrogen) are not in the table and are mapped only if read from the code."
+
+[[disposition]]
+construct = "COMP columns: CPA and association parameters"
+disposition = "mapping_loss"
+ref = "kind:site_scheme"
+reason = "The scheme codes 4C, 2B, 1A and 2A map to site_scheme entities whose site multiplicities and donor or acceptor polarity are hard-coded in CPAMixingRuleHandler and not in the table, so the mapping takes them from code (assumed); the single association-energy column serves both the SRK and the PR set and is assigned to both."
+
+[[disposition]]
+construct = "COMP columns: UMR-CPA parameters"
+disposition = "mapping_loss"
+ref = "relation:dependency"
+reason = "The block maps to a UMR-CPA parameterization for its 23 species, with the bar-litre units stated in the field comments converted to SI and the code-side factors 1e4, 1e2, 1e2 not reproduced; the dependency on the UMR-PRU group-interaction tables is implied by the model, not recorded in the file, and is asserted by the mapping from the code (assumed)."
+
+[[disposition]]
+construct = "COMP columns: PC-SAFT and SAFT-VR Mie parameters"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "The segment diameter is taken as Angstrom (inferred from the division by 1e10) and the association energy as J/mol by analogy with CPA, both assumed since neither is stated; a zero in a SAFT-VR Mie column means use PC-SAFT, so those zeros are declared absent and the fallback chain is a named rule of a selection_policy, not data."
+
+[[disposition]]
+construct = "COMP columns: electrolyte, dielectric and Henry parameters"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "The Henry coefficients map to a form that adds the fixed constant ln 1.802 and evaluates a solute in water, the solvent basis being assumed from the code and the units not stated; zero coefficients (313 rows) and the 900/0/0/0 marker are declared absent, the 76 rows with a Sander (2023) attribution carry it, and the ion pin K = 1e-40 is program behaviour that is not kept."
+
+[[disposition]]
+construct = "COMP columns: hydrate and wax parameters"
+disposition = "mapping_loss"
+ref = "kind:site_class"
+reason = "The small and large cavities of structures I and II map to site_class rows of a clathrate phase definition with a Langmuir form A/T*exp(B/T) inferred from the evaluator, the units of A not stated and assumed; the two model variants (the Hydrate* and GF columns) are two parameterizations chosen by the fluid model name, a selection recorded as a fact, and a zero pair means the guest does not occupy the cavity."
+
+[[disposition]]
+construct = "COMP columns: transport and surface-tension parameters"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "The four liquid-viscosity type codes map to four forms with LIQVISC1 to 4 as slots, the units of those cells being inferred from the evaluator (the result is divided by 1e3) and not stated, and the conductivity polynomial and parachor to their own forms; the fixed values 0.5 and 0.7 above Tc or for an unknown type are evaluator behaviour and not kept, and template dipole and Lennard-Jones values are declared absent."
+
+[[disposition]]
+construct = "INTER (table)"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "The row splits by consuming model into pair slot groups whose transposition is symmetric for the kij columns and linear (swap) for the oriented ones, a stored row serving both orders; a missing pair is no set and the zero default is a selection_policy stated_default, while 28 of the 112 names do not resolve to a COMP row and the truncation at a double underscore is a mapping rule."
+
+[[disposition]]
+construct = "INTER columns: key"
+disposition = "mapping_loss"
+ref = "kind:source_entity"
+reason = "COMP1 and COMP2 become the subjects of each pair set with the stored order kept as the arrangement; the 28 names that match no COMP row (several differing only in case or punctuation, as c-c7 against c-C7) are not case-folded and become separate source entities or held rows with reason unknown_subject."
+
+[[disposition]]
+construct = "INTER columns: cubic-EOS and PC-SAFT kij"
+disposition = "mapping_loss"
+ref = "kind:parameterization"
+reason = "The KIJSRK, KIJPR, KIJPCSAFT and Soreide-Whitson columns become four parameterizations, the boundary between PR and SRK being an exact Java class name the file does not declare; the value 1 in 330 KIJSRK rows, nearly all ion pairs, is a sentinel convention and declared absent, stored zeros cannot be told from absent pairs and are mapped as known, and KIJTType -1 has no defined meaning and is held."
+
+[[disposition]]
+construct = "INTER columns: CPA cross-association and CPA kij"
+disposition = "mapping_loss"
+ref = "relation:subject_subform_choice"
+reason = "cpaAssosiationType becomes a per-pair sub-form choice, but code 0 (1280 rows) is also what a missing row gives, so emitting a rule-ER choice for each asserts a choice the source only fills in by default; zero cross beta and eps mean use the combining rule, and the oriented cpakijx and cpakjix are a linear-transposition pair beside the symmetric cpakij."
+
+[[disposition]]
+construct = "INTER columns: Huron-Vidal"
+disposition = "mapping_loss"
+ref = "relation:subject_subform_choice"
+reason = "The per-pair HVTYPE switch is a sub-form choice per pair, so one mixture can use two mixing rules, and HVGIJ and HVGJI are an ordered pair stored as asserted for the row's COMP1 and COMP2 order with a linear swap; the energy parameters have no stated unit and J/mol is assumed from magnitudes up to 99000."
+
+[[disposition]]
+construct = "INTER columns: Wong-Sandler and NRTL"
+disposition = "mapping_loss"
+ref = "relation:equivalence_assessment"
+reason = "NRTLGIJ and NRTLGJI equal HVGIJ and HVGJI in 1201 rows, and the file does not say whether they are one set or two, so both are mapped as independent sets and their agreement recorded as an exact equivalence_assessment, which loses the question of whether one set was meant; KIJWS is a dead column and is not mapped."
+
+[[disposition]]
+construct = "INTER columns: electrolyte w-parameters and other model columns"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "W1 is mapped as known only where CalcWij selects the stored value, since otherwise the pair's w comes from a built-in formula that is a named rule and not data, and W2 and W3, zero in every row, are not mapped; the Grunberg-Nissan parameter GIJVISC is mapped as a parameter of a viscosity form although stored in a thermodynamic table."
+
+[[disposition]]
+construct = "UNIFACGroupParam (group table)"
+disposition = "mapping_loss"
+ref = "kind:group_scheme"
+reason = "Secondary groups map to group rows with the main group as partition_class, but the file declares no scheme revision and one table serves the original, PSRK and UMR schemes (interaction matrices over 64 against 70 main groups), so the mapping assumes the scheme or schemes it creates; the main-group numbers have no label and R and Q are taken as dimensionless."
+
+[[disposition]]
+construct = "UNIFACcomp and UNIFACcompUMRPRU (component group assignments)"
+disposition = "model_change"
+ref = "alignment-notes #21"
+reason = "TEG is listed twice in UNIFACcomp with different rows and the first match wins, but the identity of group_assignment is (entity, scheme, asserted_by) and cannot hold two assertions of one carrier for one entity; add an occurrence identity attribute to group_assignment, defaulting to 1, as parameter_set has. The scheme revision of each of the two tables is also not stated, and the _PC rule that assigns CH3 and CH2 counts from the molar mass is a derivation and not data."
+
+[[disposition]]
+construct = "UNIFAC interaction matrices (a, b, c; classic, UMR, UMR-MC)"
+disposition = "mapping_loss"
+ref = "kind:parameterization"
+reason = "Each matrix becomes a parameterization of ordered main-group pair sets, but 3529 of 4096 off-diagonal cells are zero and indistinguishable from not parameterised, so they are mapped as known zeros with the indistinguishability recorded, and the 2 to 14 empty cells that fail the parse are held as not_a_number; the choice between the UMR and UMR-MC tables by the first component's alpha-function number is a selection fact, and the unit of b and c is not stated."
+
+[[disposition]]
+construct = "PitzerParameters"
+disposition = "mapping_loss"
+ref = "kind:parameterization"
+reason = "Units (kg/mol per term, inferred) and the temperature form, documented only in a code comment, are assumed, and Tmin and Tmax, unread by NeqSim but real applicability ranges, become a validity region whose kind (fitted or recommended) the file does not say; the theta and psi columns hold no data and are not mapped."
+
+[[disposition]]
+construct = "PHREEQC Pitzer catalogue (resource referenced, not in the pinned tree)"
+disposition = "out_of_scope"
+reason = "The resource is absent from the pinned tree, so this source contributes only a loader, a commit and blob reference and the six-coefficient temperature function; the USGS block itself is the parameter content of the phreeqc source, where its rows are mapped."
+
+[[disposition]]
+construct = "REACTIONDATA family (reaction equilibrium-constant tables)"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "The form of K1 to K4, the log base, the pressure convention and the meaning of R, ACTENERGY and USEREACTION are fixed outside the pin, so the mapping can only assume K1 + K2/T + K3 ln T + K4 T from the magnitudes; the three overlapping tables become three parameterizations sharing reactions, and the Kent-Eisenberg constants depend on their model (relation dependency)."
+
+[[disposition]]
+construct = "STOCCOEFDATA (reaction stoichiometry)"
+disposition = "mapping_loss"
+ref = "relation:reaction_participant"
+reason = "Component names resolve to species forms whose aggregation is not stated and is assumed (aqueous species as liquid with the solvent convention), and the participant's standard_state is left unstated; the 12 equilibrium indices with no stoichiometry cannot become reactions and the 4 stoichiometries with no constants carry none."
+
+[[disposition]]
+construct = "COMPSALT (salts as ion pairs)"
+disposition = "mapping_loss"
+ref = "kind:speciation_map"
+reason = "Each salt maps to a speciation_map of exactness exact_linear with stoc1 and stoc2 as speciation_coefficient rows, which is all the library uses; the solubility-product coefficients Kspwater to Kspwater5 have no stated form or unit and Vdelta (cm3/mol inferred) and waterstoc are read under assumption or held."
+
+[[disposition]]
+construct = "MBWR32param (modified Benedict-Webb-Rubin coefficients)"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "The 32 coefficients map to a family of an MBWR-32 form that must be written from the Java code, since the equation terms are only there, and their units are not stated (the evaluator applies MBWR_UNIT_FACTOR 1e3), so they are assumed; rhoc is stated in mol/L."
+
+[[disposition]]
+construct = "ISO6976 constants tables"
+disposition = "mapping_loss"
+ref = "kind:dataset"
+reason = "The two editions map to two evaluated datasets whose column suffixes give the combustion and metering reference temperatures (0, 15, 20, 25 degrees Celsius and 60 F), assumed to be Celsius and Fahrenheit, with calorific values taken as kJ/mol and molar mass as g/mol from magnitudes; the meaning and unit of srtb, the summation factor, are not stated."
+
+[[disposition]]
+construct = "AdsorptionParameters"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "One row splits into parameter sets of five isotherm-model slot groups on the adsorbate and host material, with the units (qmax in mol/kg, dH_ads in J/mol) inferred from the class documentation and the pressure basis and the excess or absolute meaning not stated (adsorption_kind not_stated)."
+
+[[disposition]]
+construct = "HenryWater sidecar (JSON, coverage CSV, BibTeX)"
+disposition = "mapping_loss"
+ref = "kind:dataset"
+reason = "The 76 imported constants map to an evaluated dataset with a convention stating the 298.15 K molality basis and a CC BY 4.0 rights determination, the coverage statuses being notes; the bridge from Hsbp to COMP HenryCoef1 is not stated (only B_K = -HenryCoef2 links them), so no dependency between the two is asserted."
+
+[[disposition]]
+construct = "GibbsReactDatabase (formation data and polynomial coefficients)"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "The formation enthalpy, Gibbs energy and entropy map under units inferred from magnitudes (kJ/mol, J/mol/K) with atom counts as composition, but the polynomial coefficient blocks have no stated form, unit or range and no code reads them, so they are held or catalogued with the equation external; the decimal-comma format is a reader matter."
+
+[[disposition]]
+construct = "Process-support tables (pipe data, compatibility rules, scale remediation, fiscal and power-generation catalogues)"
+disposition = "out_of_scope"
+reason = "Pipe data, chemical compatibility rules, scale remediation, fiscal and tax parameters and a gas-turbine catalogue are non-thermodynamic process-engineering reference data."
+
+[[disposition]]
+construct = "TBP fraction (pseudo-component input and result)"
+disposition = "out_of_scope"
+reason = "A _PC component is a runtime object that the characterization capability creates for one fluid from the user's two or three inputs, and the library stores no data for pseudo-components; its correlations are model families, and the pseudo-component and derivation records that would hold a result are not part of this source."
+
+[[disposition]]
+construct = "Plus fraction and its carbon-number distribution"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "Only the embedded PVTsim-labelled molar-mass and density tables by carbon number are stored data, mapped as a parameter set of a characterisation form with no citation, while the plus fraction itself is a runtime input, the coefficients A to D solved per fluid are results that are not stored, and the carbon number taken from the name is code."
+
+[[disposition]]
+construct = "Lumped pseudo-components and lumping result"
+disposition = "out_of_scope"
+reason = "A lump is a runtime result of the lumping algorithm (default seven groups), with its membership recorded only by name and boundaries and no stored data; the lumping procedure is part of the characterization capability and its internals are not constructs to map."
+
+[[disposition]]
+construct = "Assay cut (refinery assay input)"
+disposition = "mapping_loss"
+ref = "kind:dataset"
+reason = "Only the three public reference assays transcribed in code (Sarir, Al-Diwiniya, DOE SPR Big Hill Sweet) are data, mapped as datasets with their cited publications and CC BY 4.0 where the comments state it (none for the DOE assay); the mass or volume basis, the 60 F water density and the boiling-point midpoint convention are code-side conventions assumed by the mapping, and caller-supplied assays are inputs."
+
+[[disposition]]
+construct = "SARA and asphaltene characterisation inputs"
+disposition = "mapping_loss"
+ref = "kind:selection_policy"
+reason = "The defaults (asphaltene and resin molar masses of 1700 and 800 g/mol or the specific-gravity formulas, the association energy and volume) are authored choices in code, recorded as a named rule or stated default with origin authored; SARA weight fractions map as mass fractions of abstract class components, and the colloidal instability index and onset pressure are results that are not mapped."
+
+[[disposition]]
+construct = "Characterization options and validation report"
+disposition = "out_of_scope"
+reason = "Flags and tolerances for re-characterising and recombining fluids (transfer of binary parameters, normalisation tolerance 1e-10, de-lumping resolution 12, the validation report) are options of a procedure that stores no knowledge, so the operation belongs to the characterization capability and not to the constructs."
+
+[[disposition]]
+construct = "Fluid exchange formats (JSON neqsim-fluid and Eclipse E300 reader)"
+disposition = "out_of_scope"
+reason = "The neqsim-fluid JSON and the Eclipse E300 reader serialise a user's characterised fluid (composition, reservoir temperature, per-component constants, kij) for one workspace and the source ships no such data; the constants they carry are the same constructs mapped from COMP and INTER."
+
+[[disposition]]
+construct = "Component name resolver tables (embedded in source)"
+disposition = "mapping_loss"
+ref = "kind:identity_assertion"
+reason = "Each of the 148 synonyms and 389 canonical names becomes a name assertion on the COMP source entity it resolves to, an assertion and not an identity, and the deliberate omission of under-specified cis and trans parent names is not data; the pass-through rule for unknown names and the normal-chain prefix rules are procedural and not kept."
+
+[[disposition]]
+construct = "Reference-equation and ion parameter tables embedded in Java source"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "The array literals are read from Java as parameter sets of the multifluid and Helmholtz forms, the term structure being recovered from array layouts (assumed) and each class's gas constant (8.314472, 8.31451, 8.31446261815324 or 8.3144621) stated as its parameterization's convention; where the EOS-CG class comment and its GERG-2008-shaped backend disagree, the parameters are attributed to what the code evaluates and the discrepancy kept."

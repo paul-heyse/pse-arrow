@@ -227,6 +227,11 @@ A `model_change` is **scheduled** when its `ref` is an alignment-notes item or a
 report shows which scheduled change carries the most constructs and lists the model changes that
 name none.
 
+A missing row of an extensible vocabulary (an observable, a composition basis, an aggregation, a
+naming scheme) is not a model change: the wave that maps the source declares it, and the construct
+is `held_by_model` with the vocabulary's kind as `ref`. A missing quantity type, enumeration member,
+kind, relation or attribute is a model change, because it changes the generated schema.
+
 ## 5. The loader and the residue report
 
 `thermo_knowledge.survey_index` loads every `survey/*.toml` into typed `msgspec` structs, validates

@@ -1,0 +1,29 @@
+[[disposition]]
+construct = "isotherm file"
+disposition = "mapping_loss"
+ref = "kind:dataset"
+reason = "The temperature unit is assumed to be K (the file states none; the 36 isotherms at -200 are then held as invalid), the 83 free-text adsorptionUnits spellings are parsed with STP assumed for cm3(STP) and unparseable ones held, and the 94 percent with empty isotherm_type use an adsorbed-amount observable with adsorption not_stated. An empty category (22,850 files) is mapped as measured by assumption, compositionType moleratio, partialpressure, relhumidity and concentration (whose unit is empty) map to bases and observables declared with the mapping or are held, and the placeholder date, digitizer and articleSource values are declared absent."
+
+[[disposition]]
+construct = "isotherm point"
+disposition = "model_change"
+ref = "alignment-notes #34"
+reason = "adsorbed_amount_excess, and the not-stated adsorbed amount that most ISODB points need, use the quantity type Loading, whose scale is absolute (non-negative), so the 2,549 negative adsorption values are refused although a surface excess can be negative: add a signed loading quantity type (scale difference). The 1,435 negative pressures are invalid for Pressure and are held, and the pressure of a multicomponent point is taken as the total pressure by assumption."
+
+[[disposition]]
+construct = "adsorbent record"
+disposition = "mapping_loss"
+ref = "kind:material"
+reason = "Each record becomes a provisional material (source_local key = hashkey, label = name); no registry scheme is declared for the hash, so two records of one real material under different names are never merged. The 9,326 empty formulas and the empty synonym lists are declared absent, and External_Resources links become assertions."
+
+[[disposition]]
+construct = "adsorbate record"
+disposition = "mapping_loss"
+ref = "kind:source_entity"
+reason = "The 41 local-key records become provisional species with only source_local and name assertions, so they never join another carrier's records; the charge of an ion is read from the formula suffix (Ba+2 gives +2), a notation the mapping assumes."
+
+[[disposition]]
+construct = "bibliography record"
+disposition = "held_by_model"
+ref = "kind:publication"
+reason = "Each record is a publication keyed doi:<lower-case DOI> with year and a citation built from authors, title and journal on the citation relation, attributed to each isotherm dataset through attribution. The derived summary lists (adsorbates, isotherms, categories, temperatures, pressures) duplicate the isotherm files and are not loaded, and the 821 articles without an isotherm folder are publications with nothing attributed."

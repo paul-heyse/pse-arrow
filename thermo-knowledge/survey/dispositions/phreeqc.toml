@@ -1,0 +1,180 @@
+[[disposition]]
+construct = "SOLUTION_MASTER_SPECIES"
+disposition = "model_change"
+ref = "alignment-notes #17"
+reason = "enum:conserved_kind has no member for the Alkalinity pseudo-element, so the per-master alk column and the Alkalinity line (species CO3-2 or HCO3-, weight formula such as Ca0.5(CO3)0.5) cannot be composition rows of a declared conserved quantity; add an `alkalinity` member. The master species and their basis and secondary roles are already held by system_member, and the valence-state totals Fe(2) and Fe(3) are kept only as those master species."
+
+[[disposition]]
+construct = "SOLUTION_SPECIES"
+disposition = "mapping_loss"
+ref = "kind:reaction"
+reason = "Each equation becomes a reaction (extent as_written) with signed participants and system_reaction.defines on the first right-hand species, and its log K a parameter set of that reaction, so a constant under another master species stays a constant of another reaction and nothing is re-based. The file declares no standard states, so the mapping assumes the ones the code implies (molal infinite dilution for solutes, a(H2O) for water, unit activity for solids, atm fugacity for gases) through the convention set's member roles."
+
+[[disposition]]
+construct = "log K temperature function (-log_k, -delta_h, -analytical_expression)"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "The six-term analytic form and the logK_T0 plus delta_h (van't Hoff) form are catalogued as forms of a reaction subject, and the silent rule that any non-zero A1..A6 discards logK_T0 and delta_h is recorded as a selection fact. R = 0.0083147 kJ/(mol K), the 298.15 K reference and the 1 atm reference pressure are hard-coded in k_calc and absent from the files, so the mapping states them as convention values, and the units of A2..A6 are inferred."
+
+[[disposition]]
+construct = "delta_h units"
+disposition = "mapping_loss"
+ref = "mechanism:reader unit normalisation"
+reason = "Each -delta_h value is converted by its own unit token to the slot's storage unit (a leading k means kilo, a token containing c anywhere means calories, default kJ/mol), and the original token is not kept afterwards. The mapping converts exactly as PHREEQC does, including a token that merely contains the letter c."
+
+[[disposition]]
+construct = "-gamma (WATEQ Debye-Hueckel ion parameters) and default activity coefficient"
+disposition = "mapping_loss"
+ref = "kind:selection_policy"
+reason = "The a and b of -gamma are slots of a species-level form under the WATEQ activity-model choice, and the fallbacks for a species with no option (Davies for charged, 0.1 I for uncharged, 1 for e- and H2O) are a selection_policy named rule, not data. The unit of a is not stated (Angstrom inferred from B in 1/Angstrom per sqrt(mol/kg)) and none is stated for b, so both are assumptions."
+
+[[disposition]]
+construct = "-llnl_gamma, -co2_llnl_gamma and -activity_water"
+disposition = "mapping_loss"
+ref = "relation:subject_subform_choice"
+reason = "The per-species route (WATEQ, LLNL extended, CO2 polynomial, water activity) is a subject_subform_choice of the activity-model slot, so the internal gflag integers are not kept and the LLNL arrays are held once as a global parameter set. The unit of the ion-size a is not stated (Angstrom inferred), and ln 10 and 55.51 are constants of the form text, not of the data."
+
+[[disposition]]
+construct = "-dw (tracer diffusion and conductance parameters)"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "The seven numbers are slots of a diffusion and conductance form of the species, with Dw stated in m2/s only by the file comment, dw_t in K inferred from exp(dw_t/T) and a and a2 unstated. The a3 of the H+ entry switches the whole conductance formula when it exceeds 24, which a form cannot read from another species' set, so the mapping keeps it as that species' value and the catalogued form documents the switch; the water viscosity reference is code and is not kept."
+
+[[disposition]]
+construct = "aqueous -Vm (molar volume)"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "The ten numbers are slots of a supcrt92-style molar-volume form of the species form, converted with the code's 41.84 factors from cal-based units, while a0 and i1..i4 have no stated unit. The form needs water density, dielectric constant and the Born-function derivative that PHREEQC computes in code, so the mapping states those water models as an assumption of the assembly, and the block's inertness in a database with LLNL_AQUEOUS_MODEL_PARAMETERS is recorded as a selection fact."
+
+[[disposition]]
+construct = "-viscosity (Jones-Dole ion parameters)"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "The mapping follows the code and the database comments, which use exp(-b2 tc) and exp(-d2 tc), not the exp(b2 tc) written in the transport.cpp comment, and keeps values 8 and 9 as asserted with a zero read as not given, an assumption because the source cannot tell zero from absent. The tenth value is carried by the parser and never read, so it is dropped, and no unit is stated for any of the numbers."
+
+[[disposition]]
+construct = "-millero (Millero density coefficients)"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "The six coefficients become slots of a polynomial apparent-molar-volume form of the species (cm3/mol inferred from calc_vm, tc in Celsius), used only when the species has no -Vm block, a precedence recorded as a selection fact. The seventh number kappa is read and not used, so it is dropped."
+
+[[disposition]]
+construct = "-erm_ddl, -no_check and -check, -mole_balance"
+disposition = "mapping_loss"
+ref = "relation:composition"
+reason = "A -mole_balance formula is stored as explicit composition rows, so a composition that is not the name's formula (polysulfides, isotopologues) is kept, and -erm_ddl becomes a slot of a surface-model form. The -no_check exemption is not kept: a reaction that balances only under it is reported by the verify check conserves_declared_quantities or held as validation_failed."
+
+[[disposition]]
+construct = "-add_logk and -add_constant"
+disposition = "held_by_model"
+ref = "kind:model_component"
+reason = "A named log K vector is a model_component whose parameter set the reaction's form references from a family row holding a set reference and a coefficient slot, so the additive dependency is an arrangement of referenced sets and not a reference to one whole set; -add_constant is the built-in XconstantX entry (log_k 1) times the constant. The recursion limit of 15 and the case-insensitive name matching are reader behaviour."
+
+[[disposition]]
+construct = "PHASES"
+disposition = "mapping_loss"
+ref = "kind:phase_definition"
+reason = "Each phase becomes a species form with a dissolution reaction (phase first, coefficient 1) and a phase_definition of structure none, taking its aggregation from the (s) or (g) suffix because whether it acts as a gas is decided by the GAS_PHASE input, and taking the Peng-Robinson choice from the presence of -T_c and -P_c, both assumptions. The units of -T_c (K), -P_c (atm) and -Vm (cm3/mol default) come from the parser, and the stripping of (aq) and H2O(l) and the case-insensitive phase names are reader behaviour."
+
+[[disposition]]
+construct = "EXCHANGE_MASTER_SPECIES"
+disposition = "held_by_model"
+ref = "kind:conserved_quantity"
+reason = "The exchanger label is a conserved_quantity of kind site_total qualified by its chemical system, and its master species (X-) a basis system_member with member_role exchange_species. The amount of exchanger is an input-block quantity that the file does not give, so no site_class (whose ratio is per formula unit) is written and the stated loss does not arise."
+
+[[disposition]]
+construct = "EXCHANGE_SPECIES"
+disposition = "mapping_loss"
+ref = "relation:convention_standard_state"
+reason = "Each exchange species is an adsorbed species form in a reaction whose participants take the site_reference standard state on the equivalent_fraction scale from the convention set's exchange_species role. That convention (Gaines-Thomas, inferred from gflag 4 with the exchanger coefficient as the species' equivalents) is not stated in the file, and -gamma and -davies are kept as per-species activity options, not folded into the standard state."
+
+[[disposition]]
+construct = "SURFACE_MASTER_SPECIES"
+disposition = "held_by_model"
+ref = "kind:conserved_quantity"
+reason = "Each label is a conserved_quantity of kind site_total and its neutral master species a basis system_member with member_role surface_species. The three psi pseudo-masters per label are created by the reader as electrostatic unknowns and appear nowhere in the database text, so they are solver state and not content that is lost."
+
+[[disposition]]
+construct = "SURFACE_SPECIES"
+disposition = "mapping_loss"
+ref = "relation:convention_standard_state"
+reason = "Each species is an adsorbed species form in a reaction with the site_reference standard state inferred from gflag 6 (a mole-fraction-like activity on its site type), and the -cd_music charge transfers d0 d1 d2 f z are slots of a CD-MUSIC form whose charge units are assumed. The electrostatic model, capacitances and site densities are in the SURFACE input block, so the log K and charge transfers are kept without an electrostatic assembly choice other than -cd_music, and -vm is unread."
+
+[[disposition]]
+construct = "PITZER block (options and flags)"
+disposition = "held_by_model"
+ref = "kind:model_assembly"
+reason = "The block is a model_assembly choosing the ion-interaction forms, with the MacInnes scaling, redox and E-theta flags as choices of that assembly, and Pitzer taking precedence over SIT and the per-species options is a selection fact. The automatic E-theta terms and the alpha defaults are form expressions or rule-derived values, and the repeated-species multiplicity belongs to the row keys of the next construct."
+
+[[disposition]]
+construct = "Pitzer parameter row (B0 B1 B2 C0 THETA LAMBDA ZETA PSI ETA MU ALPHAS APHI)"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "Rows become ion-pair, neutral-pair and triple slot groups whose subjects are the tuples as written (repeats restored from the parameter kind), with permutation_group transposition for the triples and the six-term function as a0..a5 with TR = 298.15 K; a repeated key keeps both rows by occurrence and the last-wins rule is recorded. The units of a0..a5 (kg/mol for B0, powers of K for a1..a5) are not stated and assumed, and cation and anion roles are derived from charges, not stored."
+
+[[disposition]]
+construct = "SIT block (-epsilon, -epsilon1, -epsilon2)"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "Each row is a symmetric pair set of a SIT form with epsilon and the a1..a4 terms, its unit assumed as kg/mol and the 298.15 K reference taken from the code, and a5 is read and unused so it is dropped. The epsilon1 and epsilon2 forms and the five-term function are accepted by the code but absent from the data, so only the constant epsilon is exercised."
+
+[[disposition]]
+construct = "LLNL_AQUEOUS_MODEL_PARAMETERS"
+disposition = "mapping_loss"
+ref = "kind:tabulated_function"
+reason = "The arrays are one global parameter set with dh_a, dh_b and bdot as series of a tabulated_function over the temperature axis (linear interpolation, the grid range a validity region) and the five CO2 coefficients as slots. The units of dh_a, dh_b, bdot and the CO2 coefficients are not stated and the grid in degrees Celsius names no scale, so they are assumptions, and the block's side effect of switching off PHREEQC's water-property calculations is a selection fact, not data."
+
+[[disposition]]
+construct = "NAMED_EXPRESSIONS (also NAMED_ANALYTICAL_EXPRESSIONS, NAMED_LOG_K)"
+disposition = "mapping_loss"
+ref = "kind:model_component"
+reason = "Each name is a model_component whose parameter set holds the log K vector and is referenced through -add_logk; names are case-insensitive and a repeated name replaces the earlier entry silently, so both definitions are kept by occurrence. The -ln_alpha1000 coefficients are stored divided by 1000 ln 10 on the first five coefficients only, as the code does, so the raw 1000 ln alpha values are not kept."
+
+[[disposition]]
+construct = "ISOTOPES, ISOTOPE_RATIOS, ISOTOPE_ALPHAS"
+disposition = "model_change"
+ref = "alignment-notes #17"
+reason = "The isotope master species and isotopologues ([18O], [13C] and similar bracketed element tokens) need composition rows over a conserved quantity for a nuclide, but enum:conserved_kind has only element, charge and site_total and kind element has a unique atomic_number; add an `isotope` member (a conserved_quantity that names its element). The standards and unit tokens (permil, pct, pmc, TU, pCi/L) are values and an enum once it exists."
+
+[[disposition]]
+construct = "CALCULATE_VALUES"
+disposition = "out_of_scope"
+reason = "The BASIC programs compute total isotope ratios from a solution state, which is program behaviour evaluated at a process location, not stored thermodynamic knowledge; the names that call them are the ISOTOPE_RATIOS rows."
+
+[[disposition]]
+construct = "RATES"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "A rate program can only be bound by name to a rate-law form of a reaction subject catalogued from the literature with completeness structure_declared_equation_external, because the BASIC text that holds the rate law is not stored in the canonical model. The meaning of each PARM position lives only in REM comments and the PARM values come from the KINETICS input, so neither is database content."
+
+[[disposition]]
+construct = "RATE_PARAMETERS_PK, RATE_PARAMETERS_SVD, RATE_PARAMETERS_HERMANSKA"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "The PK, SVD and HERMANSKA rows become parameter sets (acid, neutral and base mechanisms as a family) of forms whose equations are BASIC code inside the interpreter and must be authored, and the meaning and unit of each column come from header comments and are assumed. The temperature factor uses R = 8.314e-3 kJ/(mol K) and 298.15 K from the code, which the mapping states as convention values."
+
+[[disposition]]
+construct = "MEAN_GAMMAS"
+disposition = "out_of_scope"
+reason = "The rows define the stoichiometry of a salt for the BASIC function MEANG, which evaluates a mean activity coefficient of a given solution: a derived quantity computed at a process location that carries no parameter."
+
+[[disposition]]
+construct = "GAS_BINARY_PARAMETERS"
+disposition = "held_by_model"
+ref = "kind:selection_policy"
+reason = "Each row is a symmetric pair set of kij between the species forms the two phase names resolve to, so the source storing each pair in both orders is not a loss, and the Soreide-Whitson factors the code applies to H2O(g) pairs when no row exists are a selection_policy named rule, not data."
+
+[[disposition]]
+construct = "Input-level keywords found in database files (END, PRINT, DATABASE, SOLUTION, EQUILIBRIUM_PHASES, REACTION) and INCLUDE$"
+disposition = "out_of_scope"
+reason = "END, PRINT, DATABASE and INCLUDE$ control the input stream (where a read stops, output categories, file inclusion) and hold no thermodynamic content; the effect of END on which blocks a database contains is recorded under selection."
+
+[[disposition]]
+construct = "SOLID_SOLUTIONS (input block, not present in any database file)"
+disposition = "out_of_scope"
+reason = "An input block of a simulation that is present in no pinned database file, whose component amounts and target gap conditions are run specifications; the a0 and a1 it derives are not database content, so there is nothing in this source to map."
+
+[[disposition]]
+construct = "Simulation-input keywords (no database data): SOLUTION, EXCHANGE, SURFACE, EQUILIBRIUM_PHASES, GAS_PHASE, KINETICS, REACTION and related"
+disposition = "out_of_scope"
+reason = "These keywords state a calculation (a solution, an assemblage, kinetics steps, transport, selected output), that is, samples and runs at a process location, not data; the concentration units of SOLUTION are input units and not knowledge."

@@ -1,0 +1,76 @@
+[[disposition]]
+construct = "DAT header block"
+disposition = "mapping_loss"
+ref = "enum:enthalpy_datum"
+reason = "The element and phase counts and the atomic masses map to a chemical_system and a convention_set whose enthalpy datum and temperature scale are recorded as not_stated and whose gas constant and atomic-weight edition are left absent, since the export states none. The two term-index lines are a layout check that the code discards, and the e(...) electron pseudo-elements map to the charge quantity."
+
+[[disposition]]
+construct = "Gibbs-energy equation block (species or compound)"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "A block becomes the pieces of a Gibbs-polynomial form with the six coefficients, up to three additional terms (exponent 99 decoded to ln T) and the magnetic coefficients of types 13 and 16, the units (J/mol) being assumed. Thermochimica's upper-inclusive interval rule and upward extrapolation are consumer policy (alignment-notes #15) and are not stored, the 0.10945/R constant the code adds for the first phase numerically equals ln(101325/100000) and so implies a gas standard pressure that the mapping can only infer, and '#' dummy species are skipped as a numerical device."
+
+[[disposition]]
+construct = "IDMX block (ideal mixture)"
+disposition = "mapping_loss"
+ref = "kind:phase_definition"
+reason = "An IDMX block becomes a phase_definition of structure none with an ideal-mixing model_assembly. The source states no aggregation: that the first phase is an ideal gas carrying an added RT ln P term is a convention of the code, so the aggregation gas and the pressure dependence are assumptions the mapping must declare."
+
+[[disposition]]
+construct = "QKTO block (quasichemical Kohler-Toop)"
+disposition = "held_by_model"
+ref = "relation:subject_subform_choice"
+reason = "The per-species equivalent-fraction factor and chemical group number are slots of a per-species group of the QKTO form (declared with the wave) and the excess terms are parameter sets with role-tuple subjects, while the per-triad Kohler or Toop overrides are sub-form choices keyed by the triad, so the two losses the survey names are held by existing concepts. The composition variables are species mole fractions, converted to equivalent fractions inside the form."
+
+[[disposition]]
+construct = "RKMP and RKMPM block (Redlich-Kister-Muggianu polynomial)"
+disposition = "held_by_model"
+ref = "kind:constituent_array"
+reason = "Terms are parameter sets whose subject is the ordered tuple of species, read through constituent_array (its positions keep the file order that fixes the sign of odd orders, alignment-notes #14), with the index into the phase's species list resolved to the species by the mapping. The magnetic terms of RKMPM are slots of the magnetic form, and the phase has one site class of structure none."
+
+[[disposition]]
+construct = "SUBL and SUBLM block (compound energy formalism)"
+disposition = "mapping_loss"
+ref = "kind:constituent_array"
+reason = "The sublattice counts, atoms per sublattice and constituents become site_class and site_occupant rows, each row of the endmember index table a constituent_array with its Gibbs parameter set, and the excess terms parameter sets over constituent arrays. Thermochimica restricts the phase to the listed endmember fractions, a computation domain that the declaration does not state for a phase (a phase with fewer endmembers than the product of its constituents is held as the full compound-energy phase with data for only those endmembers), and its expansion of a ternary order 0 into three identical terms is a consumer rule."
+
+[[disposition]]
+construct = "SUBG and SUBQ block (modified quasichemical, quadruplet)"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "A phase of structure quasichemical holds the pair species' Gibbs equations, zeta, constituent charges and chemical groups, the coordination numbers of listed quadruplets and the excess terms as parameter sets of forms with role-tuple subjects (pair and quadruplet), declared with the wave. The 12 numbers per excess term that the format's originator left unexplained are not kept, the default coordination numbers computed by the Pelton equations for unlisted quadruplets are a consumer rule, and the replacement of pairs by quadruplets is the solver's internals."
+
+[[disposition]]
+construct = "SUBI block (two-sublattice ionic liquid)"
+disposition = "mapping_loss"
+ref = "enum:phase_structure"
+reason = "A phase of structure ionic_two_sublattice with site_class ratio_kind composition_dependent holds the constituents and their charges as stated, and the twelve mixing cases are derived by the form from those charges by conditionals on stored values, so the classification is neither stored nor a model construct. The order-0 expansion of three cases into three terms is a consumer rule and a term fitting none of the twelve cases (mix type 0) is held."
+
+[[disposition]]
+construct = "SUBM block (two-sublattice ionic, no neutrals or vacancies)"
+disposition = "mapping_loss"
+ref = "enum:phase_structure"
+reason = "A SUBM block is mapped as ionic_two_sublattice with its own excess-term form (arity 3 or 4, six coefficients, interpolation overrides as sub-form choices). Its equivalence to SUBI without neutrals and vacancies rests on a code comment and is not asserted as data, so the mapping does not merge the two forms on that comment."
+
+[[disposition]]
+construct = "Thermochimica input script"
+disposition = "out_of_scope"
+reason = "A calculation request (pressure, temperature, element amounts, phase exclusions, print and debug settings) is a problem given to the solver at a process location, not knowledge, so the model holds none. The expected results of the test programs, not these scripts, are the potential verification data."
+
+[[disposition]]
+construct = "stoichiometric (pure condensed) phase entries"
+disposition = "mapping_loss"
+ref = "kind:species_form"
+reason = "A pure condensed entry becomes a species_form with a standard-state Gibbs block, its aggregation crystalline assumed and its polymorph taken from the name suffix (s), (s2) to (s8) or the 'NAME = COMPOUND PHASE = 1.0000' label, an assumption because the file states the polymorph nowhere else. The label text after the name is ignored by the program and not kept, and dummy '#' species are skipped."
+
+[[disposition]]
+construct = "magnetic terms"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "The per-species Tc and moment of types 13 and 16, the two phase-level numbers and the magnetic excess terms become slots of the magnetic form's groups. Which phase-level number is the structure factor and which is p (pycalphad calls them afm and structure factor) is inferred by comparing two readers, and the antiferromagnetic convention of a negative Tc and the units (K, Bohr magneton) are assumed, not stated in the file."
+
+[[disposition]]
+construct = "interpolation override line"
+disposition = "held_by_model"
+ref = "relation:subject_subform_choice"
+reason = "A triad with K or T marks is a sub-form choice for a subject of three constituents (Kohler for a symmetric triad, Toop with the odd constituent for an asymmetric one), so the per-subsystem selector the survey finds missing exists. The ten-item syntax is read by the mapping, and a line matching neither pattern, which the program ignores with a message, is held."

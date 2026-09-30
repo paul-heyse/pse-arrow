@@ -1,0 +1,911 @@
+[[disposition]]
+construct = "Clapeyron Database File (framing)"
+disposition = "mapping_loss"
+ref = "kind:parameterization"
+reason = "The file names no form, parameterisation key or revision, site scheme or convention set, so the mapping asserts all of them from the directory and from the model that lists the directory as its default location; line 2 is free text that also carries the kind keyword, so it is kept only as source text and the keyword scan the reader applies (and its silent skip of a line with two keywords) has to be reproduced by the mapping."
+
+[[disposition]]
+construct = "csvtype option list"
+disposition = "mapping_loss"
+ref = "kind:group_scheme"
+reason = "grouptype names a scheme (UNIFACDortmund, originalUNIFAC, PSRK, VTPR, gcPCPSAFT) but no revision, and the Dortmund and UNIFAC 2.0 refit files share one name, so the mapping must assign group_scheme.revision per file from the directory; csvtype and sep only steer the reader and are not mapped."
+
+[[disposition]]
+construct = "species key (normalised name with alias lists)"
+disposition = "mapping_loss"
+ref = "kind:identity_assertion"
+reason = "Each cell becomes one `name` identity assertion per '~|~' alias on a source entity whose class the mapping states, with no assertion status, because the source matches by normalised string equality and cannot see an alias shared by two compounds; such a clash appears as an ambiguous resolution, not as something the source stated."
+
+[[disposition]]
+construct = "like / single parameter file"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "One parameter_set per row, but the file states no parameterisation, site scheme or aggregation, so the mapping asserts them from the directory; the duplicate species rows (8 in PCSAFT_like.csv) are kept as occurrences 1 and 2 with the reader's later-row-wins rule recorded as a selection fact, so nothing is dropped."
+
+[[disposition]]
+construct = "unlike / pair parameter file"
+disposition = "held_by_model"
+ref = "kind:parameter_set"
+reason = "The transposition rule (symmetric by default, ordered for the parameters the source lists in asymmetricparams) is declared on the pair slot group of the form the mapping names for the table and values are stored as asserted with their arrangement, which is only a difference of arrangement; the 8 gc-PCP-SAFT self-pair rows are kept because the group declares diagonal = allowed."
+
+[[disposition]]
+construct = "assoc / association parameter file"
+disposition = "mapping_loss"
+ref = "kind:site_scheme"
+reason = "Sites are free labels (H, e, e1, e2, a, b) with counts taken from n_<site> columns and no named scheme, so the mapping must infer the site_scheme from labels and counts; both orientations of an asymmetric cross pair that the file lists are kept as two occurrences with the reader's canonicalise-and-later-wins rule recorded, and an explicit cross 0 is stored as known although the source cannot tell it from an absent pair."
+
+[[disposition]]
+construct = "groups file"
+disposition = "mapping_loss"
+ref = "kind:group_assignment"
+reason = "Each row gives group_count rows under a group_scheme whose revision and kind of label (subgroup, main group, first or second order) the file does not state, so the mapping asserts the scheme and the UNIFAC main-group structure is not recovered from this file; salts.csv lists ions, not fragments, and maps to speciation_coefficient rows of a speciation_map instead of a group_assignment."
+
+[[disposition]]
+construct = "intragroups file (group connectivity)"
+disposition = "model_change"
+ref = "alignment-notes #21"
+reason = "The declaration holds group counts (relation group_count keyed by assignment and group) but no bond between two groups of one assignment; add a relation group_bond_count keyed by (assignment, group, group) with a Count value, symmetric with diagonal allowed, provenance inherit:assignment, so the intragroups matrix n_intergroups of the heterosegmented models has a home."
+
+[[disposition]]
+construct = "source column"
+disposition = "mapping_loss"
+ref = "relation:attribution"
+reason = "A DOI-shaped cell (10828 rows) becomes a publication and an attribution of the import record, but the 374 free-text cells carry no DOI and cannot become publications, an empty cell means unattributed and not unpublished, and attribution is per row, so jointly fitted columns are not tied to one fit and origin_role cannot be derived."
+
+[[disposition]]
+construct = "RawParam tape and join"
+disposition = "held_by_model"
+ref = "kind:selection_policy"
+reason = "The merge order (default directories alphabetically, then user locations, a later row or file overriding an earlier one, with @REPLACE and @REMOVEDEFAULTS) is the carrier's own default, recorded as a carrier-asserted selection_policy with as_documented true because the getparams docstring states it; the in-memory tape is not mapped and overridden duplicates survive as occurrences."
+
+[[disposition]]
+construct = "SingleParam"
+disposition = "out_of_scope"
+ref = ""
+reason = "SingleParam is the in-memory container of one loaded column (values, per-component missing flags, source lists); its content is the like-table rows mapped through the like-table constructs, and the container holds no further thermodynamic knowledge."
+
+[[disposition]]
+construct = "PairParam"
+disposition = "out_of_scope"
+ref = ""
+reason = "PairParam is the in-memory square matrix built from the unlike tables plus combining-rule output; its authored entries are mapped from the unlike-table constructs, its derived entries are not data, and the missing matrix is reader bookkeeping."
+
+[[disposition]]
+construct = "AssocParam and Compressed4DMatrix"
+disposition = "out_of_scope"
+ref = ""
+reason = "AssocParam and Compressed4DMatrix are the packed runtime storage of association values, whose canonicalising, symmetrising and dropping of explicit zeros is program behaviour; the knowledge is the assoc rows mapped from the assoc-table constructs."
+
+[[disposition]]
+construct = "SiteParam (association sites)"
+disposition = "mapping_loss"
+ref = "kind:association_site"
+reason = "association_site rows come from the union of site labels in a component's assoc rows with multiplicities from the n_<site> columns; no named scheme (2B, 4C) is stored, so the mapping derives one site_scheme key per label-and-count pattern, the labels H and e keep only their conventional meaning, and the group/site concatenation for group-contribution components is derived and not mapped (group sites use on_group)."
+
+[[disposition]]
+construct = "GroupParam"
+disposition = "model_change"
+ref = "alignment-notes #21"
+reason = "Group labels and counts map to group_assignment and group_count, but n_intergroups (bond counts between group pairs of one component, from the intragroups file or derived for trivial linear molecules) has no relation in the declaration; it needs the group_bond_count relation proposed for the intragroups file, while counts held as floats for derivative types are representation only."
+
+[[disposition]]
+construct = "MixedGCSegmentParam"
+disposition = "out_of_scope"
+ref = ""
+reason = "The array is the per-component, per-group product n_ik * S_k * vst_k recomputed whenever shapefactor or segment change, a cache of derived values that is recomputed from group counts and two group slots."
+
+[[disposition]]
+construct = "AssocOptions"
+disposition = "mapping_loss"
+ref = "kind:selection_policy"
+reason = "Only the combining selector (nocombining, cr1, esd/elliott, esd_runtime/elliott_runtime, dufal/mie15) is knowledge: it becomes an unasserted named_rule of the carrier's selection_policy per model type with the defaults the source states (pharmaPCSAFT elliott_runtime, gcPCSAFT and HomogcPCPSAFT cr1, every other model none), while rtol, atol, max_iters, dampingfactor and implicit_ad are solver settings and are dropped."
+
+[[disposition]]
+construct = "ReferenceState"
+disposition = "model_change"
+ref = "alignment-notes #22"
+reason = "kind energy_reference fixes a zero only as zero_at_state with a Text state, temperature and pressure, which fits ashrae, nbp, stp and ntp, but iir (200 kJ/kg and 1 kJ/(kg*K) at 0 C, saturated liquid) and the H0, S0 of a stated state are nonzero values at a state: add a value_at_state member to enthalpy_datum and entropy_datum with optional attributes for the stated enthalpy and entropy (SpecificEnergy, SpecificEntropy or molar) and the aggregation of the state; the computed offsets a0, a1 are not mapped."
+
+[[disposition]]
+construct = "SpecialComp"
+disposition = "held_by_model"
+ref = "relation:subject_subform_choice"
+reason = "The water-only sigma correlation of pharmaPCSAFT is the form chosen for the sigma slot for one subject, which subject_subform_choice records per species form; the name test on 'water08' and 'water' is program behaviour and is not mapped."
+
+[[disposition]]
+construct = "EoSParam / ParametricEoSParam package"
+disposition = "held_by_model"
+ref = "mechanism:form catalogue"
+reason = "The struct's fields are the slots of the slot groups of the form the catalogue declares for the model, with quantity types and docs written from the docstrings, which is only an arrangement of where the names are declared; columns the struct never reads (a1..a5, delta, type, bounds_violation) get their own field rules in the tables."
+
+[[disposition]]
+construct = "SAFT assoc table with SMILES columns (PC-SAFT, CK-SAFT, LJ-SAFT, og-SAFT, SAFT-VR, softSAFT families)"
+disposition = "mapping_loss"
+ref = "kind:site_scheme"
+reason = "bondvol is a dimensionless kappa in the PC-SAFT, CKSAFT, ogSAFT and ePCSAFT tables, a volume-sized number in the SAFT-VR Mie, softSAFT and SAFT-VR SW tables and about 35 to 40 with no stated unit in LJSAFT while every docstring says m3, so the mapping assigns a slot per definition from magnitudes and cannot fix the LJSAFT unit; the site scheme is inferred from labels, epsilon_assoc is taken as K from the docstrings and the unread SMILES1 and SMILES2 become identity assertions."
+
+[[disposition]]
+construct = "CPA assoc table with SMILES columns"
+disposition = "mapping_loss"
+ref = "kind:site_scheme"
+reason = "bondvol near 0.01 is read as a dimensionless kappa by magnitude although the docstrings say m3 in one place and m3/mol in another, epsilon_assoc is K from the docstrings, and the site scheme is inferred from the labels; the eCPA and sCPA copies are read by no code path, so their rows were never evaluated."
+
+[[disposition]]
+construct = "assoc table without SMILES or source (sCPA, PCP-SAFT cross, gc-PCP-SAFT)"
+disposition = "mapping_loss"
+ref = "kind:site_scheme"
+reason = "bondvol has no stated unit (PCP-SAFT values near 0.04 are read as dimensionless by magnitude while the docstring says m3), the gc-PCP-SAFT rows put sites on groups rather than components, and the site scheme is inferred from the labels; epsilon_assoc is K from the docstrings and there is no source column."
+
+[[disposition]]
+construct = "group assoc table with source (SAFT-gamma Mie, CP-PC-SAFT)"
+disposition = "mapping_loss"
+ref = "kind:site_scheme"
+reason = "The SAFT-gamma Mie rows key sites on group labels (on_group) with bondvol of order 1e-28 to 1e-30 read as m3 while the CP-PC-SAFT rows hold a dimensionless 0.228 for its benzene-ring site BR under the same column name, so the slot per definition and the site scheme are assigned by the mapping; the source column is a DOI, free text or empty per row."
+
+[[disposition]]
+construct = "PCP-SAFT assoc table (Esper set)"
+disposition = "mapping_loss"
+ref = "kind:site_scheme"
+reason = "The 387 self-association rows of sites a and b carry bondvol near 0.01 with no stated unit (read as dimensionless by magnitude) and epsilon_assoc in K from the docstrings; the site scheme is inferred, and the column order bondvol then epsilon_assoc carries no meaning because columns are read by name."
+
+[[disposition]]
+construct = "ADPC-SAFT / DAPT assoc table"
+disposition = "mapping_loss"
+ref = "kind:site_scheme"
+reason = "theta_c has no stated unit and the docstring only calls it 'Association Parameter', so the cone-angle unit (degrees or radians) is an assumption the mapping must declare or hold the column; epsilon_assoc is K from the docstrings, each model has one water row, and the site scheme is inferred."
+
+[[disposition]]
+construct = "PC-SAFT like table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "One wide row serves PCSAFT, sPCSAFT, pharmaPCSAFT, ePCSAFT and ePCSAFTAdv, so the mapping splits it per consuming form and takes Mw as g/mol, sigma as Angstrom, epsilon as K and segment as dimensionless from the docstrings; n_H and n_e become association_site multiplicities under an inferred scheme, DIPPR Number is unread, and the 8 duplicate species rows of PCSAFT_like.csv become occurrences."
+
+[[disposition]]
+construct = "ePCSAFT top-level like table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "The segment number is written under the name m, which no model reads (they read segment), so mapping it to the segment slot is an assumption (dimensionless, not stated); the directory SAFT/ePCSAFT is named by no code path, so these rows were never evaluated, and Mw, sigma, epsilon and the site counts carry the docstring units."
+
+[[disposition]]
+construct = "SAFT-VR Mie like table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "The same columns serve SAFTVRMie, SAFTVRMie15 and SAFTVRQMie, so the mapping emits them per directory's form with Mw as g/mol, sigma as Angstrom, epsilon as K and the Mie exponents lambda_r and lambda_a as dimensionless (docstring), and turns n_H and n_e into association_site multiplicities."
+
+[[disposition]]
+construct = "SAFT-VR Mie GV like table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "Adds dipole (Debye per docstring), quadrupole (D*Angstrom per docstring) and the dimensionless counts np and nQ of dipolar and quadrupolar segments to the SAFT-VR Mie columns, so the mapping declares DipoleMoment conversions and a quadrupole as a product of DipoleMoment and Length; n_H and n_e become site multiplicities."
+
+[[disposition]]
+construct = "SAFT-VR SW like table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "The square-well range lambda is dimensionless by docstring, Mw is g/mol, sigma Angstrom and epsilon K, all stated only in docstrings, and n_e and n_H become association_site multiplicities under an inferred site scheme."
+
+[[disposition]]
+construct = "CKSAFT like table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "vol has no unit in the file and the docstring says dm3 while the constructor arithmetic (division by 1e6 and N_A) treats it as cm3/mol, so the mapping follows the code and assumes cm3/mol, recording the disagreement; c and segment are dimensionless, epsilon is K, and the site counts become multiplicities."
+
+[[disposition]]
+construct = "sCKSAFT like table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "Mw is empty in all 18 rows (it comes from molarmass.csv), so no molar-mass value is asserted here, and vol carries the same docstring-against-constructor disagreement (dm3 against cm3/mol by arithmetic) which the mapping resolves by following the code; epsilon is K and n_H, n_e become multiplicities."
+
+[[disposition]]
+construct = "BACKSAFT like table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "vol is cm3/mol by the constructor's arithmetic although the docstring says dm3, and epsilon is K*mol-1 in one docstring and K in the other, so the mapping assumes cm3/mol and K and records both; there is no Mw column (it comes from molarmass.csv) and alpha is dimensionless."
+
+[[disposition]]
+construct = "LJ-SAFT like table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "b is dm3/mol by the docstring and the constructor's 1e-3 factor agree, T_tilde is K (an energy over k_B, EnergyTemperature) and segment is dimensionless, all from docstrings only; n_H and n_e become association_site multiplicities under an inferred scheme."
+
+[[disposition]]
+construct = "og-SAFT like table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "Mw g/mol, sigma Angstrom and epsilon K come from the docstrings and the column order (n_e before n_H) carries no meaning; n_e and n_H become association_site multiplicities under a site scheme the mapping infers, and the form is implied by the directory."
+
+[[disposition]]
+construct = "softSAFT like table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "segment is dimensionless, sigma Angstrom and epsilon K by docstring only, and there is no Mw column (it comes from molarmass.csv); n_H and n_e become association_site multiplicities and the form is implied by the directory."
+
+[[disposition]]
+construct = "solid softSAFT like table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "The columns a1 to a5 have no stated meaning and no field of the solid softSAFT parameter struct reads them, so they cannot be typed and are not mapped; segment, sigma and epsilon carry the docstring units and the form is implied by the directory."
+
+[[disposition]]
+construct = "CPA like table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "b is m3/mol and c1 dimensionless by docstring, and the docstring writes a as m6*Pa*mol-1, which is not the dimension a cubic attraction parameter has (per mol squared), so the mapping takes Pressure * MolarVolume^2 and records that it overrides the docstring; the same columns serve CPA and sCPA, and n_H and n_e become multiplicities."
+
+[[disposition]]
+construct = "sCPA top-level like table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "The directory SAFT/sCPA is read by no code path, so none of SMILES, Mw, b, a, c1 or the extra column c (no stated meaning) was ever read, and their units can only be borrowed from the CPA docstring; n_H and n_e are the only columns the source could use."
+
+[[disposition]]
+construct = "eCPA like table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "Framing line 2 reads 'TODO:check the units here' and the file is read by no code path, so Gamma, b, c1, Tc, c, gamma, theta, polarizability, coordno and mu have no stated unit or meaning and the mapping must hold them or declare an assumption per column; the site counts n_H and n_e are the only input columns."
+
+[[disposition]]
+construct = "DAPT like table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "r_c and lambda are named only in the docstring with no unit or meaning, so the mapping must assume or hold those two columns; Mw, sigma and epsilon carry docstring units, the file has one water row, and the site counts become multiplicities."
+
+[[disposition]]
+construct = "ADPC-SAFT like table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "r_c, c1, c2 and c3 are names only in the docstring, without unit or meaning, so the mapping must assume or hold them; Mw, sigma and epsilon carry docstring units, the file has one water row, and n_H and n_e become multiplicities."
+
+[[disposition]]
+construct = "CP-PC-SAFT like table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "delta is a column of unknown meaning that the parameter struct does not contain, so it is not mapped; segment, sigma and epsilon carry docstring units, the BR site count n_BR (the benzene-ring site) joins n_e and n_H as a multiplicity, and source comes before the site counts in the file with no meaning in the order."
+
+[[disposition]]
+construct = "PCP-SAFT like table (Esper set)"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "dipole is Debye by docstring and the sites are named a and b (n_a, n_b), but the class label `type` (NONPOLAR 998, DIPOLAR 457, ASSOCIATIVE 387) and the fit note `bounds_violation` (OK in 1662 of 1842 rows) are read by no model and have no slot or concept (a fit records only converged, failed or not stated), so both are dropped."
+
+[[disposition]]
+construct = "QPCP-SAFT like table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "dipole is Debye and quadrupole D*Angstrom by docstring only, Mw g/mol, sigma Angstrom and epsilon K likewise; the mapping declares the quadrupole unit as a product of DipoleMoment and Length and turns n_H and n_e into multiplicities."
+
+[[disposition]]
+construct = "gc-PCP-SAFT like table (group-keyed)"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "The rows are keyed by group labels of the gc-PCP-SAFT schemes, so the subject is a group of the parameterisation's group_scheme and the sites sit on groups (on_group); Mw g/mol, sigma Angstrom, epsilon K and dipole Debye are docstring units and the scheme revision is asserted by the mapping."
+
+[[disposition]]
+construct = "gcsPC-SAFT like table (group-keyed)"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "The slots hold the products m*sigma^3 (msigma3, Angstrom cubed inferred from the constructor's 1e-30 factor although the docstring speaks of Angstrom for sigma) and m*epsilon (K inferred), which the table gives instead of the factors, so the mapping keeps the products as stated; the rows are group-keyed and the site counts n_H, n_e sit on groups."
+
+[[disposition]]
+construct = "iPC-SAFT like table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "v_shift is a volume translation with unit m3/mol from the docstring only, and Mw g/mol, sigma Angstrom and epsilon K likewise; the translation belongs to the form's volume-translation sub-form, and n_H and n_e become multiplicities."
+
+[[disposition]]
+construct = "SAFT-gamma Mie like table (group-keyed)"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "The rows are group-keyed (vst, S, lambda_r, lambda_a, sigma Angstrom, epsilon K from docstrings, vst, S and the exponents dimensionless) with the site counts n_H, n_e1 and n_e2 on groups, so the mapping asserts the group scheme and its revision and turns the counts into on_group association_site multiplicities."
+
+[[disposition]]
+construct = "SAFT-gamma E Mie ion table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "charge is an integer in elementary charges (inferred) and sigma_born is read as Angstrom by the code (1e-10 factor, GCMSABorn.jl:74) although the electrolyte docstrings state m, so the mapping follows the code and records it; one sigma_born cell is empty and cannot be asserted for that ion group."
+
+[[disposition]]
+construct = "relative permittivity table (dielectric)"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "dielectric is the static relative permittivity of the pure solvent, dimensionless by docstring, but the file does not state the temperature it applies at (nor a source for most rows), so the mapping cannot attach a temperature and records that; the DIPPR Number column is unread."
+
+[[disposition]]
+construct = "Kolafa-Nezbeda like table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "sigma is Angstrom and epsilon K by docstring, Mw g/mol, all stated only there; the CAS column is unread and becomes a cas identity assertion, and the form is implied by the directory."
+
+[[disposition]]
+construct = "Sanchez-Lacombe like table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "epsilon is J/mol per monomer, vol m3/mol of closed-packed segments and segment dimensionless, all from docstrings, and the file has no source column; the form (Sanchez-Lacombe) is implied by the directory."
+
+[[disposition]]
+construct = "UNIFAC group like table (R, Q)"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "R and Q are the normalised group van der Waals volume and surface area, dimensionless by docstring, keyed by subgroup label of the UNIFAC Dortmund or PSRK scheme whose revision the mapping asserts; Q is empty in 4 of 150 PSRK rows, and a required slot cannot carry that, so those rows are held unless the mapping declares the slot not_applicable."
+
+[[disposition]]
+construct = "original UNIFAC group like table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "R and Q are dimensionless and Mw g/mol (docstring of UNIFAC-FV), but one file feeds two forms (original UNIFAC ignores Mw, UNIFAC-FV and its polymer variant read it), so the mapping splits each row per consuming form and asserts the scheme revision."
+
+[[disposition]]
+construct = "VTPR group like table (Q only)"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "Q is the normalised subgroup surface area with no stated unit (dimensionless assumed) for the VTPR scheme whose revision the mapping asserts; the file has no R column, so VTPR's R is not in this table."
+
+[[disposition]]
+construct = "UNIFAC-FV like table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "These rows are per component, not per group, and volume carries g/cm3 in the docstring, a density unit for a specific volume, which the mapping must resolve (cm3/g assumed); c, the external degrees of freedom, is empty in 5 of 7 rows and has no stated unit."
+
+[[disposition]]
+construct = "UNIQUAC like table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "r, q and q_p (the modified surface of the water and alcohol correction) are normalised and dimensionless by docstring; Mw is not in this table (it comes from molarmass.csv) and the form is implied by the directory."
+
+[[disposition]]
+construct = "Flory-Huggins like table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "v is a monomer volume with no stated unit (the constructor divides it by Mw), so its unit and the reference volume it is relative to are assumptions the mapping must state on the parameterization (reference_volume), as must the composition basis of the Flory-Huggins parameters; Mw is g/mol by docstring and the source column is empty in all 185 rows."
+
+[[disposition]]
+construct = "COSMO-SAC (2002) like table"
+disposition = "mapping_loss"
+ref = "kind:tabulated_function"
+reason = "Pi is one cell of 51 whitespace-separated numbers that becomes a series of a tabulated_function whose axis (screening charge density bins) is fixed by the model code and not stated in the file; A (Angstrom squared) and V (Angstrom cubed) are inferred from the NIST branch of the code, and the profile is taken as area per bin normalised by A."
+
+[[disposition]]
+construct = "COSMO-SAC (2010) like table"
+disposition = "mapping_loss"
+ref = "kind:tabulated_function"
+reason = "Pnhb, POH and POT become three named series on one screening-charge-density axis of a tabulated_function, distinguished by column name and not by position, so the old loss no longer applies; the axis points are fixed by the model code and absent from the file, and A, V and the profile areas carry inferred Angstrom units."
+
+[[disposition]]
+construct = "COSMO-SAC-dsp like table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "epsilon and the descriptors water, COOH, hb_acc and hb_don are named only in the code, with no stated unit or meaning, so they are taken as dimensionless indicators and a dispersion energy by assumption or held; A, V and the profiles come from the COSMOSAC10 table."
+
+[[disposition]]
+construct = "ion charge table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "charge is an integer charge number (elementary charges inferred from integer values) that is also identity data, so the mapping must check it against the resolved species' charge and choose the slot as its single target."
+
+[[disposition]]
+construct = "Born diameter table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "sigma_born is m in the docstrings but of order 3 in the file, and the models multiply it by 1e-10, so the mapping assumes Angstrom from the code and records the conflict."
+
+[[disposition]]
+construct = "Schreckenberg permittivity table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "d_T (K) and d_V (m3/mol) are the two parameters of the Schreckenberg permittivity correlation with units from docstrings only; the equation they belong to is fixed by the model code and the mapping names the form per table."
+
+[[disposition]]
+construct = "MM1 permittivity like table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "gamma, theta, coordz, mu and polarizability are named only, with no unit or meaning stated anywhere, so the mapping cannot type them without per-column assumptions and otherwise holds the rows (unit_not_parseable); there are five rows."
+
+[[disposition]]
+construct = "MM1 permittivity unlike table"
+disposition = "out_of_scope"
+ref = ""
+reason = "Header-only table with no data rows, so it carries no knowledge; a later release with rows would be a mapped table with the pair declarations of the MM1 form."
+
+[[disposition]]
+construct = "weighted-average permittivity table (unreferenced)"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "The file is read by no code path: Mw is g/mol by docstring and e_r has no stated unit (dimensionless relative permittivity assumed, with no temperature), so its three rows were never evaluated."
+
+[[disposition]]
+construct = "Zhuang permittivity table (unreferenced)"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "The file is read by no code path and mu has no stated unit (Debye is the obvious reading but nothing states it), so its three rows were never evaluated and the unit is an assumption."
+
+[[disposition]]
+construct = "Twu alpha-function table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "L, M and N are dimensionless Twu constants with no stated unit; Twu_like.csv and cPR_single.csv hold the same 2571 species and the same three columns, and whether they are one fit in two places or two fits is open, so the mapping emits one set per file and leaves any equivalence_assessment to a later step."
+
+[[disposition]]
+construct = "Mathias-Copeman alpha table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "c1, c2 and c3 are the three Mathias-Copeman constants with no stated unit (dimensionless assumed) in a semicolon-separated file of 4 rows; the alpha form is implied by the directory."
+
+[[disposition]]
+construct = "c-PR single table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "Mw (g/mol), Tc (K) and Pc (Pa) carry docstring units and L, M, N no stated unit; the file has no source column, and its L, M, N duplicate the Twu table for the same 2571 species, so they are kept as a second set rather than merged."
+
+[[disposition]]
+construct = "tc-PR single table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "L, M, N and v_shift are empty in 227 rows, which a required slot cannot carry, so those rows are held or split into the slots that are present; Mw, Tc, Pc, v_shift carry docstring units and acentricfactor is dimensionless, and the file has no source column."
+
+[[disposition]]
+construct = "tc-RK single table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "L, M and N have no stated unit and v_shift none in the docstring beyond m3/mol, while ZRA (dimensionless by docstring) is the Rackett compressibility of the same compound; Tc (K), Pc (Pa) and Mw (g/mol) carry docstring units and the file has no source column."
+
+[[disposition]]
+construct = "QCPR critical constants table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "Mw g/mol, Tc K and Pc Pa are stated only in docstrings for the four rows of the quantum-corrected PR, with no source column."
+
+[[disposition]]
+construct = "QCPR mixing-rule constants table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "A and B are names only, with no stated unit or meaning beyond 'quantum-correction constant', so the mapping must assume a unit per column or hold the four rows."
+
+[[disposition]]
+construct = "QCPR volume shift table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "v_shift is m3/mol from the docstring of ConstantTranslation for four rows with no source column; the translation belongs to the form's volume-translation sub-form."
+
+[[disposition]]
+construct = "Patel-Teja fitted critical volume table"
+disposition = "out_of_scope"
+ref = ""
+reason = "Header-only table (Vc_fit) with no data rows, so it carries no knowledge to map."
+
+[[disposition]]
+construct = "Aly-Lee ideal heat-capacity table"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "A, B, D, F, H are dimensionless (the model divides Cp by R) and C, E, G, I are temperatures inferred from their use as C/T; framing line 2 says the coefficients were recomputed for the 2019 gas constant without giving the digits, so the mapping states gas_constant on the convention set from the code's Rgas (8.31446261815324) and records that the value is not in the file."
+
+[[disposition]]
+construct = "PPDS ideal heat-capacity table"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "A to G carry no stated unit (only the Cp over R form), so the mapping takes each unit from the PPDS equation the code evaluates and records every one as an assumption; the gas constant the coefficients assume is not stated."
+
+[[disposition]]
+construct = "Reid polynomial ideal heat-capacity table"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "The polynomial coefficients a to e have units inferred only from the model multiplying the integral by 1/(R*T) (J/(mol*K) for a, then per kelvin powers), the integration starts at a literal 298 K that fixes an enthalpy zero the file does not state, and the cas column is unread."
+
+[[disposition]]
+construct = "Shomate ideal heat-capacity table"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "The five coefficients a to e are the heat-capacity terms only, with no stated unit or temperature scaling, whereas the declared shomate form also carries the enthalpy and entropy constants and pieces, so a heat-capacity-only form has to be catalogued and any scaling assumed; there is one water row."
+
+[[disposition]]
+construct = "Walker group ideal heat-capacity table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "The rows are group-keyed, Mw is g/mol (docstring), Nrot and the degeneracies deg1 to deg4 are counts and the four characteristic temperatures theta1 to theta4 are K inferred, none stated in the file; the group scheme and its revision are asserted by the mapping."
+
+[[disposition]]
+construct = "Joback group-contribution table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "Units are inferred from the code (P_c as bar^-1/2 because the code squares the inverse and multiplies by 1e5, V_c as cm3/mol, the energies as kJ/mol, T_b and T_m as K) and eta_a, eta_b have none stated; the group increments belong to an additive_increment group_scheme, the water row is a label of that scheme as the source treats it, and the trailing empty column is ignored."
+
+[[disposition]]
+construct = "Burkhardt group ideal table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "A to D are group coefficients whose unit the docstring leaves as 'dimensionless / K', so the mapping must take each from the equation and record it; the rows are group-keyed under a scheme whose revision the mapping asserts."
+
+[[disposition]]
+construct = "GC Aly-Lee group ideal table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "A to E carry no stated unit, so the mapping takes them from the group-contribution Aly-Lee equation and records the assumption; the rows are group-keyed under a scheme whose revision the mapping asserts."
+
+[[disposition]]
+construct = "critical constants table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "Tc K, Pc Pa and Vc m3/mol come from docstrings only, and Vc is a molar volume while the declared critical observable is a molar density, so the slot keeps the stated volume and binds no observable; Vc is empty in 278 rows, acentricfactor in 2 and CAS in 5 (required slots refuse those, so the rows are split or held), and the CAS column is unread."
+
+[[disposition]]
+construct = "molar mass table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "Mw is g/mol by docstring (stored as kg/mol by the unit conversion) for 3761 rows that the source uses as its default molar mass, and the file names no parameterisation; the CAS column is unread, and duplicate species keys (11) become occurrences with the later-row-wins rule recorded."
+
+[[disposition]]
+construct = "identifier table"
+disposition = "mapping_loss"
+ref = "kind:identity_assertion"
+reason = "This is an identity table, not a parameter table: CAS, SMILES, inchikey and canonicalsmiles become identity assertions (schemes cas, smiles, inchikey) on the entity named by the species cell, empty cells (47 CAS, 5 SMILES and canonical SMILES) are not asserted, as-written and canonical SMILES share one scheme so that distinction is lost, and the origin of these registry values is not stated so the origin role is an assumption."
+
+[[disposition]]
+construct = "ideal-gas formation table"
+disposition = "mapping_loss"
+ref = "kind:energy_reference"
+reason = "H0 (J/mol) and S0 (J/(mol*K)) are inferred from magnitudes only, the state (1 bar, 298.15 K) comes from framing line 2 as text, and the datum (formation from the elements, with S0 an absolute entropy) and the element reference forms are not stated; S0 is empty in 908 of 1361 rows and is left absent."
+
+[[disposition]]
+construct = "Rackett compressibility table (unreferenced)"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "ZRA is the dimensionless Rackett compressibility with no stated unit for 994 rows that no code path reads, so the rows were never evaluated and the equation they belong to is implied only by the file name."
+
+[[disposition]]
+construct = "group molar mass table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "Mw is g/mol for Joback, Walker and Burkhardt group labels with no unit in the file; the rows are group-keyed under schemes whose revisions the mapping asserts."
+
+[[disposition]]
+construct = "group atom counts table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "N_a is the atom count of a Joback group and N_h the hydrogen count, which no model reads, both counts with no stated unit, keyed by group label of a scheme whose revision the mapping asserts."
+
+[[disposition]]
+construct = "Antoine table"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "The code evaluates 10^(A - B/(T + C - 273.15)) while its docstring writes another form, so the equation and the pressure unit of A (Pa assumed) are fixed only by the code, B and C are K by inference, and Tmin and Tmax become a validity region whose kind (fitted or recommended) the file does not state; the 329 free-text source cells cannot become publications."
+
+[[disposition]]
+construct = "DIPPR 101 table"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "The table states neither the property nor the unit of its result (DIPPR equation 101 is a vapour-pressure form), so the observable and its pressure unit are assumed from the model type, D carries a unit per K^E inferred and E is dimensionless; Tmin and Tmax become a validity region of unstated kind and there is no source column."
+
+[[disposition]]
+construct = "DIPPR 105 table"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "The table states neither the property nor the unit of its result (DIPPR equation 105 is a liquid density form), so the observable and the density unit of A (not stated) are assumed from the model type; B and D are dimensionless, C is a temperature, and Tmin and Tmax become a validity region of unstated kind."
+
+[[disposition]]
+construct = "analytical SLV table"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "The coefficients a0 to m have no stated unit (dimensionless assumed), cr and dr are reduced constants the constructor multiplies by Vc, and the model's own path spells the file SLV with a capital L, so the file is read by no code path and its three rows were never evaluated."
+
+[[disposition]]
+construct = "solid fusion table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "Tm (K), Hfus (J/mol) and CpSL (J/(mol*K)) come from the docstring only and CpSL is empty in all 23 rows, so that slot is left out of the mapped form; Mw is g/mol and the form (ideal solubility of a solid) is implied by the directory."
+
+[[disposition]]
+construct = "solid formation table"
+disposition = "mapping_loss"
+ref = "kind:standard_state"
+reason = "Gform and Hform (J/mol) are said to be in water at infinite dilution at 1 bar and Tref (K) per the docstring, so they need an infinite_dilution standard state with water as solvent, whose composition scale the file does not state (an assumption), and an energy reference; there are four rows."
+
+[[disposition]]
+construct = "binary k table with SMILES and source (SAFT, cubic k)"
+disposition = "held_by_model"
+ref = "kind:parameter_set"
+reason = "k is dimensionless by docstring and symmetric, which the pair slot group declares with its transposition, so the stated loss is only where the rule is declared; cubic models reusing this table by default is a scoped selection_policy fact, not a property of the rows, and the unread SMILES1 and SMILES2 become identity assertions."
+
+[[disposition]]
+construct = "binary k table without source (CPA, LKP, PCP-SAFT, eCPA)"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "For LKP the framing line states that the values are 1 - kappa of the paper while the same column k means the deviation k for CPA, PCP-SAFT and eCPA, so the LKP rows need a slot defined on that statement and the statement is free text; the pair rule is declared per slot group and the sCPA and eCPA files are read by no code path."
+
+[[disposition]]
+construct = "UNIFAC group-pair interaction table"
+disposition = "mapping_loss"
+ref = "kind:group"
+reason = "A (K), B (dimensionless) and C (1/K) are inferred only from the exp(-(A + B*T + C*T^2)/T) form, and 1300 of 1512 rows use '~|~' lists so that one row sets the same values for a block of subgroup pairs whose shared main group is unnamed in the file, so the mapping expands them per subgroup pair or creates synthetic partition_class groups; both orientations are listed and stored with the ordered rule."
+
+[[disposition]]
+construct = "original UNIFAC group-pair table (A only)"
+disposition = "mapping_loss"
+ref = "kind:group"
+reason = "A is K inferred only from the docstring's exp(-A/T) form, and '~|~' lists set a block of subgroup pairs from one row whose main group is unnamed, so the mapping expands per subgroup pair or creates synthetic partition_class groups; A is ordered and both orientations are listed."
+
+[[disposition]]
+construct = "multifluid departure table (F, parameters)"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "F is dimensionless and the JSON array in `parameters` becomes a nested set of reduced-variable terms whose coefficients have no stated unit (dimensionless assumed); F and parameters are read as asymmetric and oriented by the model, so the orientation of a row listed once is recorded as arrangement."
+
+[[disposition]]
+construct = "empirical departure table with source"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "Four of 33 rows have an empty parameters cell, which means a pair with an F but no departure terms and cannot be told from a missing departure, so the mapping emits no nested set for them; 3 rows lack a source, F is dimensionless and the pair orientation is recorded as arrangement."
+
+[[disposition]]
+construct = "binary k and kT table (ePCSAFT, pharmaPCSAFT)"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "k is dimensionless and kT is 1/K by docstring, but kT is empty in 97 of 100 ePCSAFT rows and a required slot cannot carry that, so those rows are split into the slots present or held; the unread SMILES columns become identity assertions."
+
+[[disposition]]
+construct = "SAFT-VR Mie cross-interaction table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "epsilon is K inferred from the pure epsilon and lambda_r dimensionless, both replacing the combining rule when present, and lambda_r is empty in 83 of 87 SAFTVRMie rows so those rows are split or held; the docstring lists a k that the code never reads and the mapping follows the code."
+
+[[disposition]]
+construct = "binary A12, A21 table (Margules, VanLaar)"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "A12 and A21 have no stated unit, and whether a swap of the pair exchanges them (a linear rule with matrix [[0, 1], [1, 0]]) or leaves each unchanged is fixed only by the Margules and VanLaar constructors, so the mapping declares one rule and records it; the first data row repeats numbers that also open three other files' tables (a survey question about placeholders)."
+
+[[disposition]]
+construct = "NRTL binary table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "a (dimensionless) and b (K, inferred) build tau as a + b/T presumably and c is the non-randomness alpha, none stated, and the constructor also accepts tau and alpha names and raises an error when both forms are given; the parameters are ordered and both orientations are listed, and the eNRTL file's reader is not included by the package."
+
+[[disposition]]
+construct = "aspen NRTL binary table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "t0, t1, t2, t3, a0 and a1 have no stated unit, and t2, t3 and a1 are empty in all 62 rows, which the source evaluates as zero although the file distinguishes missing, so the mapping leaves those slots out of the form; the trailing Column12 is empty and dropped."
+
+[[disposition]]
+construct = "UNIQUAC binary table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "a is K inferred only from the docstring's tau = exp(-a/T); the parameter is ordered and both orientations are listed, and the six rows carry no unit statement."
+
+[[disposition]]
+construct = "Wilson binary table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "g is K inferred from the exp(-g/T) form of the docstring, ordered with both orientations listed; the constructor also sets ZRA from the acentric factor with a fixed linear correlation, which is not in this table and is not mapped here."
+
+[[disposition]]
+construct = "tc-PR Wilson residual table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "g is K inferred from the Wilson form, ordered with both orientations listed, for 400 rows with no source column; the form is the residual Wilson paired with tc-PR, implied by the directory."
+
+[[disposition]]
+construct = "Flory-Huggins binary table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "a and b have no stated unit (a temperature-independent part and a coefficient), the composition basis and reference volume the interaction parameter assumes are not stated and must be declared on the parameterization, and the 8 duplicate pair rows become occurrences; line 2 is titled 'Margules' by copy."
+
+[[disposition]]
+construct = "eCPA-NRTL table (unreferenced)"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "The file is read by no code path (its model include is commented out), so A, B, C and alpha were never read and have no stated unit or meaning; the mapping must hold them or assume units per column."
+
+[[disposition]]
+construct = "multifluid reducing parameters with CAS columns"
+disposition = "held_by_model"
+ref = "kind:parameter_set"
+reason = "beta_v and beta_T are declared with a reciprocal transposition on the pair slot group while gamma_v and gamma_T are unchanged on swap, values stored as asserted with arrangement, so nothing is re-oriented or inverted at import; all four are dimensionless by docstring and cas1 and cas2 (unread) become cas identity assertions."
+
+[[disposition]]
+construct = "multifluid reducing parameters (GERG-2008, EOS-LNG)"
+disposition = "held_by_model"
+ref = "kind:parameter_set"
+reason = "beta_v and beta_T follow the reciprocal rule and gamma_v and gamma_T are symmetric, declared on the pair slot group with values stored as asserted; all four are dimensionless by docstring and the one empty source cell is simply no attribution."
+
+[[disposition]]
+construct = "binary k, l table with source"
+disposition = "held_by_model"
+ref = "kind:parameter_set"
+reason = "k (energy) and l (size) are dimensionless deviations from a named mean, which is the definition of the form's slots, and symmetric on swap as the pair slot group declares; the source column is per row attribution."
+
+[[disposition]]
+construct = "group binary k table with source"
+disposition = "held_by_model"
+ref = "kind:parameter_set"
+reason = "k is a dimensionless group-pair parameter whose symmetric rule is declared on the slot group, and the 8 self-pair rows the source stores without symmetrisation are kept because the group declares diagonal = allowed; the subjects are groups of the scheme the mapping asserts."
+
+[[disposition]]
+construct = "binary k, l table without source"
+disposition = "held_by_model"
+ref = "kind:parameter_set"
+reason = "k and l are dimensionless by docstring, symmetric on swap as the pair slot group declares, for 6 SAFT-VRQ Mie and 5 QCPR rows with no source column."
+
+[[disposition]]
+construct = "LJ-SAFT binary table"
+disposition = "held_by_model"
+ref = "kind:parameter_set"
+reason = "k (energy) and zeta (volume) are dimensionless by docstring and symmetric on swap, which the pair slot group declares; the unread SMILES columns become identity assertions."
+
+[[disposition]]
+construct = "SAFT-gamma Mie group cross table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "epsilon is K inferred and lambda_r is empty in 238 of 377 rows, which a required slot cannot carry so those rows are split or held; source is empty in all 377 rows and the keys are group labels whose scheme revision the mapping asserts."
+
+[[disposition]]
+construct = "structural SAFT-gamma Mie cross table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "epsilon is the cross dispersion energy over k_B, K by inference only, for 8 group pairs of the structural scheme, with no source column and the scheme revision asserted by the mapping."
+
+[[disposition]]
+construct = "quadratic departure table (empty)"
+disposition = "out_of_scope"
+ref = ""
+reason = "Header-only table (k0 and k1 of a quadratic departure) with no data rows, so it carries no knowledge to map."
+
+[[disposition]]
+construct = "Sanchez-Lacombe k0, k1, l table"
+disposition = "held_by_model"
+ref = "kind:parameter_set"
+reason = "k0, k1 and l are dimensionless by docstring and symmetric on swap as the pair slot group declares, for 20 rows with no source column; k1's composition dependence is part of the form's expression."
+
+[[disposition]]
+construct = "E-PPR78 group-pair table"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "A and B are MPa inferred from the mixing rule's factor 1e6 at EPPR78.jl:147, both unstated in the file, for 355 group pairs from which k_ij(T) is built; the rows are group-keyed under a scheme whose revision the mapping asserts and there is no source column."
+
+[[disposition]]
+construct = "relative permittivity table (Electrolytes/RSP)"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "dielectric is the dimensionless static relative permittivity by docstring, the file does not state its temperature, there is no DIPPR column and line 2 is titled 'Charges Like Parameters' by copy; it is the six-solvent copy of the permittivity table read by LinMixRSP."
+
+[[disposition]]
+construct = "sigma_LorentzBerthelot / kij_mix with mix_mean"
+disposition = "held_by_model"
+ref = "kind:selection_policy"
+reason = "The arithmetic mean times (1 - l) applies only where no pair value was read from a table, which is an unasserted named_rule of the carrier's selection_policy (with the stated default l = 0 where no l row exists); derived pair values are never imported, so the stored-matrix and missing-flag problem does not arise, and the formula belongs to the form catalogue."
+
+[[disposition]]
+construct = "epsilon_LorentzBerthelot / kij_mix with mix_geomean"
+disposition = "held_by_model"
+ref = "kind:selection_policy"
+reason = "The geometric mean times (1 - k) applies only where no pair value was read from a table, which is an unasserted named_rule of the carrier's selection_policy (with the stated default k = 0 where no k row exists); the file's k rows are imported as authored sets and no derived energy is stored, so the stated loss does not apply."
+
+[[disposition]]
+construct = "epsilon_HudsenMcCoubrey"
+disposition = "held_by_model"
+ref = "kind:selection_policy"
+reason = "The cube-over-sixth-power size correction of the geometric mean is a named rule selected per model (default for SAFTVRQMie, SAFTVRSMie and COFFEE, an option of SAFTgammaMie), recorded as an unasserted named_rule of the carrier's policy; the derived epsilon_ij is not imported."
+
+[[disposition]]
+construct = "epsilon_HudsenMcCoubreysqrt"
+disposition = "held_by_model"
+ref = "kind:selection_policy"
+reason = "The square-root form with the cube-ratio size factor is the named rule the SAFT-VR Mie family and SAFT-gamma Mie default to, recorded as an unasserted named_rule of the carrier's selection_policy; explicit cross epsilon rows win over it and derived values are not imported."
+
+[[disposition]]
+construct = "lambda_LorentzBerthelot (MixLambda)"
+disposition = "held_by_model"
+ref = "kind:selection_policy"
+reason = "k + sqrt((lambda_i - k)(lambda_j - k)) with k = 3 is the named rule every Mie-based model applies when no cross exponent is tabulated, recorded as an unasserted named_rule of the carrier's selection_policy with the constant 3 as its stated parameter; derived exponents are not imported."
+
+[[disposition]]
+construct = "lambda_squarewell"
+disposition = "held_by_model"
+ref = "kind:selection_policy"
+reason = "The diameter-weighted mean of the pure ranges is the named rule SAFT-VR SW applies to lambda when no cross value is tabulated, recorded as an unasserted named_rule of the carrier's selection_policy; derived values are not imported."
+
+[[disposition]]
+construct = "mix_powmean / mix_mean3 (generic means)"
+disposition = "held_by_model"
+ref = "mechanism:form catalogue"
+reason = "The power mean (exponent n) and cube-root mean are building blocks written with sum and power in a form's expression (the pair mass of SAFTVRQMie uses n = -1, dufal_mix the cube-root mean), so they are mathematics of forms and not stored data; called otherwise only by user code."
+
+[[disposition]]
+construct = "bondvol_mix (geometric / Elliott form)"
+disposition = "held_by_model"
+ref = "kind:selection_policy"
+reason = "The geometric mean of the two self values (with the Elliott size factor for esd/elliott) is a combining rule applied only when AssocOptions selects cr1 or esd, recorded as an unasserted named_rule of the carrier's selection_policy scoped to the bondvol slot group; entries of zero stored by a table cannot be told from absent, which the pair-set mapping already records."
+
+[[disposition]]
+construct = "epsilon_assoc_mix"
+disposition = "held_by_model"
+ref = "kind:selection_policy"
+reason = "The arithmetic mean of the two self energies for each shared site pair is the cross-association energy rule selected with cr1, esd and dufal, recorded as an unasserted named_rule of the carrier's selection_policy scoped to epsilon_assoc; derived values are not imported."
+
+[[disposition]]
+construct = "dufal_mix"
+disposition = "held_by_model"
+ref = "kind:selection_policy"
+reason = "The cube of the sum of cube roots over eight is the cross-association volume rule of the SAFT-VR Mie 2015 kernel, selected with dufal/mie15 and recorded as an unasserted named_rule of the carrier's selection_policy scoped to bondvol; derived values are not imported."
+
+[[disposition]]
+construct = "ijab_zero_mix (runtime combining marker)"
+disposition = "held_by_model"
+ref = "kind:selection_policy"
+reason = "The run-time geometric mean of the association strengths (elliott_runtime, pharmaPCSAFT's default) is a named rule recorded in the carrier's selection_policy; the zero entries and the internal sentinel -124 that only mark site pairs as present are implementation markers and are not imported as known zeros."
+
+[[disposition]]
+construct = "group_sum / group_pairmean / group_pairmean2"
+disposition = "held_by_model"
+ref = "mechanism:form catalogue"
+reason = "sum_k nu_ik p_k and the pair mean weighted by both components' group counts are the mathematics of the group-contribution forms, with the counts nu taken from group_count through an argument indexed over components and groups at bind time, and no derived component value is stored, so no derivation record per derived slot is needed."
+
+[[disposition]]
+construct = "mix_segment! (MixedGCSegmentParam)"
+disposition = "held_by_model"
+ref = "mechanism:form catalogue"
+reason = "The weights n_ik * S_k * vst_k are a local expression of the SAFT-gamma Mie form computed from group counts and two group slots (shapefactor, segment) and are not stored."
+
+[[disposition]]
+construct = "mirror_pair! with inv (reciprocal transposition)"
+disposition = "held_by_model"
+ref = "kind:parameter_set"
+reason = "The reciprocal rule on beta_v and beta_T with unchanged gamma slots is declared on the pair slot group and values are stored as asserted with their arrangement, so there is no re-orienting or inversion at import; the row order of the file is recorded as the arrangement."
+
+[[disposition]]
+construct = "ab_premixing / ab_diagvalues! (cubic a and b)"
+disposition = "held_by_model"
+ref = "mechanism:form catalogue"
+reason = "Pure a_ii and b_ii from Tc, Pc and the two denominator constants are the expression of the cubic form (overridden where a table supplies a and b, as CPA's does, by a second form), and the cross a_ij and b_ij are the named geometric and arithmetic rules with (1 - k) and (1 - l), recorded in the selection_policy; nothing derived is stored."
+
+[[disposition]]
+construct = "get_k_mean / get_k_geomean / get_k_powmean / get_k_mean3"
+disposition = "held_by_model"
+ref = "mechanism:form catalogue"
+reason = "k and l are defined as deviations from a named mean, which is stated in the expression of the form whose slot they are; the get_k helpers that invert the means are utilities that are not mapped."
+
+[[disposition]]
+construct = "fluid JSON file (CoolProp/teqp layout)"
+disposition = "mapping_loss"
+ref = "kind:model_assembly"
+reason = "One file becomes the identity, the parameter sets of the EOS, a convention set (the per-fluid gas constant, for example 8.314472 in the GERG files, and the reducing state) and records for the derived STATES anchors, whose lineage to the equation the file does not state, so their origin role is computed with a derivation of unknown software; the *_units siblings are ignored by the reader, so units are assumed from them, and TRANSPORT and the other unread extras are mapped or deferred."
+
+[[disposition]]
+construct = "EOS entry: alpha0 term list"
+disposition = "mapping_loss"
+ref = "kind:energy_reference"
+reason = "Each term type becomes a family with an index, and the Lead terms a1, a2 fix an enthalpy and entropy zero relative to a reference state the file does not name, so the datum is recorded as not_stated; R0 is the per-fluid gas constant of the convention set, and the two IdealGasClapeyron* types are Clapeyron's conversion of Aly-Lee and GERG-2008 terms, recorded with a conversion derivation."
+
+[[disposition]]
+construct = "EOS entry: alphar term list"
+disposition = "mapping_loss"
+ref = "kind:validity_region"
+reason = "T_max, p_max and rhomolar_max of the EOS entry become validity regions that the source never reads, but the file does not say whether they are recommended or validated ranges and states no lower bounds, so the kind of region is an assumption; the typed term list (Power, Gaussian, NonAnalytic, GaoB) becomes one family per type, which is arrangement."
+
+[[disposition]]
+construct = "JSON departure cell (multifluid)"
+disposition = "held_by_model"
+ref = "kind:parameter_set"
+reason = "The JSON array in the cell is the value of a nested-set slot (accepts the departure contract) of the pair's departure set, F a scalar slot, and the pair orientation as listed is stored as asserted with arrangement; parsing it is a mapping step that loses no content."
+
+[[disposition]]
+construct = "ANCILLARIES member"
+disposition = "mapping_loss"
+ref = "relation:auxiliary_of"
+reason = "Each curve becomes a parameter set tied to the EOS by auxiliary_of with its stated max error, but the file states neither the target (the EOS entry of the same file is inferred) nor the kind (approximation, and validity_boundary for melting lines, are the mapping's reading), and the fit data and script are not in the source, so the derivation has no software or fit record."
+
+[[disposition]]
+construct = "Chebyshev saturation tables (cubic models)"
+disposition = "out_of_scope"
+ref = ""
+reason = "The tables are precomputed Chebyshev seeds for saturation solves of a cubic, generated by a script that is not in the tree; the results do not depend on them, so they are algorithm internals and would be regenerated, not mapped."
+
+[[disposition]]
+construct = "hard-coded reference equations"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "The coefficients live in Julia literals, so a mapping needs an extractor that reads code; the gas constants and, for IAPWS95, Mw, Tc and Pc that the constructor fixes are conventions read from code, and the same fluid can also arrive from the JSON route as a separate source, which is an equivalence question and not a merge."
+
+[[disposition]]
+construct = "estimation data table"
+disposition = "mapping_loss"
+ref = "kind:dataset_column"
+reason = "The method name in line 2 refers to a Julia function and the columns (T, out_pre, out_rho, error columns) have arbitrary names and no stated unit, so the mapping must assert each column's observable and unit (K and mol/m3 are inferred from values) or hold the rows, and the estimation settings (loss, output_weights, normalize) are program options and are dropped."

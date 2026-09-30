@@ -1,0 +1,455 @@
+[[disposition]]
+construct = "DataReport (root) and Version"
+disposition = "mapping_loss"
+ref = "kind:carrier"
+reason = "A report splits into a carrier and its publication, source entities, samples and one dataset per PureOrMixtureData or ReactionData element; nVersionMajor and nVersionMinor, which the schema does not tie to version 4.0, are not kept beyond the carrier's pin."
+
+[[disposition]]
+construct = "Citation (CitationType) and TRCRefID"
+disposition = "mapping_loss"
+ref = "kind:publication"
+reason = "doi, isbn and the year map to publication and its citation row, and a citation text is composed from sAuthor, sPubName, sVol, sPage and similar fields, which then survive only inside that text. sAbstract, sKeyword, TRCRefID, dateCit and the book, journal and thesis specifics are not kept."
+
+[[disposition]]
+construct = "Compound and RegNum"
+disposition = "model_change"
+ref = "alignment-notes #31"
+reason = "defined_mixture has no attribute for the MulticomponentSubstance type (alloy, clathrate, complex, crystal, solution) and nothing holds eSpeciationState; both need declared attributes (see those two enumerations). The mapping re-renders nCASRNum with hyphens and check digit, turns the kg/kmol polymer averages into kg/mol constraint columns of each dataset that uses the compound, and declares EC number and PDB identifier as naming schemes."
+
+[[disposition]]
+construct = "Sample (purity and purification)"
+disposition = "model_change"
+ref = "alignment-notes #30"
+reason = "sample holds one purity and its basis, so several purity statements per sample, the stepwise purification history, the water and halide impurity contents, the analytical method, and the sample's source and status need a per-sample relation of purity statements and purification steps plus attributes for source and status. Percent is divided by 100 and nUnknownPerCent maps to purity_basis not_stated."
+
+[[disposition]]
+construct = "PureOrMixtureData"
+disposition = "model_change"
+ref = "alignment-notes #31"
+reason = "component_function has no member for AuxiliarySubstance's Buffer and Inert (nor Cofactor in reactions), so those components cannot state their function: add buffer, inert and cofactor. The dataset kind and method are per dataset in the model but per Property in ThermoML, so properties with different method choices are split into several datasets."
+
+[[disposition]]
+construct = "Property (element of PureOrMixtureData) and Property-MethodID"
+disposition = "mapping_loss"
+ref = "kind:dataset_column"
+reason = "ePresentation, eRefStateType and RefPhaseID map to the column's presentation, reference_state_kind and reference_phase, and eStandardState to its standard_state. nRefTemp and nRefPressure carry no unit, so K and kPa are assumed from the names of the temperature and pressure constraints, and a difference or ratio presentation with no eRefStateType, which the schema allows, is refused by reference_state_kind_when_relative and held."
+
+[[disposition]]
+construct = "Constraint and Variable (ConstraintVariableType)"
+disposition = "held_by_model"
+ref = "kind:dataset_column"
+reason = "constant, constant_digits and column_uncertainty now hold a constraint's value, digits and its uncertainty, repeatability and device-specification assessments. The composition bases the survey found undeclared (mass concentration, ratios to solvent, per mass of solution), the Initial and Final compositions and the Upper and Lower temperature and pressure names are entries declared in composition_basis and observable with the mapping."
+
+[[disposition]]
+construct = "NumValues (VariableValue and PropertyValue)"
+disposition = "mapping_loss"
+ref = "relation:datum"
+reason = "Value, digits, the state (an upper limit becomes censored_below and a lower limit censored_above), several assessments per value and asymmetric minus and plus magnitudes are held by datum and datum_uncertainty. nRepetitions of a repeatability value has no attribute and is dropped."
+
+[[disposition]]
+construct = "Uncertainty, repeatability, device-specification and curve-deviation definitions"
+disposition = "mapping_loss"
+ref = "kind:uncertainty_assessment"
+reason = "Each definition becomes an uncertainty_assessment with evaluator, method, coverage factor and confidence level, but the schema does not say whether nUncertLevOfConfid and the relative curve deviation are percent or fraction, and fractions are assumed. nRepetitions has no attribute and sCurveSpec is kept only in the method text."
+
+[[disposition]]
+construct = "CriticalEvaluation and Prediction (method alternatives of a property)"
+disposition = "mapping_loss"
+ref = "kind:derivation"
+reason = "The alternative chosen fixes the dataset kind (evaluated or computed) and a derivation of kind evaluation or computation, read from structure. The evaluation descriptions, the equation-of-state name and the cited publications survive only as the derivation's method text and attribution rows."
+
+[[disposition]]
+construct = "Equation (equation representation part of a dataset)"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "Each of the ten equation names becomes a form declared from its urlMathSource (not acquired, so slot meaning and parameter units are the declarer's reading), its parameters a parameter set with a fit, EqPropRange and EqVariableRange fitted_range regions, and the covariance matrix standard uncertainties plus fit_correlation rows. The single nCovarianceLevOfConfid of the matrix has no home."
+
+[[disposition]]
+construct = "ReactionData"
+disposition = "mapping_loss"
+ref = "kind:reaction"
+reason = "A participant without nStoichiometricCoef cannot form a reaction and is held, the sign of the coefficients is not stated (reactants negative is assumed), and the participant's phase becomes the species form's aggregation and its composition a dataset column. eReactionType and nElectronNumber have no attribute and are dropped."
+
+[[disposition]]
+construct = "Solvent and Catalyst"
+disposition = "mapping_loss"
+ref = "kind:dataset_component"
+reason = "Solvent and Catalyst components become dataset_component rows with function solvent and catalyst, a per-dataset attribute. Properties or columns that name different solvent sets in one dataset force the dataset to be split."
+
+[[disposition]]
+construct = "Biomaterial extensions"
+disposition = "model_change"
+ref = "alignment-notes #32"
+reason = "The biochemical formalism gives transformed (apparent) quantities at a stated pH, ionic strength and pMg, which no reference_relation member or standard-state convention holds: add a transformed relation and the conditions that define the transformed standard state. EC number and PDB identifier become naming schemes, pH, pC and ionic strength observables on Scalar, Molality and MolarDensity, and eBioState a dataset_phase label."
+
+[[disposition]]
+construct = "Unit embedded in enumeration strings"
+disposition = "mapping_loss"
+ref = "mechanism:unit conversion"
+reason = "The mapping declares the source unit of each name and its factor (kPa to Pa 1000, kJ/mol to J/mol 1000, mol/dm3 to mol/m3 1000, kg/kmol to kg/mol 0.001, J/g to J/kg 1000) and needs quantity types declared for the units physical.toml lacks. Names whose unit has a symbolic exponent n, such as (mol/dm3)^n and kPa^n, have no fixed quantity type and are stored as dimensionless numbers on the stated scale."
+
+[[disposition]]
+construct = "Integer cross-references (nCompIndex, RegNum, nSampleNm, nPropNumber, nVarNumber, nConstraintNumber, nUncertAssessNum)"
+disposition = "mapping_loss"
+ref = "mechanism:reference check"
+reason = "The schema declares no key or keyref, so the mapping resolves every integer index to a compound, sample, property, variable, constraint or assessment of the same report and holds a row whose index names none."
+
+[[disposition]]
+construct = "ePropName (PropertyGroup Criticals)"
+disposition = "mapping_loss"
+ref = "kind:observable_alias"
+reason = "critical_temperature and critical_pressure (kPa to Pa, factor 1000) exist with subject pure, but the names do not say pure or mixture, so the mapping chooses a pure or mixture-subject observable from the number of Component elements. Critical density, molar volume, specific volume (new quantity type), compressibility factor and the four consolute names need observables declared with the mapping."
+
+[[disposition]]
+construct = "eMethodName (PropertyGroup Criticals)"
+disposition = "mapping_loss"
+ref = "kind:dataset"
+reason = "The ten strings are kept verbatim in dataset.method and the kind is set to measured, although 'Derived from PVT data', 'Extrapolated vapor pressure' and 'Rectilinear diameter' obtain the critical value from other measurements; a CriticalEvaluation or Prediction choice sets evaluated or computed instead."
+
+[[disposition]]
+construct = "ePropName (PropertyGroup VaporPBoilingTAzeotropTandP)"
+disposition = "mapping_loss"
+ref = "kind:observable_alias"
+reason = "'Vapor or sublimation pressure' is one name for two observables, which the mapping separates by PropPhaseID (gas with liquid gives vapor_pressure, gas with crystal a sublimation-pressure observable declared with it) and cannot when the phase is omitted. The 101.325 kPa of the normal boiling temperature comes from a documentation element, and the boiling and azeotropic names need observables declared."
+
+[[disposition]]
+construct = "eMethodName (PropertyGroup VaporPBoilingTAzeotropTandP)"
+disposition = "mapping_loss"
+ref = "kind:dataset"
+reason = "The 21 strings are kept verbatim in dataset.method under kind measured, although 'By X=Y', 'By P(X) extreme' and 'By T(X) extreme' locate an azeotrope from equilibrium data rather than measure it directly."
+
+[[disposition]]
+construct = "ePropName (PropertyGroup PhaseTransition)"
+disposition = "mapping_loss"
+ref = "kind:observable_alias"
+reason = "'Molar enthalpy of transition or fusion' and 'of vaporization or sublimation' are each one name for several processes that only PropPhaseID tells apart, so the mapping picks the transition observable from dataset_phase and second_phase and holds the point when the phases are absent. The invariant-point names and the cryoscopic constants (1/K, kg/mol/K) need observables and quantity types declared, and the gas-phase reference of the 0 K lattice energy is assumed because the name omits it."
+
+[[disposition]]
+construct = "eMethodName (PropertyGroup PhaseTransition)"
+disposition = "mapping_loss"
+ref = "kind:dataset"
+reason = "'Obtained from cryoscopic constant', 'Derived from phase diagram analysis', 'Derived by Second law' and 'Derived by Second law from precise ebulliometry' are derived values that the mapping still records as kind measured, with the string in dataset.method."
+
+[[disposition]]
+construct = "ePropName (PropertyGroup CompositionAtPhaseEquilibrium)"
+disposition = "mapping_loss"
+ref = "kind:observable_alias"
+reason = "Mass concentration, the amount, mass and volume ratios of solute to solvent and amount of solute per mass of solution need composition_basis entries and composition observables declared with the mapping, and each Henry's Law constant scale (mole fraction, molality, amount concentration) its own observable. The kind of equilibrium (solubility, LLE, VLE) is read from the dataset phases and is undecided when PropPhaseID is omitted."
+
+[[disposition]]
+construct = "eMethodName (PropertyGroup CompositionAtPhaseEquilibrium)"
+disposition = "mapping_loss"
+ref = "kind:dataset"
+reason = "'Calculated by Gibbs-Duhem equation' and the density, refractive-index and speed-of-sound calibration-data methods give values obtained by calculation or from calibrations, which the mapping records as kind measured with the string in dataset.method."
+
+[[disposition]]
+construct = "ePropName (PropertyGroup ActivityFugacityOsmoticProp)"
+disposition = "model_change"
+ref = "alignment-notes #33"
+reason = "The activity-coefficient convention is only implied by eStandardState, which states neither the pressure nor whether 'Pure compound' is a real liquid or an ideal gas, and standard_state requires kind and pressure_rule with no not_stated member: add not_stated to both (see eStandardState). 'Mean ionic activity, (mol/dm3)^n' is stored as a dimensionless number on its stated scale because its unit depends on n."
+
+[[disposition]]
+construct = "eMethodName (PropertyGroup ActivityFugacityOsmoticProp)"
+disposition = "held_by_model"
+ref = "kind:dataset"
+reason = "The nine strings are kept verbatim in dataset.method, which the model declares as text as the source names it, and the dataset kind is read from the alternative chosen (eMethodName gives measured); nothing is lost beyond the typing of the list."
+
+[[disposition]]
+construct = "ePropName (PropertyGroup VolumetricProp)"
+disposition = "mapping_loss"
+ref = "kind:observable_alias"
+reason = "Specific volume, the virial and acoustic virial coefficients, the compressibilities and the expansion coefficient need observables and quantity types declared with the mapping, and C112 and C122 become observables of a binary mixture. 'Relative partial molar volume' is mapped as an increment against the infinite-dilution standard state, a reference the name does not state."
+
+[[disposition]]
+construct = "eMethodName (PropertyGroup VolumetricProp)"
+disposition = "mapping_loss"
+ref = "kind:dataset"
+reason = "'Derived from speed of sound', 'Derived analytically', 'Derived graphically' and the two 'Calculated with densities ...' strings describe computed values that the mapping records as kind measured, with the string in dataset.method."
+
+[[disposition]]
+construct = "ePropName (PropertyGroup HeatCapacityAndDerivedProp)"
+disposition = "model_change"
+ref = "alignment-notes #33"
+reason = "The Joule-Thomson coefficient, a temperature change with pressure at constant enthalpy, needs a path member isenthalpic, which enum path lacks (none, isobaric, isochoric, isothermal, isentropic, saturation). The unstated enthalpy and entropy datums map to a convention set with enthalpy_datum and entropy_datum not_stated, and the 0 K and 298.15 K references of the enthalpy and Gibbs-energy functions become separate observables."
+
+[[disposition]]
+construct = "eMethodName (PropertyGroup HeatCapacityAndDerivedProp)"
+disposition = "mapping_loss"
+ref = "kind:dataset"
+reason = "'Derived from speed of sound' and 'Derived from equation of state' describe computed values that the mapping records as kind measured, with the string in dataset.method."
+
+[[disposition]]
+construct = "ePropName (PropertyGroup ExcessPartialApparentEnergyProp)"
+disposition = "model_change"
+ref = "alignment-notes #33"
+reason = "amount_basis has no member for a quantity per mole of solute, which the schema documents for 'Molar enthalpy of mixing with solvent', 'of solution' and 'of dilution' (per mole of mixture for the excess enthalpy): add a per-solute basis. Relative partial molar quantities are mapped as increments against the infinite-dilution standard state, and solution and dilution enthalpies use initial and final composition columns."
+
+[[disposition]]
+construct = "eMethodName (PropertyGroup ExcessPartialApparentEnergyProp)"
+disposition = "held_by_model"
+ref = "kind:dataset"
+reason = "The fifteen calorimetry and cell strings are kept verbatim in dataset.method, which the model declares as text as the source names it, and the dataset kind is read from the alternative chosen (eMethodName gives measured); nothing is lost beyond the typing of the list."
+
+[[disposition]]
+construct = "ePropName (PropertyGroup TransportProp)"
+disposition = "model_change"
+ref = "alignment-notes #33"
+reason = "'Binary diffusion coefficient' states no frame, and diffusion_frame has not_applicable (not a diffusion observable) but no not_stated member, so an omitted frame cannot be recorded without an assumption: add not_stated. Kinematic viscosity and thermal diffusivity (quantity types of the dimensions of Diffusivity), fluidity and the conductivities need quantity types and observables declared with the mapping."
+
+[[disposition]]
+construct = "eMethodName (PropertyGroup TransportProp)"
+disposition = "held_by_model"
+ref = "kind:dataset"
+reason = "The 29 viscometry, conductivity and diffusion strings are kept verbatim in dataset.method, which the model declares as text as the source names it, and the dataset kind is read from the alternative chosen (eMethodName gives measured); nothing is lost beyond the typing of the list."
+
+[[disposition]]
+construct = "ePropName (PropertyGroup RefractionSurfaceTensionSoundSpeed)"
+disposition = "mapping_loss"
+ref = "kind:observable_alias"
+reason = "'Refractive index (Na D-line)' fixes a wavelength by name, which the mapping restates as a wavelength constraint column with the D-line value assumed, and the two parts of the complex permittivity become two observables. The excess names use the excess relation against an ideal mixing rule the schema does not state, and speed of sound needs a quantity type declared with the mapping."
+
+[[disposition]]
+construct = "eMethodName (PropertyGroup RefractionSurfaceTensionSoundSpeed)"
+disposition = "held_by_model"
+ref = "kind:dataset"
+reason = "The 31 refractometry, tensiometry and acoustic strings are kept verbatim in dataset.method, which the model declares as text as the source names it, and the dataset kind is read from the alternative chosen (eMethodName gives measured); nothing is lost beyond the typing of the list."
+
+[[disposition]]
+construct = "ePropName (PropertyGroup BioProperties)"
+disposition = "mapping_loss"
+ref = "kind:observable_alias"
+reason = "The five names become transition observables with the native and denaturated states as dataset_phase labels, since eBioState is a conformational state and aggregation has no such member. The kind of transition temperature (half conversion, peak, zero Gibbs energy) is carried by separate observable entries declared with the mapping."
+
+[[disposition]]
+construct = "eMethodName (PropertyGroup BioProperties)"
+disposition = "held_by_model"
+ref = "kind:dataset"
+reason = "The one string, DSC/DTA, is a measurement: it is kept verbatim in dataset.method and the dataset kind is read from the alternative chosen (measured), so only the typing of the list is lost."
+
+[[disposition]]
+construct = "ePropName (ReactionData PropertyGroup ReactionStateChangeProp)"
+disposition = "mapping_loss"
+ref = "kind:observable_alias"
+reason = "The sign of the participants' coefficients and 'per mol of reaction' are not stated, so reactants negative and per mole of the reaction as written are assumed, and 'Specific internal energy of reaction, J/g' does not say per gram of what and is held. 'Enthalpy of process, kJ' and the cell potential need an energy and a potential quantity type and observables declared with the mapping."
+
+[[disposition]]
+construct = "eMethodName (ReactionData PropertyGroup ReactionStateChangeProp)"
+disposition = "mapping_loss"
+ref = "kind:dataset"
+reason = "The method choice repeats per reaction property while dataset.method holds one text, so the mapping joins the strings of a dataset into one text and records the dataset as measured."
+
+[[disposition]]
+construct = "ePropName (ReactionData PropertyGroup ReactionEquilibriumProp)"
+disposition = "mapping_loss"
+ref = "kind:observable_alias"
+reason = "K, ln K and log10 K of each of the five scales (thermodynamic, molality, molarity, partial pressure, mole fraction) are separate observables because no facet derives the scale or the logarithm base. Values with unit (mol/kg)^n, (mol/dm3)^n or kPa^n are stored as dimensionless numbers on the stated scale, and n follows from the participants only when their coefficients are present."
+
+[[disposition]]
+construct = "eMethodName (ReactionData PropertyGroup ReactionEquilibriumProp)"
+disposition = "mapping_loss"
+ref = "kind:dataset"
+reason = "The method choice repeats per reaction property while dataset.method holds one text, so the mapping joins the strings of a dataset into one text and records the dataset as measured."
+
+[[disposition]]
+construct = "eType"
+disposition = "out_of_scope"
+ref = ""
+reason = "The publication type (book, journal, patent, thesis and so on) describes the cited work, not the thermodynamic content or its attribution, and nothing branches on it."
+
+[[disposition]]
+construct = "eSourceType"
+disposition = "out_of_scope"
+ref = ""
+reason = "Whether the citation is the original, a Chemical Abstracts entry or other is a bibliographic descriptor of the citation record; the publication the values are attributed to is held either way."
+
+[[disposition]]
+construct = "eLanguage"
+disposition = "out_of_scope"
+ref = ""
+reason = "The language of the cited publication is a bibliographic descriptor with no bearing on the thermodynamic content or its attribution."
+
+[[disposition]]
+construct = "eSpeciationState"
+disposition = "model_change"
+ref = "alignment-notes #31"
+reason = "Nothing holds the flag that a compound stands for an equilibrium mixture of species rather than one species: speciation_map relates apparent and true species within a chemical system and is not a flag on a component. Add a speciation state (single species or equilibrium mixture) to dataset_component."
+
+[[disposition]]
+construct = "eFunction (PureOrMixtureData AuxiliarySubstance)"
+disposition = "model_change"
+ref = "alignment-notes #31"
+reason = "Solvent maps to component_function solvent, but Buffer and Inert have no member (catalyst is present but not a participant, which says nothing about a buffer or an inert medium): add buffer and inert."
+
+[[disposition]]
+construct = "eFunction (ReactionData AuxiliarySubstance)"
+disposition = "model_change"
+ref = "alignment-notes #31"
+reason = "Cofactor, Buffer and Inert have no component_function member in a reaction dataset: add cofactor, buffer and inert."
+
+[[disposition]]
+construct = "eSampleStatus"
+disposition = "model_change"
+ref = "alignment-notes #30"
+reason = "sample has no status attribute for unknown, notDescribed, previousPaper and noSample, which say whether a sample is described, was described in an earlier paper or was not used: add a status to sample."
+
+[[disposition]]
+construct = "eSampleSource"
+disposition = "model_change"
+ref = "alignment-notes #30"
+reason = "sample.supplier is free text, and the seven source values include 'Standard Reference Material (SRM)' and 'Isolated from a natural product', which are not suppliers: add a separate source attribute to sample."
+
+[[disposition]]
+construct = "ePurifMethod"
+disposition = "model_change"
+ref = "alignment-notes #30"
+reason = "sample holds no purification history: a per-sample relation of steps (nStep and the method, one of 25 values or free text) is needed."
+
+[[disposition]]
+construct = "ePurityAnalMethod"
+disposition = "model_change"
+ref = "alignment-notes #30"
+reason = "The purity statement has no analytical method: per-sample purity statements need a method attribute (24 values, including 'Stated by supplier' and 'Estimated by the compiler')."
+
+[[disposition]]
+construct = "eExpPurpose"
+disposition = "out_of_scope"
+ref = ""
+reason = "The purpose of a measurement (principal objective, by-product, identification of a synthesized compound) annotates why the data were taken and says nothing about the thermodynamic values; nothing branches on it."
+
+[[disposition]]
+construct = "eCrystalLatticeTypeSelection"
+disposition = "mapping_loss"
+ref = "kind:dataset_phase"
+reason = "The seven lattice systems are kept only in the phase label (for example Crystal, cubic): dataset_phase has aggregation crystalline and a label but no crystal system, and species_form.polymorph is a designation, not one of seven lattice systems."
+
+[[disposition]]
+construct = "eBioState (PropPhaseID)"
+disposition = "mapping_loss"
+ref = "kind:dataset_phase"
+reason = "Native and Denaturated are kept only as the phase label, since aggregation has no conformational state and a dataset_phase is a local role with aggregation and label only."
+
+[[disposition]]
+construct = "MulticomponentType"
+disposition = "model_change"
+ref = "alignment-notes #31"
+reason = "defined_mixture has no kind for alloy, clathrate, complex, crystal and solution, which mixture_definition (by_definition, by_measurement) does not express: add a multicomponent kind to defined_mixture."
+
+[[disposition]]
+construct = "MulticomponentComposition"
+disposition = "mapping_loss"
+ref = "kind:defined_mixture"
+reason = "'mole fraction' and 'mass fraction' set mole_basis, but 'number of molecules' amounts are normalised to mole fractions, which keeps the ratio and drops the absolute counts."
+
+[[disposition]]
+construct = "eReactionFormalism"
+disposition = "model_change"
+ref = "alignment-notes #32"
+reason = "The biochemical value makes the dataset's properties transformed quantities at a stated pH and ionic strength, which no declared concept marks: it needs the transformed relation and standard-state conditions proposed for the biomaterial extensions."
+
+[[disposition]]
+construct = "eReactionType"
+disposition = "mapping_loss"
+ref = "kind:reaction"
+reason = "The 25-value classification has no attribute and is dropped; the participants and coefficients that the model holds fix what the reaction is."
+
+[[disposition]]
+construct = "eCompositionRepresentation"
+disposition = "held_by_model"
+ref = "kind:composition_basis"
+reason = "Molality and amount concentration map to the declared bases molality and molarity, and the ratio bases, amount per mass of solution and mass per volume of solution are entries declared in composition_basis with the mapping; the participant's composition is a dataset column, a condition of the measured state, not part of the reaction."
+
+[[disposition]]
+construct = "eParticipantAmount (constraint and variable type group)"
+disposition = "held_by_model"
+ref = "kind:observable"
+reason = "'Amount, mol' and 'Mass, kg' fit the existing quantity types Amount and Mass (factor 1) as observables of a reaction participant declared with the mapping."
+
+[[disposition]]
+construct = "ePredictionType"
+disposition = "mapping_loss"
+ref = "kind:derivation"
+reason = "The eight types map to derivation kind estimation (Correlation, Corresponding states, Group contribution) or computation (Ab initio, Molecular dynamics, Semiempirical quantum methods, Molecular mechanics, Statistical mechanics) by a mapping rule the schema does not state, with the type string as the derivation's method; no vocabulary of types is declared."
+
+[[disposition]]
+construct = "eEqName"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "Each of the ten names becomes a form declared from its math-source URL; the schema gives no slot names, so slots and their units are the declarer's reading of content that the pinned bytes do not include."
+
+[[disposition]]
+construct = "eTemperature (ConstraintVariableType)"
+disposition = "held_by_model"
+ref = "kind:observable"
+reason = "'Temperature, K' maps to the observable temperature (factor 1); 'Upper temperature' and 'Lower temperature' are observables declared with the mapping, referenced by a column whose presentation is difference_between_temperatures or mean_between_temperatures."
+
+[[disposition]]
+construct = "ePressure (ConstraintVariableType)"
+disposition = "mapping_loss"
+ref = "kind:observable_alias"
+reason = "'Pressure, kPa' maps to pressure (factor 1000) on the assumption that it is absolute, since the schema does not say absolute or gauge; partial, upper and lower pressure are observables declared with the mapping."
+
+[[disposition]]
+construct = "eComponentComposition (ConstraintVariableType)"
+disposition = "held_by_model"
+ref = "kind:composition_basis"
+reason = "Mole, mass and volume fraction, molality and molarity map to declared bases; the ratios of solute to solvent, mass concentration and amount per mass of solution are entries declared in composition_basis with the mapping, and Initial and Final compositions are observables declared with it."
+
+[[disposition]]
+construct = "eSolventComposition (ConstraintVariableType)"
+disposition = "mapping_loss"
+ref = "kind:dataset_component"
+reason = "The Solvent element names which components form the solvent for a column, while the model holds it as dataset_component.function solvent per dataset, so columns naming different solvent sets split the dataset; the solute-free bases are entries declared in composition_basis."
+
+[[disposition]]
+construct = "eMiscellaneous (ConstraintVariableType)"
+disposition = "held_by_model"
+ref = "kind:dataset_column"
+reason = "A property-like condition is a constraint or variable column of the same observable a property column would use, and column_role tells them apart; wavelength (Length) and frequency need observables, and frequency a quantity type, declared with the mapping."
+
+[[disposition]]
+construct = "eBioVariables (ConstraintVariableType)"
+disposition = "mapping_loss"
+ref = "kind:observable_alias"
+reason = "pH and pC are dimensionless Scalar observables whose activity or concentration scale and reference are not stated, so the mapping declares them as reported; ionic strength uses Molality or MolarDensity with factor 1 and 1000."
+
+[[disposition]]
+construct = "eDeviceSpecMethod"
+disposition = "held_by_model"
+ref = "kind:uncertainty_assessment"
+reason = "An assessment of kind device_specification states the device specification, and the three strings (manufacturer, third party, experimentalist) are kept verbatim in its method, which the model holds as text as the source states it."
+
+[[disposition]]
+construct = "eRepeatMethod"
+disposition = "held_by_model"
+ref = "enum:uncertainty_kind"
+reason = "The four values map one to one to repeatability_single_biased, repeatability_single_unbiased, repeatability_of_mean and repeatability_other."
+
+[[disposition]]
+construct = "eCombUncertEvalMethod"
+disposition = "held_by_model"
+ref = "kind:uncertainty_assessment"
+reason = "The kind combined_standard or combined_expanded follows from which magnitude the value states, and the two strings (propagation of evaluated standard uncertainties, comparison with reference values) are kept verbatim in the assessment's method."
+
+[[disposition]]
+construct = "eStandardState"
+disposition = "model_change"
+ref = "alignment-notes #33"
+reason = "standard_state requires kind and pressure_rule and, for infinite dilution, a composition scale and a solvent, but eStandardState states no standard pressure for any of its five values, does not say whether 'Pure compound' is real or ideal gas, and gives 'Infinite dilution solute' no scale: add not_stated to standard_state_kind and pressure_rule and let the infinite-dilution check accept an unstated scale. The molality and amount-concentration values map to infinite_dilution with scale molality and molarity."
+
+[[disposition]]
+construct = "ePhaseName"
+disposition = "mapping_loss"
+ref = "kind:dataset_phase"
+reason = "The source name is kept as the phase label and the aggregation is chosen from it (Solution n to liquid, Ideal gas to gas, Crystal n to crystalline); the seven liquid-crystal names need aggregation entries declared, 'Metastable crystal' keeps its stability only in the label, and 'Air at 1 atmosphere' is a reference medium, not a phase of the system."
+
+[[disposition]]
+construct = "ePresentation"
+disposition = "held_by_model"
+ref = "enum:value_presentation"
+reason = "The seven values map one to one to direct, difference_between_temperatures, difference_between_pressures, mean_between_temperatures, difference_from_reference, ratio_to_reference and relative_difference_from_reference, the last three carrying the facet relative_to_reference_state."
+
+[[disposition]]
+construct = "eRefStateType"
+disposition = "mapping_loss"
+ref = "enum:reference_state_kind"
+reason = "The twelve values map one to one to reference_state_kind members, with the fixed temperature, pressure and phase on the column; a relative presentation without an eRefStateType, which the schema allows, cannot be given a kind and is held."

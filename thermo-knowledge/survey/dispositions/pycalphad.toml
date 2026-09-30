@@ -1,0 +1,141 @@
+[[disposition]]
+construct = "ELEMENT"
+disposition = "mapping_loss"
+ref = "relation:element_reference"
+reason = "The reference phase becomes the element_reference species_form under an energy_reference of datum stable_element_reference, VA and /- become species with an empty formula, and the mass is atomic-weight data of an edition the file does not state. H298-H0 and S298 have no slot in element_reference (they would be dataset values), a zero cannot be told from not given and is mapped as a known zero with that recorded, their units (J/mol, J/mol/K) are assumed, and a reference name matching no declared PHASE (ELECTRON_GAS, VACUUM) is resolved to a species_form by name with an assumed aggregation."
+
+[[disposition]]
+construct = "SPECIES"
+disposition = "held_by_model"
+ref = "kind:species"
+reason = "A species is a species with composition rows of type Count (a dimensionless float, so the fractional stoichiometry AL1O1.5 is held exactly) and its charge in species.charge, and the name is kept verbatim as an identity_assertion of scheme source_local, so the upper-casing is pycalphad's reading of a case-insensitive format and not a loss of the file. An associate is an ordinary species with a multi-element formula, and a missing /N charge is the declared default 0."
+
+[[disposition]]
+construct = "FUNCTION"
+disposition = "mapping_loss"
+ref = "kind:model_component"
+reason = "A named function becomes a model_component with a parameter set of a temperature-function form that other sets reach through set references, so the shared function and the function-to-function reference are held and the survey's missing free-standing function no longer applies. What remains is that a piece expression must be decomposed into the terms of a declared form (an expression no declared form covers is held, not stored as text), that the units (J/mol) and the gas constant behind the symbol R (8.3145 in pycalphad, none stated by the file) are assumptions, and that the ',' lower limit read as 0.01 K is an assumption while pycalphad's zero outside the limits and Model's extrapolation are consumer policies (alignment-notes #15) that are not kept."
+
+[[disposition]]
+construct = "TYPE_DEFINITION"
+disposition = "model_change"
+ref = "alignment-notes #25"
+reason = "A MAGNETIC definition maps to the afm-factor and structure-factor slots of a phase-level group of a magnetic form (subject a phase_definition), but DISORDERED_PART and NEVER_DISORDER name the disordered partner of an ordered phase, and the declaration has no relation pairing two phase_definitions and no place for the never-disorder switch that changes the equation. Add a relation keyed by (chemical_system, ordered phase, disordered phase) with a column for the never-disorder switch (alignment-notes #25)."
+
+[[disposition]]
+construct = "PHASE"
+disposition = "mapping_loss"
+ref = "kind:phase_definition"
+reason = "The name becomes phase_definition.key and the site ratios become site_class rows of ratio_kind constant (composition_dependent for option Y, which also selects structure ionic_two_sublattice), and the redundant sublattice count is dropped. The required aggregation is not a field of PHASE and is assumed from the L and G option letters (crystalline when there is neither), and the letters that only hint a model (A, I, and the F and B symmetries) are kept verbatim in source_directives."
+
+[[disposition]]
+construct = "CONSTITUENT"
+disposition = "mapping_loss"
+ref = "relation:site_occupant"
+reason = "Each listed species becomes a site_occupant row of its site class, a vacancy being a species. The % major-constituent flag (a Thermo-Calc hint for the starting composition of a calculation, on 79 statements and dropped by pycalphad at read time) and the order in which species are listed have no slot and are not kept, since site_occupant is an unordered set."
+
+[[disposition]]
+construct = "PARAMETER (syntax)"
+disposition = "mapping_loss"
+ref = "kind:constituent_array"
+reason = "The constituent array becomes a constituent_array whose species positions keep the file order, the order integer is read per number of interacting constituents by separate compound-energy forms (alignment-notes #14), and the reference key is recovered from the raw file as an attribution of the import record, so pycalphad's discarding of it does not apply. The file does not state that odd orders refer to alphabetical order (pycalphad sorts names), which the mapping must assume, the 250 wildcard '*' constituents are expanded over the listed species of that sublattice (an assumption, since '*' stands for every species), and the '&' diffusing species is a subject of the kinetic types only."
+
+[[disposition]]
+construct = "PARAMETER G and L (Gibbs energy and excess)"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "G with one species per sublattice maps to an endmember form and G or L with a mixing sublattice to an interaction form chosen by the number of interacting constituents, the letter being kept only in the import locator since the two are interchangeable for interactions. The evaluator's rule that a single ternary order 0 also applies as orders 1 and 2, and the zero contribution of a missing endmember or interaction, are consumer rules that the mapping does not write into stored numbers and must declare (as a selection_policy named rule), and the units (J/mol of formula unit) are assumed."
+
+[[disposition]]
+construct = "PARAMETER TC, NT and BMAGN (magnetic)"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "TC, NT and BMAGN become slots of the array-level group of a magnetic form and the afm and structure factors slots of a phase-level group (from TYPE_DEFINITION), a negative TC being held in a TemperatureDifference slot so that the sign the form's expression divides by the afm factor survives. The file states neither this sign convention nor the units (K, Bohr magneton), so the mapping assumes both, and the choice of the Inden-Hillert-Jarl or the Xiong form by afm factor 0 is a per-phase assembly choice."
+
+[[disposition]]
+construct = "PARAMETER GD and THETA (two-state and Einstein)"
+disposition = "held_by_model"
+ref = "mechanism:form catalogue"
+reason = "The two-state and Einstein contributions are forms whose GD slot is a MolarEnergy and whose THETA slot is a Scalar holding the natural logarithm of the Einstein temperature in K, which the form's expression exponentiates back to a temperature, so no slot type for the logarithm of a temperature is needed. The Redlich-Kister sum in log space is part of the form's mathematics, not of the stored numbers."
+
+[[disposition]]
+construct = "PARAMETER V0, VA, VC, VK (molar volume)"
+disposition = "held_by_model"
+ref = "mechanism:form catalogue"
+reason = "A molar-volume form holds V0 (MolarVolume) and VA (a Scalar integrated expansivity), and VK and VC as slots where a file asserts them, so pycalphad parsing VK and VC without evaluating them is the program's behaviour and not a loss of stored data. The 101325 Pa pressure of the V0*exp(VA)*(P - 101325) term is a literal of the form's expression, as the TDB format fixes it, and the units (m3/mol for V0) are the format's."
+
+[[disposition]]
+construct = "PARAMETER VISC, ELRS, THCD, SIGM, XI, MQ, MF, DQ, DF, VS (property and mobility types)"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "Viscosity, resistivity, conductivity, surface-tension, mobility and diffusivity parameters would be held by transport forms (the diffusing species as an extra subject role of the mobility and diffusivity types) declared when a wave maps them, but no such form exists yet. pycalphad never evaluates them and only comments in tdb_keywords.py give their meaning, so their units and meanings are assumed, and the pinned files hold only the 26 MQ parameters of the test-only diffusion.tdb (plus 3 ETA parameters of a type the reader does not list)."
+
+[[disposition]]
+construct = "DEFINE_SYSTEM_DEFAULT"
+disposition = "out_of_scope"
+reason = "A Thermo-Calc command-interpreter default (which elements a new system starts with), which is program behaviour holding no thermodynamic knowledge; pycalphad skips it and its writer emits it as boilerplate."
+
+[[disposition]]
+construct = "DEFAULT_COMMAND"
+disposition = "out_of_scope"
+reason = "A Thermo-Calc default command (define-system-element for VA and /-), which is program behaviour holding no thermodynamic knowledge; the vacancy and electron are species in the model regardless."
+
+[[disposition]]
+construct = "DATABASE_INFO"
+disposition = "held_by_model"
+ref = "kind:parameterization"
+reason = "When a mapping reads the raw file rather than pycalphad's Database, the description text becomes parameterization.title verbatim, and pycalphad discarding it is the reader's behaviour. The single statement of COST507.tdb may name the source database, which the kept text preserves."
+
+[[disposition]]
+construct = "ASSESSED_SYSTEMS"
+disposition = "mapping_loss"
+ref = "kind:validity_region"
+reason = "Each listed binary or ternary system can become a region of the parameterization whose clauses limit the mole fraction of every component outside the system to zero (regions are alternatives), which holds the coverage list that the survey found missing. The envelope kind (fitted_range, inferred from the keyword name), the free-text list syntax (given only by a Thermo-Calc manual outside the pinned tree) and a mole-fraction observable that the starting vocabulary lacks are assumptions or additions of the mapping."
+
+[[disposition]]
+construct = "LIST_OF_REFERENCES"
+disposition = "held_by_model"
+ref = "relation:attribution"
+reason = "The numbered keys and citation texts become publication rows with citation rows tying the file's key to them, and the trailing reference key of a FUNCTION or PARAMETER statement becomes an attribution of its import record, so the linkage that pycalphad drops at read time is held when the mapping reads the raw file. A citation text without a DOI gives a carrier-scoped publication whose text is kept on the citation row."
+
+[[disposition]]
+construct = "skipped and unsupported keywords"
+disposition = "mapping_loss"
+ref = "kind:validity_region"
+reason = "TEMPERATURE_LIMITS (3 statements) is read from the raw file as a temperature region of the parameterization, its envelope kind an assumption because the keyword's meaning is given only by the Thermo-Calc manual. The other skipped keywords occur in no pinned statement and no pinned file uses a keyword pycalphad cannot parse (TABLE, CASE, COMPOUND_PHASE), so a file using them would be held rather than mapped."
+
+[[disposition]]
+construct = "Database object model"
+disposition = "held_by_model"
+ref = "kind:chemical_system"
+reason = "The model splits the object as the chemical_system doc says: elements, species and phases are chemical_system and phase_definition rows, symbols and parameter records are the parameterization's model_component and parameter_set rows, and the mass is atomic-weight data of the convention_set. The revision comes from the carrier pin and provenance and rights from import records and rights_determination, so their absence from the in-memory object is a property of the object, not of the file."
+
+[[disposition]]
+construct = "ChemSage DAT header"
+disposition = "mapping_loss"
+ref = "enum:enthalpy_datum"
+reason = "The element and phase counts map to a chemical_system and the atomic masses to its convention_set, whose enthalpy datum and temperature scale are recorded as not_stated and whose gas constant is left absent because the export states none (the ChemApp manual is outside the pinned tree). The reference state {BLANK, 0, 0} that pycalphad attaches to every element is pycalphad's own and is not mapped."
+
+[[disposition]]
+construct = "DAT endmember (Gibbs energy equation block)"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "A Gibbs equation block becomes the pieces of a Gibbs-polynomial form (each interval's upper limit stated and the previous limit as lower), the additional-term exponent 99 decoded by a mapping rule to a ln T term, with the units (J/mol of the species formula) assumed and the interval boundary rule left to the consumer (alignment-notes #15). Equation types the reader rejects or cannot evaluate (constant volume 2, 5, 8, 11, heat-capacity forms 7-12, P-T volume 3, 6, 9, 12) are held until a form for them is declared."
+
+[[disposition]]
+construct = "DAT solution phase models read by pycalphad (IDMX, RKMP and RKMPM, QKTO, SUBL and SUBLM, SUBG, SUBQ)"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "Each model code becomes a phase_definition (structure quasichemical for SUBG and SUBQ, sublattice for SUBL, none otherwise) with a model_assembly whose forms are declared when the wave maps this source and parameter sets per form, while IDVD, IDWZ and PITZ parse but cannot be inserted and are held. The 12 floats per SUBQ or SUBG excess line have no stated meaning and are not kept, the QKTO exponent offset is a mapping rule, and the order of the constituents of a pair in RKMP and SUBL terms is kept as the asserted constituent_array order."
+
+[[disposition]]
+construct = "DAT stoichiometric compound block"
+disposition = "mapping_loss"
+ref = "kind:species_form"
+reason = "A compound is a species_form with composition rows and a standard-state Gibbs block, not the multi-sublattice phase with one element per sublattice that pycalphad builds from it, which is the reader's representation. The source states neither aggregation nor polymorph, so crystalline and the polymorph are assumed from the name, and the dummy '#' species are skipped as a numerical device."
+
+[[disposition]]
+construct = "DAT chemical group override string"
+disposition = "held_by_model"
+ref = "relation:subject_subform_choice"
+reason = "A K or T choice per ternary subsystem is a sub-form choice keyed by the triad of constituents as subject roles (the Toop odd-one-out constituent being a role of its form), so the per-subsystem selector the survey finds missing exists in the declaration. pycalphad parsing the strings without applying them is program behaviour, and the ten-token syntax is read by the mapping."

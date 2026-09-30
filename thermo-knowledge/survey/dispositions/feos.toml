@@ -1,0 +1,83 @@
+[[disposition]]
+construct = "identifier object (Identifier)"
+disposition = "mapping_loss"
+ref = "kind:identity_assertion"
+reason = "The fields become assertions in the schemes cas, name, inchi, smiles and formula (iupac_name is kept as a name); an empty string is treated as not asserted, a name such as water_2B is kept as an assertion of its own source entity because it labels a parameter variant and not an identity, and an InChI without the standard prefix takes no part in the structural rule. The library's equality by CAS alone is program behaviour and is not kept."
+
+[[disposition]]
+construct = "pure-component record (PureRecord)"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "The record splits into a molar-mass value, one parameter set per consuming model slot group and association_site rows; a missing molarweight reads as 0 in the source (all 1558 DIPPR and chemical records), which the mapping must treat as not stated and never as a known zero. The per-record citation is not stated (only the file and README attribute it), so provenance is held at the parameterization, and molar mass is taken as g/mol (inferred from the GRAM/MOL factor)."
+
+[[disposition]]
+construct = "PC-SAFT pure parameters (PcSaftRecord)"
+disposition = "model_change"
+ref = "alignment-notes #34"
+reason = "The moment q is given in Debye*Angstrom (struct comment) but model/physical.toml has a DipoleMoment type and no quadrupole quantity type, so q cannot be stored typed: add a QuadrupoleMoment quantity type (storage unit C*m^2, signed scale). The default of 0 for mu and q also hides not applicable from a known zero, which the mapping must resolve to a value_state."
+
+[[disposition]]
+construct = "association site record (AssociationRecord) and induced-association sites"
+disposition = "model_change"
+ref = "alignment-notes #8"
+reason = "A site with counts but no kappa_ab and epsilon_k_ab (703 of 1090 esper2023 sites) means association is defined only by binary association records, and neither value_state nor an absent set can say that; item 8 schedules a declared state for a parameterless site, which review F14 notes is not yet in model/. The A, B and C interaction grammar is part of the form, and counts stored as floats fit the Count type."
+
+[[disposition]]
+construct = "binary record (BinaryRecord) and binary association record"
+disposition = "model_change"
+ref = "alignment-notes #8"
+reason = "A binary record with neither model fields nor sites (21 in rehner2023_binary) states that the pair was considered and carries nothing, which an absent set cannot say and value_state does not represent; item 8 schedules the declared state. The default k_ij of 0 and the association combining rules are a selection_policy with stated_default and named_rule, not data."
+
+[[disposition]]
+construct = "chemical record (gc_substances.json)"
+disposition = "model_change"
+ref = "alignment-notes #21"
+reason = "The heterosegmented model needs the bonds between the groups of one molecule (index pairs into the ordered segments list, a linear chain when absent), but group_count holds only a count per group; add a relation group_bond_count keyed by (assignment, group, group) with a Count value, symmetric with diagonal allowed and provenance inherit:assignment (the same change as for Clapeyron's intragroups file). Which instance bonds to which is then reduced to counts between group types."
+
+[[disposition]]
+construct = "segment record and binary segment record"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "Segment parameters are mapped under the homosegmented and heterosegmented forms as separate parameter sets of a group-keyed slot group, so the form stays part of the identity, and site lists in segment files are split into association_site rows on groups. The count-weighted combination into molecule parameters is library code and is not stored, and molarweight is taken as g/mol (inferred)."
+
+[[disposition]]
+construct = "ePC-SAFT record (charge and permittivity)"
+disposition = "mapping_loss"
+ref = "kind:tabulated_function"
+reason = "ExperimentalData permittivity maps to a tabulated_function of temperature with interpolation not_stated, and the PerturbationTheory variant to a separate form; the permittivity data the maintainers added to the published set are not marked in the JSON, so their origin cannot be stated. The water detection by numeric match and k_ij = 1 for same-sign ion pairs are code rules that the mapping records as selection facts and does not write as data."
+
+[[disposition]]
+construct = "SAFT-VR Mie and SAFT-VRQ Mie records (Mie exponents and Feynman-Hibbs order)"
+disposition = "held_by_model"
+ref = "relation:subject_subform_choice"
+reason = "The Feynman-Hibbs order fh is an assembly choice per component, held as a subject_subform_choice row for the quantum-correction slot, with the set's dependence on it held by relation dependency. The hydrogen, para-hydrogen and ortho-hydrogen records share CAS 1333-74-0 and stay distinct source entities settled by curated decisions."
+
+[[disposition]]
+construct = "multiparameter residual term objects (seven types)"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "The seven term types map to forms of the same residual-Helmholtz catalogue as the CoolProp terms, one family row per array index; the citation, validity range, gas constant, acentric factor and reference-state designation of the CoolProp source are not carried here, so they stay not stated, and the derivation from CoolProp (version, script) is not recorded. Three of the 124 records differ from the pinned CoolProp entries, which an equivalence_assessment records as conflicting."
+
+[[disposition]]
+construct = "multiparameter ideal-gas term objects (ten types) and reducing constants"
+disposition = "mapping_loss"
+ref = "kind:energy_reference"
+reason = "The named reference (IIR, NBP, OTH, CUSTOM) is carried by the file but ignored by the reader, which fixes H and S from the EnthalpyEntropyOffset coefficients alone, so the mapping states the energy_reference as the file names it and records that the running code does not use it. tc and rhoc are taken as K and mol/m^3 (inferred) and the gas constant of the terms is not stated."
+
+[[disposition]]
+construct = "Joback group record"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "The 22 group polynomials map to a group-keyed parameter set of an ideal-gas heat-capacity form under the Sauer et al. group_scheme, but the five constants added to every molecule are in code and must be asserted as a separate set with origin authored in code. Units of a to d are inferred as J/(mol*K), and the struct comment (289.15 K) and the code (298.15 K) disagree on the reference temperature, which stays a survey discrepancy."
+
+[[disposition]]
+construct = "DIPPR records (Dippr enum)"
+disposition = "held_by_model"
+ref = "mechanism:form catalogue"
+reason = "DIPPR100, DIPPR107 and DIPPR127 are forms implementing an ideal-gas heat-capacity contract, the object key selecting the form and the length of the DIPPR100 list being a family; J/kmol/K coefficients convert to J/(mol*K) by the recorded factor 1e-3, and a compound in two files is two parameterizations ranked by a selection_policy."
+
+[[disposition]]
+construct = "SMARTS fragmentation record"
+disposition = "mapping_loss"
+ref = "kind:group"
+reason = "The SMARTS string is kept verbatim in group.pattern, which nothing branches on, and the optional max is not kept; the matching, truncation and coverage-check algorithm is procedural and needs RDKit, so decompositions computed with it are group_assignment rows with origin matcher_derived, not something the model reproduces."

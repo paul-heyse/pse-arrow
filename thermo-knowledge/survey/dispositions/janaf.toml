@@ -37,7 +37,7 @@ reason = "A table with a phase change is split into one dataset per phase segmen
 [[disposition]]
 construct = "special values: INFINITE, zeros at 0 K, fused numbers"
 disposition = "mapping_loss"
-ref = "kind:datum"
+ref = "relation:datum"
 reason = "The divergent cell (INFINITE at T = 0 in the Gibbs energy function and in log Kf) has no datum state that means a divergence, and not_measured would say something false, so the mapping writes no datum row for it and the statement that the value diverges (with the sign, which the file does not give) is not kept; the 4 fused T and Cp numbers are split by fixed column width, an assumption."
 
 [[disposition]]

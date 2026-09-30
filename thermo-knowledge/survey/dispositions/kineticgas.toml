@@ -1,0 +1,101 @@
+[[disposition]]
+construct = "fluid record (identity block)"
+disposition = "mapping_loss"
+ref = "kind:source_entity"
+reason = "The ident, a file-name key with no scheme, becomes a source_local assertion beside cas, name and formula, and mol_weight a molar-mass value in g/mol; P-H2 and O-H2 share an identity and stay distinct source entities settled by curated decisions, HE3 differs by isotope in its structure, and PSEUDO has no formula or molar mass and is not asserted as a species."
+
+[[disposition]]
+construct = "Mie potential parameter set"
+disposition = "mapping_loss"
+ref = "kind:parameterization"
+reason = "Each named set maps to a parameter set of a Mie potential form under a parameterization keyed by block and set name, because the name 'default' differs between the Mie and Mie-FH0 blocks for eight fluids and is not an identity across blocks; the zero sigma and eps of the water set Tempdependent are placeholders and are declared absent."
+
+[[disposition]]
+construct = "Feynman-Hibbs-corrected Mie parameter set (Mie-FH0, Mie-FH1, Mie-FH2)"
+disposition = "held_by_model"
+ref = "relation:dependency"
+reason = "The order is held once as a consistent_with dependency of each parameter set on the model assembly's quantum-correction choice, the FH0 sets being separate parameterizations from the plain Mie sets of the same name."
+
+[[disposition]]
+construct = "HardSphere parameter set"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "The diameter maps to a slot of a hard-sphere form under its own parameterization, so its difference from the Mie sigma of the same name is two sets of two forms and is not reconciled; the FH_order field is unused by this model and is not mapped, and the zero sigma of water is a placeholder declared absent."
+
+[[disposition]]
+construct = "q-Mie block (CO)"
+disposition = "held_by_model"
+ref = "mechanism:form catalogue"
+reason = "The set is an ordinary parameter set of the Mie potential form with its Feynman-Hibbs order 0 and lambda_r 21.385; that no documented request reaches it is a property of the library's lookup and of selection, not of the data, which keep their own parameterization."
+
+[[disposition]]
+construct = "LJs block"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "The 20 empty dictionaries hold no value and are not mapped; the LJF set (sigma 3e-10 m, eps_div_k 30 K, lambda 6 and 12) is mapped as a Mie-shaped parameter set whose role unread by the code is recorded, the intent to serve the Lennard-Jones/spline model being stated nowhere."
+
+[[disposition]]
+construct = "ModTangToennis (modified Tang-Toennies) parameter set"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "The record maps to a Tang-Toennies form with a dispersion family C_n, but each record states its own length unit L_unit, so the mapping converts every length-dependent coefficient with that unit and infers the exponents of those units from the equation, the JSON Note being the only statement; short_range_lim separates two functional forms within one set."
+
+[[disposition]]
+construct = "Patowski (hydrogen) parameter set"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "The Note says the internal units are Angstrom and joule but the code multiplies by the Boltzmann constant after evaluating, which implies kelvin for the energy parameters, so the mapping takes kelvin (an assumption against the Note) and records the disagreement; the three numerically identical sets stay one set per hydrogen species form."
+
+[[disposition]]
+construct = "HFD-B2 parameter set"
+disposition = "mapping_loss"
+ref = "mechanism:form catalogue"
+reason = "Lengths are taken in units of rm and energies in units of eps as the Note informally states (and the HE3 Note warns they are not as they appear), so the reduced coefficients map as dimensionless slots under an assumed scale; the dimensional copies C6, C8 and C10 have no stated unit and are not mapped, their values being taken as derived."
+
+[[disposition]]
+construct = "Quantum block (spin, rotational ground state, bound-state source)"
+disposition = "mapping_loss"
+ref = "kind:parameter_set"
+reason = "half_spin and rot_ground_state map as values of a quantum-state form per species and the spin-statistics class follows from them, but the booleans has_quantum_params and has_E_bound_file are program switches and are not kept; the spin state that separates P-H2 from O-H2 and HE from HE3 lives here and is carried by curated identity decisions, not by species identity."
+
+[[disposition]]
+construct = "bound-state energy table (E_bound .dat)"
+disposition = "mapping_loss"
+ref = "kind:tabulated_function"
+reason = "The ragged rows map to one tabulated_function with a single level-index axis and three series (vibrational index, rotational index, energy in K), so the raggedness is kept; the homonuclear pair subject (AR-AR, NE-NE) and the dissociation-limit reference energy are implicit in the source and stated by the mapping, and the lineage of the computed values is not recorded."
+
+[[disposition]]
+construct = "absolute phase-shift table (.phase_shifts)"
+disposition = "mapping_loss"
+ref = "relation:dependency"
+reason = "Each per-l table maps to a tabulated_function of wave vector with a phase-shift series (radians inferred, k in 1/sigma inferred), origin computed; which potential and parameter set produced the cache is not recorded, so a dependency on a parameter set can only be asserted by inference from the file name, an assumption."
+
+[[disposition]]
+construct = "unread leftovers (references, spin, top-level E_bound keys)"
+disposition = "mapping_loss"
+ref = "mechanism:unread field declaration"
+reason = "The polarizability and ionization_energy keys of AR hold citation strings and no value, so nothing is mapped for them, and the H2 top-level spin and bound-state list are read by no code and are declared unmapped in mapping.toml."
+
+[[disposition]]
+construct = "inline constants in code (collision-integral correlation, RDF constants, LJ/s, transfer-length correlation)"
+disposition = "model_change"
+ref = "alignment-notes #28"
+reason = "The library takes k_B from CODATA 2014 (1.38064852e-23), the gas constant from 2018 and derives N_A as their quotient, but convention_set states only gas_constant, so the kinetic forms cannot read the Boltzmann and Avogadro constants as convention facts; add quantity-typed boltzmann_constant and avogadro_constant attributes (types to be declared) to convention_set. The unpublished regression that replaces the published C_coeff_matr is a provenance statement the mapping records as origin fitted and not published."
+
+[[disposition]]
+construct = "named parameter sets and the 'default' convention"
+disposition = "held_by_model"
+ref = "kind:selection_policy"
+reason = "'default' is a carrier-asserted selection_policy scoped per slot group whose policy_override picks the set named default in each block, so it denotes different parameterizations in different blocks without being an identity; a missing name raising an error is an unasserted refuse."
+
+[[disposition]]
+construct = "extended Sutherland parameter arrays (no JSON block)"
+disposition = "held_by_model"
+ref = "mechanism:form catalogue"
+reason = "The multi-term Sutherland potential is a form with a family of (C_i, lambda_i, beta_exp_i, rho_exp_i) rows, declared in the wave that maps this source; no fluid file carries such data, so there are no parameter sets and nothing is lost."
+
+[[disposition]]
+construct = "measured data for examples (pyExamples/data)"
+disposition = "mapping_loss"
+ref = "kind:dataset"
+reason = "The 134 rows map to measured datasets with columns typed by observable, but the files state no units, citation, sample or method, so the mapping assumes units from magnitudes (K, Pa, m2/s for T, P, D) and records the origin as not stated, the load being under an explicit assumption."
