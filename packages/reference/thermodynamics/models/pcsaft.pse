@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("01a0e178d29871ca9ccbc6ffbcd0f2db") package pcsaft {
+@id("1ab97bf74167427bb8f542fe6d8200a6") use helmholtz @"1.0.0";
 @id("4751203b1df043d6ad284f5d97b1a0bd") use interactions @"1.0.0";
 
 @id("01a0f18b7a38765da908148799c2d1b9") use references @"1.0.0";
@@ -36,7 +37,15 @@
 @id("01a0e178d29871ca9ccbc71a1f0df014") fn pair_energy(t:Scalar,i:chemistry.species,j:chemistry.species,pkg:properties.property_package)->Scalar=sqrt((segment_epsilon(pkg,i)/constants.temperature_scale)*(segment_epsilon(pkg,j)/constants.temperature_scale))*(1-interactions.pair_parameter(pkg,pcsaft_parameters.binary_interaction,i,j))/t;
 @id("01a0e178d29871ca9ccbc71bb828b13a") fn pair_size(i:chemistry.species,j:chemistry.species,pkg:properties.property_package)->Scalar=(((segment_sigma(pkg,i)/constants.segment_length)+(segment_sigma(pkg,j)/constants.segment_length))/2)^3;
 @id("01a0e178d29871ca9ccbc71c1cf81175") fn dispersion(t:Scalar,r:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>,pkg:properties.property_package)->Scalar=-constants.pi*molecular_density(r)*(2*integral_one(eta,m)*e1+m*compressibility_factor(eta,m)*integral_two(eta,m)*e2) where eta=moment(t,r,n,members,3,pkg),m=mean_segments(n,members,pkg),total=sum(j in members | n[j]),e1=sum(i in members | sum(j in members | n[i]*n[j]*segment_m(pkg,i)*segment_m(pkg,j)*pair_size(i,j,pkg)*pair_energy(t,i,j,pkg)))/(total*total),e2=sum(i in members | sum(j in members | n[i]*n[j]*segment_m(pkg,i)*segment_m(pkg,j)*pair_size(i,j,pkg)*pair_energy(t,i,j,pkg)^2))/(total*total);
-@id("01a0e178d29871ca9ccbc71d66cc95d6") fn potential(t:Scalar,r:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>,pkg:properties.property_package)->Scalar valid(t>0 and r>0 and sum(j in members | n[j])>0 and sum(j in members | if n[j]>0 and segment_m(pkg,j)>=1 and (segment_sigma(pkg,j)/constants.segment_length)>0 and segment_epsilon(pkg,j)/constants.temperature_scale>0 then 0 else 1)==0 and moment(t,r,n,members,3,pkg)<1)=hard_chain(t,r,n,members,pkg)+dispersion(t,r,n,members,pkg);
+// These explicit coordinates retain the calibrated Kelvin and mol/m^3 conventions.
+@id("d0d1709a91804f1191c0a01647d99df0") coordinate map coordinates(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>,pkg:properties.property_package) valid(T>constants.absolute_zero and V>0{m^3} and sum(j in members | n[j])>0{mol}) {
+@id("c9429e3bbd5c478ead0045a4ab7a1380") slot t=(T-constants.absolute_zero)/constants.temperature_scale;
+@id("3c59b72b72c94460b287d512ae1f50df") slot r=(sum(j in members | n[j])/V)/constants.density_unit;
+@id("5aa85d3fd05142b28ffe079136ff8340") slot n[j in members]=n[j]/constants.amount_unit;
+}
+@id("701aa77065f34f8eb6eedce861dc2511") reconstruction residual for coordinates(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>,pkg:properties.property_package)->ResidualHelmholtzEnergy reference helmholtz.residual_reference=sum(j in members | n[j])*constants.gas_constant*(T-constants.absolute_zero);
+@id("d8ed22bdbe2248f78152b6644b0cfff0") fn reduced_potential(t:Coordinate<coordinates.t>,r:Coordinate<coordinates.r>,n:Coordinate<coordinates.n>[chemistry.species],members:Set<chemistry.species>,pkg:properties.property_package)->Reduced<residual> valid(t>0 and r>0 and sum(j in members | n[j])>0 and sum(j in members | if n[j]>0 and segment_m(pkg,j)>=1 and (segment_sigma(pkg,j)/constants.segment_length)>0 and segment_epsilon(pkg,j)/constants.temperature_scale>0 then 0 else 1)==0 and moment(t,r,n,members,3,pkg)<1)=hard_chain(t,r,n,members,pkg)+dispersion(t,r,n,members,pkg);
+@id("01a0e178d29871ca9ccbc71d66cc95d6") fn potential(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>,pkg:properties.property_package)->ResidualHelmholtzEnergy=reconstruct(residual,reduced_potential,T,V,n,members,pkg);
 @id("01a0f18777e9763b85954cf02da518fd") fn segment_m(pkg:properties.property_package,j:chemistry.species)->Scalar=c.m where s=properties.selection[pkg,j,pcsaft_parameters.segments,compatibility.PhaseType.vaporPhase],c=pcsaft_parameters.nonassociating[s.subject,s.property,s.phase_type,s.source,s.variant];
 @id("01a0f18777e9763b85954cf165d2cf81") fn segment_sigma(pkg:properties.property_package,j:chemistry.species)->Length=c.sigma where s=properties.selection[pkg,j,pcsaft_parameters.segments,compatibility.PhaseType.vaporPhase],c=pcsaft_parameters.nonassociating[s.subject,s.property,s.phase_type,s.source,s.variant];
 @id("01a0f18777e9763b85954cf24097f9fb") fn segment_epsilon(pkg:properties.property_package,j:chemistry.species)->TemperatureScale=c.epsilon where s=properties.selection[pkg,j,pcsaft_parameters.segments,compatibility.PhaseType.vaporPhase],c=pcsaft_parameters.nonassociating[s.subject,s.property,s.phase_type,s.source,s.variant];

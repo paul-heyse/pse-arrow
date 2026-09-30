@@ -3,15 +3,14 @@
 
 //! One invocation-owned projection of actual physical source bindings.
 
-mod decode;
 mod plans;
 mod preconditions;
 
-use datafusion::logical_expr::{Expr, LogicalPlanBuilder, col, lit};
+use datafusion::logical_expr::{LogicalPlanBuilder, col};
 use pse_engine::session::{EngineSession, output::declare_relation_output};
 
 use pse_columnar::{AllocationLease, CancellationToken};
-use pse_quantity::{QuantityKindId, QuantityRegistry, QuantityTypeId, UnitId};
+use pse_quantity::{QuantityKindId, QuantityRegistry, QuantityTypeId};
 use pse_relations::columnar::FieldCheckedBatch;
 use pse_schema::{Registry, model::RelationKey};
 use std::{collections::BTreeMap, sync::Arc};
@@ -109,7 +108,7 @@ impl PhysicalInventory {
             .try_grow(extent)
             .map_err(pse_columnar::CanonError::from)?;
         let context = plans::context(session, registry, cancel).await?;
-        let (quantities, boolean) = decode::inventory(&batches, registry, cancel, context)?;
+        let (quantities, boolean) = pse_relations::physical::inventory(&batches, registry, cancel, context)?;
         let preconditions = preconditions::preconditions(&batches, registry, &quantities, cancel)?;
         let preconditions = Arc::new(pse_quantity::PhysicalPreconditions::new(preconditions)?);
         Ok(Self {
@@ -124,35 +123,6 @@ impl PhysicalInventory {
     /// Actual immutable quantity declarations used by exact physical algorithms.
     pub const fn quantities(&self) -> &QuantityRegistry {
         &self.quantities
-    }
-    /// Construct native representation arithmetic for an actual joined unit/type pair.
-    /// Callers bind the value's unit and complete quantity context before calling this;
-    /// this method does not infer either from a number or a dimension. Multiplication
-    /// precedes addition, matching the leaf algorithm's two-rounding contract.
-    ///
-    /// # Errors
-    /// An absent unit/type, incompatible dimension or datum, or invalid coefficients.
-    pub fn conversion_expr(
-        &self,
-        value: Expr,
-        from: UnitId,
-        to: UnitId,
-        quantity: QuantityTypeId,
-    ) -> Result<Expr, PhysicalError> {
-        let quantity = self.quantities.quantity_type(quantity)?;
-        let conversion = pse_quantity::convert_spec_for_type(
-            self.quantities.unit(from)?,
-            self.quantities.unit(to)?,
-            &quantity.key,
-        )?;
-        if self.quantities.unit(from)?.dimension
-            != self.quantities.unit(quantity.canonical_unit)?.dimension
-        {
-            return Err(invalid(
-                "unit representation differs from its bound quantity dimension",
-            ));
-        }
-        Ok((value * lit(conversion.scale)) + lit(conversion.offset))
     }
     /// Explicit context choice from actual `reference.math_context` rows.
     pub fn neutral(&self) -> Option<QuantityTypeId> {
@@ -210,6 +180,9 @@ fn invalid(detail: impl Into<String>) -> PhysicalError {
 /// Physical source admission preserves each originating diagnostic.
 #[derive(Debug, thiserror::Error)]
 pub enum PhysicalError {
+    /// Checked physical declarations projected by the shared relation owner.
+    #[error(transparent)]
+    Projection(#[from] pse_relations::physical::PhysicalProjectionError),
     /// Original quantity failure.
     #[error(transparent)]
     Quantity(#[from] pse_quantity::QuantityError),
@@ -232,7 +205,7 @@ pse_diagnostics::impl_diagnostic! {
     code(_this){None},
     forward(this){match this {
         Self::Quantity(e)=>Some(e),Self::Catalog(e)=>Some(e),
-        Self::Relation(e)=>Some(e),Self::Canon(e)=>Some(e),Self::Schema(e)=>Some(e),
+        Self::Relation(e)=>Some(e),Self::Canon(e)=>Some(e),Self::Schema(e)=>Some(e),Self::Projection(e)=>Some(e),
     }},
     help(_this){None},related(_this){None},source(_this){None}
 }

@@ -16,7 +16,7 @@
 @id("01a0e1b4f60e71eab341887ae9752485") interface SmoothPR extends equilibrium.EquilibriumThermoPackage,equilibrium.EntropyThermoPackage {
 @id("e830a09c16d9430593fcdf0bfb3b4587") param eos_package:properties.property_package;
 @id("f11f409f32ce48ba915537572882b379") param eos_family:cubic.cubic_family=cubic.pr;
-@id("da493c45654e46698d9f64c294685bbb") param eos_potential:Fn(t:Scalar,r:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>)->Scalar;
+@id("da493c45654e46698d9f64c294685bbb") param eos_potential:Fn(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy;
 
 @id("03aaa07a0d15470295eebcad71a4c31d") let s:MolarEntropy=constants.standard_entropy_datum+(1-beta)*(s_liquid-constants.standard_entropy_datum)+beta*(s_vapor-constants.standard_entropy_datum);
 @id("01a0e1b4f60e71eab341887bd38ad2af") param ideal_entropy:Fn(T:Temperature,j:chemistry.species)->MolarEntropy;
@@ -140,7 +140,7 @@
 @id("01a0e1b4f60e71eab34188f1d78b3b6f") override let h_vapor:MolarEnthalpy=constants.standard_enthalpy_datum+sum(j in components | (y[j]/equilibrium.fraction_unit())*(vapor_enthalpy(T,j)-constants.standard_enthalpy_datum))+vapor.h_residual;
 @id("01a0e1b4f60e71eab34188f29b90d9e7") let s_vapor:MolarEntropy=constants.standard_entropy_datum+sum(j in components | (y[j]/equilibrium.fraction_unit())*(ideal_entropy(T,j)-constants.standard_entropy_datum))+vapor.s_residual-constants.entropy_increment_unit*helmholtz.reduced_gas_constant()*(log(pressure/constants.standard_pressure)+sum(j in components | (y[j]/equilibrium.fraction_unit())*log(y[j]/equilibrium.fraction_unit())));
 }
-@id("01a0eeced80374ab83c0819051f61a80") def ComplementarityPR(selected:Set<chemistry.species>,vapor_pressure:Fn(T:Temperature,j:chemistry.species)->Pressure,minimum:Temperature,maximum:Temperature,bubble:Temperature,dew:Temperature,epsilon:Scalar=0.0001,pkg:properties.property_package,law:Fn(t:Scalar,r:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>)->Scalar,family:cubic.cubic_family=cubic.pr):nested_equilibrium.FlashSplit {
+@id("01a0eeced80374ab83c0819051f61a80") def ComplementarityPR(selected:Set<chemistry.species>,vapor_pressure:Fn(T:Temperature,j:chemistry.species)->Pressure,minimum:Temperature,maximum:Temperature,bubble:Temperature,dew:Temperature,epsilon:Scalar=0.0001,pkg:properties.property_package,law:Fn(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy,family:cubic.cubic_family=cubic.pr):nested_equilibrium.FlashSplit {
 @id("01a0eeced80374ab83c081916b461427") override param components:Set<chemistry.species>=selected;
 @id("01a0eeced80374ab83c081924e377c96") param minimum_temperature:Temperature=minimum;
 @id("01a0eeced80374ab83c08193d4675749") param maximum_temperature:Temperature=maximum;

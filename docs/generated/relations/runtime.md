@@ -838,9 +838,9 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, definition_id, orac
 
 ## `modeling_reports`
 
-Canonical physical observations keyed by source and semantic target. Indexed members may share a presentation label without losing their coordinates.
+Canonical physical observations keyed by source and semantic target. Indexed members may share a presentation label without losing their coordinates. Version two retains an optional directed-transfer context: actual instance, boundary declaration, ordered coordinate identities and positive direction. No unbound owner can be published as a physical transfer.
 
-Version: 1. Snapshot class: `derived`. Primary key: `run_id, step, target_id, source_id`.
+Version: 2. Snapshot class: `derived`. Primary key: `run_id, step, target_id, source_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
@@ -852,6 +852,12 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, step, target_id, so
 | `path` | `Utf8` | false | `payload` | — | — |
 | `quantity_id` | `semantic_id` | false | `payload` | — | — |
 | `unit_id` | `semantic_id` | false | `payload` | — | — |
+| `transfer_context` | `Struct ModelingTransferContext` | true | `payload` | — | — |
+| `transfer_context.instance` | `semantic_id` | false | `payload` | — | — |
+| `transfer_context.boundary` | `semantic_id` | false | `payload` | — | — |
+| `transfer_context.coordinates` | `List` | false | `payload` | — | — |
+| `transfer_context.coordinates.item` | `semantic_id` | false | `payload` | — | — |
+| `transfer_context.direction` | `enum:ModelingTransferDirection` | false | `payload` | — | — |
 | `value` | `Float64` | false | `payload` | — | — |
 
 ## `modeling_studies`

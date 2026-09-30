@@ -4,9 +4,6 @@
 @id("9004bbcc2b7f46f9b37c1ac4434b4cc0") use equilibrium @"1.0.0";
 @id("508f078c9c2f452686489eb14d5790d4") use units @"1.0.0";
 @id("9477962e352b4cec8b9d68da964a0827") use temperature_driving_force @"1.0.0";
-@id("ee26e0b71f344b69a89fa34d36c0ff2f") fn area_unit()->Area=1{m^2};
-@id("77cb08c2c55449ff8b0597a5f60a801f") fn coefficient_unit()->HeatTransferCoefficient=1{W/(m^2*K)};
-@id("7966238243444907a6f28268d291afe9") fn power_unit()->Power=1{W};
 @id("836285c79d5449b79871fdfb37befd00") def HeatExchanger(hot_inlet_pkg:equilibrium.ThermoPackage,hot_outlet_pkg:equilibrium.ThermoPackage,cold_inlet_pkg:equilibrium.ThermoPackage,cold_outlet_pkg:equilibrium.ThermoPackage,driving_force:temperature_driving_force.DeltaT=temperature_driving_force.LMTD,cocurrent:Boolean=false) {
 @id("e64c89efe2f44fa1bb46da595a3ee179") child hot:units.Heater=units.Heater(inlet_pkg=hot_inlet_pkg,outlet_pkg=hot_outlet_pkg);
 @id("397196c2f23b4da9acd90dc75743c561") child cold:units.Heater=units.Heater(inlet_pkg=cold_inlet_pkg,outlet_pkg=cold_outlet_pkg);
@@ -17,8 +14,9 @@
 @id("687505a75e4f4cb9bc61af5bff613228") annotation start area(1{m^2});
 @id("3b87c66a5366495cb5d15012f2ac292e") annotation bounds coefficient(1e-12{W/(m^2*K)},1000000{W/(m^2*K)});
 @id("f60d2d9a121746ea9982ab9f3945a2cc") annotation start coefficient(100{W/(m^2*K)});
-@id("801ac3540f2d40ceb2ab113eb4c82da8") eq isolated_exchange:hot.heat+cold.heat==0{W};
-@id("7439ec92a7ff433b9b7da5249b158aa8") eq duty:cold.heat==power_unit()*(area/area_unit())*(coefficient/coefficient_unit())*(delta.mean/temperature_driving_force.kelvin_difference());
+@id("801ac3540f2d40ceb2ab113eb4c82da8") exchange thermal_exchange between hot.energy_boundary and cold.energy_boundary;
+@id("2eb61c4c300d41b99225898d313ac12f") eq isolated_exchange:hot.heat==reflect(thermal_exchange,cold.heat,Into);
+@id("7439ec92a7ff433b9b7da5249b158aa8") eq duty:cold.heat==transfer(area*coefficient*delta.mean,cold.energy_boundary,Into);
 @id("9d9bb65266e94cc5abc34596cfddfc6f") when cocurrent {
 @id("cf6ff6ef5cee42ce892e1f41c6281a53") eq first_difference:delta.first==hot.inlet.T-cold.inlet.T;
 @id("eb0e7903726a427496409e85c22c71e8") eq second_difference:delta.second==hot.outlet.T-cold.outlet.T;

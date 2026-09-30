@@ -27,6 +27,8 @@ dependencies = [
   "httpx==0.28.1",
   "rdkit==2026.3.6",
   "CoolProp==8.0.0",
+  "cantera==3.2.0",
+  "cea==3.3.4",
 ]
 
 [project.scripts]

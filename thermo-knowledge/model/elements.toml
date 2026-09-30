@@ -836,3 +836,13 @@ key = "Og"
 kind = "element"
 atomic_number = 118
 symbol = "Og"
+
+# ---------------------------------------------------------------- isotopes named by sources
+
+[entities.isotope.D]
+doc = "Deuterium, hydrogen-2, written D in the species formulas of thermochemical databases. It is counted apart from hydrogen, and a reaction's balance of hydrogen counts it too."
+key = "2H"
+kind = "isotope"
+of_element = "H"
+mass_number = 2
+symbol = "D"

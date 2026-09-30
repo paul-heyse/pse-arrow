@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("70868ba6da7c43dab7a8d05bbec3441c") package nrtl {
+@id("f2073bf1d4f64b38b2082efec27ee3cd") use constants @"1.0.0";
 @id("4770c95390c84f978eb581e1b23497c8") use chemistry @"1.0.0";
 @id("45fbd6aad65042ccb97764532730e87a") use provenance @"1.0.0";
 @id("77680433a9b34552ae0ced8a261c80bb") use properties @"1.0.0";
@@ -11,6 +12,17 @@
 @id("f87957b65ebd44b1879c9aabb99f5553") table parameters[s:provenance.source,i:chemistry.species by chemistry.cas,j:chemistry.species by chemistry.cas]:{tau:Scalar storage {1},alpha:Scalar storage {1}} complete_over(s,i,j);
 @id("406d64cdc035499aa1ee4a7939b52165") fn tau(k:properties.property_package,i:chemistry.species,j:chemistry.species)->Scalar=if i==j then 0 else parameters[interactions.pair_selection[k,interaction_parameters],i,j].tau;
 @id("56212a3a7b694b2f88eb1bf0c7eda4df") fn weight(k:properties.property_package,i:chemistry.species,j:chemistry.species)->Scalar=if i==j then 1 else exp(-parameters[interactions.pair_selection[k,interaction_parameters],i,j].alpha*tau(k,i,j));
-@id("1c130c6802594c79bc3a7620217cdbee") fn extensive(n:Scalar[chemistry.species],members:Set<chemistry.species>,k:properties.property_package)->Scalar=sum(i in members | n[i]*(sum(j in members | n[j]*tau(k,j,i)*weight(k,j,i)))/(sum(j in members | n[j]*weight(k,j,i))));
+// The reduced law is degree one in n/amount_unit: reconstruct once with R*T*amount_unit.
+@id("2970ba111f4f4dce839f52e096558721") entity provenance.source excess_reference {title="NRTL excess Gibbs energy relative to the ideal liquid mixture at the same T, pressure and amounts; reduced extensive law uses amounts divided by one mole"}
+@id("51202670a4bd4fa096cdfc8b52f77f42") coordinate map coordinates(T:Temperature,p:Pressure,n:Amount[chemistry.species],members:Set<chemistry.species>,k:properties.property_package) valid(T>constants.absolute_zero and p>0{Pa} and sum(j in members | n[j])>0{mol} and sum(j in members | if n[j]>0{mol} then 0 else 1)==0) {
+@id("268e4af75344408a807b8314d8d85f5c") slot n[j in members]=n[j]/constants.amount_unit;
+}
+@id("9fa2c100989a47f183ab35a454e3f983") reconstruction excess for coordinates(T:Temperature,p:Pressure,n:Amount[chemistry.species],members:Set<chemistry.species>,k:properties.property_package)->ExcessGibbsEnergy reference excess_reference=constants.gas_constant*(T-constants.absolute_zero)*constants.amount_unit;
+@id("1c130c6802594c79bc3a7620217cdbee") fn reduced_extensive(n:Coordinate<coordinates.n>[chemistry.species],members:Set<chemistry.species>,k:properties.property_package)->Reduced<excess> =sum(i in members | n[i]*(sum(j in members | n[j]*tau(k,j,i)*weight(k,j,i)))/(sum(j in members | n[j]*weight(k,j,i))));
+@id("ccb0df4702b34c9f9a30bc0314a62fac") fn potential(T:Temperature,p:Pressure,n:Amount[chemistry.species],members:Set<chemistry.species>,k:properties.property_package)->ExcessGibbsEnergy=reconstruct(excess,reduced_extensive,T,p,n,members,k);
+@id("4fc3704e035c4da0937ada97c553147d") response activity_response from law(T:Temperature,p:Pressure,n:Amount[chemistry.species],members:Set<chemistry.species>,k:properties.property_package,j:chemistry.species,law:Fn(T:Temperature,p:Pressure,n:Amount[chemistry.species],members:Set<chemistry.species>,k:properties.property_package)->ExcessGibbsEnergy)->Scalar=partial(law,n[j])(T,p,n,members,k)/(constants.gas_constant*(T-constants.absolute_zero));
+@id("78fb2cb9e94247e5a653711b15c07fe4") response normalized_excess from law(T:Temperature,p:Pressure,n:Amount[chemistry.species],members:Set<chemistry.species>,k:properties.property_package,law:Fn(T:Temperature,p:Pressure,n:Amount[chemistry.species],members:Set<chemistry.species>,k:properties.property_package)->ExcessGibbsEnergy)->Scalar=law(T,p,n,members,k)/(constants.gas_constant*(T-constants.absolute_zero)*constants.amount_unit);
+@id("896115b8eb1244bba8275f1190fe9615") response gibbs_duhem_response from law(T:Temperature,p:Pressure,n:Amount[chemistry.species],members:Set<chemistry.species>,k:properties.property_package,j:chemistry.species,law:Fn(T:Temperature,p:Pressure,n:Amount[chemistry.species],members:Set<chemistry.species>,k:properties.property_package)->ExcessGibbsEnergy)->Scalar=sum(i in members | n[i]*partial(law,n[i],n[j])(T,p,n,members,k))/(constants.gas_constant*(T-constants.absolute_zero));
+@id("ed798387c9474870bfa90f8635fc3b0c") fn ln_gamma(T:Temperature,p:Pressure,n:Amount[chemistry.species],members:Set<chemistry.species>,k:properties.property_package,j:chemistry.species)->Scalar=activity_response(T,p,n,members,k,j,potential);
 @id("eb3b0eda9e824ccfad71e4af91d8c86a") fn binary(x:Scalar,tau12:Scalar,tau21:Scalar,alpha12:Scalar,alpha21:Scalar)->Scalar=x*(1-x)*(tau21*exp(-alpha21*tau21)/(x+(1-x)*exp(-alpha21*tau21))+tau12*exp(-alpha12*tau12)/((1-x)+x*exp(-alpha12*tau12)));
 }

@@ -25,6 +25,10 @@ pub struct RuntimeModelingReportsRow {
     pub r#quantity_id: pse_ids::SemanticId,
     ///unit_id
     pub r#unit_id: pse_ids::SemanticId,
+    ///transfer_context
+    pub r#transfer_context: Option<
+        crate::generated::structures::ModelingTransferContext,
+    >,
     ///value
     pub r#value: f64,
 }
@@ -38,7 +42,10 @@ impl crate::SemanticEq for RuntimeModelingReportsRow {
             && crate::SemanticEq::semantic_eq(&self.r#path, &other.r#path)
             && crate::SemanticEq::semantic_eq(&self.r#quantity_id, &other.r#quantity_id)
             && crate::SemanticEq::semantic_eq(&self.r#unit_id, &other.r#unit_id)
-            && crate::SemanticEq::semantic_eq(&self.r#value, &other.r#value)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#transfer_context,
+                &other.r#transfer_context,
+            ) && crate::SemanticEq::semantic_eq(&self.r#value, &other.r#value)
     }
 }
 impl PartialEq for RuntimeModelingReportsRow {
@@ -66,6 +73,8 @@ impl crate::SemanticFrame for RuntimeModelingReportsRow {
         crate::SemanticFrame::frame(&self.r#quantity_id, hash);
         hash.str(stringify!(r#unit_id));
         crate::SemanticFrame::frame(&self.r#unit_id, hash);
+        hash.str(stringify!(r#transfer_context));
+        crate::SemanticFrame::frame(&self.r#transfer_context, hash);
         hash.str(stringify!(r#value));
         crate::SemanticFrame::frame(&self.r#value, hash);
     }
@@ -81,6 +90,7 @@ impl crate::HeapUsage for RuntimeModelingReportsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#path))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#quantity_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#unit_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#transfer_context))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#value))
     }
 }

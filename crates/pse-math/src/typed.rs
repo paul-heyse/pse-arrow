@@ -18,7 +18,7 @@ pub(crate) use piecewise::proven_branch_order;
 use pse_ids::SemanticId;
 use pse_kernels::DerivativeOrder;
 use pse_quantity::{
-    IndexSet, Opcode, QuantityRegistry, QuantityTypeId, Ratio,
+    IndexSet, Opcode, QuantityRegistry, QuantityTypeId, Ratio, ResolvedPhysicalContract, ResolvedInference,
     infer::{self, Exponent, InvariantChecker, OpRequest, Operand},
     literal::LiteralContext,
 };
@@ -33,7 +33,7 @@ pub struct TypedValue {
     pub(crate) effects: BTreeSet<usize>,
     pub(crate) atom: Atom,
     /// Full physical result contract.
-    pub(crate) quantity: QuantityTypeId,
+    pub(crate) quantity: ResolvedPhysicalContract,
     /// Actual lexical indices, separate from library arithmetic.
     pub(crate) indices: IndexSet,
     /// Source occurrence for domain diagnostics.
@@ -41,9 +41,11 @@ pub struct TypedValue {
 }
 impl TypedValue {
     /// Physical type established by admission; callers cannot retag an existing value.
-    pub const fn quantity(&self) -> QuantityTypeId {
-        self.quantity
+    pub fn quantity(&self) -> Result<QuantityTypeId, MathError> {
+        Ok(self.quantity.require_named()?)
     }
+    /// Complete physical contract, including anonymous intermediates.
+    pub fn physical_contract(&self) -> &ResolvedPhysicalContract { &self.quantity }
     /// Free lexical indices established by physical inference.
     pub fn indices(&self) -> &IndexSet {
         &self.indices
@@ -77,15 +79,6 @@ pub enum ChainTree {
     },
 }
 impl ChainTree {
-    fn operations(&self) -> usize {
-        match self {
-            Self::Leaf(_) => 0,
-            Self::Mul(left, right, _) | Self::Div(left, right, _) => {
-                1 + left.operations() + right.operations()
-            }
-            Self::Pow { base, .. } => 1 + base.operations(),
-        }
-    }
     fn check_degrees(&self) -> Result<(), MathError> {
         match self {
             Self::Leaf(_) => Ok(()),
@@ -101,35 +94,7 @@ impl ChainTree {
             }
         }
     }
-    fn quantity_chain(&self) -> infer::Chain<'_> {
-        fn operand(value: &TypedValue) -> Operand<'_> {
-            Operand {
-                quantity_type: value.quantity,
-                indices: &value.indices,
-            }
-        }
-        match self {
-            Self::Leaf(value) => infer::Chain::Leaf(operand(value)),
-            Self::Mul(left, right, _) => infer::Chain::Mul(
-                Box::new(left.quantity_chain()),
-                Box::new(right.quantity_chain()),
-            ),
-            Self::Div(left, right, _) => infer::Chain::Div(
-                Box::new(left.quantity_chain()),
-                Box::new(right.quantity_chain()),
-            ),
-            Self::Pow {
-                base,
-                exponent,
-                power,
-                ..
-            } => infer::Chain::Pow {
-                base: Box::new(base.quantity_chain()),
-                exponent: *exponent,
-                power: operand(power),
-            },
-        }
-    }
+
 }
 
 /// Source arithmetic distinction retained until physical inference has completed.
@@ -196,6 +161,9 @@ pub struct BodyBuilder<'a> {
     stages: Vec<Stage>,
     provider_order: DerivativeOrder,
     physical_only: bool,
+    admissions: Vec<ResolvedInference>,
+    output_authorizations: Vec<pse_quantity::AdmittedOutputBoundary>,
+    formula_authority: Option<pse_quantity::PhysicalFormulaAuthority>,
     provider_cache: std::collections::HashMap<
         (pse_kernels::ProviderKey, Vec<Atom>, Vec<usize>),
         Vec<TypedValue>,
@@ -236,6 +204,9 @@ impl<'a> BodyBuilder<'a> {
             limits,
             inputs,
             input_quantities: vec![None; inputs],
+            admissions: vec![],
+            output_authorizations: vec![],
+            formula_authority: None,
             next_slot: inputs,
             occurrences: 0,
             stages: vec![],
@@ -275,27 +246,58 @@ impl<'a> BodyBuilder<'a> {
         self.next_slot += 1;
         Ok(slot)
     }
-    fn result(
-        &mut self,
-        request: OpRequest<'_>,
-        args: &[&TypedValue],
-    ) -> Result<(QuantityTypeId, IndexSet), MathError> {
+    fn admit(&mut self, request: OpRequest<'_>, args: &[&TypedValue]) -> Result<ResolvedInference, MathError> {
         self.tick()?;
-        let operands: Vec<_> = args
-            .iter()
-            .map(|v| Operand {
-                quantity_type: v.quantity,
-                indices: &v.indices,
-            })
-            .collect();
-        let result = infer::infer_with_evidence(&request, &operands, self.registry, self.checker)?;
-        // Composition-dependent conversions need an explicit provider/model operation.
+        let values = args.iter().map(|value| value.quantity.clone()).collect::<Vec<_>>();
+        let result = pse_quantity::resolved::infer_in_context(&request, &values, None, self.registry, self.checker, self.formula_authority.as_ref())?;
         if !result.conversions.is_empty() {
-            return Err(MathError::Contract(
-                "physical input conversion requires an explicit model operation".into(),
-            ));
+            return Err(MathError::Contract("physical input conversion requires an explicit model operation".into()));
         }
-        Ok((result.result, result.indices))
+        self.admissions.push(result.clone());
+        Ok(result)
+    }
+    fn result(&mut self, request: OpRequest<'_>, args: &[&TypedValue]) -> Result<(ResolvedPhysicalContract, IndexSet), MathError> {
+        let result = self.admit(request, args)?;
+        Ok((result.result.clone(), result.result.indices().clone()))
+    }
+    /// Admit the declared result boundary and explicitly change numerical coordinates.
+    pub fn named_boundary(&mut self, mut value: TypedValue, expected: QuantityTypeId) -> Result<TypedValue, MathError> {
+        let (contract, scale) = value.quantity.at_boundary(expected, self.registry)?;
+        if scale != 1.0 { value.atom = value.atom * Atom::num(scale); }
+        value.quantity = contract;
+        Ok(value)
+    }
+    /// Consume a complete function signature, including an admitted anonymous result.
+    pub fn contract_boundary(&mut self, mut value: TypedValue, expected: &ResolvedPhysicalContract) -> Result<TypedValue, MathError> {
+        let (contract, scale) = value.quantity.at_contract_boundary(expected, self.registry)?;
+        if scale != 1.0 { value.atom = value.atom * Atom::num(scale); }
+        value.quantity = contract;
+        Ok(value)
+    }
+    /// Consume a checked declaration-owned physical role transition exactly as admitted.
+    pub fn authorized_boundary(&mut self, mut value: TypedValue, authorization: &pse_quantity::AdmittedOutputBoundary) -> Result<TypedValue, MathError> {
+        let (contract, scale) = authorization.apply_contract(&value.quantity)?;
+        if scale != 1.0 { value.atom = value.atom * Atom::num(scale); }
+        value.quantity = contract;
+        self.output_authorizations.push(authorization.clone());
+        Ok(value)
+    }
+    /// Frame all admitted physical operations and declared role transitions.
+    pub fn frame_admissions(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str("physical-admissions-v1").u64(self.admissions.len() as u64);
+        for admission in &self.admissions { admission.frame(hash); }
+        hash.u64(self.output_authorizations.len() as u64);
+        for authorization in &self.output_authorizations { authorization.frame(hash); }
+    }
+    /// Versioned identity of the admitted physical operation stream.
+    pub fn admission_identity(&self) -> pse_ids::ContentHash {
+        let mut hash = pse_ids::FramedHasher::new(pse_ids::Frame::MathResolvedAdmissionsV1);
+        self.frame_admissions(&mut hash);
+        hash.finish_hash()
+    }
+    /// Enter a declaration-owned scientific formula scope, returning the prior scope.
+    pub fn physical_formula_scope(&mut self, authority: Option<pse_quantity::PhysicalFormulaAuthority>) -> Option<pse_quantity::PhysicalFormulaAuthority> {
+        std::mem::replace(&mut self.formula_authority, authority)
     }
     /// Bind a complete physical contract to one reusable formal input.
     /// # Errors
@@ -339,7 +341,7 @@ impl<'a> BodyBuilder<'a> {
             } else {
                 library::formal(slot)?
             },
-            quantity: inferred.result,
+            quantity: ResolvedPhysicalContract::named(inferred.result, indices.clone(), self.registry)?,
             indices,
             source,
         })
@@ -355,20 +357,10 @@ impl<'a> BodyBuilder<'a> {
         context: LiteralContext,
         source: SemanticId,
     ) -> Result<TypedValue, MathError> {
-        if !value.is_finite() {
-            return Err(MathError::Contract("nonfinite authored literal".into()));
-        }
         let (quantity, indices) = self.result(OpRequest::Literal { unit, context }, &[])?;
-        let ty = self.registry.quantity_type(quantity)?;
-        let conversion = pse_quantity::convert_spec_for_type(
-            unit,
-            self.registry.unit(ty.canonical_unit)?,
-            &ty.key,
-        )?;
-        let canonical = pse_quantity::convert_value(&conversion, value);
-        if !canonical.is_finite() {
-            return Err(MathError::Contract("nonfinite canonical literal".into()));
-        }
+        let canonical = pse_quantity::CanonicalConversionPlan::resolved(
+            self.registry, quantity.require_named()?, unit,
+        )?.apply(value)?.value();
         Ok(TypedValue {
             effects: BTreeSet::new(),
             // Preserve integral authored facts in the same exact coefficient domain
@@ -535,20 +527,14 @@ impl<'a> BodyBuilder<'a> {
         arguments: &[TypedValue],
         source: SemanticId,
     ) -> Result<TypedValue, MathError> {
-        use pse_quantity::scheme::{Scheme, Substitution};
         if arguments.is_empty() || arguments.len() > 8 || scope.0 > self.stages.len() {
             return Err(MathError::Limit("function partial order or scope"));
         }
-        let mut quantity = Scheme::Concrete(value.quantity);
-        for argument in arguments {
-            quantity = Scheme::Quotient(
-                Box::new(Scheme::Delta(Box::new(quantity))),
-                Box::new(Scheme::Delta(Box::new(Scheme::Concrete(argument.quantity)))),
-            );
-        }
-        let quantity = quantity
-            .resolve_with_evidence(self.registry, &Substitution::new(), self.checker)
-            .map_err(|e| MathError::Contract(e.to_string()))?;
+        let arguments_contracts = arguments.iter().map(|argument| argument.quantity.clone()).collect::<Vec<_>>();
+        let admission = pse_quantity::resolved::infer_partial(&value.quantity, &arguments_contracts, self.registry, self.checker)?;
+        self.admissions.push(admission.clone());
+        let quantity = admission.result;
+        let scale = admission.result_scale;
         if !self.physical_only
             && self.stages[scope.0..]
                 .iter()
@@ -556,7 +542,7 @@ impl<'a> BodyBuilder<'a> {
         {
             let atom = self.external_partial(scope, &value.atom, arguments, source)?;
             return Ok(TypedValue {
-                atom,
+                atom: if scale == 1.0 { atom } else { atom * Atom::num(scale) },
                 quantity,
                 indices: value.indices,
                 effects: value.effects,
@@ -584,7 +570,7 @@ impl<'a> BodyBuilder<'a> {
             piecewise::strengthen_guards(&mut self.stages[scope.0..], arguments.len());
             self.stages.extend(stages);
             return Ok(TypedValue {
-                atom: library::formal(output)?,
+                atom: library::formal(output)? * Atom::num(scale),
                 quantity,
                 indices: value.indices,
                 effects: value.effects,
@@ -607,7 +593,7 @@ impl<'a> BodyBuilder<'a> {
             }
         }
         Ok(TypedValue {
-            atom,
+            atom: if scale == 1.0 { atom } else { atom * Atom::num(scale) },
             quantity,
             indices: value.indices,
             effects: value.effects,
@@ -640,97 +626,51 @@ impl<'a> BodyBuilder<'a> {
         exponent: Option<Ratio>,
         source: SemanticId,
     ) -> Result<TypedValue, MathError> {
-        let leaf = |value| Box::new(ChainTree::Leaf(value));
-        match (op, exponent) {
-            (Binary::Mul, _) => return self.chain(ChainTree::Mul(leaf(left), leaf(right), source)),
-            (Binary::Div, _) => return self.chain(ChainTree::Div(leaf(left), leaf(right), source)),
-            (Binary::Pow, Some(exponent)) => {
-                return self.chain(ChainTree::Pow {
-                    base: leaf(left),
-                    exponent,
-                    power: right,
-                    source,
-                });
-            }
-            _ => {}
-        }
         let request = match op {
-            Binary::Add => OpRequest::Add,
-            Binary::Sub => OpRequest::Sub,
-            Binary::Mul => OpRequest::Mul,
-            Binary::Div => OpRequest::Div,
-            Binary::Pow => OpRequest::Pow {
-                exponent: Exponent::Symbolic,
-            },
+            Binary::Add => OpRequest::Add, Binary::Sub => OpRequest::Sub,
+            Binary::Mul => OpRequest::Mul, Binary::Div => OpRequest::Div,
+            Binary::Pow => OpRequest::Pow { exponent: exponent.map_or(Exponent::Symbolic, Exponent::Rational) },
         };
-        let (quantity, indices) = self.result(request, &[&left, &right])?;
-        self.combine(op, left, right, None, (quantity, indices), source)
+        let admission = self.admit(request, &[&left, &right])?;
+        self.combine(op, left, right, exponent, admission, source)
     }
-    /// Admit one maximal product, quotient and exact-power subtree as a whole: the
-    /// registered rules and the canonical monomial type it together (ADR-0124), then
-    /// Symbolica builds each node with its domain requirements.
-    /// # Errors
-    /// Disagreeing or failed physical routes, unsupported power facts or exhausted budgets.
+    /// Construct a chain node by node, consuming each node's own admitted contract.
     pub fn chain(&mut self, tree: ChainTree) -> Result<TypedValue, MathError> {
         tree.check_degrees()?;
-        // One budgeted operation per product, quotient or power, as node by node.
-        for _ in 0..tree.operations() {
-            self.tick()?;
+        match tree {
+            ChainTree::Leaf(value) => Ok(value),
+            ChainTree::Mul(left, right, source) => {
+                let op = Binary::Mul;
+                let left = self.chain(*left)?;
+                let right = self.chain(*right)?;
+                self.binary(op, left, right, None, source)
+            }
+            ChainTree::Div(left, right, source) => {
+                let left = self.chain(*left)?;
+                let right = self.chain(*right)?;
+                self.binary(Binary::Div, left, right, None, source)
+            }
+            ChainTree::Pow { base, exponent, power, source } => {
+                let base = self.chain(*base)?;
+                self.binary(Binary::Pow, base, power, Some(exponent), source)
+            }
         }
-        let (quantity, indices) = {
-            let chain = tree.quantity_chain();
-            let inferred = infer::infer_chain(&chain, self.registry, self.checker)?;
-            // Composition-dependent conversions need an explicit provider/model operation.
-            if !inferred.conversions.is_empty() {
-                return Err(MathError::Contract(
-                    "physical input conversion requires an explicit model operation".into(),
-                ));
-            }
-            (inferred.result, inferred.indices)
-        };
-        self.assemble(tree, &(quantity, indices))
     }
-    fn assemble(
-        &mut self,
-        tree: ChainTree,
-        result: &(QuantityTypeId, IndexSet),
-    ) -> Result<TypedValue, MathError> {
-        let (op, left, right, exponent, source) = match tree {
-            ChainTree::Leaf(value) => return Ok(value),
-            ChainTree::Mul(left, right, source) => (Binary::Mul, *left, *right, None, source),
-            ChainTree::Div(left, right, source) => (Binary::Div, *left, *right, None, source),
-            ChainTree::Pow {
-                base,
-                exponent,
-                power,
-                source,
-            } => {
-                let base = self.assemble(*base, result)?;
-                return self.combine(
-                    Binary::Pow,
-                    base,
-                    power,
-                    Some(exponent),
-                    result.clone(),
-                    source,
-                );
-            }
-        };
-        let left = self.assemble(left, result)?;
-        let right = self.assemble(right, result)?;
-        self.combine(op, left, right, exponent, result.clone(), source)
-    }
-    /// Build one admitted node. Inner chain nodes carry the chain's result contract;
-    /// only the root's is observable.
+    /// Build one node from its retained physical admission.
     fn combine(
         &mut self,
         op: Binary,
         mut left: TypedValue,
         mut right: TypedValue,
         exponent: Option<Ratio>,
-        (quantity, indices): (QuantityTypeId, IndexSet),
+        admission: ResolvedInference,
         source: SemanticId,
     ) -> Result<TypedValue, MathError> {
+        let quantity = admission.result;
+        let indices = quantity.indices().clone();
+        for (value, scale) in [&mut left, &mut right].into_iter().zip(&admission.operand_scales) {
+            if *scale != 1.0 { value.atom = &value.atom * Atom::num(*scale); }
+        }
         if !self.physical_only
             && op == Binary::Pow
             && let Some(ratio) = exponent
@@ -794,6 +734,7 @@ impl<'a> BodyBuilder<'a> {
             Binary::Div => &left.atom / &right.atom,
             Binary::Pow => left.atom.pow(&right.atom),
         };
+        let atom = if admission.result_scale == 1.0 { atom } else { atom * Atom::num(admission.result_scale) };
         Ok(TypedValue {
             effects: left.effects.union(&right.effects).copied().collect(),
             atom,
@@ -846,7 +787,11 @@ impl<'a> BodyBuilder<'a> {
             Unary::Sin => OpRequest::Transcendental(Opcode::Sin),
             Unary::Cos => OpRequest::Transcendental(Opcode::Cos),
         };
-        let (quantity, indices) = self.result(request, &[&value])?;
+        let admission = self.admit(request, &[&value])?;
+        let quantity = admission.result;
+        let indices = quantity.indices().clone();
+        if admission.operand_scales[0] != 1.0 { value.atom = &value.atom * Atom::num(admission.operand_scales[0]); }
+
         if self.physical_only {
             return Ok(TypedValue {
                 effects: value.effects.clone(),
@@ -888,7 +833,7 @@ impl<'a> BodyBuilder<'a> {
                 let zero = TypedValue {
                     effects: value.effects.clone(),
                     atom: Atom::num(0),
-                    quantity: value.quantity,
+                    quantity: value.quantity.clone(),
                     indices: value.indices.clone(),
                     source,
                 };
@@ -915,6 +860,7 @@ impl<'a> BodyBuilder<'a> {
             Unary::Sin => value.atom.sin(),
             Unary::Cos => value.atom.cos(),
         };
+        let atom = if admission.result_scale == 1.0 { atom } else { atom * Atom::num(admission.result_scale) };
         Ok(TypedValue {
             effects: value.effects.clone(),
             atom,
@@ -933,11 +879,9 @@ impl<'a> BodyBuilder<'a> {
         right: &TypedValue,
         source: SemanticId,
     ) -> Result<Guard, MathError> {
-        pse_quantity::admission::require_same_contract(
-            left.quantity,
-            right.quantity,
-            self.registry,
-        )?;
+        if !left.quantity.same_meaning(&right.quantity) {
+            return Err(MathError::Contract("comparison physical contracts differ".into()));
+        }
         if left.indices != right.indices {
             return Err(MathError::Contract("comparison binder mismatch".into()));
         }
@@ -1005,7 +949,7 @@ impl<'a> BodyBuilder<'a> {
         {
             for (value, port) in inputs.iter().zip(&spec.inputs) {
                 pse_quantity::admission::require_same_contract(
-                    value.quantity,
+                    value.quantity()?,
                     port.quantity,
                     self.registry,
                 )?;
@@ -1034,7 +978,7 @@ impl<'a> BodyBuilder<'a> {
         let mut input_scales = vec![];
         for (value, port) in inputs.iter().zip(&spec.inputs) {
             pse_quantity::admission::require_same_contract(
-                value.quantity,
+                value.quantity()?,
                 port.quantity,
                 self.registry,
             )?;
@@ -1066,13 +1010,11 @@ impl<'a> BodyBuilder<'a> {
             for i in partial {
                 scheme = Scheme::Quotient(
                     Box::new(Scheme::Delta(Box::new(scheme))),
-                    Box::new(Scheme::Delta(Box::new(Scheme::Concrete(
-                        inputs[*i].quantity,
-                    )))),
+                    Box::new(Scheme::Delta(Box::new(Scheme::from_contract(inputs[*i].quantity.clone())))),
                 );
             }
             let quantity = scheme
-                .resolve_with_evidence(self.registry, &Substitution::new(), self.checker)
+                .resolve_contract_with_evidence(self.registry, &Substitution::new(), self.checker)
                 .map_err(|e| MathError::Contract(e.to_string()))?;
             let scale = partial
                 .iter()
@@ -1246,7 +1188,7 @@ impl<'a> BodyBuilder<'a> {
         for term in terms {
             pse_quantity::admission::require_same_contract(
                 prototype,
-                term.quantity,
+                term.quantity()?,
                 self.registry,
             )?;
             if !term.indices.is_empty() {
@@ -1274,7 +1216,7 @@ impl<'a> BodyBuilder<'a> {
         };
         Ok(TypedValue {
             atom,
-            quantity: inferred.result,
+            quantity: ResolvedPhysicalContract::named(inferred.result, indices.clone(), self.registry)?,
             indices: inferred.indices,
             source,
             effects: terms
@@ -1297,11 +1239,9 @@ impl<'a> BodyBuilder<'a> {
     ) -> Result<TypedValue, MathError> {
         let (quantity, indices) = self.result(OpRequest::Reduce { kind, bound }, &[prototype])?;
         for term in terms {
-            pse_quantity::admission::require_same_contract(
-                prototype.quantity,
-                term.quantity,
-                self.registry,
-            )?;
+            if !prototype.quantity.same_meaning(&term.quantity) {
+                return Err(MathError::Contract("reduction physical contracts differ".into()));
+            }
             if term.indices != prototype.indices {
                 return Err(MathError::Contract(
                     "reduction occurrence binders differ".into(),
@@ -1388,7 +1328,7 @@ impl<'a> BodyBuilder<'a> {
         body.set_occurrences(self.occurrences);
         body.set_quantities(
             self.input_quantities,
-            outputs.iter().map(|v| v.quantity).collect(),
+            outputs.iter().map(TypedValue::quantity).collect::<Result<Vec<_>, _>>()?,
         );
         Ok(body)
     }

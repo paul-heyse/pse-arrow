@@ -31,10 +31,10 @@
 @id("01a0f00baca572638a494b0c5a84b230") table dissociation[a: apparent, j: species]: Count missing default 0{1};
 // A reaction conserves every element and charge over its stoichiometry.
 @id("0d15cb60062d4ee79e10ae2aea8c397e") entity kind reaction {
-@id("01a0f00baca572638a494b0dad768f4e") require sum(e in element | abs(sum(j in species | stoichiometry[self, j] * formula[j, e]))) == 0 : "a reaction conserves every element";
+@id("01a0f00baca572638a494b0dad768f4e") require sum(e in element | abs(sum(j in species | stoichiometry[self, j] * formula[j, e]))) == 0{1} : "a reaction conserves every element";
 @id("01a0f00baca572638a494b0eec9e5b89") require sum(j in species | stoichiometry[self, j] * j.charge) == 0{1} : "a reaction conserves charge";
 }
-@id("01a0f00baca572638a494b0f90fda40f") table stoichiometry[r: reaction, j: species]: Scalar missing default 0;
+@id("01a0f00baca572638a494b0f90fda40f") table stoichiometry[r: reaction, j: species]: ReactionStoichiometry missing default 0{1};
 // A phase and its type; a phase's behaviour is read from its type, never from its identity.
 @id("7d986668d824439f9b5828046038365d") entity kind phase {
 @id("01a0f00baca572638a494b10b457c403") attribute type: compatibility.PhaseType;

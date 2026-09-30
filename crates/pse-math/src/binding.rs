@@ -8,8 +8,7 @@ use pse_kernels::Port;
 use pse_model::generated::enums::ModelingVariableDomain;
 use pse_model::{SemanticEq, SemanticFrame};
 use pse_quantity::{
-    QuantityRegistry, UnitConvertSpec, admission::require_same_contract, convert_spec_for_type,
-    convert_value,
+    CanonicalConversionPlan, QuantityRegistry, admission::require_same_contract,
 };
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -30,6 +29,8 @@ pub struct BodySpec {
     pub structure: ContentHash,
     /// Complete physical interpretation, including registry declarations.
     pub physical: ContentHash,
+    /// Retained per-node semantic admission and declaration-owned output transitions.
+    pub admissions: ContentHash,
     /// Consumed provider contracts, phases and parameter data in stable full-key order.
     pub providers: Vec<ContentHash>,
     /// Real algebra, domain, smoothness and numerical profile.
@@ -38,10 +39,11 @@ pub struct BodySpec {
 impl BodySpec {
     /// Versioned key; never hashes printed atoms or process-global library identifiers.
     pub fn key(&self) -> ContentHash {
-        let mut h = FramedHasher::new(pse_ids::Frame::MathBodyV1);
+        let mut h = FramedHasher::new(pse_ids::Frame::MathBodyV2);
         h.hash(&self.definition)
             .hash(&self.structure)
             .hash(&self.physical)
+            .hash(&self.admissions)
             .hash(&self.policy)
             .u64(self.providers.len() as u64);
         for provider in &self.providers {
@@ -191,7 +193,7 @@ pub struct CaseValues {
 pub struct SlotBinding {
     /// Global variable/parameter identity.
     source: SemanticId,
-    conversion: UnitConvertSpec,
+    conversion: CanonicalConversionPlan,
     port: Port,
 }
 impl SlotBinding {
@@ -215,13 +217,8 @@ impl SlotBinding {
                 "instance slots require scalar physical contracts".into(),
             ));
         }
-        let canonical = registry.unit(ty.canonical_unit)?;
-        convert_spec_for_type(registry.unit(source.unit)?, canonical, &ty.key)?;
-        convert_spec_for_type(registry.unit(formal.unit)?, canonical, &ty.key)?;
-        let conversion = convert_spec_for_type(
-            registry.unit(source.unit)?,
-            registry.unit(formal.unit)?,
-            &ty.key,
+        let conversion = CanonicalConversionPlan::registered(
+            registry, source.quantity, source.unit,
         )?;
         Ok(Self {
             source: source.id,
@@ -244,11 +241,11 @@ impl SlotBinding {
     }
     /// Linear gather coefficient in the source representation.
     pub fn scale(&self) -> f64 {
-        self.conversion.scale
+        self.conversion.scale()
     }
     /// Affine gather offset in canonical formal coordinates.
     pub fn offset(&self) -> f64 {
-        self.conversion.offset
+        self.conversion.offset()
     }
     /// Physically admitted formal contract.
     pub fn quantity(&self) -> pse_quantity::QuantityTypeId {
@@ -284,11 +281,7 @@ impl InstanceBinding {
                     .scalars
                     .get(&slot.source)
                     .ok_or_else(|| MathError::Contract("missing case scalar".into()))?;
-                let converted = convert_value(&slot.conversion, value);
-                if !value.is_finite() || !converted.is_finite() {
-                    return Err(MathError::Contract("nonfinite bound scalar".into()));
-                }
-                Ok(converted)
+                Ok(slot.conversion.apply(value)?.value())
             })
             .collect()
     }

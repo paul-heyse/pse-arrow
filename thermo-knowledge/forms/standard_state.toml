@@ -165,3 +165,59 @@ G = "pure.piece.G[i, n]"
 cp = "A + B * T + C * T ** 2 + D * T ** 3 + E / T ** 2"
 h = "A * T + B * T ** 2 / 2 + C * T ** 3 / 3 + D * T ** 4 / 4 - E / T + F"
 s = "A * log(T / unit('K')) + B * T + C * T ** 2 / 2 + D * T ** 3 / 3 - E / (2 * T ** 2) + G"
+
+# ---------------------------------------------------------------- constant heat capacity
+
+[forms.constant_cp]
+doc = "A constant molar heat capacity from a reference state: the enthalpy and entropy at a reference temperature and the heat capacity that holds at every temperature, which is how a source states a species whose heat capacity it does not resolve in temperature (a surface species, a solid of a cell)."
+implements = "standard_state_thermo"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.constant_cp.slot_groups.pure]
+doc = "The reference state and heat capacity of one species form."
+subject.i = { type = "species_form", doc = "The species form." }
+
+[forms.constant_cp.slot_groups.pure.slots]
+T0 = { type = "Temperature", doc = "Reference temperature." }
+h0 = { type = "MolarEnergy", doc = "Molar enthalpy at the reference temperature." }
+s0 = { type = "MolarEntropy", doc = "Molar entropy at the reference temperature." }
+cp0 = { type = "MolarEntropy", doc = "Molar heat capacity, the same at every temperature." }
+
+[forms.constant_cp.let]
+T0 = "pure.T0[i]"
+h0 = "pure.h0[i]"
+s0 = "pure.s0[i]"
+cp0 = "pure.cp0[i]"
+
+[forms.constant_cp.outputs]
+cp = "cp0"
+h = "h0 + cp0 * (T - T0)"
+s = "s0 + cp0 * log(T / T0)"
+
+# ---------------------------------------------------------------- an enthalpy at one temperature
+
+[contracts.standard_state_enthalpy]
+doc = "The standard-state molar enthalpy of one species form at the temperature its source states it at, for a species the source gives no heat capacity or entropy of."
+roles.i = { type = "species_form", doc = "The species form." }
+outputs.h = { type = "MolarEnergy", observable = "standard_molar_enthalpy", doc = "Standard-state molar enthalpy relative to the energy reference, at the stated temperature." }
+
+[forms.assigned_enthalpy]
+doc = "An enthalpy assigned to a species form at one temperature: the species of a reactant list whose heat capacity and entropy the source does not state (a propellant mixture, a fuel), so that a calculation can start from its enthalpy."
+implements = "standard_state_enthalpy"
+completeness = "fully_declared"
+status = "expressed"
+
+[forms.assigned_enthalpy.slot_groups.pure]
+doc = "The stated enthalpy and its temperature for one species form."
+subject.i = { type = "species_form", doc = "The species form." }
+
+[forms.assigned_enthalpy.slot_groups.pure.slots]
+T_ref = { type = "Temperature", doc = "Temperature the enthalpy is stated at." }
+h_ref = { type = "MolarEnergy", doc = "Molar enthalpy at that temperature." }
+
+[forms.assigned_enthalpy.let]
+h_ref = "pure.h_ref[i]"
+
+[forms.assigned_enthalpy.outputs]
+h = "h_ref"

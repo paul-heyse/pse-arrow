@@ -185,7 +185,7 @@ fn shape(nodes: &[TypeNode], index: usize) -> Result<(), TypeArenaViolation> {
     let children = node.children.len();
     let child_kind = |position: usize| nodes[node.children[position] as usize].kind;
     let (wants_path, wants_name, wants_exponent) = match node.kind {
-        K::Named | K::Identifier => (true, false, false),
+        K::Named | K::Identifier | K::Coordinate | K::ReducedLaw => (true, false, false),
         K::Variable | K::Argument => (false, true, false),
         K::Power => (false, false, true),
         _ => (false, false, false),
@@ -206,12 +206,15 @@ fn shape(nodes: &[TypeNode], index: usize) -> Result<(), TypeArenaViolation> {
         | K::Named
         | K::Variable
         | K::Identifier
+        | K::Coordinate
+        | K::ReducedLaw
         | K::QuantityType
         | K::ReferenceState => children == 0,
         K::Optional | K::Set | K::Row | K::Table | K::Delta | K::Argument | K::Power => {
             children == 1
         }
         K::Product | K::Quotient => children == 2,
+        K::Transfer => children == 3 && child_kind(1) == K::Named && child_kind(2) == K::Named,
         K::Tuple | K::Function => children >= 1,
         K::Indexed => children >= 2,
     };
@@ -348,8 +351,8 @@ fn write(node: TypeRef<'_>, out: &mut String) {
         K::ReferenceState => out.push_str("ReferenceState"),
         K::Named => out.push_str(&path(node.path())),
         K::Variable | K::Argument => out.push_str(&crate::grammar::render_name(node.name())),
-        K::Identifier => {
-            out.push_str("Id<");
+        K::Identifier | K::Coordinate | K::ReducedLaw => {
+            out.push_str(match node.kind() { K::Coordinate => "Coordinate<", K::ReducedLaw => "Reduced<", _ => "Id<" });
             out.push_str(&path(node.path()));
             out.push('>');
         }
@@ -358,6 +361,7 @@ fn write(node: TypeRef<'_>, out: &mut String) {
         K::Table => generic("Table", node, out),
         K::Tuple => generic("Tuple", node, out),
         K::Delta => generic("Delta", node, out),
+        K::Transfer => generic("Transfer", node, out),
         K::Optional => {
             // `?` applies to an indexed type or tighter; a function or optional operand
             // is parenthesized.

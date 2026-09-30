@@ -1,15 +1,11 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Native field traversal and explicit projections for three distinct equivalence questions.
+//! Native field traversal and schema-declared projections for distinct contract questions.
 use arrow_schema::{ArrowError, DataType, Field, FieldRef, UnionFields};
+use crate::generated::field_facets::{Admission, FACETS};
 use std::sync::Arc;
 
-/// Human-readable field prose, deliberately excluded from execution/value identity.
-pub const DOCUMENTATION: &str = "pse.domain.doc";
-/// The presentation name of a registry named structure (for example `MemberDescriptor`).
-/// Like prose it is excluded from execution and value identity: naming a structure never
-/// changes a contract, a fingerprint or a stored value.
-pub const STRUCTURE_NAME: &str = "pse.domain.structure";
+pub use crate::generated::field_facets::{DOC as DOCUMENTATION, STRUCTURE as STRUCTURE_NAME};
 /// What an observation or comparison is intended to establish.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum MetadataPurpose {
@@ -19,6 +15,11 @@ pub enum MetadataPurpose {
     ExecutionIdentity,
     /// Value domains matter; root aliases and reference/role usage do not.
     ValueIdentity,
+    /// Root storage contract, excluding declared root usage/quantity/identity facets.
+    /// Nested fields remain exact. This does not establish physical compatibility.
+    LogicalStorageType,
+    /// Logical storage identity additionally omits structure presentation at every depth.
+    LogicalTypeIdentity,
 }
 /// Borrow native child fields in their declared order, including dictionary value children.
 pub fn children(kind: &DataType) -> Vec<&Field> {
@@ -90,31 +91,68 @@ fn map_type(
 /// # Errors
 /// An invalid native field tree.
 pub fn project(field: &Field, purpose: MetadataPurpose) -> Result<Field, ArrowError> {
-    let mut field = map(field, &mut |field| {
-        let mut field = field.clone();
-        field.metadata_mut().retain(|key, _| match purpose {
+    let mut root = true;
+    map(field, &mut |field| {
+        let projected = project_at(field, purpose, root);
+        root = false;
+        projected
+    })
+}
+
+/// Project only the root storage contract, preserving the existing nested declaration.
+pub fn logical_storage_type(field: &Field) -> Field {
+    project_at(field, MetadataPurpose::LogicalStorageType, true)
+}
+
+fn project_at(field: &Field, purpose: MetadataPurpose, root: bool) -> Field {
+    let mut field = field.clone();
+    field.metadata_mut().retain(|key, _| {
+        let Some(facet) = FACETS.iter().find(|facet| facet.key == key) else {
+            return true;
+        };
+        match purpose {
             MetadataPurpose::PhysicalObservation => true,
-            MetadataPurpose::ExecutionIdentity => {
-                !matches!(key.as_str(), DOCUMENTATION | STRUCTURE_NAME)
-            }
-            MetadataPurpose::ValueIdentity => !matches!(
-                key.as_str(),
-                DOCUMENTATION
-                    | STRUCTURE_NAME
-                    | "pse.domain.role"
-                    | "pse.semantic.role"
-                    | "pse.domain.fk.relation"
-                    | "pse.domain.fk.column"
-                    | "pse.semantic.fk"
-                    | "pse.semantic.reference"
-            ),
-        });
-        field
-    })?;
-    if purpose == MetadataPurpose::ValueIdentity {
+            MetadataPurpose::ExecutionIdentity => facet.execution,
+            MetadataPurpose::ValueIdentity => facet.value,
+            MetadataPurpose::LogicalStorageType => !root || facet.storage_root,
+            MetadataPurpose::LogicalTypeIdentity => facet.type_identity && (!root || facet.storage_root),
+        }
+    });
+    if root && matches!(purpose, MetadataPurpose::ValueIdentity | MetadataPurpose::LogicalStorageType | MetadataPurpose::LogicalTypeIdentity) {
         field = field.with_name("item").with_nullable(false);
     }
-    Ok(field)
+    field
+}
+
+/// Directional metadata predicates, separate from equality and storage projections.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum MetadataAdmission {
+    /// A declared target checks values; established or unclassified meaning cannot change.
+    CheckedTarget,
+    /// The expected field was already established by the input expression. Only missing
+    /// annotations may be restored; even presentation conflicts must be refused.
+    RestoreEstablished,
+}
+
+/// Check one field's metadata under the selected directional boundary predicate.
+/// This establishes no storage, nullability, value-domain or physical conversion proof.
+pub fn admits_metadata(
+    source: &std::collections::HashMap<String, String>,
+    target: &std::collections::HashMap<String, String>,
+    purpose: MetadataAdmission,
+) -> bool {
+    if purpose == MetadataAdmission::RestoreEstablished {
+        return source.iter().all(|(key, value)| target.get(key) == Some(value));
+    }
+    source.keys().chain(target.keys()).all(|key| {
+        let admission = FACETS.iter().find(|facet| facet.key == key)
+            .map_or(Admission::Exact, |facet| facet.admission);
+        match admission {
+            Admission::Ignore => true,
+            Admission::Exact => source.get(key) == target.get(key),
+            Admission::Preserve => source.get(key).is_none_or(|value| target.get(key) == Some(value)),
+        }
+    })
 }
 
 /// Deterministically encode a native declaration, including unknown metadata.
@@ -125,3 +163,6 @@ pub fn canonical_json(value: &impl serde::Serialize) -> Result<String, serde_jso
     value.sort_all_objects();
     serde_json::to_string(&value)
 }
+
+#[cfg(test)]
+mod tests;

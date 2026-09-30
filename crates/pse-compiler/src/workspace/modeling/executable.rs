@@ -452,7 +452,7 @@ fn projection(
         .collect::<BTreeMap<_, _>>();
     for (id, symbol) in &model.symbols {
         if let Some(expression) = bound_expressions.get(id) {
-            let Type::Quantity(scheme) = &symbol.ty else {
+            let Some(scheme) = symbol.ty.quantity_scheme() else {
                 return Err(CompileError::Missing(
                     "nonphysical expression member".into(),
                 ));
@@ -477,7 +477,7 @@ fn projection(
                 }
             }
         } else {
-            let Type::Quantity(scheme) = &symbol.ty else {
+            let Some(scheme) = symbol.ty.quantity_scheme() else {
                 return Err(CompileError::Missing("nonphysical runtime symbol".into()));
             };
             let quantity = scheme
@@ -922,7 +922,7 @@ fn projection(
                     })?,
                 ))
             } else if *component == ModelingTestValue::Tolerance {
-                let Type::Quantity(q) = ty else {
+                let Some(q) = ty.quantity_scheme() else {
                     return Err(CompileError::Missing("test physical type".into()));
                 };
                 Type::Quantity(pse_quantity::scheme::Scheme::Concrete(
@@ -969,7 +969,7 @@ fn projection(
             *request.root(db),
             expected,
         )?;
-        let Type::Quantity(scheme) = ty else {
+        let Some(scheme) = ty.quantity_scheme() else {
             return Err(CompileError::Missing("nonphysical output".into()));
         };
         p.quantities.push(

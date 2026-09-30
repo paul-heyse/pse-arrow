@@ -3,6 +3,8 @@
 
 //! Bounded finite specialization. No solver, store, query runtime or native library startup.
 mod continuous;
+mod contextual;
+mod physical_operations;
 mod envelopes;
 mod fold;
 mod functions;
@@ -179,8 +181,6 @@ pub struct Contribution {
     pub role: Role,
     /// Resolved magnitude.
     pub expression: Expr,
-    /// Scoped pair identity and explicit side for internal transfers.
-    pub transfer: Option<(SemanticId, bool)>,
     /// Source attribution.
     pub lineage: Lineage,
 }
@@ -193,6 +193,8 @@ pub struct Closure {
     pub mode: Mode,
     /// Complete physical type.
     pub ty: Type,
+    /// Actual energy boundary consumed by directed transfer contributions.
+    pub boundary: Option<crate::BoundaryRef>,
     /// Positive declared tolerance in canonical units.
     pub tolerance: Value,
     /// Unoptimized terms.
@@ -288,6 +290,8 @@ pub struct SpecializedModel {
     pub equations: Vec<Row>,
     /// Raw physical closure plans.
     pub closures: BTreeMap<SemanticId, Closure>,
+    /// Explicit local exchanges between distinct instantiated boundaries.
+    pub exchanges: BTreeMap<SemanticId, crate::contextual::PairedExchange>,
     /// Definition instances.
     pub instances: BTreeMap<InstanceId, Instance>,
     /// Shared implementation groups.
@@ -1026,12 +1030,14 @@ impl Engine<'_, '_> {
                     if tolerance.scalar(*member)? <= 0.0 {
                         return Err(invalid(*member, "positive closure tolerance required"));
                     }
+                    let boundary = a.boundary.as_ref().map(|path| self.resolve_boundary(id, *member, path, &coordinates_env(&env, &coordinates))).transpose()?;
                     self.model.closures.insert(
                         key,
                         Closure {
                             id: key,
                             mode: a.mode,
                             ty,
+                            boundary,
                             tolerance,
                             terms: Vec::new(),
                             lineage: self.lineage(id, &r, &[]),
@@ -1043,7 +1049,7 @@ impl Engine<'_, '_> {
         for member in members.values() {
             let r = self.p.declarations[member].clone();
             if matches!(r.value.kind, Kind::Parameter | Kind::Variable)
-                && matches!(self.p.types.get(member), Some(Type::Quantity(_)))
+                && self.p.types.get(member).is_some_and(|ty| ty.quantity_scheme().is_some())
                 && r.value
                     .binding
                     .as_ref()
@@ -1249,6 +1255,20 @@ impl Engine<'_, '_> {
                         *member,
                         "regime selection requires nested realization; inline selection is not a smooth equation system",
                     ));
+                }
+            }
+        }
+        // Child instances now exist. Pair actual endpoints before any equation uses reflection.
+        for member in members.values() {
+            let row = self.p.declarations[member].clone();
+            if let Some(exchange) = &row.value.exchange {
+                for coordinates in self.coordinates(*member, &env, exchange.indices.iter().map(|i| (i.name.as_str(), i.domain.as_str())))? {
+                    self.reserve(1)?;
+                    let local = coordinates_env(&env, &coordinates);
+                    let from = self.resolve_boundary(id, *member, &exchange.from, &local)?;
+                    let to = self.resolve_boundary(id, *member, &exchange.to, &local)?;
+                    let pair = crate::contextual::PairedExchange::admit(*member, from, to)?;
+                    self.model.exchanges.insert(member_id(id, *member, &coordinates), pair);
                 }
             }
         }
@@ -1756,6 +1776,7 @@ impl Engine<'_, '_> {
             .cloned()
             .ok_or_else(|| invalid(member, "demanded member type absent"))?;
         let env = coordinates_env(&self.states[&instance].env, coordinates);
+        let ty = self.bind_physical_owner(&ty, owner, &env, member)?;
         if owner != instance
             && let Some(existing) = self.model.symbols.get(&id)
         {
@@ -1868,7 +1889,7 @@ impl Engine<'_, '_> {
             .ty
             .clone();
         let expression = dsl::parse_expr(&c.expression).map_err(|e| invalid(id, e.to_string()))?;
-        let expression = self.rewrite(instance, &expression, &env, &[id])?;
+        let mut expression = self.rewrite(instance, &expression, &env, &[id])?;
         let types = self
             .model
             .symbols
@@ -1881,30 +1902,26 @@ impl Engine<'_, '_> {
             &self.model.function_contracts(self.p),
             self.c,
             id,
-            Some(&ty),
+            if c.role == Role::Directed {None}else{Some(&ty)},
         )?;
-        if actual != ty {
+        if c.role == Role::Directed {
+            let boundary=self.model.closures[&target].boundary.as_ref().ok_or_else(||invalid(id,"directed contribution requires an explicit accumulator boundary"))?;
+            let refinement=actual.physical_refinement().ok_or_else(||invalid(id,"directed contribution requires a transfer"))?;
+            refinement.contribution(boundary,false,id)?;
+            let payload=Type::Quantity(actual.quantity_scheme().ok_or_else(||invalid(id,"transfer requires physical payload"))?.clone());
+            let contracts=[&ty,&payload].iter().map(|value|value.quantity_scheme().ok_or_else(||invalid(id,"ledger requires physical payload"))?.resolve_contract_with_evidence(self.c.quantities,&BTreeMap::new(),self.c.preconditions).map_err(|error|invalid(id,error.to_string()))).collect::<Result<Vec<_>>>()?;
+            let expected=contracts[0].require_named().map_err(|error|invalid(id,error.to_string()))?;
+            pse_quantity::resolved::infer_operation(&pse_quantity::infer::OpRequest::Add,&contracts,Some(expected),self.c.quantities,self.c.preconditions).map_err(|error|invalid(id,format!("directed transfer does not belong in this physical ledger: {error}")))?;
+            expression=self.physical_transfer_function(id,actual.clone(),payload,crate::PhysicalOperation::TransferMagnitude {source:refinement.clone()},1,expression)?;
+        } else if actual.physical_refinement().is_some() {
+            return Err(invalid(id,"a directed transfer must be consumed with role directed exactly once"));
+        } else if actual != ty {
             return Err(invalid(id, "contribution physical contract differs"));
         }
-        let transfer = match (&c.transfer_id, &c.transfer_side) {
-            (Some(pair), Some(side)) if c.role == Role::Transfer => {
-                let positive = match side.as_str() {
-                    "in" | "positive" => true,
-                    "out" | "negative" => false,
-                    _ => return Err(invalid(id, "transfer side")),
-                };
-                // The scoped pair is a synthesized member of the owning instance.
-                let pair = DeclarationId::from(pse_ids::named_id(owner.as_id(), pair));
-                Some((member_id(owner, pair, &coords), positive))
-            }
-            (None, None) if c.role != Role::Transfer => None,
-            _ => return Err(invalid(id, "transfer requires identity and opposite sides")),
-        };
         let term = Contribution {
             id: member_id(instance, id, coordinates),
             role: c.role,
             expression,
-            transfer,
             lineage: self.lineage(instance, row, &[id]),
         };
         self.model
@@ -1916,7 +1933,6 @@ impl Engine<'_, '_> {
         Ok(())
     }
     fn finish(&mut self, formulation: &Formulation) -> Result<()> {
-        let mut transfers = BTreeMap::<SemanticId, Vec<(bool, Type, String)>>::new();
         for closure in self.model.closures.values() {
             if closure.mode == Mode::Conservation && closure.terms.is_empty() {
                 return Err(invalid(
@@ -1929,25 +1945,6 @@ impl Engine<'_, '_> {
                 if !ids.insert(term.id) {
                     return Err(invalid(term.lineage.declaration, "duplicate contribution"));
                 }
-                if let Some((pair, side)) = term.transfer {
-                    transfers.entry(pair).or_default().push((
-                        side,
-                        closure.ty.clone(),
-                        dsl::render_expr(&term.expression),
-                    ));
-                }
-            }
-        }
-        for terms in transfers.values() {
-            if terms.len() != 2
-                || terms[0].0 == terms[1].0
-                || terms[0].1 != terms[1].1
-                || terms[0].2 != terms[1].2
-            {
-                return Err(invalid(
-                    SemanticId::NIL,
-                    "transfer must have exactly two opposite compatible sides sharing a magnitude",
-                ));
             }
         }
         for closure in self.model.closures.values() {
@@ -1996,6 +1993,7 @@ impl Engine<'_, '_> {
                 );
             }
         }
+        self.validate_contextual_equations()?;
         self.select_formulation(formulation)?;
         self.apply_relaxations()?;
         self.admit_objectives()?;
@@ -2004,9 +2002,7 @@ impl Engine<'_, '_> {
         Ok(())
     }
     fn typed_zero(&self, ty: &Type, at: DeclarationId) -> Result<Expr> {
-        let Type::Quantity(s) = ty else {
-            return Err(invalid(at, "accumulator requires quantity"));
-        };
+        let s=ty.quantity_scheme().ok_or_else(||invalid(at,"accumulator requires quantity"))?;
         let id = s
             .resolve_with_evidence(self.c.quantities, &BTreeMap::new(), self.c.preconditions)
             .map_err(|e| invalid(at, e.to_string()))?;
@@ -2085,12 +2081,12 @@ pub struct ClosureAssessment {
     pub satisfied: Option<bool>,
 }
 impl Contribution {
-    /// Sign prescribed by the authored role and explicit internal-transfer side.
+    /// Sign prescribed by the authored role; directed transfers already consume Into.
     pub fn sign(&self) -> f64 {
         if matches!(
             self.role,
             Role::Outflow | Role::Consumption | Role::Accumulation | Role::Negative
-        ) || self.transfer.is_some_and(|(_, positive)| !positive)
+        )
         {
             -1.0
         } else {

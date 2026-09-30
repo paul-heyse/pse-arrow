@@ -10,8 +10,8 @@ use crate::{
 };
 use pse_authoring::dsl::{self, BinaryOp, Expr, ExprKind, Path, Predicate, PredicateKind};
 use pse_quantity::{
-    IndexSet, Ratio,
-    infer::{Chain, Exponent, OpRequest, Operand},
+    Ratio,
+    infer::{Exponent, OpRequest},
     literal::LiteralContext,
     scheme::{Scheme, Substitution},
 };
@@ -102,13 +102,19 @@ fn walk_predicate(p: &Predicate, visit: &mut impl FnMut(&Path)) {
     }
 }
 fn scheme(ty: &Type, at: DeclarationId) -> Result<Scheme> {
-    if let Type::Quantity(s) = ty {
+    if let Some(s) = ty.quantity_scheme() {
         Ok(s.clone())
     } else {
         Err(invalid(
             at,
             "physical expression requires quantity operands",
         ))
+    }
+}
+fn with_physical_refinement(ty: Type, refinement: Option<crate::PhysicalRefinement>) -> Type {
+    match (ty, refinement) {
+        (Type::Quantity(quantity), Some(refinement)) => Type::RefinedQuantity { quantity, refinement },
+        (ty, _) => ty,
     }
 }
 fn concrete(s: &Scheme, context: &TypeContext<'_>) -> Option<pse_quantity::QuantityTypeId> {
@@ -160,63 +166,13 @@ fn physical_op(
     context: &TypeContext<'_>,
     at: DeclarationId,
 ) -> Result<Option<Type>> {
-    let Some(ids) = values
-        .iter()
-        .map(|v| concrete(v, context))
-        .collect::<Option<Vec<_>>>()
-    else {
-        return Ok(None);
-    };
-    let indices = IndexSet::new();
-    let operands = ids
-        .iter()
-        .map(|id| Operand {
-            quantity_type: *id,
-            indices: &indices,
-        })
-        .collect::<Vec<_>>();
-    // A product, quotient or exact power is a two-factor multiplicative chain (ADR-0124).
-    let chain = match (&request, operands.as_slice()) {
-        (OpRequest::Mul, [a, b]) => Some(Chain::Mul(
-            Box::new(Chain::Leaf(*a)),
-            Box::new(Chain::Leaf(*b)),
-        )),
-        (OpRequest::Div, [a, b]) => Some(Chain::Div(
-            Box::new(Chain::Leaf(*a)),
-            Box::new(Chain::Leaf(*b)),
-        )),
-        (
-            OpRequest::Pow {
-                exponent: Exponent::Rational(exponent),
-            },
-            [a, b],
-        ) => Some(Chain::Pow {
-            base: Box::new(Chain::Leaf(*a)),
-            exponent: *exponent,
-            power: *b,
-        }),
-        _ => None,
-    };
-    let inferred = match chain {
-        Some(chain) => {
-            pse_quantity::infer::infer_chain(&chain, context.quantities, context.preconditions)
-        }
-        None => pse_quantity::infer::infer_with_evidence(
-            &request,
-            &operands,
-            context.quantities,
-            context.preconditions,
-        ),
-    }
-    .map_err(|e| invalid(at, e.to_string()))?;
-    Ok(Some(Type::Quantity(Scheme::Concrete(inferred.result))))
-}
-/// One node of a maximal product, quotient and exact-power subtree (ADR-0124).
-enum Node {
-    Leaf(Type),
-    Mul(Box<Node>, Box<Node>),
-    Div(Box<Node>, Box<Node>),
-    Pow(Box<Node>, Ratio, Type),
+    if values.iter().any(|value| !value.is_closed()) { return Ok(None); }
+    let values = values.iter().map(|value| value.resolve_contract_with_evidence(
+        context.quantities, &Substitution::new(), context.preconditions,
+    ).map_err(|error| invalid(at, error.to_string()))).collect::<Result<Vec<_>>>()?;
+    let admitted = pse_quantity::resolved::infer_in_context(&request, &values, None,
+        context.quantities, context.preconditions, context.formula_authority.as_ref()).map_err(|error| invalid(at, error.to_string()))?;
+    Ok(Some(Type::Quantity(Scheme::from_contract(admitted.result))))
 }
 /// A product, a quotient or an exact power belongs to a multiplicative chain.
 pub(crate) fn chain_operation(op: BinaryOp, rhs: &Expr) -> bool {
@@ -224,115 +180,6 @@ pub(crate) fn chain_operation(op: BinaryOp, rhs: &Expr) -> bool {
         BinaryOp::Mul | BinaryOp::Div => true,
         BinaryOp::Pow => rational(rhs).is_some(),
         BinaryOp::Add | BinaryOp::Sub => false,
-    }
-}
-fn chain_node(
-    expr: &Expr,
-    env: &BTreeMap<String, Type>,
-    p: &CheckedPackage,
-    context: &TypeContext<'_>,
-    at: DeclarationId,
-) -> Result<Node> {
-    match &expr.kind {
-        ExprKind::Binary { op, lhs, rhs } if chain_operation(*op, rhs) => {
-            let left = Box::new(chain_node(lhs, env, p, context, at)?);
-            Ok(match op {
-                BinaryOp::Pow => Node::Pow(
-                    left,
-                    rational(rhs).ok_or_else(|| invalid(at, "exact exponent"))?,
-                    infer(rhs, env, p, context, at, None)?,
-                ),
-                BinaryOp::Div => Node::Div(left, Box::new(chain_node(rhs, env, p, context, at)?)),
-                _ => Node::Mul(left, Box::new(chain_node(rhs, env, p, context, at)?)),
-            })
-        }
-        _ => Ok(Node::Leaf(infer(expr, env, p, context, at, None)?)),
-    }
-}
-impl Node {
-    /// The factors, without the exponents of powers, and whether every exponent is whole.
-    fn factors<'a>(&'a self, out: &mut Vec<&'a Type>) -> bool {
-        match self {
-            Self::Leaf(ty) => {
-                out.push(ty);
-                true
-            }
-            Self::Mul(a, b) | Self::Div(a, b) => a.factors(out) & b.factors(out),
-            Self::Pow(a, exponent, _) => a.factors(out) && exponent.is_integer(),
-        }
-    }
-    /// The quantity chain when every factor has a concrete complete type.
-    fn concrete<'a>(&self, context: &TypeContext<'_>, indices: &'a IndexSet) -> Option<Chain<'a>> {
-        let operand = |ty: &Type| match ty {
-            Type::Quantity(s) => concrete(s, context).map(|quantity_type| Operand {
-                quantity_type,
-                indices,
-            }),
-            _ => None,
-        };
-        Some(match self {
-            Self::Leaf(ty) => Chain::Leaf(operand(ty)?),
-            Self::Mul(a, b) => Chain::Mul(
-                Box::new(a.concrete(context, indices)?),
-                Box::new(b.concrete(context, indices)?),
-            ),
-            Self::Div(a, b) => Chain::Div(
-                Box::new(a.concrete(context, indices)?),
-                Box::new(b.concrete(context, indices)?),
-            ),
-            Self::Pow(a, exponent, power) => Chain::Pow {
-                base: Box::new(a.concrete(context, indices)?),
-                exponent: *exponent,
-                power: operand(power)?,
-            },
-        })
-    }
-    /// A concrete subtree resolves as one chain; a polymorphic one keeps its scheme with
-    /// the generic simplifications of a single operation.
-    fn scheme(&self, context: &TypeContext<'_>, at: DeclarationId) -> Result<Scheme> {
-        let indices = IndexSet::new();
-        if let Some(chain) = self.concrete(context, &indices) {
-            let inferred =
-                pse_quantity::infer::infer_chain(&chain, context.quantities, context.preconditions)
-                    .map_err(|e| invalid(at, e.to_string()))?;
-            return Ok(Scheme::Concrete(inferred.result));
-        }
-        let neutral = context
-            .quantities
-            .neutral_dimensionless()
-            .map(Scheme::Concrete);
-        Ok(match self {
-            Self::Leaf(ty) => scheme(ty, at)?,
-            Self::Mul(a, b) => {
-                let (a, b) = (a.scheme(context, at)?, b.scheme(context, at)?);
-                if Some(&b) == neutral.as_ref() {
-                    a
-                } else if Some(&a) == neutral.as_ref() {
-                    b
-                } else if a == b {
-                    Scheme::Power(
-                        Box::new(a),
-                        Ratio::new(2, 1).map_err(|e| invalid(at, e.to_string()))?,
-                    )
-                } else {
-                    Scheme::Product(Box::new(a), Box::new(b))
-                }
-            }
-            Self::Div(a, b) => {
-                let (a, b) = (a.scheme(context, at)?, b.scheme(context, at)?);
-                if Some(&b) == neutral.as_ref() {
-                    a
-                } else if a == b {
-                    // A generic normalization constrains its eventual quotient to the
-                    // neutral type. Concrete calls still lower the original division
-                    // through the physical registry; this is not an operation rule.
-                    neutral.ok_or_else(|| invalid(at, "neutral normalization type absent"))?
-                } else {
-                    Scheme::Quotient(Box::new(a), Box::new(b))
-                }
-            }
-            Self::Pow(a, exponent, _) => Scheme::Power(Box::new(a.scheme(context, at)?), *exponent),
-        })
     }
 }
 /// Check one expression with actual lexical variables and optional expected physical type.
@@ -364,25 +211,10 @@ pub fn infer(
             if ty == Type::Integer {
                 return Ok(ty);
             }
+            let refinement = crate::contextual::arithmetic_refinement(&OpRequest::Neg, std::slice::from_ref(&ty), context, at)?;
             let a = scheme(&ty, at)?;
-            Ok(physical_op(OpRequest::Neg, std::slice::from_ref(&a), context, at)?.unwrap_or(q(a)))
-        }
-        ExprKind::Binary { op, lhs, rhs }
-            if chain_operation(*op, rhs) && expected != Some(&Type::Integer) =>
-        {
-            // A maximal product, quotient and exact-power subtree is typed as one
-            // multiplicative chain (ADR-0124). Its factors get no expected type.
-            let node = chain_node(expr, env, p, context, at)?;
-            let mut factors = Vec::new();
-            let whole = node.factors(&mut factors);
-            if factors.iter().any(|ty| **ty == Type::Integer) {
-                return if whole && factors.iter().all(|ty| **ty == Type::Integer) {
-                    Ok(Type::Integer)
-                } else {
-                    Err(invalid(at, "integer operand type"))
-                };
-            }
-            Ok(q(node.scheme(context, at)?))
+            let result = physical_op(OpRequest::Neg, std::slice::from_ref(&a), context, at)?.unwrap_or(q(a));
+            Ok(with_physical_refinement(result, refinement))
         }
         ExprKind::Binary { op, lhs, rhs } => {
             // A product, quotient or power does not give either operand its
@@ -403,22 +235,9 @@ pub fn infer(
                 return Ok(Type::Integer);
             }
             let a = scheme(&left, at)?;
-            let ta = q(a.clone());
-            let b = scheme(
-                &infer(
-                    rhs,
-                    env,
-                    p,
-                    context,
-                    at,
-                    if matches!(op, BinaryOp::Add | BinaryOp::Sub) {
-                        Some(&ta)
-                    } else {
-                        None
-                    },
-                )?,
-                at,
-            )?;
+            let right = infer(rhs, env, p, context, at,
+                if matches!(op, BinaryOp::Add | BinaryOp::Sub) { Some(&left) } else { None })?;
+            let b = scheme(&right, at)?;
             let request = match op {
                 BinaryOp::Add => OpRequest::Add,
                 BinaryOp::Sub => OpRequest::Sub,
@@ -430,9 +249,10 @@ pub fn infer(
             };
             // The exact exponent is a request fact; its quantity remains a second
             // operand so the authoritative operation checks dimensionlessness.
+            let refinement = crate::contextual::arithmetic_refinement(&request, &[left, right], context, at)?;
             let operands = vec![a.clone(), b.clone()];
             if let Some(ty) = physical_op(request, &operands, context, at)? {
-                return Ok(ty);
+                return Ok(with_physical_refinement(ty, refinement));
             }
             let neutral = context
                 .quantities
@@ -467,13 +287,11 @@ pub fn infer(
                         .ok_or_else(|| invalid(at, "polymorphic exponent must be exact"))?,
                 ),
             };
-            Ok(q(result))
+            Ok(with_physical_refinement(q(result), refinement))
         }
         ExprKind::Call { function, args } => {
-            let values = args
-                .iter()
-                .map(|e| infer(e, env, p, context, at, None).and_then(|t| scheme(&t, at)))
-                .collect::<Result<Vec<_>>>()?;
+            let types = args.iter().map(|e| infer(e, env, p, context, at, None)).collect::<Result<Vec<_>>>()?;
+            let values = types.iter().map(|ty| scheme(ty, at)).collect::<Result<Vec<_>>>()?;
             let request = match function.as_str() {
                 "sqrt" => OpRequest::Sqrt,
                 "abs" => OpRequest::Abs,
@@ -491,8 +309,9 @@ pub fn infer(
             if values.len() != 1 {
                 return Err(invalid(at, "primitive function arity"));
             }
+            let refinement = crate::contextual::arithmetic_refinement(&request, &types, context, at)?;
             if let Some(ty) = physical_op(request, &values, context, at)? {
-                return Ok(ty);
+                return Ok(with_physical_refinement(ty, refinement));
             }
             match (function.as_str(), &values[0]) {
                 ("sqrt", Scheme::Power(value, power))
@@ -500,7 +319,7 @@ pub fn infer(
                 {
                     Ok(q(*value.clone()))
                 }
-                ("abs", value) => Ok(q(value.clone())),
+                ("abs", value) => Ok(with_physical_refinement(q(value.clone()), refinement)),
                 _ => Err(invalid(
                     at,
                     "primitive requires a concrete eligible physical type",
@@ -773,13 +592,7 @@ pub(crate) fn number_type(
             .compose(unit)
             .map_err(|e| invalid(at, format!("unit {{{unit}}}: {e}")))?;
         let literal_context = expected
-            .and_then(|t| {
-                if let Type::Quantity(s) = t {
-                    concrete(s, context)
-                } else {
-                    None
-                }
-            })
+            .and_then(Type::quantity_scheme).and_then(|s|concrete(s,context))
             .map_or(LiteralContext::Free, |quantity_type| {
                 LiteralContext::Explicit { quantity_type }
             });
@@ -791,7 +604,8 @@ pub(crate) fn number_type(
             .neutral_dimensionless()
             .ok_or_else(|| invalid(at, "no neutral physical type"))?
     };
-    Ok(Type::Quantity(Scheme::Concrete(id)))
+    let ty=Type::Quantity(Scheme::Concrete(id));
+    Ok(with_physical_refinement(ty,expected.and_then(Type::physical_refinement).filter(|role|matches!(role,crate::PhysicalRefinement::Transfer {..})).cloned()))
 }
 pub(crate) fn finite_reduction(
     kind: dsl::ReduceKind,
@@ -824,8 +638,21 @@ fn call(
     context: &TypeContext<'_>,
     at: DeclarationId,
 ) -> Result<Type> {
+    if name == "reconstruct" {
+        if !wrt.is_empty() { return Err(invalid(at, "differentiate the reconstructed physical function")); }
+        let (family, arguments) = args.split_first().ok_or_else(|| invalid(at, "reconstruct requires a declared family and selected law"))?;
+        let path = dsl::render_expr(family);
+        let selected = p.resolve(at, &path).filter(|id| matches!(p.types.get(id), Some(Type::Reconstruction {..}))).ok_or_else(|| invalid(at, "reconstruct requires a declared reconstruction family"))?;
+        let qualified = p.names.iter().find_map(|(name, id)| (*id == selected).then_some(name)).ok_or_else(|| invalid(at, "reconstruction family is unnamed"))?;
+        return call(qualified, arguments, &[], env, p, context, at);
+    }
+    if let Some(ty)=crate::contextual::call_type(name,args,env,p,context,at)? {
+        if !wrt.is_empty() {return Err(invalid(at,"differentiate the composed physical function, not a contextual intrinsic"));}
+        return Ok(ty);
+    }
     let indirect;
-    let f = if let Some(function) = p.resolve(at, name).and_then(|id| p.functions.get(&id)) {
+    let lexical_formal = p.functions.get(&at).is_some_and(|function| function.arguments.iter().any(|(argument, _)| argument == name));
+    let f = if let Some(function) = (!lexical_formal).then(|| p.resolve(at, name)).flatten().and_then(|id| p.functions.get(&id)) {
         function
     } else {
         let expression = dsl::parse_expr(name).map_err(|e| invalid(at, e.to_string()))?;
@@ -837,6 +664,7 @@ fn call(
         };
         indirect = crate::Function {
             reduction: None,
+            physical_operation: None,
             validity: None,
             envelopes: Vec::new(),
             validity_reads: crate::envelope::Reads::default(),
@@ -850,22 +678,36 @@ fn call(
         };
         &indirect
     };
+    let indexed_slot = p.declarations.get(&f.id).and_then(|row| row.value.coordinate_slot.as_ref()).filter(|slot| !slot.indices.is_empty() && args.len() + slot.indices.len() == f.arguments.len());
+    if let Some(slot) = indexed_slot {
+        if !wrt.is_empty() { return Err(invalid(at, "an indexed coordinate group is differentiated through its physical reconstruction")); }
+        for (expr, (_, formal)) in args.iter().zip(&f.arguments) {
+            if infer(expr, env, p, context, at, Some(formal))? != *formal { return Err(invalid(at, "coordinate map argument contract differs")); }
+        }
+        let axes = f.arguments[args.len()..].iter().map(|(_, ty)| match ty {
+            Type::Entity(id) | Type::Enum(id) => Ok(*id),
+            _ => Err(invalid(at, "coordinate slot group has invalid coordinate kind")),
+        }).collect::<Result<Vec<_>>>()?;
+        if axes.len() != slot.indices.len() { return Err(invalid(at, "coordinate slot group arity")); }
+        return Ok(Type::Indexed {element:Box::new(f.result.clone()), axes});
+    }
     if args.len() != f.arguments.len() {
-        return Err(invalid(at, "function arity"));
+        return Err(invalid(at, format!("function {name} expects {} arguments, received {}", f.arguments.len(), args.len())));
     }
     let actual = args
         .iter()
         .zip(&f.arguments)
         .map(|(expr, (_, formal))| infer(expr, env, p, context, at, Some(formal)))
         .collect::<Result<Vec<_>>>()?;
-    let normalize = |s: Scheme| {
-        s.resolve_with_evidence(
+    let normalize = |s: Scheme| -> Result<Scheme> {
+        if !s.is_closed() { return Ok(s); }
+        s.resolve_contract_with_evidence(
             context.quantities,
             &Substitution::new(),
             context.preconditions,
         )
-        .map(Scheme::Concrete)
-        .unwrap_or(s)
+        .map(Scheme::from_contract)
+        .map_err(|e| invalid(at, e.to_string()))
     };
     fn leaves<'a>(
         formal: &'a Type,
@@ -898,7 +740,7 @@ fn call(
     let mut bindings = BTreeMap::<String, Scheme>::new();
     for (formal, actual) in &pairs {
         if let (Type::Quantity(Scheme::Variable(name)), Type::Quantity(actual)) = (formal, actual) {
-            let actual = normalize(actual.clone());
+            let actual = normalize(actual.clone())?;
             if let Some(previous) = bindings.insert(name.clone(), actual.clone())
                 && previous != actual
             {
@@ -915,7 +757,7 @@ fn call(
                 let expected = formal
                     .substitute(&bindings)
                     .map_err(|e| invalid(at, e.to_string()))?;
-                if normalize(expected) != normalize(actual.clone()) {
+                if normalize(expected)? != normalize(actual.clone())? {
                     return Err(invalid(
                         at,
                         "function complete physical argument type differs",
@@ -961,7 +803,14 @@ fn call(
     let result = result
         .substitute(&bindings)
         .map_err(|e| invalid(at, e.to_string()))?;
-    Ok(Type::Quantity(normalize(result)))
+    let result = Type::Quantity(normalize(result)?);
+    if wrt.is_empty() {
+        Ok(with_physical_refinement(result, f.result.physical_refinement().cloned()))
+    } else if f.result.physical_refinement().is_some() || f.arguments.iter().any(|(_, ty)| ty.physical_refinement().is_some()) {
+        Err(invalid(at, "differentiate the reconstructed physical function rather than nominal reduced coordinates"))
+    } else {
+        Ok(result)
+    }
 }
 /// Check an admission predicate and complete comparison contracts.
 pub(crate) fn predicate(
@@ -1326,7 +1175,14 @@ pub(crate) fn check_all(p: &CheckedPackage, context: &TypeContext<'_>) -> Result
             }
         }
         if let Some(f) = p.functions.get(id) {
-            env.extend(f.arguments.iter().cloned());
+            let physical_context = TypeContext {
+                formula_authority: matches!(f.physical_operation, Some(crate::PhysicalOperation::Response {..})).then(|| pse_quantity::PhysicalFormulaAuthority::response(id.as_id())),
+                quantities: context.quantities,
+                preconditions: context.preconditions,
+                scope: context.scope,
+            };
+            let context = &physical_context;
+            env.extend(f.physical_operation.as_ref().map_or_else(|| f.arguments.clone(), |operation| operation.body_arguments(&f.arguments)));
             if let Some(external) = &f.external {
                 if f.body.is_some() || f.continuity.is_some() {
                     return Err(invalid(
@@ -1401,6 +1257,7 @@ pub(crate) fn check_all(p: &CheckedPackage, context: &TypeContext<'_>) -> Result
                                 | "provides"
                                 | "union"
                                 | "product"
+                                | "reconstruct"
                         )
                     {
                         return Ok(());
@@ -1439,6 +1296,8 @@ pub(crate) fn check_all(p: &CheckedPackage, context: &TypeContext<'_>) -> Result
                                     | K::Enum
                                     | K::EntityKind
                                     | K::Constant
+                                    | K::Function
+                                    | K::Reconstruction
                             ) && declaration.parent_id.is_some_and(|parent| {
                                 p.declarations[&parent].value.kind == K::Package
                             })
@@ -1460,8 +1319,10 @@ pub(crate) fn check_all(p: &CheckedPackage, context: &TypeContext<'_>) -> Result
                 }
             }
             if let Some(body) = &f.body {
-                let actual = infer(body, &env, p, context, *id, Some(&f.result))?;
-                if actual != f.result {
+                let actual = infer(body, &env, p, context, *id, if f.physical_operation.is_some() { None } else { Some(&f.result) })?;
+                if let Some(operation) = &f.physical_operation {
+                    operation.admit_result(&actual, &f.result, context, *id)?;
+                } else if actual != f.result {
                     return Err(invalid(
                         *id,
                         format!(
@@ -1474,7 +1335,7 @@ pub(crate) fn check_all(p: &CheckedPackage, context: &TypeContext<'_>) -> Result
         }
         if let Some(b) = &row.value.binding
             && let Some(expected) = p.types.get(id)
-            && matches!(expected, Type::Quantity(_))
+            && expected.quantity_scheme().is_some()
         {
             for source in b.expression.iter() {
                 let expr = dsl::parse_expr(source).map_err(|e| invalid(*id, e.to_string()))?;
@@ -1599,14 +1460,8 @@ pub(crate) fn check_all(p: &CheckedPackage, context: &TypeContext<'_>) -> Result
             }
             let tolerance =
                 dsl::parse_expr(&expectation.tolerance).map_err(|e| invalid(*id, e.to_string()))?;
-            let delta = if let Type::Quantity(s) = &actual {
-                Type::Quantity(Scheme::Delta(Box::new(s.clone())))
-            } else {
-                return Err(invalid(*id, "test expectation requires quantities"));
-            };
-            let Type::Quantity(delta) = delta else {
-                return Err(invalid(*id, "test tolerance must be physical"));
-            };
+            let delta = Scheme::Delta(Box::new(actual.quantity_scheme()
+                .ok_or_else(|| invalid(*id, "test expectation requires quantities"))?.clone()));
             let delta = Type::Quantity(Scheme::Concrete(
                 delta
                     .resolve_with_evidence(

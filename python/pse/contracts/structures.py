@@ -8,6 +8,7 @@ import builtins as b
 import attrs
 
 from pse.contracts import enums as e
+from pse.contracts import identities as i
 from pse.contracts import values as v
 
 
@@ -305,6 +306,16 @@ class ModelingProvenance:
     source: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
     role: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
     lineage: b.tuple[ModelingLineageEntry, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ModelingLineageEntry), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+
+@attrs.frozen(kw_only=True)
+class ModelingTransferContext:
+    """Declared relation row or nested value."""
+
+    instance: i.InstanceId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    boundary: i.DeclarationId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    coordinates: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    direction: e.ModelingTransferDirection = attrs.field(validator=attrs.validators.instance_of(e.ModelingTransferDirection))
 
 
 @attrs.frozen(kw_only=True)

@@ -3,8 +3,7 @@
 
 //! Generated checked views cross once into the exact physical algorithm types.
 
-use super::invalid;
-use crate::physical::PhysicalError;
+use super::{PhysicalProjectionError as PhysicalError, invalid};
 use pse_columnar::CancellationToken;
 use pse_ids::SemanticId;
 use pse_quantity::{
@@ -14,7 +13,7 @@ use pse_quantity::{
     QuantityRegistryBuilder, QuantityType, QuantityTypeId, QuantityTypeKey, Ratio, ReferenceState,
     ReferenceStateId, Unit, UnitFactor, UnitId, UnitSet, UnitSetId,
 };
-use pse_relations::{
+use crate::{
     columnar::FieldCheckedBatch,
     generated::{extension_values, reference as r},
 };
@@ -25,7 +24,11 @@ use std::collections::{BTreeMap, BTreeSet};
     clippy::too_many_lines,
     reason = "inventory keeps the native relation inputs and dependency ordered assembly visible in one place"
 )]
-pub(super) fn inventory(
+/// Decode checked selected relation families and admit their physical dependencies.
+/// Optional absent families remain absent; no declaration is synthesized.
+/// # Errors
+/// Invalid selected values, missing physical dependencies or cancellation.
+pub fn inventory(
     batches: &BTreeMap<RelationKey, FieldCheckedBatch>,
     registry: &Registry,
     cancel: &CancellationToken,
@@ -49,7 +52,7 @@ pub(super) fn inventory(
     }
     {
         use pse_model::generated::enums::ModelingDeclarationKind;
-        use pse_relations::generated::authored::modeling_declarations as declarations;
+        use crate::generated::authored::modeling_declarations as declarations;
         if let Some(spec) = registry.relation_by_id(declarations::RELATION_ID)
             && let Some(batch) = batches.get(&spec.key)
         {

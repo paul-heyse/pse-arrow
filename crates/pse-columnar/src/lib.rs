@@ -9,6 +9,7 @@ use pse_ids::{
 pub mod allocation_extent;
 pub mod canon;
 pub mod contract;
+pub mod generated;
 pub mod native_field;
 pub mod native_value;
 pub mod owned_buffer;

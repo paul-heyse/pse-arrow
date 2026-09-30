@@ -1153,6 +1153,36 @@ impl PartialEq for ModelingProvenance {
     clippy::struct_field_names,
     reason = "field names are the authoritative relation contract"
 )]
+pub struct ModelingTransferContext {
+    ///instance
+    pub r#instance: crate::generated::identities::InstanceId,
+    ///boundary
+    pub r#boundary: crate::generated::identities::DeclarationId,
+    ///coordinates
+    pub r#coordinates: Vec<pse_ids::SemanticId>,
+    ///direction
+    pub r#direction: crate::generated::enums::ModelingTransferDirection,
+}
+impl crate::SemanticEq for ModelingTransferContext {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#instance, &other.r#instance)
+            && crate::SemanticEq::semantic_eq(&self.r#boundary, &other.r#boundary)
+            && crate::SemanticEq::semantic_eq(&self.r#coordinates, &other.r#coordinates)
+            && crate::SemanticEq::semantic_eq(&self.r#direction, &other.r#direction)
+    }
+}
+impl PartialEq for ModelingTransferContext {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
 pub struct ModelingTypeArenaNodeExponent {
     ///num
     pub r#num: i16,
@@ -1801,6 +1831,27 @@ impl crate::HeapUsage for ModelingProvenance {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#source))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#role))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#lineage))
+    }
+}
+impl crate::SemanticFrame for ModelingTransferContext {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#instance));
+        crate::SemanticFrame::frame(&self.r#instance, hash);
+        hash.str(stringify!(r#boundary));
+        crate::SemanticFrame::frame(&self.r#boundary, hash);
+        hash.str(stringify!(r#coordinates));
+        crate::SemanticFrame::frame(&self.r#coordinates, hash);
+        hash.str(stringify!(r#direction));
+        crate::SemanticFrame::frame(&self.r#direction, hash);
+    }
+}
+impl crate::HeapUsage for ModelingTransferContext {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#instance))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#boundary))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#coordinates))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#direction))
     }
 }
 impl crate::SemanticFrame for ModelingTypeArenaNodeExponent {

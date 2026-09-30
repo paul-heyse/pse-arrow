@@ -7,7 +7,7 @@ use specialize::{Value, symbol_name};
 
 fn run(text: &str, root: &str, bindings: Bindings) -> Result<SpecializedModel> {
     let (registry, _) = physical();
-    let c = TypeContext {
+    let c = TypeContext {formula_authority: None,
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
         scope: &PhysicalScope::default(),
@@ -108,7 +108,7 @@ fn multiplicative_literals_keep_operand_units_in_typed_and_static_expressions() 
     let preconditions =
         pse_quantity::PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions())
             .unwrap();
-    let context = TypeContext {
+    let context = TypeContext {formula_authority: None,
         quantities: &registry,
         scope: &PhysicalScope::default(),
         preconditions: &preconditions,
@@ -149,7 +149,7 @@ fn kernel_diamond_keeps_the_most_specific_checked_member() {
         );
         let (registry, _) = physical();
         let preconditions = pse_quantity::PhysicalPreconditions::new(vec![]).unwrap();
-        let c = TypeContext {
+        let c = TypeContext {formula_authority: None,
             preconditions: &preconditions,
             quantities: &registry,
             scope: &PhysicalScope::default(),
@@ -373,12 +373,7 @@ fn indexed_dispatch_groups_implementations() {
     assert_eq!(m.groups.len(), 3);
 }
 #[test]
-fn accumulator_closure_and_transfer_controls() {
-    let m=run("package p { def D { var x: Scalar; accumulate a: Scalar conservation tolerance 1e-8; accumulate b: Scalar accounting tolerance 1e-8; contribute a role transfer transfer pair out = x; contribute b role transfer transfer pair in = x; } }","p.D",Bindings::default()).unwrap();
-    assert_eq!(m.closures.len(), 2);
-    assert_eq!(m.equations.len(), 1);
-    assert!(m.closures.values().all(|c| c.terms.len() == 1));
-    assert!(run("package p { def D { var x: Scalar; accumulate a: Scalar conservation tolerance 1e-8; contribute a role transfer transfer pair out = x; } }","p.D",Bindings::default()).is_err());
+fn accumulator_closure_controls() {
     assert!(
         run(
             "package p { def D { accumulate a: Scalar conservation tolerance 1e-8; } }",
@@ -400,7 +395,7 @@ fn static_guards_requirements_and_budget() {
         .insert("enabled".into(), Value::Boolean(true));
     assert!(run(text, "p.D", bindings).is_err());
     let (registry, _) = physical();
-    let c = TypeContext {
+    let c = TypeContext {formula_authority: None,
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
         scope: &PhysicalScope::default(),
@@ -517,7 +512,7 @@ fn indexed_attributes_rows_enums_and_optional_guards() {
 #[test]
 fn bounded_expansion_observes_caller_cancellation() {
     let (registry, _) = physical();
-    let context = TypeContext {
+    let context = TypeContext {formula_authority: None,
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
         scope: &PhysicalScope::default(),
@@ -698,7 +693,7 @@ fn presets_bind_before_demand_and_retain_lineage() {
             .is_empty()
     );
     let (registry, _) = physical();
-    let c = TypeContext {
+    let c = TypeContext {formula_authority: None,
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
         scope: &PhysicalScope::default(),
@@ -744,7 +739,7 @@ fn requirements_reduce_typed_tables_and_reject_bad_data() {
 fn expression_expansion_spends_the_shared_item_budget() {
     let text = "package p { entity kind item {} entity item a {} entity item b {} set items: Set<item>={a,b}; def Root { eq e:sum(i in items | sum(j in items | sum(k in items | 1))) == 8; } }";
     let (registry, _) = physical();
-    let c = TypeContext {
+    let c = TypeContext {formula_authority: None,
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
         scope: &PhysicalScope::default(),

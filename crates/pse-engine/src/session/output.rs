@@ -314,17 +314,16 @@ pub fn check_field_output(source: &Field, target: &Field) -> Result<()> {
         )));
     }
     check_storage_output(source.data_type(), target.data_type())?;
-    let semantic = [
-        pse_schema::arrow::KEY_LOGICAL_TYPE,
-        pse_schema::arrow::KEY_QUANTITY_TYPE,
-        pse_schema::arrow::KEY_ENUM,
-        pse_schema::arrow::KEY_EXTENSION_NAME,
-        pse_schema::arrow::KEY_EXTENSION_METADATA,
-        pse_schema::arrow::KEY_ROW_KEY_ENCODING,
-    ];
-    for key in semantic {
-        let actual = source.metadata().get(key);
-        let declared = target.metadata().get(key);
+    check_value_metadata(source, target)
+}
+
+pub(super) fn check_value_metadata(source: &Field, target: &Field) -> Result<()> {
+    use pse_columnar::native_field::{project, MetadataPurpose};
+    let source_value = project(source, MetadataPurpose::ValueIdentity)?;
+    let target_value = project(target, MetadataPurpose::ValueIdentity)?;
+    for key in source_value.metadata().keys().chain(target_value.metadata().keys()) {
+        let actual = source_value.metadata().get(key);
+        let declared = target_value.metadata().get(key);
         if actual == declared {
             continue;
         }
@@ -408,6 +407,30 @@ fn invalid(reason: &str) -> DataFusionError {
 mod consolidation_unit {
     use super::*;
     use datafusion::logical_expr::{EmptyRelation, LogicalPlan};
+
+    #[test]
+    fn output_and_alias_preserve_transfer_and_unknown_semantic_facets() {
+        use std::collections::HashMap;
+        for key in [pse_schema::arrow::KEY_TRANSFER_CONTEXT, "custom.physical-owner"] {
+            let field = Field::new("source", DataType::Float64, false)
+                .with_metadata(HashMap::from([(key.into(), "owner-a".into())]));
+            let same = field.clone().with_name("alias");
+            let bare = Field::new("alias", DataType::Float64, false);
+            let changed = bare.clone().with_metadata(HashMap::from([(key.into(), "owner-b".into())]));
+            assert!(check_field_output(&field, &same).is_ok());
+            assert!(check_value_metadata(&field, &same).is_ok());
+            assert!(check_field_output(&field, &bare).is_err());
+            assert!(check_field_output(&bare, &field).is_err());
+            assert!(check_value_metadata(&field, &changed).is_err());
+            assert!(!super::super::admission::same_value_metadata(&field, &bare));
+        }
+        let source = Field::new("source", DataType::Float64, false);
+        let target = source.clone().with_name("target").with_metadata(HashMap::from([
+            (pse_schema::arrow::KEY_LOGICAL_TYPE.into(), "float64".into()),
+            (pse_schema::arrow::KEY_ROLE.into(), "payload".into()),
+        ]));
+        assert!(check_field_output(&source, &target).is_ok());
+    }
 
     #[test]
     fn relation_metadata_restoration_preserves_buffers_and_refuses_changed_fields() -> Result<()> {

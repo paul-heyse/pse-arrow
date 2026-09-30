@@ -47,10 +47,22 @@ pub(crate) fn try_source(text: &str) -> Result<Vec<Declaration>> {
     )
     .map_err(|e| invalid(DeclarationId::from(SemanticId::NIL), e.to_string()))
 }
+
+#[test]
+fn physical_intermediates_cross_polymorphic_calls_without_quantity_ids() {
+    let (registry, _) = physical();
+    let prerequisites = pse_quantity::PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions()).unwrap();
+    let context = TypeContext { formula_authority: None, quantities: &registry,
+        preconditions: &prerequisites, scope: &PhysicalScope::default() };
+    let rows = source("package p { fn identity<Q>(x: Q) -> Q = x; fn ua(u:HeatTransferCoefficient,a:Area)->HeatTransferCoefficient*Area = identity(u*a); fn transfer(u:HeatTransferCoefficient,a:Area,t:DeltaTemperature)->EnergyTransferRate = ua(u,a)*t; }");
+    let checked = check(&rows, &context).unwrap();
+    let ua = checked.functions.values().find(|function| matches!(&function.result, Type::Quantity(Scheme::Resolved(_)))).unwrap();
+    assert!(ua.result.quantity_scheme().unwrap().resolve_contract_with_evidence(&registry,&Substitution::new(),&prerequisites).unwrap().named_id().is_none());
+}
 #[test]
 fn polymorphic_smoothing_and_complete_substitution() {
     let (registry, names) = physical();
-    let c = TypeContext {
+    let c = TypeContext {formula_authority: None,
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
         scope: &PhysicalScope::default(),
@@ -80,7 +92,7 @@ fn polymorphic_smoothing_and_complete_substitution() {
 #[test]
 fn powers_keep_the_exponent_quantity_in_the_authoritative_operation() {
     let (registry, names) = physical();
-    let context = TypeContext {
+    let context = TypeContext {formula_authority: None,
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
         scope: &PhysicalScope::default(),
@@ -99,7 +111,7 @@ fn powers_keep_the_exponent_quantity_in_the_authoritative_operation() {
     );
     assert_eq!(
         power
-            .resolve(&registry, &BTreeMap::from([("Q".into(), scalar)]))
+            .resolve(&registry, &BTreeMap::from([("Q".into(), pse_quantity::ResolvedPhysicalContract::named(scalar, pse_quantity::IndexSet::new(), &registry).unwrap())]))
             .unwrap(),
         scalar
     );
@@ -114,7 +126,7 @@ fn powers_keep_the_exponent_quantity_in_the_authoritative_operation() {
 #[test]
 fn default_override_and_diamond_conflict() {
     let (registry, _) = physical();
-    let c = TypeContext {
+    let c = TypeContext {formula_authority: None,
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
         scope: &PhysicalScope::default(),
@@ -134,7 +146,7 @@ fn default_override_and_diamond_conflict() {
 #[test]
 fn wrong_basis_reference_and_uninstantiated_definition_are_rejected() {
     let (registry, _) = physical();
-    let c = TypeContext {
+    let c = TypeContext {formula_authority: None,
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
         scope: &PhysicalScope::default(),
@@ -151,7 +163,7 @@ fn wrong_basis_reference_and_uninstantiated_definition_are_rejected() {
 #[test]
 fn arbitrary_entity_kinds_are_data() {
     let (registry, _) = physical();
-    let c = TypeContext {
+    let c = TypeContext {formula_authority: None,
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
         scope: &PhysicalScope::default(),
@@ -163,7 +175,7 @@ fn arbitrary_entity_kinds_are_data() {
 #[test]
 fn every_dataset_row_is_checked_before_instantiation() {
     let (registry, _) = physical();
-    let c = TypeContext {
+    let c = TypeContext {formula_authority: None,
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
         scope: &PhysicalScope::default(),
@@ -194,7 +206,7 @@ fn every_dataset_row_is_checked_before_instantiation() {
 fn requirements_can_read_typed_rows_and_exact_integer_counts() {
     let text = r#"package p { entity kind item {} entity item a {} set items: Set<item> = {a}; table coeff[j: item]: { flow: Flow, count: Integer, next: Integer } complete_over(j in items); dataset data: coeff provenance(s, role.given) { [a] = [2{mol/s}, 9007199254740993, 9007199254740994]; } def Root { require coeff[a].count + 1 == coeff[a].next : "exact"; } }"#;
     let (registry, _) = physical();
-    let c = TypeContext {
+    let c = TypeContext {formula_authority: None,
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
         scope: &PhysicalScope::default(),
@@ -213,7 +225,7 @@ fn requirements_can_read_typed_rows_and_exact_integer_counts() {
 #[test]
 fn recursive_functions_and_implicit_captures_are_refused_before_selection() {
     let (registry, _) = physical();
-    let c = TypeContext {
+    let c = TypeContext {formula_authority: None,
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
         scope: &PhysicalScope::default(),
@@ -232,7 +244,7 @@ fn recursive_functions_and_implicit_captures_are_refused_before_selection() {
 #[test]
 fn polymorphic_functions_compose_without_dimension_only_substitution() {
     let (registry, _) = physical();
-    let c = TypeContext {
+    let c = TypeContext {formula_authority: None,
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
         scope: &PhysicalScope::default(),
@@ -247,7 +259,7 @@ fn polymorphic_functions_compose_without_dimension_only_substitution() {
 #[test]
 fn indexed_function_types_and_partial_coordinates_are_checked_before_selection() {
     let (registry, _) = physical();
-    let c = TypeContext {
+    let c = TypeContext {formula_authority: None,
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
         scope: &PhysicalScope::default(),
@@ -275,7 +287,7 @@ fn indexed_function_types_and_partial_coordinates_are_checked_before_selection()
 #[test]
 fn indirect_function_calls_use_only_visible_immutable_package_tables() {
     let (registry, _) = physical();
-    let c = TypeContext {
+    let c = TypeContext {formula_authority: None,
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
         scope: &PhysicalScope::default(),
@@ -295,7 +307,7 @@ fn indirect_function_calls_use_only_visible_immutable_package_tables() {
 #[test]
 fn package_visibility_requires_an_import_for_functions_and_types() {
     let (registry, _) = physical();
-    let context = TypeContext {
+    let context = TypeContext {formula_authority: None,
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
         scope: &PhysicalScope::default(),
@@ -347,7 +359,7 @@ fn admitted_physical_context_survives_caller_changes() {
     };
     let checked = check(
         &source("package p { def Root {var x:Scalar; eq e:x==2;} }"),
-        &TypeContext {
+        &TypeContext {formula_authority: None,
             preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
             quantities: &registry,
             scope: &scope,
@@ -378,7 +390,7 @@ fn physical_names_are_scoped_by_document() {
         package: Some("pse.physical".into()),
         documents: Some(BTreeSet::from([seen])),
     };
-    let context = TypeContext {
+    let context = TypeContext {formula_authority: None,
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
         scope: &scope,
@@ -419,7 +431,7 @@ fn physical_names_are_scoped_by_document() {
 #[test]
 fn ambiguous_quantity_name_refused() {
     let (registry, _) = physical();
-    let context = TypeContext {
+    let context = TypeContext {formula_authority: None,
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
         scope: &PhysicalScope::default(),
@@ -447,7 +459,7 @@ fn ambiguous_quantity_name_refused() {
 #[test]
 fn constraint_forms_are_placed_and_typed_at_declaration() {
     let (registry, names) = physical();
-    let context = TypeContext {
+    let context = TypeContext {formula_authority: None,
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
         scope: &PhysicalScope::default(),

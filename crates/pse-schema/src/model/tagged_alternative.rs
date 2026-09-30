@@ -10,7 +10,7 @@ use arrow_schema::{DataType, Field};
 use crate::SchemaError;
 
 /// Canonical discriminator and tag-to-arm binding; payload types live in Arrow fields.
-pub const KEY_TAGGED_ALTERNATIVE: &str = "pse.semantic.tagged_alternative";
+pub use super::field_facets::KEY_TAGGED_ALTERNATIVE;
 
 /// A required tag selects a payload arm or an explicitly payload-free alternative.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]

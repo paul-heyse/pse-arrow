@@ -199,6 +199,11 @@ async fn native_duplicate_keys_produce_one_typed_finding() {
     .unwrap();
     assert_eq!(report.check_count(), 1);
     assert_eq!(report.error_count(), 1);
+    for findings in report.findings() {
+        let schema = findings.batch().schema();
+        let evidence = schema.field_with_name("evidence").unwrap();
+        assert!(pse_schema::model::TaggedAlternative::from_field(evidence).unwrap().is_some());
+    }
     assert_eq!(
         report
             .findings()

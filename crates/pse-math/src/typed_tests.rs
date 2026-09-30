@@ -20,6 +20,79 @@ fn source() -> SemanticId {
 }
 
 #[test]
+fn physical_intermediates_lower_ua_delta_t_and_qualified_cancellation() {
+    use pse_quantity::PhysicalName;
+    let registry = standard_registry().unwrap();
+    let named = |name| match registry.physical_name(name).unwrap() {
+        PhysicalName::QuantityType(id) => id,
+        other => panic!("expected quantity {name}: {other:?}"),
+    };
+    let mut builder = BodyBuilder::new(crate::initialize().unwrap(), &registry,
+        &StandardInvariantChecker, 3, BodyLimits::default()).unwrap();
+    let u = builder.input(0, named("HeatTransferCoefficient"), IndexSet::new(), source()).unwrap();
+    let area = builder.input(1, named("Area"), IndexSet::new(), source()).unwrap();
+    let delta = builder.input(2, named("DeltaTemperature"), IndexSet::new(), source()).unwrap();
+    let scope = builder.function_scope();
+    let ua = builder.binary(Binary::Mul, u.clone(), area.clone(), None, source()).unwrap();
+    assert!(ua.physical_contract().named_id().is_none());
+    assert_eq!(ua.physical_contract().qualified_factors().len(), 2);
+    let rate = builder.binary(Binary::Mul, ua, delta.clone(), None, source()).unwrap();
+    assert_eq!(rate.quantity().unwrap(), named("EnergyTransferRate"));
+    let partial = builder.partial(scope, rate.clone(), &[delta.clone()], source()).unwrap();
+    assert!(partial.physical_contract().named_id().is_none());
+    let partial = builder.binary(Binary::Mul, partial, delta, None, source()).unwrap();
+    let cancelled = builder.binary(Binary::Div, u.clone(), u, None, source()).unwrap();
+    assert!(cancelled.physical_contract().is_pure_number());
+    let body = builder.finish(&[rate, cancelled, partial], DerivativeOrder::First,
+        Optimization::default(), &Arc::new(AtomicBool::new(false))).unwrap();
+    let result = body.worker().evaluate(&[3.0, 4.0, 5.0], DerivativeOrder::First,
+        &mut BTreeMap::new(), &Arc::new(AtomicBool::new(false))).unwrap();
+    assert_eq!(result.values, [60.0, 1.0, 60.0]);
+}
+
+#[test]
+fn canonical_numeric_admission_checks_math_literals_and_instance_values() {
+    use pse_quantity::{QuantityError, literal::LiteralContext};
+    let original = standard_registry().unwrap();
+    let mut declarations = original.to_builder();
+    let mut twice = original.unit(ids::unit("K")).unwrap().clone();
+    twice.id = SemanticId::from_bytes([0x91; 16]).into();
+    twice.symbol = "twiceK".into();
+    twice.scale_to_canonical = 2.0;
+    declarations.unit(twice.clone());
+    let registry = declarations.build().unwrap();
+    let quantity = ids::quantity("temperature.point");
+    let mut builder = BodyBuilder::new(
+        crate::initialize().unwrap(), &registry, &StandardInvariantChecker,
+        0, BodyLimits::default(),
+    ).unwrap();
+    assert!(matches!(builder.literal(
+        f64::MAX, &twice, LiteralContext::Explicit { quantity_type: quantity }, source(),
+    ), Err(crate::MathError::Quantity(QuantityError::NonfiniteConversion { .. }))));
+    assert!(matches!(builder.literal(
+        f64::INFINITY, &twice, LiteralContext::Explicit { quantity_type: quantity }, source(),
+    ), Err(crate::MathError::Quantity(QuantityError::NonfiniteMagnitude { .. }))));
+    assert!(builder.literal(
+        f64::MAX / 2.0, &twice, LiteralContext::Explicit { quantity_type: quantity }, source(),
+    ).is_ok());
+    let source_port = Port { id: source(), quantity, unit: twice.id };
+    let formal = Port { unit: ids::unit("K"), ..source_port.clone() };
+    let binding = InstanceBinding {
+        instance: source(), body: ContentHash::from_bytes([1; 32]),
+        slots: vec![SlotBinding::new(&source_port, &formal, &registry).unwrap()],
+        contributions: vec![],
+    };
+    let mut values = CaseValues { scalars: BTreeMap::from([(source(), f64::MAX)]) };
+    assert!(matches!(binding.values(&values),
+        Err(crate::MathError::Quantity(QuantityError::NonfiniteConversion { .. }))));
+    values.scalars.insert(source(), f64::MAX / 2.0);
+    assert_eq!(binding.values(&values).unwrap(), vec![f64::MAX]);
+    values.scalars.insert(source(), f64::NAN);
+    assert!(matches!(binding.values(&values),
+        Err(crate::MathError::Quantity(QuantityError::NonfiniteMagnitude { .. }))));
+}
+
+#[test]
 fn physical_point_subtraction_precedes_normalization() {
     crate::initialize().unwrap();
     let registry = standard_registry().unwrap();
@@ -55,7 +128,7 @@ fn physical_point_subtraction_precedes_normalization() {
     let difference = builder
         .binary(Binary::Sub, left, right, None, source())
         .unwrap();
-    assert_eq!(difference.quantity, ids::quantity("temperature.difference"));
+    assert_eq!(difference.quantity().unwrap(), ids::quantity("temperature.difference"));
     let mut artifact = builder
         .finish(
             &[difference],
@@ -175,6 +248,7 @@ fn body_identity_tracks_semantics_not_symbol_registration_or_values() {
         definition: h,
         structure: h,
         physical: h,
+        admissions: h,
         providers: vec![],
         policy: h,
     };
@@ -319,7 +393,7 @@ fn connection_equation_binds_distinct_units_before_point_subtraction() {
         .input(1, quantity, IndexSet::new(), source())
         .unwrap();
     let residual = builder.binary(Binary::Sub, a, b, None, source()).unwrap();
-    assert_eq!(residual.quantity, ids::quantity("temperature.difference"));
+    assert_eq!(residual.quantity().unwrap(), ids::quantity("temperature.difference"));
     let cancel = Arc::new(AtomicBool::new(false));
     let mut body = builder
         .finish(

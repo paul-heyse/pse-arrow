@@ -167,14 +167,9 @@ fn composite_literal_needs_no_registered_whole_unit() {
     let canonical = registry
         .unit(registry.quantity_type(molar_cp).unwrap().canonical_unit)
         .unwrap();
-    let conversion = convert_spec_for_type(
-        &literal,
-        canonical,
-        &registry.quantity_type(molar_cp).unwrap().key,
-    )
-    .unwrap();
+    let conversion = CanonicalConversionPlan::resolved(&registry, molar_cp, &literal).unwrap();
     assert_eq!(
-        convert_value(&conversion, 75.3).to_bits(),
+        conversion.apply(75.3).unwrap().bits(),
         75.3_f64.to_bits()
     );
     // J/(mol*K) composes to the defined canonical unit itself.

@@ -155,6 +155,7 @@ impl Engine<'_, '_> {
             .entry(name.clone())
             .or_insert(crate::Function {
                 reduction: None,
+                physical_operation: None,
                 validity: None,
                 envelopes: Vec::new(),
                 validity_reads: crate::envelope::Reads::default(),
@@ -172,7 +173,7 @@ impl Engine<'_, '_> {
         })
     }
     /// Resolve an indexed actual without inventing coordinates from observed values.
-    fn argument_group(
+    pub(super) fn argument_group(
         &mut self,
         instance: InstanceId,
         path: &Path,
@@ -297,10 +298,10 @@ impl Engine<'_, '_> {
             match (formal, actual) {
                 (Type::Quantity(formal), Type::Quantity(actual)) => {
                     let actual = actual
-                        .resolve_with_evidence(c.quantities, &BTreeMap::new(), c.preconditions)
+                        .resolve_contract_with_evidence(c.quantities, &BTreeMap::new(), c.preconditions)
                         .map_err(|e| invalid(at, e.to_string()))?;
                     formal
-                        .bind_with_evidence(actual, c.quantities, bindings, c.preconditions)
+                        .bind_contract_with_evidence(&actual, c.quantities, bindings, c.preconditions)
                         .map_err(|e| invalid(at, e.to_string()))
                 }
                 (
@@ -331,10 +332,9 @@ impl Engine<'_, '_> {
             at: DeclarationId,
         ) -> Result<()> {
             match ty {
-                Type::Quantity(scheme) => {
-                    *scheme = pse_quantity::scheme::Scheme::Concrete(
-                        scheme
-                            .resolve_with_evidence(c.quantities, bindings, c.preconditions)
+                Type::Quantity(scheme) | Type::RefinedQuantity { quantity: scheme, .. } => {
+                    *scheme = pse_quantity::scheme::Scheme::from_contract(
+                        scheme.resolve_contract_with_evidence(c.quantities, bindings, c.preconditions)
                             .map_err(|e| invalid(at, e.to_string()))?,
                     )
                 }
@@ -358,10 +358,10 @@ impl Engine<'_, '_> {
         // observations resolve against (ADR-0123 Outcome 4).
         let mut scalar_formals = BTreeMap::new();
         let mut scalar_sources = BTreeMap::new();
-        let mut identity = FramedHasher::new(pse_ids::Frame::ModelingFiniteFunctionV5);
+        let mut identity = FramedHasher::new(pse_ids::Frame::ModelingFiniteFunctionV6);
         identity.id(&function.as_id());
         for quantity in substitution.values() {
-            identity.id(&quantity.as_id());
+            quantity.frame(&mut identity);
         }
         for ((name, ty), expr) in contract.arguments.iter().zip(args) {
             let start = formals.len();
@@ -383,26 +383,24 @@ impl Engine<'_, '_> {
                 (coordinates, reference)
             };
             match ty {
-                Type::Quantity(_) => {
+                Type::Quantity(_) | Type::RefinedQuantity { .. } => {
                     scalar_formals.insert(name.clone(), start);
                     scalar_sources.insert(start, (expr, ty.clone()));
                     let expr = self.rewrite(instance, expr, env, chain)?;
                     lexical.insert(name.clone(), bind(vec![], expr, ty.clone()).1);
                 }
                 Type::Indexed { element, axes } => {
-                    if !matches!(element.as_ref(), Type::Quantity(_)) {
+                    if element.quantity_scheme().is_none() {
                         return Err(invalid(
                             function,
                             "indexed function values must be physical",
                         ));
                     }
-                    let ExprKind::Path(path) = &expr.kind else {
-                        return Err(invalid(
-                            function,
-                            "indexed argument must name an admitted group",
-                        ));
+                    let values = match &expr.kind {
+                        ExprKind::Path(path) => self.argument_group(instance, path, env, chain)?,
+                        ExprKind::NamedCall {name, args} => self.coordinate_group(instance, at, name, args, env, chain)?,
+                        _ => return Err(invalid(function, "indexed argument must name an admitted group or coordinate-map slot")),
                     };
-                    let values = self.argument_group(instance, path, env, chain)?;
                     if let Some(external) = &mut contract.external {
                         external.shapes.push(crate::external::ArgumentShape {
                             argument: pse_ids::named_id(function.as_id(), name),
@@ -432,12 +430,16 @@ impl Engine<'_, '_> {
                     indexed.insert(name.clone(), flattened);
                 }
                 Type::Function { .. } => {
-                    let value = Value::Function(self.resolve_function(
+                    let selected = self.resolve_function(
                         instance,
                         at,
                         &dsl::render_expr(expr),
                         env,
-                    )?);
+                    )?;
+                    if let Some(operation) = &mut contract.physical_operation {
+                        operation.bind_response_witness(name, selected, self.p, at)?;
+                    }
+                    let value = Value::Function(selected);
                     self.compatible(&value, ty, at)?;
                     value.frame(&mut identity);
                     statics.insert(name.clone(), value);
@@ -508,7 +510,7 @@ impl Engine<'_, '_> {
         let saved_serial = std::mem::replace(&mut self.local_serial, 0);
         let saved_types = std::mem::replace(
             &mut self.function_types,
-            contract.arguments.iter().cloned().collect(),
+            contract.physical_operation.as_ref().map_or_else(|| contract.arguments.clone(), |operation| operation.body_arguments(&contract.arguments)).into_iter().collect(),
         );
         self.function_stack.push(function);
         self.open_lifts();
@@ -606,10 +608,24 @@ impl Engine<'_, '_> {
         if let Some(order) = contract.continuity {
             identity.str("piecewise").u64(u64::from(order));
         }
+        if let Some(operation) = &contract.physical_operation {
+            operation.frame(&mut identity);
+        }
+        identity.str("physical-signature-v1").u64(formals.len() as u64);
+        for (name, ty) in &formals {
+            identity.str(name);
+            if let Some(quantity) = ty.quantity_scheme() { quantity.frame(&mut identity); }
+            identity.bool(ty.physical_refinement().is_some());
+            if let Some(refinement) = ty.physical_refinement() { refinement.frame(&mut identity); }
+        }
+        if let Some(quantity) = contract.result.quantity_scheme() { quantity.frame(&mut identity); }
+        identity.bool(contract.result.physical_refinement().is_some());
+        if let Some(refinement) = contract.result.physical_refinement() { refinement.frame(&mut identity); }
         let id = identity.finish_id();
         let name = format!("f_{}", id.to_hex());
         let function = crate::Function {
             reduction: None,
+            physical_operation: contract.physical_operation,
             validity,
             envelopes: guards,
             validity_reads,

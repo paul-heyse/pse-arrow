@@ -117,7 +117,7 @@ pub(super) async fn compile_individual(
         let keys = project_query_keys(plan, invariant, target, registry)?;
         branches.push((
             invariant.id,
-            finding(keys, invariant.into(), "violation", invariant.doc, registry)?,
+            finding(keys, invariant.into(), "violation", invariant.doc, registry, session)?,
         ));
     }
     if let InvariantScope::Required(selected) = scope
@@ -259,6 +259,7 @@ fn finding(
     status: &str,
     message: &str,
     registry: &Registry,
+    session: &EngineSession,
 ) -> Result<LogicalPlan, RuleError> {
     let target = registry
         .relation("runtime.diagnostics_findings")
@@ -293,7 +294,7 @@ fn finding(
         )?
         .alias("severity"),
         subjects.alias("subjects"),
-        row_evidence(registry, target, relation, key)?.alias("evidence"),
+        row_evidence(registry, target, relation, key, session)?.alias("evidence"),
         constant(
             registry,
             target,
@@ -313,6 +314,7 @@ fn row_evidence(
     target: &RelationSpec,
     relation: pse_ids::SemanticId,
     key: Expr,
+    session: &EngineSession,
 ) -> Result<Expr, RuleError> {
     let evidence = target
         .column("evidence")
@@ -336,7 +338,7 @@ fn row_evidence(
         ScalarValue::FixedSizeBinary(16, Some(relation.as_bytes().to_vec())),
     )
     .map_err(engine)?;
-    Ok(datafusion::functions::core::expr_fn::named_struct(vec![
+    let value = datafusion::functions::core::expr_fn::named_struct(vec![
         lit("kind"),
         lit("row"),
         lit("row"),
@@ -348,6 +350,11 @@ fn row_evidence(
         ]),
         lit("execution"),
         absent,
+    ]);
+    // The native constructor establishes the child values. The declaration-owned
+    // validator checks the selected tagged arm before publishing this evidence.
+    Ok(session.scalar_function("pse_checked_value")?.call(vec![
+        value, lit(target.qualified_name()), lit(evidence.name()),
     ]))
 }
 

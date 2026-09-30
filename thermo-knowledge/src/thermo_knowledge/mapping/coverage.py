@@ -34,7 +34,13 @@ from thermo_knowledge.canonical.writer import CanonicalWriter
 from thermo_knowledge.declaration import model as m
 from thermo_knowledge.mapping import claims
 from thermo_knowledge.mapping.context import Outcome
-from thermo_knowledge.mapping.spec import MappingSpec, TableRule, maps_rows, resolve_target
+from thermo_knowledge.mapping.spec import (
+    FieldRule,
+    MappingSpec,
+    TableRule,
+    maps_rows,
+    resolve_target,
+)
 from thermo_knowledge.mapping.staged import Classifier, StagedTables
 
 RULE = pc.MAPPING_RULE
@@ -171,6 +177,16 @@ def _reason(disposition: str, reason: str | None, wave: int | None, loss: str | 
     return loss
 
 
+def _rules_of(rule: TableRule) -> list[tuple[str, FieldRule]]:
+    """Every field rule of a table by the label rule use names it with: the column, or
+    `partition:<name>:<column>` for a rule of a mapped partition."""
+    found = list(rule.fields.items())
+    for partition in rule.partitions:
+        if partition.disposition == claims.MAPPED:
+            found.extend((f"partition:{partition.name}:{c}", f) for c, f in partition.fields.items())
+    return found
+
+
 def check_rule_use(
     spec: MappingSpec, result: Coverage, applied: Mapping[tuple[str, str], int]
 ) -> tuple[list[str], list[str]]:
@@ -189,11 +205,11 @@ def check_rule_use(
         )
         if not maps_rows(rule) or mapped == 0:
             continue
-        for column, field_rule in rule.fields.items():
-            if field_rule.target is None or applied.get((table, column), 0) > 0:
+        for label, field_rule in _rules_of(rule):
+            if field_rule.target is None or applied.get((table, label), 0) > 0:
                 continue
             text = (
-                f"table {table} column {column}: the value rule for `{field_rule.target}` was "
+                f"table {table} column {label}: the value rule for `{field_rule.target}` was "
                 f"applied to none of the {mapped} mapped row(s) of the table"
             )
             if field_rule.optional:
@@ -204,6 +220,58 @@ def check_rule_use(
                     "`optional = true` for a field the source fills only sometimes)"
                 )
     return refused, reported
+
+
+def _field_row(
+    spec: MappingSpec,
+    decl: m.Declaration,
+    table: str,
+    label: str,
+    field_rule: FieldRule,
+    applied: Mapping[tuple[str, str], int],
+) -> dict[str, object]:
+    """The `qual.mapping_rule` row of one field rule."""
+    row: dict[str, object] = {
+        RULE.manifest_id: spec.source,
+        RULE.source_table: table,
+        RULE.source_field: label,
+        RULE.disposition: field_rule.disposition or MAPPED,
+    }
+    if field_rule.disposition is not None:
+        row[RULE.loss] = _reason(field_rule.disposition, field_rule.reason, field_rule.wave, None)
+    elif field_rule.role is not None:
+        row[RULE.loss] = f"structure: {field_rule.reason}"
+    else:
+        assert field_rule.target is not None
+        target = resolve_target(decl, field_rule.target)
+        assert not isinstance(target, str)
+        row[RULE.target] = (
+            f"{field_rule.target} ({field_rule.scheme})" if field_rule.scheme else field_rule.target
+        )
+        row[RULE.precision] = field_rule.precision
+        row[RULE.applied_rows] = applied.get((table, label), 0)
+        if field_rule.unit is not None:
+            row[RULE.source_unit] = field_rule.unit
+            if target.unit is not None:
+                row[RULE.factor] = conversion_factor(field_rule.unit, target.unit)
+        notes = [field_rule.loss] if field_rule.loss else []
+        if field_rule.text_unit:
+            notes.append("the unit is the one the source states in the value's text")
+        if field_rule.factor is not None:
+            notes.append(f"multiplied by {field_rule.factor!r}")
+        if field_rule.default is not None:
+            notes.append(f"an absent value is {field_rule.default!r}")
+        if field_rule.decode:
+            notes.append(f"decoded by `{field_rule.decode}`: {spec.decodings[field_rule.decode].doc}")
+        if field_rule.absent:
+            notes.append("declared absent: " + ", ".join(repr(a) for a in field_rule.absent))
+        if field_rule.otherwise_scheme:
+            notes.append(
+                f"a value not matching `{field_rule.pattern}` is asserted under "
+                f"`{field_rule.otherwise_scheme}`"
+            )
+        row[RULE.loss] = "; ".join(notes) or None
+    return row
 
 
 def rule_rows(
@@ -269,46 +337,8 @@ def rule_rows(
                     RULE.loss: f"a constant of the mapping: {value!r}",
                 }
             )
-        for column, field_rule in rule.fields.items():
-            row: dict[str, object] = {
-                RULE.manifest_id: manifest_id,
-                RULE.source_table: table,
-                RULE.source_field: column,
-                RULE.disposition: field_rule.disposition or MAPPED,
-            }
-            if field_rule.disposition is not None:
-                row[RULE.loss] = _reason(
-                    field_rule.disposition, field_rule.reason, field_rule.wave, None
-                )
-            elif field_rule.role is not None:
-                row[RULE.loss] = f"structure: {field_rule.reason}"
-            else:
-                assert field_rule.target is not None
-                target = resolve_target(decl, field_rule.target)
-                assert not isinstance(target, str)
-                row[RULE.target] = (
-                    f"{field_rule.target} ({field_rule.scheme})"
-                    if field_rule.scheme
-                    else field_rule.target
-                )
-                row[RULE.precision] = field_rule.precision
-                row[RULE.applied_rows] = applied.get((table, column), 0)
-                if field_rule.unit is not None:
-                    row[RULE.source_unit] = field_rule.unit
-                    if target.unit is not None:
-                        row[RULE.factor] = conversion_factor(field_rule.unit, target.unit)
-                notes = [field_rule.loss] if field_rule.loss else []
-                if field_rule.absent:
-                    notes.append(
-                        "declared absent: " + ", ".join(repr(a) for a in field_rule.absent)
-                    )
-                if field_rule.otherwise_scheme:
-                    notes.append(
-                        f"a value not matching `{field_rule.pattern}` is asserted under "
-                        f"`{field_rule.otherwise_scheme}`"
-                    )
-                row[RULE.loss] = "; ".join(notes) or None
-            rows.append(row)
+        for label, field_rule in _rules_of(rule):
+            rows.append(_field_row(spec, decl, table, label, field_rule, applied))
     return rows
 
 

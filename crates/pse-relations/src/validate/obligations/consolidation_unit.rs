@@ -31,10 +31,10 @@ fn selective_binding_preserves_relational_checks_and_still_validates_schema() {
     )]);
     let templates = ObligationTemplates::new(&registry);
     let all = templates
-        .bind_classified(&inputs, &context.state())
+        .bind_classified(&inputs, &context.state(), None)
         .unwrap();
     let relational = templates
-        .bind_required(&inputs, &context.state(), |_, kind| {
+        .bind_required(&inputs, &context.state(), None, |_, kind| {
             kind == ObligationKind::Relational
         })
         .unwrap();
@@ -48,7 +48,7 @@ fn selective_binding_preserves_relational_checks_and_still_validates_schema() {
     let invalid = BTreeMap::from([(spec.id, LogicalPlanBuilder::empty(false).build().unwrap())]);
     assert!(
         templates
-            .bind_required(&invalid, &context.state(), |_, _| false)
+            .bind_required(&invalid, &context.state(), None, |_, _| false)
             .is_err()
     );
 }
@@ -195,7 +195,7 @@ async fn selected_native_relations_check_keys_references_and_nested_ordinals() {
             );
         }
         let plans = ObligationTemplates::new(&registry)
-            .bind(&inputs, &context.state())
+            .bind(&inputs, &context.state(), None)
             .unwrap();
         let mut violations = 0;
         for plan in plans {

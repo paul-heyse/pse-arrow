@@ -14,8 +14,8 @@ pub use pse_model::generated::r#structures::{
     ModelingCompleteness, ModelingEnvelope, ModelingEnvelopeGuard, ModelingIntegerRange,
     ModelingKeyCell, ModelingKeyCellSelected, ModelingKnowledgeLineage,
     ModelingKnowledgeUncertainty, ModelingKnowledgeValueNode, ModelingLineageEntry,
-    ModelingProvenance, ModelingTypeArenaNodeExponent, ModelingTypeArenaNode,
-    ModelingUnitFactor, VersionRequirement, VersionWindow,
+    ModelingProvenance, ModelingTransferContext, ModelingTypeArenaNodeExponent,
+    ModelingTypeArenaNode, ModelingUnitFactor, VersionRequirement, VersionWindow,
 };
 impl crate::columnar::ArrowValue for LocalValidity {
     fn append(
@@ -1770,6 +1770,84 @@ impl crate::columnar::ArrowValue for ModelingProvenance {
                 ModelingLineageEntry,
             > as crate::columnar::ArrowValue>::read(
                 input.column(2usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue for ModelingTransferContext {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(
+            &self.r#instance,
+            children[0usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#boundary,
+            children[1usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#coordinates,
+            children[2usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#direction,
+            children[3usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <crate::generated::identities::InstanceId as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        <crate::generated::identities::DeclarationId as crate::columnar::ArrowValue>::append_null(
+            children[1usize].as_mut(),
+        )?;
+        <Vec<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <crate::generated::enums::ModelingTransferDirection as crate::columnar::ArrowValue>::append_null(
+            children[3usize].as_mut(),
+        )?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#instance: <crate::generated::identities::InstanceId as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#boundary: <crate::generated::identities::DeclarationId as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#coordinates: <Vec<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#direction: <crate::generated::enums::ModelingTransferDirection as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
                 index,
             )?,
         })

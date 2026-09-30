@@ -120,25 +120,28 @@ impl Engine<'_, '_> {
                 rename_equation(&mut equation, &names)?;
                 body.equations.push(equation);
             }
-            let mut h = FramedHasher::new(pse_ids::Frame::ModelingDispatchBodyV2);
+            let mut h = FramedHasher::new(pse_ids::Frame::ModelingDispatchBodyV3);
             h.id(&state.definition.as_id())
                 .u64(body.coordinates.len() as u64);
             for (ty, role) in &body.coordinates {
                 h.str(role.as_str());
-                let Type::Quantity(scheme) = ty else {
+                let Some(scheme) = ty.quantity_scheme() else {
                     return Err(invalid(
                         state.definition,
                         "finite body coordinate is not physical",
                     ));
                 };
                 let quantity = scheme
-                    .resolve_with_evidence(
+                    .resolve_contract_with_evidence(
                         self.c.quantities,
                         &BTreeMap::new(),
                         self.c.preconditions,
                     )
                     .map_err(|e| invalid(state.definition, e.to_string()))?;
-                h.id(&quantity.as_id());
+                quantity.frame(&mut h);
+                if let Some(refinement) = ty.physical_refinement() {
+                    h.u64(1); refinement.frame(&mut h);
+                } else { h.u64(0); }
             }
             h.u64(body.expressions.len() as u64);
             for (slot, expression) in &body.expressions {

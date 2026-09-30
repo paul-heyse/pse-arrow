@@ -1613,18 +1613,8 @@ pub(crate) fn document_slot(
                     ),
                 )
             })?;
-            let target = c
-                .quantities
-                .quantity_type(*quantity)
-                .map_err(|e| invalid(dataset, e.to_string()))?;
-            let conversion = pse_quantity::convert_spec_for_type(
-                c.quantities
-                    .unit(unit)
-                    .map_err(|e| invalid(dataset, e.to_string()))?,
-                c.quantities
-                    .unit(target.canonical_unit)
-                    .map_err(|e| invalid(dataset, e.to_string()))?,
-                &target.key,
+            let conversion = pse_quantity::CanonicalConversionPlan::registered(
+                c.quantities, *quantity, unit,
             )
             .map_err(|e| {
                 invalid(
@@ -1632,12 +1622,7 @@ pub(crate) fn document_slot(
                     format!("{label}: column {name} declared {declared}: storage unit: {e}"),
                 )
             })?;
-            Target::Quantity {
-                quantity: *quantity,
-                storage: unit,
-                scale: conversion.scale.to_bits(),
-                offset: conversion.offset.to_bits(),
-            }
+            Target::Quantity(conversion)
         }
         Type::Entity(kind) => {
             let entities = p

@@ -158,6 +158,7 @@ async fn source_span_obligations_preserve_decoded_view_fields() {
         .bind(
             &inputs,
             &pse_engine::validation::NativeValidation(context.state()),
+            None,
         )
         .unwrap();
     for check in checks {

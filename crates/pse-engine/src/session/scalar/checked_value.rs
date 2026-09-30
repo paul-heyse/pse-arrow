@@ -141,31 +141,26 @@ impl ScalarUDFImpl for CheckedValue {
 }
 
 fn compatible(source: &Field, target: &Field) -> Result<()> {
-    use DataType::{FixedSizeList, LargeList, List, Map, Null, Struct};
-    if source.data_type() == &Null {
+    if source.data_type() == &DataType::Null {
         return Ok(());
     }
-    if source.metadata().get(pse_schema::arrow::KEY_QUANTITY_TYPE)
-        != target.metadata().get(pse_schema::arrow::KEY_QUANTITY_TYPE)
-    {
+    if !pse_columnar::native_field::admits_metadata(
+        source.metadata(), target.metadata(),
+        pse_columnar::native_field::MetadataAdmission::CheckedTarget,
+    ) {
         return Err(invalid(
-            "value admission cannot invent or convert physical quantity meaning",
+            "value admission cannot invent physical or unclassified meaning, or reinterpret established semantic meaning",
         ));
     }
-    for key in [
-        pse_schema::arrow::KEY_ENUM,
-        pse_schema::arrow::KEY_EXTENSION_NAME,
-        pse_schema::arrow::KEY_EXTENSION_METADATA,
-    ] {
-        if let Some(meaning) = source.metadata().get(key)
-            && target.metadata().get(key) != Some(meaning)
-        {
-            return Err(invalid(
-                "value admission cannot reinterpret an already typed semantic value",
-            ));
-        }
+    if source.dict_is_ordered() != target.dict_is_ordered() {
+        return Err(invalid("value admission dictionary ordering differs"));
     }
-    match (source.data_type(), target.data_type()) {
+    compatible_type(source.data_type(), target.data_type())
+}
+
+fn compatible_type(source: &DataType, target: &DataType) -> Result<()> {
+    use DataType::{Dictionary, FixedSizeList, LargeList, LargeListView, List, ListView, Map, RunEndEncoded, Struct, Union};
+    match (source, target) {
         (Struct(left), Struct(right)) if left.len() == right.len() => {
             for (left, right) in left.iter().zip(right) {
                 if left.name() != right.name() {
@@ -175,9 +170,24 @@ fn compatible(source: &Field, target: &Field) -> Result<()> {
             }
             Ok(())
         }
-        (List(left), List(right)) | (LargeList(left), LargeList(right)) => compatible(left, right),
+        (List(left), List(right)) | (LargeList(left), LargeList(right))
+        | (ListView(left), ListView(right)) | (LargeListView(left), LargeListView(right)) => compatible(left, right),
         (FixedSizeList(left, n), FixedSizeList(right, m)) if n == m => compatible(left, right),
         (Map(left, n), Map(right, m)) if n == m => compatible(left, right),
+        (Dictionary(left_key, left), Dictionary(right_key, right)) if left_key == right_key => compatible_type(left, right),
+        (Union(left, left_mode), Union(right, right_mode)) if left_mode == right_mode && left.len() == right.len() => {
+            for ((left_id, left), (right_id, right)) in left.iter().zip(right.iter()) {
+                if left_id != right_id || left.name() != right.name() {
+                    return Err(invalid("value admission union arms differ"));
+                }
+                compatible(left, right)?;
+            }
+            Ok(())
+        }
+        (RunEndEncoded(left_runs, left), RunEndEncoded(right_runs, right)) => {
+            compatible(left_runs, right_runs)?;
+            compatible(left, right)
+        }
         (left, right) if left == right => Ok(()),
         _ => Err(invalid(
             "value admission requires matching storage; use an explicit native cast for a conversion",

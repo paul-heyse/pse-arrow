@@ -479,7 +479,10 @@ mod tests {
         )
         .unwrap();
         let b = &g.bindings()[&id(20)][0];
-        assert!((pse_quantity::convert_value(&b.conversion, 25.0) - 298.15).abs() < 1e-12);
+        let conversion = pse_quantity::CanonicalConversionPlan::registered(
+            &r, b.quantity.id, b.conversion.from,
+        ).unwrap();
+        assert!((conversion.apply(25.0).unwrap().value() - 298.15).abs() < 1e-12);
         assert_eq!(g.witness(&BTreeSet::new()).unwrap().len(), 3);
         d.nodes.reverse();
         assert_eq!(

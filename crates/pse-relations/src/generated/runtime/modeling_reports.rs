@@ -8,20 +8,20 @@ pub use pse_model::generated::r#runtime::r#modeling_reports::{
 };
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    26u8, 179u8, 96u8, 239u8, 177u8, 140u8, 177u8, 156u8, 92u8, 10u8, 73u8, 198u8, 21u8,
-    12u8, 162u8, 172u8,
+    141u8, 102u8, 42u8, 204u8, 117u8, 51u8, 211u8, 223u8, 19u8, 60u8, 2u8, 176u8, 191u8,
+    91u8, 213u8, 98u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "modeling_reports";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Runtime;
 /// The schema generation.
-pub const VERSION: u32 = 1u32;
+pub const VERSION: u32 = 2u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    224u8, 124u8, 210u8, 73u8, 31u8, 168u8, 221u8, 189u8, 88u8, 35u8, 125u8, 55u8, 32u8,
-    37u8, 202u8, 144u8, 203u8, 115u8, 206u8, 10u8, 78u8, 18u8, 223u8, 101u8, 115u8,
-    116u8, 164u8, 29u8, 195u8, 97u8, 225u8, 160u8,
+    224u8, 228u8, 159u8, 54u8, 226u8, 111u8, 186u8, 101u8, 103u8, 216u8, 231u8, 78u8,
+    68u8, 53u8, 249u8, 161u8, 16u8, 15u8, 174u8, 77u8, 46u8, 53u8, 30u8, 47u8, 116u8,
+    14u8, 205u8, 221u8, 91u8, 208u8, 99u8, 19u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeModelingReportsRow {
     fn append(
@@ -49,7 +49,11 @@ impl crate::columnar::ArrowValue for RuntimeModelingReportsRow {
             children[6usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(&self.r#unit_id, children[7usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#value, children[8usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#transfer_context,
+            children[8usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#value, children[9usize].as_mut())?;
         output.append(true);
         Ok(())
     }
@@ -78,7 +82,10 @@ impl crate::columnar::ArrowValue for RuntimeModelingReportsRow {
         <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
             children[7usize].as_mut(),
         )?;
-        <f64 as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        <Option<
+            crate::generated::structures::ModelingTransferContext,
+        > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        <f64 as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -121,8 +128,14 @@ impl crate::columnar::ArrowValue for RuntimeModelingReportsRow {
                 input.column(7usize).as_ref(),
                 index,
             )?,
-            r#value: <f64 as crate::columnar::ArrowValue>::read(
+            r#transfer_context: <Option<
+                crate::generated::structures::ModelingTransferContext,
+            > as crate::columnar::ArrowValue>::read(
                 input.column(8usize).as_ref(),
+                index,
+            )?,
+            r#value: <f64 as crate::columnar::ArrowValue>::read(
+                input.column(9usize).as_ref(),
                 index,
             )?,
         })
@@ -190,7 +203,11 @@ impl crate::columnar::RelationRow for RuntimeModelingReportsRow {
             columns[6usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(&self.r#unit_id, columns[7usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#value, columns[8usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#transfer_context,
+            columns[8usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#value, columns[9usize].as_mut())?;
         Ok(())
     }
     fn relation(
@@ -225,10 +242,10 @@ impl crate::columnar::RelationRow for RuntimeModelingReportsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        23_552_usize + size_of::<Self::Builder>()
+        36_864_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        184usize
+        288usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -266,6 +283,47 @@ impl crate::columnar::RelationRow for RuntimeModelingReportsRow {
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
+            if let Some(value) = (self.r#transfer_context).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    {
+                        let mut bytes = 1usize;
+                        bytes = crate::columnar::allocation_add(
+                            bytes,
+                            Ok::<usize, crate::RelationError>(16usize)?,
+                        )?;
+                        bytes = crate::columnar::allocation_add(
+                            bytes,
+                            Ok::<usize, crate::RelationError>(16usize)?,
+                        )?;
+                        bytes = crate::columnar::allocation_add(
+                            bytes,
+                            ((value).r#coordinates)
+                                .iter()
+                                .try_fold(
+                                    8usize,
+                                    |bytes, _| crate::columnar::allocation_add(
+                                        bytes,
+                                        Ok::<usize, crate::RelationError>(16usize)?,
+                                    ),
+                                )?,
+                        )?;
+                        bytes = crate::columnar::allocation_add(
+                            bytes,
+                            crate::columnar::allocation_add(
+                                8,
+                                ((value).r#direction).as_str().len(),
+                            )?,
+                        )?;
+                        Ok::<usize, crate::RelationError>(bytes)
+                    }?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
             Ok::<usize, crate::RelationError>(8usize)?,
         )?;
         Ok(bytes)
@@ -278,7 +336,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 9usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 10usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "run_id",
@@ -321,8 +379,13 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 9usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "value",
+        name: "transfer_context",
         position: 8usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "value",
+        position: 9usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
@@ -343,8 +406,10 @@ pub mod columns {
     pub const QUANTITY_ID: crate::columnar::ColumnReference = super::COLUMNS[6usize];
     ///unit_id
     pub const UNIT_ID: crate::columnar::ColumnReference = super::COLUMNS[7usize];
+    ///transfer_context
+    pub const TRANSFER_CONTEXT: crate::columnar::ColumnReference = super::COLUMNS[8usize];
     ///value
-    pub const VALUE: crate::columnar::ColumnReference = super::COLUMNS[8usize];
+    pub const VALUE: crate::columnar::ColumnReference = super::COLUMNS[9usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -359,6 +424,7 @@ pub struct RuntimeModelingReportsView<'a> {
     path_column: &'a arrow_array::StringArray,
     quantity_id_column: &'a arrow_array::FixedSizeBinaryArray,
     unit_id_column: &'a arrow_array::FixedSizeBinaryArray,
+    transfer_context_column: &'a arrow_array::StructArray,
     value_column: &'a arrow_array::Float64Array,
 }
 impl<'a> RuntimeModelingReportsView<'a> {
@@ -423,9 +489,12 @@ impl<'a> RuntimeModelingReportsView<'a> {
             unit_id_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
             >(batch.column(7usize).as_ref())?,
+            transfer_context_column: crate::columnar::array::<
+                arrow_array::StructArray,
+            >(batch.column(8usize).as_ref())?,
             value_column: crate::columnar::array::<
                 arrow_array::Float64Array,
-            >(batch.column(8usize).as_ref())?,
+            >(batch.column(9usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -538,6 +607,18 @@ impl<'a> RuntimeModelingReportsView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
+        "transfer_context",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn transfer_context_column(&self) -> &'a arrow_array::StructArray {
+        self.transfer_context_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "transfer_context", "`.")]
+    pub fn transfer_context_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[8usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
         "value",
         "`, including its offsets and validity bitmap.",
     )]
@@ -546,7 +627,7 @@ impl<'a> RuntimeModelingReportsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "value", "`.")]
     pub fn value_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[8usize]
+        &self.batch.schema_ref().fields()[9usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -577,6 +658,10 @@ impl<'a> RuntimeModelingReportsView<'a> {
                 index,
             )?,
             r#unit_id: crate::columnar::ArrowValue::read(self.unit_id_column, index)?,
+            r#transfer_context: crate::columnar::ArrowValue::read(
+                self.transfer_context_column,
+                index,
+            )?,
             r#value: crate::columnar::ArrowValue::read(self.value_column, index)?,
         })
     }

@@ -6,8 +6,8 @@
 use crate::literal::{LiteralContext, resolve_literal};
 use crate::{
     BoundIndexRef, ConversionId, DimensionVector, EntityKindId, IncompatibilityReason, IndexSet,
-    InvariantId, KindFactor, Opcode, OperationId, QuantityAdditionKind, QuantityError,
-    QuantityKindId, QuantityOperation, QuantityRegistry, QuantityScaleRule, QuantityShapeRule,
+    InvariantId, Opcode, OperationId, QuantityAdditionKind, QuantityError,
+    QuantityOperation, QuantityRegistry, QuantityScaleRule, QuantityShapeRule,
     QuantityType, QuantityTypeId, QuantityTypeKey, Ratio, ReductionKind, ScaleKind,
     UnitConvertSpec, UnitId, WeightNormalization, admission, convert_spec_for_type,
 };
@@ -183,6 +183,10 @@ crate::closed_enum! {
         Binding => "binding",
         /// A multiplicative chain resolved by its canonical monomial (ADR-0124).
         Chain => "chain",
+        /// An admitted scientific response formula retaining all original physical terms.
+        PhysicalFormula => "physical_formula",
+        /// Explicit partial derivative with its complete differentiated arguments.
+        Partial => "partial",
     }
 }
 /// Evidence of the physical rule selected for this node.
@@ -289,6 +293,19 @@ pub fn infer_with_evidence(
     registry: &QuantityRegistry,
     checker: &dyn InvariantChecker,
 ) -> Result<Inferred, QuantityError> {
+    let contracts = operands.iter().map(|operand| {
+        crate::ResolvedPhysicalContract::named(operand.quantity_type, operand.indices.clone(), registry)
+    }).collect::<Result<Vec<_>, _>>()?;
+    crate::resolved::infer_operation(request, &contracts, None, registry, checker)?.named_result()
+}
+
+/// Named operator dispatch used only by the resolved physical admission authority.
+pub(crate) fn infer_named(
+    request: &OpRequest<'_>,
+    operands: &[Operand<'_>],
+    registry: &QuantityRegistry,
+    checker: &dyn InvariantChecker,
+) -> Result<Inferred, QuantityError> {
     for operand in operands {
         let ty = registry.quantity_type(operand.quantity_type)?;
         let mut expected = ty.key.shape.clone();
@@ -319,55 +336,9 @@ pub fn infer_with_evidence(
                 BuiltInRule::Unary,
             ))
         }
-        OpRequest::Mul | OpRequest::Div => {
-            count(operands, 2)?;
-            // Units in operation times a per-unit capacity is a capacity, and a total over a
-            // count of units is a per-unit value: a declared count or indicator scales the
-            // other operand without changing its physical contract. It precedes neutral
-            // scaling, so a neutral quantity switched by an indicator stays neutral.
-            {
-                let right = registry.discrete_category(operands[1].quantity_type)?;
-                let left = registry.discrete_category(operands[0].quantity_type)?;
-                let kept = match request {
-                    _ if right.is_some() => Some(0),
-                    OpRequest::Mul if left.is_some() => Some(1),
-                    _ => None,
-                };
-                if let Some(kept) = kept {
-                    let indices = operands[kept]
-                        .indices
-                        .union(operands[1 - kept].indices)
-                        .map_err(|_| {
-                            invariant("discrete_scaling.binders", "conflicting coordinate binders")
-                        })?;
-                    return Ok(built(
-                        operands[kept].quantity_type,
-                        indices,
-                        BuiltInRule::DiscreteScaling,
-                    ));
-                }
-            }
-            let neutral = registry.neutral_dimensionless();
-            let left_neutral =
-                neutral == Some(operands[0].quantity_type) && operands[0].indices.is_empty();
-            let right_neutral =
-                neutral == Some(operands[1].quantity_type) && operands[1].indices.is_empty();
-            let keep = if right_neutral {
-                Some(0)
-            } else if left_neutral && matches!(request, OpRequest::Mul) {
-                Some(1)
-            } else {
-                None
-            };
-            if let Some(position) = keep {
-                return Ok(built(
-                    operands[position].quantity_type,
-                    operands[position].indices.clone(),
-                    BuiltInRule::NeutralScaling,
-                ));
-            }
-            registered(request, operands, registry, checker)
-        }
+        OpRequest::Mul | OpRequest::Div => Err(invariant(
+            "physical.internal_dispatch", "multiplication must use resolved physical admission",
+        )),
         OpRequest::Affine {
             term_signs,
             has_constant,
@@ -576,6 +547,12 @@ fn additive(
     operands: &[Operand<'_>],
     registry: &QuantityRegistry,
 ) -> Result<Inferred, QuantityError> {
+    let (key, indices) = additive_contract(subtract, operands, registry)?;
+    Ok(built(registry.resolve_key(&key)?, indices, BuiltInRule::Addition))
+}
+pub(crate) fn additive_contract(
+    subtract: bool, operands: &[Operand<'_>], registry: &QuantityRegistry,
+) -> Result<(QuantityTypeKey, IndexSet), QuantityError> {
     count(operands, 2)?;
     let left = registry.quantity_type(operands[0].quantity_type)?;
     let right = registry.quantity_type(operands[1].quantity_type)?;
@@ -622,11 +599,7 @@ fn additive(
             _ => ScaleKind::Point,
         };
     }
-    Ok(built(
-        registry.resolve_key(&key)?,
-        indices,
-        BuiltInRule::Addition,
-    ))
+    Ok((key, indices))
 }
 fn weighted_mean(
     operands: &[Operand<'_>],
@@ -861,6 +834,38 @@ fn registered(
     registry: &QuantityRegistry,
     checker: &dyn InvariantChecker,
 ) -> Result<Inferred, QuantityError> {
+    let admitted = registered_contract(request, operands, registry, checker)?;
+    let result = registry.resolve_key(&admitted.key).map_err(|_| QuantityError::UnregisteredResultType {
+        opcode: request_opcode(request),
+        operation: admitted.operation,
+        requested: format!("kind {} with declared basis/reference/scale/shape/subject", admitted.key.kind),
+    })?;
+    Ok(Inferred {
+        result, indices: admitted.indices, selected: admitted.selected, conversions: admitted.conversions,
+    })
+}
+
+pub(crate) struct RegisteredContract {
+    pub(crate) key: QuantityTypeKey,
+    pub(crate) indices: IndexSet,
+    pub(crate) operation: OperationId,
+    pub(crate) selected: OperationSelection,
+    pub(crate) conversions: Vec<OperandConversion>,
+}
+
+pub(crate) fn has_registered(
+    request: &OpRequest<'_>, operands: &[Operand<'_>], registry: &QuantityRegistry,
+) -> Result<bool, QuantityError> {
+    Ok(!match_rules(request, operands, registry, false)?.is_empty()
+        || (matches!(request, OpRequest::Mul) && !match_rules(request, operands, registry, true)?.is_empty()))
+}
+
+pub(crate) fn registered_contract(
+    request: &OpRequest<'_>,
+    operands: &[Operand<'_>],
+    registry: &QuantityRegistry,
+    checker: &dyn InvariantChecker,
+) -> Result<RegisteredContract, QuantityError> {
     let opcode = request_opcode(request);
     let mut ordered = match_rules(request, operands, registry, false)?;
     let mut swapped = if ordered.is_empty() && opcode == Opcode::Mul && operands.len() == 2 {
@@ -948,16 +953,6 @@ fn registered(
         })
         .collect();
     let (key, indices) = compose_key(request, rule, &types, &aligned)?;
-    let result = registry
-        .resolve_key(&key)
-        .map_err(|_| QuantityError::UnregisteredResultType {
-            opcode,
-            operation: rule.id,
-            requested: format!(
-                "kind {} with declared basis/reference/scale/shape/subject",
-                key.kind
-            ),
-        })?;
     let conversions = rule
         .input_conversions
         .iter()
@@ -966,8 +961,9 @@ fn registered(
             conversion: conversion.conversion,
         })
         .collect();
-    Ok(Inferred {
-        result,
+    Ok(RegisteredContract {
+        key,
+        operation: rule.id,
         indices,
         selected: OperationSelection::Registered {
             operation: rule.id,
@@ -1167,6 +1163,7 @@ fn dimension_for(
         .map(|ty| registry.kind(ty.key.kind).map(|kind| kind.dimension))
         .collect::<Result<Vec<_>, _>>()?;
     match (request, dimensions.as_slice()) {
+        (OpRequest::Add | OpRequest::Sub, [a, b]) if a == b => Ok(*a),
         (OpRequest::Mul, [a, b]) => Ok(a.mul(b)?),
         (OpRequest::Div, [a, b]) => Ok(a.div(b)?),
         (
@@ -1316,304 +1313,3 @@ fn smooth(
     }
 }
 
-/// One maximal product, quotient and exact-power subtree (ADR-0124). Leaves are the
-/// operands that are not themselves products, quotients or rational powers.
-#[derive(Clone, Debug)]
-pub enum Chain<'a> {
-    /// A factor with its complete type.
-    Leaf(Operand<'a>),
-    /// Ordered product.
-    Mul(Box<Chain<'a>>, Box<Chain<'a>>),
-    /// Ordered quotient.
-    Div(Box<Chain<'a>>, Box<Chain<'a>>),
-    /// Exact rational power; the exponent keeps its own quantity operand, which the
-    /// registered power rules check for dimensionlessness.
-    Pow {
-        /// The base subtree.
-        base: Box<Chain<'a>>,
-        /// The exact exponent.
-        exponent: Ratio,
-        /// The exponent's own operand.
-        power: Operand<'a>,
-    },
-}
-
-/// Type a maximal multiplicative chain by both routes (ADR-0124).
-///
-/// The registered stepwise rules type it node by node; chain resolution types its
-/// canonical monomial against the declared kinds. When both type it the results must
-/// agree. When only chain resolution types it, it decides where no registered rule
-/// matched; where a matched rule refused (an unestablished precondition, for example),
-/// only an explicitly declared derived kind overrides that refusal. A chain whose factors
-/// carry free indices, or that is one factor scaled by pure numbers, is left to the
-/// stepwise rules and their neutral and discrete scaling.
-///
-/// # Errors
-/// Disagreeing routes; otherwise the refusal of the route that failed: an ineligible
-/// factor, an undeclared monomial, disagreeing bases or an unregistered result when no
-/// stepwise rule exists, else the stepwise refusal.
-pub fn infer_chain(
-    chain: &Chain<'_>,
-    registry: &QuantityRegistry,
-    checker: &dyn InvariantChecker,
-) -> Result<Inferred, QuantityError> {
-    let stepwise = stepwise(chain, registry, checker);
-    let resolved = resolve_chain(chain, registry);
-    let unmatched = |refusal: &QuantityError| {
-        matches!(
-            refusal,
-            QuantityError::OperationUnsupported {
-                ordered_matches: 0,
-                swapped_matches: 0,
-                ..
-            }
-        )
-    };
-    match (stepwise, resolved) {
-        (Ok(rules), Ok(Some((monomial, _)))) if rules.result != monomial.result => {
-            Err(QuantityError::RouteDisagreement {
-                registered: rules.result,
-                chain: monomial.result,
-            })
-        }
-        (Ok(rules), _) => Ok(rules),
-        (Err(refusal), Ok(Some((monomial, declared)))) => {
-            if declared || unmatched(&refusal) {
-                Ok(monomial)
-            } else {
-                Err(refusal)
-            }
-        }
-        (Err(refusal), Ok(None)) => Err(refusal),
-        (Err(refusal), Err(chain)) => Err(if unmatched(&refusal) { chain } else { refusal }),
-    }
-}
-
-/// The registered rules, node by node. Conversions any node needs are reported on the
-/// result, so a caller that refuses implicit conversions still refuses them.
-fn stepwise(
-    chain: &Chain<'_>,
-    registry: &QuantityRegistry,
-    checker: &dyn InvariantChecker,
-) -> Result<Inferred, QuantityError> {
-    let (request, left, right) = match chain {
-        Chain::Leaf(operand) => {
-            return Ok(built(
-                operand.quantity_type,
-                operand.indices.clone(),
-                BuiltInRule::Chain,
-            ));
-        }
-        Chain::Mul(left, right) => (OpRequest::Mul, stepwise(left, registry, checker)?, right),
-        Chain::Div(left, right) => (OpRequest::Div, stepwise(left, registry, checker)?, right),
-        Chain::Pow {
-            base,
-            exponent,
-            power,
-        } => {
-            let base = stepwise(base, registry, checker)?;
-            let mut result = infer_with_evidence(
-                &OpRequest::Pow {
-                    exponent: Exponent::Rational(*exponent),
-                },
-                &[
-                    Operand {
-                        quantity_type: base.result,
-                        indices: &base.indices,
-                    },
-                    *power,
-                ],
-                registry,
-                checker,
-            )?;
-            result.conversions.extend(base.conversions);
-            return Ok(result);
-        }
-    };
-    let right = stepwise(right, registry, checker)?;
-    let mut result = infer_with_evidence(
-        &request,
-        &[
-            Operand {
-                quantity_type: left.result,
-                indices: &left.indices,
-            },
-            Operand {
-                quantity_type: right.result,
-                indices: &right.indices,
-            },
-        ],
-        registry,
-        checker,
-    )?;
-    result.conversions.extend(left.conversions);
-    result.conversions.extend(right.conversions);
-    Ok(result)
-}
-
-fn leaves<'c, 'a>(
-    chain: &'c Chain<'a>,
-    exponent: Ratio,
-    out: &mut Vec<(&'c Operand<'a>, Ratio)>,
-) -> Result<(), QuantityError> {
-    match chain {
-        Chain::Leaf(operand) => out.push((operand, exponent)),
-        Chain::Mul(left, right) => {
-            leaves(left, exponent, out)?;
-            leaves(right, exponent, out)?;
-        }
-        Chain::Div(left, right) => {
-            leaves(left, exponent, out)?;
-            leaves(right, exponent.checked_mul(Ratio::new(-1, 1)?)?, out)?;
-        }
-        Chain::Pow {
-            base,
-            exponent: power,
-            ..
-        } => leaves(base, exponent.checked_mul(*power)?, out)?,
-    }
-    Ok(())
-}
-
-/// Chain resolution by canonical monomial (ADR-0124), and whether a declared derived
-/// kind decided it. `None` when the chain is not scalar or is one factor scaled by pure
-/// numbers. Eligible factors are differences, dimensionless factors and points without a
-/// datum (true-zero ratio points); the neutral scalar and count or indicator factors are
-/// pure numbers outside the monomial. A declared derived kind fixes the result's scale,
-/// datum and subject, and its basis when declared; otherwise every basis-carrying factor
-/// must agree. A monomial that is one additive base kind resolves to that kind's plain
-/// point type with the factors' common basis and subject. An empty monomial names no
-/// declared kind.
-fn resolve_chain(
-    chain: &Chain<'_>,
-    registry: &QuantityRegistry,
-) -> Result<Option<(Inferred, bool)>, QuantityError> {
-    let mut factors = Vec::new();
-    leaves(chain, Ratio::ONE, &mut factors)?;
-    if factors
-        .iter()
-        .any(|(operand, _)| !operand.indices.is_empty())
-    {
-        return Ok(None);
-    }
-    let mut types = Vec::with_capacity(factors.len());
-    for (operand, _) in &factors {
-        let ty = registry.quantity_type(operand.quantity_type)?;
-        let dimensionless = registry.kind(ty.key.kind)?.dimension.is_dimensionless();
-        if ty.key.scale_kind == ScaleKind::Point
-            && ty.key.reference_state.is_some()
-            && !dimensionless
-        {
-            return Err(QuantityError::ChainLeafIneligible { factor: ty.id });
-        }
-        types.push(ty);
-    }
-    let neutral = registry.neutral_dimensionless();
-    let mut measured = Vec::with_capacity(factors.len());
-    for ((operand, exponent), ty) in factors.iter().zip(&types) {
-        if Some(ty.id) != neutral && registry.discrete_category(operand.quantity_type)?.is_none() {
-            measured.push(((operand, *exponent), *ty));
-        }
-    }
-    if measured.is_empty()
-        || matches!(measured.as_slice(), [((_, exponent), _)] if *exponent == Ratio::ONE)
-    {
-        return Ok(None);
-    }
-    let mut monomial = std::collections::BTreeMap::<QuantityKindId, Ratio>::new();
-    for ((_, exponent), ty) in &measured {
-        for factor in registry.kind_monomial(ty.key.kind)? {
-            let slot = monomial.entry(factor.kind).or_insert(Ratio::ZERO);
-            *slot = slot.checked_add(factor.exponent.checked_mul(*exponent)?)?;
-        }
-    }
-    let monomial: Vec<_> = monomial
-        .into_iter()
-        .filter(|(_, exponent)| !exponent.is_zero())
-        .map(|(kind, exponent)| KindFactor { kind, exponent })
-        .collect();
-    let operands: Vec<_> = factors
-        .iter()
-        .map(|(operand, _)| (operand.quantity_type, operand.indices.clone()))
-        .collect();
-    let bases = || {
-        common(
-            types.iter().map(|ty| ty.key.basis),
-            IncompatibilityReason::BasisMismatch,
-            &operands,
-        )
-    };
-    let kind = registry
-        .kind_by_monomial(&monomial)
-        .ok_or(QuantityError::UndeclaredMonomial {
-            factors: monomial.clone(),
-        })?;
-    let declared = registry.kind(kind)?;
-    let key = if let Some(definition) = &declared.definition {
-        QuantityTypeKey {
-            kind,
-            basis: match definition.basis {
-                Some(basis) => Some(basis),
-                None => bases()?,
-            },
-            reference_state: definition.reference_state,
-            scale_kind: definition.scale_kind,
-            shape: vec![],
-            subject_kind: definition.subject_kind,
-        }
-    } else {
-        if declared.addition_kind == QuantityAdditionKind::OriginSensitive {
-            return Err(invariant(
-                "chain.origin_sensitive",
-                "a chain resolving to an origin-sensitive kind needs a declared derived kind for its scale and datum",
-            ));
-        }
-        QuantityTypeKey {
-            kind,
-            basis: bases()?,
-            reference_state: None,
-            scale_kind: ScaleKind::Point,
-            shape: vec![],
-            subject_kind: common(
-                types.iter().map(|ty| ty.key.subject_kind),
-                IncompatibilityReason::SubjectMismatch,
-                &operands,
-            )?,
-        }
-    };
-    let result = registry
-        .resolve_key(&key)
-        .map_err(|_| QuantityError::InferencePrecondition {
-            rule: "chain.result_type",
-            detail: format!(
-                "kind {kind} has no registered type with the chain's result components"
-            ),
-        })?;
-    Ok(Some((
-        built(result, IndexSet::new(), BuiltInRule::Chain),
-        declared.definition.is_some(),
-    )))
-}
-
-/// The one value every carrying factor has, or none when no factor carries one.
-fn common<T: Copy + Eq>(
-    values: impl Iterator<Item = Option<T>>,
-    reason: IncompatibilityReason,
-    operands: &[(QuantityTypeId, IndexSet)],
-) -> Result<Option<T>, QuantityError> {
-    let mut first = None;
-    for value in values.flatten() {
-        match first {
-            None => first = Some(value),
-            Some(seen) if seen != value => {
-                return Err(QuantityError::Incompatible {
-                    reason,
-                    operands: operands.to_vec(),
-                    hint: None,
-                });
-            }
-            Some(_) => {}
-        }
-    }
-    Ok(first)
-}

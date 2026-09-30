@@ -80,9 +80,14 @@ Derived in: pse-compiler.
 |---|---|---|
 | `MathArtifactV4` | `pse.math.artifact.v4` | A compiled mathematics artifact request. |
 | `MathLocalOccurrenceV2` | `pse.math.local-occurrence.v2` | A local expression occurrence. |
+| `MathResolvedAdmissionsV1` | `pse.math.resolved-admissions.v1` | Retained physical inference selections, operand conversions and numerical scales. |
+| `MathBodyV2` | `pse.math.body.v2` | A mathematical body including its retained physical admission product. |
 | `MathPhysicalInventoryV5` | `pse.math.physical-inventory.v5` | A physical inventory, including unit compositions and derived-kind definitions (ADR-0124), and the names and typed conditions its quantity types and reference states are addressed by (ADR-0123 Outcome 6). |
+| `MathPhysicalInventoryV6` | `pse.math.physical-inventory.v6` | Selected physical declaration inventory with explicit lengths for every nested collection, including unit factors and reduction domains (Plan 25a/I1). |
+| `ModelingPhysicalOperationV1` | `pse.modeling.physical-operation.v1` | Admitted owner-relative physical transformation specialized at an occurrence. |
 | `MathPhysicalPassV1` | `pse.math.physical-pass.v1` | A physical reduction pass. |
 | `MathTypedDefinitionV5` | `pse.math.typed-definition.v5` | A typed definition's admitted outputs; function validity predicates and the rejecting data-layer guards, each with its layer, the declaration stating it and its lineage (the parameter sets and arguments it reads), are framed in their canonical spelling, unit literals by their canonical products (ADR-0123 Outcomes 4 and 8, Plan 23 H5). |
+| `MathTypedDefinitionV6` | `pse.math.typed-definition.v6` | A typed definition including the retained resolved physical admissions. |
 | `CompilerModelingViewV2` | `pse.compiler.modeling-view.v2` | A prepared view of a compiled modeling structure. |
 | `CompilerModelingParametricV1` | `pse.compiler.modeling-parametric.v1` | The parametric projection of a prepared modeling view over requested parameters. |
 | `ModelingConsumerBodyV2` | `pse.modeling.consumer-body.v2` | A grouped consumer body, its expressions and validity ranges in canonical spelling (ADR-0123 Outcome 8). |
@@ -98,7 +103,9 @@ Derived in: pse-modeling.
 | `ModelingCoordinateV2` | `pse.modeling.coordinate.v2` | A coordinate, preserving compound-key identity; an enumeration member is framed by its identity, not its name (ADR-0123 Outcome 2). |
 | `ModelingDefiniteIntegralV2` | `pse.modeling.definite-integral.v2` | A definite integral, its integrand in canonical spelling (ADR-0123 Outcome 8). |
 | `ModelingDispatchBodyV2` | `pse.modeling.dispatch-body.v2` | A dispatch group body, its expressions and equations in canonical spelling (ADR-0123 Outcome 8). |
+| `ModelingDispatchBodyV3` | `pse.modeling.dispatch-body.v3` | Dispatch bodies retaining full physical contracts and nominal contextual roles. |
 | `ModelingFiniteFunctionV5` | `pse.modeling.finite-function.v5` | A finite function specialization, its validity, data-layer guards with their envelopes and selected policies, each with the parameter sets and arguments it reads, and body in canonical spelling, and its static arguments, enumeration members by identity (ADR-0123 Outcomes 2, 4 and 8, Plan 23 H5). |
+| `ModelingFiniteFunctionV6` | `pse.modeling.finite-function.v6` | Finite physical function with full anonymous contracts and contextual authority. |
 | `ModelingFiniteReductionV1` | `pse.modeling.finite-reduction.v1` | A finite reduction rewrite. |
 | `ModelingKeyedEntityV1` | `pse.modeling.keyed-entity.v1` | A keyed entity's identity: its key-declaring kind and its ordered, typed key values, defaults included. The concrete refinement is content, not identity (ADR-0123 Outcome 2). |
 | `ModelingMemberV1` | `pse.modeling.member.v1` | A specialized member. |

@@ -37,9 +37,6 @@
 @id("01a0e1971f9075519925981f0b0c0f89") fn liquid_h(T:Temperature,j:chemistry.species)->MolarEnthalpy=properties.component_enthalpy(bt_ideal_idaes,chemistry.liquid,j,T);
 @id("01a0e1971f90755199259820a9ad3ea5") fn vapor_h(T:Temperature,j:chemistry.species)->MolarEnthalpy=properties.component_enthalpy(bt_ideal_idaes,chemistry.vapor,j,T);
 @id("40f35b70edac42b583ad3cc6d4e71a79") fn component_enthalpy(T:Temperature,p:chemistry.phase,j:chemistry.species)->MolarEnthalpy=properties.component_enthalpy(bt_ideal_idaes,p,j,T);
-@id("9a68e86d125249f1a826ef9315df8ce9") constant oracle_enthalpy_zero:BtOracleEnthalpy=0{J/mol} provenance(references.idaes_bt_ideal,provenance.Role.oracle_input);
-@id("8d4893153bf5405e8de00f1cde984f01") constant oracle_enthalpy_increment_unit:BtOracleDeltaH=1{J/mol} provenance(references.idaes_bt_ideal,provenance.Role.oracle_input);
-@id("01a0e1a32b1f76e89afdfd96f63adbbd") fn reference_shift(j:chemistry.species)->Scalar=(caloric_reference[j].vapor_reference-oracle_enthalpy_zero)/oracle_enthalpy_increment_unit-(properties.enthalpy_increment(bt_ideal_idaes,chemistry.vapor,j, constants.standard_temperature, bt_ideal_oracle.temperature))/constants.enthalpy_increment_unit;
 @id("01a0e1a936d074a8ae57c32cb3c24bb8") interface BTIdealBinding extends equilibrium.EquilibriumThermoPackage {
 
 @id("01a0e1971f90755199259822137a64c1") override param components:Set<chemistry.species>=aromatics;
@@ -51,7 +48,7 @@
 @id("01a0e1971f907551992598283e0d21a6") override param bubble_start:Temperature=365{K};
 @id("01a0e1971f90755199259829b0731f92") override param dew_start:Temperature=370{K};
 @id("01a0e1a32b1f76e89afdfd979fe12f6f") var oracle_h:BtOracleEnthalpy;
-@id("01a0e1a32b1f76e89afdfd98b22af1dc") eq reference_binding:h==constants.standard_enthalpy_datum+constants.enthalpy_increment_unit*((oracle_h-oracle_enthalpy_zero)/oracle_enthalpy_increment_unit-sum(j in components | (z[j]/equilibrium.fraction_unit())*reference_shift(j)));
+@id("01a0e1a32b1f76e89afdfd98b22af1dc") eq reference_binding:h==oracle_to_stock(oracle_h,z,components);
 @id("01a0e1a32b1f76e89afdfd999db937ad") annotation start oracle_h(50000{J/mol});
 @id("01a0e1a32b1f76e89afdfd9a03533797") annotation nominal oracle_h(50000{J/mol});
 
@@ -175,4 +172,7 @@
 [bt_ideal_idaes,compatibility.PhaseType.liquidPhase,chem.toluene]=[bt_ideal_oracle,chemistry.vapor,-38100{J/mol},0{J/(mol*K)}];
 [bt_ideal_idaes,compatibility.PhaseType.vaporPhase,chem.toluene]=[stock,chemistry.vapor,0{J/mol},0{J/(mol*K)}];
 }
+@id("9908d12fa75040b6b8669b44051c0ce9") fn oracle_reference_anchor(T:Temperature,p:Pressure,j:chemistry.species)->BtOracleEnthalpy valid(T==bt_ideal_oracle.temperature and p==bt_ideal_oracle.pressure)=caloric_reference[j].vapor_reference;
+@id("9b2086cfdf494125aa3d0f4ce8738e9f") fn stock_reference_anchor(T:Temperature,p:Pressure,j:chemistry.species)->MolarEnthalpy valid(p==bt_ideal_oracle.pressure)=constants.standard_enthalpy_datum+properties.enthalpy_increment(bt_ideal_idaes,chemistry.vapor,j,constants.standard_temperature,T);
+@id("0c6f70e19d5b4e88a1c85c4a4f2fe4b1") reference translation oracle_to_stock(value:BtOracleEnthalpy,composition:MoleFraction[chemistry.species],members:Set<chemistry.species>)->MolarEnthalpy anchors(source=oracle_reference_anchor,target=stock_reference_anchor) at(temperature=bt_ideal_oracle.temperature,pressure=bt_ideal_oracle.pressure) provenance(references.idaes_bt_ideal,provenance.Role.oracle_input);
 }

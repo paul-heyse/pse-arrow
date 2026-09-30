@@ -214,16 +214,7 @@ impl DocumentInventory {
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Target {
     /// A quantity: magnitudes in the declared storage unit, converted once per column.
-    Quantity {
-        /// The column's quantity type.
-        quantity: pse_quantity::QuantityTypeId,
-        /// The declared storage unit.
-        storage: pse_quantity::UnitId,
-        /// The conversion's scale to the canonical unit, as bits.
-        scale: u64,
-        /// The conversion's offset to the canonical unit, as bits.
-        offset: u64,
-    },
+    Quantity(pse_quantity::CanonicalConversionPlan),
     /// An entity of `kind` or a refinement, by identity or by a value of `scheme`.
     Entity {
         /// Identity projection forms keys first; full admission validates the reference.
@@ -319,6 +310,7 @@ impl DocumentPlan {
                 + s.declared.capacity()
                 + s.default.as_ref().map_or(0, Value::retained_bytes)
                 + match &s.target {
+                    Target::Quantity(conversion) => conversion.heap_bytes(),
                     Target::Entity {
                         entities, scheme, ..
                     } => {
@@ -505,12 +497,13 @@ fn column(
         ))
     };
     if let Some(stated) = &column.unit {
-        let Target::Quantity { storage, .. } = &slot.target else {
+        let Target::Quantity(conversion) = &slot.target else {
             return Err(refuse(format!(
                 "the document states unit {stated}, but only a quantity column has one"
             )));
         };
-        let agrees = stated_unit(stated, quantities).is_some_and(|unit| unit == *storage);
+        let agrees = stated_unit(stated, quantities)
+            .is_some_and(|unit| unit == conversion.source_unit());
         if !agrees {
             return Err(refuse(format!(
                 "the document states unit {stated}, which disagrees with the declared storage unit; units come only from the declaration"
@@ -527,30 +520,22 @@ fn column(
         }
     };
     let values = match (&slot.target, &column.values) {
-        (
-            Target::Quantity {
-                quantity,
-                scale,
-                offset,
-                ..
-            },
-            Values::Magnitude(values),
-        ) => {
-            let (scale, offset) = (f64::from_bits(*scale), f64::from_bits(*offset));
+        (Target::Quantity(conversion), Values::Magnitude(values)) => {
             values
                 .iter()
                 .enumerate()
                 .map(|(row, v)| match v {
                     None => missing(row),
-                    Some(v) if v.is_finite() => Ok(Value::Number {
-                        bits: (v * scale + offset).to_bits(),
-                        quantity: *quantity,
-                    }),
-                    Some(v) => Err(refuse(format!("row {row} holds the nonfinite magnitude {v}"))),
+                    Some(v) => conversion.apply(*v)
+                        .map(|value| Value::Number {
+                            bits: value.bits(),
+                            quantity: value.quantity(),
+                        })
+                        .map_err(|error| refuse(format!("row {row}: {error}"))),
                 })
                 .collect::<Result<Vec<_>>>()?
         }
-        (Target::Quantity { .. }, _) => return Err(mismatch("Float64 magnitudes")),
+        (Target::Quantity(_), _) => return Err(mismatch("Float64 magnitudes")),
         (Target::Entity { entities, kind, deferred, .. }, Values::Identity(values)) => values
             .iter()
             .enumerate()

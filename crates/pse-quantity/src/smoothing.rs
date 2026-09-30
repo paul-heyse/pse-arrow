@@ -4,7 +4,7 @@
 //! Complete scalar tolerance contexts for existing smooth operators (blueprint §8.2).
 use crate::{
     Opcode, QuantityAdditionKind, QuantityError, QuantityRegistry, QuantityTypeId, ScaleKind,
-    UnitId, convert_spec_for_type, convert_value,
+    UnitId,
 };
 
 /// Resolve an actual declared scalar tolerance type from the first operand's complete key.
@@ -59,24 +59,17 @@ pub fn resolve_epsilon(
     unit: Option<UnitId>,
     registry: &QuantityRegistry,
 ) -> Result<f64, QuantityError> {
-    positive(opcode, eps)?;
-    let tolerance = registry.quantity_type(tolerance_type(opcode, operand, registry)?)?;
-    let converted = if let Some(unit) = unit {
-        let input = registry.quantity_type(operand)?;
-        let spec = convert_spec_for_type(
-            registry.unit(unit)?,
-            registry.unit(input.canonical_unit)?,
-            &tolerance.key,
-        )?;
-        convert_value(&spec, eps)
-    } else {
-        eps
-    };
+    let tolerance = tolerance_type(opcode, operand, registry)?;
+    let coordinate = registry.quantity_type(operand)?.canonical_unit;
+    let conversion = crate::unit::CheckedRepresentationPlan::registered(
+        registry, tolerance, unit.unwrap_or(coordinate), coordinate,
+    )?;
+    let converted = conversion.apply(eps)?;
     positive(opcode, converted)?;
     Ok(converted)
 }
 fn positive(opcode: Opcode, value: f64) -> Result<(), QuantityError> {
-    if !value.is_finite() || value <= 0.0 {
+    if value <= 0.0 {
         return Err(QuantityError::StaticDomain {
             opcode,
             restriction: "a finite positive smoothing tolerance",

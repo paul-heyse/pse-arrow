@@ -75,6 +75,7 @@ impl Language {
                 PathBuf::from("crates/pse-catalog/src/generated"),
                 PathBuf::from("crates/pse-runtime/src/generated"),
                 PathBuf::from("crates/pse-quantity/src/generated"),
+                PathBuf::from("crates/pse-columnar/src/generated"),
             ],
             Self::Python => vec![PathBuf::from("python/pse/contracts")],
             Self::Markdown => vec![PathBuf::from("docs/generated")],
@@ -147,6 +148,7 @@ mod tests {
                 PathBuf::from("crates/pse-catalog/src/generated"),
                 PathBuf::from("crates/pse-runtime/src/generated"),
                 PathBuf::from("crates/pse-quantity/src/generated"),
+                PathBuf::from("crates/pse-columnar/src/generated"),
             ]
         );
         assert_eq!(

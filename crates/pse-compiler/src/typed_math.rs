@@ -270,7 +270,7 @@ impl Request<'_> {
             self.limits,
         )?;
         let mut paths = BTreeMap::new();
-        let mut hash = FramedHasher::new(pse_ids::Frame::MathTypedDefinitionV5);
+        let mut hash = FramedHasher::new(pse_ids::Frame::MathTypedDefinitionV6);
         hash.u64(self.formals.len() as u64);
         for (slot, formal) in self.formals.iter().enumerate() {
             if paths.insert(formal.path.clone(), slot).is_some() {
@@ -305,15 +305,19 @@ impl Request<'_> {
             .iter()
             .enumerate()
             .map(|(i, expr)| {
-                lower.expression_expected(expr, &mut builder, 0, outputs.get(i).copied())
+                let value = lower.expression_expected(expr, &mut builder, 0, outputs.get(i).copied())?;
+                match outputs.get(i) { Some(expected) => builder.named_boundary(value, *expected), None => Ok(value) }
             })
             .collect::<Result<Vec<_>, _>>()?;
-        let quantities = values.iter().map(TypedValue::quantity).collect();
+        let quantities = values.iter().map(TypedValue::quantity).collect::<Result<Vec<_>, _>>()?;
+        builder.frame_admissions(&mut lower.hash);
+        let admissions = builder.admission_identity();
         let math = Arc::new(builder.prepare(&values)?);
         let spec = BodySpec {
             definition: lower.hash.finish_hash(),
             structure: self.structure,
             physical: self.physical,
+            admissions,
             providers: math
                 .providers()
                 .iter()
@@ -373,9 +377,9 @@ impl Lower<'_, '_> {
             .id(&range.source)
             .id(&range.target);
         let lower =
-            self.expression_expected(&range.lower, builder, depth + 1, Some(value.quantity()))?;
+            self.expression_expected(&range.lower, builder, depth + 1, Some(value.quantity()?))?;
         let upper =
-            self.expression_expected(&range.upper, builder, depth + 1, Some(value.quantity()))?;
+            self.expression_expected(&range.upper, builder, depth + 1, Some(value.quantity()?))?;
         self.validating.pop();
         builder.within_range(
             value,
@@ -568,7 +572,7 @@ impl Lower<'_, '_> {
                     rhs,
                     builder,
                     depth + 1,
-                    additive.then_some(left.quantity()),
+                    if additive { left.physical_contract().named_id() } else { None },
                 )?;
                 let exponent = if *op == BinaryOp::Pow {
                     literal_exponent(rhs)
@@ -683,7 +687,6 @@ impl Lower<'_, '_> {
         depth: usize,
         source: SemanticId,
     ) -> Result<TypedValue, MathError> {
-        use pse_modeling::Type;
         use pse_quantity::scheme::Substitution;
         let f =
             self.functions.get(name).cloned().ok_or_else(|| {
@@ -700,23 +703,19 @@ impl Lower<'_, '_> {
         let mut substitutions = Substitution::new();
         let mut arguments = Vec::new();
         for (expr, (_, ty)) in args.iter().zip(&f.arguments) {
-            let Type::Quantity(scheme) = ty else {
+            let Some(scheme) = ty.quantity_scheme() else {
                 return Err(MathError::Contract(
                     "runtime function argument requires a scalar physical type".into(),
                 ));
             };
-            let expected = scheme
-                .resolve_with_evidence(self.registry, &substitutions, self.checker)
-                .ok();
-            let value = self.expression_expected(expr, builder, depth, expected)?;
-            scheme
-                .bind_with_evidence(
-                    value.quantity(),
-                    self.registry,
-                    &mut substitutions,
-                    self.checker,
-                )
-                .map_err(|e| MathError::Contract(e.to_string()))?;
+            let expected = if scheme.is_bound(&substitutions) {
+                Some(scheme.resolve_contract_with_evidence(self.registry, &substitutions, self.checker)
+                    .map_err(|error| MathError::Contract(error.to_string()))?)
+            } else { None };
+            let value = self.expression_expected(expr, builder, depth, expected.as_ref().and_then(|contract| contract.named_id()))?;
+            let value = if let Some(expected) = &expected { builder.contract_boundary(value, expected)? } else { value };
+            scheme.bind_contract_with_evidence(value.physical_contract(), self.registry, &mut substitutions, self.checker)
+                .map_err(|error| MathError::Contract(error.to_string()))?;
             // A specialized finite reduction is an operation, not a source
             // function argument boundary. Keep its terms in the surrounding
             // symbolic graph unless an explicit partial needs independent slots.
@@ -727,6 +726,20 @@ impl Lower<'_, '_> {
             } else {
                 builder.bind(value)?
             });
+        }
+        if let Some(operation) = &f.physical_operation {
+            operation.frame(&mut self.hash);
+            let body_arguments = operation.body_arguments(&f.arguments);
+            for ((value, (_, original)), (_, consumed)) in arguments.iter_mut().zip(&f.arguments).zip(body_arguments) {
+                if original != &consumed {
+                    let target = consumed.quantity_scheme().ok_or_else(|| MathError::Contract("physical operation argument payload must be numerical".into()))?
+                        .resolve_with_evidence(self.registry, &substitutions, self.checker).map_err(|error| MathError::Contract(error.to_string()))?;
+                    let mut identity = FramedHasher::new(pse_ids::Frame::ModelingPhysicalOperationV1);
+                    identity.id(&f.id.as_id()); operation.frame(&mut identity);
+                    let authorization = pse_quantity::AdmittedOutputBoundary::declared(identity.finish_id(), value.physical_contract().clone(), target, self.registry)?;
+                    *value = builder.authorized_boundary(value.clone(), &authorization)?;
+                }
+            }
         }
         if let Some(reduction) = &f.reduction
             && wrt.is_empty()
@@ -739,7 +752,7 @@ impl Lower<'_, '_> {
                 &arguments,
                 source,
             )?;
-            let Type::Quantity(result) = &f.result else {
+            let Some(result) = f.result.quantity_scheme() else {
                 return Err(MathError::Contract(
                     "finite reduction result must be physical".into(),
                 ));
@@ -747,12 +760,7 @@ impl Lower<'_, '_> {
             let expected = result
                 .resolve_with_evidence(self.registry, &substitutions, self.checker)
                 .map_err(|e| MathError::Contract(e.to_string()))?;
-            if value.quantity() != expected {
-                return Err(MathError::Contract(
-                    "finite reduction physical result differs".into(),
-                ));
-            }
-            return Ok(value);
+            return builder.named_boundary(value, expected);
         }
         // ADR-0123 Outcome 4: the form layer's domain and each rejecting data-layer guard are
         // domain predicates, each attributed to its own source: the function, or the
@@ -910,7 +918,7 @@ impl Lower<'_, '_> {
             let value = outputs.get(output).cloned().ok_or_else(|| {
                 MathError::Contract("external output ordinal outside registration".into())
             })?;
-            let Type::Quantity(result) = &f.result else {
+            let Some(result) = f.result.quantity_scheme() else {
                 return Err(MathError::Contract(
                     "external selected cell must have a scalar physical type".into(),
                 ));
@@ -920,18 +928,14 @@ impl Lower<'_, '_> {
                 result = pse_quantity::scheme::Scheme::Quotient(
                     Box::new(pse_quantity::scheme::Scheme::Delta(Box::new(result))),
                     Box::new(pse_quantity::scheme::Scheme::Delta(Box::new(
-                        pse_quantity::scheme::Scheme::Concrete(arguments[*i].quantity()),
+                        pse_quantity::scheme::Scheme::Concrete(arguments[*i].quantity()?),
                     ))),
                 );
             }
             let expected = result
                 .resolve_with_evidence(self.registry, &substitutions, self.checker)
                 .map_err(|e| MathError::Contract(e.to_string()))?;
-            if value.quantity() != expected {
-                return Err(MathError::Contract(
-                    "external output physical contract differs".into(),
-                ));
-            }
+            let value = builder.named_boundary(value, expected)?;
             self.hash
                 .str("external-function")
                 .hash(&spec.identity())
@@ -959,14 +963,22 @@ impl Lower<'_, '_> {
             .str("package-function")
             .id(&f.id.as_id())
             .u64(wrt.len() as u64);
-        let Type::Quantity(result) = &f.result else {
+        let Some(result) = f.result.quantity_scheme() else {
             return Err(MathError::Contract(
                 "runtime function result requires a scalar physical type".into(),
             ));
         };
-        let expected = result
-            .resolve_with_evidence(self.registry, &substitutions, self.checker)
-            .map_err(|e| MathError::Contract(e.to_string()))?;
+        let expected = result.resolve_contract_with_evidence(self.registry, &substitutions, self.checker)
+            .map_err(|error| MathError::Contract(error.to_string()))?;
+        let prior_formula = builder.physical_formula_scope(match &f.physical_operation {
+            Some(pse_modeling::PhysicalOperation::Response { potential: Some(potential), .. }) => {
+                let mut identity = FramedHasher::new(pse_ids::Frame::ModelingPhysicalOperationV1);
+                identity.id(&f.id.as_id()).id(&potential.as_id());
+                Some(pse_quantity::PhysicalFormulaAuthority::response(identity.finish_id()))
+            }
+            Some(pse_modeling::PhysicalOperation::Response { potential: None, .. }) => return Err(MathError::Contract("response formula requires its actual reconstructed potential witness".into())),
+            _ => None,
+        });
         let value = if let Some(reduction) = &f.reduction {
             self.hash
                 .str("finite-reduction")
@@ -988,8 +1000,9 @@ impl Lower<'_, '_> {
                 .body
                 .as_ref()
                 .ok_or_else(|| MathError::Contract("function has no selected body".into()))?;
-            self.expression_expected(body, builder, depth, Some(expected))
+            self.expression_expected(body, builder, depth, if f.physical_operation.is_some() { None } else { expected.named_id() })
         };
+        builder.physical_formula_scope(prior_formula);
         self.locals = saved;
         self.calls.pop();
         let mut value = value?;
@@ -1003,10 +1016,12 @@ impl Lower<'_, '_> {
             self.hash.str("verified-piecewise").u64(order as u64);
             builder.verify_piecewise(scope, &arguments, order)?;
         }
-        if value.quantity() != expected {
-            return Err(MathError::Contract(
-                "function body differs from instantiated physical result".into(),
-            ));
+        if let Some(operation) = &f.physical_operation {
+            let authorization = operation.admit_numeric_result(value.physical_contract(), &f.result, self.registry, self.checker, f.id)
+                .map_err(|error| MathError::Contract(error.to_string()))?;
+            value = builder.authorized_boundary(value, &authorization)?;
+        } else {
+            value = builder.contract_boundary(value, &expected)?;
         }
         if !wrt.is_empty() {
             let variables = wrt
@@ -1409,7 +1424,7 @@ impl Lower<'_, '_> {
         };
         self.hash.str(op.as_str());
         let left = self.expression(lhs, builder, depth + 1)?;
-        let right = self.expression_expected(rhs, builder, depth + 1, Some(left.quantity()))?;
+        let right = self.expression_expected(rhs, builder, depth + 1, Some(left.quantity()?))?;
         match op {
             CompareOp::Eq => builder.compare(Comparison::Eq, &left, &right, source),
             CompareOp::NotEq => builder.compare(Comparison::Ne, &left, &right, source),
@@ -1557,7 +1572,7 @@ mod tests {
             .unwrap_err()
             .to_string();
         assert!(
-            error.contains("no declared quantity kind has the monomial"),
+            error.contains("anonymous intermediate requires an admitted named result boundary"),
             "{error}"
         );
     }

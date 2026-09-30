@@ -10,7 +10,7 @@
 @id("fb3524e88c784b649eb2ec69c8759454") use math @"1.0.0";
 @id("5ae4821f97574d13a6ccf312208799be") use distributed_volumes @"1.0.0";
 @id("3c3cac1f8d9f48d89043c3665983f067") fn amount_unit()->TotalAmount=1{mol};
-@id("dc2feadd3d654595974ade2ced45cc87") def HomogeneousInventory(selected:Set<chemistry.species>,law:Fn(t:Scalar,r:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>)->Scalar,ideal_h:Fn(T:Temperature,j:chemistry.species)->DeltaH,composition:Fn(j:chemistry.species)->Scalar,V:Volume=0.1{m^3}) {
+@id("dc2feadd3d654595974ade2ced45cc87") def HomogeneousInventory(selected:Set<chemistry.species>,law:Fn(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy,ideal_h:Fn(T:Temperature,j:chemistry.species)->DeltaH,composition:Fn(j:chemistry.species)->Scalar,V:Volume=0.1{m^3}) {
 @id("1f30d2fff1dc4bcaa50eec59dc02c1bb") param components:Set<chemistry.species>=selected;
 @id("6ff9152d6ade4e98af547589b315da58") param volume:Volume=V;
 @id("c2430aba81344a0fa7af49930b3fb097") var amount:TotalAmount;
@@ -41,7 +41,7 @@
 @id("aa384bd8d0df470e949ddf0c13d747ca") annotation report pressure("vessel pressure");
 @id("bec538d266344adc9f042bfb541208ec") annotation report phase.T("vessel temperature");
 }
-@id("1349887846a543049eaab457f8887a99") def Vessel(selected:Set<chemistry.species>,law:Fn(t:Scalar,r:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>)->Scalar,ideal_h:Fn(T:Temperature,j:chemistry.species)->DeltaH,composition:Fn(j:chemistry.species)->Scalar,horizon:Time=1{s},valve:Boolean=false,V:Volume=0.1{m^3},time_elements:Integer=1) {
+@id("1349887846a543049eaab457f8887a99") def Vessel(selected:Set<chemistry.species>,law:Fn(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy,ideal_h:Fn(T:Temperature,j:chemistry.species)->DeltaH,composition:Fn(j:chemistry.species)->Scalar,horizon:Time=1{s},valve:Boolean=false,V:Volume=0.1{m^3},time_elements:Integer=1) {
 @id("334a0cce8ef14f08873530eeb1dbc60a") require analysis.dynamic : "vessel trajectories require dynamic analysis";
 @id("7ed9cf5934764a4f849fc109e2bdb5c8") domain t:Time from 0{s} to horizon;
 @id("886e5d17145c43c0becb9b2a687a9482") when analysis.route==analysis.integrated {
@@ -53,7 +53,7 @@
 @id("3f47b13098404e3db286154a882fe81d") param inflow:Flow=0{mol/s};
 @id("0892fc73c7934961bb0166971e04d941") param prescribed_outflow:Flow=0{mol/s};
 @id("b4e504ab53444d048e3cc048d9e33e3b") param inlet_enthalpy:MolarEnthalpy=3240.889128548147{J/mol};
-@id("75c6a54e69ed4be2bb838f6b21fc7cf8") param heat:Power=10{W};
+@id("75c6a54e69ed4be2bb838f6b21fc7cf8") param heat:EnergyTransferRate=10{W};
 @id("1f4b44802a754c78aebedb0e387f7acd") param initial_amount:TotalAmount=3.456556634933607{mol};
 @id("ad13064cb9364c688fe1b76c8cd74ded") param initial_energy:Energy=1202.3168203660216{J};
 @id("8f55f3fa4e394d078b4f900cb82a4c1b") param downstream:Pressure=50000{Pa};
@@ -62,7 +62,11 @@
 @id("b5caf7376b79437abe0d5560684be36d") child cell[i in t]:HomogeneousInventory=HomogeneousInventory(selected=selected,law=law,ideal_h=ideal_h,composition=composition,V=V);
 @id("a15aaedd439f4aeb92830221be9b337a") let outflow[i in t]:Flow=if valve then reference_flow*math.valve_characteristic((cell[i].pressure-downstream)/pressure_width) else prescribed_outflow;
 @id("b395a4932acf491ca597c851f0afef1f") let amount_rate[i in t]:Flow=inflow-outflow[i];
-@id("543eb78f112a4152befe96da45dc70a7") let energy_rate[i in t]:Power=inflow*inlet_enthalpy-outflow[i]*cell[i].enthalpy+heat;
+@id("543eb78f112a4152befe96da45dc70a7") boundary energy_boundary[i in t];
+@id("fc4dff8aacdb47bd9cc0ad4cea69849c") accumulate energy_rate[i in t]:Power boundary energy_boundary[i] accounting tolerance 0.001{W};
+@id("260992401567437bbd66e7e4350be75b") contribute [i in t] energy_rate[i] role inflow=inflow*inlet_enthalpy;
+@id("f0018b8d97bb4f1dafe5dc14ae8a2007") contribute [i in t] energy_rate[i] role outflow=outflow[i]*cell[i].enthalpy;
+@id("2213bec65dca412396186f0103b9483a") contribute [i in t] energy_rate[i] role directed=transfer(heat,energy_boundary[i],Into);
 @id("88d8f985c7be49988c7612fd0ac051df") eq amount_balance[i in t]:d(cell[i].amount)/di==amount_rate[i];
 @id("1d549832b88f490b8be2c494c7448cad") eq energy_balance[i in t]:d(cell[i].energy)/di==energy_rate[i];
 @id("b940f28b773b4a2d9a8cc69d711ec871") eq amount_initial:cell[0{s}].amount==initial_amount;

@@ -4,10 +4,7 @@
 //! Exact unit inventory reconciliation is a native relational computation.
 
 use super::{PhysicalError, invalid};
-use datafusion::{
-    functions_aggregate::expr_fn::{count, count_distinct},
-    logical_expr::{Expr, LogicalPlan, LogicalPlanBuilder, col, lit},
-};
+use datafusion::logical_expr::{LogicalPlanBuilder, col};
 use pse_columnar::CancellationToken;
 use pse_engine::session::{EngineSession, output::declare_relation_output};
 use pse_ids::SemanticId;
@@ -15,126 +12,37 @@ use pse_relations::columnar::FieldCheckedBatch;
 use pse_schema::{Registry, model::RelationKey};
 use std::collections::BTreeMap;
 
-#[expect(
-    clippy::too_many_lines,
-    reason = "units keeps the native relation inputs and dependency ordered assembly visible in one place"
-)]
+/// Execute shared reconciliation against the selected runtime sources.
 pub(super) async fn units(
     session: &EngineSession,
     registry: &Registry,
     batches: &mut BTreeMap<RelationKey, FieldCheckedBatch>,
     cancel: &CancellationToken,
 ) -> Result<(), PhysicalError> {
-    let Some(normalized) = registry
-        .relation("normalized.units")
-        .filter(|spec| batches.contains_key(&spec.key))
-    else {
-        return Ok(());
-    };
-    let reference = registry
-        .relation("reference.units")
-        .ok_or_else(|| invalid("normalized units have no authoritative physical declaration"))?;
-    let project = |key: &RelationKey| -> Result<LogicalPlan, PhysicalError> {
-        let scan = LogicalPlanBuilder::scan(
-            session.table_reference(key)?,
-            session.table_source(key)?,
-            None,
-        )
-        .map_err(engine)?
-        .project(reference.columns.iter().map(|column| col(column.name())))
-        .map_err(engine)?
-        .build()
-        .map_err(engine)?;
-        declare_relation_output(scan, registry, reference).map_err(engine)
-    };
-    let mut inputs = vec![project(&normalized.key)?];
-    if batches.contains_key(&reference.key) {
-        inputs.push(project(&reference.key)?);
+    let mut inputs = pse_relations::validate::obligations::RelationInputs::new();
+    for name in ["reference.units", "normalized.units"] {
+        if let Some(spec) = registry.relation(name).filter(|spec| batches.contains_key(&spec.key)) {
+            let plan = LogicalPlanBuilder::scan(
+                session.table_reference(&spec.key)?, session.table_source(&spec.key)?, None,
+            ).and_then(LogicalPlanBuilder::build).map_err(engine)?;
+            inputs.insert(spec.id, plan);
+        }
     }
-    let mut failures = Vec::new();
-    for input in &inputs {
-        failures.push(
-            LogicalPlanBuilder::from(input.clone())
-                .aggregate([col("unit_id")], [count(lit(1_i64)).alias("__count")])
-                .map_err(engine)?
-                .filter(col("__count").gt(lit(1_i64)))
-                .map_err(engine)?
-                .project([col("unit_id")])
-                .map_err(engine)?
-                .build()
-                .map_err(engine)?,
-        );
-    }
-    let mut input = inputs.remove(0);
-    for next in inputs {
-        input = LogicalPlanBuilder::from(input)
-            .union(next)
-            .map_err(engine)?
-            .build()
-            .map_err(engine)?;
-    }
-    let definitions = pse_relations::identity::key(
-        reference.id,
-        reference
-            .columns
-            .iter()
-            .map(|column| {
-                (
-                    column.name(),
-                    Expr::Column(datafusion::common::Column::from_name(column.name())),
-                )
-            })
-            .collect(),
-    );
-    let conflict = LogicalPlanBuilder::from(input.clone())
-        .project([col("unit_id"), definitions.alias("__definition")])
-        .map_err(engine)?
-        .aggregate(
-            [col("unit_id")],
-            [count_distinct(col("__definition")).alias("__count")],
-        )
-        .map_err(engine)?
-        .filter(col("__count").gt(lit(1_i64)))
-        .map_err(engine)?
-        .project([col("unit_id")])
-        .map_err(engine)?
-        .build()
-        .map_err(engine)?;
-    let mut conflict = conflict;
-    for failure in failures {
-        conflict = LogicalPlanBuilder::from(conflict)
-            .union(failure)
-            .map_err(engine)?
-            .build()
-            .map_err(engine)?;
-    }
-    let conflicts = session
-        .prepare_rule_plan(conflict, cancel)?
-        .execute(cancel)
-        .await?;
-    if let Some(batch) = conflicts
-        .batches()
-        .iter()
-        .find(|batch| batch.num_rows() != 0)
-    {
+    let Some(plans) = pse_relations::physical::reconcile_units(&inputs, registry).map_err(engine)?
+        else { return Ok(()); };
+    let conflicts = session.prepare_rule_plan(plans.conflicts, cancel)?
+        .execute(cancel).await?;
+    if let Some(batch) = conflicts.batches().iter().find(|batch| batch.num_rows() != 0) {
         return Err(pse_quantity::QuantityError::Registry {
             rule: "unit_inventory.complete_definition",
             subject: identity(batch, 0, 0)?,
-            detail: "native unit inventory found duplicate source keys or incompatible exact definitions".to_owned(),
+            detail: "native unit inventory found duplicate source keys or incompatible exact definitions".into(),
         }.into());
     }
-    let plan = LogicalPlanBuilder::from(input)
-        .distinct()
-        .map_err(engine)?
-        .sort([col("unit_id").sort(true, false)])
-        .map_err(engine)?
-        .build()
-        .map_err(engine)?;
-    let plan = declare_relation_output(plan, registry, reference).map_err(engine)?;
-    let complete = session
-        .prepare_rule_plan(plan, cancel)?
-        .execute(cancel)
-        .await?
+    let reference = registry.relation("reference.units")
+        .ok_or_else(|| invalid("physical unit declaration disappeared"))?;
+    let plan = declare_relation_output(plans.merged, registry, reference).map_err(engine)?;
+    let complete = session.prepare_rule_plan(plan, cancel)?.execute(cancel).await?
         .into_checked_relation(registry, reference, cancel)?;
     batches.insert(reference.key, complete);
     Ok(())

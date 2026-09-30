@@ -194,10 +194,19 @@ frames! {
         MathArtifactV4 => "pse.math.artifact.v4",
         /// A local expression occurrence.
         MathLocalOccurrenceV2 => "pse.math.local-occurrence.v2",
+        /// Retained physical inference selections, operand conversions and numerical scales.
+        MathResolvedAdmissionsV1 => "pse.math.resolved-admissions.v1",
+        /// A mathematical body including its retained physical admission product.
+        MathBodyV2 => "pse.math.body.v2",
         /// A physical inventory, including unit compositions and derived-kind definitions
         /// (ADR-0124), and the names and typed conditions its quantity types and reference
         /// states are addressed by (ADR-0123 Outcome 6).
         MathPhysicalInventoryV5 => "pse.math.physical-inventory.v5",
+        /// Selected physical declaration inventory with explicit lengths for every
+        /// nested collection, including unit factors and reduction domains (Plan 25a/I1).
+        MathPhysicalInventoryV6 => "pse.math.physical-inventory.v6",
+        /// Admitted owner-relative physical transformation specialized at an occurrence.
+        ModelingPhysicalOperationV1 => "pse.modeling.physical-operation.v1",
         /// A physical reduction pass.
         MathPhysicalPassV1 => "pse.math.physical-pass.v1",
         /// A typed definition's admitted outputs; function validity predicates and the
@@ -206,6 +215,8 @@ frames! {
         /// canonical spelling, unit literals by their canonical products (ADR-0123 Outcomes 4
         /// and 8, Plan 23 H5).
         MathTypedDefinitionV5 => "pse.math.typed-definition.v5",
+        /// A typed definition including the retained resolved physical admissions.
+        MathTypedDefinitionV6 => "pse.math.typed-definition.v6",
         /// A prepared view of a compiled modeling structure.
         CompilerModelingViewV2 => "pse.compiler.modeling-view.v2",
         /// The parametric projection of a prepared modeling view over requested parameters.
@@ -230,11 +241,15 @@ frames! {
         /// A dispatch group body, its expressions and equations in canonical spelling
         /// (ADR-0123 Outcome 8).
         ModelingDispatchBodyV2 => "pse.modeling.dispatch-body.v2",
+        /// Dispatch bodies retaining full physical contracts and nominal contextual roles.
+        ModelingDispatchBodyV3 => "pse.modeling.dispatch-body.v3",
         /// A finite function specialization, its validity, data-layer guards with their
         /// envelopes and selected policies, each with the parameter sets and arguments it
         /// reads, and body in canonical spelling, and its static arguments, enumeration
         /// members by identity (ADR-0123 Outcomes 2, 4 and 8, Plan 23 H5).
         ModelingFiniteFunctionV5 => "pse.modeling.finite-function.v5",
+        /// Finite physical function with full anonymous contracts and contextual authority.
+        ModelingFiniteFunctionV6 => "pse.modeling.finite-function.v6",
         /// A finite reduction rewrite.
         ModelingFiniteReductionV1 => "pse.modeling.finite-reduction.v1",
         /// A keyed entity's identity: its key-declaring kind and its ordered, typed key

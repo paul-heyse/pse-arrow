@@ -73,9 +73,9 @@ Version: 4. Snapshot class: `case`. Primary key: `fit_id`.
 
 ## `modeling_declarations`
 
-Generic modeling declaration. Exactly one tagged payload is present; parent references preserve lexical ownership. Expressions use the shared DSL, not another numerical IR. Version two adds the declared domain of a variable binding (ADR-0103); every other binding carries none. Version three adds indicator conditions, ordered sets, cardinality, piecewise-linear, logic and disjunction declarations and their realization arguments (ADR-0104). Version four adds a fixture's declared solve intent (ADR-0119). Version five adds the typed members of an objective annotation: sense, priority, weight, normalization and its level's absolute and relative degradation tolerances (ADR-0111); complementarity declarations; and a realization's smoothing function (ADR-0104). Version six adds an integration fixture's scheduled inputs: each schedule's target, change times and one value per interval; a fixture's same-layout modes, each with the facts that select it and its events: guard, crossing direction, tolerance, resets and successor mode (ADR-0119); and a shooting fixture's controls, schedules held free within optional bounds, with its shooting method and inner nodes (ADR-0110). Version seven adds a fixture's execution policy: an explicit backend, presolve auto or off, derivative inspection step, tolerance and cells, and specialization item, body-occurrence and body-slot allowances, each replacing the run's for that fixture only (ADR-0119). Version eight adds the policy's foreign-library allowance in bytes, which the fixture's solves reserve and a native library that enforces its own memory limit receives, in place of the deployment's (ADR-0119). Version nine is structured (ADR-0123 Outcome 1): every type is a post-order type arena whose children precede their parent and whose last node is the root; table absence, annotation kinds and fact namespaces are registry enums, a validity annotation carries its typed extrapolation policy, a scaling annotation its scheme and a connectivity annotation its typed maxima; an import carries its typed version requirement (Outcome 7). Version ten makes entities typed records (ADR-0123 Outcome 2): data cells are typed tagged values (boolean, integer, quantity as magnitude and unit product, text, identifier, reference, references or missing, each with an optional uncertainty), parsed once and never expressions; entity attribute values, attribute defaults, kind-level bindings of inherited attributes, dataset rows and typed constants are cells; an attribute declares whether it is a key; a dataset names its target table or keyed kind and binds the keys it supplies for every row; enumeration members carry identities; and identifier schemes are declared. Version eleven gives relations constraints (ADR-0123 Outcome 3): a table key may declare an inclusive integer range; a column may be derived by an expression evaluated once per row; the default of the default policy is a typed cell; a required table declares its completeness, one entry per key over a declared set, an enumeration or an integer range, or open for datasets to claim; a symmetric key pair declares its diagonal policy; uniqueness constraints name keys and supplied columns; row requirements are predicates; a dataset may claim completeness over declared sets for its table's open keys; and a cell may reference a keyed row or a table row by its target and key cells. Version twelve types provenance (ADR-0123 Outcome 5): every dataset and constant names its source entity, its role and its lineage by path, in place of a source text; an entity kind declares its facets, and an entity is a source exactly when its kind or an ancestor kind carries the provenance facet; an enumeration member declares the data facets the kernel acts on when it is named as a role, test-only or requiring lineage; a lineage entry names a dataset or a source; and a test names the source entity of its expected values as its oracle, in place of a reference and revision text. Version thirteen types validity envelopes (ADR-0123 Outcome 4): a table declares its envelopes, each an axis with its quantity type bounded by two typed columns, and an entity kind declares an envelope declaration bounded by two of its attributes, in place of bounds read from columns named minimum and maximum; data declares no extrapolation policy; a function declares which of its arguments, or which integration interval, each envelope of a row or entity argument guards; and a definition, test or case selects the extrapolation policy of the data layer for its instances. Version fourteen completes entity kinds (Plan 23 D0): an attribute may be unique, its values distinct across every entity of its kind and its refinements, and may be derived by an expression admission evaluates once per entity with the entity and its attributes bound, in place of a supplied value; a requirement declared in an entity kind is a predicate every entity of the kind satisfies. Version fifteen types a fixture's expected failure (Plan 23 H5): its boundary class and its lineage, in place of a rule text. A rejected validity predicate names its layer: a form or data layer predicate names its form by path, the parameter sets bounding it as static expressions and the form's arguments it constrains by name; a closure range names no form and no set, and its variables are the member paths it bounds. A structural refusal or a diagnostic finding names the members it concerns by path. Exactly one lineage is present. Version sixteen admits package data documents (ADR-0125): a dataset may name the data document supplying its rows by its path within the package, in place of inline rows; a table declares, for a key, a supplied column or its value by name, the storage unit a data document states its magnitudes in, the only statement of a stored unit, and the identifier scheme by which a data document names a referenced entity. Version seventeen adds numerical diagnostics expectations (Plan 23 CT-S13): each names a diagnostics rule and the member paths its findings at the fixture's solved point must name, under the run's diagnostic thresholds. Version eighteen adds entity/attribute origins, abstract entity kinds and attribute storage (ADR-0130). Version nineteen adds analysis-owned temporal child composition (ADR-0132) and measured/requires_fit role facets with fit lineage (ADR-0133).
+Generic modeling declaration. Exactly one tagged payload is present; parent references preserve lexical ownership. Expressions use the shared DSL, not another numerical IR. Version two adds the declared domain of a variable binding (ADR-0103); every other binding carries none. Version three adds indicator conditions, ordered sets, cardinality, piecewise-linear, logic and disjunction declarations and their realization arguments (ADR-0104). Version four adds a fixture's declared solve intent (ADR-0119). Version five adds the typed members of an objective annotation: sense, priority, weight, normalization and its level's absolute and relative degradation tolerances (ADR-0111); complementarity declarations; and a realization's smoothing function (ADR-0104). Version six adds an integration fixture's scheduled inputs: each schedule's target, change times and one value per interval; a fixture's same-layout modes, each with the facts that select it and its events: guard, crossing direction, tolerance, resets and successor mode (ADR-0119); and a shooting fixture's controls, schedules held free within optional bounds, with its shooting method and inner nodes (ADR-0110). Version seven adds a fixture's execution policy: an explicit backend, presolve auto or off, derivative inspection step, tolerance and cells, and specialization item, body-occurrence and body-slot allowances, each replacing the run's for that fixture only (ADR-0119). Version eight adds the policy's foreign-library allowance in bytes, which the fixture's solves reserve and a native library that enforces its own memory limit receives, in place of the deployment's (ADR-0119). Version nine is structured (ADR-0123 Outcome 1): every type is a post-order type arena whose children precede their parent and whose last node is the root; table absence, annotation kinds and fact namespaces are registry enums, a validity annotation carries its typed extrapolation policy, a scaling annotation its scheme and a connectivity annotation its typed maxima; an import carries its typed version requirement (Outcome 7). Version ten makes entities typed records (ADR-0123 Outcome 2): data cells are typed tagged values (boolean, integer, quantity as magnitude and unit product, text, identifier, reference, references or missing, each with an optional uncertainty), parsed once and never expressions; entity attribute values, attribute defaults, kind-level bindings of inherited attributes, dataset rows and typed constants are cells; an attribute declares whether it is a key; a dataset names its target table or keyed kind and binds the keys it supplies for every row; enumeration members carry identities; and identifier schemes are declared. Version eleven gives relations constraints (ADR-0123 Outcome 3): a table key may declare an inclusive integer range; a column may be derived by an expression evaluated once per row; the default of the default policy is a typed cell; a required table declares its completeness, one entry per key over a declared set, an enumeration or an integer range, or open for datasets to claim; a symmetric key pair declares its diagonal policy; uniqueness constraints name keys and supplied columns; row requirements are predicates; a dataset may claim completeness over declared sets for its table's open keys; and a cell may reference a keyed row or a table row by its target and key cells. Version twelve types provenance (ADR-0123 Outcome 5): every dataset and constant names its source entity, its role and its lineage by path, in place of a source text; an entity kind declares its facets, and an entity is a source exactly when its kind or an ancestor kind carries the provenance facet; an enumeration member declares the data facets the kernel acts on when it is named as a role, test-only or requiring lineage; a lineage entry names a dataset or a source; and a test names the source entity of its expected values as its oracle, in place of a reference and revision text. Version thirteen types validity envelopes (ADR-0123 Outcome 4): a table declares its envelopes, each an axis with its quantity type bounded by two typed columns, and an entity kind declares an envelope declaration bounded by two of its attributes, in place of bounds read from columns named minimum and maximum; data declares no extrapolation policy; a function declares which of its arguments, or which integration interval, each envelope of a row or entity argument guards; and a definition, test or case selects the extrapolation policy of the data layer for its instances. Version fourteen completes entity kinds (Plan 23 D0): an attribute may be unique, its values distinct across every entity of its kind and its refinements, and may be derived by an expression admission evaluates once per entity with the entity and its attributes bound, in place of a supplied value; a requirement declared in an entity kind is a predicate every entity of the kind satisfies. Version fifteen types a fixture's expected failure (Plan 23 H5): its boundary class and its lineage, in place of a rule text. A rejected validity predicate names its layer: a form or data layer predicate names its form by path, the parameter sets bounding it as static expressions and the form's arguments it constrains by name; a closure range names no form and no set, and its variables are the member paths it bounds. A structural refusal or a diagnostic finding names the members it concerns by path. Exactly one lineage is present. Version sixteen admits package data documents (ADR-0125): a dataset may name the data document supplying its rows by its path within the package, in place of inline rows; a table declares, for a key, a supplied column or its value by name, the storage unit a data document states its magnitudes in, the only statement of a stored unit, and the identifier scheme by which a data document names a referenced entity. Version seventeen adds numerical diagnostics expectations (Plan 23 CT-S13): each names a diagnostics rule and the member paths its findings at the fixture's solved point must name, under the run's diagnostic thresholds. Version eighteen adds entity/attribute origins, abstract entity kinds and attribute storage (ADR-0130). Version nineteen adds analysis-owned temporal child composition (ADR-0132) and measured/requires_fit role facets with fit lineage (ADR-0133). Version twenty-one adds declaration-owned coordinate maps, reduced-law reconstructions, physical responses, reference translations, actual boundaries and paired exchanges; transfer types retain their owning boundary and orientation, and directed contributions consume that convention once.
 
-Version: 20. Snapshot class: `model`. Primary key: `declaration_id`.
+Version: 21. Snapshot class: `model`. Primary key: `declaration_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
@@ -341,6 +341,141 @@ Version: 20. Snapshot class: `model`. Primary key: `declaration_id`.
 | `value.function.external.derivative_source` | `enum:ExternalDerivativeSource` | false | `payload` | — | — |
 | `value.function.external.derivatives` | `Int64` | false | `payload` | — | — |
 | `value.function.external.smoothness` | `Int64` | false | `payload` | — | — |
+| `value.coordinate_map` | `Struct` | true | `payload` | — | — |
+| `value.coordinate_map.arguments` | `List` | false | `payload` | — | — |
+| `value.coordinate_map.arguments.item` | `Struct` | false | `payload` | — | — |
+| `value.coordinate_map.arguments.item.name` | `Utf8` | false | `payload` | — | — |
+| `value.coordinate_map.arguments.item.type` | `List` | false | `payload` | — | — |
+| `value.coordinate_map.arguments.item.type.item` | `Struct ModelingTypeArenaNode` | false | `payload` | — | — |
+| `value.coordinate_map.arguments.item.type.item.kind` | `enum:ModelingTypeNode` | false | `payload` | — | — |
+| `value.coordinate_map.arguments.item.type.item.path` | `List` | true | `payload` | — | — |
+| `value.coordinate_map.arguments.item.type.item.path.item` | `Utf8` | false | `payload` | — | — |
+| `value.coordinate_map.arguments.item.type.item.name` | `Utf8` | true | `payload` | — | — |
+| `value.coordinate_map.arguments.item.type.item.exponent` | `Struct` | true | `payload` | — | — |
+| `value.coordinate_map.arguments.item.type.item.exponent.num` | `Int16` | false | `payload` | — | — |
+| `value.coordinate_map.arguments.item.type.item.exponent.den` | `Int16` | false | `payload` | — | — |
+| `value.coordinate_map.arguments.item.type.item.children` | `List` | false | `payload` | — | — |
+| `value.coordinate_map.arguments.item.type.item.children.item` | `UInt32` | false | `payload` | — | — |
+| `value.coordinate_map.arguments.item.default_value` | `Utf8` | true | `payload` | — | — |
+| `value.coordinate_map.validity` | `Utf8` | true | `payload` | — | — |
+| `value.coordinate_slot` | `Struct` | true | `payload` | — | — |
+| `value.coordinate_slot.indices` | `List` | false | `payload` | — | — |
+| `value.coordinate_slot.indices.item` | `Struct` | false | `payload` | — | — |
+| `value.coordinate_slot.indices.item.name` | `Utf8` | false | `payload` | — | — |
+| `value.coordinate_slot.indices.item.domain` | `Utf8` | false | `payload` | — | — |
+| `value.coordinate_slot.expression` | `Utf8` | false | `payload` | — | — |
+| `value.reconstruction` | `Struct` | true | `payload` | — | — |
+| `value.reconstruction.map` | `Utf8` | false | `payload` | — | — |
+| `value.reconstruction.arguments` | `List` | false | `payload` | — | — |
+| `value.reconstruction.arguments.item` | `Struct` | false | `payload` | — | — |
+| `value.reconstruction.arguments.item.name` | `Utf8` | false | `payload` | — | — |
+| `value.reconstruction.arguments.item.type` | `List` | false | `payload` | — | — |
+| `value.reconstruction.arguments.item.type.item` | `Struct ModelingTypeArenaNode` | false | `payload` | — | — |
+| `value.reconstruction.arguments.item.type.item.kind` | `enum:ModelingTypeNode` | false | `payload` | — | — |
+| `value.reconstruction.arguments.item.type.item.path` | `List` | true | `payload` | — | — |
+| `value.reconstruction.arguments.item.type.item.path.item` | `Utf8` | false | `payload` | — | — |
+| `value.reconstruction.arguments.item.type.item.name` | `Utf8` | true | `payload` | — | — |
+| `value.reconstruction.arguments.item.type.item.exponent` | `Struct` | true | `payload` | — | — |
+| `value.reconstruction.arguments.item.type.item.exponent.num` | `Int16` | false | `payload` | — | — |
+| `value.reconstruction.arguments.item.type.item.exponent.den` | `Int16` | false | `payload` | — | — |
+| `value.reconstruction.arguments.item.type.item.children` | `List` | false | `payload` | — | — |
+| `value.reconstruction.arguments.item.type.item.children.item` | `UInt32` | false | `payload` | — | — |
+| `value.reconstruction.arguments.item.default_value` | `Utf8` | true | `payload` | — | — |
+| `value.reconstruction.return_type` | `List` | false | `payload` | — | — |
+| `value.reconstruction.return_type.item` | `Struct ModelingTypeArenaNode` | false | `payload` | — | — |
+| `value.reconstruction.return_type.item.kind` | `enum:ModelingTypeNode` | false | `payload` | — | — |
+| `value.reconstruction.return_type.item.path` | `List` | true | `payload` | — | — |
+| `value.reconstruction.return_type.item.path.item` | `Utf8` | false | `payload` | — | — |
+| `value.reconstruction.return_type.item.name` | `Utf8` | true | `payload` | — | — |
+| `value.reconstruction.return_type.item.exponent` | `Struct` | true | `payload` | — | — |
+| `value.reconstruction.return_type.item.exponent.num` | `Int16` | false | `payload` | — | — |
+| `value.reconstruction.return_type.item.exponent.den` | `Int16` | false | `payload` | — | — |
+| `value.reconstruction.return_type.item.children` | `List` | false | `payload` | — | — |
+| `value.reconstruction.return_type.item.children.item` | `UInt32` | false | `payload` | — | — |
+| `value.reconstruction.reference` | `Utf8` | false | `payload` | — | — |
+| `value.reconstruction.normalization` | `Utf8` | false | `payload` | — | — |
+| `value.response` | `Struct` | true | `payload` | — | — |
+| `value.response.witness` | `Utf8` | false | `payload` | — | — |
+| `value.response.arguments` | `List` | false | `payload` | — | — |
+| `value.response.arguments.item` | `Struct` | false | `payload` | — | — |
+| `value.response.arguments.item.name` | `Utf8` | false | `payload` | — | — |
+| `value.response.arguments.item.type` | `List` | false | `payload` | — | — |
+| `value.response.arguments.item.type.item` | `Struct ModelingTypeArenaNode` | false | `payload` | — | — |
+| `value.response.arguments.item.type.item.kind` | `enum:ModelingTypeNode` | false | `payload` | — | — |
+| `value.response.arguments.item.type.item.path` | `List` | true | `payload` | — | — |
+| `value.response.arguments.item.type.item.path.item` | `Utf8` | false | `payload` | — | — |
+| `value.response.arguments.item.type.item.name` | `Utf8` | true | `payload` | — | — |
+| `value.response.arguments.item.type.item.exponent` | `Struct` | true | `payload` | — | — |
+| `value.response.arguments.item.type.item.exponent.num` | `Int16` | false | `payload` | — | — |
+| `value.response.arguments.item.type.item.exponent.den` | `Int16` | false | `payload` | — | — |
+| `value.response.arguments.item.type.item.children` | `List` | false | `payload` | — | — |
+| `value.response.arguments.item.type.item.children.item` | `UInt32` | false | `payload` | — | — |
+| `value.response.arguments.item.default_value` | `Utf8` | true | `payload` | — | — |
+| `value.response.return_type` | `List` | false | `payload` | — | — |
+| `value.response.return_type.item` | `Struct ModelingTypeArenaNode` | false | `payload` | — | — |
+| `value.response.return_type.item.kind` | `enum:ModelingTypeNode` | false | `payload` | — | — |
+| `value.response.return_type.item.path` | `List` | true | `payload` | — | — |
+| `value.response.return_type.item.path.item` | `Utf8` | false | `payload` | — | — |
+| `value.response.return_type.item.name` | `Utf8` | true | `payload` | — | — |
+| `value.response.return_type.item.exponent` | `Struct` | true | `payload` | — | — |
+| `value.response.return_type.item.exponent.num` | `Int16` | false | `payload` | — | — |
+| `value.response.return_type.item.exponent.den` | `Int16` | false | `payload` | — | — |
+| `value.response.return_type.item.children` | `List` | false | `payload` | — | — |
+| `value.response.return_type.item.children.item` | `UInt32` | false | `payload` | — | — |
+| `value.response.body` | `Utf8` | false | `payload` | — | — |
+| `value.reference_translation` | `Struct` | true | `payload` | — | — |
+| `value.reference_translation.arguments` | `List` | false | `payload` | — | — |
+| `value.reference_translation.arguments.item` | `Struct` | false | `payload` | — | — |
+| `value.reference_translation.arguments.item.name` | `Utf8` | false | `payload` | — | — |
+| `value.reference_translation.arguments.item.type` | `List` | false | `payload` | — | — |
+| `value.reference_translation.arguments.item.type.item` | `Struct ModelingTypeArenaNode` | false | `payload` | — | — |
+| `value.reference_translation.arguments.item.type.item.kind` | `enum:ModelingTypeNode` | false | `payload` | — | — |
+| `value.reference_translation.arguments.item.type.item.path` | `List` | true | `payload` | — | — |
+| `value.reference_translation.arguments.item.type.item.path.item` | `Utf8` | false | `payload` | — | — |
+| `value.reference_translation.arguments.item.type.item.name` | `Utf8` | true | `payload` | — | — |
+| `value.reference_translation.arguments.item.type.item.exponent` | `Struct` | true | `payload` | — | — |
+| `value.reference_translation.arguments.item.type.item.exponent.num` | `Int16` | false | `payload` | — | — |
+| `value.reference_translation.arguments.item.type.item.exponent.den` | `Int16` | false | `payload` | — | — |
+| `value.reference_translation.arguments.item.type.item.children` | `List` | false | `payload` | — | — |
+| `value.reference_translation.arguments.item.type.item.children.item` | `UInt32` | false | `payload` | — | — |
+| `value.reference_translation.arguments.item.default_value` | `Utf8` | true | `payload` | — | — |
+| `value.reference_translation.return_type` | `List` | false | `payload` | — | — |
+| `value.reference_translation.return_type.item` | `Struct ModelingTypeArenaNode` | false | `payload` | — | — |
+| `value.reference_translation.return_type.item.kind` | `enum:ModelingTypeNode` | false | `payload` | — | — |
+| `value.reference_translation.return_type.item.path` | `List` | true | `payload` | — | — |
+| `value.reference_translation.return_type.item.path.item` | `Utf8` | false | `payload` | — | — |
+| `value.reference_translation.return_type.item.name` | `Utf8` | true | `payload` | — | — |
+| `value.reference_translation.return_type.item.exponent` | `Struct` | true | `payload` | — | — |
+| `value.reference_translation.return_type.item.exponent.num` | `Int16` | false | `payload` | — | — |
+| `value.reference_translation.return_type.item.exponent.den` | `Int16` | false | `payload` | — | — |
+| `value.reference_translation.return_type.item.children` | `List` | false | `payload` | — | — |
+| `value.reference_translation.return_type.item.children.item` | `UInt32` | false | `payload` | — | — |
+| `value.reference_translation.source_anchor` | `Utf8` | false | `payload` | — | — |
+| `value.reference_translation.target_anchor` | `Utf8` | false | `payload` | — | — |
+| `value.reference_translation.temperature` | `Utf8` | false | `payload` | — | — |
+| `value.reference_translation.pressure` | `Utf8` | false | `payload` | — | — |
+| `value.reference_translation.provenance` | `Struct ModelingProvenance` | false | `payload` | — | — |
+| `value.reference_translation.provenance.source` | `List` | false | `payload` | — | — |
+| `value.reference_translation.provenance.source.item` | `Utf8` | false | `payload` | — | — |
+| `value.reference_translation.provenance.role` | `List` | false | `payload` | — | — |
+| `value.reference_translation.provenance.role.item` | `Utf8` | false | `payload` | — | — |
+| `value.reference_translation.provenance.lineage` | `List` | false | `payload` | — | — |
+| `value.reference_translation.provenance.lineage.item` | `Struct ModelingLineageEntry` | false | `payload` | — | — |
+| `value.reference_translation.provenance.lineage.item.kind` | `enum:ModelingLineageKind` | false | `payload` | — | — |
+| `value.reference_translation.provenance.lineage.item.path` | `List` | false | `payload` | — | — |
+| `value.reference_translation.provenance.lineage.item.path.item` | `Utf8` | false | `payload` | — | — |
+| `value.boundary` | `Struct` | true | `payload` | — | — |
+| `value.boundary.indices` | `List` | false | `payload` | — | — |
+| `value.boundary.indices.item` | `Struct` | false | `payload` | — | — |
+| `value.boundary.indices.item.name` | `Utf8` | false | `payload` | — | — |
+| `value.boundary.indices.item.domain` | `Utf8` | false | `payload` | — | — |
+| `value.exchange` | `Struct` | true | `payload` | — | — |
+| `value.exchange.indices` | `List` | false | `payload` | — | — |
+| `value.exchange.indices.item` | `Struct` | false | `payload` | — | — |
+| `value.exchange.indices.item.name` | `Utf8` | false | `payload` | — | — |
+| `value.exchange.indices.item.domain` | `Utf8` | false | `payload` | — | — |
+| `value.exchange.from` | `Utf8` | false | `payload` | — | — |
+| `value.exchange.to` | `Utf8` | false | `payload` | — | — |
 | `value.equation` | `Struct` | true | `payload` | — | — |
 | `value.equation.indices` | `List` | false | `payload` | — | — |
 | `value.equation.indices.item` | `Struct` | false | `payload` | — | — |
@@ -1023,6 +1158,7 @@ Version: 20. Snapshot class: `model`. Primary key: `declaration_id`.
 | `value.accumulator.type.item.exponent.den` | `Int16` | false | `payload` | — | — |
 | `value.accumulator.type.item.children` | `List` | false | `payload` | — | — |
 | `value.accumulator.type.item.children.item` | `UInt32` | false | `payload` | — | — |
+| `value.accumulator.boundary` | `Utf8` | true | `payload` | — | — |
 | `value.accumulator.mode` | `enum:ModelingAccumulatorMode` | false | `payload` | — | — |
 | `value.accumulator.tolerance` | `Utf8` | false | `payload` | — | — |
 | `value.contribution` | `Struct` | true | `payload` | — | — |
@@ -1033,8 +1169,6 @@ Version: 20. Snapshot class: `model`. Primary key: `declaration_id`.
 | `value.contribution.target` | `Utf8` | false | `payload` | — | — |
 | `value.contribution.expression` | `Utf8` | false | `payload` | — | — |
 | `value.contribution.role` | `enum:ModelingContributionRole` | false | `payload` | — | — |
-| `value.contribution.transfer_id` | `Utf8` | true | `payload` | — | — |
-| `value.contribution.transfer_side` | `Utf8` | true | `payload` | — | — |
 | `value.connection` | `Struct` | true | `payload` | — | — |
 | `value.connection.from` | `Utf8` | false | `payload` | — | — |
 | `value.connection.to` | `Utf8` | false | `payload` | — | — |

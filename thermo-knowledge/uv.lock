@@ -58,6 +58,39 @@ wheels = [
 ]
 
 [[package]]
+name = "cantera"
+version = "3.2.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+    { name = "ruamel-yaml" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/1e/f1/b68fa5512d77ed86b48b57f3a2cd947590a432f56fe9877a38d9fa3b4bd7/cantera-3.2.0.tar.gz", hash = "sha256:d811175e052251a7d2ea70f60fa19a5b8a61bf32d3b5565d2404b22ba57d8d41", size = 1623397, upload-time = "2025-11-18T01:14:18.94Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/14/1b/85b96b205cb127bda0195045e167c7fa24d2aa2568f3653273fb9f49084f/cantera-3.2.0-cp312-cp312-macosx_10_15_x86_64.whl", hash = "sha256:6ab2d45c379cf6ed4e1c74c557bd7023272e654cf2a50d2a13d2af74cd785b84", size = 6279228, upload-time = "2025-11-18T01:13:27.719Z" },
+    { url = "https://files.pythonhosted.org/packages/ba/67/ecf71611a37db631107418f098399c130c7a2e394c56a812ba365569af48/cantera-3.2.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:d58dd40112741423a4b9b95fbbd7789575250af1fa13c77d60fab47f472f694d", size = 5475398, upload-time = "2025-11-18T01:13:30.133Z" },
+    { url = "https://files.pythonhosted.org/packages/fc/d0/cb0c26fa02ba84ccd15191d224863367641adf8a65f046d53ee7d15852e6/cantera-3.2.0-cp312-cp312-manylinux_2_28_aarch64.whl", hash = "sha256:1b8e7bb91f92fcc2b1e2cb715543f611edcea62ec0bc3ce3fdc03abac6e02bba", size = 11843454, upload-time = "2025-11-18T01:13:32.764Z" },
+    { url = "https://files.pythonhosted.org/packages/2d/b1/5a89f0a6fa0bcab611564a02e86dea6b95292cab1da7370c35732eeeb596/cantera-3.2.0-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:d7232fd69dda04b350b3d095dd5be234e4f627b8368421f8d1f976956feb3441", size = 19305339, upload-time = "2025-11-18T01:13:35.773Z" },
+    { url = "https://files.pythonhosted.org/packages/b6/f7/9bd49339a73a6f45849ff860fdbf29004ea63a5ce693a89e81d75204076b/cantera-3.2.0-cp312-cp312-win_amd64.whl", hash = "sha256:258b95a4e29f9afd50788eab284e88440174302123c8b3a4a3a493904b40e238", size = 5291378, upload-time = "2025-11-18T01:13:38.566Z" },
+]
+
+[[package]]
+name = "cea"
+version = "3.3.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/bf/58/6027521345f853b9f5ae87f9c6fcd672bc8b09b1e06178ab2dbfe1e133be/cea-3.3.4.tar.gz", hash = "sha256:6e744f3eb82b56f6034c2a571c0f5ec886622ebff3d8bad630ad0fd523be057f", size = 946667, upload-time = "2026-08-28T14:55:33.443Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/db/18/29d90602ed8b22f2c189f6235747a40b0f6bb60f988b5b4d2860add13180/cea-3.3.4-cp312-cp312-macosx_14_0_arm64.whl", hash = "sha256:b3e4b20756ba3236f4973e25f69122e9960745577af3b26654ea15ea014fe9fe", size = 2495906, upload-time = "2026-08-28T14:55:07.994Z" },
+    { url = "https://files.pythonhosted.org/packages/b7/dd/32985e4efdcb1757da6f1cafa21e9a2848fab49d6a45ae8346e00852fa06/cea-3.3.4-cp312-cp312-macosx_15_0_x86_64.whl", hash = "sha256:cb34d4618725ab66e1fbb4203d4ad15375cd6d6846c8ee89a24f2845e4b51046", size = 3241534, upload-time = "2026-08-28T14:55:10.711Z" },
+    { url = "https://files.pythonhosted.org/packages/10/b3/a61e6a97b6d505b2be0e3008346b7ef7062e9ed702e1c8bcc72ae49ae6ed/cea-3.3.4-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:9ec5bcb2badfd97699ac8184c8338b2e5e170ebba54b32453aa7e1c15840aa3a", size = 3181662, upload-time = "2026-08-28T14:55:12.839Z" },
+    { url = "https://files.pythonhosted.org/packages/fc/60/86d2d741a60a2f191cd7f3be83000884ae95e5017d525bbbfe3399a34b18/cea-3.3.4-cp312-cp312-win_amd64.whl", hash = "sha256:fb933db40a119289d7e4fca1fbfce479d7b2a6209312f650f3dc32639ad3dce9", size = 4409270, upload-time = "2026-08-28T14:55:14.89Z" },
+]
+
+[[package]]
 name = "certifi"
 version = "2026.7.22"
 source = { registry = "https://pypi.org/simple" }
@@ -430,6 +463,15 @@ wheels = [
 ]
 
 [[package]]
+name = "ruamel-yaml"
+version = "0.19.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/c7/3b/ebda527b56beb90cb7652cb1c7e4f91f48649fbcd8d2eb2fb6e77cd3329b/ruamel_yaml-0.19.1.tar.gz", hash = "sha256:53eb66cd27849eff968ebf8f0bf61f46cdac2da1d1f3576dd4ccee9b25c31993", size = 142709, upload-time = "2026-01-02T16:50:31.84Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b8/0c/51f6841f1d84f404f92463fc2b1ba0da357ca1e3db6b7fbda26956c3b82a/ruamel_yaml-0.19.1-py3-none-any.whl", hash = "sha256:27592957fedf6e0b62f281e96effd28043345e0e66001f97683aa9a40c667c93", size = 118102, upload-time = "2026-01-02T16:50:29.201Z" },
+]
+
+[[package]]
 name = "ruff"
 version = "0.16.9"
 source = { registry = "https://pypi.org/simple" }
@@ -503,6 +545,8 @@ source = { editable = "." }
 dependencies = [
     { name = "adbc-driver-manager" },
     { name = "adbc-driver-postgresql" },
+    { name = "cantera" },
+    { name = "cea" },
     { name = "coolprop" },
     { name = "httpx" },
     { name = "msgspec" },
@@ -527,6 +571,8 @@ dev = [
 requires-dist = [
     { name = "adbc-driver-manager", specifier = "==1.12.0" },
     { name = "adbc-driver-postgresql", specifier = "==1.12.0" },
+    { name = "cantera", specifier = "==3.2.0" },
+    { name = "cea", specifier = "==3.3.4" },
     { name = "coolprop", specifier = "==8.0.0" },
     { name = "httpx", specifier = "==0.28.1" },
     { name = "msgspec", specifier = "==0.22.0" },

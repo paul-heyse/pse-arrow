@@ -602,13 +602,9 @@ impl QuantityRegistry {
         &self,
         condition: &crate::ReferenceCondition,
     ) -> Result<f64, QuantityError> {
-        let ty = self.quantity_type(condition.quantity_type)?;
-        let spec = crate::unit::convert_spec_for_type(
-            self.unit(condition.unit)?,
-            self.unit(ty.canonical_unit)?,
-            &ty.key,
-        )?;
-        Ok(crate::unit::convert_value(&spec, condition.value))
+        Ok(crate::CanonicalConversionPlan::registered(
+            self, condition.quantity_type, condition.unit,
+        )?.apply(condition.value)?.value())
     }
     /// The physical names, checked: identifiers, one namespace across quantity types and
     /// reference states.
@@ -1027,6 +1023,14 @@ impl QuantityRegistry {
                         id,
                         "affine conversion cannot act on differences",
                     )?;
+                    let (scale,offset)=if from.key.reference_state!=to.key.reference_state {
+                        let admitted=crate::DatumConversionPlan::admit(self,rule.from,rule.to)?;
+                        (admitted.scale(),admitted.offset())
+                    }else {
+                        let admitted=crate::convert_spec_for_type(self.unit(from.canonical_unit)?,self.unit(to.canonical_unit)?,&from.key)?;
+                        (admitted.scale,admitted.offset)
+                    };
+                    require(rule.scale.map(f64::to_bits)==Some(scale.to_bits()) && rule.offset.map(f64::to_bits)==Some(offset.to_bits()),"conversion.datum_origin",id,"affine coefficients must be derived from the selected typed datum and unit representations")?;
                 }
             }
         }

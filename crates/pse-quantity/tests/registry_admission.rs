@@ -10,7 +10,7 @@ use pse_quantity::operation::QuantityOperation;
 use pse_quantity::quantity_type::{QuantityType, QuantityTypeKey};
 use pse_quantity::reference_state::ReferenceState;
 use pse_quantity::registry::QuantityRegistryBuilder;
-use pse_quantity::unit::{Unit, convert_spec, convert_value};
+use pse_quantity::unit::{Unit, convert_spec};
 use pse_quantity::unit_set::UnitSet;
 use pse_quantity::*;
 
@@ -470,7 +470,7 @@ fn conversion_declarations_require_coefficients_or_kernel_without_hidden_depende
     assert!(b.build().is_err());
 }
 #[test]
-fn affine_unit_conversions_work_in_both_directions_and_differences_ignore_offsets() {
+fn affine_conversion_edges_record_both_directions_and_difference_offsets() {
     let kelvin = unit(1, DimensionVector::base(BaseDimension::Temperature));
     let celsius = Unit {
         id: UnitId::from_id(raw(2)),
@@ -483,10 +483,11 @@ fn affine_unit_conversions_work_in_both_directions_and_differences_ignore_offset
     };
     let c_to_k = convert_spec(&celsius, &kelvin, ScaleKind::Point).expect("C to K");
     let k_to_c = convert_spec(&kelvin, &celsius, ScaleKind::Point).expect("K to C");
-    assert_eq!(convert_value(&c_to_k, 0.0).to_bits(), 273.15_f64.to_bits());
-    assert_eq!(convert_value(&k_to_c, 273.15).to_bits(), 0.0_f64.to_bits());
+    assert_eq!(c_to_k.offset.to_bits(), 273.15_f64.to_bits());
+    assert_eq!(k_to_c.offset.to_bits(), (-273.15_f64).to_bits());
     let delta = convert_spec(&celsius, &kelvin, ScaleKind::Difference).expect("difference");
-    assert_eq!(convert_value(&delta, 10.0).to_bits(), 10.0_f64.to_bits());
+    assert_eq!(delta.scale.to_bits(), 1.0_f64.to_bits());
+    assert_eq!(delta.offset.to_bits(), 0.0_f64.to_bits());
     assert!(!c_to_k.same_contract(&delta));
     let f = Unit {
         id: UnitId::from_id(raw(3)),
@@ -498,25 +499,9 @@ fn affine_unit_conversions_work_in_both_directions_and_differences_ignore_offset
         definition: None,
         ..kelvin
     };
-    assert!(
-        (convert_value(
-            &convert_spec(&f, &celsius, ScaleKind::Point).expect("F to C"),
-            212.0
-        ) - 100.0)
-            .abs()
-            < 1e-12
-    );
-    let spec = UnitConvertSpec {
-        from: celsius.id,
-        to: f.id,
-        scale: 1.0 + f64::EPSILON,
-        offset: -1.0,
-    };
-    let value = 1.0 - f64::EPSILON;
-    assert_ne!(
-        convert_value(&spec, value).to_bits(),
-        value.mul_add(spec.scale, spec.offset).to_bits()
-    );
+    let f_to_c = convert_spec(&f, &celsius, ScaleKind::Point).expect("F to C");
+    assert_eq!(f_to_c.scale.to_bits(), (5.0_f64 / 9.0).to_bits());
+    assert!((f_to_c.offset + 32.0 * (5.0 / 9.0)).abs() < 1e-12);
 }
 #[test]
 fn unit_sets_validate_base_selection_and_derive_pressure() {

@@ -27,7 +27,7 @@
 @id("01a0e16f32a3739a874c1283bcf5c8a3") expect root.Z==0.9821368 tolerance 1e-7 relative 1e-5;
 @id("01a0e16f32a3739a874c12843a5a0624") expect exp(root.ln_phi[chem.benzene])==0.985365 tolerance 1e-6 relative 1e-5;
 @id("01a0e16f32a3739a874c12857f930f02") expect exp(root.ln_phi[chem.toluene])==0.979457 tolerance 1e-6 relative 1e-5;
-@id("01a0e16f32a3739a874c1286f00cb0eb") expect root.pressure==constants.pressure_unit*eos_data.pressure_coordinate(root.t,root.r,root.n,bt_ideal.aromatics) tolerance 1e-6{Pa};
+@id("01a0e16f32a3739a874c1286f00cb0eb") expect root.pressure==constants.pressure_unit*eos_data.pressure_coordinate((root.T-constants.absolute_zero)/constants.temperature_scale,root.rho/constants.density_unit,root.amount/constants.amount_unit,bt_ideal.aromatics) tolerance 1e-6{Pa};
 }
 @id("01a0e17a4587742dba3702b20fe8c77f") test density_inline oracle references.idaes_test_bt_pr_450 fixture {dof 0; run steady; fix root.T=450{K}; fix root.target_pressure=100000{Pa}; fix root.amount[chem.benzene]=0.5{mol}; fix root.amount[chem.toluene]=0.5{mol}; value root.density_lower=1; value root.density_upper=100; value root.density_start=27;} {
 @id("01a0e17a4587742dba3702b39c65839d") child root:peng_robinson.DensityRoot=peng_robinson.InlineDensity(selected=bt_ideal.aromatics,pkg=eos_data.bt_pr_parameters,law=eos_data.potential);

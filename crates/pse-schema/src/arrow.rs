@@ -35,27 +35,10 @@ pub const KEY_NAMESPACE: &str = "pse.namespace";
 pub const KEY_CHECKS: &str = "pse.contract.checks";
 /// Canonical native Delta policies, reflected in the relation fingerprint.
 pub const KEY_DELTA_PROPERTIES: &str = "pse.contract.delta_properties";
-/// `pse.semantic.logical_type`: the registry logical-type name.
-pub const KEY_LOGICAL_TYPE: &str = "pse.semantic.logical_type";
-/// `pse.semantic.quantity_type`: the column's single quantity contract.
-pub const KEY_QUANTITY_TYPE: &str = "pse.semantic.quantity_type";
-/// `pse.semantic.role`: the column role.
-pub const KEY_ROLE: &str = "pse.semantic.role";
-/// `pse.semantic.fk`: `<relation>.<column>`.
-pub const KEY_FK: &str = "pse.semantic.fk";
-/// `pse.semantic.enum`: the enumeration identity as 32 lowercase hexadecimal digits.
-pub const KEY_ENUM: &str = "pse.semantic.enum";
-/// `pse.semantic.identity`: the entity identity a column carries, as 32 lowercase
-/// hexadecimal digits of `named_id(REGISTRY_PACKAGE_ID, "identity:<name>")` (ADR-0115).
-pub const KEY_IDENTITY: &str = "pse.semantic.identity";
-/// `pse.semantic.document`: the document format of a document column (`json`).
-pub const KEY_DOCUMENT: &str = "pse.semantic.document";
-/// Versioned native row-key encoding, distinct from an ordinary content hash.
-pub const KEY_ROW_KEY_ENCODING: &str = "pse.semantic.key_encoding";
-/// `ARROW:extension:name`, Arrow's canonical extension key.
-pub const KEY_EXTENSION_NAME: &str = "ARROW:extension:name";
-/// `ARROW:extension:metadata`, mandatory beside the name when the type has metadata.
-pub const KEY_EXTENSION_METADATA: &str = "ARROW:extension:metadata";
+pub use crate::model::field_facets::{
+    KEY_DOCUMENT, KEY_ENUM, KEY_EXTENSION_METADATA, KEY_EXTENSION_NAME, KEY_FK,
+    KEY_IDENTITY, KEY_LOGICAL_TYPE, KEY_QUANTITY_TYPE, KEY_ROLE, KEY_ROW_KEY_ENCODING, KEY_TRANSFER_CONTEXT,
+};
 
 /// The Arrow schema of `spec`, with its schema and field metadata (blueprint §4.3).
 ///
@@ -234,6 +217,12 @@ fn bind_field(reg: &Registry, field: &Field, path: &str) -> Result<Field, Schema
     if let Some(format) = contract.document() {
         semantic.insert(KEY_DOCUMENT.to_owned(), format.to_owned());
     }
+    if let Some(version) = contract.transfer_context() {
+        if !matches!(field.data_type(), DataType::Struct(_)) {
+            return Err(crate::checks::invalid(path, "transfer context requires a structured value"));
+        }
+        semantic.insert(KEY_TRANSFER_CONTEXT.to_owned(), version.to_owned());
+    }
     for (key, value) in &semantic {
         if metadata.get(key).is_some_and(|existing| existing != value) {
             return Err(crate::checks::invalid(
@@ -248,6 +237,7 @@ fn bind_field(reg: &Registry, field: &Field, path: &str) -> Result<Field, Schema
         KEY_FK,
         KEY_IDENTITY,
         KEY_DOCUMENT,
+        KEY_TRANSFER_CONTEXT,
     ] {
         if metadata.contains_key(key) && !semantic.contains_key(key) {
             return Err(crate::checks::invalid(

@@ -6,24 +6,12 @@
 
 use super::{ColumnRole, ExtensionUse, ForeignKey, QuantityContract};
 use arrow_schema::{DataType, Field};
-use std::collections::HashMap;
 
-const EXTENSION: &str = "pse.domain.extension";
-const PARAMETER: &str = "pse.domain.parameter";
-const ROLE: &str = "pse.domain.role";
-/// Prose metadata excluded from execution identity, retained in transfer observations.
-pub(crate) const DOC: &str = pse_columnar::native_field::DOCUMENTATION;
-/// The presentation name of a named structure; excluded from every identity projection.
-const STRUCTURE: &str = pse_columnar::native_field::STRUCTURE_NAME;
-const QUANTITY: &str = "pse.domain.quantity";
-const FK_RELATION: &str = "pse.domain.fk.relation";
-const FK_COLUMN: &str = "pse.domain.fk.column";
-/// The declared entity identity a top-level identity column carries (ADR-0115).
-const IDENTITY: &str = "pse.domain.identity";
-/// Marks the one key column that owns the identity it carries (Plan 22 B3c).
-const IDENTITY_OWNER: &str = "pse.domain.identity.owner";
-/// The document format of a text column holding one structured document.
-const DOCUMENT: &str = "pse.domain.document";
+use super::field_facets::{
+    DOCUMENT, EXTENSION, FK_COLUMN, FK_RELATION, IDENTITY, IDENTITY_OWNER, PARAMETER,
+    QUANTITY, ROLE, STRUCTURE, TRANSFER_CONTEXT,
+};
+pub(crate) use super::field_facets::DOC;
 /// The one document format: a JSON document (PostgreSQL `jsonb`).
 pub const JSON_DOCUMENT: &str = "json";
 
@@ -201,6 +189,15 @@ impl FieldContract {
     #[must_use]
     pub fn with_quantity(self, quantity: &str) -> Self {
         self.facet(QUANTITY, quantity)
+    }
+    /// Declare a per-row physical transfer context carrying actual owner and orientation.
+    #[must_use]
+    pub fn with_transfer_context(self) -> Self {
+        self.facet(TRANSFER_CONTEXT, "1")
+    }
+    /// Version of the declared per-row physical transfer context, if present.
+    pub fn transfer_context(&self) -> Option<&str> {
+        self.get(TRANSFER_CONTEXT)
     }
     /// Declare that this identity column carries the named entity identity (ADR-0115).
     /// A foreign-key column inherits its target's identity at registry assembly.
@@ -415,31 +412,7 @@ impl FieldContract {
     /// Nested fields remain exact; no second declaration is stored.
     #[must_use]
     pub fn value_type(&self) -> Self {
-        let metadata: HashMap<_, _> = self
-            .0
-            .metadata()
-            .iter()
-            .filter(|(key, _)| {
-                !matches!(
-                    key.as_str(),
-                    ROLE | DOC
-                        | QUANTITY
-                        | FK_RELATION
-                        | FK_COLUMN
-                        | IDENTITY
-                        | IDENTITY_OWNER
-                        | super::reference::KEY_REFERENCE
-                )
-            })
-            .map(|(k, v)| (k.clone(), v.clone()))
-            .collect();
-        Self(
-            self.0
-                .clone()
-                .with_name("item")
-                .with_nullable(false)
-                .with_metadata(metadata),
-        )
+        Self(pse_columnar::native_field::logical_storage_type(&self.0))
     }
     /// Stable native type identity, with semantic extension parameters.
     ///
@@ -449,11 +422,7 @@ impl FieldContract {
         // A structure name is presentation only: the logical type (and every encoding
         // that records it) is the same whether or not a nested structure is named.
         let value = Self(
-            pse_columnar::native_field::map(self.value_type().field(), &mut |field| {
-                let mut field = field.clone();
-                field.metadata_mut().remove(STRUCTURE);
-                field
-            })
+            pse_columnar::native_field::project(self.field(), pse_columnar::native_field::MetadataPurpose::LogicalTypeIdentity)
             .map_err(|error| crate::checks::invalid("logical type", error.to_string()))?,
         );
         if value.0.metadata().keys().any(|key| {
@@ -529,20 +498,7 @@ impl FieldContract {
             .keys()
             .filter(|key| key.starts_with("pse.domain."))
         {
-            if !matches!(
-                key.as_str(),
-                EXTENSION
-                    | PARAMETER
-                    | ROLE
-                    | DOC
-                    | QUANTITY
-                    | FK_RELATION
-                    | FK_COLUMN
-                    | IDENTITY
-                    | IDENTITY_OWNER
-                    | DOCUMENT
-                    | STRUCTURE
-            ) {
+            if !super::field_facets::FACETS.iter().any(|facet| facet.domain && facet.key == key) {
                 return Err(invalid("unknown domain facet"));
             }
         }

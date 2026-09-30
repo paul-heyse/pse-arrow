@@ -26,8 +26,27 @@ pub enum Type {
     /// A named reference state of the physical document, with its typed conditions
     /// (ADR-0123 Outcome 6).
     ReferenceState,
+    /// Declared receiving or emitting physical boundary.
+    Boundary(DeclarationId),
+    /// Declared physical coordinate map, never a numerical value.
+    CoordinateMap(DeclarationId),
+    /// Declared reconstruction family belonging to one physical coordinate map.
+    Reconstruction {
+        /// Reconstruction declaration.
+        declaration: DeclarationId,
+        /// Owning coordinate map.
+        map: DeclarationId,
+    },
     /// Complete physical type scheme.
     Quantity(Scheme),
+    /// A nominal coordinate, reduced-law application or directed boundary contract.
+    /// The refinement is checked before arithmetic consumes its physical payload.
+    RefinedQuantity {
+        /// Underlying complete physical scheme, including anonymous intermediates.
+        quantity: Scheme,
+        /// Nominal context owned by the admitting modeling declaration.
+        refinement: crate::PhysicalRefinement,
+    },
     /// Member of a declared entity kind.
     Entity(DeclarationId),
     /// Member of a package enumeration.
@@ -66,6 +85,24 @@ pub enum Type {
         axes: Vec<DeclarationId>,
     },
 }
+
+impl Type {
+    /// Physical payload, without granting permission to discard a nominal refinement.
+    pub fn quantity_scheme(&self) -> Option<&Scheme> {
+        match self {
+            Self::Quantity(quantity) | Self::RefinedQuantity { quantity, .. } => Some(quantity),
+            _ => None,
+        }
+    }
+
+    /// Context that must be admitted before consuming the physical payload.
+    pub fn physical_refinement(&self) -> Option<&crate::PhysicalRefinement> {
+        match self {
+            Self::RefinedQuantity { refinement, .. } => Some(refinement),
+            _ => None,
+        }
+    }
+}
 /// Which modeling documents see the names of the physical document (ADR-0123 Outcome 6).
 /// A document sees them when its manifest depends on the package that declared them, and
 /// then also reads them qualified as `<package>.<Name>`.
@@ -88,6 +125,8 @@ impl PhysicalScope {
 /// Physical context supplied by admission; no registry is inferred from source literals.
 #[derive(Debug)]
 pub struct TypeContext<'a> {
+    /// Scientific formula authority scoped to one admitted response body.
+    pub formula_authority: Option<pse_quantity::PhysicalFormulaAuthority>,
     /// Fully admitted reference physical registry, including its declared names.
     pub quantities: &'a QuantityRegistry,
     /// Admitted physical prerequisites; each use checks its actual operand contracts.
@@ -127,6 +166,39 @@ impl TypeContext<'_> {
             K::Text => Type::Text,
             K::QuantityType => Type::QuantityType,
             K::ReferenceState => Type::ReferenceState,
+            K::Coordinate => {
+                let path = node.path().join(".");
+                match names.get(&path) {
+                    Some(Type::Function {result, ..}) if matches!(result.physical_refinement(), Some(crate::PhysicalRefinement::Coordinate {..})) => (**result).clone(),
+                    _ => return Err(invalid(at, format!("{path} is not a declared coordinate slot"))),
+                }
+            }
+            K::ReducedLaw => {
+                let path = node.path().join(".");
+                let Some(Type::Reconstruction {declaration, map}) = names.get(&path) else {
+                    return Err(invalid(at, format!("{path} is not a declared reconstruction")));
+                };
+                Type::RefinedQuantity {
+                    quantity: Scheme::Concrete(self.quantities.neutral_dimensionless().ok_or_else(|| invalid(at, "neutral dimensionless type absent"))?),
+                    refinement: crate::PhysicalRefinement::ReducedLaw {map: *map, reconstruction: *declaration},
+                }
+            }
+            K::Transfer => {
+                let children = node.children().collect::<Vec<_>>();
+                let Type::Quantity(quantity) = self.node(children[0], variables, names, at)? else {
+                    return Err(invalid(at, "a transfer carries an unrefined physical quantity"));
+                };
+                let boundary = children[1].path().join(".");
+                let Some(Type::Boundary(boundary)) = names.get(&boundary) else {
+                    return Err(invalid(at, "a transfer names a declared physical boundary"));
+                };
+                let direction = match children[2].path().join(".").as_str() {
+                    "Into" => crate::TransferDirection::Into,
+                    "OutOf" => crate::TransferDirection::OutOf,
+                    _ => return Err(invalid(at, "transfer direction is Into or OutOf")),
+                };
+                Type::RefinedQuantity {quantity, refinement: crate::PhysicalRefinement::Transfer {boundary: crate::BoundaryRef::Declared(*boundary), direction}}
+            }
             K::Function => {
                 let children = node.children().collect::<Vec<_>>();
                 let (result, arguments) = children
@@ -214,18 +286,10 @@ impl TypeContext<'_> {
     }
     /// A closed scheme resolves to its concrete quantity type; an open one stays a scheme.
     fn quantity(&self, scheme: Scheme, at: DeclarationId) -> Result<Type> {
-        fn closed(scheme: &Scheme) -> bool {
-            match scheme {
-                Scheme::Concrete(_) => true,
-                Scheme::Variable(_) => false,
-                Scheme::Delta(value) | Scheme::Power(value, _) => closed(value),
-                Scheme::Product(a, b) | Scheme::Quotient(a, b) => closed(a) && closed(b),
-            }
-        }
-        Ok(Type::Quantity(if closed(&scheme) {
-            Scheme::Concrete(
+        Ok(Type::Quantity(if scheme.is_closed() {
+            Scheme::from_contract(
                 scheme
-                    .resolve_with_evidence(self.quantities, &BTreeMap::new(), self.preconditions)
+                    .resolve_contract_with_evidence(self.quantities, &BTreeMap::new(), self.preconditions)
                     .map_err(|e| invalid(at, e.to_string()))?,
             )
         } else {

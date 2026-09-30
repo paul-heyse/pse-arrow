@@ -6,7 +6,7 @@
 @id("41d6ef942c9852b48bf8e9d69db9bf9c") use helmholtz @"1.0.0";
 @id("56a1658c0f5056a2941a2014c9dd7022") use caloric @"1.0.0";
 @id("e8a18e93d1635e258e8ef33f5e910011") use equilibrium @"1.0.0";
-@id("6cb69bf526275d48b6ac9b18d455a1aa") def HeaterRecycle(selected:Set<chemistry.species>,law:Fn(t:Scalar,r:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>)->Scalar,ideal_h:Fn(T:Temperature,j:chemistry.species)->DeltaH,composition:Fn(j:chemistry.species)->Scalar) {
+@id("6cb69bf526275d48b6ac9b18d455a1aa") def HeaterRecycle(selected:Set<chemistry.species>,law:Fn(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy,ideal_h:Fn(T:Temperature,j:chemistry.species)->DeltaH,composition:Fn(j:chemistry.species)->Scalar) {
 @id("a046df89c93254cb9ba39a961d655417") param components:Set<chemistry.species>=selected;
 @id("4905ff979ffd5f7c9154d12f8cebc605") child phase:helmholtz.HelmholtzPhase=helmholtz.HomogeneousPhase(selected=selected,law=law);
 @id("36bd2ba37fdf5d26b4fdae585b51a72e") param pressure:Pressure=100000{Pa};
@@ -14,7 +14,8 @@
 @id("2dd09e99e06d543aab63253091a6e72a") param auxiliary_feed:Flow=0.6{mol/s};
 @id("d655d529011256e896ad931338b4f462") param fraction:Scalar=0.8;
 @id("a9d613d7de2e55ddac9cc10c9fdd0c7f") param inlet_enthalpy:MolarEnthalpy=0{J/mol};
-@id("75394118a3c1554788a43c2c10ff2808") var duty:Power;
+@id("75394118a3c1554788a43c2c10ff2808") boundary energy_boundary;
+@id("5361d6a32b504960b7d309926304621a") var duty:Transfer<EnergyTransferRate,energy_boundary,Into>;
 @id("1c6c844041e24fbd84c74d6a046b6828") annotation start duty(16000{W});
 @id("77cbf2c9eaf24365b4d9b3c60d560ab2") annotation nominal duty(16000{W});
 @id("d9b2bb862d0b5794953425910c7d0fee") var recycle:Flow;
@@ -26,9 +27,9 @@
 @id("919337f9dc9357259c72289621a077b1") contribute material role inflow=auxiliary_feed;
 @id("0ed2b62ea07d570bb1db5f48ec53354e") contribute material role inflow=fraction*recycle;
 @id("bb2c983f9f9b52089c9f924477f4e428") contribute material role outflow=recycle;
-@id("76ab1daed20358bbae083064ed7ec77a") accumulate energy:Power conservation tolerance 0.0001{W};
+@id("76ab1daed20358bbae083064ed7ec77a") accumulate energy:Power boundary energy_boundary conservation tolerance 0.0001{W};
 @id("e216a54635b754f38a13b922bbd205f9") contribute energy role inflow=recycle*inlet_enthalpy;
-@id("ffbf00e0648b545cb19b3f3444cd50cc") contribute energy role inflow=duty;
+@id("ffbf00e0648b545cb19b3f3444cd50cc") contribute energy role directed=duty;
 @id("b83048504b5756cda535bd343868d2f6") contribute energy role outflow=recycle*enthalpy;
 @id("62323d61ca1e5a25aaff01950d942cbf") annotation start phase.T(313.15{K});
 @id("e7a755327d6c5fae9214437b92007051") annotation start phase.rho(80{mol/m^3});
@@ -43,7 +44,7 @@
 @id("359468fbeb5c55498ecd6e7fe5d7a061") annotation report phase.rho("heater density");
 @id("777e23bbada055bfb976519b8524e2b3") annotation report recycle("heater circulation");
 }
-@id("d7eb9da497115377a54d7b23713acd8a") def HomogeneousFlash(selected:Set<chemistry.species>,law:Fn(t:Scalar,r:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>)->Scalar,feed:Fn(j:chemistry.species)->Scalar,liquid_initial:Fn(j:chemistry.species)->Scalar,vapor_initial:Fn(j:chemistry.species)->Scalar) {
+@id("d7eb9da497115377a54d7b23713acd8a") def HomogeneousFlash(selected:Set<chemistry.species>,law:Fn(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy,feed:Fn(j:chemistry.species)->Scalar,liquid_initial:Fn(j:chemistry.species)->Scalar,vapor_initial:Fn(j:chemistry.species)->Scalar) {
 @id("e2d2f25a00b456b0a53de428c4cf67ed") param components:Set<chemistry.species>=selected;
 @id("5f5691511f8b50fb996bce59ab077a47") param temperature:Temperature=280{K};
 @id("3f875b8e83a55e69a79d082a2b5695d4") param pressure:Pressure=2000000{Pa};

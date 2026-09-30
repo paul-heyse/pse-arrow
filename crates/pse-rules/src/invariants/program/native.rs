@@ -83,6 +83,7 @@ pub(super) fn compile(
                         spec.qualified_name()
                     ),
                     registry,
+                    session,
                 )?,
             ));
         }

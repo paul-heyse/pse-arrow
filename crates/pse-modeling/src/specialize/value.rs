@@ -416,7 +416,7 @@ impl Evaluator<'_, '_> {
             .selected()
             .map_err(|e| invalid(id, e.to_string()))?
         {
-            crate::Selected::Function(_) => Ok(Value::Function(id)),
+            _ if self.package.functions.contains_key(&id) => Ok(Value::Function(id)),
             // ADR-0123 Outcome 5: an entity or a constant that references test-only data is
             // test-only, and a root outside a test fixture reads none.
             crate::Selected::Entity(_) => match self.package.types.get(&id) {
@@ -1488,40 +1488,21 @@ pub(crate) fn number(
             .map(|v| (Value::Integer(v), 1.))
             .ok_or_else(|| invalid(at, "exact bounded integer required"));
     }
-    let Type::Quantity(Scheme::Concrete(quantity)) =
-        crate::expression::number_type(n, physical, at, expected)?
-    else {
-        return Err(invalid(at, "concrete literal type required"));
-    };
-    let mut value = n.value;
-    let mut scale = 1.;
-    if let Some(unit) = &n.unit {
-        let source = physical
-            .quantities
-            .compose(unit)
-            .map_err(|e| invalid(at, e.to_string()))?;
-        let target = physical
-            .quantities
-            .quantity_type(quantity)
-            .map_err(|e| invalid(at, e.to_string()))?;
-        let conversion = pse_quantity::convert_spec_for_type(
-            &source,
-            physical
-                .quantities
-                .unit(target.canonical_unit)
-                .map_err(|e| invalid(at, e.to_string()))?,
-            &target.key,
-        )
-        .map_err(|e| invalid(at, e.to_string()))?;
-        value = pse_quantity::convert_value(&conversion, value);
-        scale = conversion.scale;
+    let literal_type=crate::expression::number_type(n,physical,at,expected)?;
+    let quantity=literal_type.quantity_scheme().ok_or_else(||invalid(at,"concrete literal type required"))?.resolve_with_evidence(physical.quantities,&BTreeMap::new(),physical.preconditions).map_err(|error|invalid(at,error.to_string()))?;
+    let conversion = if let Some(unit) = &n.unit {
+        pse_quantity::CanonicalConversionPlan::composed(physical.quantities, quantity, unit)
+    } else {
+        pse_quantity::CanonicalConversionPlan::canonical(physical.quantities, quantity)
     }
+    .map_err(|e| invalid(at, e.to_string()))?;
+    let value = conversion.apply(n.value).map_err(|e| invalid(at, e.to_string()))?;
     Ok((
         Value::Number {
-            bits: value.to_bits(),
-            quantity,
+            bits: value.bits(),
+            quantity: value.quantity(),
         },
-        scale,
+        conversion.scale(),
     ))
 }
 /// A static chain value before its root is typed.

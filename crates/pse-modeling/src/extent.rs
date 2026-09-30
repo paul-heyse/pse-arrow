@@ -17,6 +17,7 @@ fn scheme(value: &Scheme) -> usize {
     match value {
         Scheme::Variable(n) => n.capacity(),
         Scheme::Concrete(_) => 0,
+        Scheme::Resolved(contract) => size_of::<pse_quantity::ResolvedPhysicalContract>() + contract.heap_bytes(),
         Scheme::Delta(v) | Scheme::Power(v, _) => size_of::<Scheme>() + scheme(v),
         Scheme::Product(a, b) | Scheme::Quotient(a, b) => {
             2 * size_of::<Scheme>() + scheme(a) + scheme(b)
@@ -34,7 +35,7 @@ fn ty(value: &Type) -> usize {
                 + size_of::<Type>()
                 + ty(result)
         }
-        Type::Quantity(v) => scheme(v),
+        Type::Quantity(v) | Type::RefinedQuantity { quantity: v, .. } => scheme(v),
         Type::Tuple(v) => v.capacity() * size_of::<Type>() + v.iter().map(ty).sum::<usize>(),
         Type::Set(v) | Type::Optional(v) | Type::Continuous(_, v) => size_of::<Type>() + ty(v),
         Type::Indexed { element, axes } => {

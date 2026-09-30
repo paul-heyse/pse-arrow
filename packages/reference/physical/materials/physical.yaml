@@ -17,18 +17,7 @@
       "reference_conditions_id": null
     }
   ],
-  "conversion_rules": [
-    {
-      "conversion_id": "f599aa7fe009ed636a5bb0d4aada11e9",
-      "from_quantity_type_id": "89248e0d0a55e73fe378d8af87a26900",
-      "to_quantity_type_id": "a0fa145fd8b2ecec448c39666960debc",
-      "kind": "affine",
-      "kernel_id": null,
-      "required_parameters": [],
-      "scale": 1.0,
-      "offset": 101325.0
-    }
-  ],
+  "conversion_rules": [],
   "quantity_kinds": [
     {
       "quantity_kind_id": "05408163cb6c117e9a1bc4a2cfe35cd2",
@@ -1905,6 +1894,268 @@
         "subject_kind": null
       },
       "doc": "Temperature derivative of a molar entropy increment; its logarithmic temperature increment meaning is retained."
+    },
+    {
+      "quantity_kind_id": "fc11a86cfb984aaba5ae30a9911d9a2b",
+      "name": "energy_transfer_rate",
+      "extensive": true,
+      "addition_kind": "additive",
+      "doc": "Plan 25a: explicit physical meaning; dimensions alone do not admit this kind.",
+      "definition": {
+        "monomial": [
+          {
+            "quantity_kind_id": "46119e9ebe9b4158bbb2a508865fdc73",
+            "num": 1,
+            "den": 1
+          },
+          {
+            "quantity_kind_id": "e168de566c8043459da3902316952ae5",
+            "num": 1,
+            "den": 1
+          },
+          {
+            "quantity_kind_id": "57a7ab92753b012231a543d3850b926c",
+            "num": 1,
+            "den": 1
+          }
+        ],
+        "canonical_unit_id": "34207cdbb6fab2ee10002e057595c758",
+        "basis_id": null,
+        "reference_state_id": null,
+        "scale_kind": "point",
+        "subject_kind": null
+      }
+    },
+    {
+      "quantity_kind_id": "e18e3b2ca6d740c4b489a86e1f8e0838",
+      "name": "residual_helmholtz_energy",
+      "extensive": true,
+      "addition_kind": "origin_sensitive",
+      "doc": "Plan 25a: explicit physical meaning; dimensions alone do not admit this kind.",
+      "dimension": [
+        {
+          "num": 2,
+          "den": 1
+        },
+        {
+          "num": 1,
+          "den": 1
+        },
+        {
+          "num": -2,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ]
+    },
+    {
+      "quantity_kind_id": "2ac2f8977f044054a6ca227726c54859",
+      "name": "excess_gibbs_energy",
+      "extensive": true,
+      "addition_kind": "origin_sensitive",
+      "doc": "Plan 25a: explicit physical meaning; dimensions alone do not admit this kind.",
+      "dimension": [
+        {
+          "num": 2,
+          "den": 1
+        },
+        {
+          "num": 1,
+          "den": 1
+        },
+        {
+          "num": -2,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ]
+    },
+    {
+      "quantity_kind_id": "076f4808f65d4b13b07c3968a914d38c",
+      "name": "reaction_extent_rate",
+      "extensive": true,
+      "addition_kind": "additive",
+      "doc": "Plan 25a: explicit physical meaning; dimensions alone do not admit this kind.",
+      "definition": {
+        "monomial": [
+          {
+            "quantity_kind_id": "c9f5ceb86a0c4842b220055099696f74",
+            "num": 1,
+            "den": 1
+          },
+          {
+            "quantity_kind_id": "01a0e1d9b0257478868a5b73ddaa56b5",
+            "num": 1,
+            "den": 1
+          }
+        ],
+        "canonical_unit_id": "f983a5ea0ba73a9e6bca75cfeb30adf9",
+        "basis_id": "04d4600b17cbfb717ec549e688ea3503",
+        "reference_state_id": null,
+        "scale_kind": "point",
+        "subject_kind": "0d15cb60062d4ee79e10ae2aea8c397e"
+      }
+    },
+    {
+      "quantity_kind_id": "027d6e65a4c8487a9c5328571b3ad5f2",
+      "name": "reaction_stoichiometry",
+      "extensive": false,
+      "addition_kind": "additive",
+      "doc": "Plan 25a: explicit physical meaning; dimensions alone do not admit this kind.",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ]
+    },
+    {
+      "quantity_kind_id": "2980d231a476489da838af3ecc9aafe7",
+      "name": "ResidualMolarEnthalpy",
+      "extensive": false,
+      "addition_kind": "origin_sensitive",
+      "doc": "Datum-free molar residual response of an admitted physical potential.",
+      "dimension": [
+        {
+          "num": 2,
+          "den": 1
+        },
+        {
+          "num": 1,
+          "den": 1
+        },
+        {
+          "num": -2,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": -1,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ]
+    },
+    {
+      "quantity_kind_id": "b658e9444ced484a967bc902eadc781b",
+      "name": "ResidualMolarEntropy",
+      "extensive": false,
+      "addition_kind": "origin_sensitive",
+      "doc": "Datum-free molar residual response of an admitted physical potential.",
+      "dimension": [
+        {
+          "num": 2,
+          "den": 1
+        },
+        {
+          "num": 1,
+          "den": 1
+        },
+        {
+          "num": -2,
+          "den": 1
+        },
+        {
+          "num": -1,
+          "den": 1
+        },
+        {
+          "num": -1,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ]
     }
   ],
   "quantity_operations": [
@@ -2470,7 +2721,8 @@
       "result_reference_state_id": null,
       "input_conversions": [],
       "precondition_invariant_ids": [
-        "5a318f61930c4fb624ef399cb2b87288"
+        "5a318f61930c4fb624ef399cb2b87288",
+        "0f5c21e883d24d0ca2976ced37014491"
       ]
     },
     {
@@ -4250,6 +4502,407 @@
       "precondition_invariant_ids": [
         "ec4278e9be9b4ba8a3fb2619cab13aba"
       ]
+    },
+    {
+      "operation_id": "754e5f0b5b074139b2486065b62f370a",
+      "opcode": "Add",
+      "input_kind_ids": [
+        "05408163cb6c117e9a1bc4a2cfe35cd2",
+        "fc11a86cfb984aaba5ae30a9911d9a2b"
+      ],
+      "result_kind_id": "05408163cb6c117e9a1bc4a2cfe35cd2",
+      "basis_rule": "declared_result",
+      "reference_rule": "preserve",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": 0,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "declared_result",
+      "subject_source": null,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "ea0ecff6ad3b480cb0d9bd033e908495"
+      ]
+    },
+    {
+      "operation_id": "1ab461c000fd49238732dd188271432d",
+      "opcode": "Add",
+      "input_kind_ids": [
+        "fc11a86cfb984aaba5ae30a9911d9a2b",
+        "05408163cb6c117e9a1bc4a2cfe35cd2"
+      ],
+      "result_kind_id": "05408163cb6c117e9a1bc4a2cfe35cd2",
+      "basis_rule": "declared_result",
+      "reference_rule": "preserve",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": 1,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "declared_result",
+      "subject_source": null,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "cae447112523444680cf3b6d89f76f44"
+      ]
+    },
+    {
+      "operation_id": "4be3b0ca624149f29d0d23c3091fe899",
+      "opcode": "Sub",
+      "input_kind_ids": [
+        "05408163cb6c117e9a1bc4a2cfe35cd2",
+        "fc11a86cfb984aaba5ae30a9911d9a2b"
+      ],
+      "result_kind_id": "05408163cb6c117e9a1bc4a2cfe35cd2",
+      "basis_rule": "declared_result",
+      "reference_rule": "preserve",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": 0,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "declared_result",
+      "subject_source": null,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "657bc3f8846f4f5580bede3720fd59b2"
+      ]
+    },
+    {
+      "operation_id": "554ca0e69e3d4ed29856d6bb11110405",
+      "opcode": "Mul",
+      "input_kind_ids": [
+        "a2b5006844e3f6b70dd5d84bcabf5f46",
+        "99263c30741ca81f1c4c3d4b987d4085"
+      ],
+      "result_kind_id": "fc11a86cfb984aaba5ae30a9911d9a2b",
+      "basis_rule": "cancel",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "declared_result",
+      "subject_source": null,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "f0416d0dd6b04619b5a00684985f46d1",
+        "52e9f4dd9b51450bbaa38d440f0a7cfd"
+      ]
+    },
+    {
+      "operation_id": "835c0f3b0ea04b1db2e26d9dbf402f48",
+      "opcode": "Mul",
+      "input_kind_ids": [
+        "c0b95c990b2945ee84d1d1ce2aab43f4",
+        "f789180fbded8b11fd73e2436d33fc9e"
+      ],
+      "result_kind_id": "fc11a86cfb984aaba5ae30a9911d9a2b",
+      "basis_rule": "declared_result",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "declared_result",
+      "subject_source": null,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "8934663c9fc24abe93cdfe2c32a28a77",
+        "1ec90fd04d49479180ba33c9ca5512aa"
+      ]
+    },
+    {
+      "operation_id": "4208c43c137046d99440c48b535782d5",
+      "opcode": "Mul",
+      "input_kind_ids": [
+        "076f4808f65d4b13b07c3968a914d38c",
+        "01a0e1d9b0257478868a5b76b9ec0724"
+      ],
+      "result_kind_id": "fc11a86cfb984aaba5ae30a9911d9a2b",
+      "basis_rule": "cancel",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "declared_result",
+      "subject_source": null,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "41bac5fa53df4907bafc52278c6dcc89",
+        "957d7f534a224038a6998e58c510fc02"
+      ]
+    },
+    {
+      "operation_id": "b9486446d733476cb014109e996177ad",
+      "opcode": "Mul",
+      "input_kind_ids": [
+        "076f4808f65d4b13b07c3968a914d38c",
+        "027d6e65a4c8487a9c5328571b3ad5f2"
+      ],
+      "result_kind_id": "9ed4576374b1809385f72b1f33d17ee6",
+      "basis_rule": "preserve",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": 0,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "preserve",
+      "subject_source": 1,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "56d6162a37784c32a98113675c5b76a9",
+        "e13dc6c59a914da68f77d497a081ff7e"
+      ]
+    },
+    {
+      "operation_id": "1d614c7c5b1145be9661a371ec9dcb82",
+      "opcode": "Mul",
+      "input_kind_ids": [
+        "027d6e65a4c8487a9c5328571b3ad5f2",
+        "01a0effad1837610ae871706a5947b8f"
+      ],
+      "result_kind_id": "01a0effad1837610ae871706a5947b8f",
+      "basis_rule": "declared_result",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "declared_result",
+      "subject_source": null,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "3e3f3e5dd0f64e5caf2c79c2f5e369ca"
+      ]
+    },
+    {
+      "operation_id": "8de7e033987a45efb18fa6559f823374",
+      "opcode": "Add",
+      "input_kind_ids": [
+        "99263c30741ca81f1c4c3d4b987d4085",
+        "2980d231a476489da838af3ecc9aafe7"
+      ],
+      "result_kind_id": "99263c30741ca81f1c4c3d4b987d4085",
+      "basis_rule": "require_equal",
+      "reference_rule": "preserve",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": 0,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "declared_result",
+      "subject_source": null,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "a11a9732de4f4e1eb3352ad979e0c1f2",
+        "d85ef69ff1dc4e52b29ea713a164f680"
+      ]
+    },
+    {
+      "operation_id": "8b0d1d3e359f4bd798146430349a179f",
+      "opcode": "Add",
+      "input_kind_ids": [
+        "2980d231a476489da838af3ecc9aafe7",
+        "99263c30741ca81f1c4c3d4b987d4085"
+      ],
+      "result_kind_id": "99263c30741ca81f1c4c3d4b987d4085",
+      "basis_rule": "require_equal",
+      "reference_rule": "preserve",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": 1,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "declared_result",
+      "subject_source": null,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "c65ae754736d4964a9a5516a23ef3b64",
+        "ecabc1e57f714585b567f871c8dcee10"
+      ]
+    },
+    {
+      "operation_id": "29504e3b47db4f279e0250f9c779f5c4",
+      "opcode": "Sub",
+      "input_kind_ids": [
+        "99263c30741ca81f1c4c3d4b987d4085",
+        "2980d231a476489da838af3ecc9aafe7"
+      ],
+      "result_kind_id": "99263c30741ca81f1c4c3d4b987d4085",
+      "basis_rule": "require_equal",
+      "reference_rule": "preserve",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": 0,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "declared_result",
+      "subject_source": null,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "e1341c014ad64e98a8169ee415d32339",
+        "2ccd3ead9fdb43a79cb6e6706722114f"
+      ]
+    },
+    {
+      "operation_id": "177620d3f0464ea89e3748ee353ecb6c",
+      "opcode": "Add",
+      "input_kind_ids": [
+        "faa6f95459144650ac414fd389e16e27",
+        "b658e9444ced484a967bc902eadc781b"
+      ],
+      "result_kind_id": "faa6f95459144650ac414fd389e16e27",
+      "basis_rule": "require_equal",
+      "reference_rule": "preserve",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": 0,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "declared_result",
+      "subject_source": null,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "0664a6322a194357a0eb0b50c2e23315",
+        "8032b86f80604b059dd0eecf8253e9a1"
+      ]
+    },
+    {
+      "operation_id": "6fdc5d7c150046ae99fa8f63bff4646b",
+      "opcode": "Add",
+      "input_kind_ids": [
+        "b658e9444ced484a967bc902eadc781b",
+        "faa6f95459144650ac414fd389e16e27"
+      ],
+      "result_kind_id": "faa6f95459144650ac414fd389e16e27",
+      "basis_rule": "require_equal",
+      "reference_rule": "preserve",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": 1,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "declared_result",
+      "subject_source": null,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "dc6d8fbc61c44405b03229a2b9836504",
+        "6ec6b5809ff54df0b345ae61bc7c2fcc"
+      ]
+    },
+    {
+      "operation_id": "b008aa7c264648a5a78cd040e6ac5a99",
+      "opcode": "Sub",
+      "input_kind_ids": [
+        "faa6f95459144650ac414fd389e16e27",
+        "b658e9444ced484a967bc902eadc781b"
+      ],
+      "result_kind_id": "faa6f95459144650ac414fd389e16e27",
+      "basis_rule": "require_equal",
+      "reference_rule": "preserve",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": 0,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "declared_result",
+      "subject_source": null,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "dd0cd6c00a3d4db187c60cfab3057741",
+        "8e6733023f184dc48b83f660800dc0c6"
+      ]
+    },
+    {
+      "operation_id": "0088e27fdae14752984b748d699ac251",
+      "opcode": "Mul",
+      "input_kind_ids": [
+        "027d6e65a4c8487a9c5328571b3ad5f2",
+        "7c1d5e0a3b9f4e6c8a2d4f1b6e9c3a05"
+      ],
+      "result_kind_id": "7c1d5e0a3b9f4e6c8a2d4f1b6e9c3a05",
+      "basis_rule": "declared_result",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "declared_result",
+      "subject_source": null,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "05fbd094e80f491db004a209049d718b",
+        "df25eb9dc90042d596ad2e1bb74fb6b1"
+      ]
     }
   ],
   "quantity_types": [
@@ -5852,6 +6505,97 @@
       "canonical_unit_id": "42a671644390a59b1fc2c76bb60193fa",
       "nominal_magnitude": null,
       "doc": "Complete contract for d(ds)/dT."
+    },
+    {
+      "quantity_type_id": "dcc516e56ee14476a2533c908fd54719",
+      "name": "EnergyTransferRate",
+      "quantity_kind_id": "fc11a86cfb984aaba5ae30a9911d9a2b",
+      "basis_id": null,
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "34207cdbb6fab2ee10002e057595c758",
+      "nominal_magnitude": null,
+      "doc": "Plan 25a: declared physical boundary with explicit basis, datum and subject."
+    },
+    {
+      "quantity_type_id": "f13b7e439045420c99d993bcbeed3f61",
+      "name": "ResidualHelmholtzEnergy",
+      "quantity_kind_id": "e18e3b2ca6d740c4b489a86e1f8e0838",
+      "basis_id": null,
+      "reference_state_id": null,
+      "scale_kind": "difference",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "94e71aed4ef8d26cd686cf578884d940",
+      "nominal_magnitude": null,
+      "doc": "Plan 25a: declared physical boundary with explicit basis, datum and subject."
+    },
+    {
+      "quantity_type_id": "f4c030314be04930ad2b53bfc05a655b",
+      "name": "ExcessGibbsEnergy",
+      "quantity_kind_id": "2ac2f8977f044054a6ca227726c54859",
+      "basis_id": null,
+      "reference_state_id": null,
+      "scale_kind": "difference",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "94e71aed4ef8d26cd686cf578884d940",
+      "nominal_magnitude": null,
+      "doc": "Plan 25a: declared physical boundary with explicit basis, datum and subject."
+    },
+    {
+      "quantity_type_id": "21955ed8e1d6486589541a00f3e02c70",
+      "name": "ReactionExtentRate",
+      "quantity_kind_id": "076f4808f65d4b13b07c3968a914d38c",
+      "basis_id": "04d4600b17cbfb717ec549e688ea3503",
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": "0d15cb60062d4ee79e10ae2aea8c397e",
+      "canonical_unit_id": "f983a5ea0ba73a9e6bca75cfeb30adf9",
+      "nominal_magnitude": null,
+      "doc": "Plan 25a: declared physical boundary with explicit basis, datum and subject."
+    },
+    {
+      "quantity_type_id": "34cd679fcc8a446bbd9d3be515900d5d",
+      "name": "ReactionStoichiometry",
+      "quantity_kind_id": "027d6e65a4c8487a9c5328571b3ad5f2",
+      "basis_id": null,
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": "1c998211e5d74955863f377662f56526",
+      "canonical_unit_id": "cd44727295e77c03f21ac3117e36df23",
+      "nominal_magnitude": null,
+      "doc": "Plan 25a: declared physical boundary with explicit basis, datum and subject."
+    },
+    {
+      "quantity_type_id": "8fc686bb708e481a915cd7ce4fbf903f",
+      "name": "ResidualMolarEnthalpy",
+      "quantity_kind_id": "2980d231a476489da838af3ecc9aafe7",
+      "basis_id": "04d4600b17cbfb717ec549e688ea3503",
+      "reference_state_id": null,
+      "scale_kind": "difference",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "b73f6834274def3690812937802e17da",
+      "nominal_magnitude": null,
+      "doc": "Datum-free residual caloric increment; the scientific response retains its selected reconstructed potential."
+    },
+    {
+      "quantity_type_id": "3e88226e8fa044fd8f1077a7883b1b8f",
+      "name": "ResidualMolarEntropy",
+      "quantity_kind_id": "b658e9444ced484a967bc902eadc781b",
+      "basis_id": "04d4600b17cbfb717ec549e688ea3503",
+      "reference_state_id": null,
+      "scale_kind": "difference",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "7f8505e26f9ca348b58b483a017de526",
+      "nominal_magnitude": null,
+      "doc": "Datum-free residual caloric increment; the scientific response retains its selected reconstructed potential."
     }
   ],
   "reference_states": [
@@ -8259,6 +9003,276 @@
       ],
       "required_basis_id": null,
       "required_quantity_type_id": "4982871a5ff5489bb0baba5983412f6c",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "ea0ecff6ad3b480cb0d9bd033e908495",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        1
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "dcc516e56ee14476a2533c908fd54719",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "cae447112523444680cf3b6d89f76f44",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "dcc516e56ee14476a2533c908fd54719",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "657bc3f8846f4f5580bede3720fd59b2",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        1
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "dcc516e56ee14476a2533c908fd54719",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "0f5c21e883d24d0ca2976ced37014491",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        1
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "1831d0d72dc74b299ba8ecb6d4da6f53",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "f0416d0dd6b04619b5a00684985f46d1",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "6df479e3be3bda77c5938727311f1063",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "52e9f4dd9b51450bbaa38d440f0a7cfd",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        1
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "d5bb3d48b9804f2f8d5a6f0a7cadaee8",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "8934663c9fc24abe93cdfe2c32a28a77",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "3920ffa71353463f9435aa67ac151577",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "1ec90fd04d49479180ba33c9ca5512aa",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        1
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "d3e8173d5c454d8b94388323bb7f05c2",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "41bac5fa53df4907bafc52278c6dcc89",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "21955ed8e1d6486589541a00f3e02c70",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "957d7f534a224038a6998e58c510fc02",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        1
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "01a0e1d9b0257478868a5b7538f4faa1",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "56d6162a37784c32a98113675c5b76a9",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "21955ed8e1d6486589541a00f3e02c70",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "e13dc6c59a914da68f77d497a081ff7e",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        1
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "34cd679fcc8a446bbd9d3be515900d5d",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "3e3f3e5dd0f64e5caf2c79c2f5e369ca",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "34cd679fcc8a446bbd9d3be515900d5d",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "a11a9732de4f4e1eb3352ad979e0c1f2",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "1831d0d72dc74b299ba8ecb6d4da6f53",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "d85ef69ff1dc4e52b29ea713a164f680",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        1
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "8fc686bb708e481a915cd7ce4fbf903f",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "c65ae754736d4964a9a5516a23ef3b64",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "8fc686bb708e481a915cd7ce4fbf903f",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "ecabc1e57f714585b567f871c8dcee10",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        1
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "1831d0d72dc74b299ba8ecb6d4da6f53",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "e1341c014ad64e98a8169ee415d32339",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "1831d0d72dc74b299ba8ecb6d4da6f53",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "2ccd3ead9fdb43a79cb6e6706722114f",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        1
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "8fc686bb708e481a915cd7ce4fbf903f",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "0664a6322a194357a0eb0b50c2e23315",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "571c90b8909e43c0ae859554cc2e3479",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "8032b86f80604b059dd0eecf8253e9a1",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        1
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "3e88226e8fa044fd8f1077a7883b1b8f",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "dc6d8fbc61c44405b03229a2b9836504",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "3e88226e8fa044fd8f1077a7883b1b8f",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "6ec6b5809ff54df0b345ae61bc7c2fcc",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        1
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "571c90b8909e43c0ae859554cc2e3479",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "dd0cd6c00a3d4db187c60cfab3057741",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "571c90b8909e43c0ae859554cc2e3479",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "8e6733023f184dc48b83f660800dc0c6",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        1
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "3e88226e8fa044fd8f1077a7883b1b8f",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "05fbd094e80f491db004a209049d718b",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "34cd679fcc8a446bbd9d3be515900d5d",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "df25eb9dc90042d596ad2e1bb74fb6b1",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        1
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "3a8f6d2c9b1e4f7a8c5d0e3b6a9f2c18",
       "match_shape": false
     }
   ],

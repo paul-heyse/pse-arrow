@@ -998,6 +998,7 @@ class RuntimeModelingReportsRow:
     path: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     quantity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    transfer_context: s.ModelingTransferContext | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(s.ModelingTransferContext)))
     value: b.float = attrs.field(validator=v.finite_float)
 
 

@@ -71,6 +71,7 @@ impl ScalarUDFImpl for PreserveField {
         if input.data_type() != args.return_field.data_type()
             || input.metadata() != args.return_field.metadata()
             || input.is_nullable() != args.return_field.is_nullable()
+            || input.dict_is_ordered() != args.return_field.dict_is_ordered()
         {
             return Err(invalid(
                 "return field differs from its actual input expression",
@@ -159,16 +160,17 @@ fn field_missing_metadata_only(actual: &Field, expected: &Field, refine: bool) -
     }
     actual.name() == expected.name()
         && (actual.is_nullable() == expected.is_nullable() || (refine && actual.is_nullable()))
-        && actual
-            .metadata()
-            .iter()
-            .all(|(key, value)| expected.metadata().get(key) == Some(value))
+        && actual.dict_is_ordered() == expected.dict_is_ordered()
+        && pse_columnar::native_field::admits_metadata(
+            actual.metadata(), expected.metadata(),
+            pse_columnar::native_field::MetadataAdmission::RestoreEstablished,
+        )
         && layout_compatible(actual.data_type(), expected.data_type(), refine)
 }
 fn layout_compatible(actual: &DataType, expected: &DataType, refine: bool) -> bool {
-    // Arrow's immutable shared Fields retain equality across native projections.
-    // Avoid recursively walking the same wide tuple at every ancestor node.
-    if actual == expected {
+    // Arrow equality omits dictionary ordering. Check native children even when
+    // the type compares equal; shared field pointers still short-circuit above.
+    if std::ptr::eq(actual, expected) {
         return true;
     }
     match (actual, expected) {
@@ -217,4 +219,36 @@ pub(crate) fn proven_native_layout(actual: &DataType, expected: &DataType) -> bo
 }
 fn invalid(reason: &str) -> DataFusionError {
     DataFusionError::Plan(format!("pse_preserve_field: {reason}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    #[test]
+    fn restoration_requires_established_annotations_and_exact_nested_layout() {
+        let field = Field::new("member", DataType::Utf8, false);
+        let expected = field.clone().with_metadata(HashMap::from([("custom.meaning".into(), "a".into())]));
+        let list = |field: Field| DataType::List(Arc::new(field));
+        assert!(missing_metadata_only(&list(field.clone()), &list(expected.clone())));
+        assert!(!missing_metadata_only(&list(expected.clone()), &list(field.clone())));
+        let conflict = field.clone().with_metadata(HashMap::from([("custom.meaning".into(), "b".into())]));
+        assert!(!missing_metadata_only(&list(conflict), &list(expected.clone())));
+        assert!(!missing_metadata_only(&list(field.clone().with_name("renamed")), &list(expected.clone())));
+        let nullable = list(field.with_nullable(true));
+        assert!(!missing_metadata_only(&nullable, &list(expected.clone())));
+        assert!(proven_native_layout(&nullable, &list(expected)));
+    }
+
+    #[test]
+    fn restoration_never_changes_dictionary_ordering_even_when_arrow_types_compare_equal() {
+        let field = Field::new_dictionary("value", DataType::Int32, DataType::Utf8, false);
+        let list = |field: Field| DataType::List(Arc::new(field));
+        let expected = list(field.clone().with_dict_is_ordered(true));
+        let actual = list(field);
+        assert_eq!(actual, expected);
+        assert!(!missing_metadata_only(&actual, &expected));
+        assert!(!proven_native_layout(&actual, &expected));
+    }
 }

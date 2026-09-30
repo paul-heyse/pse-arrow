@@ -1,6 +1,6 @@
 ---
 title: "25: Coordinated design remediation"
-status: draft
+status: in-progress
 date: 2026-09-30
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_codebase-domain-alignment_2026-09-30.md, docs/design_review/reviews/design_review_codebase-domain-alignment-follow-up_2026-09-30.md]
@@ -11,8 +11,10 @@ scenario_sources: [docs/design_review/reviews/design_review_codebase-domain-alig
 
 ## State, purpose and reading order
 
-**Design complete as a proposed implementation series; production implementation has not started.**
-The maintainer authorized these plan documents, not execution of their production changes.
+**25a implementation is authorized and in progress; the other lettered plans remain proposed.**
+The [25a execution checkpoint](25a-physical-values-and-contextual-contracts.md#execution-checkpoint)
+owns its current state, remaining work and restart sequence. Its partial implementation does
+not resolve the cross-plan findings or establish integrated qualification.
 The series integrates the [original review](../design_review/reviews/design_review_codebase-domain-alignment_2026-09-30.md) and [follow-up](../design_review/reviews/design_review_codebase-domain-alignment-follow-up_2026-09-30.md):
 35 original findings, 12 additional findings and 10 remedy qualifications.
 
@@ -318,4 +320,3 @@ Record an actual implementation correction when closing the series.
 
 None in production. During plan authoring the maintainer requested more concrete implementation
 visions; every functional packet was expanded to state products, dataflow and final consumer behavior.
-

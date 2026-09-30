@@ -9,7 +9,7 @@ use arrow_schema::{DataType, Field};
 use crate::SchemaError;
 
 /// Canonical inclusive `[minimum,maximum]` domain on an Int64 field.
-pub const KEY_INTEGER_RANGE: &str = "pse.semantic.integer_range";
+pub use super::field_facets::KEY_INTEGER_RANGE;
 
 /// A closed interval, projected to language validators and native predicates.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

@@ -8,6 +8,7 @@ mod arguments;
 mod columnar;
 mod contracts;
 mod enums;
+mod field_facets;
 pub(crate) mod identities;
 pub mod physical;
 mod postgres;
@@ -51,6 +52,11 @@ fn emit(
 
 pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
     let mut tree = GeneratedTree::empty(Language::Rust.roots());
+    emit(&mut tree, "crates/pse-columnar/src/generated/field_facets.rs", field_facets::render())?;
+    emit(&mut tree, "crates/pse-columnar/src/generated/mod.rs", quote! {
+        //! Lower-layer policies projected from schema declarations.
+        pub mod field_facets;
+    })?;
     emit(
         &mut tree,
         format!("{ROOT}/contracts.rs"),

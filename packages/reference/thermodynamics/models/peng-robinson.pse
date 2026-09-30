@@ -14,15 +14,27 @@
 @id("01a0e16f32a3739a874c127454d61f81") fn covolume(j:chemistry.species,pkg:properties.property_package,family:cubic.cubic_family)->Scalar = family.omega_b*helmholtz.reduced_gas_constant()*(cubic.selected_tc(pkg,j)/constants.temperature_scale)/(cubic.selected_pc(pkg,j)/constants.pressure_unit);
 @id("01a0e16f32a3739a874c12757f489c73") fn a_mix(t:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>,pkg:properties.property_package,family:cubic.cubic_family)->Scalar = sum(i in members | sum(j in members | n[i]*n[j]*sqrt(attractive(t,i,pkg,family)*attractive(t,j,pkg,family))*(1-interactions.selected_pair(pkg,cubic.binary_interaction,i,j))))/(sum(i in members | n[i]))^2;
 @id("01a0e16f32a3739a874c12768b51c088") fn b_mix(n:Scalar[chemistry.species],members:Set<chemistry.species>,pkg:properties.property_package,family:cubic.cubic_family)->Scalar = sum(i in members | n[i]*covolume(i,pkg,family))/sum(i in members | n[i]);
-@id("01a0e16f32a3739a874c1277f7023238") fn potential(t:Scalar,r:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>,pkg:properties.property_package,family:cubic.cubic_family)->Scalar valid(t>0 and r>0 and b_mix(n,members,pkg,family)*r<1 and sum(j in members | n[j])>0 and sum(j in members | if n[j]>0 then 0 else 1)==0) = -log(1-b*r)-a/(sqrt(family.u^2-4*family.w)*b*helmholtz.reduced_gas_constant()*t)*log((1+((family.u+sqrt(family.u^2-4*family.w))/2)*b*r)/(1+((family.u-sqrt(family.u^2-4*family.w))/2)*b*r)) where a=a_mix(t,n,members,pkg,family),b=b_mix(n,members,pkg,family);
+// These explicit coordinates retain the calibrated Kelvin and mol/m^3 conventions.
+@id("3f1e7edb298d43fa92f5d5bc79101a86") coordinate map coordinates(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>,pkg:properties.property_package,family:cubic.cubic_family) valid(T>constants.absolute_zero and V>0{m^3} and sum(j in members | n[j])>0{mol}) {
+@id("f4633679c60d4dbe9c8bc6234dc90c6b") slot t=(T-constants.absolute_zero)/constants.temperature_scale;
+@id("18b7bccbf8644a6c9c1d266711132822") slot r=(sum(j in members | n[j])/V)/constants.density_unit;
+@id("d32891736b0c4152bab1c514b90adadb") slot n[j in members]=n[j]/constants.amount_unit;
+}
+@id("1796f24b48b448da8992399c73142dec") reconstruction residual for coordinates(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>,pkg:properties.property_package,family:cubic.cubic_family)->ResidualHelmholtzEnergy reference helmholtz.residual_reference=sum(j in members | n[j])*constants.gas_constant*(T-constants.absolute_zero);
+@id("495ac65472134debac921e60beb144c0") fn reduced_potential(t:Coordinate<coordinates.t>,r:Coordinate<coordinates.r>,n:Coordinate<coordinates.n>[chemistry.species],members:Set<chemistry.species>,pkg:properties.property_package,family:cubic.cubic_family)->Reduced<residual> valid(t>0 and r>0 and b_mix(n,members,pkg,family)*r<1 and sum(j in members | n[j])>0 and sum(j in members | if n[j]>0 then 0 else 1)==0) = -log(1-b*r)-a/(sqrt(family.u^2-4*family.w)*b*helmholtz.reduced_gas_constant()*t)*log((1+((family.u+sqrt(family.u^2-4*family.w))/2)*b*r)/(1+((family.u-sqrt(family.u^2-4*family.w))/2)*b*r)) where a=a_mix(t,n,members,pkg,family),b=b_mix(n,members,pkg,family);
+@id("01a0e16f32a3739a874c1277f7023238") fn potential(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>,pkg:properties.property_package,family:cubic.cubic_family)->ResidualHelmholtzEnergy=reconstruct(residual,reduced_potential,T,V,n,members,pkg,family);
 @id("01a0e16f32a3739a874c1278c0cab6b0") fn pressure_coordinate(t:Scalar,r:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>,pkg:properties.property_package,family:cubic.cubic_family)->Scalar = helmholtz.reduced_gas_constant()*t*r/(1-b*r)-a*r*r/(1+family.u*b*r+family.w*b*b*r*r) where a=a_mix(t,n,members,pkg,family),b=b_mix(n,members,pkg,family);
 @id("01a0eee77229746ba4feb33abae924be") fn compressibility_residual(t:Scalar,p:Scalar,z:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>,pkg:properties.property_package,family:cubic.cubic_family)->Scalar=z^3-(1+(1-family.u)*bb)*z^2+(aa+family.w*bb^2-family.u*bb-family.u*bb^2)*z-(aa*bb+family.w*bb^2+family.w*bb^3) where aa=a_mix(t,n,members,pkg,family)*p/(helmholtz.reduced_gas_constant()*t)^2,bb=b_mix(n,members,pkg,family)*p/(helmholtz.reduced_gas_constant()*t);
 @id("01a0e17a4587742dba37029731f4b644") fn density_residual(t:Scalar,p:Scalar,r:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>,pkg:properties.property_package,family:cubic.cubic_family)->Scalar=p*(1-b*r)*(1+family.u*b*r+family.w*b*b*r*r)-helmholtz.reduced_gas_constant()*t*r*(1+family.u*b*r+family.w*b*b*r*r)+a*r*r*(1-b*r) where a=a_mix(t,n,members,pkg,family),b=b_mix(n,members,pkg,family);
 @id("01a0e17a4587742dba37029883951354") interface DensityRoot extends helmholtz.HelmholtzPhase {
+// Explicit numerical coordinates for the cubic polynomial/ordered-row convention only.
+@id("1a36cb43c5a44880ab92f79f4b26d341") let t:Scalar=(T-constants.absolute_zero)/constants.temperature_scale;
+@id("4da042e30aa84209a1e91153896df0f7") let r:Scalar=rho/constants.density_unit;
+@id("050f8926296f4efa8bf541cf57111a03") let n[j in components]:Scalar=amount[j]/constants.amount_unit;
 @id("510691c7f486481b8adfb3323137d850") param parameter_package:properties.property_package;
 @id("8ec1580333bf4a60b35fa8ebb8388b66") param family:cubic.cubic_family=cubic.pr;
-@id("7cb6ce8eaadc4827b8f349e78ef16970") param law:Fn(t:Scalar,r:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>)->Scalar;
-@id("01a0e17a4587742dba3702994065516a") override param potential:Fn(t:Scalar,r:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>)->Scalar=law;
+@id("7cb6ce8eaadc4827b8f349e78ef16970") param law:Fn(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy;
+@id("01a0e17a4587742dba3702994065516a") override param potential:Fn(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy=law;
 @id("01a0e17a4587742dba37029a4515bbdd") var target_pressure:Pressure;
 @id("01a0e17a4587742dba37029b59248c6a") param density_lower:Scalar;
 @id("01a0e17a4587742dba37029c88c8eb09") param density_upper:Scalar;
@@ -41,24 +53,24 @@
 @id("01a0e17a4587742dba3702a3987c3535") annotation valid rho(density_lower*constants.density_unit,density_upper*constants.density_unit,reject);
 @id("01a0e17a4587742dba3702a8903e21fb") annotation check rho((pressure/constants.pressure_unit-target_pressure/constants.pressure_unit)^2<1e-6);
 }
-@id("01a0e17a4587742dba3702a9f82392ed") def InlineDensity(selected:Set<chemistry.species>,pkg:properties.property_package,law:Fn(t:Scalar,r:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>)->Scalar,selected_family:cubic.cubic_family=cubic.pr):DensityRoot {
+@id("01a0e17a4587742dba3702a9f82392ed") def InlineDensity(selected:Set<chemistry.species>,pkg:properties.property_package,law:Fn(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy,selected_family:cubic.cubic_family=cubic.pr):DensityRoot {
 @id("8418857723e746b9946cf293be59e3b6") override param parameter_package:properties.property_package=pkg;
 @id("79d97708ac1048aa817abfa407ece2ab") override param family:cubic.cubic_family=selected_family;
-@id("6deffdfb2f8945a592831e95510986e8") override param law:Fn(t:Scalar,r:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>)->Scalar=law;
+@id("6deffdfb2f8945a592831e95510986e8") override param law:Fn(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy=law;
 @id("01a0e17a4587742dba3702aa65fbd99a") override param components:Set<chemistry.species>=selected;
 @id("01a0e17a4587742dba3702ab9501bf52") realize density_policy on density using inline;
 }
-@id("01a0e17a4587742dba3702ac9a481616") def NestedDensity(selected:Set<chemistry.species>,pkg:properties.property_package,law:Fn(t:Scalar,r:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>)->Scalar,selected_family:cubic.cubic_family=cubic.pr):DensityRoot {
+@id("01a0e17a4587742dba3702ac9a481616") def NestedDensity(selected:Set<chemistry.species>,pkg:properties.property_package,law:Fn(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy,selected_family:cubic.cubic_family=cubic.pr):DensityRoot {
 @id("d4ed63a5aa9644088d9b15dc412e6d57") override param parameter_package:properties.property_package=pkg;
 @id("b2702de3397d4801acdb41afe2742c47") override param family:cubic.cubic_family=selected_family;
-@id("ff8dbfe24aa64ceab4361f2ea501e47f") override param law:Fn(t:Scalar,r:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>)->Scalar=law;
+@id("ff8dbfe24aa64ceab4361f2ea501e47f") override param law:Fn(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy=law;
 @id("01a0e17a4587742dba3702addc2f0dbd") override param components:Set<chemistry.species>=selected;
 @id("01a0e17a4587742dba3702ae26199736") realize density_policy on density using nested;
 }
-@id("01a0e17a4587742dba3702af08a837e4") def AcceleratedDensity(selected:Set<chemistry.species>,pkg:properties.property_package,law:Fn(t:Scalar,r:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>)->Scalar,selected_family:cubic.cubic_family=cubic.pr):DensityRoot {
+@id("01a0e17a4587742dba3702af08a837e4") def AcceleratedDensity(selected:Set<chemistry.species>,pkg:properties.property_package,law:Fn(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy,selected_family:cubic.cubic_family=cubic.pr):DensityRoot {
 @id("64118bd7f9054421a3937c20461008b6") override param parameter_package:properties.property_package=pkg;
 @id("c84e74165e6a459cbd31ca658fcad190") override param family:cubic.cubic_family=selected_family;
-@id("5615410937a248e6a4b58e70204027bc") override param law:Fn(t:Scalar,r:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>)->Scalar=law;
+@id("5615410937a248e6a4b58e70204027bc") override param law:Fn(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy=law;
 @id("01a0e17a4587742dba3702b04b49c8a0") override param components:Set<chemistry.species>=selected;
 @id("01a0e17a4587742dba3702b1150c3137") realize density_policy on density using accelerated(cubic_roots);
 }
@@ -66,22 +78,26 @@
 @id("01a0e17fb4307404bb45616ff29b66e8") fn idaes_ln_phi(t:Scalar,r:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>,j:chemistry.species,pkg:properties.property_package,family:cubic.cubic_family)->Scalar=bj/b*(z-1)-log(z*(1-b*r))-a/(sqrt(family.u^2-4*family.w)*b*helmholtz.reduced_gas_constant()*t)*(delta_row(t,n,members,j,pkg,family)-bj/b)*log((1+((family.u+sqrt(family.u^2-4*family.w))/2)*b*r)/(1+((family.u-sqrt(family.u^2-4*family.w))/2)*b*r)) where a=a_mix(t,n,members,pkg,family),b=b_mix(n,members,pkg,family),bj=covolume(j,pkg,family),z=pressure_coordinate(t,r,n,members,pkg,family)/(helmholtz.reduced_gas_constant()*t*r);
 @id("01a0eef360b67582bfa3bbcff630701b") fn compressibility_ln_phi(t:Scalar,p:Scalar,z:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>,j:chemistry.species,pkg:properties.property_package,family:cubic.cubic_family)->Scalar=bj/b*(z-1)-log(z-bb)-aa/(sqrt(family.u^2-4*family.w)*bb)*(delta_row(t,n,members,j,pkg,family)-bj/b)*log((z+((family.u+sqrt(family.u^2-4*family.w))/2)*bb)/(z+((family.u-sqrt(family.u^2-4*family.w))/2)*bb)) where b=b_mix(n,members,pkg,family),bj=covolume(j,pkg,family),aa=a_mix(t,n,members,pkg,family)*p/(helmholtz.reduced_gas_constant()*t)^2,bb=b*p/(helmholtz.reduced_gas_constant()*t);
 @id("01a0e17fb4307404bb4561704fec4bb4") interface IdaesDeltaPhase extends helmholtz.HelmholtzPhase {
+// Explicit numerical coordinates for the cubic polynomial/ordered-row convention only.
+@id("0eeb9cec24be4c99be29fc1494043aaa") let t:Scalar=(T-constants.absolute_zero)/constants.temperature_scale;
+@id("557064940deb4fefa201900a4f17b5cc") let r:Scalar=rho/constants.density_unit;
+@id("22e1d15f0086410094e5608011484928") let n[j in components]:Scalar=amount[j]/constants.amount_unit;
 @id("61cbf84a4e25403cb747f1a32325140e") param parameter_package:properties.property_package;
 @id("a868558dba0a40378f8d857f92579453") param family:cubic.cubic_family=cubic.pr;
-@id("92f802bbaa69415da149ecc56c16cb78") param law:Fn(t:Scalar,r:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>)->Scalar;
-@id("01a0e17fb4307404bb4561718f09f6a3") override param potential:Fn(t:Scalar,r:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>)->Scalar=law;
+@id("92f802bbaa69415da149ecc56c16cb78") param law:Fn(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy;
+@id("01a0e17fb4307404bb4561718f09f6a3") override param potential:Fn(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy=law;
 @id("01a0e17fb4307404bb45617215c75611") override let ln_phi[j in components]:Scalar=idaes_ln_phi(t,r,n,components,j,parameter_package,family);
 }
-@id("01a0e17fb4307404bb4561737c9e18a4") def IdaesHomogeneousPhase(selected:Set<chemistry.species>,pkg:properties.property_package,law:Fn(t:Scalar,r:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>)->Scalar,selected_family:cubic.cubic_family=cubic.pr):IdaesDeltaPhase {
+@id("01a0e17fb4307404bb4561737c9e18a4") def IdaesHomogeneousPhase(selected:Set<chemistry.species>,pkg:properties.property_package,law:Fn(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy,selected_family:cubic.cubic_family=cubic.pr):IdaesDeltaPhase {
 @id("cac8f577d3864c6f89b58ce80395c4ae") override param parameter_package:properties.property_package=pkg;
 @id("86333f8da580431ea773604dde0b04e6") override param family:cubic.cubic_family=selected_family;
-@id("88f4e5ee01584ca29efa4a9c6a7848a5") override param law:Fn(t:Scalar,r:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>)->Scalar=law;
+@id("88f4e5ee01584ca29efa4a9c6a7848a5") override param law:Fn(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy=law;
 @id("01a0e17fb4307404bb45617496564068") override param components:Set<chemistry.species>=selected;
 }
-@id("01a0e1b4f60e71eab341886ccc55109c") def BoundedCubicDensity(selected:Set<chemistry.species>,lower:Scalar,upper:Scalar,start:Scalar,pkg:properties.property_package,law:Fn(t:Scalar,r:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>)->Scalar,selected_family:cubic.cubic_family=cubic.pr):DensityRoot {
+@id("01a0e1b4f60e71eab341886ccc55109c") def BoundedCubicDensity(selected:Set<chemistry.species>,lower:Scalar,upper:Scalar,start:Scalar,pkg:properties.property_package,law:Fn(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy,selected_family:cubic.cubic_family=cubic.pr):DensityRoot {
 @id("8970e5d675c54f47bd4b88145319b6d4") override param parameter_package:properties.property_package=pkg;
 @id("a0282986bf1749ad8f7d864be69a67c4") override param family:cubic.cubic_family=selected_family;
-@id("e00ecc4d6e994ca0a89bef85b1b288d0") override param law:Fn(t:Scalar,r:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>)->Scalar=law;
+@id("e00ecc4d6e994ca0a89bef85b1b288d0") override param law:Fn(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy=law;
 @id("01a0e1b4f60e71eab341886daee58dbe") override param components:Set<chemistry.species>=selected;
 @id("01a0e1b4f60e71eab341886e0cc8ceca") override param density_lower:Scalar=lower;
 @id("01a0e1b4f60e71eab341886ff83b3baa") override param density_upper:Scalar=upper;

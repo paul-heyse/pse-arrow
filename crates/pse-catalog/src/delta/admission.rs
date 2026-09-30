@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Candidate checks expressed as native filters, grouping and anti joins.
+mod physical;
 #[cfg(test)]
 mod tests;
 use datafusion::{
@@ -55,11 +56,13 @@ pub async fn violation_plans(
                 local.insert(member.relation_id);
             }
         }
+        let quantities = physical::compatibility(&registry, &inputs, state).await?;
         checks.extend(
             pse_relations::validate::obligations::ObligationTemplates::new(&registry)
                 .bind_required(
                     &inputs,
                     &pse_engine::validation::NativeValidation(state.clone()),
+                    quantities.as_ref(),
                     |relation, kind| {
                         kind != pse_relations::validate::obligations::ObligationKind::LocalValues
                             || !local.contains(&relation)

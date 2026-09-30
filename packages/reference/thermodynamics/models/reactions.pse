@@ -11,7 +11,7 @@
 @id("01a0e1db89d8722baac398e5988e7028") param reactions:Set<chemistry.reaction>;
 @id("01a0e1db89d8722baac398e63f4d132c") param method:Fn(T:Temperature,c:MolarDensity[chemistry.species],r:chemistry.reaction)->VolumetricReactionRate;
 @id("01a0e1db89d8722baac398e7ed5792e9") param heat_method:Fn(r:chemistry.reaction)->ReactionHeat;
-@id("01a0e1db89d8722baac398e811f7337c") param stoichiometry:Fn(r:chemistry.reaction,j:chemistry.species)->Scalar;
+@id("01a0e1db89d8722baac398e811f7337c") param stoichiometry:Fn(r:chemistry.reaction,j:chemistry.species)->ReactionStoichiometry;
 @id("01a0e1db89d8722baac398e9bf3e6cde") var T:Temperature;
 @id("01a0e1db89d8722baac398eaea8d4312") var concentration[j in components]:MolarDensity;
 @id("010b2de0f47e4f6599d9f6ca42f5a125") annotation start T(300{K});
@@ -20,6 +20,6 @@
 @id("a9aa15615f3844d7a006e079b6122ece") annotation nominal concentration(100{mol/m^3});
 @id("01a0e1db89d8722baac398eb336c849d") let rate[r in reactions]:VolumetricReactionRate=method(T,concentration,r);
 @id("01a0e1db89d8722baac398eca7e9fa1b") let heat[r in reactions]:ReactionHeat=heat_method(r);
-@id("01a0e1db89d8722baac398ede4f70358") let stoich[r in reactions,j in components]:Scalar=stoichiometry(r,j);
+@id("01a0e1db89d8722baac398ede4f70358") let stoich[r in reactions,j in components]:ReactionStoichiometry=stoichiometry(r,j);
 }
 }

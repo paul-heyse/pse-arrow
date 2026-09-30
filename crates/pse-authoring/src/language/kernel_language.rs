@@ -14,6 +14,46 @@ fn parse_named(s: &str) -> Vec<Declaration> {
     .unwrap()
 }
 #[test]
+fn physical_maps_responses_translations_and_transfers_roundtrip() {
+    let text = r#"package physical_forms {
+ coordinate map reduced(T: Temperature, V: Volume, n: Amount[species], members: Set<species>) valid(V > 0{m^3}) {
+  slot temperature = (T-zero)/scale;
+  slot amount[j in members] = n[j]/amount_scale;
+ }
+ reconstruction residual for reduced(T: Temperature, V: Volume, n: Amount[species], members: Set<species>) -> ResidualHelmholtzEnergy reference ideal = R*(T-zero)*amount_scale;
+ fn law(t: Coordinate<reduced.temperature>, n: Coordinate<reduced.amount>[species], members: Set<species>) -> Reduced<residual> = sum(j in members; n[j])*t;
+ response enthalpy from potential(T: Temperature, potential: Fn(T: Temperature)->ResidualHelmholtzEnergy) -> DeltaH = potential(T)-T*partial(potential(T), T);
+ reference translation enthalpy_reference(value: H, composition: MoleFraction[species], members: Set<species>) -> ReferenceH anchors(source=first_anchor,target=second_anchor) at(temperature=T0,pressure=p0) provenance(book,Role.published);
+ def Balance {
+  boundary thermal[i in sides];
+  exchange transfer[i in sides] between hot.thermal[i] and cold.thermal[i];
+  var rate: Transfer<EnergyTransferRate,thermal,Into>;
+  accumulate energy: Power boundary thermal conservation tolerance 1e-6{W};
+  contribute energy role directed = rate;
+ }
+}"#;
+    let rows = parse_named(text);
+    let rendered = render(&rows).unwrap();
+    let semantic = |rows: Vec<Declaration>| rows.into_iter().map(|mut row| {
+        row.source_start = 0;
+        row.source_end = 0;
+        row
+    }).collect::<Vec<_>>();
+    assert_eq!(semantic(parse_named(&rendered)), semantic(rows.clone()));
+    assert!(rows.iter().any(|r| r.value.coordinate_map.is_some()));
+    assert!(rows.iter().any(|r| r.value.reference_translation.is_some()));
+    for spelling in ["Coordinate<reduced.temperature>", "Reduced<residual>", "Transfer<EnergyTransferRate, thermal, Into>"] {
+        assert!(rendered.contains(spelling), "{rendered}");
+    }
+}
+
+#[test]
+fn physical_refinement_type_shapes_refuse_missing_or_extra_context() {
+    for text in ["Transfer<EnergyTransferRate,thermal>", "Transfer<EnergyTransferRate,thermal,Into,extra>", "Coordinate<map.slot,other>", "Reduced<family,other>"] {
+        assert!(parse_type(text, &[]).is_err(), "{text}");
+    }
+}
+#[test]
 fn roundtrip_all_declarations_and_explicit_identity() {
     let source = r#"package synthetic {
  use other @ "1.0.0";

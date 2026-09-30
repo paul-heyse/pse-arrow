@@ -655,19 +655,30 @@ fn print_block(
                 format!("require {} : {};", v.predicate, quoted(&v.message))
             }
             Selected::Connection(v) => format!("connect {} -> {};", v.from, v.to),
+            Selected::CoordinateMap(v) => {
+                block = true;
+                format!("coordinate map {n}{}{} {{", parameters(v.arguments.iter().map(|a| (a.name.as_str(), a.r#type.as_slice(), a.default_value.as_deref())))?, v.validity.as_ref().map_or_else(String::new, |p| format!(" valid({p})")))
+            }
+            Selected::CoordinateSlot(v) => format!("slot {n}{} = {};", indices(v.indices.iter().map(|i| (i.name.as_str(), i.domain.as_str()))), v.expression),
+            Selected::Reconstruction(v) => format!("reconstruction {n} for {}{} -> {} reference {} = {};", v.map, parameters(v.arguments.iter().map(|a| (a.name.as_str(), a.r#type.as_slice(), a.default_value.as_deref())))?, ty(&v.return_type)?, v.reference, v.normalization),
+            Selected::Response(v) => format!("response {n} from {}{} -> {} = {};", v.witness, parameters(v.arguments.iter().map(|a| (a.name.as_str(), a.r#type.as_slice(), a.default_value.as_deref())))?, ty(&v.return_type)?, v.body),
+            Selected::ReferenceTranslation(v) => format!("reference translation {n}{} -> {} anchors(source={},target={}) at(temperature={},pressure={}) {};", parameters(v.arguments.iter().map(|a| (a.name.as_str(), a.r#type.as_slice(), a.default_value.as_deref())))?, ty(&v.return_type)?, v.source_anchor, v.target_anchor, v.temperature, v.pressure, provenance(&v.provenance)),
+            Selected::Boundary(v) => format!("boundary {n}{};", indices(v.indices.iter().map(|i| (i.name.as_str(), i.domain.as_str())))),
+            Selected::Exchange(v) => format!("exchange {n}{} between {} and {};", indices(v.indices.iter().map(|i| (i.name.as_str(), i.domain.as_str()))), v.from, v.to),
             Selected::Accumulator(v) => format!(
-                "accumulate {n}{}: {} {} tolerance {};",
+                "accumulate {n}{}: {}{} {} tolerance {};",
                 indices(
                     v.indices
                         .iter()
                         .map(|i| (i.name.as_str(), i.domain.as_str()))
                 ),
                 ty(&v.r#type)?,
+                v.boundary.as_ref().map_or_else(String::new, |b| format!(" boundary {b}")),
                 v.mode.as_str(),
                 v.tolerance
             ),
             Selected::Contribution(v) => format!(
-                "contribute {}{} role {}{} = {};",
+                "contribute {}{} role {} = {};",
                 indices(
                     v.indices
                         .iter()
@@ -675,11 +686,6 @@ fn print_block(
                 ),
                 v.target,
                 v.role.as_str(),
-                match (&v.transfer_id, &v.transfer_side) {
-                    (Some(id), Some(side)) => format!(" transfer {} {side}", quoted(id)),
-                    (None, None) => String::new(),
-                    _ => return Err(bad("incomplete transfer")),
-                },
                 v.expression
             ),
             Selected::Table(v) => {

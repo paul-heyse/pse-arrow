@@ -41,7 +41,7 @@ fn text(values: &[Option<&str>]) -> Values {
 }
 fn admitted(text: &str, columns: Vec<DocumentColumn>) -> Result<CheckedPackage> {
     let (registry, _) = physical();
-    let context = TypeContext {
+    let context = TypeContext {formula_authority: None,
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
         scope: &PhysicalScope::default(),
@@ -236,6 +236,75 @@ fn document_rows_admit_through_the_plan() {
     );
 }
 
+#[test]
+fn canonical_numeric_admission_matches_inline_columns_and_uncertainty_scale() {
+    use pse_authoring::dsl::Number;
+    use pse_quantity::{UnitProduct, scheme::Scheme};
+    let (registry, names) = physical();
+    let context = TypeContext {formula_authority: None,
+        preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
+        quantities: &registry,
+        scope: &PhysicalScope::default(),
+    };
+    let p = admitted(BANK, bank()).unwrap();
+    let table = &p.tables[&p.names["p.bank"]];
+    let at = p.names["p.bank"];
+    for (value, symbol, quantity_name, cell, scale) in [
+        (1.5, "kJ", "Energy", 0, 1000.0),
+        (25.0, "degC", "Temperature", 1, 1.0),
+    ] {
+        let expected = Type::Quantity(Scheme::Concrete(names[quantity_name]));
+        let (inline, uncertainty_scale) = specialize::value::number(
+            &context, at,
+            &Number { value, exact_integer: None, unit: Some(UnitProduct::symbol(symbol)) },
+            Some(&expected),
+        ).unwrap();
+        assert!(table.rows.values().any(|row| row.cells[cell] == inline));
+        assert_eq!(uncertainty_scale, scale);
+    }
+    assert!(table.rows.values().any(|row| row.cells[1] == Value::Missing));
+    let scalar = Type::Quantity(Scheme::Concrete(names["Scalar"]));
+    for value in [f64::NAN, f64::INFINITY] {
+        let error = specialize::value::number(
+            &context, at, &Number { value, exact_integer: None, unit: None }, Some(&scalar),
+        ).unwrap_err().to_string();
+        assert!(error.contains("nonfinite magnitude"), "{error}");
+    }
+    let (negative_zero, _) = specialize::value::number(
+        &context, at,
+        &Number { value: -0.0, exact_integer: None, unit: None }, Some(&scalar),
+    ).unwrap();
+    assert!(matches!(negative_zero, Value::Number { bits, .. } if bits == (-0.0_f64).to_bits()));
+}
+
+#[test]
+fn canonical_numeric_overflow_refuses_with_document_row_and_inline_attribution() {
+    let mut columns = bank();
+    columns[2].values = Values::Magnitude(vec![Some(1.0), Some(f64::MAX)]);
+    let error = refusal(BANK, columns);
+    for detail in ["column h", "data/bank.parquet", "row 1", "nonfinite converted magnitude"] {
+        assert!(error.contains(detail), "{detail}: {error}");
+    }
+    let (registry, names) = physical();
+    let context = TypeContext {formula_authority: None,
+        preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
+        quantities: &registry,
+        scope: &PhysicalScope::default(),
+    };
+    let at = DeclarationId::from(SemanticId::from_bytes([0x7a; 16]));
+    let expected = Type::Quantity(pse_quantity::scheme::Scheme::Concrete(names["Energy"]));
+    let error = specialize::value::number(
+        &context, at,
+        &pse_authoring::dsl::Number {
+            value: f64::MAX, exact_integer: None,
+            unit: Some(pse_quantity::UnitProduct::symbol("kJ")),
+        },
+        Some(&expected),
+    ).unwrap_err().to_string();
+    assert!(error.contains("nonfinite converted magnitude"), "{error}");
+    assert!(error.contains(&at.to_string()), "{error}");
+}
+
 /// A reference by identity names an admitted entity of the declared kind.
 #[test]
 fn document_identity_references_name_admitted_entities() {
@@ -267,7 +336,7 @@ fn document_identity_references_name_admitted_entities() {
 
 fn admitted_names(text: &str) -> std::collections::BTreeMap<String, DeclarationId> {
     let (registry, _) = physical();
-    let context = TypeContext {
+    let context = TypeContext {formula_authority: None,
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
         scope: &PhysicalScope::default(),

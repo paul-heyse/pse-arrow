@@ -10,7 +10,8 @@ the dispositions `mapping.toml` declares for the table and its partitions.
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping, Sequence
+import re
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -21,6 +22,9 @@ from thermo_knowledge.mapping import claims
 from thermo_knowledge.mapping.spec import Partition, Scalar, TableRule
 from thermo_knowledge.staging.manifest import StagedManifest
 from thermo_knowledge.staging.schema import ARTIFACT, LOCATOR
+
+
+ELEMENT = re.compile(r"(.+)\[(\d+)\]")
 
 
 class MappingError(Exception):
@@ -37,10 +41,21 @@ class SourceRow:
     values: Mapping[str, object]
 
     def __getitem__(self, column: str) -> object:
-        return self.values[column]
+        """The value of `column`, or of one element of a list column (`coefficients[3]`, from
+        zero); an element a list does not have is absent (`None`)."""
+        found = ELEMENT.fullmatch(column)
+        if found is None or column in self.values:
+            return self.values[column]
+        items = self.values[found.group(1)]
+        position = int(found.group(2))
+        if items is None:
+            return None
+        if not isinstance(items, list):
+            raise MappingError(f"{self.table}.{found.group(1)} holds no list, it has no elements")
+        return items[position] if position < len(items) else None
 
     def get(self, column: str) -> object | None:
-        return self.values.get(column)
+        return self[column] if column in self.values or ELEMENT.fullmatch(column) else None
 
 
 @dataclass(frozen=True)
@@ -97,6 +112,8 @@ class StagedTables:
 
 def _matches(where: Mapping[str, Scalar | list[Scalar]], values: Mapping[str, object]) -> bool:
     for column, wanted in where.items():
+        if column not in values:  # a column of a join the row has no related row in
+            return False
         found = values[column]
         if isinstance(wanted, list):
             if found not in wanted:
@@ -143,9 +160,15 @@ class Classifier:
             for row in self._tables.rows(table, []):
                 result[row.locator] = default
         else:
-            columns = sorted({column for p in rule.partitions for column in p.where})
-            for row in self._tables.rows(table, columns):
-                hits = [p for p in rule.partitions if _matches(p.where, row.values)]
+            wanted = {column for p in rule.partitions for column in p.where}
+            columns = sorted(column for column in wanted if "." not in column)
+            joins = sorted({column.partition(".")[0] for column in wanted if "." in column})
+            related = {name: self._joined(table, rule, name) for name in joins}
+            for row in self._tables.rows(table, columns + [c for n in joins for c in rule.joins[n].on]):
+                values = dict(row.values)
+                for name in joins:
+                    values.update(related[name](row))
+                hits = [p for p in rule.partitions if _matches(p.where, values)]
                 if len(hits) > 1:
                     raise MappingError(
                         f"table {table}: the row {row.locator} matches the partitions "
@@ -154,6 +177,29 @@ class Classifier:
                 result[row.locator] = _partition_disposition(rule, hits[0]) if hits else default
         self._cache[table] = result
         return result
+
+    def _joined(
+        self, table: str, rule: TableRule, name: str
+    ) -> Callable[[SourceRow], dict[str, object]]:
+        """The columns of the row of join `name` related to a row of `table`, keyed `name.column`
+        (none when the row has no related row)."""
+        join = rule.joins[name]
+        index: dict[tuple[object, ...], list[SourceRow]] = {}
+        for found in self._tables.rows(join.table):
+            index.setdefault(tuple(found[c] for c in join.on.values()), []).append(found)
+
+        def lookup(row: SourceRow) -> dict[str, object]:
+            matches = index.get(tuple(row[c] for c in join.on), [])
+            if len(matches) > 1:
+                raise MappingError(
+                    f"table {table}: the row {row.locator} is related to {len(matches)} rows of "
+                    f"`{join.table}` by join `{name}`, needs at most one"
+                )
+            if not matches:
+                return {}
+            return {f"{name}.{column}": value for column, value in matches[0].values.items()}
+
+        return lookup
 
     def counts(self, table: str) -> dict[tuple[str, str | None], int]:
         """Rows per (disposition, partition) without reading a table that has no partitions."""

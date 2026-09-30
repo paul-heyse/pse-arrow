@@ -328,7 +328,7 @@ impl Engine<'_, '_> {
                     return Err(invalid(at, "annotation kind handled above"));
                 }
             };
-            if !matches!(ty, Type::Quantity(_)) {
+            if ty.quantity_scheme().is_none() {
                 return Err(invalid(
                     at,
                     "annotation target must have a complete physical type",

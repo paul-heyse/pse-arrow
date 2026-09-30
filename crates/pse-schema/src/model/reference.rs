@@ -11,7 +11,7 @@ use std::collections::BTreeSet;
 use crate::{SchemaError, model::FieldContract};
 
 /// Portable logical reference metadata, retained through declared Delta layouts.
-pub const KEY_REFERENCE: &str = "pse.semantic.reference";
+pub use super::field_facets::KEY_REFERENCE;
 
 /// Presence of the mapped key inside a visible containing value.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

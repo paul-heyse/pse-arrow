@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Multiplicative chains resolved against declared kinds (ADR-0124, Plan 23 KR2).
+//! Complete physical contracts and anonymous intermediate admission (Plan 25a A2).
 
-use crate::infer::{Chain, NoInvariantFacts, OpRequest, Operand, OperationSelection, infer_chain};
+use crate::infer::{NoInvariantFacts, OpRequest};
 use crate::*;
 use pse_ids::SemanticId;
 
@@ -13,33 +13,11 @@ fn raw(n: u8) -> SemanticId {
 fn r(num: i32, den: i32) -> Ratio {
     Ratio::new(num, den).unwrap()
 }
-fn leaf(quantity_type: QuantityTypeId, indices: &IndexSet) -> Box<Chain<'_>> {
-    Box::new(Chain::Leaf(Operand {
-        quantity_type,
-        indices,
-    }))
-}
-fn mul<'a>(a: Box<Chain<'a>>, b: Box<Chain<'a>>) -> Box<Chain<'a>> {
-    Box::new(Chain::Mul(a, b))
-}
-fn div<'a>(a: Box<Chain<'a>>, b: Box<Chain<'a>>) -> Box<Chain<'a>> {
-    Box::new(Chain::Div(a, b))
-}
-fn pow<'a>(base: Box<Chain<'a>>, exponent: i32, scalar: Operand<'a>) -> Box<Chain<'a>> {
-    Box::new(Chain::Pow {
-        base,
-        exponent: r(exponent, 1),
-        power: scalar,
-    })
-}
-
 // ------------------------------------------------------------------ synthetic fixture --
 
 const A: u8 = 10;
 const B: u8 = 11;
 const PRODUCT: u8 = 12;
-const DECLARED_BASIS: u8 = 13;
-const RULE_RESULT: u8 = 14;
 const MOLAR: u8 = 20;
 const MASS: u8 = 21;
 const NEUTRAL: u8 = 30;
@@ -156,171 +134,127 @@ fn q(n: u8) -> QuantityTypeId {
 }
 
 #[test]
-fn basis_must_agree_or_be_declared() {
+fn anonymous_contracts_retain_factors_until_named_boundary() {
     let registry = builder().build().unwrap();
-    let scalar = IndexSet::new();
-    let product = |a, b| {
-        infer_chain(
-            &mul(leaf(a, &scalar), leaf(b, &scalar)),
-            &registry,
-            &NoInvariantFacts,
-        )
-    };
-    // Equal bases: the derived kind's result takes the factors' basis.
-    let inferred = product(q(40), q(42)).unwrap();
-    assert_eq!(inferred.result, q(43));
-    assert_eq!(
-        inferred.selected,
-        OperationSelection::BuiltIn(infer::BuiltInRule::Chain)
-    );
-    // A mass-basis and a molar-basis factor disagree, and nothing is declared.
-    assert!(matches!(
-        product(q(41), q(42)),
-        Err(QuantityError::Incompatible {
-            reason: IncompatibilityReason::BasisMismatch,
-            ..
-        })
-    ));
-    // A derived kind that declares its basis takes it whatever the factors carry. Its
-    // monomial A·B·B², written over another derived kind, expands to A·B³.
-    let mut declared = builder();
-    declared
-        .unit(unit(6, "ab3", dimension(1, 3)))
-        .derived_kind(DerivedKind {
-            id: QuantityKindId::from_id(raw(DECLARED_BASIS)),
-            extensive: false,
-            addition_kind: QuantityAdditionKind::Additive,
-            definition: KindDefinition {
-                monomial: vec![
-                    KindFactor {
-                        kind: QuantityKindId::from_id(raw(PRODUCT)),
-                        exponent: Ratio::ONE,
-                    },
-                    KindFactor {
-                        kind: QuantityKindId::from_id(raw(B)),
-                        exponent: r(2, 1),
-                    },
-                ],
-                canonical_unit: UnitId::from_id(raw(6)),
-                ..definition(Some(MOLAR))
-            },
-        })
-        .quantity_type(ty(45, DECLARED_BASIS, Some(MOLAR), 6));
-    let registry = declared.build().unwrap();
-    let chain = mul(
-        mul(leaf(q(41), &scalar), leaf(q(42), &scalar)),
-        mul(leaf(q(42), &scalar), leaf(q(42), &scalar)),
-    );
-    assert_eq!(
-        infer_chain(&chain, &registry, &NoInvariantFacts)
-            .unwrap()
-            .result,
-        q(45)
-    );
+    let a = ResolvedPhysicalContract::named(q(40), IndexSet::new(), &registry).unwrap();
+    let b = ResolvedPhysicalContract::named(q(42), IndexSet::new(), &registry).unwrap();
+    let square = resolved::infer_operation(&OpRequest::Mul, &[a.clone(), a.clone()], None, &registry, &NoInvariantFacts).unwrap();
+    let admitted = resolved::infer_operation(&OpRequest::Mul, &[square.result, b], None, &registry, &NoInvariantFacts).unwrap();
+    assert_eq!(admitted.result.named_id(), None);
+    assert_eq!(admitted.result.kind_factors(), &[
+        KindFactor {kind: raw(A).into(), exponent:r(2,1)}, KindFactor {kind:raw(B).into(),exponent:Ratio::ONE},
+    ]);
+    assert_eq!(admitted.result.qualified_factors().len(), 2);
+    assert!(admitted.result.at_boundary(q(43), &registry).is_err());
+    let completed = resolved::infer_operation(&OpRequest::Div, &[admitted.result, a], None, &registry, &NoInvariantFacts).unwrap();
+    assert_eq!(completed.result.require_named().unwrap(), q(43));
 }
 
 #[test]
-fn undeclared_monomial_is_refused_with_factors() {
-    let registry = builder().build().unwrap();
-    let scalar = IndexSet::new();
-    // A²·B names no declared kind, and none is synthesized.
-    let chain = mul(
-        mul(leaf(q(40), &scalar), leaf(q(40), &scalar)),
-        leaf(q(42), &scalar),
-    );
-    let error = infer_chain(&chain, &registry, &NoInvariantFacts).unwrap_err();
-    let QuantityError::UndeclaredMonomial { factors } = &error else {
-        panic!("{error}");
-    };
-    assert_eq!(
-        factors,
-        &vec![
-            KindFactor {
-                kind: QuantityKindId::from_id(raw(A)),
-                exponent: r(2, 1),
-            },
-            KindFactor {
-                kind: QuantityKindId::from_id(raw(B)),
-                exponent: Ratio::ONE,
-            },
-        ]
-    );
-    let message = error.to_string();
-    assert!(
-        message.contains(&format!("{}^2", QuantityKindId::from_id(raw(A)))),
-        "{message}"
-    );
-    assert!(
-        message.contains(&format!("{}^1", QuantityKindId::from_id(raw(B)))),
-        "{message}"
-    );
-    // A cancelled monomial names no declared kind either.
-    let cancelled = div(leaf(q(40), &scalar), leaf(q(40), &scalar));
-    assert!(matches!(
-        infer_chain(&cancelled, &registry, &NoInvariantFacts),
-        Err(QuantityError::UndeclaredMonomial { factors }) if factors.is_empty()
-    ));
-}
-
-#[test]
-fn rule_and_chain_disagreement_is_refused() {
-    // A registered rule types A·B as another kind of the same dimension; the chain types
-    // it as the declared derived kind. Neither route takes precedence.
+fn qualified_cancellation_keeps_free_binders_and_refuses_wrong_basis() {
     let mut b = builder();
-    b.kind(kind(RULE_RESULT, dimension(1, 1)))
-        .quantity_type(ty(46, RULE_RESULT, Some(MOLAR), 3))
-        .operation(QuantityOperation {
-            id: OperationId::from_id(raw(50)),
-            opcode: Opcode::Mul,
-            input_kinds: vec![
-                QuantityKindId::from_id(raw(A)),
-                QuantityKindId::from_id(raw(B)),
-            ],
-            result_kind: QuantityKindId::from_id(raw(RULE_RESULT)),
-            basis_rule: BasisRule::Preserve,
-            reference_rule: ReferenceRule::RequireEqual,
-            scale_rule: QuantityScaleRule::Point,
-            shape_rule: QuantityShapeRule::SameIndices,
-            basis_source: Some(0),
-            reference_source: None,
-            scale_source: None,
-            shape_source: None,
-            subject_rule: SubjectRule::RequireEqual,
-            subject_source: None,
-            result_basis: None,
-            result_reference_state: None,
-            result_subject_kind: None,
-            input_conversions: vec![],
-            precondition_invariants: vec![],
-        });
+    let kind = EntityKindId::from_id(raw(70));
+    b.entity_kind(EntityKind {id:kind,name:"component".into()});
+    let mut indexed = ty(48,A,Some(MOLAR),1); indexed.key.shape = vec![kind]; b.quantity_type(indexed);
     let registry = b.build().unwrap();
-    let scalar = IndexSet::new();
-    let chain = mul(leaf(q(40), &scalar), leaf(q(42), &scalar));
-    match infer_chain(&chain, &registry, &NoInvariantFacts) {
-        Err(QuantityError::RouteDisagreement { registered, chain }) => {
-            assert_eq!((registered, chain), (q(46), q(43)));
-        }
-        other => panic!("{other:?}"),
-    }
-    // The single-operation request alone is typed by the registered rule, unchanged.
-    let operands = [
-        Operand {
-            quantity_type: q(40),
-            indices: &scalar,
-        },
-        Operand {
-            quantity_type: q(42),
-            indices: &scalar,
-        },
-    ];
-    assert_eq!(
-        infer::infer(&OpRequest::Mul, &operands, &registry)
-            .unwrap()
-            .result,
-        q(46)
-    );
+    let bound = BoundIndexRef::new(raw(71).into(),raw(72).into(),kind);
+    let indices = IndexSet::try_from_iter([bound]).unwrap();
+    let value = ResolvedPhysicalContract::named(q(48),indices.clone(),&registry).unwrap();
+    let cancelled = resolved::infer_operation(&OpRequest::Div,&[value.clone(),value],None,&registry,&NoInvariantFacts).unwrap();
+    assert!(cancelled.result.is_pure_number());
+    assert_eq!(cancelled.result.indices(),&indices);
+    assert_eq!(cancelled.result.axes(),&[kind]);
+    assert_eq!(cancelled.result.named_id(),None);
+    let values = [q(40), q(41)].map(|id| ResolvedPhysicalContract::named(id, IndexSet::new(), &registry).unwrap());
+    assert!(resolved::infer_operation(&OpRequest::Div, &values, None, &registry, &NoInvariantFacts).is_err());
+    assert_eq!(resolved::infer_operation(&OpRequest::Div, &[values[0].clone(), values[0].clone()], None, &registry, &NoInvariantFacts).unwrap().result.require_named().unwrap(), q(44));
 }
 
+#[test]
+fn intermediate_coordinates_have_an_explicit_result_scale() {
+    let mut b = builder();
+    b.unit(Unit { scale_to_canonical: 1000.0, ..unit(5,"ka",dimension(1,0)) });
+    b.quantity_type(ty(49,A,None,5));
+    let registry = b.build().unwrap();
+    let left=ResolvedPhysicalContract::named(q(49),IndexSet::new(),&registry).unwrap();
+    let right=ResolvedPhysicalContract::named(q(42),IndexSet::new(),&registry).unwrap();
+    let admitted=resolved::infer_operation(&OpRequest::Mul,&[left,right],Some(q(43)),&registry,&NoInvariantFacts).unwrap();
+    assert_eq!(admitted.result.require_named().unwrap(),q(43));
+    assert_eq!(admitted.result_scale,1000.0);
+}
+
+#[test]
+fn scientific_response_sum_requires_scoped_authority_and_retains_both_terms() {
+    let mut b = builder();
+    b.kind(kind(80, dimension(1,0))).quantity_type(ty(81,80,Some(MOLAR),1));
+    let registry=b.build().unwrap();
+    let values=[q(40),q(81)].map(|id|ResolvedPhysicalContract::named(id,IndexSet::new(),&registry).unwrap());
+    assert!(resolved::infer_operation(&OpRequest::Add,&values,None,&registry,&NoInvariantFacts).is_err());
+    let authority=PhysicalFormulaAuthority::response(raw(82));
+    let sum=resolved::infer_in_context(&OpRequest::Add,&values,None,&registry,&NoInvariantFacts,Some(&authority)).unwrap();
+    assert_eq!(sum.operands,values);
+    assert_eq!(sum.result.named_id(),None);
+    assert_eq!(sum.result.qualified_factors().len(),2);
+    assert!(sum.result.at_boundary(q(40),&registry).is_err());
+    let wrong=ResolvedPhysicalContract::named(q(41),IndexSet::new(),&registry).unwrap();
+    assert!(resolved::infer_in_context(&OpRequest::Add,&[wrong,values[1].clone()],None,&registry,&NoInvariantFacts,Some(&authority)).is_err());
+}
+
+#[test]
+fn canonical_coordinates_reject_affine_storage_and_retain_difference_scale() {
+    let mut b = builder();
+    let mut affine = unit(85, "shifted_a", dimension(1, 0));
+    affine.scale_to_canonical = 2.0;
+    affine.offset_to_canonical = 10.0;
+    affine.is_affine = true;
+    let mut invalid = builder();
+    invalid.unit(affine.clone()).quantity_type(ty(86, A, None, 85));
+    assert!(matches!(invalid.build(), Err(QuantityError::Registry { rule: "quantity_type.canonical_unit", .. })));
+    affine.is_affine = false; affine.offset_to_canonical = 0.0;
+    let mut origin = kind(88, dimension(1, 0));
+    origin.addition_kind = QuantityAdditionKind::OriginSensitive;
+    b.kind(origin).unit(affine).quantity_type(ty(86, 88, None, 85));
+    let mut difference = ty(87, 88, None, 1);
+    difference.key.scale_kind = ScaleKind::Difference;
+    b.quantity_type(difference);
+    let registry = b.build().unwrap();
+    let point = ResolvedPhysicalContract::named(q(86), IndexSet::new(), &registry).unwrap();
+    let delta = resolved::infer_operation(&OpRequest::Sub, &[point.clone(), point.clone()], None,
+        &registry, &NoInvariantFacts).unwrap();
+    assert_eq!(delta.result.require_named().unwrap(), q(87));
+    assert_eq!(delta.operand_scales, [2.0, 2.0]);
+    let derivative = resolved::infer_partial(&point, &[point.clone()], &registry, &NoInvariantFacts).unwrap();
+    assert!(derivative.result.is_pure_number());
+    assert_eq!(derivative.result_scale, 1.0);
+}
+
+#[test]
+fn unlike_subjects_and_affine_points_cannot_cancel_through_anonymous_algebra() {
+    let mut b=builder();
+    for (n,name) in [(70,"component"),(71,"reaction")] {
+        b.entity_kind(EntityKind{id:raw(n).into(),name:name.into()});
+        let mut value=ty(n+10,A,Some(MOLAR),1);value.key.subject_kind=Some(raw(n).into());b.quantity_type(value);
+    }
+    b.reference_state(ReferenceState{id:raw(90).into(),name:"datum".into(),kind:ReferenceStateKind::Custom,
+        temperature:None,pressure:None,include_enthalpy_of_formation:false,subject:None});
+    let mut point=ty(91,A,Some(MOLAR),1);point.key.reference_state=Some(raw(90).into());b.quantity_type(point);
+    let registry=b.build().unwrap();
+    for (request, ids) in [(OpRequest::Div, [q(80),q(81)]), (OpRequest::Mul, [q(91),q(42)]), (OpRequest::Div, [q(91),q(40)])] {
+        let values = ids.map(|id| ResolvedPhysicalContract::named(id, IndexSet::new(), &registry).unwrap());
+        assert!(resolved::infer_operation(&request, &values, None, &registry, &NoInvariantFacts).is_err());
+    }
+}
+
+#[cfg(feature="fixtures")]
+#[test]
+fn registered_refusal_cannot_be_rescued_by_a_derived_kind() {
+    use crate::standard::{StandardInvariantChecker,standard_registry};
+    let registry=standard_registry().unwrap();
+    let cp=QuantityTypeId::from_id(SemanticId::parse_hex("cd653ba98fa94d16b5d66b363f21c3d6").unwrap());
+    let point=QuantityTypeId::from_id(SemanticId::parse_hex("c64b96975a4a59755f8711d3bf628bc9").unwrap());
+    let values = [cp, point].map(|id| ResolvedPhysicalContract::named(id, IndexSet::new(), &registry).unwrap());
+    assert!(resolved::infer_operation(&OpRequest::Mul, &values, None, &registry, &StandardInvariantChecker).is_err());
+}
 #[test]
 fn derived_kinds_are_admitted_acyclic_unique_and_derived() {
     let registry = builder().build().unwrap();
@@ -381,121 +315,4 @@ fn derived_kinds_are_admitted_acyclic_unique_and_derived() {
     let mut b = builder();
     b.quantity_type(ty(47, PRODUCT, Some(MASS), 1));
     assert!(b.build().is_err());
-}
-
-// ----------------------------------------------------------- the physical document --
-
-#[cfg(feature = "fixtures")]
-mod standard {
-    use super::*;
-    use crate::standard::{StandardInvariantChecker, standard_registry};
-
-    fn id(hex: &str) -> QuantityTypeId {
-        QuantityTypeId::from_id(SemanticId::parse_hex(hex).unwrap())
-    }
-    const MOLAR_CP: &str = "cd653ba98fa94d16b5d66b363f21c3d6";
-    const TEMPERATURE: &str = "c64b96975a4a59755f8711d3bf628bc9";
-    const DELTA_T: &str = "459a933fd00837bbc50372e31ac9801c";
-    const DELTA_H: &str = "d5bb3d48b9804f2f8d5a6f0a7cadaee8";
-    const MOLAR_ENTHALPY: &str = "1831d0d72dc74b299ba8ecb6d4da6f53";
-    const GAUGE_PRESSURE: &str = "89248e0d0a55e73fe378d8af87a26900";
-    const PRESSURE: &str = "a0fa145fd8b2ecec448c39666960debc";
-    const MOLE_FRACTION: &str = "4f842bb63da53a798dca2764c2c64ece";
-    const SCALAR: &str = "dc255c612cf27e30cb835377c8dafcf4";
-
-    /// The type of the declared coefficient kind MolarCp/Temperature^power.
-    fn coefficient(registry: &QuantityRegistry, power: i32) -> QuantityTypeId {
-        use crate::scheme::{Scheme, Substitution};
-        Scheme::Quotient(
-            Box::new(Scheme::Concrete(id(MOLAR_CP))),
-            Box::new(Scheme::Power(
-                Box::new(Scheme::Concrete(id(TEMPERATURE))),
-                r(power, 1),
-            )),
-        )
-        .resolve_with_evidence(registry, &Substitution::new(), &StandardInvariantChecker)
-        .unwrap()
-    }
-
-    #[test]
-    fn eligible_leaves_are_exactly_true_zero_ratio_points_and_differences() {
-        let registry = standard_registry().unwrap();
-        let scalar = IndexSet::new();
-        let c2 = coefficient(&registry, 2);
-        // Each factor multiplies a coefficient; no rule types the product, so only its
-        // eligibility decides whether the chain is refused before its monomial is looked up.
-        for (factor, eligible) in [
-            (MOLAR_CP, true),        // point of an additive kind, no datum
-            (TEMPERATURE, true),     // absolute temperature: true-zero ratio point
-            (PRESSURE, true),        // absolute pressure: true-zero ratio point
-            (DELTA_T, true),         // difference
-            (DELTA_H, true),         // difference with a datum
-            (MOLE_FRACTION, true),   // dimensionless
-            (MOLAR_ENTHALPY, false), // point with a nonzero datum
-            (GAUGE_PRESSURE, false), // point with the gauge datum
-        ] {
-            let chain = mul(leaf(c2, &scalar), leaf(id(factor), &scalar));
-            let result = infer_chain(&chain, &registry, &StandardInvariantChecker);
-            let refused = matches!(result, Err(QuantityError::ChainLeafIneligible { .. }));
-            assert_eq!(!refused, eligible, "{factor}: {result:?}");
-        }
-    }
-
-    #[test]
-    fn nonzero_datum_leaf_is_refused_with_its_factor() {
-        let registry = standard_registry().unwrap();
-        let scalar = IndexSet::new();
-        let c3 = coefficient(&registry, 3);
-        let temperature = id(TEMPERATURE);
-        let neutral = Operand {
-            quantity_type: id(SCALAR),
-            indices: &scalar,
-        };
-        // c3·T³ alone resolves; with a datum-bearing enthalpy point the whole chain is
-        // refused, never partly resolved, and the refusal names that factor.
-        let increment = mul(
-            leaf(c3, &scalar),
-            pow(leaf(temperature, &scalar), 3, neutral),
-        );
-        assert!(infer_chain(&increment, &registry, &StandardInvariantChecker).is_ok());
-        for datum in [MOLAR_ENTHALPY, GAUGE_PRESSURE] {
-            let chain = mul(
-                mul(
-                    leaf(c3, &scalar),
-                    pow(leaf(temperature, &scalar), 3, neutral),
-                ),
-                leaf(id(datum), &scalar),
-            );
-            let error = infer_chain(&chain, &registry, &StandardInvariantChecker).unwrap_err();
-            assert!(
-                matches!(error, QuantityError::ChainLeafIneligible { factor } if factor == id(datum)),
-                "{error}"
-            );
-            assert!(error.to_string().contains(datum), "{error}");
-        }
-    }
-
-    #[test]
-    fn registered_rules_and_chains_agree_on_the_caloric_product() {
-        // The registered rule types MolarCp·ΔT as DeltaH; the declared molar enthalpy kind
-        // types the same monomial as DeltaH. They agree, so the rule's evidence is kept.
-        let registry = standard_registry().unwrap();
-        let scalar = IndexSet::new();
-        let chain = mul(leaf(id(MOLAR_CP), &scalar), leaf(id(DELTA_T), &scalar));
-        let inferred = infer_chain(&chain, &registry, &StandardInvariantChecker).unwrap();
-        assert_eq!(inferred.result, id(DELTA_H));
-        assert!(matches!(
-            inferred.selected,
-            OperationSelection::Registered { .. }
-        ));
-        // With a temperature point the rule's precondition refuses; the declared kind
-        // still types the increment.
-        let point = mul(leaf(id(MOLAR_CP), &scalar), leaf(id(TEMPERATURE), &scalar));
-        assert_eq!(
-            infer_chain(&point, &registry, &StandardInvariantChecker)
-                .unwrap()
-                .result,
-            id(DELTA_H)
-        );
-    }
 }

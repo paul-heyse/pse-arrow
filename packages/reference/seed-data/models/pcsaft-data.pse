@@ -37,7 +37,7 @@
 [gross2001_package,chem.eicosane,pcsaft_parameters.segments,compatibility.PhaseType.vaporPhase]=[pcsaft_parameters.nonassociating[chem.eicosane,pcsaft_parameters.segments,compatibility.PhaseType.vaporPhase,references.gross_sadowski_2001]];
 }
 @id("01a0f1868dd475edadc0e45b100fdc3f") use chem @"1.0.0";
-@id("01a0f1868dd475edadc0e45cd74d6481") fn potential(t:Scalar,r:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>)->Scalar=pcsaft.potential(t,r,n,members,gross2001_package);
+@id("01a0f1868dd475edadc0e45cd74d6481") fn potential(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy=pcsaft.potential(T,V,n,members,gross2001_package);
 @id("bce6c5d896ba4d4185e8f0668ccf69a6") dataset selected_pair_source:interactions.pair_selection complete_over(k in packages,p in pair_properties) provenance(references.gross_sadowski_2001,provenance.Role.published) { [gross2001_package,pcsaft_parameters.binary_interaction]=[references.gross_sadowski_2001]; }
 @id("d6e05f91c9dc4aafa4b20dc2478e1aa6") dataset predictive_pair_policy:interactions.absence_policy complete_over(k in packages,p in pair_properties) provenance(references.gross_sadowski_2001,provenance.Role.published) { [gross2001_package,pcsaft_parameters.binary_interaction]=[interactions.PairAbsence.predictiveZero]; }
 @id("c9aee314ca1548b8a13ad27bbdf08727") set pair_properties:Set<properties.property>={pcsaft_parameters.binary_interaction};

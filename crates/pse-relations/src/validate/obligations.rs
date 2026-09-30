@@ -4,6 +4,8 @@
 //! Storage-independent obligations bound to explicit relation identities and native plans.
 mod nested_values;
 mod ordinals;
+mod physical;
+pub use physical::{QuantityCompatibility, quantity_requests};
 mod quantities;
 mod references;
 mod source_spans;
@@ -78,9 +80,10 @@ impl<'a> ObligationTemplates<'a> {
         &self,
         inputs: &RelationInputs,
         state: &dyn super::planner::ValidationPlanner,
+        quantities: Option<&QuantityCompatibility>,
     ) -> Result<Vec<LogicalPlan>> {
         Ok(self
-            .bind_classified(inputs, state)?
+            .bind_classified(inputs, state, quantities)?
             .into_iter()
             .map(|check| check.plan)
             .collect())
@@ -93,8 +96,9 @@ impl<'a> ObligationTemplates<'a> {
         &self,
         inputs: &RelationInputs,
         state: &dyn super::planner::ValidationPlanner,
+        quantities: Option<&QuantityCompatibility>,
     ) -> Result<Vec<BoundObligation>> {
-        self.bind_required(inputs, state, |_, _| true)
+        self.bind_required(inputs, state, quantities, |_, _| true)
     }
 
     /// Construct only requested categories; omission does not mint validation evidence.
@@ -105,8 +109,10 @@ impl<'a> ObligationTemplates<'a> {
         &self,
         inputs: &RelationInputs,
         state: &dyn super::planner::ValidationPlanner,
+        quantities: Option<&QuantityCompatibility>,
         mut required: impl FnMut(pse_ids::SemanticId, ObligationKind) -> bool,
     ) -> Result<Vec<BoundObligation>> {
+        if let Some(quantities) = quantities { quantities.require_selection(inputs)?; }
         let mut all = Vec::new();
         for (id, input) in inputs {
             let mut checks = Vec::new();
@@ -132,7 +138,7 @@ impl<'a> ObligationTemplates<'a> {
                 .relation("authored.documents")
                 .and_then(|spec| inputs.get(&spec.id));
             checks.extend(source_spans::plans(input, documents)?);
-            checks.extend(quantities::plans(input, inputs, self.registry)?);
+            checks.extend(quantities::plans(input, quantities)?);
             let keys = self
                 .registry
                 .obligations(spec.key)
@@ -242,10 +248,3 @@ fn invalid(reason: &str) -> DataFusionError {
 
 #[cfg(test)]
 mod consolidation_unit;
-
-fn selected(name: &str, inputs: &RelationInputs, registry: &Registry) -> Option<LogicalPlan> {
-    registry
-        .relation(name)
-        .and_then(|spec| inputs.get(&spec.id))
-        .cloned()
-}

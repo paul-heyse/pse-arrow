@@ -25,6 +25,7 @@ pub mod columnar;
 pub mod error;
 pub mod ext;
 pub mod identity;
+pub mod physical;
 
 pub mod registry_relations;
 #[cfg(any(test, feature = "test-support"))]

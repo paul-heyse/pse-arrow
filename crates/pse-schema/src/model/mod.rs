@@ -22,6 +22,7 @@ pub mod document;
 pub mod enums;
 pub mod extension;
 pub mod field;
+pub mod field_facets;
 pub mod identity;
 pub mod integer_range;
 pub mod invariant;

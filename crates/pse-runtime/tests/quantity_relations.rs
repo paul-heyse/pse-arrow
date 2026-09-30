@@ -1,12 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Actual package columns enter one native physical inventory and conversion plan.
+//! Actual package columns enter one native physical inventory.
 #![allow(clippy::unwrap_used, reason = "explicit native physical fixtures")]
-use datafusion::{
-    arrow::array::Float64Array,
-    logical_expr::{LogicalPlanBuilder, lit},
-};
 use pse_columnar::CancellationToken;
 use pse_engine::session::{EngineSession, ExecutionSettings, ThreadBudget};
 use pse_ids::SemanticId;
@@ -140,81 +136,6 @@ async fn reference_datum_subject_requires_an_actual_authored_entity() {
             );
         }
     }
-}
-
-#[tokio::test]
-async fn native_conversion_uses_point_or_difference_and_exact_selected_units() {
-    let registry = Arc::new(pse_schema::catalog::assemble().unwrap());
-    let cancel = CancellationToken::new();
-    let session = session(&registry, inputs(&registry), &cancel);
-    let physical = PhysicalInventory::load(&session, &registry, &cancel)
-        .await
-        .unwrap();
-    let mut difference_key = physical
-        .quantities()
-        .quantity_type(ids::quantity("temperature.point"))
-        .unwrap()
-        .key
-        .clone();
-    difference_key.scale_kind = pse_quantity::ScaleKind::Difference;
-    let difference_type = physical.quantities().resolve_key(&difference_key).unwrap();
-    let plan = LogicalPlanBuilder::empty(true)
-        .project([
-            physical
-                .conversion_expr(
-                    lit(0_f64),
-                    ids::unit("degC"),
-                    ids::unit("K"),
-                    ids::quantity("temperature.point"),
-                )
-                .unwrap()
-                .alias("point"),
-            physical
-                .conversion_expr(
-                    lit(18_f64),
-                    ids::unit("degF"),
-                    ids::unit("K"),
-                    difference_type,
-                )
-                .unwrap()
-                .alias("difference"),
-        ])
-        .unwrap()
-        .build()
-        .unwrap();
-    let result = session
-        .prepare_rule_plan(plan, &cancel)
-        .unwrap()
-        .execute(&cancel)
-        .await
-        .unwrap();
-    let batch = &result.batches()[0];
-    let point = batch
-        .column(0)
-        .as_any()
-        .downcast_ref::<Float64Array>()
-        .unwrap()
-        .value(0);
-    let difference = batch
-        .column(1)
-        .as_any()
-        .downcast_ref::<Float64Array>()
-        .unwrap()
-        .value(0);
-    // NIST SP 811 temperature conversion: t/K = t/degC + 273.15;
-    // an 18 Fahrenheit-degree interval is 10 kelvin, with no point offset.
-    assert_eq!(point.to_bits(), 273.15_f64.to_bits());
-    assert!((difference - 10.).abs() < 1e-13);
-    assert!(
-        physical
-            .conversion_expr(
-                lit(1_f64),
-                ids::unit("degC"),
-                ids::unit("K"),
-                ids::quantity("pressure.absolute")
-            )
-            .is_err()
-    );
 }
 
 #[tokio::test]

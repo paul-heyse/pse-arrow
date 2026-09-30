@@ -1523,6 +1523,22 @@ COMMENT ON COLUMN "tk"."assembly_choice"."ordinal" IS 'Position among the choice
 COMMENT ON COLUMN "tk"."assembly_choice"."slot" IS 'The sub-form slot filled.';
 COMMENT ON COLUMN "tk"."assembly_choice"."form" IS 'The form chosen.';
 
+CREATE TABLE "param"."assigned_enthalpy__pure" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT '6323d3d5-96c5-5cbc-8584-b35fd50d8ffb'::uuid,
+    "i" uuid NOT NULL,
+    "T_ref" "meta"."temperature" NOT NULL,
+    "h_ref" "meta"."molar_energy" NOT NULL,
+    CONSTRAINT "assigned_enthalpy__pure__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "assigned_enthalpy__pure__ck__slot_group" CHECK ("slot_group" = '6323d3d5-96c5-5cbc-8584-b35fd50d8ffb'::uuid)
+);
+COMMENT ON TABLE "param"."assigned_enthalpy__pure" IS 'The stated enthalpy and its temperature for one species form.';
+COMMENT ON COLUMN "param"."assigned_enthalpy__pure"."id" IS 'Deterministic identifier of the assigned_enthalpy__pure instance.';
+COMMENT ON COLUMN "param"."assigned_enthalpy__pure"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."assigned_enthalpy__pure"."i" IS 'The species form.';
+COMMENT ON COLUMN "param"."assigned_enthalpy__pure"."T_ref" IS 'Temperature the enthalpy is stated at.';
+COMMENT ON COLUMN "param"."assigned_enthalpy__pure"."h_ref" IS 'Molar enthalpy at that temperature.';
+
 CREATE TABLE "tk"."association_site" (
     "id" uuid NOT NULL,
     "scheme" uuid NOT NULL,
@@ -1713,6 +1729,26 @@ COMMENT ON COLUMN "tk"."conserved_quantity"."id" IS 'Deterministic identifier of
 COMMENT ON COLUMN "tk"."conserved_quantity"."key" IS 'Element symbol, `charge`, a site label qualified by its chemical system, or, for an isotope, an alkalinity, a decoupled inventory or a moiety, the identifier the mapping gives it (an isotope''s mass number and element symbol, such as `2H`).';
 COMMENT ON COLUMN "tk"."conserved_quantity"."kind" IS 'What kind of quantity it is.';
 COMMENT ON COLUMN "tk"."conserved_quantity"."of_element" IS 'The element a quantity of a kind with the facet `names_element` counts: the element an isotope is a nuclide of, or the element a decoupled inventory tracks. Absent for every other kind.';
+
+CREATE TABLE "param"."constant_cp__pure" (
+    "id" uuid NOT NULL,
+    "slot_group" uuid NOT NULL DEFAULT '8f058eb5-7343-57eb-b434-fa8f46527210'::uuid,
+    "i" uuid NOT NULL,
+    "T0" "meta"."temperature" NOT NULL,
+    "h0" "meta"."molar_energy" NOT NULL,
+    "s0" "meta"."molar_entropy" NOT NULL,
+    "cp0" "meta"."molar_entropy" NOT NULL,
+    CONSTRAINT "constant_cp__pure__pk" PRIMARY KEY ("id"),
+    CONSTRAINT "constant_cp__pure__ck__slot_group" CHECK ("slot_group" = '8f058eb5-7343-57eb-b434-fa8f46527210'::uuid)
+);
+COMMENT ON TABLE "param"."constant_cp__pure" IS 'The reference state and heat capacity of one species form.';
+COMMENT ON COLUMN "param"."constant_cp__pure"."id" IS 'Deterministic identifier of the constant_cp__pure instance.';
+COMMENT ON COLUMN "param"."constant_cp__pure"."slot_group" IS 'The slot group of this table; fixed, and tied to the parameter set row.';
+COMMENT ON COLUMN "param"."constant_cp__pure"."i" IS 'The species form.';
+COMMENT ON COLUMN "param"."constant_cp__pure"."T0" IS 'Reference temperature.';
+COMMENT ON COLUMN "param"."constant_cp__pure"."h0" IS 'Molar enthalpy at the reference temperature.';
+COMMENT ON COLUMN "param"."constant_cp__pure"."s0" IS 'Molar entropy at the reference temperature.';
+COMMENT ON COLUMN "param"."constant_cp__pure"."cp0" IS 'Molar heat capacity, the same at every temperature.';
 
 CREATE TABLE "tk"."constituent_array" (
     "id" uuid NOT NULL,
@@ -5421,6 +5457,10 @@ ALTER TABLE "tk"."assembly_choice" ADD CONSTRAINT "assembly_choice__fk__slot" FO
 
 ALTER TABLE "tk"."assembly_choice" ADD CONSTRAINT "assembly_choice__fk__form" FOREIGN KEY ("form") REFERENCES "meta"."form" ("id") DEFERRABLE INITIALLY DEFERRED;
 
+ALTER TABLE "param"."assigned_enthalpy__pure" ADD CONSTRAINT "assigned_enthalpy__pure__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."assigned_enthalpy__pure" ADD CONSTRAINT "assigned_enthalpy__pure__fk__i" FOREIGN KEY ("i") REFERENCES "tk"."species_form" ("id") DEFERRABLE INITIALLY DEFERRED;
+
 ALTER TABLE "tk"."association_site" ADD CONSTRAINT "association_site__fk__id" FOREIGN KEY ("id") REFERENCES "prov"."record" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."association_site" ADD CONSTRAINT "association_site__fk__scheme" FOREIGN KEY ("scheme") REFERENCES "tk"."site_scheme" ("id") DEFERRABLE INITIALLY DEFERRED;
@@ -5466,6 +5506,10 @@ ALTER TABLE "tk"."chemical_system" ADD CONSTRAINT "chemical_system__fk__id" FORE
 ALTER TABLE "tk"."conserved_quantity" ADD CONSTRAINT "conserved_quantity__fk__id" FOREIGN KEY ("id") REFERENCES "prov"."record" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."conserved_quantity" ADD CONSTRAINT "conserved_quantity__fk__of_element" FOREIGN KEY ("of_element") REFERENCES "tk"."element" ("id") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."constant_cp__pure" ADD CONSTRAINT "constant_cp__pure__fk__id" FOREIGN KEY ("id", "slot_group") REFERENCES "tk"."parameter_set" ("id", "slot_group") DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE "param"."constant_cp__pure" ADD CONSTRAINT "constant_cp__pure__fk__i" FOREIGN KEY ("i") REFERENCES "tk"."species_form" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "tk"."constituent_array" ADD CONSTRAINT "constituent_array__fk__id" FOREIGN KEY ("id") REFERENCES "prov"."record" ("id") DEFERRABLE INITIALLY DEFERRED;
 

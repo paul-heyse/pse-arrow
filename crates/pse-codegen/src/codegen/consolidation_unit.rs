@@ -53,3 +53,17 @@ fn foundation_unit_semantic_values_and_serde_follow_declared_consumers() {
             .contains("RowBuilder")
     );
 }
+
+#[test]
+fn field_facet_policy_is_generated_into_the_lower_columnar_layer() {
+    let tree = generate(crate::registry().unwrap(), Language::Rust).unwrap();
+    let path = PathBuf::from("crates/pse-columnar/src/generated/field_facets.rs");
+    let policy = std::str::from_utf8(&tree.files[&path]).unwrap();
+    assert!(tree.roots.contains(&PathBuf::from("crates/pse-columnar/src/generated")));
+    assert!(policy.contains("pub const FACETS"));
+    assert!(!policy.contains("pse_schema::"));
+    for facet in crate::model::field_facets::FACETS {
+        assert!(policy.contains(&format!("pub const {}:", facet.constant)));
+        assert!(policy.contains(facet.key));
+    }
+}

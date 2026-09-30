@@ -679,9 +679,9 @@ class ModelingContributionRole(StrEnum):
     GENERATION = "generation"
     CONSUMPTION = "consumption"
     ACCUMULATION = "accumulation"
-    TRANSFER = "transfer"
     POSITIVE = "positive"
     NEGATIVE = "negative"
+    DIRECTED = "directed"
 
 
 class ModelingDataFacet(StrEnum):
@@ -720,6 +720,13 @@ class ModelingDeclarationKind(StrEnum):
     PRESET = "preset"
     SCOPE_VALUE = "scope_value"
     FUNCTION = "function"
+    COORDINATE_MAP = "coordinate_map"
+    COORDINATE_SLOT = "coordinate_slot"
+    RECONSTRUCTION = "reconstruction"
+    RESPONSE = "response"
+    REFERENCE_TRANSLATION = "reference_translation"
+    BOUNDARY = "boundary"
+    EXCHANGE = "exchange"
     EQUATION = "equation"
     SOS1 = "sos1"
     SOS2 = "sos2"
@@ -927,6 +934,13 @@ class ModelingStructuralRequirement(StrEnum):
     L1_EXACT_PENALTY = "l1_exact_penalty"
 
 
+class ModelingTransferDirection(StrEnum):
+    """The declared ModelingTransferDirection enumeration."""
+
+    INTO = "into"
+    OUT_OF = "out_of"
+
+
 class ModelingTypeNode(StrEnum):
     """The declared ModelingTypeNode enumeration."""
 
@@ -950,6 +964,9 @@ class ModelingTypeNode(StrEnum):
     IDENTIFIER = "identifier"
     QUANTITY_TYPE = "quantity_type"
     REFERENCE_STATE = "reference_state"
+    COORDINATE = "coordinate"
+    REDUCED_LAW = "reduced_law"
+    TRANSFER = "transfer"
 
 
 class ModelingUncertaintyKind(StrEnum):

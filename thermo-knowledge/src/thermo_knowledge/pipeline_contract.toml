@@ -130,6 +130,11 @@ attributes.convention_set = { type = "convention_set", optional = true }
 [kinds.convention_set]
 schema = "tk"
 identity = ["key", "revision"]
+attributes.energy_reference = { type = "energy_reference", optional = true }
+
+[kinds.energy_reference]
+schema = "tk"
+identity = ["key"]
 
 [kinds.derivation]
 schema = "prov"
@@ -352,11 +357,25 @@ columns.publication = { type = "publication" }
 columns.year = { type = "Integer", optional = true }
 columns.citation = { type = "Text", optional = true }
 
+[relations.composition]
+schema = "tk"
+keys.entity = { type = "material_entity" }
+keys.quantity = { type = "conserved_quantity" }
+columns.value = { type = "Count" }
+
 [relations.mixture_component]
 schema = "tk"
 keys.mixture = { type = "defined_mixture" }
 keys.component = { type = "material_entity" }
 columns.value = { type = "Fraction" }
+
+[relations.datum]
+schema = "ev"
+keys.point = { type = "data_point" }
+keys.column = { type = "dataset_column" }
+columns.state = { type = "datum_state" }
+columns.value = { type = "Real", optional = true }
+columns.digits = { type = "Integer", optional = true }
 
 [relations.derivation_output]
 schema = "prov"

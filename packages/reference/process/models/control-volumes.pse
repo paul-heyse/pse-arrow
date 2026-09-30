@@ -47,8 +47,9 @@
 @id("ab5f966e34534f86a829c7b70c8aaaf1") require not analysis.dynamic or has_holdup : "dynamic balances require explicit material and energy holdup";
 @id("b2ed414fb8334b78a1e928ccf96399e8") child inlet:equilibrium.ThermoPackage=inlet_package;
 @id("9a74872ba8f44159a5b66eb7cfc55d99") child outlet:equilibrium.ThermoPackage=outlet_package;
-@id("aff464f3bdf54523a91889b498b50b14") var heat:Power;
-@id("f40bcc95de8c466e95c84f27afc9bc7a") var work:Power;
+@id("aff464f3bdf54523a91889b498b50b14") boundary energy_boundary;
+@id("3bf856d00226426baced36793a4e7e5c") var heat:Transfer<EnergyTransferRate,energy_boundary,Into>;
+@id("f40bcc95de8c466e95c84f27afc9bc7a") var work:Transfer<EnergyTransferRate,energy_boundary,Into>;
 @id("7ed07f19c8f147d494e8eb642c80b04a") var delta_pressure:DeltaPressure;
 @id("183a20409fa5473ca8132e91cedb238c") when material_basis==MaterialBalance.componentTotal {
 @id("42d4a51a26b7407a98ff3a8504dcaa35") accumulate material[j in components]:ComponentFlow conservation tolerance 1e-7{mol/s};
@@ -84,14 +85,14 @@
 @id("8fcfb383c76c4970912ea6576b10c2eb") contribute total_material role inflow=inlet.flow;
 @id("5172cda3618744979c5a906f18189ea4") contribute total_material role outflow=outlet.flow;
 }
-@id("5aa73bb4d74b44a0b3a4f8f6b60fa917") accumulate energy:Power conservation tolerance 0.001{W};
+@id("5aa73bb4d74b44a0b3a4f8f6b60fa917") accumulate energy:Power boundary energy_boundary conservation tolerance 0.001{W};
 @id("27e531eb38c043f0afe1ae67077eeb70") when has_holdup {
 @id("08bcf731525149beb87a88dfb82ac510") contribute [p in phases] energy role outflow=phase_energy_accumulation[p];
 }
 @id("4fcc4b7e14694bfb9e96ae569e35679e") contribute energy role inflow = inlet.energy_flow;
 @id("622005f9ccfa4b9384cfdc5a9e65ad9a") contribute energy role outflow = outlet.energy_flow;
-@id("7be2cd18372e48a5adcc862a0325f652") contribute energy role positive = heat;
-@id("b2ff6c6b5d5e487baafb7d165a149172") contribute energy role positive = work;
+@id("7be2cd18372e48a5adcc862a0325f652") contribute energy role directed = heat;
+@id("b2ff6c6b5d5e487baafb7d165a149172") contribute energy role directed = work;
 @id("92d4872d50f84787885a979b55482615") eq pressure_balance:outlet.pressure==inlet.pressure+delta_pressure;
 @id("5400b7b8f9bb42bba195dbbdbab7027e") annotation start heat(0{W});
 @id("19d1f5157ba94b058f964f7c5e586b44") annotation nominal heat(10000{W});

@@ -109,6 +109,34 @@ crate::closed_enum! {
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum QuantityError {
+    /// A physical numeric boundary received a nonfinite source magnitude.
+    #[error("nonfinite magnitude {value} for quantity `{quantity}` in unit `{unit}`")]
+    NonfiniteMagnitude {
+        /// Admitted target quantity.
+        quantity: QuantityTypeId,
+        /// Declared source representation.
+        unit: UnitId,
+        /// Rejected source magnitude.
+        value: f64,
+    },
+
+    /// A finite source overflowed its admitted multiply-then-add operation.
+    #[error("nonfinite converted magnitude for quantity `{quantity}` from `{from}` to `{to}`: ({value} * {scale}) + {offset}")]
+    NonfiniteConversion {
+        /// Admitted target quantity.
+        quantity: QuantityTypeId,
+        /// Declared source representation.
+        from: UnitId,
+        /// Canonical target representation.
+        to: UnitId,
+        /// Finite source magnitude.
+        value: f64,
+        /// Admitted scale applied first.
+        scale: f64,
+        /// Admitted offset applied second.
+        offset: f64,
+    },
+
     /// A load-time invariant of the quantity registry was violated.
     #[error("quantity registry rule `{rule}` rejected `{subject}`: {detail}")]
     Registry {
@@ -242,36 +270,6 @@ pub enum QuantityError {
         symbol: String,
     },
 
-    /// A multiplicative chain has a point factor with a nonzero datum (ADR-0124). The chain
-    /// is never partly resolved.
-    #[error(
-        "chain factor `{factor}` is a point with a nonzero datum; a multiplicative chain takes differences, dimensionless factors and true-zero ratio points only"
-    )]
-    ChainLeafIneligible {
-        /// The ineligible factor's complete type.
-        factor: QuantityTypeId,
-    },
-
-    /// A multiplicative chain's canonical monomial names no declared quantity kind
-    /// (ADR-0124). Kinds are never synthesized.
-    #[error("no declared quantity kind has the monomial {}", monomial(.factors))]
-    UndeclaredMonomial {
-        /// The canonical base-kind factors and their exponents.
-        factors: Vec<crate::KindFactor>,
-    },
-
-    /// A registered stepwise rule and chain resolution both type an expression, and they
-    /// disagree (ADR-0124). Neither route takes precedence.
-    #[error(
-        "the registered rules type the expression `{registered}` but chain resolution types it `{chain}`"
-    )]
-    RouteDisagreement {
-        /// The stepwise result.
-        registered: QuantityTypeId,
-        /// The chain result.
-        chain: QuantityTypeId,
-    },
-
     /// An identity does not resolve in the quantity registry.
     #[error("unknown {kind} `{id}`")]
     UnknownId {
@@ -293,9 +291,6 @@ impl QuantityError {
             Self::UnknownUnitSymbol { symbol } | Self::AffineUnitFactor { symbol, .. } => {
                 symbol.capacity()
             }
-            Self::UndeclaredMonomial { factors } => factors
-                .capacity()
-                .saturating_mul(size_of::<crate::KindFactor>()),
             Self::OperationUnsupported { input_kinds, .. } => input_kinds
                 .capacity()
                 .saturating_mul(size_of::<QuantityKindId>()),
@@ -309,23 +304,15 @@ impl QuantityError {
                 |bytes, (_, axes)| bytes.saturating_add(axes.len().saturating_mul(2048)),
             ),
             Self::Dimension(_)
+            | Self::NonfiniteMagnitude { .. }
+            | Self::NonfiniteConversion { .. }
             | Self::UnitConvertMismatch { .. }
             | Self::StaticDomain { .. }
             | Self::ContractMismatch { .. }
-            | Self::ChainLeafIneligible { .. }
-            | Self::RouteDisagreement { .. }
             | Self::UnknownId { .. } => 0,
         };
         size_of::<Self>().saturating_add(heap)
     }
-}
-
-fn monomial(factors: &[crate::KindFactor]) -> String {
-    factors
-        .iter()
-        .map(|factor| format!("{}^{}", factor.kind, factor.exponent))
-        .collect::<Vec<_>>()
-        .join(" * ")
 }
 
 fn operand_contracts(operands: &[(QuantityTypeId, crate::IndexSet)]) -> String {
@@ -361,14 +348,14 @@ pse_diagnostics::impl_diagnostic! {
     QuantityError,
     code(this) { match this {
             Self::Registry { .. } | Self::Dimension(..) | Self::UnknownId { .. } => Some(pse_diagnostics::DiagnosticCode::ValidationInvariant),
-            Self::InferencePrecondition { .. } | Self::OperationUnsupported { .. } | Self::UnregisteredResultType { .. } | Self::UndeclaredMonomial { .. } => Some(pse_diagnostics::DiagnosticCode::CompileMathQuantityOperationUnsupported),
+            Self::InferencePrecondition { .. } | Self::OperationUnsupported { .. } | Self::UnregisteredResultType { .. } => Some(pse_diagnostics::DiagnosticCode::CompileMathQuantityOperationUnsupported),
 
 
 
-            Self::Incompatible { .. } | Self::AmbiguousLiteral { .. } | Self::UnitConvertMismatch { .. } | Self::ContractMismatch { .. } | Self::UnknownUnitSymbol { .. } | Self::AffineUnitFactor { .. } | Self::ChainLeafIneligible { .. } | Self::RouteDisagreement { .. } => Some(pse_diagnostics::DiagnosticCode::CompileMathUnitInconsistent),
+            Self::Incompatible { .. } | Self::AmbiguousLiteral { .. } | Self::UnitConvertMismatch { .. } | Self::ContractMismatch { .. } | Self::UnknownUnitSymbol { .. } | Self::AffineUnitFactor { .. } => Some(pse_diagnostics::DiagnosticCode::CompileMathUnitInconsistent),
 
 
-            Self::StaticDomain { .. } => Some(pse_diagnostics::DiagnosticCode::CompileMathDomainViolationStatic),
+            Self::StaticDomain { .. } | Self::NonfiniteMagnitude { .. } | Self::NonfiniteConversion { .. } => Some(pse_diagnostics::DiagnosticCode::CompileMathDomainViolationStatic),
 
 
             _ => None,
@@ -427,6 +414,19 @@ mod tests {
                 opcode: Opcode::Log,
                 restriction: "a positive argument",
                 value: 0.0,
+            }),
+            Some(pse_diagnostics::DiagnosticCode::CompileMathDomainViolationStatic)
+        );
+        assert_eq!(
+            code_of(&QuantityError::NonfiniteMagnitude {
+                quantity: id.into(), unit: id.into(), value: f64::NAN,
+            }),
+            Some(pse_diagnostics::DiagnosticCode::CompileMathDomainViolationStatic)
+        );
+        assert_eq!(
+            code_of(&QuantityError::NonfiniteConversion {
+                quantity: id.into(), from: id.into(), to: id.into(),
+                value: f64::MAX, scale: 2.0, offset: 0.0,
             }),
             Some(pse_diagnostics::DiagnosticCode::CompileMathDomainViolationStatic)
         );

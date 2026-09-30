@@ -6086,6 +6086,7 @@ dependencies = [
  "pse-diagnostics",
  "pse-ids",
  "pse-model",
+ "pse-quantity",
  "pse-relations",
  "pse-schema",
  "pse-workspace-hack",

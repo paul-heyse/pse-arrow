@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import re
 import tomllib
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -33,6 +34,7 @@ Disposition = Literal["mapped", "out_of_scope", "deferred"]
 Precision = Literal["exact", "narrower", "broader", "close"]
 
 PROVENANCE_COLUMNS = (staging_schema.ARTIFACT, staging_schema.LOCATOR)
+ELEMENT_KEY = re.compile(r"(.+)\[(\d+)\]")
 _STRICT = {"forbid_unknown_fields": True}
 
 
@@ -121,24 +123,38 @@ class DerivationSpec(Struct, **_STRICT):
     outcome: str | None = None
 
 
-class Partition(Struct, **_STRICT):
-    """The rows of a table matching `where` (every column equals its value, or is one of its
-    listed values) and what the mapping does with them, in place of the table's disposition.
-    `derivation` states how the records made from these rows were produced.
+class DecodeRule(Struct, kw_only=True, **_STRICT):
+    """One line of a decoding: a row that satisfies every condition of `where` decodes to `to`
+    (a declared entity or an enum member, by name), for the stated `reason`.
 
-    `constants` are canonical values the rows' records take that no column holds, by target
-    (`kind.attribute`): a reference to a declared entity by name, an enum member, text, a number,
-    or `{ value = ..., unit = "..." }` for a dimensioned value."""
+    A condition is `column = value` (exactly), `column = [values]` (one of them) or `column =
+    { pattern = "..." }` (the whole text of the value matches). Named groups of the patterns are
+    available to `polymorph`, a text template (`"{group}"`) of the decoded polymorph of a species
+    form. A decoding with no `default` leaves a row no rule covers undecoded, and the mapping holds
+    it."""
 
-    name: str
-    where: dict[str, Scalar | list[Scalar]]
-    disposition: Disposition
-    reason: str | None = None
-    wave: int | None = None
-    loss: str | None = None
-    origin_role: str | None = None
-    constants: dict[str, Scalar | dict[str, Scalar]] = {}
-    derivation: DerivationSpec | None = None
+    where: dict[str, Scalar | list[Scalar] | dict[str, str]]
+    to: str
+    reason: str
+    polymorph: str | None = None
+
+
+class Decoding(Struct, **_STRICT):
+    """A table from what a source states to what the mapping makes of it: the aggregation a phase
+    flag stands for, the phase a transition marker names. The first rule a row satisfies decides."""
+
+    doc: str
+    rules: list[DecodeRule]
+
+
+class Join(Struct, **_STRICT):
+    """A related table whose columns a partition may test (`<join>.<column>` in `where`): each
+    row of this table is joined to the row of `table` whose columns equal the values of this
+    table's columns in `on` (this table's column to the related table's column). A row with no
+    related row never satisfies a condition on it; more than one related row is refused."""
+
+    table: str
+    on: dict[str, str]
 
 
 class FieldRule(Struct, **_STRICT):
@@ -148,9 +164,25 @@ class FieldRule(Struct, **_STRICT):
     column keys, selects or indexes rows and carries no value of its own) or `disposition`
     `out_of_scope` / `deferred` (the column is not mapped, with a reason).
 
+    A column holding a list is ruled by one rule for each element it has, named `column[index]`
+    (an index from zero); the column itself then has no rule.
+
     A value rule must be applied to at least one mapped row of its table, or the run is refused;
     `optional = true` declares a field the source fills only sometimes, whose rule may be applied
     to none (the run then reports it).
+
+    - `factor` multiplies a numeric value (a count the source states with the opposite sign);
+    - `default` is the value an absent source value takes, in the rule's unit, the source's own
+      documented default, which the rule's `loss` states;
+    - `case` (`capitalize`, `upper`, `lower`) is applied to the text that names a declared entity;
+    - `decode` names a `[decodings]` table: the row's decoded value is the rule's value;
+    - `equals` states the exact value a column holds in every row that maps, a structure that the
+      mapping relies on; a row with another value is held (`pattern_mismatch`);
+    - `text_unit` marks a text column whose value is a number followed by its unit, which the
+      source states (`0.0 kJ/mol`), and whose `unit` is therefore the unit the storage expects;
+    - `column` states the attributes of the `dataset_column` the values of this rule fill, for a
+      rule whose target is `datum.value`: the observable, the role and what the column is
+      presented against.
     """
 
     target: str | None = None
@@ -167,6 +199,38 @@ class FieldRule(Struct, **_STRICT):
     disposition: Literal["out_of_scope", "deferred"] | None = None
     reason: str | None = None
     wave: int | None = None
+    factor: float | None = None
+    default: float | None = None
+    case: Literal["capitalize", "upper", "lower"] | None = None
+    decode: str | None = None
+    equals: Scalar | list[Scalar] | None = None
+    text_unit: bool = False
+    column: dict[str, Scalar | dict[str, Scalar]] | None = None
+
+
+class Partition(Struct, **_STRICT):
+    """The rows of a table matching `where` (every column equals its value, or is one of its
+    listed values) and what the mapping does with them, in place of the table's disposition.
+    `derivation` states how the records made from these rows were produced.
+
+    `constants` are canonical values the rows' records take that no column holds, by target
+    (`kind.attribute`): a reference to a declared entity by name, an enum member, text, a number,
+    or `{ value = ..., unit = "..." }` for a dimensioned value.
+
+    `where` may test a column of a related table, written `<join>.<column>` (the joins of the
+    table). `fields` are the rules of the partition's columns: where a column has a rule in both
+    the partition and the table, the partition's rule is the one its rows follow."""
+
+    name: str
+    where: dict[str, Scalar | list[Scalar]]
+    disposition: Disposition
+    reason: str | None = None
+    wave: int | None = None
+    loss: str | None = None
+    origin_role: str | None = None
+    constants: dict[str, Scalar | dict[str, Scalar]] = {}
+    derivation: DerivationSpec | None = None
+    fields: dict[str, FieldRule] = {}
 
 
 class TableRule(Struct, **_STRICT):
@@ -182,6 +246,18 @@ class TableRule(Struct, **_STRICT):
     derivation: DerivationSpec | None = None
     partitions: list[Partition] = []
     fields: dict[str, FieldRule] = {}
+    joins: dict[str, Join] = {}
+
+    def fields_of(self, partition: str | None) -> dict[str, FieldRule]:
+        """The rules the rows of `partition` follow (the table's own for a row in none): the
+        table's, where the partition rules a column (by a rule of its own or of its elements) in
+        place of the table's rules of that column."""
+        if partition is None:
+            return self.fields
+        found = next(p for p in self.partitions if p.name == partition)
+        replaced = {element_of(key)[0] for key in found.fields}
+        kept = {k: r for k, r in self.fields.items() if element_of(k)[0] not in replaced}
+        return {**kept, **found.fields}
 
 
 class ParameterizationSpec(Struct, **_STRICT):
@@ -207,6 +283,8 @@ class MappingSpec(Struct, **_STRICT):
     formula_scope: list[FormulaScope] = []
     parameterizations: dict[str, ParameterizationSpec] = {}
     convention_sets: dict[str, dict[str, Scalar | dict[str, Scalar]]] = {}
+    energy_references: dict[str, dict[str, Scalar | dict[str, Scalar]]] = {}
+    decodings: dict[str, Decoding] = {}
 
 
 class SpecError(Exception):
@@ -336,7 +414,7 @@ def validate(
         problems.append(f"table {table}: is declared but not staged")
     for table, rule in spec.tables.items():
         if table in staged:
-            _table(problems, spec, decl, table, rule, staged[table], roles, schemes)
+            _table(problems, spec, decl, table, rule, staged, roles, schemes)
     for name, scope in spec.scopes.items():
         schema = staged.get(scope.table)
         if schema is None:
@@ -347,8 +425,14 @@ def validate(
     for item in spec.formula_scope:
         if item.scope not in spec.scopes:
             problems.append(f"formula_scope: `{item.scope}` is not a declared scope")
+    for name, attributes in spec.energy_references.items():
+        _attributes(
+            problems, decl, f"energy_references.{name}", pc.ENERGY_REFERENCE.declared, attributes
+        )
     for name, attributes in spec.convention_sets.items():
-        _convention_set(problems, decl, name, attributes)
+        _convention_set(problems, decl, spec, name, attributes)
+    for name, decoding in spec.decodings.items():
+        _decoding(problems, name, decoding)
     coherence = {member.name for member in decl.enums[pc.COHERENCE.declared].members}
     for name, item in spec.parameterizations.items():
         if item.coherence not in coherence:
@@ -432,15 +516,40 @@ def _scope_class(
             problems.append(f"{where}: `mixture` states its `reason`")
 
 
+def _decoding(problems: list[str], name: str, decoding: Decoding) -> None:
+    """A decoding's rules state their conditions and their reason, and its patterns compile."""
+    if not decoding.doc.strip():
+        problems.append(f"decodings.{name}: states its `doc`")
+    if not decoding.rules:
+        problems.append(f"decodings.{name}: has at least one rule")
+    for index, line in enumerate(decoding.rules, start=1):
+        label = f"decodings.{name} rule {index}"
+        if not line.where:
+            problems.append(f"{label}: `where` names at least one condition")
+        if not line.reason.strip():
+            problems.append(f"{label}: states its `reason`")
+        for column, wanted in line.where.items():
+            if isinstance(wanted, dict):
+                if set(wanted) != {"pattern"}:
+                    problems.append(f"{label}: `{column}` is a value, a list or `{{ pattern = ... }}`")
+                    continue
+                try:
+                    re.compile(wanted["pattern"])
+                except re.error as error:
+                    problems.append(f"{label}: `{column}` pattern is not a regular expression: {error}")
+
+
 def _convention_set(
     problems: list[str],
     decl: m.Declaration,
+    spec: MappingSpec,
     name: str,
     attributes: dict[str, Scalar | dict[str, Scalar]],
 ) -> None:
     """One `[convention_sets.<name>]` table states attributes of the `convention_set` kind as
     value rules do: a dimensioned fact (the gas constant) as `{ value, unit }` with a unit that
-    converts to its storage unit, an enum member by name, text or a number as itself."""
+    converts to its storage unit, an enum member by name, text or a number as itself, and the
+    energy reference by the name of an `[energy_references]` entry."""
     kind = pc.CONVENTION_SET.declared
     for attribute, raw in attributes.items():
         where = f"convention_sets.{name}.{attribute}"
@@ -449,6 +558,10 @@ def _convention_set(
             problems.append(f"{where}: {target}")
             continue
         type_ = target.field.type
+        if attribute == pc.CONVENTION_SET.energy_reference:
+            if not isinstance(raw, str) or raw not in spec.energy_references:
+                problems.append(f"{where}: `{raw}` is not an [energy_references] entry")
+            continue
         if target.dimensioned:
             if not isinstance(raw, dict) or set(raw) != {"value", "unit"}:
                 problems.append(f"{where}: state `{{ value = ..., unit = \"...\" }}`, a dimensioned fact")
@@ -486,16 +599,31 @@ def _disposition(
         problems.append(f"{where}: `wave` belongs to `deferred`")
 
 
+def _covered(column: str, fields: Mapping[str, FieldRule]) -> bool:
+    """Whether `fields` rules `column`: by a rule of its own or by rules of its elements."""
+    return column in fields or any(key.startswith(f"{column}[") for key in fields)
+
+
+def element_of(key: str) -> tuple[str, int | None]:
+    """The column and the element index a field-rule key names: `coefficients[3]` is element 3 of
+    `coefficients`; a key that is a column name has no index."""
+    match = ELEMENT_KEY.fullmatch(key)
+    if match is None:
+        return key, None
+    return match.group(1), int(match.group(2))
+
+
 def _table(
     problems: list[str],
     spec: MappingSpec,
     decl: m.Declaration,
     table: str,
     rule: TableRule,
-    schema: pa.Schema,
+    staged: dict[str, pa.Schema],
     roles: set[str],
     schemes: set[str],
 ) -> None:
+    schema = staged[table]
     where = f"table {table}"
     _disposition(problems, where, rule.disposition, rule.reason, rule.wave)
     if rule.disposition == claims.MAPPED and rule.origin_role is None:
@@ -503,8 +631,23 @@ def _table(
     if rule.origin_role is not None and rule.origin_role not in roles:
         problems.append(f"{where}: `{rule.origin_role}` is not an origin role")
     names = set(schema.names)
-    _constants(problems, decl, where, rule.constants, rule)
+    _constants(problems, decl, where, rule.constants, rule.fields)
     _derivation(problems, decl, where, rule.derivation)
+    joined: dict[str, set[str]] = {}
+    for name, join in rule.joins.items():
+        label = f"{where} join {name}"
+        related = staged.get(join.table)
+        if related is None:
+            problems.append(f"{label}: table `{join.table}` is not staged")
+            continue
+        joined[name] = set(related.names)
+        if not join.on:
+            problems.append(f"{label}: `on` names at least one pair of columns")
+        for own, theirs in join.on.items():
+            if own not in names:
+                problems.append(f"{label}: `{own}` is not a column of `{table}`")
+            if theirs not in related.names:
+                problems.append(f"{label}: `{theirs}` is not a column of `{join.table}`")
     partition_names: set[str] = set()
     for partition in rule.partitions:
         label = f"{where} partition {partition.name}"
@@ -512,7 +655,7 @@ def _table(
             problems.append(f"{label}: the name is repeated")
         partition_names.add(partition.name)
         _disposition(problems, label, partition.disposition, partition.reason, partition.wave)
-        _constants(problems, decl, label, partition.constants, rule)
+        _constants(problems, decl, label, partition.constants, rule.fields_of(partition.name))
         _derivation(problems, decl, label, partition.derivation)
         if (
             partition.disposition == claims.MAPPED
@@ -525,21 +668,58 @@ def _table(
         if not partition.where:
             problems.append(f"{label}: `where` names at least one column")
         for column in partition.where:
-            if column not in names:
+            join_name, dot, joined_column = column.partition(".")
+            if dot:
+                if join_name not in joined:
+                    problems.append(f"{label}: `{column}` names no join of the table")
+                elif joined_column not in joined[join_name]:
+                    problems.append(
+                        f"{label}: `{joined_column}` is not a column of the table of join "
+                        f"`{join_name}`"
+                    )
+            elif column not in names:
                 problems.append(f"{label}: `{column}` is not a column of the table")
+        if partition.fields and partition.disposition != claims.MAPPED:
+            problems.append(f"{label}: no row is mapped, so it declares no field rules")
     if not maps_rows(rule):
         if rule.fields:
             problems.append(f"{where}: no row is mapped, so it declares no field rules")
         return
-    for column in sorted(names - set(rule.fields) - set(PROVENANCE_COLUMNS)):
-        problems.append(f"{where}: column `{column}` has neither a rule nor a declared skip")
-    for column, field_rule in rule.fields.items():
-        if column not in names:
-            problems.append(f"{where}: field rule `{column}` names no column")
-            continue
-        _field(
-            problems, decl, f"{where} column {column}", field_rule, schema.field(column), schemes
-        )
+    effective: list[tuple[str, dict[str, FieldRule]]] = []
+    if rule.disposition == claims.MAPPED:
+        effective.append((where, rule.fields))
+    effective.extend(
+        (f"{where} partition {p.name}", rule.fields_of(p.name))
+        for p in rule.partitions
+        if p.disposition == claims.MAPPED
+    )
+    for label, fields in effective:
+        for column in sorted(names - set(PROVENANCE_COLUMNS)):
+            if not _covered(column, fields):
+                problems.append(f"{label}: column `{column}` has neither a rule nor a declared skip")
+    checked = [(f"{where} column", rule.fields)] + [
+        (f"{where} partition {p.name} column", p.fields) for p in rule.partitions
+    ]
+    for label, fields in checked:
+        for key, field_rule in fields.items():
+            column, index = element_of(key)
+            if column not in names:
+                problems.append(f"{label} {key}: field rule names no column")
+                continue
+            field = schema.field(column)
+            if index is not None and not pa.types.is_list(field.type):
+                problems.append(f"{label} {key}: `{column}` holds no list, so it has no elements")
+                continue
+            if index is None and _covered_by_elements(column, fields):
+                problems.append(
+                    f"{label} {key}: the column is ruled by its elements, so it has no rule of its own"
+                )
+            _field(problems, decl, spec, f"{label} {key}", rule_table=table, rule=field_rule,
+                   field=field, schemes=schemes)
+
+
+def _covered_by_elements(column: str, fields: Mapping[str, FieldRule]) -> bool:
+    return any(key.startswith(f"{column}[") for key in fields)
 
 
 def _constants(
@@ -547,9 +727,9 @@ def _constants(
     decl: m.Declaration,
     where: str,
     constants: dict[str, Scalar | dict[str, Scalar]],
-    rule: TableRule,
+    fields: Mapping[str, FieldRule],
 ) -> None:
-    mapped = {f.target for f in rule.fields.values() if f.target is not None}
+    mapped = {f.target for f in fields.values() if f.target is not None}
     for text, value in constants.items():
         target = resolve_target(decl, text)
         if isinstance(target, str):
@@ -605,7 +785,10 @@ def declared_entity(decl: m.Declaration, kind: str, name: str) -> m.Entity | Non
 def _field(
     problems: list[str],
     decl: m.Declaration,
+    spec: MappingSpec,
     where: str,
+    *,
+    rule_table: str,
     rule: FieldRule,
     field: pa.Field,
     schemes: set[str],
@@ -616,11 +799,16 @@ def _field(
         return
     if rule.optional and rule.target is None:
         problems.append(f"{where}: `optional` belongs to a value rule (one with a `target`)")
+    if rule.equals is not None and rule.role is None:
+        problems.append(f"{where}: `equals` belongs to a structure column (`role = \"structure\"`)")
     if rule.role is not None or rule.disposition is not None:
         if rule.disposition is not None:
             _disposition(problems, where, rule.disposition, rule.reason, rule.wave)
         elif not rule.reason:
             problems.append(f"{where}: a structure column states its `reason`")
+        for option in ("factor", "default", "case", "decode", "column"):
+            if getattr(rule, option) is not None:
+                problems.append(f"{where}: `{option}` belongs to a value rule")
         return
     assert rule.target is not None
     if rule.precision is None:
@@ -646,7 +834,16 @@ def _field(
             problems.append(f"{where}: an identity assertion names its `scheme`")
     elif rule.scheme is not None or rule.otherwise_scheme is not None:
         problems.append(f"{where}: `scheme` belongs to the target `identity_assertion.value`")
+    _value_options(problems, decl, spec, where, rule_table, rule, target)
     if target.dimensioned:
+        if rule.text_unit:
+            if rule.unit is not None:
+                problems.append(
+                    f"{where}: the unit is stated in the text (`text_unit`), so the rule states none"
+                )
+            if not pa.types.is_string(field.type):
+                problems.append(f"{where}: `text_unit` belongs to a text column")
+            return
         if rule.unit is None:
             problems.append(f"{where}: the target is dimensioned, so the rule states its `unit`")
             return
@@ -673,5 +870,93 @@ def _field(
             )
     elif rule.unit is not None:
         problems.append(f"{where}: the target has no unit, so the rule states none")
+    elif rule.text_unit:
+        problems.append(f"{where}: `text_unit` belongs to a dimensioned target")
     if rule.offset is not None and target.field.type.text != "Integer":
         problems.append(f"{where}: `offset` applies to an Integer target")
+
+
+def _value_options(
+    problems: list[str],
+    decl: m.Declaration,
+    spec: MappingSpec,
+    where: str,
+    table: str,
+    rule: FieldRule,
+    target: Target,
+) -> None:
+    """The options of a value rule beyond its target and unit: `default`, `case`, `decode` and
+    `column`."""
+    type_ = target.field.type
+    if rule.default is not None and not rule.loss:
+        problems.append(f"{where}: a `default` is an assumption of the mapping, so `loss` states it")
+    if rule.case is not None and type_.element_kind != "kind":
+        problems.append(f"{where}: `case` belongs to a target that names a declared entity")
+    if rule.decode is not None:
+        found = spec.decodings.get(rule.decode)
+        if found is None:
+            problems.append(f"{where}: `{rule.decode}` is not a [decodings] entry")
+            return
+        if type_.element_kind not in ("enum", "kind"):
+            problems.append(f"{where}: a decoded value is an enum member or a declared entity")
+        elif type_.element_kind == "enum":
+            members = {member.name for member in decl.enums[type_.element].members}
+            for line in found.rules:
+                if line.to not in members:
+                    problems.append(
+                        f"{where}: decoding `{rule.decode}` decodes to `{line.to}`, which is not "
+                        f"a member of `{type_.element}`"
+                    )
+        else:
+            for line in found.rules:
+                if declared_entity(decl, type_.element, line.to) is None:
+                    problems.append(
+                        f"{where}: decoding `{rule.decode}` decodes to `{line.to}`, which is not "
+                        f"a declared entity of kind `{type_.element}`"
+                    )
+    if rule.column is not None:
+        if rule.target != "datum.value":
+            problems.append(f"{where}: `column` belongs to a rule whose target is `datum.value`")
+        else:
+            _attributes(problems, decl, f"{where} column", "dataset_column", rule.column)
+
+
+def _attributes(
+    problems: list[str],
+    decl: m.Declaration,
+    where: str,
+    kind: str,
+    attributes: Mapping[str, Scalar | dict[str, Scalar]],
+) -> None:
+    """Attributes of `kind` a table of the mapping states: an enum member or a declared entity by
+    name, text or a number as itself, a dimensioned fact as `{ value, unit }`."""
+    for attribute, raw in attributes.items():
+        label = f"{where} {attribute}"
+        found = resolve_target(decl, f"{kind}.{attribute}")
+        if isinstance(found, str):
+            problems.append(f"{label}: {found}")
+            continue
+        type_ = found.field.type
+        if isinstance(raw, dict):
+            if set(raw) != {"value", "unit"} or not found.dimensioned:
+                problems.append(f"{label}: give `{{ value, unit }}` for a dimensioned attribute")
+            elif found.unit is not None:
+                try:
+                    convert(1.0, str(raw["unit"]), found.unit)
+                except ValueRefused as error:
+                    problems.append(f"{label}: {error}")
+            else:
+                message = _unit_parses(str(raw["unit"]))
+                if message:
+                    problems.append(f"{label}: {message}")
+        elif found.dimensioned:
+            problems.append(f"{label}: state `{{ value = ..., unit = \"...\" }}`, a dimensioned fact")
+        elif type_.element_kind == "enum":
+            members = {member.name for member in decl.enums[type_.element].members}
+            if raw not in members:
+                problems.append(f"{label}: `{raw}` is not a member of `{type_.element}`")
+        elif type_.element_kind == "kind":
+            if not isinstance(raw, str) or declared_entity(decl, type_.element, raw) is None:
+                problems.append(
+                    f"{label}: `{raw}` is not a declared entity of kind `{type_.element}`"
+                )

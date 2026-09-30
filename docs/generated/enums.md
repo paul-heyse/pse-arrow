@@ -680,9 +680,9 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `generation` | `` | false |
 | `consumption` | `` | false |
 | `accumulation` | `` | false |
-| `transfer` | `` | false |
 | `positive` | `` | false |
 | `negative` | `` | false |
+| `directed` | `` | false |
 
 ## `ModelingDataFacet`
 
@@ -721,6 +721,13 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `preset` | `` | false |
 | `scope_value` | `` | false |
 | `function` | `` | false |
+| `coordinate_map` | `` | false |
+| `coordinate_slot` | `` | false |
+| `reconstruction` | `` | false |
+| `response` | `` | false |
+| `reference_translation` | `` | false |
+| `boundary` | `` | false |
+| `exchange` | `` | false |
 | `equation` | `` | false |
 | `sos1` | `` | false |
 | `sos2` | `` | false |
@@ -927,6 +934,13 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 |---|---|---|
 | `l1_exact_penalty` | `` | false |
 
+## `ModelingTransferDirection`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `into` | `` | false |
+| `out_of` | `` | false |
+
 ## `ModelingTypeNode`
 
 | Member | IDAES name | Deprecated |
@@ -951,6 +965,9 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `identifier` | `` | false |
 | `quantity_type` | `` | false |
 | `reference_state` | `` | false |
+| `coordinate` | `` | false |
+| `reduced_law` | `` | false |
+| `transfer` | `` | false |
 
 ## `ModelingUncertaintyKind`
 

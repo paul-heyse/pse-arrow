@@ -6,12 +6,10 @@
 @id("a169e92da111405fb7cdae5ac895b217") use equilibrium @"1.0.0";
 @id("5488e742a20444799876441900c8aa28") use aqueous @"1.0.0";
 @id("ce3dea7fa2dc4397ad2036386917ae02") use control_volumes @"1.0.0";
-@id("821a0d63a22c4642b0eb6d8f6d6ad2c4") fn power_unit()->Power=1{W};
-@id("27bd19270ba44e1481e4e992c4cf2db1") fn volume_flow_unit()->VolumeFlow=1{m^3/s};
 @id("2c09ee2b9c904938895d17c7197dbe32") interface PressureAssumption extends control_volumes.ControlVolume0D {
 @id("0c350401b1b24a72af8ab8d6b691d299") param compressor:Boolean;
 @id("62cd8c82e75c42cbb2aab860a3349217") var efficiency:Scalar;
-@id("0448d0331ea8496380e1c6f892e72218") var work_fluid:Power;
+@id("0448d0331ea8496380e1c6f892e72218") var work_fluid:Transfer<EnergyTransferRate,energy_boundary,Into>;
 @id("e367467c4337420b9ced3985b65a3cde") eq adiabatic:heat==0{W};
 @id("76477fe1c9714dc4876c79e5d5f1711e") annotation bounds efficiency(1e-8,1);
 @id("07b3e32f433f4ea793cb990902f84502") annotation start efficiency(0.9);
@@ -33,7 +31,7 @@
 @id("468999c3efce486ca0bc026225ea0b7b") override param outlet_package:equilibrium.ThermoPackage=outlet_pkg;
 @id("0749f4189f984496931e620adfab17a8") override param compressor:Boolean=compression;
 @id("baf088ca788344aaba5ffd4597d92e61") override child inlet:aqueous.DiluteLiquid=inlet_pkg;
-@id("a192a57d4bb147f885907ada64a8a110") eq hydraulic_work:work_fluid==power_unit()*(inlet.volume_flow/volume_flow_unit())*(delta_pressure/equilibrium.pressure_difference_unit());
+@id("a192a57d4bb147f885907ada64a8a110") eq hydraulic_work:work_fluid==transfer(inlet.volume_flow*delta_pressure,energy_boundary,Into);
 }
 @id("598e5afd4f144f309b59ed9980dd2780") def IsentropicAssumption(inlet_pkg:equilibrium.EntropyThermoPackage,outlet_pkg:equilibrium.EntropyThermoPackage,reference_pkg:equilibrium.EntropyThermoPackage,compression:Boolean):PressureAssumption {
 @id("d1a91229c0154281ba2d7dab9b791d5a") override param inlet_package:equilibrium.ThermoPackage=inlet_pkg;
@@ -47,7 +45,7 @@
 @id("bafd35b7cbaf4acc95001b35b9aee0f2") eq reference_pressure:reference.pressure==outlet.pressure;
 @id("e895f3a59c754709905024a97e7e0aaf") eq reference_composition[j in components]:reference.z[j]==inlet.z[j];
 @id("f69e9a7ba5224530ac02879b8185a5b1") eq reference_entropy:reference.s==inlet.s;
-@id("89c7fe37901a4804be4f8e50e97ee2e7") eq reversible_work:work_fluid==power_unit()*(inlet.flow/equilibrium.flow_unit())*((reference.h-inlet.h)/constants.enthalpy_increment_unit);
+@id("89c7fe37901a4804be4f8e50e97ee2e7") eq reversible_work:work_fluid==transfer(inlet.flow*(reference.h-inlet.h),energy_boundary,Into);
 }
 @id("34829c0bb68444ab89c43cc39c5ccc2d") def PressureChanger(inlet_pkg:equilibrium.ThermoPackage,outlet_pkg:equilibrium.ThermoPackage,assumption:PressureAssumption,compressor:Boolean=true) {
 @id("f0a5c3551d0b42e1ae2cb073164d5873") child control:PressureAssumption=assumption(inlet_pkg=inlet_pkg,outlet_pkg=outlet_pkg,compression=compressor);

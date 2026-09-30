@@ -782,21 +782,11 @@ pub(crate) fn same_value_metadata(actual: &Field, expected: &Field) -> bool {
     if std::ptr::eq(actual, expected) {
         return true;
     }
-    // Role and foreign-key annotations declare relation obligations. They do not
-    // change a column value's type or grant native optimizer constraints. An
-    // equijoin may select either equivalent key as the projected expression.
-    let meaning =
-        |key: &str| key != pse_schema::arrow::KEY_ROLE && key != pse_schema::arrow::KEY_FK;
-    actual
-        .metadata()
-        .iter()
-        .filter(|(key, _)| meaning(key))
-        .all(|(key, value)| expected.metadata().get(key) == Some(value))
-        && expected
-            .metadata()
-            .iter()
-            .filter(|(key, _)| meaning(key))
-            .all(|(key, value)| actual.metadata().get(key) == Some(value))
+    use pse_columnar::native_field::{project, MetadataPurpose};
+    match (project(actual, MetadataPurpose::ValueIdentity), project(expected, MetadataPurpose::ValueIdentity)) {
+        (Ok(actual), Ok(expected)) => actual.metadata() == expected.metadata(),
+        _ => false,
+    }
 }
 fn unnest_schema(
     unnest: &datafusion::logical_expr::Unnest,
@@ -880,20 +870,8 @@ fn admit_expression(
         if let Expr::Alias(alias) = expression {
             let child = fields.expression(&alias.expr, schema)?;
             let output = fields.expression(expression, schema)?;
-            // An alias names a value; it cannot invent an extension, quantity or
-            // enumeration meaning. Primitive logical labels follow native types.
-            for key in [
-                pse_schema::arrow::KEY_QUANTITY_TYPE,
-                pse_schema::arrow::KEY_ENUM,
-                pse_schema::arrow::KEY_EXTENSION_NAME,
-                pse_schema::arrow::KEY_EXTENSION_METADATA,
-            ] {
-                if child.metadata().get(key) != output.metadata().get(key) {
-                    return Err(DataFusionError::Plan(
-                        format!("alias {} changed semantic key {key}: source={:?}, output={:?}, expression={:?}", alias.name, child.metadata().get(key), output.metadata().get(key), alias.expr),
-                    ));
-                }
-            }
+            // Naming a value preserves its declared and unknown semantic facets.
+            super::output::check_value_metadata(&child, &output)?;
         }
         let field = fields.expression(expression, schema)?;
         // Native scalar simplification can retain a Boolean declaration on NULL.

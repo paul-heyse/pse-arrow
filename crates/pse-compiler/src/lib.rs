@@ -8,3 +8,8 @@ pub mod typed_math;
 mod physical_identity;
 /// Incremental semantic preparation and compiler-owned artifact requests.
 pub mod workspace;
+
+#[cfg(test)]
+mod physical_potential_tests;
+#[cfg(test)]
+mod contextual_contract_tests;

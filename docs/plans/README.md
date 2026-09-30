@@ -7,8 +7,9 @@ progress. The current architecture and its supported scope live in the
 [Plan 25](25-design-remediation.md) coordinates the proposed remediation of the two
 codebase domain-alignment reviews. Its 25a–25k plans describe the target contracts,
 implementation packets, dependency order and final qualification. The coordinator owns
-finding dispositions; the linked plans own packet progress. Production execution has not
-started. The series reserves full integration and qualification for 25k after all functional
+finding dispositions; the linked plans own packet progress. The maintainer authorized
+[25a](25a-physical-values-and-contextual-contracts.md), whose execution checkpoint records
+the current implementation and restart order. The series reserves full integration and qualification for 25k after all functional
 work, with focused checks and immediate deletion of replaced mechanisms during the pivot.
 
 [Plan 23](23-thermodynamic-domain-and-campaign.md) (the thermodynamic domain model and

@@ -76,6 +76,8 @@ fn expected_failure_shape(
 /// Resolved function contract and its declaration-owned body.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Function {
+    /// Declaration-owned authorization retained through specialization and lowering.
+    pub physical_operation: Option<crate::PhysicalOperation>,
     /// Generic finite reduction generated from a checked lexical reduction.
     pub reduction: Option<FiniteReduction>,
     /// Strict authored domain predicate over explicit arguments, checked before any function
@@ -163,7 +165,7 @@ pub struct CheckedPackage {
 impl CheckedPackage {
     /// The immutable physical environment used to admit this package.
     pub fn context(&self) -> TypeContext<'_> {
-        TypeContext {
+        TypeContext {formula_authority: None,
             quantities: &self.quantities,
             preconditions: &self.preconditions,
             scope: &self.scope,
@@ -457,6 +459,18 @@ impl CheckedPackage {
             }
         }
         for owner in chain.into_iter().rev() {
+            // A nominal coordinate slot is addressed relative to every visible lexical
+            // owner exactly as ordinary declaration lookup addresses it.
+            if let Some(prefix) = self.names.iter().find_map(|(name, id)| (*id == owner).then(|| format!("{name}."))) {
+                for (name, id) in &self.names {
+                    if let Some(relative) = name.strip_prefix(&prefix)
+                        && self.resolve(owner, relative) == Some(*id)
+                        && let Some(ty) = self.types.get(id)
+                    {
+                        names.insert(relative.to_owned(), ty.clone());
+                    }
+                }
+            }
             for id in self.children.get(&owner).into_iter().flatten() {
                 let row = &self.declarations[id];
                 if let Some(import) = &row.value.import {
@@ -967,6 +981,8 @@ fn check_declarations(
             Selected::EntityKind(_) => Some(Type::Entity(id)),
             Selected::Enum(_) => Some(Type::Enum(id)),
             Selected::IdentifierScheme => Some(Type::Identifier(id)),
+            Selected::Boundary(_) => Some(Type::Boundary(id)),
+            Selected::CoordinateMap(_) => Some(Type::CoordinateMap(id)),
             Selected::Table(_) => Some(Type::Table(id)),
             Selected::Definition(_)
             | Selected::Case(_)
@@ -1065,6 +1081,7 @@ fn check_declarations(
         }
     }
     crate::temporal::admit(&mut p, context)?;
+    crate::physical_operations::admit_signatures(&mut p, context)?;
     // Interface and definition dependencies are explicit graphs, never Salsa recovery.
     let mut inheritance = DiGraph::<DeclarationId, ()>::new();
     let inode = p
@@ -1269,6 +1286,7 @@ fn check_declarations(
             p.functions.insert(
                 id,
                 Function {
+                    physical_operation: None,
                     reduction: None,
                     validity: v
                         .validity
@@ -1326,6 +1344,11 @@ fn check_declarations(
                 "enumeration requires distinct named members with distinct identities",
             ));
         }
+    }
+    for id in p.functions.keys().copied().collect::<Vec<_>>() {
+        let mut function = p.functions[&id].clone();
+        crate::physical_operations::admit_reduced_law(&p, &mut function)?;
+        p.functions.insert(id, function);
     }
     for node in toposort(&inheritance, None)
         .map_err(|c| invalid(inheritance[c.node_id()], "interface cycle"))?
@@ -1550,6 +1573,7 @@ fn check_declarations(
         p.interfaces.insert(id, contracts);
         p.members.insert(id, effective);
     }
+    crate::contextual::admit_translations(&mut p, context)?;
     let mut calls = DiGraph::<DeclarationId, ()>::new();
     let function_nodes = p
         .functions
@@ -1579,7 +1603,19 @@ fn check_declarations(
             },
             span: Default::default(),
         });
-        for body in function.body.iter().chain(domain.iter()) {
+        let translation = match function.physical_operation.as_ref() {
+            Some(crate::PhysicalOperation::ReferenceTranslation(translation)) => Some(translation),
+            _ => None,
+        };
+        if let Some(translation) = translation {
+            for anchor in [translation.source_anchor, translation.target_anchor] {
+                if let Some(target) = function_nodes.get(&anchor) {
+                    calls.add_edge(function_nodes[id], *target, ());
+                }
+            }
+        }
+        let conditions = translation.into_iter().flat_map(|translation| [&translation.temperature, &translation.pressure]);
+        for body in function.body.iter().chain(domain.iter()).chain(conditions) {
             body.walk(|expr| {
                 let name = match &expr.kind {
                     dsl::ExprKind::NamedCall { name, .. } => Some(name),
@@ -1611,6 +1647,7 @@ fn check_declarations(
     }
     crate::entity::admit(&mut p, context, documents)?;
     crate::provenance::admit(&mut p)?;
+    crate::contextual::admit_translation_provenance(&mut p)?;
     // Tables, then the kinds' derived attributes, which may read them; requirements read
     // both (Plan 23 D0). A dataset naming a data document has its rows admitted by
     // `documents` (ADR-0125).
@@ -1736,6 +1773,36 @@ impl CheckedPackage {
                 texts.extend(v.validity.as_deref());
                 types.push(&v.return_type);
                 types.extend(v.arguments.iter().map(|a| &a.r#type));
+            }
+            if let Some(v) = &row.value.coordinate_map {
+                types.extend(v.arguments.iter().map(|a| &a.r#type));
+                texts.extend(v.validity.as_deref());
+                pending.extend(self.children.get(&id).into_iter().flatten().copied());
+            }
+            if let Some(v) = &row.value.coordinate_slot {
+                texts.push(&v.expression);
+                texts.extend(v.indices.iter().map(|i| i.domain.as_str()));
+            }
+            if let Some(v) = &row.value.reconstruction {
+                texts.extend([v.map.as_str(), v.reference.as_str(), v.normalization.as_str()]);
+                types.push(&v.return_type);
+                types.extend(v.arguments.iter().map(|a| &a.r#type));
+            }
+            if let Some(v) = &row.value.response {
+                texts.push(&v.body);
+                types.push(&v.return_type);
+                types.extend(v.arguments.iter().map(|a| &a.r#type));
+            }
+            if let Some(v) = &row.value.reference_translation {
+                texts.extend([v.source_anchor.as_str(), v.target_anchor.as_str(), v.temperature.as_str(), v.pressure.as_str()]);
+                types.push(&v.return_type);
+                types.extend(v.arguments.iter().map(|a| &a.r#type));
+                paths.extend(provenance_paths(&v.provenance));
+            }
+            if let Some(v) = &row.value.boundary { texts.extend(v.indices.iter().map(|i| i.domain.as_str())); }
+            if let Some(v) = &row.value.exchange {
+                texts.extend([v.from.as_str(), v.to.as_str()]);
+                texts.extend(v.indices.iter().map(|i| i.domain.as_str()));
             }
             if let Some(v) = &row.value.table {
                 types.extend(v.value_type.as_ref());
@@ -1926,6 +1993,9 @@ impl CheckedPackage {
                 type_dependencies(ty, &mut pending);
             }
             if let Some(f) = self.functions.get(&id) {
+                if let Some(body) = &f.body {
+                    pending.extend(dependency_paths(self, id, &dsl::render_expr(body)));
+                }
                 for (_, ty) in &f.arguments {
                     type_dependencies(ty, &mut pending);
                 }
@@ -2157,7 +2227,17 @@ fn type_dependencies(ty: &Type, out: &mut Vec<DeclarationId>) {
         | Type::Table(id)
         | Type::Row(id)
         | Type::Definition(id)
+        | Type::Boundary(id)
+        | Type::CoordinateMap(id)
         | Type::Interface(id) => out.push(*id),
+        Type::Reconstruction {declaration, map} => out.extend([*declaration, *map]),
+        Type::RefinedQuantity {refinement, ..} => match refinement {
+            crate::PhysicalRefinement::Coordinate {map, slot} => out.extend([*map, *slot]),
+            crate::PhysicalRefinement::ReducedLaw {map, reconstruction} => out.extend([*map, *reconstruction]),
+            crate::PhysicalRefinement::Transfer {boundary, ..} => match boundary {
+                crate::BoundaryRef::Declared(id) | crate::BoundaryRef::Bound {declaration:id, ..} => out.push(*id),
+            },
+        },
         Type::Function { arguments, result } => {
             for (_, ty) in arguments {
                 type_dependencies(ty, out);

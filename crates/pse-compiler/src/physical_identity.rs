@@ -25,7 +25,7 @@ fn word(h: &mut FramedHasher, v: Option<&str>) {
     }
 }
 pub(crate) fn identity(r: &QuantityRegistry, p: &PhysicalPreconditions) -> ContentHash {
-    let mut h = FramedHasher::new(pse_ids::Frame::MathPhysicalInventoryV5);
+    let mut h = FramedHasher::new(pse_ids::Frame::MathPhysicalInventoryV6);
     h.str("entity-kinds").u64(r.entity_kinds().count() as u64);
     for kind in r.entity_kinds() {
         h.id(&kind.id.as_id());
@@ -44,9 +44,12 @@ pub(crate) fn identity(r: &QuantityRegistry, p: &PhysicalPreconditions) -> Conte
         );
         // A defined unit's canonical atomic factors (ADR-0124).
         h.u64(u64::from(v.definition.is_some()));
-        for f in v.definition.iter().flatten() {
-            h.id(&f.unit.as_id());
-            ratio(&mut h, f.exponent);
+        if let Some(definition) = &v.definition {
+            h.u64(definition.len() as u64);
+            for f in definition {
+                h.id(&f.unit.as_id());
+                ratio(&mut h, f.exponent);
+            }
         }
     }
     h.str("kinds").u64(r.kinds().len() as u64);
@@ -191,7 +194,7 @@ pub(crate) fn identity(r: &QuantityRegistry, p: &PhysicalPreconditions) -> Conte
             h.id(&n.as_id());
         }
     }
-    h.str("reductions");
+    h.str("reductions").u64(r.reduction_domains().count() as u64);
     for (op, d) in r.reduction_domains() {
         h.id(&op.as_id()).id(&d.as_id());
     }
@@ -313,17 +316,19 @@ mod tests {
         b.build().unwrap()
     }
 
-    /// The frozen preimage layout of `pse.math.physical-inventory.v5` over an empty
+    /// The explicit preimage layout of `pse.math.physical-inventory.v6` over an empty
     /// inventory, and its sensitivity to a derived kind's definition (ADR-0124) and to the
     /// name a quantity type is addressed by (ADR-0123 Outcome 6).
     #[test]
     fn physical_inventory_identity_frames_derived_definitions() {
         let none = PhysicalPreconditions::new(vec![]).unwrap();
         let empty = QuantityRegistryBuilder::new().build().unwrap();
-        assert_eq!(
-            identity(&empty, &none).to_hex(),
-            "3cb659a221309cab9089ed95234e53059e6cdda15ce2dc7e024c5370b7daf981"
-        );
+        let mut expected = FramedHasher::new(pse_ids::Frame::MathPhysicalInventoryV6);
+        for section in ["entity-kinds", "units", "kinds", "bases", "references", "quantities", "conversions", "operations", "reductions", "unit-sets"] {
+            expected.str(section).u64(0);
+        }
+        expected.u64(0).str("preconditions").u64(0);
+        assert_eq!(identity(&empty, &none), expected.finish_hash());
         // Two inventories that differ only in a derived kind's declared result basis.
         assert_ne!(
             identity(&registry(false, None), &none),

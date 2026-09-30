@@ -9,7 +9,7 @@ use arrow_schema::{DataType, Field};
 use crate::SchemaError;
 
 /// Canonical metadata for collection order, cardinality and uniqueness.
-pub const KEY_COLLECTION: &str = "pse.semantic.collection";
+pub use super::field_facets::KEY_COLLECTION;
 
 /// Whether positions contribute to the meaning of a collection.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]

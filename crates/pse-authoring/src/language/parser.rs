@@ -551,11 +551,14 @@ impl Cursor<'_> {
                 "Delta" | "Δ" => Some(K::Delta),
                 "Tuple" => Some(K::Tuple),
                 "Id" => Some(K::Identifier),
+                "Coordinate" => Some(K::Coordinate),
+                "Reduced" => Some(K::ReducedLaw),
+                "Transfer" => Some(K::Transfer),
                 _ => None,
             };
             if let Some(kind) = kind {
                 self.pos += 2;
-                if kind == K::Identifier {
+                if matches!(kind, K::Identifier | K::Coordinate | K::ReducedLaw) {
                     let path = self.segments()?;
                     self.close_generic()?;
                     return Ok(push(
@@ -567,8 +570,11 @@ impl Cursor<'_> {
                     ));
                 }
                 let mut children = vec![self.type_node(nodes, depth + 1)?];
-                while kind == K::Tuple && self.eat(",") {
+                while matches!(kind, K::Tuple | K::Transfer) && self.eat(",") {
                     children.push(self.type_node(nodes, depth + 1)?);
+                }
+                if kind == K::Transfer && children.len() != 3 {
+                    return Err(self.error("Transfer<physical type, boundary, Into|OutOf>"));
                 }
                 self.close_generic()?;
                 return Ok(push(nodes, node(kind, children)));
@@ -1301,6 +1307,12 @@ impl Cursor<'_> {
         }
         if keyword == "identifier" && self.eat("scheme") {
             keyword = "identifier_scheme".into();
+        }
+        if keyword == "coordinate" && self.eat("map") {
+            keyword = "coordinate_map".into();
+        }
+        if keyword == "reference" && self.eat("translation") {
+            keyword = "reference_translation".into();
         }
         let anonymous = matches!(
             keyword.as_str(),
@@ -2349,6 +2361,105 @@ impl Cursor<'_> {
                     provenance,
                 })
             }
+            "coordinate_map" => {
+                let arguments = self.parameters()?.into_iter().map(|(name, r#type, default_value)| {
+                    AuthoredModelingDeclarationsFieldValueCoordinateMapArgumentsItem {name, r#type, default_value}
+                }).collect();
+                let validity = if self.eat("valid") {
+                    self.expect("(")?;
+                    let predicate = self.until(&[")"])?;
+                    self.expect(")")?;
+                    Some(predicate)
+                } else { None };
+                self.expect("{")?;
+                child_block = true;
+                Value::from_coordinate_map(AuthoredModelingDeclarationsFieldValueCoordinateMap {arguments, validity})
+            }
+            "slot" => {
+                let indices = self.indices()?.into_iter().map(|(name, domain)| {
+                    AuthoredModelingDeclarationsFieldValueCoordinateSlotIndicesItem {name, domain}
+                }).collect();
+                self.expect("=")?;
+                let expression = self.until(&[";"])?;
+                self.expect(";")?;
+                Value::from_coordinate_slot(AuthoredModelingDeclarationsFieldValueCoordinateSlot {indices, expression})
+            }
+            "reconstruction" => {
+                self.expect("for")?;
+                let map = self.path()?;
+                let arguments = self.parameters()?.into_iter().map(|(name, r#type, default_value)| {
+                    AuthoredModelingDeclarationsFieldValueReconstructionArgumentsItem {name, r#type, default_value}
+                }).collect();
+                self.expect("->")?;
+                let return_type = self.type_expr()?;
+                self.expect("reference")?;
+                let reference = self.path()?;
+                self.expect("=")?;
+                let normalization = self.until(&[";"])?;
+                self.expect(";")?;
+                Value::from_reconstruction(AuthoredModelingDeclarationsFieldValueReconstruction {map, arguments, return_type, reference, normalization})
+            }
+            "response" => {
+                self.expect("from")?;
+                let witness = self.word()?;
+                let arguments = self.parameters()?.into_iter().map(|(name, r#type, default_value)| {
+                    AuthoredModelingDeclarationsFieldValueResponseArgumentsItem {name, r#type, default_value}
+                }).collect();
+                self.expect("->")?;
+                let return_type = self.type_expr()?;
+                self.expect("=")?;
+                let body = self.until(&[";"])?;
+                self.expect(";")?;
+                Value::from_response(AuthoredModelingDeclarationsFieldValueResponse {witness, arguments, return_type, body})
+            }
+            "reference_translation" => {
+                let arguments = self.parameters()?.into_iter().map(|(name, r#type, default_value)| {
+                    AuthoredModelingDeclarationsFieldValueReferenceTranslationArgumentsItem {name, r#type, default_value}
+                }).collect();
+                self.expect("->")?;
+                let return_type = self.type_expr()?;
+                self.expect("anchors")?;
+                self.expect("(")?;
+                self.expect("source")?;
+                self.expect("=")?;
+                let source_anchor = self.path()?;
+                self.expect(",")?;
+                self.expect("target")?;
+                self.expect("=")?;
+                let target_anchor = self.path()?;
+                self.expect(")")?;
+                self.expect("at")?;
+                self.expect("(")?;
+                self.expect("temperature")?;
+                self.expect("=")?;
+                let temperature = self.until(&[","])?;
+                self.expect(",")?;
+                self.expect("pressure")?;
+                self.expect("=")?;
+                let pressure = self.until(&[")"])?;
+                self.expect(")")?;
+                let provenance = self.provenance()?;
+                self.expect(";")?;
+                Value::from_reference_translation(AuthoredModelingDeclarationsFieldValueReferenceTranslation {arguments, return_type, source_anchor, target_anchor, temperature, pressure, provenance})
+            }
+            "boundary" => {
+                let indices = self.indices()?.into_iter().map(|(name, domain)| {
+                    AuthoredModelingDeclarationsFieldValueBoundaryIndicesItem {name, domain}
+                }).collect();
+                self.expect(";")?;
+                Value::from_boundary(AuthoredModelingDeclarationsFieldValueBoundary {indices})
+            }
+            "exchange" => {
+                let indices = self.indices()?.into_iter().map(|(name, domain)| {
+                    AuthoredModelingDeclarationsFieldValueExchangeIndicesItem {name, domain}
+                }).collect();
+                self.expect("between")?;
+                let from = self.until(&["and"])?;
+                self.expect("and")?;
+                let to = self.until(&[";"])?;
+                self.expect(";")?;
+                Value::from_exchange(AuthoredModelingDeclarationsFieldValueExchange {indices, from, to})
+            }
             "fn" => {
                 let type_parameters = self.names("<", ">")?;
                 self.type_variables.extend(type_parameters.iter().cloned());
@@ -2572,6 +2683,7 @@ impl Cursor<'_> {
                     .collect();
                 self.expect(":")?;
                 let r#type = self.type_expr()?;
+                let boundary = if self.eat("boundary") { Some(self.path()?) } else { None };
                 let mode = self
                     .word()?
                     .parse()
@@ -2582,6 +2694,7 @@ impl Cursor<'_> {
                 Value::from_accumulator(AuthoredModelingDeclarationsFieldValueAccumulator {
                     indices,
                     r#type,
+                    boundary,
                     mode,
                     tolerance,
                 })
@@ -2603,13 +2716,6 @@ impl Cursor<'_> {
                     .word()?
                     .parse()
                     .map_err(|_| self.error("contribution role"))?;
-                let (transfer_id, transfer_side) = if self.eat("transfer") {
-                    let id = self.word()?;
-                    let side = self.word()?;
-                    (Some(id), Some(side))
-                } else {
-                    (None, None)
-                };
                 self.expect("=")?;
                 let expression = self.until(&[";"])?;
                 self.expect(";")?;
@@ -2618,8 +2724,6 @@ impl Cursor<'_> {
                     target,
                     expression,
                     role,
-                    transfer_id,
-                    transfer_side,
                 })
             }
             // ADR-0123 Outcome 3: `table name[key: T storage, k: 0..2]: T storage | {col: T
