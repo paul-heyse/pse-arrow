@@ -167,7 +167,7 @@ COMMENT ON TYPE "meta"."pseudo_component_kind" IS 'Why an entity has no chemical
 CREATE TYPE "meta"."purity_basis" AS ENUM ('mole', 'mass', 'volume', 'not_stated');
 COMMENT ON TYPE "meta"."purity_basis" IS 'The basis of a stated purity.';
 
-CREATE TYPE "meta"."reference_relation" AS ENUM ('absolute', 'standard', 'excess', 'residual_tv', 'residual_tp', 'mixing', 'formation', 'increment', 'transformed');
+CREATE TYPE "meta"."reference_relation" AS ENUM ('absolute', 'standard', 'excess', 'residual_tv', 'residual_tp', 'mixing', 'formation', 'increment', 'relative_to_standard_state', 'transformed');
 COMMENT ON TYPE "meta"."reference_relation" IS 'What an observable''s value is relative to.';
 
 CREATE TYPE "meta"."reference_state_kind" AS ENUM ('reference_phase_fixed_tp', 'reference_phase_same_tp', 'reference_phase_fixed_t_same_p', 'reference_phase_same_t_fixed_p', 'ideal_gas_same_density', 'ideal_mixture_same_density', 'equilibrium_phase_same_tp', 'pure_components_fixed_tp', 'pure_components_same_tp', 'pure_solvent_equilibrium_temperature', 'pure_solvent_same_tp', 'pure_solute_same_tp');
@@ -272,8 +272,17 @@ COMMENT ON DOMAIN "meta"."cell_loading" IS 'Number of molecules adsorbed per cry
 CREATE DOMAIN "meta"."charge_number" AS double precision CONSTRAINT "charge_number__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision));
 COMMENT ON DOMAIN "meta"."charge_number" IS 'Net charge in units of the elementary charge; signed. Stored in dimensionless.';
 
+CREATE DOMAIN "meta"."compressibility" AS double precision CONSTRAINT "compressibility__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)) CONSTRAINT "compressibility__nonnegative" CHECK (VALUE >= 0);
+COMMENT ON DOMAIN "meta"."compressibility" IS 'Isothermal or adiabatic compressibility: the relative change of volume with pressure along the stated path. Not negative. Stored in 1 / Pa.';
+
 CREATE DOMAIN "meta"."count" AS double precision CONSTRAINT "count__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision));
 COMMENT ON DOMAIN "meta"."count" IS 'A number of atoms, groups, sites or molecules per formula unit. Stored in dimensionless.';
+
+CREATE DOMAIN "meta"."cryoscopic_constant_molality" AS double precision CONSTRAINT "cryoscopic_constant_molality__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)) CONSTRAINT "cryoscopic_constant_molality__nonnegative" CHECK (VALUE >= 0);
+COMMENT ON DOMAIN "meta"."cryoscopic_constant_molality" IS 'The cryoscopic constant of a solvent on the molality scale, in the unit of mass per amount and temperature that ThermoML states. Stored in kg / K / mol.';
+
+CREATE DOMAIN "meta"."cryoscopic_constant_mole_fraction" AS double precision CONSTRAINT "cryoscopic_constant_mole_fraction__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)) CONSTRAINT "cryoscopic_constant_mole_fraction__nonnegative" CHECK (VALUE >= 0);
+COMMENT ON DOMAIN "meta"."cryoscopic_constant_mole_fraction" IS 'The cryoscopic constant of a solvent on the mole fraction scale, in reciprocal kelvin. Stored in 1 / K.';
 
 CREATE DOMAIN "meta"."diffusivity" AS double precision CONSTRAINT "diffusivity__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)) CONSTRAINT "diffusivity__nonnegative" CHECK (VALUE >= 0);
 COMMENT ON DOMAIN "meta"."diffusivity" IS 'A diffusion coefficient; its frame of reference is a facet of the observable. Stored in m ** 2 / s.';
@@ -284,6 +293,12 @@ COMMENT ON DOMAIN "meta"."dipole_moment" IS 'Electric dipole moment. Stored in C
 CREATE DOMAIN "meta"."electric_potential" AS double precision CONSTRAINT "electric_potential__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision));
 COMMENT ON DOMAIN "meta"."electric_potential" IS 'Electric potential, or a potential difference such as the potential of a charge-transfer rate. Stored in V.';
 
+CREATE DOMAIN "meta"."electrical_conductivity" AS double precision CONSTRAINT "electrical_conductivity__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)) CONSTRAINT "electrical_conductivity__nonnegative" CHECK (VALUE >= 0);
+COMMENT ON DOMAIN "meta"."electrical_conductivity" IS 'Electrical conductivity. Stored in S / m.';
+
+CREATE DOMAIN "meta"."energy" AS double precision CONSTRAINT "energy__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision));
+COMMENT ON DOMAIN "meta"."energy" IS 'An extensive energy, such as the enthalpy change of a process as carried out. Signed. Stored in J.';
+
 CREATE DOMAIN "meta"."energy_temperature" AS double precision CONSTRAINT "energy_temperature__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision));
 COMMENT ON DOMAIN "meta"."energy_temperature" IS 'An energy expressed as a temperature (energy divided by the Boltzmann constant), as used for dispersion and association energies. Stored in K.';
 
@@ -293,8 +308,20 @@ COMMENT ON DOMAIN "meta"."excess_area_loading" IS 'Amount adsorbed per surface a
 CREATE DOMAIN "meta"."excess_cell_loading" AS double precision CONSTRAINT "excess_cell_loading__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision));
 COMMENT ON DOMAIN "meta"."excess_cell_loading" IS 'Number of molecules adsorbed per crystallographic unit cell of the adsorbent, signed: a surface excess can be negative, and so can an amount whose kind the source does not state. Stored in dimensionless.';
 
+CREATE DOMAIN "meta"."excess_compressibility" AS double precision CONSTRAINT "excess_compressibility__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision));
+COMMENT ON DOMAIN "meta"."excess_compressibility" IS 'An excess compressibility: the compressibility of a mixture less that of the ideal mixture. Signed, so `Compressibility` cannot hold it. Stored in 1 / Pa.';
+
 CREATE DOMAIN "meta"."excess_loading" AS double precision CONSTRAINT "excess_loading__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision));
 COMMENT ON DOMAIN "meta"."excess_loading" IS 'Surface excess amount adsorbed per mass of adsorbent. Signed: a surface excess can be negative, so `Loading`, which is an absolute amount, cannot hold it. Stored in mol / kg.';
+
+CREATE DOMAIN "meta"."excess_speed" AS double precision CONSTRAINT "excess_speed__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision));
+COMMENT ON DOMAIN "meta"."excess_speed" IS 'An excess speed of sound: the speed in a mixture less that of the ideal mixture. Signed. Stored in m / s.';
+
+CREATE DOMAIN "meta"."excess_surface_tension" AS double precision CONSTRAINT "excess_surface_tension__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision));
+COMMENT ON DOMAIN "meta"."excess_surface_tension" IS 'An excess surface tension: the tension of a mixture less that of the ideal mixture. Signed, so `SurfaceTension` cannot hold it. Stored in N / m.';
+
+CREATE DOMAIN "meta"."excess_viscosity" AS double precision CONSTRAINT "excess_viscosity__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision));
+COMMENT ON DOMAIN "meta"."excess_viscosity" IS 'An excess dynamic viscosity: the viscosity of a mixture less that of the ideal mixture. Signed, so `Viscosity` cannot hold it. Stored in Pa * s.';
 
 CREATE DOMAIN "meta"."excess_volume_loading" AS double precision CONSTRAINT "excess_volume_loading__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision));
 COMMENT ON DOMAIN "meta"."excess_volume_loading" IS 'Amount adsorbed per volume of adsorbent, signed: a surface excess can be negative, and so can an amount whose kind the source does not state. Stored in mol / m ** 3.';
@@ -307,6 +334,15 @@ COMMENT ON DOMAIN "meta"."fraction" IS 'A part of a whole on a stated compositio
 
 CREATE DOMAIN "meta"."gas_constant" AS double precision CONSTRAINT "gas_constant__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)) CONSTRAINT "gas_constant__nonnegative" CHECK (VALUE >= 0);
 COMMENT ON DOMAIN "meta"."gas_constant" IS 'The molar gas constant as used by a body of data. Its value is a convention of that data, not a global. Stored in J / K / mol.';
+
+CREATE DOMAIN "meta"."henry_constant_concentration" AS double precision CONSTRAINT "henry_constant_concentration__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)) CONSTRAINT "henry_constant_concentration__nonnegative" CHECK (VALUE >= 0);
+COMMENT ON DOMAIN "meta"."henry_constant_concentration" IS 'A Henry''s law constant on the amount concentration scale: pressure per amount concentration of the dissolved gas. It has the dimension of a molar energy. Stored in m ** 3 * Pa / mol.';
+
+CREATE DOMAIN "meta"."henry_constant_molality" AS double precision CONSTRAINT "henry_constant_molality__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)) CONSTRAINT "henry_constant_molality__nonnegative" CHECK (VALUE >= 0);
+COMMENT ON DOMAIN "meta"."henry_constant_molality" IS 'A Henry''s law constant on the molality scale: pressure per molality of the dissolved gas. Stored in kg * Pa / mol.';
+
+CREATE DOMAIN "meta"."joule_thomson_coefficient" AS double precision CONSTRAINT "joule_thomson_coefficient__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision));
+COMMENT ON DOMAIN "meta"."joule_thomson_coefficient" IS 'The change of temperature with pressure at constant enthalpy. Signed. Stored in K / Pa.';
 
 CREATE DOMAIN "meta"."kinematic_viscosity" AS double precision CONSTRAINT "kinematic_viscosity__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)) CONSTRAINT "kinematic_viscosity__nonnegative" CHECK (VALUE >= 0);
 COMMENT ON DOMAIN "meta"."kinematic_viscosity" IS 'Dynamic viscosity over mass density. Stored in m ** 2 / s.';
@@ -326,11 +362,17 @@ COMMENT ON DOMAIN "meta"."mass_density" IS 'Mass per volume. Stored in kg / m **
 CREATE DOMAIN "meta"."molality" AS double precision CONSTRAINT "molality__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)) CONSTRAINT "molality__nonnegative" CHECK (VALUE >= 0);
 COMMENT ON DOMAIN "meta"."molality" IS 'Amount of solute per mass of solvent. Stored in mol / kg.';
 
+CREATE DOMAIN "meta"."molar_conductivity" AS double precision CONSTRAINT "molar_conductivity__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)) CONSTRAINT "molar_conductivity__nonnegative" CHECK (VALUE >= 0);
+COMMENT ON DOMAIN "meta"."molar_conductivity" IS 'Electrical conductivity per amount concentration of the electrolyte. Stored in m ** 2 * S / mol.';
+
 CREATE DOMAIN "meta"."molar_density" AS double precision CONSTRAINT "molar_density__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)) CONSTRAINT "molar_density__nonnegative" CHECK (VALUE >= 0);
 COMMENT ON DOMAIN "meta"."molar_density" IS 'Amount of substance per volume. Stored in mol / m ** 3.';
 
 CREATE DOMAIN "meta"."molar_energy" AS double precision CONSTRAINT "molar_energy__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision));
 COMMENT ON DOMAIN "meta"."molar_energy" IS 'Energy per amount of substance: enthalpy, Gibbs energy, internal energy or an interaction energy. Signed; the datum is stated by the convention set, never by the number. Stored in J / mol.';
+
+CREATE DOMAIN "meta"."molar_enthalpy_pressure_coefficient" AS double precision CONSTRAINT "molar_enthalpy_pressure_coefficient__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision));
+COMMENT ON DOMAIN "meta"."molar_enthalpy_pressure_coefficient" IS 'The change of molar enthalpy with pressure along the stated path, which has the dimension of a molar volume. Signed. Stored in m ** 3 / mol.';
 
 CREATE DOMAIN "meta"."molar_entropy" AS double precision CONSTRAINT "molar_entropy__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision));
 COMMENT ON DOMAIN "meta"."molar_entropy" IS 'Entropy or heat capacity per amount of substance. Stored in J / K / mol.';
@@ -353,6 +395,9 @@ COMMENT ON DOMAIN "meta"."polarizability_volume" IS 'Polarizability expressed as
 CREATE DOMAIN "meta"."pressure" AS double precision CONSTRAINT "pressure__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)) CONSTRAINT "pressure__nonnegative" CHECK (VALUE >= 0);
 COMMENT ON DOMAIN "meta"."pressure" IS 'Absolute pressure. Stored in Pa.';
 
+CREATE DOMAIN "meta"."pressure_temperature_coefficient" AS double precision CONSTRAINT "pressure_temperature_coefficient__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision));
+COMMENT ON DOMAIN "meta"."pressure_temperature_coefficient" IS 'The change of pressure with temperature along the stated path, such as the thermal pressure coefficient. Stored in Pa / K.';
+
 CREATE DOMAIN "meta"."quadrupole_moment" AS double precision CONSTRAINT "quadrupole_moment__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision));
 COMMENT ON DOMAIN "meta"."quadrupole_moment" IS 'Electric quadrupole moment; signed. Stored in C * m ** 2.';
 
@@ -362,11 +407,23 @@ COMMENT ON DOMAIN "meta"."rate_constant" IS 'A rate constant of a reaction. Its 
 CREATE DOMAIN "meta"."scalar" AS double precision CONSTRAINT "scalar__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision));
 COMMENT ON DOMAIN "meta"."scalar" IS 'A dimensionless number with no further interpretation. Stored in dimensionless.';
 
+CREATE DOMAIN "meta"."second_virial_coefficient" AS double precision CONSTRAINT "second_virial_coefficient__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision));
+COMMENT ON DOMAIN "meta"."second_virial_coefficient" IS 'A second virial coefficient of a pure fluid or a mixture, including its acoustic, excess and interaction forms. Signed. Stored in m ** 3 / mol.';
+
+CREATE DOMAIN "meta"."specific_amount" AS double precision CONSTRAINT "specific_amount__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)) CONSTRAINT "specific_amount__nonnegative" CHECK (VALUE >= 0);
+COMMENT ON DOMAIN "meta"."specific_amount" IS 'Amount of substance per mass of the whole system, such as the amount of solute per mass of solution. Distinct from a molality, which is per mass of solvent. Stored in mol / kg.';
+
 CREATE DOMAIN "meta"."specific_energy" AS double precision CONSTRAINT "specific_energy__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision));
 COMMENT ON DOMAIN "meta"."specific_energy" IS 'Energy per mass. Stored in J / kg.';
 
 CREATE DOMAIN "meta"."specific_entropy" AS double precision CONSTRAINT "specific_entropy__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision));
 COMMENT ON DOMAIN "meta"."specific_entropy" IS 'Entropy or heat capacity per mass. Stored in J / K / kg.';
+
+CREATE DOMAIN "meta"."specific_volume" AS double precision CONSTRAINT "specific_volume__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)) CONSTRAINT "specific_volume__nonnegative" CHECK (VALUE >= 0);
+COMMENT ON DOMAIN "meta"."specific_volume" IS 'Volume per mass. Stored in m ** 3 / kg.';
+
+CREATE DOMAIN "meta"."speed" AS double precision CONSTRAINT "speed__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)) CONSTRAINT "speed__nonnegative" CHECK (VALUE >= 0);
+COMMENT ON DOMAIN "meta"."speed" IS 'A speed, such as the speed of sound. Stored in m / s.';
 
 CREATE DOMAIN "meta"."surface_charge_density" AS double precision CONSTRAINT "surface_charge_density__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision));
 COMMENT ON DOMAIN "meta"."surface_charge_density" IS 'Screening charge per area, the support coordinate of a sigma profile. Stored in C / m ** 2.';
@@ -386,6 +443,12 @@ COMMENT ON DOMAIN "meta"."thermal_conductivity" IS 'Thermal conductivity. Stored
 CREATE DOMAIN "meta"."thermal_diffusivity" AS double precision CONSTRAINT "thermal_diffusivity__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)) CONSTRAINT "thermal_diffusivity__nonnegative" CHECK (VALUE >= 0);
 COMMENT ON DOMAIN "meta"."thermal_diffusivity" IS 'Thermal conductivity over the product of mass density and specific heat capacity. Stored in m ** 2 / s.';
 
+CREATE DOMAIN "meta"."thermal_expansion_coefficient" AS double precision CONSTRAINT "thermal_expansion_coefficient__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision));
+COMMENT ON DOMAIN "meta"."thermal_expansion_coefficient" IS 'The relative change of volume with temperature along the stated path, or its excess. Signed: water below 4 degrees Celsius contracts on heating. Stored in 1 / K.';
+
+CREATE DOMAIN "meta"."third_virial_coefficient" AS double precision CONSTRAINT "third_virial_coefficient__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision));
+COMMENT ON DOMAIN "meta"."third_virial_coefficient" IS 'A third virial coefficient, including its acoustic and binary interaction forms. Signed. Stored in m ** 6 / mol ** 2.';
+
 CREATE DOMAIN "meta"."time" AS double precision CONSTRAINT "time__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)) CONSTRAINT "time__nonnegative" CHECK (VALUE >= 0);
 COMMENT ON DOMAIN "meta"."time" IS 'A duration. Stored in s.';
 
@@ -397,6 +460,9 @@ COMMENT ON DOMAIN "meta"."volume" IS 'A volume, such as a molecular cavity volum
 
 CREATE DOMAIN "meta"."volume_loading" AS double precision CONSTRAINT "volume_loading__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)) CONSTRAINT "volume_loading__nonnegative" CHECK (VALUE >= 0);
 COMMENT ON DOMAIN "meta"."volume_loading" IS 'Amount adsorbed per volume of adsorbent, absolute. Stored in mol / m ** 3.';
+
+CREATE DOMAIN "meta"."volumetric_heat_capacity" AS double precision CONSTRAINT "volumetric_heat_capacity__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)) CONSTRAINT "volumetric_heat_capacity__nonnegative" CHECK (VALUE >= 0);
+COMMENT ON DOMAIN "meta"."volumetric_heat_capacity" IS 'Heat capacity per volume. Stored in J / K / m ** 3.';
 
 CREATE DOMAIN "meta"."wavenumber" AS double precision CONSTRAINT "wavenumber__finite" CHECK (VALUE NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)) CONSTRAINT "wavenumber__nonnegative" CHECK (VALUE >= 0);
 COMMENT ON DOMAIN "meta"."wavenumber" IS 'Reciprocal wavelength, as vibrational frequencies are stated. Stored in 1 / m.';

@@ -8,8 +8,9 @@ quantity type, what it is a property of, its amount basis, what it is relative t
 along which it is defined. Sources' property names map onto observables through alias rows; two
 source names that differ in any facet are two observables.
 
-The entities declared here are a starting set. The full vocabulary is derived from the ThermoML
-property enumeration and the other sources in Wave 1.
+The entities declared here are a starting set. The vocabulary derived from the ThermoML property
+enumeration, with an alias for every ThermoML property name, is in `observables_thermoml`; the other
+sources extend it in Wave 1.
 """
 
 [enums.subject_shape]
@@ -47,6 +48,7 @@ members.residual_tp = { doc = "Relative to the ideal gas at the same temperature
 members.mixing = { doc = "Relative to the unmixed components." }
 members.formation = { doc = "Of formation from the elements in their reference forms." }
 members.increment = { doc = "A difference between two stated states of the same material." }
+members.relative_to_standard_state = { doc = "A dimensionless ratio of a quantity to its value in the standard state the dataset states: the activity of a component." }
 members.transformed = { doc = "A transformed, or apparent, quantity: the quantity of a biochemical reaction at a stated pH, ionic strength and pMg, relative to the transformed standard state. The conditions that define it are the dataset's constraint columns for pH, ionic strength and pMg; the observables for them are vocabulary rows the wave that maps the thermodynamic-data exchange format declares, so no requirement ties them to this member yet." }
 
 [enums.path]

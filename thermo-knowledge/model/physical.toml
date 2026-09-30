@@ -272,3 +272,113 @@ scale = "difference"
 doc = "Number of entities per volume, such as the density of the sites of one type in a liquid-state theory. Distinct from a molar density: it counts sites or particles, not amount of substance."
 unit = "1/m^3"
 scale = "absolute"
+
+[quantity_types.SpecificVolume]
+doc = "Volume per mass."
+unit = "m^3/kg"
+scale = "absolute"
+
+[quantity_types.SecondVirialCoefficient]
+doc = "A second virial coefficient of a pure fluid or a mixture, including its acoustic, excess and interaction forms. Signed."
+unit = "m^3/mol"
+scale = "difference"
+
+[quantity_types.ThirdVirialCoefficient]
+doc = "A third virial coefficient, including its acoustic and binary interaction forms. Signed."
+unit = "m^6/mol^2"
+scale = "difference"
+
+[quantity_types.Compressibility]
+doc = "Isothermal or adiabatic compressibility: the relative change of volume with pressure along the stated path. Not negative."
+unit = "1/Pa"
+scale = "absolute"
+
+[quantity_types.ExcessCompressibility]
+doc = "An excess compressibility: the compressibility of a mixture less that of the ideal mixture. Signed, so `Compressibility` cannot hold it."
+unit = "1/Pa"
+scale = "difference"
+
+[quantity_types.ThermalExpansionCoefficient]
+doc = "The relative change of volume with temperature along the stated path, or its excess. Signed: water below 4 degrees Celsius contracts on heating."
+unit = "1/K"
+scale = "difference"
+
+[quantity_types.PressureTemperatureCoefficient]
+doc = "The change of pressure with temperature along the stated path, such as the thermal pressure coefficient."
+unit = "Pa/K"
+scale = "difference"
+
+[quantity_types.VolumetricHeatCapacity]
+doc = "Heat capacity per volume."
+unit = "J/(m^3*K)"
+scale = "absolute"
+
+[quantity_types.JouleThomsonCoefficient]
+doc = "The change of temperature with pressure at constant enthalpy. Signed."
+unit = "K/Pa"
+scale = "difference"
+
+[quantity_types.MolarEnthalpyPressureCoefficient]
+doc = "The change of molar enthalpy with pressure along the stated path, which has the dimension of a molar volume. Signed."
+unit = "m^3/mol"
+scale = "difference"
+
+[quantity_types.CryoscopicConstantMoleFraction]
+doc = "The cryoscopic constant of a solvent on the mole fraction scale, in reciprocal kelvin."
+unit = "1/K"
+scale = "absolute"
+
+[quantity_types.CryoscopicConstantMolality]
+doc = "The cryoscopic constant of a solvent on the molality scale, in the unit of mass per amount and temperature that ThermoML states."
+unit = "kg/(mol*K)"
+scale = "absolute"
+
+[quantity_types.SpecificAmount]
+doc = "Amount of substance per mass of the whole system, such as the amount of solute per mass of solution. Distinct from a molality, which is per mass of solvent."
+unit = "mol/kg"
+scale = "absolute"
+
+[quantity_types.HenryConstantMolality]
+doc = "A Henry's law constant on the molality scale: pressure per molality of the dissolved gas."
+unit = "Pa*kg/mol"
+scale = "absolute"
+
+[quantity_types.HenryConstantConcentration]
+doc = "A Henry's law constant on the amount concentration scale: pressure per amount concentration of the dissolved gas. It has the dimension of a molar energy."
+unit = "Pa*m^3/mol"
+scale = "absolute"
+
+[quantity_types.ExcessViscosity]
+doc = "An excess dynamic viscosity: the viscosity of a mixture less that of the ideal mixture. Signed, so `Viscosity` cannot hold it."
+unit = "Pa*s"
+scale = "difference"
+
+[quantity_types.ElectricalConductivity]
+doc = "Electrical conductivity."
+unit = "S/m"
+scale = "absolute"
+
+[quantity_types.MolarConductivity]
+doc = "Electrical conductivity per amount concentration of the electrolyte."
+unit = "S*m^2/mol"
+scale = "absolute"
+
+[quantity_types.Speed]
+doc = "A speed, such as the speed of sound."
+unit = "m/s"
+scale = "absolute"
+
+[quantity_types.ExcessSpeed]
+doc = "An excess speed of sound: the speed in a mixture less that of the ideal mixture. Signed."
+unit = "m/s"
+scale = "difference"
+
+[quantity_types.ExcessSurfaceTension]
+doc = "An excess surface tension: the tension of a mixture less that of the ideal mixture. Signed, so `SurfaceTension` cannot hold it."
+unit = "N/m"
+scale = "difference"
+
+[quantity_types.Energy]
+doc = "An extensive energy, such as the enthalpy change of a process as carried out. Signed."
+unit = "J"
+scale = "difference"

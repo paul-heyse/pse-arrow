@@ -86,7 +86,7 @@ reason = "The biochemical formalism gives transformed (apparent) quantities at a
 construct = "Unit embedded in enumeration strings"
 disposition = "mapping_loss"
 ref = "mechanism:unit conversion"
-reason = "The mapping declares the source unit of each name and its factor (kPa to Pa 1000, kJ/mol to J/mol 1000, mol/dm3 to mol/m3 1000, kg/kmol to kg/mol 0.001, J/g to J/kg 1000) and needs quantity types declared for the units physical.toml lacks. Names whose unit has a symbolic exponent n, such as (mol/dm3)^n and kPa^n, have no fixed quantity type and are stored as dimensionless numbers on the stated scale."
+reason = "The unit text of each of the 193 property names is checked with pint against the quantity type of its alias's observable (a test states the dimension of each, after restating an exponent written as trailing digits, m3 as m**3, which pint does not parse), and the mapping declares the factors (kPa to Pa 1000, kJ/mol to J/mol 1000, mol/dm3 to mol/m3 1000, kg/kmol to kg/mol 0.001, J/g to J/kg 1000). The 10 property names whose unit has a symbolic exponent n are close aliases stored as dimensionless numbers on the stated scale; the units of the constraint and variable names, among them MHz, still need a quantity type where the wave that maps them declares the observables."
 
 [[disposition]]
 construct = "Integer cross-references (nCompIndex, RegNum, nSampleNm, nPropNumber, nVarNumber, nConstraintNumber, nUncertAssessNum)"
@@ -98,7 +98,7 @@ reason = "The schema declares no key or keyref, so the mapping resolves every in
 construct = "ePropName (PropertyGroup Criticals)"
 disposition = "mapping_loss"
 ref = "kind:observable_alias"
-reason = "critical_temperature and critical_pressure (kPa to Pa, factor 1000) exist with subject pure, but the names do not say pure or mixture, so the mapping chooses a pure or mixture-subject observable from the number of Component elements. Critical density, molar volume, specific volume (new quantity type), compressibility factor and the four consolute names need observables declared with the mapping."
+reason = "The 10 names are observable_alias rows of carrier scope thermoml (module observables_thermoml): critical temperature and pressure reuse critical_temperature and critical_pressure, the density, molar volume, specific volume and compressibility factor and the four consolute names have observables, and the six critical names are broader than the pure-subject observables because they do not say pure or mixture, so the mapping holds the critical point of a mixture."
 
 [[disposition]]
 construct = "eMethodName (PropertyGroup Criticals)"
@@ -110,7 +110,7 @@ reason = "The ten strings are kept verbatim in dataset.method and the kind is se
 construct = "ePropName (PropertyGroup VaporPBoilingTAzeotropTandP)"
 disposition = "mapping_loss"
 ref = "kind:observable_alias"
-reason = "'Vapor or sublimation pressure' is one name for two observables, which the mapping separates by PropPhaseID (gas with liquid gives vapor_pressure, gas with crystal a sublimation-pressure observable declared with it) and cannot when the phase is omitted. The 101.325 kPa of the normal boiling temperature comes from a documentation element, and the boiling and azeotropic names need observables declared."
+reason = "The 5 names are aliases: 'Vapor or sublimation pressure' is a broader alias of vapor_pressure whose sublimation case has its own observable sublimation_pressure, which the mapping selects from PropPhaseID and cannot when the phase is omitted, and the boiling and azeotropic names have observables; the 101.325 kPa of the normal boiling temperature comes from a documentation element."
 
 [[disposition]]
 construct = "eMethodName (PropertyGroup VaporPBoilingTAzeotropTandP)"
@@ -122,7 +122,7 @@ reason = "The 21 strings are kept verbatim in dataset.method under kind measured
 construct = "ePropName (PropertyGroup PhaseTransition)"
 disposition = "mapping_loss"
 ref = "kind:observable_alias"
-reason = "'Molar enthalpy of transition or fusion' and 'of vaporization or sublimation' are each one name for several processes that only PropPhaseID tells apart, so the mapping picks the transition observable from dataset_phase and second_phase and holds the point when the phases are absent. The invariant-point names and the cryoscopic constants (1/K, kg/mol/K) need observables and quantity types declared, and the gas-phase reference of the 0 K lattice energy is assumed because the name omits it."
+reason = "The 19 names are aliases: the 'transition or fusion' and 'vaporization or sublimation' names are broader aliases of the fusion and vaporization observables (the sublimation observables exist too) that only PropPhaseID tells apart, so the mapping picks the observable from dataset_phase and second_phase and holds the point when the phases are absent; the invariant-point names, the cryoscopic constants and the 0 K lattice energy (close, its gas-phase reference assumed) have observables and quantity types."
 
 [[disposition]]
 construct = "eMethodName (PropertyGroup PhaseTransition)"
@@ -132,9 +132,9 @@ reason = "'Obtained from cryoscopic constant', 'Derived from phase diagram analy
 
 [[disposition]]
 construct = "ePropName (PropertyGroup CompositionAtPhaseEquilibrium)"
-disposition = "mapping_loss"
+disposition = "held_by_model"
 ref = "kind:observable_alias"
-reason = "Mass concentration, the amount, mass and volume ratios of solute to solvent and amount of solute per mass of solution need composition_basis entries and composition observables declared with the mapping, and each Henry's Law constant scale (mole fraction, molality, amount concentration) its own observable. The kind of equilibrium (solubility, LLE, VLE) is read from the dataset phases and is undecided when PropPhaseID is omitted."
+reason = "All 31 names are exact aliases of observables of observables_thermoml or of mole_fraction: the invariant-point compositions, the mass, volume and amount ratios of solute to solvent, the concentrations, each Henry's Law constant scale, the Bunsen and Ostwald coefficients and the partial pressure are separate observables, and the kind of equilibrium is read from the dataset phases."
 
 [[disposition]]
 construct = "eMethodName (PropertyGroup CompositionAtPhaseEquilibrium)"
@@ -145,8 +145,8 @@ reason = "'Calculated by Gibbs-Duhem equation' and the density, refractive-index
 [[disposition]]
 construct = "ePropName (PropertyGroup ActivityFugacityOsmoticProp)"
 disposition = "mapping_loss"
-ref = "enum:standard_state_kind"
-reason = "The activity-coefficient convention is only implied by eStandardState, which states neither the pressure nor whether 'Pure compound' is a real liquid or an ideal gas, and standard_state_kind and pressure_rule have the member not_stated for it (see eStandardState). 'Mean ionic activity, (mol/dm3)^n' is stored as a dimensionless number on its stated scale because its unit depends on n."
+ref = "kind:observable_alias"
+reason = "The 8 names are aliases: the activity uses the reference relation relative_to_standard_state and the activity and osmotic coefficients the relation excess, with the convention only implied by eStandardState (see eStandardState), and 'Mean ionic activity, (mol/dm3)^n' is a close alias stored as a dimensionless number on its stated scale because its unit depends on n."
 
 [[disposition]]
 construct = "eMethodName (PropertyGroup ActivityFugacityOsmoticProp)"
@@ -158,7 +158,7 @@ reason = "The nine strings are kept verbatim in dataset.method, which the model 
 construct = "ePropName (PropertyGroup VolumetricProp)"
 disposition = "mapping_loss"
 ref = "kind:observable_alias"
-reason = "Specific volume, the virial and acoustic virial coefficients, the compressibilities and the expansion coefficient need observables and quantity types declared with the mapping, and C112 and C122 become observables of a binary mixture. 'Relative partial molar volume' is mapped as an increment against the infinite-dilution standard state, a reference the name does not state."
+reason = "The 24 names are aliases with quantity types declared for the specific volume, virial coefficients, compressibilities and expansion coefficient: the excess compressibilities and expansion coefficient state no mixing rule, the excess and interaction virial coefficients state no order (second assumed from the unit) and 'Relative partial molar volume' states no reference (infinite dilution assumed), each a close alias, and C112 and C122 have pair-subject observables."
 
 [[disposition]]
 construct = "eMethodName (PropertyGroup VolumetricProp)"
@@ -169,8 +169,8 @@ reason = "'Derived from speed of sound', 'Derived analytically', 'Derived graphi
 [[disposition]]
 construct = "ePropName (PropertyGroup HeatCapacityAndDerivedProp)"
 disposition = "held_by_model"
-ref = "enum:path"
-reason = "The Joule-Thomson coefficient, a temperature change with pressure at constant enthalpy, has the path member isenthalpic of enum path. The unstated enthalpy and entropy datums map to a convention set with enthalpy_datum and entropy_datum not_stated, and the 0 K and 298.15 K references of the enthalpy and Gibbs-energy functions become separate observables."
+ref = "kind:observable_alias"
+reason = "All 20 names are exact aliases: the Joule-Thomson coefficient has the path isenthalpic, the heat capacities at constant pressure, at saturation pressure and at constant volume per mole, per mass and per volume are separate observables, the enthalpy function and the two Gibbs energy functions (references at 0 K and 298.15 K) are separate observables, and the unstated enthalpy and entropy datums belong to the dataset's convention set."
 
 [[disposition]]
 construct = "eMethodName (PropertyGroup HeatCapacityAndDerivedProp)"
@@ -180,9 +180,9 @@ reason = "'Derived from speed of sound' and 'Derived from equation of state' des
 
 [[disposition]]
 construct = "ePropName (PropertyGroup ExcessPartialApparentEnergyProp)"
-disposition = "held_by_model"
-ref = "enum:amount_basis"
-reason = "amount_basis has the member per_mole_of_solute for a quantity per mole of solute, which the schema documents for 'Molar enthalpy of mixing with solvent', 'of solution' and 'of dilution' (per mole of mixture for the excess enthalpy). Relative partial molar quantities are mapped as increments against the infinite-dilution standard state, and solution and dilution enthalpies use initial and final composition columns."
+disposition = "mapping_loss"
+ref = "kind:observable_alias"
+reason = "The 23 names are aliases: the enthalpies of mixing with solvent, of solution and of dilution have the amount basis per_mole_of_solute, the excess, partial, apparent and standard-state properties are separate observables, and the aliases of the heat capacities (constant pressure assumed) and of the relative partial molar properties (infinite-dilution reference assumed) are close because the names state neither."
 
 [[disposition]]
 construct = "eMethodName (PropertyGroup ExcessPartialApparentEnergyProp)"
@@ -192,9 +192,9 @@ reason = "The fifteen calorimetry and cell strings are kept verbatim in dataset.
 
 [[disposition]]
 construct = "ePropName (PropertyGroup TransportProp)"
-disposition = "held_by_model"
-ref = "enum:diffusion_frame"
-reason = "'Binary diffusion coefficient' states no frame, which diffusion_frame records as the member not_stated, so an omitted frame is recorded without an assumption. Kinematic viscosity, thermal diffusivity and fluidity are the quantity types KinematicViscosity, ThermalDiffusivity and Fluidity, and their observables and those of the conductivities are declared with the mapping."
+disposition = "mapping_loss"
+ref = "kind:observable_alias"
+reason = "The 12 names are aliases with their quantity types declared: 'Binary diffusion coefficient' has the frame not_stated, self and tracer diffusion are separate observables with the frame self_diffusion, and 'Excess viscosity' is a close alias because its name states no mixing rule."
 
 [[disposition]]
 construct = "eMethodName (PropertyGroup TransportProp)"
@@ -206,7 +206,7 @@ reason = "The 29 viscometry, conductivity and diffusion strings are kept verbati
 construct = "ePropName (PropertyGroup RefractionSurfaceTensionSoundSpeed)"
 disposition = "mapping_loss"
 ref = "kind:observable_alias"
-reason = "'Refractive index (Na D-line)' fixes a wavelength by name, which the mapping restates as a wavelength constraint column with the D-line value assumed, and the two parts of the complex permittivity become two observables. The excess names use the excess relation against an ideal mixing rule the schema does not state, and speed of sound needs a quantity type declared with the mapping."
+reason = "The 14 names are aliases: the sodium D-line refractive index and the refractive index at another wavelength are separate observables (the wavelength of the second is a dataset column), the two parts of the complex permittivity are two observables, liquid-gas surface tension is separate from interfacial tension, speed of sound has its own quantity type, and the excess names are close aliases because they state no mixing rule."
 
 [[disposition]]
 construct = "eMethodName (PropertyGroup RefractionSurfaceTensionSoundSpeed)"
@@ -218,7 +218,7 @@ reason = "The 31 refractometry, tensiometry and acoustic strings are kept verbat
 construct = "ePropName (PropertyGroup BioProperties)"
 disposition = "mapping_loss"
 ref = "kind:observable_alias"
-reason = "The five names become transition observables with the native and denaturated states as dataset_phase labels, since eBioState is a conformational state and aggregation has no such member. The kind of transition temperature (half conversion, peak, zero Gibbs energy) is carried by separate observable entries declared with the mapping."
+reason = "The 5 names are aliases with transition-subject observables, one per kind of transition temperature (half conversion, peak, zero Gibbs energy), and the native and denaturated states are dataset_phase labels since eBioState is a conformational state and aggregation has no such member; the heat capacity change is a close alias because its name does not say constant pressure."
 
 [[disposition]]
 construct = "eMethodName (PropertyGroup BioProperties)"
@@ -230,7 +230,7 @@ reason = "The one string, DSC/DTA, is a measurement: it is kept verbatim in data
 construct = "ePropName (ReactionData PropertyGroup ReactionStateChangeProp)"
 disposition = "mapping_loss"
 ref = "kind:observable_alias"
-reason = "The sign of the participants' coefficients and 'per mol of reaction' are not stated, so reactants negative and per mole of the reaction as written are assumed, and 'Specific internal energy of reaction, J/g' does not say per gram of what and is held. 'Enthalpy of process, kJ' and the cell potential need an energy and a potential quantity type and observables declared with the mapping."
+reason = "The 7 names are aliases with reaction-subject observables for the enthalpy, internal energy, Gibbs energy and entropy of reaction, the enthalpy of a process (the quantity type Energy) and the cell potential difference; 'Specific internal energy of reaction, J/g' does not say per gram of what and is a close alias, and the sign of the participants' coefficients and per mole of the reaction as written are assumed."
 
 [[disposition]]
 construct = "eMethodName (ReactionData PropertyGroup ReactionStateChangeProp)"
@@ -242,7 +242,7 @@ reason = "The method choice repeats per reaction property while dataset.method h
 construct = "ePropName (ReactionData PropertyGroup ReactionEquilibriumProp)"
 disposition = "mapping_loss"
 ref = "kind:observable_alias"
-reason = "K, ln K and log10 K of each of the five scales (thermodynamic, molality, molarity, partial pressure, mole fraction) are separate observables because no facet derives the scale or the logarithm base. Values with unit (mol/kg)^n, (mol/dm3)^n or kPa^n are stored as dimensionless numbers on the stated scale, and n follows from the participants only when their coefficients are present."
+reason = "K, ln K and log10 K of each of the five scales are 15 separate observables and aliases, as no facet derives the scale or the logarithm base; the nine names with unit (mol/kg)^n, (mol/dm3)^n or kPa^n are close aliases stored as dimensionless numbers on the stated scale because n follows from the participants only when their coefficients are present."
 
 [[disposition]]
 construct = "eMethodName (ReactionData PropertyGroup ReactionEquilibriumProp)"
