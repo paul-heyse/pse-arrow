@@ -382,7 +382,7 @@ workspace-hack required no change. This is generation evidence, not a hygiene re
 warning for `proc-macro-error2 v2.0.1`; this is not a warning-free result.
 
 **Not run:** full integration, native-solver, Python and performance campaigns remain 25k work.
-Manual hygiene was not run; the automatic end-of-turn hooks own formatting and static checks.
+Manual hygiene was not run; `just hygiene` belongs to 25k's scope-end qualification (ADR-0143).
 No performance or complete-product qualification is claimed. ADR-0135/0136 acceptance and
 supersession remain the separate decision-PR route.
 

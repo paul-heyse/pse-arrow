@@ -50,8 +50,8 @@ Validate new functional scope with compile checks and targeted tests or probes. 
 qualification only after all functional scope of the authorized plan is implemented, following
 `AGENTS.md`; bounded-package completion does not establish an enclosing stage exit. Repair
 failures and rerun the affected checks, broadening verification when a material change warrants
-it. Formatting, linting and other hygiene belong to the automatic end-of-turn hook: do not run,
-inspect or troubleshoot those checks through this workflow.
+it. Run `just hygiene` once with the integrated qualification and fix what it reports.
+Formatting and generators belong to the automatic end-of-turn hook: do not run them here.
 
 Report actual commands and outcomes (`passed`, `failed`, `blocked` with its prerequisite, or
 `not_run`). Keep comprehensive evidence in the plan Outcome or qualification report; interim

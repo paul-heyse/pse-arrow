@@ -45,14 +45,15 @@ New work starts only when the maintainer authorizes it. Build a target directly 
 code/callers/tests without compatibility APIs or a second production path. Correctness
 tests retain explicit force-validation. Full library eligibility remains in force.
 
-## Execution rhythm: functional scope first; the end-of-turn hooks format and check
+## Execution rhythm: functional scope first; static checks at scope end
 
 The work is moving the codebase onto the target design and deleting what it replaces.
-Spend attention there. Formatting, generators and every non-functional check run in the
-end-of-turn hooks when you stop (`scripts/after_turn.py`, ADR-0137): `just fmt` and the
-generators first, then every `just hygiene` check in the background, with a fixer agent for
-what fails and the rest shown to the maintainer. Integrated testing happens once, after all
-functional scope in the plan is implemented. None of these is a commit, push or merge
+Spend attention there. The end-of-turn hooks (`scripts/after_turn.py`, ADR-0143) run only
+automatic steps when you stop: `just fmt` (with ruff's safe auto-fixes) and the generators,
+then `doctor`, `db-status` and the library catalog in the background; the maintainer sees failed
+steps and the next prompt never waits. They run no `just hygiene` check and fix nothing: type
+errors, clippy, lint and codegen drift are yours, through `just hygiene` once all functional
+scope in the plan is implemented. Integrated testing happens once, at the same point. None of these is a commit, push or merge
 prerequisite. Formatting and lint fixes mid-work rewrite lines you did not author, so you (and
 every other agent) would have to re-assess changes that are not yours.
 
@@ -62,16 +63,17 @@ every other agent) would have to re-assess changes that are not yours.
 - Run, or write, the targeted unit tests that show the new behaviour:
   `just unit-package <pkg> <filter>`. A new mechanism gets its tests in the same change.
 - Run `just codegen` when a generator or registry declaration changes — regeneration is
-  part of the change, not polish. The end-of-turn checks confirm it (`codegen-*-check`) and
-  run `family-check`.
+  part of the change, not polish. `just hygiene` confirms it at scope end (`codegen-*-check`,
+  `family-check`).
 - **Delete legacy code as soon as it is provably replaced** — the replacement's targeted
   tests pass and every caller has moved. Remove the old mechanism, its callers, its tests
   and its fixtures in the same change. Do not port tests for a deleted mechanism, keep a
   shim, or retain a path "as evidence".
 
 **After all functional scope is implemented:** select the relevant integration, component,
-solver and Python journeys, performance campaigns and the checks the end-of-turn hooks leave
-manual (`just governance`, `just docs`, the native and powerset lints). Report the commands, scope and
+solver and Python journeys, performance campaigns, `just hygiene` (fix what fails and re-run
+the failing recipe) and the manual checks (`just governance`, `just docs`, the native and
+powerset lints). Report the commands, scope and
 results. The maintainer may also request this comprehensive qualification at any other
 time.
 
@@ -79,10 +81,9 @@ time.
 
 - Run `just doctor` — the end-of-turn hooks run it and show a failure to the maintainer. Run
   it only when a command fails in an environment-shaped way.
-- Run formatters, linters, type checks or any other `just hygiene` check (`cargo fmt`,
-  `just clippy`, `ruff`, `just quality`, `just ci-fast`), or integration suites, and don't
-  troubleshoot their failures: the end-of-turn hooks run them and a fixer agent repairs what it
-  can.
+- Run formatters (the end-of-turn hooks do), or linters, type checks, any other `just hygiene`
+  check (`just clippy`, `ruff`, `just quality`, `just ci-fast`) or integration suites: they wait
+  for scope end, when you run `just hygiene` and fix what it reports.
 - Rerun static checks after documentation-only edits.
 - Write per-command receipts, numbered rerun logs or "documentation checkpoint"
   validations into plan documents. A checkpoint records state, decisions and next steps.
@@ -369,7 +370,7 @@ packet checkpoint for the baseline and handoff. Existing plans own status and fi
   The Codex coordinator defaults to Astra/high, with Sol/high as the generic worker fallback;
   explicit user runtime choices take precedence.
 - Both runtimes use `scripts/agent-hooks.py` for protected edit checks and
-  `scripts/after_turn.py` for the end-of-turn pipeline (ADR-0137, `.config/after-turn.toml`); no
+  `scripts/after_turn.py` for the end-of-turn pipeline (ADR-0143, `.config/after-turn.toml`); no
   hook formats files as you edit (see *Execution rhythm*).
   `.codex/hooks.json` and `.claude/settings.json` contain the runtime wiring. Hooks guard supported file-edit tools; they are not a
   sandbox for arbitrary shell commands or tools. Follow the same protection policy

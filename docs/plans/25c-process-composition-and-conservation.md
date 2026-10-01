@@ -300,8 +300,8 @@ it has 256 MiB evaluator storage, a 1 GiB workspace and 4 GiB runtime pool and e
 refusal before iteration, not a scientific oracle or a converged recycle.
 
 **Not run:** Full native/Python coupled journeys, integration/component suites, parity,
-performance measurements and manual static qualification remain assigned to 25k. Formatting
-and hygiene remain the end-of-turn hooks' responsibility. No new whole-product qualification
+performance measurements and manual static qualification remain assigned to 25k. `just hygiene`
+belongs to 25k's scope-end qualification (ADR-0143). No new whole-product qualification
 or **Measured** claim is made. ADR-0142 remains **Proposed** pending its decision PR.
 
 ## Outcome (recorded after implementation)

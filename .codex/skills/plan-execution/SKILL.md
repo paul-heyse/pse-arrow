@@ -38,8 +38,8 @@ documentation routes.
 
 Keep the verification approach consistent with `AGENTS.md`: compile checks and targeted
 functional tests during implementation; integrated qualification after all functional scope
-of the authorized plan is implemented. Formatting, linting and other hygiene are owned by the
-automatic end-of-turn hook, not this workflow.
+of the authorized plan is implemented, with `just hygiene` once, fixing what it reports.
+Formatting and generators are owned by the automatic end-of-turn hook, not this workflow.
 
 Present the approach in the conversation, explaining the material sequencing choices,
 assumptions and unresolved prerequisites. Use the available planning interface when useful.

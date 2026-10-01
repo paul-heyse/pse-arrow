@@ -161,8 +161,8 @@ add the register row in the same PR so the trigger has an owner and a date.
 
 ## 5. Before you finish
 
-The end-of-turn hooks regenerate the index and run these after every turn (ADR-0137); run
-them yourself only when the maintainer requests an ADR check. They are not a commit, push or
+The end-of-turn hooks regenerate the index (ADR-0143); these checks run within `just hygiene`
+at scope end, or when the maintainer requests an ADR check. They are not a commit, push or
 plan-close prerequisite (AGENTS.md *Execution rhythm*):
 
 - `just adr-lint` and `just adr-index` are clean.

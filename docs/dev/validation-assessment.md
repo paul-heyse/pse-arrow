@@ -21,8 +21,8 @@ The failure baseline is zero. A report names the command, mode, scope and result
 ## What each command establishes
 
 During implementation the inner loop is `just check-package`/`just check`, targeted
-`just unit-package` and `just codegen` (see AGENTS.md, *Execution rhythm*); the end-of-turn hooks run the
-static subset (`just hygiene`) after every turn. The table describes checks available for
+`just unit-package` and `just codegen` (see AGENTS.md, *Execution rhythm*); the static subset
+(`just hygiene`) runs once all functional scope is implemented. The table describes checks available for
 manual qualification.
 
 | Command | Run | Proves | Does not prove |

@@ -1,34 +1,14 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-# End-of-turn pipeline (scripts/after_turn.py). Every step is a just recipe; the checks are the
-# dependencies of `just hygiene`. Keys before any [table].
+# End-of-turn pipeline (scripts/after_turn.py, ADR-0143). Every step is a just recipe, and every
+# step is automatic: the hooks run no `just hygiene` check and fix nothing. Keys before any [table].
 
 # At stop, synchronously, in order.
 sync = ["skills-sync", "agent-config-sync", "adr-index", "fmt"]
-# First in the background job; failures always go to the operator (doctor exits 1 only on blocking
+# In the background job; failed steps are shown to the operator (doctor exits 1 only on blocking
 # problems; db-status fails on an unreachable store or a schema fingerprint mismatch).
 ready = ["doctor", "db-status"]
-# Failures the fixer never gets: generated outputs, pins and fixtures it must not hand-edit, and
-# the sync steps.
-operator_only = [
-  "skills-sync",
-  "agent-config-sync",
-  "adr-index",
-  "codegen-relations-check",
-  "codegen-rust-contracts-check",
-  "codegen-docs-check",
-  "codegen-postgres-check",
-  "codegen-hakari-check",
-  "codegen-queries-check",
-  "family-check",
-  "solver-pin-check",
-  "conformance-fixtures-check",
-]
 # After the job, one run per burst of stops; nothing waits on them.
 after = ["library-catalog"]
-# Outputs of `after`: excluded from the tree fingerprint, and the fixer never edits them.
-after_outputs = ["docs/library-utilization.*"]
-# Further paths the fixer never edits (generated paths are also blocked by agent-hooks.py guard).
-protected = ["scripts/library_*.py", "scripts/tests/test_library_*.py"]
 # Seconds before a hung step is killed.
-check_timeout = 1800
+step_timeout = 1800

@@ -132,8 +132,8 @@ the completed plan and its resolved reviews then retire (Git history keeps them)
 | `just ci-pr` | the local composite Rust, Python, quality and documentation checks pass | GitHub's interpreter matrix, parity, or deeper manual jobs |
 
 GitHub checks and `just ci-pr` are optional and run only when requested. Agent sessions run
-`just fmt`, the generators and the static subset (`just hygiene`) automatically when an agent
-stops (ADR-0137).
+`just fmt` and the generators automatically when an agent stops; agents run the static subset
+(`just hygiene`) once all functional scope is implemented (ADR-0143).
 Say what you verified using the §D vocabulary, and say what you did not.
 
 ## 6. Generated code, pins, and lockfiles

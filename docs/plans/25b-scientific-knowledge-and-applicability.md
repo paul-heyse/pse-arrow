@@ -319,7 +319,7 @@ no hakari changes; `just check` compiled the workspace's all-target dev selectio
 0 errors against zero. Cargo reported an upstream future-incompatibility notice for
 `proc-macro-error2 v2.0.1`; it is not a functional test result. Full integration/native solves,
 linked Python journeys, parity, feature powersets and performance campaigns belong to 25k.
-Formatting and static hygiene remain owned by the end-of-turn hooks; no new product
+Static hygiene (`just hygiene`) belongs to 25k's scope-end qualification (ADR-0143); no new product
 qualification or measurement is claimed here.
 
 ### A mistake made and corrected

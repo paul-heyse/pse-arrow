@@ -14,8 +14,8 @@
 #   mutating    CHANGES SOURCE, ENVIRONMENT OR GITHUB
 #
 # The end-of-turn hooks (scripts/after_turn.py, configured in .config/after-turn.toml) run the
-# `fmt` and generator recipes when the main agent stops, then every dependency of `hygiene`;
-# agents run compile checks and functional tests only.
+# `fmt` and generator recipes when the main agent stops, then readiness and the catalog; agents
+# run compile checks and functional tests mid-plan, and `hygiene` at scope end.
 #
 # Every check passes `--locked`: there is no cargo config key for it, and an unlocked
 # resolve would silently move a pin.
@@ -692,7 +692,7 @@ lint-repo:
     python3 -m scripts.validation --group lint-repo
 
 [group('manual')]
-[doc('Every non-functional check, one check id per dependency; the end-of-turn hooks run them after each turn (scripts/after_turn.py check <id> re-runs one), agents do not')]
+[doc('Every non-functional check, one check id per dependency; agents run them once at scope end and fix what fails (just <id> re-runs one); the end-of-turn hooks do not')]
 hygiene: lint-agents adr-frontmatter-check adr-index-check register-lint lint-typos lint-license lint-actions lint-shell lint-ast lint-py typecheck lint-imports engine-boundary-check solver-pin-check family-check codegen-hakari-check codegen-relations-check codegen-rust-contracts-check codegen-docs-check codegen-postgres-check codegen-queries-check clippy-default clippy-no-default docs-rust conformance-fixtures-check
 
 [group('local')]
