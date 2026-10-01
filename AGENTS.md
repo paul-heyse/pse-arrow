@@ -155,52 +155,20 @@ start or require CI.
    targeted check you ran is enough; comprehensive accounting belongs to a manually
    requested qualification report.
 
-## Repository map
+## Authority and task routes
 
-| Path | What it is | How to treat it |
-|---|---|---|
-| `crates/` | Workspace `pse-*` crates declared in `Cargo.toml` | Ours; see `.claude/rules/rust.md`. `pse-workspace-hack` has no code: cargo-hakari generates its dependencies (ADR-0122) |
-| `xtask/` | Everything that needs Rust APIs, JSON or cross-platform behaviour | Logic lives here, the justfile is the surface |
-| `tests/` | Workspace test crates: `governance`, `engine`, `conformance`, `lifecycle`, `structural` | `tests/fixtures/` contains source inputs, not a crate |
-| `benches/` | Criterion benchmarks (`pse-benches`) | No timing gate in CI; `just bench-smoke` only runs them |
-| `python/pse/` | The Python package (import name `pse`) | `python/pse/contracts/` is GENERATED |
-| `docs/authoritative_design/` | **Authoritative collection:** current contracts in numbered `sections/` pages; `blueprint.md` keeps revisions and former anchors | Start at its README; edits follow the design route below |
-| `docs/adr/` | Retained decision records, immutable once accepted; obsolete ones retired to Git (ADR-0096) | `just adr-new`; index via `just adr-index` |
-| `docs/plans/` | Active plans, living until done; completed plans retire to Git | `just plan <slug>` |
-| `docs/capability-maps/` | Pinned third-party API maps + their evidence | `just lib-outline <file>` first; they are large |
-| `docs/design_review/` | The layered design standard (`design_principles/standard.toml`: core principles, process-simulator profile, pse-arrow binding) and reviews whose findings are still open | The `design-review` and `design-review-process-simulator` skills' output contract |
-| `docs/generated/` | `pse-schema` output | Never edit |
-| `external/` | Pinned read-only checkouts (`just fetch-external`) | **Not source.** Gitignored, never edited, never copied from |
-| `build/`, `target/` | Build output | **Not source.** Regenerable |
-| `docker/solvers/` | The Ipopt 3.14 + MUMPS + ASL recipe | Changing it changes CI's solver image |
+Start with the [documentation task routes](docs/README.md), then the relevant architecture
+owner and adjacent consumers. Read [current work](docs/plans/README.md) and its active packet
+only when the task depends on that baseline; delegated workers use the brief and relevant
+owners rather than repeating the root's general orientation. Instructions already available
+in context need not be reread; if unavailable, load them before acting. Follow discovered
+dependencies beyond initial pointers.
 
-## Where authority lives
-
-Do not restate these; cite them.
-
-- **`docs/authoritative_design/README.md`** — the entry to the authoritative architecture:
-  numbered pages under `sections/`. Section identifiers have one owner and remain stable
-  when moved: cite `blueprint §14.3`, never a line number. `blueprint.md` retains the
-  collection revision history and maps former single-file anchors to their owners.
-- **`docs/adr/README.md`** (generated index) and the ADRs themselves — *why* a decision
-  was made. The sections say what is true; ADRs say why; reviews are evidence, not authority.
-  Only decisions whose rationale explains the current system are retained (ADR-0096).
-- **`docs/adr/register.md`** — every deferred decision with its trigger, check and next
-  review date. `just register-check` runs the ones that are due.
-- **`Cargo.toml` header comment** — why the arrow/datafusion/object_store/pyo3 pins are
-  what they are, and why `=` pins alone are not sufficient.
-- **`pyproject.toml`** — every runtime Python library `==`-pinned; tools that only
-  execute (ruff, pyrefly, pytest, …) carry floors under `[dependency-groups]` and run
-  at whatever `uv.lock` resolved, never installed ad hoc. No release of `uv` itself is
-  required.
-- **`docs/capability-maps/`** — what the pinned libraries actually expose, with evidence.
-  `just lib-outline docs/capability-maps/arrow-rust.md` before reading one.
-- **`docs/design_review/design_principles/standard.toml`** — the layered design standard
-  used by design reviews: six architectural foundations (`AP-nn`), operational refinements
-  (`DP-nn`, gates `G1`–`G9`), the
-  process-simulator profile (`PS-nn`, `PS-G1`–`PS-G3`) and the pse-arrow binding.
-- **`docs/dev/dependency-policy.md`** — what you may depend on and under what licence.
-  Short answer: anything. Read it before assuming a library is off-limits.
+The architecture sections own contracts; ADRs own rationale; reviews supply evidence.
+Cite stable section IDs (for example blueprint §14.3), never line numbers. The repository
+map and authority references are in [docs/README.md](docs/README.md). Pins remain declared
+in Cargo.toml and pyproject.toml; the layered review standard is selected by
+`docs/design_review/design_principles/standard.toml`. Do not restate their authority.
 
 ## Invariants
 
@@ -268,29 +236,13 @@ Each of these is a real incident, not a hypothetical.
   which is why the IDAES parity set is a *dependency group* with an environment marker
   rather than a workspace member. Do not "simplify" it into one.
 
-## Verifying work — what each command actually proves
+## Qualification reporting
 
-During implementation the inner loop is `just check-package`/`just check`, targeted
-`just unit-package` and `just codegen` (see *Execution rhythm*); the end-of-turn hooks run the
-static subset (`just hygiene`) after every turn. The table describes checks available for
-manual qualification.
-
-| Command | Run | Proves | Does not prove |
-|---|---|---|---|
-| `just ci-fast` | on demand | the workspace formats, compiles, lints clean and its tests and doctests pass | nothing about Python, features, policy or docs |
-| `just test` | on demand | Rust tests pass with Arrow `force_validate` on | nothing about doctests, other profiles, or release-only paths |
-| `just codegen-check` | on demand | every generated tree equals a fresh regeneration, with no extra or untracked generated files (ADR-0051); the workspace-hack equals `cargo hakari generate` and every managed member depends on it (ADR-0122) | nothing about runtime behavior of the generated interfaces, or whether an opt-in feature reached the workspace-hack (governance `every_crate_registered` checks `force_validate`) |
-| `just family-check` | when a pinned-family dependency moves | one resolved version per dependency family, equal to the pins | nothing about whether that version behaves as documented |
-| `just governance` | on demand | the workspace-level invariants hold (pins, crates registered, the dated nightly at or above the `rust-version` floor, unsafe allowlist, error taxonomy) | nothing about runtime behaviour, or whether the source still compiles on the stable floor |
-| `just quality` | on demand | Python format/lint/types/import boundaries and repo config are clean | that the code works |
-| `just deps-report` | on demand | what is in the dependency graph and under what licences; **advisory, always exits 0** | nothing — it refuses nothing and blocks nothing |
-| `just policy` | on demand | the same checks, strictly: no known advisory, no disallowed licence. Opt-in, not in `ci-pr` | nothing about code you wrote, and nothing you are obliged to act on yet (register R-31) |
-| `just parity` | on demand, when parity is in scope | the exercised parity checks pass against `idaes-pse==2.13.0` | nothing about cases not exercised, or other IDAES versions |
-| `just docs` | on demand | documentation HTML and scoped search build; manual CI can also check internal links | nothing about whether the prose is true |
-| `just adr-lint` | on demand | ADR front matter, numbering, supersession and register rows are well-formed | nothing about whether the decisions are good |
-
-**Never report that tests pass without naming the command, the mode, and the baseline.**
-"34 failed" is not information until the baseline is known — and here the baseline is zero.
+The [qualification command guide](docs/dev/validation-assessment.md) explains what each
+command establishes and its exclusions. Follow *Execution rhythm* for timing; documentation
+and instruction changes do not require product qualification. Report command, mode, scope,
+baseline and result; a targeted pass does not qualify unexercised product or scientific scope.
+The failure baseline remains zero.
 
 ## Documentation context and publishing
 
@@ -385,7 +337,8 @@ different sources (ADR-0122).
 
 ## Agent coordination and workflow skills
 
-Use subagents for review, planning and execution. Use concurrency as you see fit; strive for parallel execution.
+Use subagents when independent work, context isolation, distinct capabilities or independent
+judgment justify coordination and integration. Small or tightly coupled tasks may stay with the root.
 Follow the [shared roles and coordination contract](.agents/roles/README.md), including its
 explicit model and effort routing. The root agent owns design, integration and acceptance;
 executors choose local implementation details within their assigned boundaries.
@@ -409,7 +362,7 @@ packet checkpoint for the baseline and handoff. Existing plans own status and fi
   remain local and tracked. Set `LIBRARY_SKILLS_ROOT` if the shared store is elsewhere.
   A new worktree gets its links when its first turn ends. Windows needs directory symlink support for the
   shared bundles; `just agent-config-sync` preserves their links when copying local aliases.
-- Shared role behavior lives in [.agents/roles/](.agents/roles/README.md) (ADR-0138).
+- Shared role behavior lives in [.agents/roles/](.agents/roles/README.md) (ADR-0139).
   Native adapters in `.codex/agents/` and `.claude/agents/` own model, effort and tool defaults;
   they are maintained separately. Claude `implementer` adapts the executor role; Codex uses
   `executor`. `just agent-config-sync` only materializes skill aliases and never changes agents.

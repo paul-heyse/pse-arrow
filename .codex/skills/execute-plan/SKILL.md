@@ -5,23 +5,25 @@ description: Execute authorized scope in an existing implementation plan through
 
 # Execute a plan
 
-Carry the authorized plan scope through implementation and acceptance. Use the current plan,
-the current-work index and active packet checkpoint, repository instructions and actual tree to
-establish what remains; prior receipts
+Carry the authorized plan scope through implementation and acceptance. The coordinator uses the current plan,
+current-work index and active packet checkpoint relevant to the task, repository instructions and
+actual tree to establish what remains; delegated workers use their brief and relevant owners; prior receipts
 retain their original date and scope. Inspect dirty-tree ownership before editing and preserve
 concurrent work. Resolve material ambiguity without making routine implementation choices into
 new approval steps. A proposed decision or unimplemented target is not an established baseline.
 
 The root agent coordinates the work and retains design decisions, integration and acceptance.
-Use concurrency as you see fit; strive for parallel execution.
+Delegate when independent work, context isolation, distinct capabilities or independent judgment
+justify coordination and integration; small or tightly coupled work may stay with the root.
 The [shared roles](../../../.agents/roles/README.md) offer bounded code mapping,
 library research, design review, execution, implementation review and testing through
 `code-mapper`, `library-research`, `design-reviewer`, `executor`,
 `implementation-reviewer` and `test-agent`. Use the roles that help; neither every role nor a
 fixed sequence is required.
 
-Give delegated work enough context to be useful: the question or package, relevant contracts,
-permitted edits, dependencies and expected evidence. Assign disjoint edit ownership before
+Give delegated work the outcome, settled decisions, relevant contracts, exact baseline including
+relevant dirty changes, permitted effects, edit ownership and sibling assignments, dependencies
+and expected evidence. Workers load task-relevant authorities and may follow discovered dependencies. Assign disjoint edit ownership before
 parallel implementation; use separate worktrees only as repository instructions require for
 concurrent production edits. Read-only evidence tasks can run alongside implementation when
 their inputs are stable. Review agents assess a named baseline independently. Agent conclusions

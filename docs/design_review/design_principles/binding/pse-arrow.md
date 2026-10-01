@@ -104,7 +104,7 @@ Each is stated once in its authority; this list only points to it.
 | Library fit where doubt remains (DP-15) | capability maps (`just lib-outline`), the library skills and their probes |
 | Dependency families (DP-15) | `just family-check` |
 | Reference validation (PS-13) | `just parity` |
-| Plan-close qualification | the AGENTS.md *Verifying work* table |
+| Plan-close qualification | the [qualification command guide](../../../dev/validation-assessment.md) and AGENTS.md *Qualification reporting* |
 
 ## Routes for required changes
 

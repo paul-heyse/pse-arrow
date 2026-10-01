@@ -18,6 +18,30 @@ rhythm*). It is not a prerequisite for a commit, push, merge or plan close. Duri
 implementation, use `just check-package`, targeted `just unit-package` and `just codegen`.
 The failure baseline is zero. A report names the command, mode, scope and result.
 
+## What each command establishes
+
+During implementation the inner loop is `just check-package`/`just check`, targeted
+`just unit-package` and `just codegen` (see AGENTS.md, *Execution rhythm*); the end-of-turn hooks run the
+static subset (`just hygiene`) after every turn. The table describes checks available for
+manual qualification.
+
+| Command | Run | Proves | Does not prove |
+|---|---|---|---|
+| `just ci-fast` | on demand | the workspace formats, compiles, lints clean and its tests and doctests pass | nothing about Python, features, policy or docs |
+| `just test` | on demand | Rust tests pass with Arrow `force_validate` on | nothing about doctests, other profiles, or release-only paths |
+| `just codegen-check` | on demand | every generated tree equals a fresh regeneration, with no extra or untracked generated files (ADR-0051); the workspace-hack equals `cargo hakari generate` and every managed member depends on it (ADR-0122) | nothing about runtime behavior of the generated interfaces, or whether an opt-in feature reached the workspace-hack (governance `every_crate_registered` checks `force_validate`) |
+| `just family-check` | when a pinned-family dependency moves | one resolved version per dependency family, equal to the pins | nothing about whether that version behaves as documented |
+| `just governance` | on demand | the workspace-level invariants hold (pins, crates registered, the dated nightly at or above the `rust-version` floor, unsafe allowlist, error taxonomy) | nothing about runtime behaviour, or whether the source still compiles on the stable floor |
+| `just quality` | on demand | Python format/lint/types/import boundaries and repo config are clean | that the code works |
+| `just deps-report` | on demand | what is in the dependency graph and under what licences; **advisory, always exits 0** | nothing — it refuses nothing and blocks nothing |
+| `just policy` | on demand | the same checks, strictly: no known advisory, no disallowed licence. Opt-in, not in `ci-pr` | nothing about code you wrote, and nothing you are obliged to act on yet (register R-31) |
+| `just parity` | on demand, when parity is in scope | the exercised parity checks pass against `idaes-pse==2.13.0` | nothing about cases not exercised, or other IDAES versions |
+| `just docs` | on demand | documentation HTML and scoped search build; manual CI can also check internal links | nothing about whether the prose is true |
+| `just adr-lint` | on demand | ADR front matter, numbering, supersession and register rows are well-formed | nothing about whether the decisions are good |
+
+**Never report that tests pass without naming the command, the mode, and the baseline.**
+"34 failed" is not information until the baseline is known — and here the baseline is zero.
+
 ## Common conditions
 
 - Every Rust test recipe passes `--features pse-relations/force-validate` explicitly.

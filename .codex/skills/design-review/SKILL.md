@@ -29,8 +29,9 @@ current requirements from an older review or duplicate the standard in this skil
 
 ## Reading context
 
-Start with the repository's architecture and current-work entrypoints, then the affected
-contract and source owners. Use Markdown directly. Module/entrypoint pointers bound reading;
+Use the repository's architecture entrypoint and relevant contract/source owners; consult current
+work only when it affects the scoped question. Delegated reviewers use the brief and relevant owners
+without repeating the root's general startup tour, following additional dependencies as needed. Use Markdown directly. Module/entrypoint pointers bound reading;
 a source-proof manifest or exhaustive symbol inventory is not a prerequisite. Mechanical
 document checks cannot establish architectural conformance. Ordinary implementation edits
 need documentation updates only when an enduring contract, explanation or workflow changes.

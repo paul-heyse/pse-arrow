@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 86
+revision: 87
 date: 2026-09-30
 ---
 
@@ -58,6 +58,8 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 | 85 | 2026-09-30 | ADR-0138: §24.4 assigns workflow ownership to local process skills and reusable behavior to shared roles; native adapters own runtime defaults, and alias synchronization no longer generates agents. Existing bounded domain-model and scientific review criteria remain. | maintainer-approved workflow rollout; `PSE_DESIGN_EDIT=1` |
 
 | 86 | 2026-09-30 | Plan 25a implemented contract amendment: schema-owned recursive field purposes and directional admission (§4.4); selected physical definition closure and checked canonical/datum conversion (§8.2); resolved anonymous physical contracts and retained operation occurrence admissions (§8.1–8.3, §14.3); actual transfer owners, reference anchors and report context (§8.4); mapped scientific laws, named species responses and normalized reconstruction/potential witnesses (§9.8); inventory v6, typed definition v7 and resolved admissions v2 (§5.3). Replaces the current `infer_chain` explanation while preserving exact unit products. | ADR-0135/0136 remain proposed; ADR-0124 successor scope is explicit without an acceptance/supersession transition. Focused evidence remains owned by Plan 25a, assembled qualification by Plan 25k; maintainer-authorized architecture amendment with `PSE_DESIGN_EDIT=1`. |
+
+| 87 | 2026-09-30 | ADR-0139 accepted: §24.4 adopts task-dependent delegation, task-specific context, explicit escalation and stronger review defaults. Shared contracts retain root acceptance and local executor discretion; canonical skills and separate adapters remain. AGENTS reference material moves to existing task and qualification guides to fit the instruction budget. The independent governance review returned Accept at static policy level; configuration/discovery checks passed and model quality is unmeasured. | maintainer-authorized implementation; `PSE_DESIGN_EDIT=1` |
 
 ## Former anchors
 

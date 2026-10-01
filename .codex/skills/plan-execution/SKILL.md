@@ -6,7 +6,7 @@ description: Develop a conversational approach to executing an existing approved
 # Plan the execution approach
 
 Develop an adaptable approach to carrying out the existing plan. Resolve the plan and the
-user's authorized scope from the conversation and current repository context. Read `docs/plans/README.md` and the active packet checkpoint,
+user's authorized scope from the conversation and current repository context. Use `docs/plans/README.md` and the active packet checkpoint when relevant to the task,
 the plan's relevant packages and receipts, and enough current code and architectural owners to
 establish the actual baseline. Preserve concurrent work and distinguish implemented scope,
 accepted decisions and proposals still awaiting resolution.
@@ -24,7 +24,8 @@ These are optional lenses, not a required pipeline or another plan template. Use
 [shared agent roles](../../../.agents/roles/README.md) when bounded delegation would help:
 `code-mapper`, `library-research`, `design-reviewer`, `executor`,
 `implementation-reviewer` and `test-agent`. Choose only the roles that serve the work; the root
-coordinator retains design decisions, integration and acceptance. Use concurrency as you see fit; strive for parallel execution. Identify edit ownership and
+coordinator retains design decisions, integration and acceptance. Delegate when independent work, context isolation, distinct capabilities or independent judgment
+justify coordination and integration; small or tightly coupled work may stay with the root. Identify edit ownership and
 dependencies before proposing parallel implementation.
 
 Follow the repository binding's
