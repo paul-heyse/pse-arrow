@@ -53,6 +53,7 @@ from thermo_knowledge.qualify.source import (
     SubformBinding,
     check_database,
     choose_occurrence,
+    table_identifier,
 )
 from thermo_knowledge.schema_build import read_physical
 
@@ -176,7 +177,11 @@ def _revision(conn: psycopg.Connection, spec: ParameterizationSpec) -> str:
     assert spec.carrier is not None
     carrier = pc.CARRIER
     rows = conn.execute(
-        f"SELECT {carrier.resolved_pin} FROM {carrier.table} WHERE {carrier.manifest_id} = %s",  # noqa: S608
+        sql.SQL("SELECT {resolved_pin} FROM {table} WHERE {manifest_id} = %s").format(
+            resolved_pin=sql.Identifier(carrier.resolved_pin),
+            table=table_identifier(carrier.table),
+            manifest_id=sql.Identifier(carrier.manifest_id),
+        ),
         (spec.carrier,),
     ).fetchall()
     if len(rows) != 1:
@@ -194,7 +199,11 @@ def _parameterization(
     revision = _revision(conn, spec)
     pz = pc.PARAMETERIZATION
     row = conn.execute(
-        f"SELECT id FROM {pz.table} WHERE {pz.key} = %s AND {pz.revision} = %s",  # noqa: S608
+        sql.SQL("SELECT id FROM {table} WHERE {key} = %s AND {revision} = %s").format(
+            table=table_identifier(pz.table),
+            key=sql.Identifier(pz.key),
+            revision=sql.Identifier(pz.revision),
+        ),
         (spec.key, revision),
     ).fetchone()
     if row is None:
@@ -243,9 +252,19 @@ def _library_keys(
     wanted = sorted({uuid.UUID(part) for _, ids in found for part in ids})
     se, carrier = pc.SOURCE_ENTITY, pc.CARRIER
     rows = conn.execute(
-        f"SELECT se.{se.target}, se.{se.local_key} FROM {se.table} se "  # noqa: S608
-        f"JOIN {carrier.table} c ON c.id = se.{se.carrier} "
-        f"WHERE c.{carrier.manifest_id} = %s AND se.{se.scope} = %s AND se.{se.target} = ANY(%s)",
+        sql.SQL(
+            "SELECT se.{target}, se.{local_key} FROM {se_table} se "
+            "JOIN {carrier_table} c ON c.id = se.{se_carrier} "
+            "WHERE c.{manifest_id} = %s AND se.{scope} = %s AND se.{target} = ANY(%s)"
+        ).format(
+            target=sql.Identifier(se.target),
+            local_key=sql.Identifier(se.local_key),
+            se_table=table_identifier(se.table),
+            carrier_table=table_identifier(carrier.table),
+            se_carrier=sql.Identifier(se.carrier),
+            manifest_id=sql.Identifier(carrier.manifest_id),
+            scope=sql.Identifier(se.scope),
+        ),
         (case.spec.subjects.library_key.carrier, case.spec.subjects.library_key.scope, wanted),
     ).fetchall()
     keys: dict[str, list[str]] = {}
@@ -328,12 +347,26 @@ def _regions(conn: psycopg.Connection, sets: Sequence[uuid.UUID]) -> dict[uuid.U
     """The validity regions of each of `sets` (of its own record), with their clauses."""
     region, clause = pc.VALIDITY_REGION, pc.REGION_CLAUSE
     rows = conn.execute(
-        f"SELECT r.{region.record}, r.id, r.{region.kind}::text, r.{region.ordinal}, "  # noqa: S608
-        f"c.{clause.observable}, c.{clause.component}, c.{clause.aggregation}, "
-        f"c.{clause.lower}, c.{clause.upper} "
-        f"FROM {region.table} r JOIN {clause.table} c ON c.{clause.region} = r.id "
-        f"WHERE r.{region.record} = ANY(%s) "
-        f"ORDER BY r.{region.record}, r.{region.kind}::text, r.{region.ordinal}, c.{clause.ordinal}",
+        sql.SQL(
+            "SELECT r.{r_record}, r.id, r.{r_kind}::text, r.{r_ordinal}, "
+            "c.{observable}, c.{component}, c.{aggregation}, c.{lower}, c.{upper} "
+            "FROM {r_table} r JOIN {c_table} c ON c.{c_region} = r.id "
+            "WHERE r.{r_record} = ANY(%s) "
+            "ORDER BY r.{r_record}, r.{r_kind}::text, r.{r_ordinal}, c.{c_ordinal}"
+        ).format(
+            r_record=sql.Identifier(region.record),
+            r_kind=sql.Identifier(region.kind),
+            r_ordinal=sql.Identifier(region.ordinal),
+            observable=sql.Identifier(clause.observable),
+            component=sql.Identifier(clause.component),
+            aggregation=sql.Identifier(clause.aggregation),
+            lower=sql.Identifier(clause.lower),
+            upper=sql.Identifier(clause.upper),
+            r_table=table_identifier(region.table),
+            c_table=table_identifier(clause.table),
+            c_region=sql.Identifier(clause.region),
+            c_ordinal=sql.Identifier(clause.ordinal),
+        ),
         (list(sets),),
     ).fetchall()
     held: dict[uuid.UUID, dict[uuid.UUID, tuple[str, int, list[_Clause]]]] = {}
@@ -527,7 +560,9 @@ def evaluate(
                 pieces=PiecePolicy(case.spec.pieces.boundary, case.spec.pieces.outside),
             )
             if validity is not None:
-                codes = bound.validity(case.spec.output, validity.kind, **arguments)
+                codes = bound.validity(
+                    case.spec.output, validity.kind, references=None, **arguments
+                )
                 membership[subject.set_id] = codes
                 if validity.outside == "exclude":
                     keep = codes != Membership.OUTSIDE

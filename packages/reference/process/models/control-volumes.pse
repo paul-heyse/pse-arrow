@@ -4,7 +4,14 @@
 @id("01a0ede58eca75b18609170950fe7e0d") use chemistry @"1.0.0";
 @id("06e61a91f30f4151873a54209bd83190") use equilibrium @"1.0.0";
 @id("bee5ac9c31614333966f869cce24e75a") enum MaterialBalance {@id("01a0eec94a7e70229fdabc155f05ce35") componentPhase, @id("01a0eec94a7e70229fdabc1624f82bfd") componentTotal, @id("01a0eec94a7e70229fdabc17007c4779") elementTotal, @id("01a0eec94a7e70229fdabc181f583a21") total}
-@id("38ac5f84712546f29f7e027a8741d512") fn element_flow_unit()->ElementFlow=1{mol/s};
+@id("871ea161bbee48cbb24df15d8158ff3d") use provenance @"1.0.0";
+@id("462ad7b4791a441788598716352b4049") entity provenance.source elemental_projection_reference {title="Element counts per species project molar component flow onto its declared element"}
+@id("0829ca78822e4bb6adc2df41f6e4054f") coordinate map elemental_coordinates(count:Count,j:chemistry.species,e:chemistry.element) {
+@id("e558e51bf3f14cceb90b16960531c7b2") slot coefficient=count;
+}
+@id("63442c817f054f09a2d35a050423f701") reconstruction elemental_projection for elemental_coordinates(count:Count,j:chemistry.species,e:chemistry.element)->ElementCountPerSpecies reference elemental_projection_reference=1;
+@id("2006f8dd9f0a4be7b80200666011aa6e") fn reduced_elemental_projection(coefficient:Coordinate<elemental_coordinates.coefficient>,j:chemistry.species,e:chemistry.element)->Reduced<elemental_projection>=coefficient;
+@id("04f7049de5394192964d37196fb1b115") fn element_coefficient(count:Count,j:chemistry.species,e:chemistry.element)->ElementCountPerSpecies=reconstruct(elemental_projection,reduced_elemental_projection,count,j,e);
 @id("40f0b54ac58945819315b96a5663bb71") interface ControlVolume0D {
 @id("ed28654dfc04469eb777c6393db2ff5d") param has_holdup:Boolean=false;
 @id("9f92fa22dae34cecb63ad8fc5935cb94") when has_holdup {
@@ -72,15 +79,15 @@
 @id("9cf52e89c00b46468ef56cb552928ac7") require sum(e in elements | 1)>0 : "element balances require a nonempty declared element set";
 @id("010c7966596a403990e537cea3824add") accumulate element_material[e in elements]:ElementFlow conservation tolerance 1e-7{mol/s};
 @id("35e42d8004514da8856f71ac8f204e38") when has_holdup {
-@id("b92985adc24e41a897333e19d95d6fe5") contribute [e in elements] element_material[e] role outflow=element_flow_unit()*sum(p in phases | sum(j in components | atoms(j,e)*(phase_material_accumulation[p,j]/equilibrium.component_flow_unit())));
+@id("b92985adc24e41a897333e19d95d6fe5") contribute [e in elements] element_material[e] role outflow=sum(p in phases | sum(j in components | phase_material_accumulation[p,j]*element_coefficient(atoms(j,e),j,e)));
 }
-@id("7d548e7975f8416ba6fa490f86cddc2a") contribute [e in elements] element_material[e] role inflow=element_flow_unit()*sum(j in components | atoms(j,e)*(inlet.component_flow[j]/equilibrium.component_flow_unit()));
-@id("fb18326eb2f140129c630d2b613b88da") contribute [e in elements] element_material[e] role outflow=element_flow_unit()*sum(j in components | atoms(j,e)*(outlet.component_flow[j]/equilibrium.component_flow_unit()));
+@id("7d548e7975f8416ba6fa490f86cddc2a") contribute [e in elements] element_material[e] role inflow=sum(j in components | inlet.component_flow[j]*element_coefficient(atoms(j,e),j,e));
+@id("fb18326eb2f140129c630d2b613b88da") contribute [e in elements] element_material[e] role outflow=sum(j in components | outlet.component_flow[j]*element_coefficient(atoms(j,e),j,e));
 }
 @id("af4445fa336943a8985c14f63543c81d") when material_basis==MaterialBalance.total {
 @id("b93058539ead4b52a85d7e5ec3d0c884") accumulate total_material:Flow conservation tolerance 1e-7{mol/s};
 @id("c848a28add7046b28243155b54adf6f0") when has_holdup {
-@id("ed82362b90494b58bf8dc24411d5706a") contribute total_material role outflow=equilibrium.flow_unit()*sum(p in phases | sum(j in components | phase_material_accumulation[p,j]/equilibrium.component_flow_unit()));
+@id("ed82362b90494b58bf8dc24411d5706a") contribute total_material role outflow=sum(p in phases | sum(j in components | phase_material_accumulation[p,j]));
 }
 @id("8fcfb383c76c4970912ea6576b10c2eb") contribute total_material role inflow=inlet.flow;
 @id("5172cda3618744979c5a906f18189ea4") contribute total_material role outflow=outlet.flow;

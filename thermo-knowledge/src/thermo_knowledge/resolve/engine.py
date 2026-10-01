@@ -514,8 +514,8 @@ def _chemical(
                 )
             outcome = replace(outcome, target_key=target, target_kind=pc.SPECIES_FORM.declared)
         result.entities[key] = outcome
-    for target, found in form_origins.items():
-        result.forms[target] = replace(result.forms[target], origins=_dedupe(found))
+    for form, held in form_origins.items():
+        result.forms[form] = replace(result.forms[form], origins=_dedupe(held))
 
 
 def mixture_key(mole_basis: bool, components: Sequence[tuple[str, str]]) -> str:

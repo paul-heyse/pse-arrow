@@ -56,8 +56,8 @@
 @id("d96a9befbd37541486bf258e1510267b") eq pressure_l:liquid.pressure==pressure;
 @id("6cc7ec6ee0035f79afba64bf2ad0b251") eq pressure_v:vapor.pressure==pressure;
 @id("6394f92b3e1e5bac855e958f8a95d947") eq material[j in components]:(1-beta)*liquid.amount[j]+beta*vapor.amount[j]==constants.amount_unit*feed(j);
-@id("b51f339a9a47583cbb237fcb57bb1f38") eq normalization:sum(j in components | liquid.amount[j]/constants.amount_unit-vapor.amount[j]/constants.amount_unit)==0;
-@id("21196aa63a3c598994337a7353ea1f3b") eq fugacity[j in components]:log(liquid.amount[j]/constants.amount_unit)+liquid.ln_phi[j]==log(vapor.amount[j]/constants.amount_unit)+vapor.ln_phi[j];
+@id("b51f339a9a47583cbb237fcb57bb1f38") eq normalization:liquid.total==vapor.total;
+@id("21196aa63a3c598994337a7353ea1f3b") eq fugacity[j in components]:equilibrium.component_log_fugacity(liquid.amount[j]/liquid.total,liquid.ln_phi[j])==equilibrium.component_log_fugacity(vapor.amount[j]/vapor.total,vapor.ln_phi[j]);
 @id("d947b85154a85ab092619fb7265ad0d5") annotation start liquid.T(temperature);
 @id("7b1fde953a725f31b8602313537e335e") annotation start vapor.T(temperature);
 @id("b0905728db36588cbd5d4b7d5123aefe") annotation nominal liquid.T(temperature);

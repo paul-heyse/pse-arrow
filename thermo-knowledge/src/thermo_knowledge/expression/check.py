@@ -434,6 +434,7 @@ class Checker:
                     continue
                 ok = self.integer(expression, env, f"the index `{index.name}`") is not None and ok
         shape = ref.slot.shape
+        assert shape is not None  # the resolver gives every slot its shape
         if shape in ("nested_set", "set_reference"):
             held = "a nested set" if shape == "nested_set" else "a reference to a set"
             self.fail(

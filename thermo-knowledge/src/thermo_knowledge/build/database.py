@@ -167,7 +167,7 @@ def ingest_file(cursor: adbc.Cursor, table: str, path: Path) -> int:
         parquet.schema_arrow, parquet.iter_batches(batch_size=BATCH_ROWS)
     )
     cursor.adbc_ingest(name, reader, mode="append", db_schema_name=schema)
-    return int(parquet.metadata.num_rows)
+    return parquet.metadata.num_rows
 
 
 def record_fingerprint(cursor: adbc.Cursor, fingerprint: str) -> None:

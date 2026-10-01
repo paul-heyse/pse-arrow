@@ -17,7 +17,7 @@ from functools import cache
 from pint.util import UnitsContainer
 
 from thermo_knowledge.declaration.model import Declaration
-from thermo_knowledge.declaration.types import TypeRef, UnitInfo, registry
+from thermo_knowledge.declaration.types import TypeRef, UnitInfo, real_exponent, registry
 
 type Dim = UnitsContainer
 
@@ -65,13 +65,14 @@ def describe(dim: Dim) -> str:
 def is_even(dim: Dim) -> bool:
     """Whether every exponent is an even integer, so a square root is a dimension."""
     return all(
-        float(exponent).is_integer() and int(exponent) % 2 == 0 for _, exponent in dim.items()
+        real_exponent(exponent).is_integer() and int(real_exponent(exponent)) % 2 == 0
+        for _, exponent in dim.items()
     )
 
 
 def sqrt_dim(dim: Dim) -> Dim:
     """The square root of a dimension whose exponents are all even."""
-    return UnitsContainer({name: int(exponent) // 2 for name, exponent in dim.items()})
+    return UnitsContainer({name: int(real_exponent(exponent)) // 2 for name, exponent in dim.items()})
 
 
 class UnitLiteralError(ValueError):
@@ -93,4 +94,4 @@ def unit_literal(text: str) -> tuple[float, Dim]:
         raise UnitLiteralError(f"`{text}` is not a unit pint can parse: {error}") from error
     if not math.isclose(doubled, 2 * factor, rel_tol=1e-12):
         raise UnitLiteralError(f"`{text}` is an offset unit; only multiplicative units are allowed")
-    return factor, UnitsContainer({str(k): v for k, v in unit.dimensionality.items()})
+    return factor, UnitsContainer(dict(unit.dimensionality.items()))

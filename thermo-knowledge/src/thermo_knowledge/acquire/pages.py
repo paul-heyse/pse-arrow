@@ -111,14 +111,14 @@ class PoliteFetcher:
         except TransportFailure as error:
             raise AcquireError(f"{robots_url}: cannot read robots.txt: {error}") from error
         if fetched.status in {401, 403}:
-            parser.disallow_all = True
+            parser.parse(["User-agent: *", "Disallow: /"])
         elif fetched.status >= 500 or fetched.status == 429:
             raise AcquireError(
                 f"{robots_url}: robots.txt is unavailable (HTTP {fetched.status}); "
                 "not fetching without it"
             )
         elif 400 <= fetched.status < 500:
-            parser.allow_all = True
+            parser.parse([])
         else:
             parser.parse(fetched.result.splitlines())
         return parser

@@ -214,6 +214,35 @@ Enforcement happens in three places:
 Metadata parsing can check the syntax of an ordinal target. Only bundle admission can
 show that the target exists and that every ordinal is in range.
 
+Field metadata purposes are declared once in `pse-schema::model::field_facets`, including
+domain and materialized spellings, recursive identity treatment, root storage treatment
+and directional admission policy. Generation emits a data-only policy into `pse-columnar`;
+lower field consumers do not depend on the schema generator. A metadata key not declared
+in that policy remains significant. Native traversal preserves ordered children and
+container properties, including dictionary ordering.
+
+| Purpose | Retained meaning |
+|---|---|
+| `PhysicalObservation` | Exact names, nullability, storage and all metadata at every depth. |
+| `ExecutionIdentity` | Omits declared documentation and structure presentation; preserves physical meaning and unknown metadata. |
+| `ValueIdentity` | Additionally omits declared role/reference usage; normalizes only root name/nullability. Quantity, transfer context and unknown metadata remain significant. |
+| `LogicalStorageType` | Removes only declared root storage-external facets and normalizes root name/nullability. Nested fields remain exact; this establishes no physical conversion. |
+| `LogicalTypeIdentity` | Adds recursive omission of structure presentation to the logical storage projection. |
+
+Directional admission is a separate question. A checked target can attach declared
+annotations only under each facet's admission policy and value validation; it cannot
+change already established semantic meaning. Restoration of an established expression
+field permits only missing annotations and preserves every present annotation, including
+presentation. Neither predicate is an alias for projected equality. Heterogeneous modeling
+reports carry actual quantity/unit and optional transfer owner, ordered coordinates and
+direction; transfer context is a declared semantic facet preserved by execution and value
+identity. Labels alone carry no such authority.
+
+> Decision: [ADR-0136](../../adr/0136-declared-field-facets.md) (proposed) — schema-owned
+> field purposes and selected physical definition admission replace consumer-owned metadata
+> lists and a second relational unit resolver. Implementation scope is recorded here;
+> decision acceptance and assembled qualification remain with their owning route.
+
 ### 4.5 Logical scalar types
 
 Fields use native Arrow types chosen for the meaning they carry:

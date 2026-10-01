@@ -25,6 +25,7 @@ from typing import cast
 
 import sympy
 from sympy.core.relational import Relational
+from sympy.functions.elementary.piecewise import ExprCondPair
 
 
 def lower_relation(
@@ -47,10 +48,11 @@ def _select(pieces: sympy.Piecewise, test: Callable[[sympy.Basic], sympy.Basic])
     the one selected, and `test` holds of its value."""
     terms: list[sympy.Basic] = []
     failed: list[sympy.Basic] = []
-    for value, condition in pieces.args:
+    pairs = [pair for pair in pieces.args if isinstance(pair, ExprCondPair)]
+    for value, condition in pairs:
         terms.append(sympy.And(*failed, condition, test(value)))
         failed.append(sympy.Not(condition))
-    if pieces.args[-1].cond is not sympy.true:
+    if pairs[-1].cond is not sympy.true:
         terms.append(sympy.And(*failed, test(sympy.nan)))  # no branch holds: NumPy gives NaN
     return sympy.Or(*terms)
 

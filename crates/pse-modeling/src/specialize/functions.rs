@@ -4,6 +4,122 @@
 use super::*;
 
 impl Engine<'_, '_> {
+    /// Finish the checker product after every finite function, transfer and reference
+    /// wrapper has been synthesized. Rewritten syntax and actual scalar formals replace
+    /// generic source obligations; no stale source binder is carried into lowering.
+    pub(super) fn admit_function_occurrences(&mut self) -> Result<()> {
+        let contracts = self.model.function_contracts(self.p);
+        for function in self.model.functions.values_mut() {
+            // Specialization replaces the consumed lexical reduced-law formal with a
+            // direct call. Give that call the same operation-owned numerical result
+            // view as the original formal, only in this reconstruction's body.
+            let body_contracts = function.physical_operation.as_ref().and_then(|operation| {
+                if !matches!(operation, crate::PhysicalOperation::Reconstruction { .. }) {
+                    return None;
+                }
+                let mut body_contracts = contracts.clone();
+                for called in body_contracts.functions.values_mut() {
+                    let numerical = operation.body_arguments(&[(
+                        String::new(),
+                        Type::Function {
+                            arguments: called.arguments.clone(),
+                            result: Box::new(called.result.clone()),
+                        },
+                    )]);
+                    if let Some((_, Type::Function { result, .. })) = numerical.into_iter().next() {
+                        called.result = *result;
+                    }
+                }
+                Some(body_contracts)
+            });
+            let contracts = body_contracts.as_ref().unwrap_or(&contracts);
+            let recorder = crate::expression::admission::AdmissionRecorder::default();
+            let context = TypeContext {
+                admissions: Some(&recorder),
+                formula_authority: matches!(
+                    function.physical_operation,
+                    Some(crate::PhysicalOperation::Response { .. })
+                )
+                .then(|| pse_quantity::PhysicalFormulaAuthority::response(function.id.as_id())),
+                quantities: self.c.quantities,
+                preconditions: self.c.preconditions,
+                scope: self.c.scope,
+            };
+            let arguments = function
+                .physical_operation
+                .as_ref()
+                .map_or_else(
+                    || function.arguments.clone(),
+                    |operation| operation.body_arguments(&function.arguments),
+                )
+                .into_iter()
+                .collect();
+            if let Some(body) = &function.body {
+                let actual = crate::expression::infer(
+                    body,
+                    &arguments,
+                    contracts,
+                    &context,
+                    function.id,
+                    if function.physical_operation.is_some() {
+                        None
+                    } else {
+                        Some(&function.result)
+                    },
+                )?;
+                if let Some(operation) = &function.physical_operation {
+                    operation.admit_result(&actual, &function.result, &context, function.id)?;
+                }
+            }
+            for predicate in function
+                .validity
+                .iter()
+                .chain(function.envelopes.iter().map(|guard| &guard.predicate))
+            {
+                crate::expression::predicate(
+                    predicate,
+                    &arguments,
+                    contracts,
+                    &context,
+                    function.id,
+                )?;
+            }
+            let formula_authority = context.formula_authority.clone();
+            let mut admissions = recorder
+                .into_inner()
+                .remove(&function.id)
+                .unwrap_or_default();
+            if let Some(reduction) = &function.reduction {
+                let request = pse_quantity::infer::OpRequest::FiniteReduce {
+                    kind: reduction.kind,
+                    domain: reduction.domain,
+                };
+                let resolved = crate::expression::admission::admit_operation(
+                    &request,
+                    std::slice::from_ref(&reduction.prototype),
+                    self.c.quantities,
+                    self.c.preconditions,
+                    formula_authority.as_ref(),
+                    function.id,
+                )?;
+                admissions.insert(
+                    crate::expression::admission::ExpressionOccurrence::finite_reduction(
+                        function.id,
+                    ),
+                    crate::expression::admission::PhysicalAdmission::checked(
+                        &request,
+                        vec![pse_quantity::scheme::Scheme::from_contract(
+                            reduction.prototype.clone(),
+                        )],
+                        Some(resolved),
+                        function.id,
+                    )?,
+                );
+            }
+            function.physical_admissions = admissions;
+        }
+        Ok(())
+    }
     pub(super) fn resolve_function(
         &self,
         instance: InstanceId,
@@ -154,6 +270,7 @@ impl Engine<'_, '_> {
             .functions
             .entry(name.clone())
             .or_insert(crate::Function {
+                physical_admissions: BTreeMap::new(),
                 reduction: None,
                 physical_operation: None,
                 validity: None,
@@ -371,7 +488,7 @@ impl Engine<'_, '_> {
         // observations resolve against (ADR-0123 Outcome 4).
         let mut scalar_formals = BTreeMap::new();
         let mut scalar_sources = BTreeMap::new();
-        let mut identity = FramedHasher::new(pse_ids::Frame::ModelingFiniteFunctionV6);
+        let mut identity = FramedHasher::new(pse_ids::Frame::ModelingFiniteFunctionV7);
         identity.id(&function.as_id());
         for quantity in substitution.values() {
             quantity.frame(&mut identity);
@@ -658,6 +775,7 @@ impl Engine<'_, '_> {
         let id = identity.finish_id();
         let name = format!("f_{}", id.to_hex());
         let function = crate::Function {
+            physical_admissions: BTreeMap::new(),
             reduction: None,
             physical_operation: contract.physical_operation,
             validity,

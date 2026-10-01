@@ -61,6 +61,13 @@ class RowSource(Protocol):
         ...
 
 
+def _uuid(value: object) -> uuid.UUID:
+    """A key column's value as the UUID it holds: both row sources return keys as UUIDs."""
+    if not isinstance(value, uuid.UUID):
+        raise TypeError(f"a key column holds {value!r}, not a UUID")
+    return value
+
+
 def _plain(value: object) -> object:
     """A value as the JSON the hash is taken over: the same for a Parquet and a database value."""
     if isinstance(value, uuid.UUID):
@@ -174,28 +181,30 @@ def read_records(
             records[layout.key(table, row)] = record_hash(table, row)
 
     seeds = source.rows(ps.table, ps.parameterization, parameterizations)
-    frontier: set[uuid.UUID] = {*sets, *(row["id"] for row in seeds)}  # type: ignore[misc]
+    frontier: set[uuid.UUID] = {*sets, *(_uuid(row["id"]) for row in seeds)}
     while frontier:
         known |= frontier
         found = source.rows(ps.table, "id", frontier)
         add(ps.table, found)
-        belonging |= {row[ps.parameterization] for row in found}  # type: ignore[misc]
+        belonging |= {_uuid(row[ps.parameterization]) for row in found}
         reached: set[uuid.UUID] = {
-            row["id"] for row in source.rows(ps.table, ps.parent, frontier)  # type: ignore[misc]
+            _uuid(row["id"]) for row in source.rows(ps.table, ps.parent, frontier)
         }
         for group in layout.groups:
             held = [slot.name for slot in group.slots if slot.shape in _HELD_SHAPES]
             table = table_name(m.PARAM_SCHEMA, group.id)
             rows = source.rows(table, "id", frontier)
             add(table, rows)
-            reached |= {row[name] for row in rows for name in held if row.get(name) is not None}  # type: ignore[misc]
+            reached |= {
+                _uuid(row[name]) for row in rows for name in held if row.get(name) is not None
+            }
             for family in group.families:
                 family_held = [s.name for s in family.slots if s.shape in _HELD_SHAPES]
                 family_table = table_name(m.PARAM_SCHEMA, family.id)
                 family_rows = source.rows(family_table, "set_id", frontier)
                 add(family_table, family_rows)
                 reached |= {
-                    row[name]  # type: ignore[misc]
+                    _uuid(row[name])
                     for row in family_rows
                     for name in family_held
                     if row.get(name) is not None
@@ -206,7 +215,9 @@ def read_records(
         rows = source.rows(pz.table, "id", belonging)
         add(pz.table, rows)
         convention_sets = {
-            row[pz.convention_set] for row in rows if row.get(pz.convention_set) is not None  # type: ignore[misc]
+            _uuid(row[pz.convention_set])
+            for row in rows
+            if row.get(pz.convention_set) is not None
         }
         choice = pc.SUBJECT_SUBFORM_CHOICE
         add(choice.table, source.rows(choice.table, choice.parameterization, belonging))
@@ -220,7 +231,7 @@ def read_records(
         if regions:
             add(
                 clause.table,
-                source.rows(clause.table, clause.region, [row["id"] for row in regions]),  # type: ignore[misc]
+                source.rows(clause.table, clause.region, [_uuid(row["id"]) for row in regions]),
             )
         add(coverage.table, source.rows(coverage.table, coverage.record, holders))
     return records

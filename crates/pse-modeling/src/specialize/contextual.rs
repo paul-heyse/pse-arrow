@@ -632,6 +632,7 @@ impl Engine<'_, '_> {
             .functions
             .entry(name.clone())
             .or_insert(crate::Function {
+                physical_admissions: BTreeMap::new(),
                 physical_operation: Some(operation),
                 reduction: None,
                 validity: guard
@@ -696,6 +697,7 @@ impl Engine<'_, '_> {
             .functions
             .entry(name.clone())
             .or_insert(crate::Function {
+                physical_admissions: BTreeMap::new(),
                 physical_operation: Some(operation),
                 reduction: None,
                 validity: None,

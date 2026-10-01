@@ -23,6 +23,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from pathlib import Path
+from typing import LiteralString
 
 import adbc_driver_postgresql.dbapi as adbc
 import msgspec
@@ -43,7 +44,7 @@ SCHEMA_PATTERN = re.compile(r"^src_[a-z][a-z0-9_]*$")
 MANIFEST_TABLE = "_manifest"
 BATCH_ROWS = 50_000
 
-_SCALAR_SQL: dict[str, str] = {
+_SCALAR_SQL: dict[str, LiteralString] = {
     "string": "text",
     "int16": "smallint",
     "int32": "integer",
@@ -60,7 +61,7 @@ class LoadOutcome:
     tables: dict[str, int]
 
 
-def sql_type(dtype: pa.DataType) -> str:
+def sql_type(dtype: pa.DataType) -> LiteralString:
     """The PostgreSQL type of a supported Arrow type; refuses any other."""
     name = schema_module.type_name(dtype)  # raises StagingError with the supported list
     if name.startswith("list<"):

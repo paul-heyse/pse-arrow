@@ -37,7 +37,7 @@ pub struct BodySpec {
 impl BodySpec {
     /// Versioned key; never hashes printed atoms or process-global library identifiers.
     pub fn key(&self) -> ContentHash {
-        let mut h = FramedHasher::new(pse_ids::Frame::MathBodyV2);
+        let mut h = FramedHasher::new(pse_ids::Frame::MathBodyV3);
         h.hash(&self.definition)
             .hash(&self.structure)
             .hash(&self.physical)

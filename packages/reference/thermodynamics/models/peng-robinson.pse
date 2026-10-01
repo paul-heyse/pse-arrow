@@ -24,34 +24,42 @@
 @id("495ac65472134debac921e60beb144c0") fn reduced_potential(t:Coordinate<coordinates.t>,r:Coordinate<coordinates.r>,n:Coordinate<coordinates.n>[chemistry.species],members:Set<chemistry.species>,pkg:properties.property_package,family:cubic.cubic_family)->Reduced<residual> valid(t>0 and r>0 and b_mix(n,members,pkg,family)*r<1 and sum(j in members | n[j])>0 and sum(j in members | if n[j]>0 then 0 else 1)==0) = -log(1-b*r)-a/(sqrt(family.u^2-4*family.w)*b*helmholtz.reduced_gas_constant()*t)*log((1+((family.u+sqrt(family.u^2-4*family.w))/2)*b*r)/(1+((family.u-sqrt(family.u^2-4*family.w))/2)*b*r)) where a=a_mix(t,n,members,pkg,family),b=b_mix(n,members,pkg,family);
 @id("01a0e16f32a3739a874c1277f7023238") fn potential(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>,pkg:properties.property_package,family:cubic.cubic_family)->ResidualHelmholtzEnergy=reconstruct(residual,reduced_potential,T,V,n,members,pkg,family);
 @id("01a0e16f32a3739a874c1278c0cab6b0") fn pressure_coordinate(t:Scalar,r:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>,pkg:properties.property_package,family:cubic.cubic_family)->Scalar = helmholtz.reduced_gas_constant()*t*r/(1-b*r)-a*r*r/(1+family.u*b*r+family.w*b*b*r*r) where a=a_mix(t,n,members,pkg,family),b=b_mix(n,members,pkg,family);
-@id("01a0eee77229746ba4feb33abae924be") fn compressibility_residual(t:Scalar,p:Scalar,z:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>,pkg:properties.property_package,family:cubic.cubic_family)->Scalar=z^3-(1+(1-family.u)*bb)*z^2+(aa+family.w*bb^2-family.u*bb-family.u*bb^2)*z-(aa*bb+family.w*bb^2+family.w*bb^3) where aa=a_mix(t,n,members,pkg,family)*p/(helmholtz.reduced_gas_constant()*t)^2,bb=b_mix(n,members,pkg,family)*p/(helmholtz.reduced_gas_constant()*t);
-@id("01a0e17a4587742dba37029731f4b644") fn density_residual(t:Scalar,p:Scalar,r:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>,pkg:properties.property_package,family:cubic.cubic_family)->Scalar=p*(1-b*r)*(1+family.u*b*r+family.w*b*b*r*r)-helmholtz.reduced_gas_constant()*t*r*(1+family.u*b*r+family.w*b*b*r*r)+a*r*r*(1-b*r) where a=a_mix(t,n,members,pkg,family),b=b_mix(n,members,pkg,family);
+@id("01a0eee77229746ba4feb33abae924be") fn compressibility_polynomial(t:Scalar,p:Scalar,z:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>,pkg:properties.property_package,family:cubic.cubic_family)->Scalar=z^3-(1+(1-family.u)*bb)*z^2+(aa+family.w*bb^2-family.u*bb-family.u*bb^2)*z-(aa*bb+family.w*bb^2+family.w*bb^3) where aa=a_mix(t,n,members,pkg,family)*p/(helmholtz.reduced_gas_constant()*t)^2,bb=b_mix(n,members,pkg,family)*p/(helmholtz.reduced_gas_constant()*t);
+@id("01a0e17a4587742dba37029731f4b644") fn density_polynomial(t:Scalar,p:Scalar,r:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>,pkg:properties.property_package,family:cubic.cubic_family)->Scalar=p*(1-b*r)*(1+family.u*b*r+family.w*b*b*r*r)-helmholtz.reduced_gas_constant()*t*r*(1+family.u*b*r+family.w*b*b*r*r)+a*r*r*(1-b*r) where a=a_mix(t,n,members,pkg,family),b=b_mix(n,members,pkg,family);
+// Physical front door for the calibrated cubic density polynomial; its residual is a pressure difference.
+@id("903507276277440c978631c9caa6a8ef") fn polynomial_pressure_scale()->DeltaPressure=1{Pa};
+@id("994a6efae0704e2b921729d5d7598448") coordinate map density_root_coordinates(T:Temperature,P:Pressure,rho:Density,n:Amount[chemistry.species],members:Set<chemistry.species>,pkg:properties.property_package,family:cubic.cubic_family) valid(T>constants.absolute_zero and sum(i in members | n[i])>0{mol}) {
+@id("d8fb048e36474565b885fca0a0f43b92") slot t=(T-constants.absolute_zero)/constants.temperature_scale;
+@id("09e4487c3d3441e3a6c297a922ebee98") slot p=P/constants.pressure_unit;
+@id("4d8d024debaa4ef399cd6bcb442d74de") slot r=rho/constants.density_unit;
+@id("72fdb07335d04682830c84e740a1ebcf") slot n[i in members]=n[i]/constants.amount_unit;
+}
+@id("e13b4b49efc04d179f6f6b32ad49530e") reconstruction density_root_polynomial for density_root_coordinates(T:Temperature,P:Pressure,rho:Density,n:Amount[chemistry.species],members:Set<chemistry.species>,pkg:properties.property_package,family:cubic.cubic_family)->DeltaPressure reference helmholtz.residual_reference=polynomial_pressure_scale();
+@id("0efcfe32a43747ae96d1fb03f374dae6") fn reduced_density_root_polynomial(t:Coordinate<density_root_coordinates.t>,p:Coordinate<density_root_coordinates.p>,r:Coordinate<density_root_coordinates.r>,n:Coordinate<density_root_coordinates.n>[chemistry.species],members:Set<chemistry.species>,pkg:properties.property_package,family:cubic.cubic_family)->Reduced<density_root_polynomial>=density_polynomial(t,p,r,n,members,pkg,family);
+@id("2b44308e5e0047f19a36f6802ae99a57") fn density_residual(T:Temperature,P:Pressure,rho:Density,n:Amount[chemistry.species],members:Set<chemistry.species>,pkg:properties.property_package,family:cubic.cubic_family)->DeltaPressure=reconstruct(density_root_polynomial,reduced_density_root_polynomial,T,P,rho,n,members,pkg,family);
 @id("01a0e17a4587742dba37029883951354") interface DensityRoot extends helmholtz.HelmholtzPhase {
-// Explicit numerical coordinates for the cubic polynomial/ordered-row convention only.
-@id("1a36cb43c5a44880ab92f79f4b26d341") let t:Scalar=(T-constants.absolute_zero)/constants.temperature_scale;
-@id("4da042e30aa84209a1e91153896df0f7") let r:Scalar=rho/constants.density_unit;
-@id("050f8926296f4efa8bf541cf57111a03") let n[j in components]:Scalar=amount[j]/constants.amount_unit;
 @id("510691c7f486481b8adfb3323137d850") param parameter_package:properties.property_package;
 @id("8ec1580333bf4a60b35fa8ebb8388b66") param family:cubic.cubic_family=cubic.pr;
 @id("7cb6ce8eaadc4827b8f349e78ef16970") param law:Fn(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy;
 @id("01a0e17a4587742dba3702994065516a") override param potential:Fn(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy=law;
 @id("01a0e17a4587742dba37029a4515bbdd") var target_pressure:Pressure;
+// Solver bounds and starts are numerical multipliers of the declared 1 mol/m^3 density reference.
 @id("01a0e17a4587742dba37029b59248c6a") param density_lower:Scalar;
 @id("01a0e17a4587742dba37029c88c8eb09") param density_upper:Scalar;
 @id("01a0e17a4587742dba37029d8d49cec3") param density_start:Scalar;
 @id("01a0e17a4587742dba37029e28827903") implicit density {
-@id("01a0e17a4587742dba37029fb3c7f009") var coordinate:Scalar;
-@id("01a0e17a4587742dba3702a03f57d8c1") eq residual:density_residual(t,target_pressure/constants.pressure_unit,coordinate,n,components,parameter_package,family)==0;
-@id("01a0e17a4587742dba3702a11464f97e") annotation start coordinate(density_start);
-@id("01a0e17a4587742dba3702a2f5d0749a") annotation bounds coordinate(density_lower,density_upper);
-@id("01a0e17a4587742dba3702a47a06a72d") annotation nominal coordinate(density_start);
+@id("01a0e17a4587742dba37029fb3c7f009") var coordinate:Density;
+@id("01a0e17a4587742dba3702a03f57d8c1") eq residual:density_residual(T,target_pressure,coordinate,amount,components,parameter_package,family)==0{Pa};
+@id("01a0e17a4587742dba3702a11464f97e") annotation start coordinate(density_start*constants.density_unit);
+@id("01a0e17a4587742dba3702a2f5d0749a") annotation bounds coordinate(density_lower*constants.density_unit,density_upper*constants.density_unit);
+@id("01a0e17a4587742dba3702a47a06a72d") annotation nominal coordinate(density_start*constants.density_unit);
 @id("01a0e17a4587742dba3702a51fb460cd") annotation scale residual(inverseSum);
 }
-@id("01a0e17a4587742dba3702a657f77fb4") eq density_binding:rho==density.coordinate*constants.density_unit;
+@id("01a0e17a4587742dba3702a657f77fb4") eq density_binding:rho==density.coordinate;
 @id("01a0e17a4587742dba3702a74b2f5e34") annotation start rho(density_start*constants.density_unit);
 @id("01a0e1b78065727b91c0d5d969c5a0c2") annotation nominal rho(density_start*constants.density_unit);
 @id("01a0e17a4587742dba3702a3987c3535") annotation valid rho(density_lower*constants.density_unit,density_upper*constants.density_unit,reject);
-@id("01a0e17a4587742dba3702a8903e21fb") annotation check rho((pressure/constants.pressure_unit-target_pressure/constants.pressure_unit)^2<1e-6);
+@id("01a0e17a4587742dba3702a8903e21fb") annotation check rho(abs(pressure-target_pressure)<0.001{Pa});
 }
 @id("01a0e17a4587742dba3702a9f82392ed") def InlineDensity(selected:Set<chemistry.species>,pkg:properties.property_package,law:Fn(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy,selected_family:cubic.cubic_family=cubic.pr):DensityRoot {
 @id("8418857723e746b9946cf293be59e3b6") override param parameter_package:properties.property_package=pkg;
@@ -77,16 +85,42 @@
 @id("01a0e17fb4307404bb45616ed2b17342") fn delta_row(t:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>,j:chemistry.species,pkg:properties.property_package,family:cubic.cubic_family)->Scalar=2*sum(k in members | n[k]*sqrt(attractive(t,j,pkg,family)*attractive(t,k,pkg,family))*(1-interactions.selected_pair(pkg,cubic.binary_interaction,j,k)))/(sum(k in members | n[k])*a_mix(t,n,members,pkg,family));
 @id("01a0e17fb4307404bb45616ff29b66e8") fn idaes_ln_phi(t:Scalar,r:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>,j:chemistry.species,pkg:properties.property_package,family:cubic.cubic_family)->Scalar=bj/b*(z-1)-log(z*(1-b*r))-a/(sqrt(family.u^2-4*family.w)*b*helmholtz.reduced_gas_constant()*t)*(delta_row(t,n,members,j,pkg,family)-bj/b)*log((1+((family.u+sqrt(family.u^2-4*family.w))/2)*b*r)/(1+((family.u-sqrt(family.u^2-4*family.w))/2)*b*r)) where a=a_mix(t,n,members,pkg,family),b=b_mix(n,members,pkg,family),bj=covolume(j,pkg,family),z=pressure_coordinate(t,r,n,members,pkg,family)/(helmholtz.reduced_gas_constant()*t*r);
 @id("01a0eef360b67582bfa3bbcff630701b") fn compressibility_ln_phi(t:Scalar,p:Scalar,z:Scalar,n:Scalar[chemistry.species],members:Set<chemistry.species>,j:chemistry.species,pkg:properties.property_package,family:cubic.cubic_family)->Scalar=bj/b*(z-1)-log(z-bb)-aa/(sqrt(family.u^2-4*family.w)*bb)*(delta_row(t,n,members,j,pkg,family)-bj/b)*log((z+((family.u+sqrt(family.u^2-4*family.w))/2)*bb)/(z+((family.u-sqrt(family.u^2-4*family.w))/2)*bb)) where b=b_mix(n,members,pkg,family),bj=covolume(j,pkg,family),aa=a_mix(t,n,members,pkg,family)*p/(helmholtz.reduced_gas_constant()*t)^2,bb=b*p/(helmholtz.reduced_gas_constant()*t);
+// The dimensionless compressibility unknown is already a lawful neutral coordinate.
+@id("c5b6ed07c45346a6a04c04bdb6fc3af1") coordinate map compressibility_root_coordinates(T:Temperature,P:Pressure,z:Scalar,n:MoleFraction[chemistry.species],members:Set<chemistry.species>,pkg:properties.property_package,family:cubic.cubic_family) valid(T>constants.absolute_zero and P>0{Pa}) {
+@id("33d7a111b8a349eba74a0603206a06f5") slot t=(T-constants.absolute_zero)/constants.temperature_scale;
+@id("aa9a26caad494ca5b49cba32bc330a13") slot p=P/constants.pressure_unit;
+@id("8e19c903d4464d748f8c24c94b83fffe") slot compressibility=z;
+@id("5b389262c734460f95b9b74678a2978f") slot n[i in members]=n[i]/compressibility_fraction_unit();
+}
+@id("5813f29c28994091a5ee81b536a9519c") reconstruction compressibility_root_polynomial for compressibility_root_coordinates(T:Temperature,P:Pressure,z:Scalar,n:MoleFraction[chemistry.species],members:Set<chemistry.species>,pkg:properties.property_package,family:cubic.cubic_family)->Scalar reference helmholtz.residual_reference=1;
+@id("ff795ea50a0943f99e9d5594d7723d97") fn reduced_compressibility_root_polynomial(t:Coordinate<compressibility_root_coordinates.t>,p:Coordinate<compressibility_root_coordinates.p>,compressibility:Coordinate<compressibility_root_coordinates.compressibility>,n:Coordinate<compressibility_root_coordinates.n>[chemistry.species],members:Set<chemistry.species>,pkg:properties.property_package,family:cubic.cubic_family)->Reduced<compressibility_root_polynomial>=compressibility_polynomial(t,p,compressibility,n,members,pkg,family);
+@id("ee33eaf9a5444fa1930075a5bc02dfb6") fn compressibility_residual(T:Temperature,P:Pressure,z:Scalar,n:MoleFraction[chemistry.species],members:Set<chemistry.species>,pkg:properties.property_package,family:cubic.cubic_family)->Scalar=reconstruct(compressibility_root_polynomial,reduced_compressibility_root_polynomial,T,P,z,n,members,pkg,family);
+// Physical temperature, pressure and composition for the ordered-row compressibility convention.
+@id("e188851ce67e4c61b37d0a6f951121ac") fn compressibility_fraction_unit()->MoleFraction=1{1};
+@id("48b130c1ba21421a986fdc60f1e9e02d") coordinate map compressibility_coordinates(T:Temperature,P:Pressure,z:Scalar,n:MoleFraction[chemistry.species],members:Set<chemistry.species>,j:chemistry.species,pkg:properties.property_package,family:cubic.cubic_family) valid(T>constants.absolute_zero and P>0{Pa} and z>0) {
+@id("4c135f0401b94aa2b2ba6bb73d7c283f") slot t=(T-constants.absolute_zero)/constants.temperature_scale;
+@id("f96483164f5b429a9e3d5ff9fbe227af") slot p=P/constants.pressure_unit;
+@id("f67a68ad10934b7bb349a9371cb6045c") slot compressibility=z;
+@id("3d50f6f2a1a44a18ba439b93bb40621b") slot n[i in members]=n[i]/compressibility_fraction_unit();
+}
+@id("5ec8dde5e3b94af0b6c49a1f203b53d5") reconstruction compressibility_fugacity for compressibility_coordinates(T:Temperature,P:Pressure,z:Scalar,n:MoleFraction[chemistry.species],members:Set<chemistry.species>,j:chemistry.species,pkg:properties.property_package,family:cubic.cubic_family)->LogFugacityCoefficient reference helmholtz.residual_reference=1;
+@id("cd00373beff849b3be3f5d7e8c84f6d3") fn reduced_compressibility_fugacity(t:Coordinate<compressibility_coordinates.t>,p:Coordinate<compressibility_coordinates.p>,compressibility:Coordinate<compressibility_coordinates.compressibility>,n:Coordinate<compressibility_coordinates.n>[chemistry.species],members:Set<chemistry.species>,j:chemistry.species,pkg:properties.property_package,family:cubic.cubic_family)->Reduced<compressibility_fugacity>=compressibility_ln_phi(t,p,compressibility,n,members,j,pkg,family);
+@id("a025f5e7b12249378289dbe803624c6b") fn compressibility_fugacity_response(T:Temperature,P:Pressure,z:Scalar,n:MoleFraction[chemistry.species],members:Set<chemistry.species>,j:chemistry.species,pkg:properties.property_package,family:cubic.cubic_family)->LogFugacityCoefficient=reconstruct(compressibility_fugacity,reduced_compressibility_fugacity,T,P,z,n,members,j,pkg,family);
+// Explicit physical wrapper for the independent ordered-row cubic convention.
+@id("3df98186c04c490a8e9459e482aa63eb") coordinate map ordered_coordinates(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>,j:chemistry.species,pkg:properties.property_package,family:cubic.cubic_family) valid(T>constants.absolute_zero and V>0{m^3} and sum(i in members | n[i])>0{mol}) {
+@id("933999a7ac57440ea9d95d296a2cb4cb") slot t=(T-constants.absolute_zero)/constants.temperature_scale;
+@id("30eeb6b2aff94bb5bdfebedc7c665882") slot r=(sum(i in members | n[i])/V)/constants.density_unit;
+@id("c08bae8ed9f74be0b3f7caec815baebd") slot n[i in members]=n[i]/constants.amount_unit;
+}
+@id("c8023bf8db204e5592e0d003af62cf4b") reconstruction ordered_fugacity for ordered_coordinates(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>,j:chemistry.species,pkg:properties.property_package,family:cubic.cubic_family)->LogFugacityCoefficient reference helmholtz.residual_reference=1;
+@id("094d3e99c2b247d0b9be1a2d1f4f4cea") fn reduced_ordered_fugacity(t:Coordinate<ordered_coordinates.t>,r:Coordinate<ordered_coordinates.r>,n:Coordinate<ordered_coordinates.n>[chemistry.species],members:Set<chemistry.species>,j:chemistry.species,pkg:properties.property_package,family:cubic.cubic_family)->Reduced<ordered_fugacity>=idaes_ln_phi(t,r,n,members,j,pkg,family);
+@id("1049fd85acb4454999578b602187de6f") fn ordered_fugacity_response(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>,j:chemistry.species,pkg:properties.property_package,family:cubic.cubic_family)->LogFugacityCoefficient=reconstruct(ordered_fugacity,reduced_ordered_fugacity,T,V,n,members,j,pkg,family);
 @id("01a0e17fb4307404bb4561704fec4bb4") interface IdaesDeltaPhase extends helmholtz.HelmholtzPhase {
-// Explicit numerical coordinates for the cubic polynomial/ordered-row convention only.
-@id("0eeb9cec24be4c99be29fc1494043aaa") let t:Scalar=(T-constants.absolute_zero)/constants.temperature_scale;
-@id("557064940deb4fefa201900a4f17b5cc") let r:Scalar=rho/constants.density_unit;
-@id("22e1d15f0086410094e5608011484928") let n[j in components]:Scalar=amount[j]/constants.amount_unit;
 @id("61cbf84a4e25403cb747f1a32325140e") param parameter_package:properties.property_package;
 @id("a868558dba0a40378f8d857f92579453") param family:cubic.cubic_family=cubic.pr;
 @id("92f802bbaa69415da149ecc56c16cb78") param law:Fn(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy;
 @id("01a0e17fb4307404bb4561718f09f6a3") override param potential:Fn(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy=law;
-@id("01a0e17fb4307404bb45617215c75611") override let ln_phi[j in components]:Scalar=idaes_ln_phi(t,r,n,components,j,parameter_package,family);
+@id("01a0e17fb4307404bb45617215c75611") override let ln_phi[j in components]:LogFugacityCoefficient=ordered_fugacity_response(T,volume,amount,components,j,parameter_package,family);
 }
 @id("01a0e17fb4307404bb4561737c9e18a4") def IdaesHomogeneousPhase(selected:Set<chemistry.species>,pkg:properties.property_package,law:Fn(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy,selected_family:cubic.cubic_family=cubic.pr):IdaesDeltaPhase {
 @id("cac8f577d3864c6f89b58ce80395c4ae") override param parameter_package:properties.property_package=pkg;
@@ -103,6 +137,5 @@
 @id("01a0e1b4f60e71eab341886ff83b3baa") override param density_upper:Scalar=upper;
 @id("01a0e1b4f60e71eab3418870bc232ac6") override param density_start:Scalar=start;
 @id("01a0e1b4f60e71eab3418871e34f6039") realize density_policy on density using accelerated(cubic_roots);
-@id("01a0e1c3a789761794daedce02a46562") override let r:Scalar=density.coordinate;
 }
 }

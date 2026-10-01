@@ -256,142 +256,52 @@ record actual commands, conditions and failures against zero in the final qualif
 
 ### Execution checkpoint
 
-The maintainer requested a restart checkpoint on 2026-09-30, with compile and targeted-test
-repairs before stopping. **This plan remains in progress.** Changes are in the shared checkout;
-no commit, push, full integration run or series qualification is implied. Concurrent work under
-`thermo-knowledge/` belongs to Plan 24 and must be preserved when resuming.
-The existing editable Python extension predates the changed generated contracts; refresh it
-through the normal `just py-sync` recipe when a Python execution scope is resumed. Rust-focused
-checks below do not qualify that extension.
+Implementation resumed on 2026-09-30 under the maintainer's instruction to implement this plan.
+The work remains in the current checkout. Concurrent Plan 24 work is preserved. No commit,
+push, Python-extension refresh or integrated qualification is implied.
 
-**A1 — implemented core admission and comparison cutover.** Inline values, data columns,
-reference conditions, smoothing inputs and mathematical literals/bindings use checked canonical
-magnitudes. Conversion admission and application retain full quantity meaning, finite source/result
-checks and multiply-then-add rounding. Schema declarations generate comparison-purpose policies
-downward into columnar code, including nested and unknown metadata. Relational obligations consume
-the exact selected physical declaration closure and admit only encountered quantity/unit pairs.
-The runtime-only decoder, raw-dimension/canonical-unit-only obligation branch, unchecked scalar
-conversion and detached column coefficients have been removed. Transfer report context and the
-remaining alias/output comparison consumers were added during A4; their focused checks belong to
-the same completion boundary.
+A1's canonical-value and facet cutover is implemented. A2 records and consumes physical
+admission by exact expression occurrence, including anonymous finite-reduction prototypes.
+The independent review corrections for short-circuit occurrences, retained reductions and
+integral-power bounds are implemented and their targeted controls pass.
 
-**A2 — implemented inference and lowering, consumer closure still being established.**
-`ResolvedPhysicalContract` retains anonymous semantic factors, contextual obligations, actual
-binders, ordered axes and numerical representation. Closed schemes and polymorphic substitutions
-can retain that product without a fabricated quantity ID. Registered matches/refusals are final;
-the former maximal-chain rescue and competing named multiplication/division implementation are
-removed. Mathematical lowering retains admitted operands, selected operations, numerical scales
-and exact output authorizations. Ordinary qualified cancellation does not erase its context.
-New frame versions cover the changed physical inventory, admissions, typed definitions,
-mathematical bodies, finite functions and dispatch bodies.
-The source checker does not yet persist a per-expression admission map for direct handoff to
-lowering: lowering recomputes admission through the same quantity authority. That remaining
-handoff is part of A2's stated final state, even though the competing algorithms are removed.
+A3's ideal, PR, PC-SAFT and NRTL controls pass, including independent direct/reciprocal maps
+with composition-dependent references, abstract scientific witnesses and mapped cubic
+polynomial front doors. Source consumers retain distinct species fugacity/activity contracts.
+A4's stored-energy, material/element, separator, reaction-rate, selected-solvent and entropy
+consumers use physical algebra or declared maps. Obsolete unit-adapter helpers are removed.
+Transfer source admission exposed missing indexed-boundary and inherited-boundary handling;
+the narrow core corrections and actual process controls remain under verification.
 
-**A3 — implemented authoring and specialization; scientific verification is a separate exit.**
-Coordinate maps, nominal slots, reduced laws, reconstruction families and scientific responses are
-declared in the modeling schema. `reconstruct(family, selected_law, physical_arguments...)` evaluates
-that map's coordinates from those exact arguments. A response retains the selected function and
-requires its closure to reach a reconstruction. Its narrowly scoped scientific formula authority
-is retained through compilation; it cannot rescue a registered refusal or leak into ordinary
-arithmetic. The PR, PC-SAFT, NRTL and Helmholtz source interfaces and dependent potential signatures
-have moved to physical wrappers. The former generic Scalar potential/derivative path is removed.
-Residual/excess potentials are distinct physical contracts; residual molar enthalpy/entropy are
-datum-free responses, while material DeltaH/DeltaS retain their datum. New focused compiler controls
-exercise current authored documents rather than copies of their formulas.
-Response witness admission currently requires an explicit authored call/partial dependency and
-a selected closure that reaches a reconstruction. It does not prove that the normalized formula
-still depends on the potential after simplification, such as when an authored term multiplies
-the potential by zero. The stronger dependency check and its negative control remain open.
+Targeted source controls retain production scientific declarations, excluding external dataset
+transport and supplying explicitly synthetic keyed data. They do not establish a full
+package-data, native-solver or Python journey.
 
-**A4 — implemented contextual mechanisms and authored migration, with remaining closure work.**
-Boundaries resolve to actual instance, declaration and ordered coordinates. Reorientation and paired
-reflection retain the owner and apply the convention factor once; directed ledger contributions
-consume Into, and final contextual equation admission checks actual owners before numerical
-lowering. The old contribution-pair ID/side mechanism and its primitive fixture are removed after
-the replacement's focused model controls passed. EnergyTransferRate, ReactionExtentRate and typed
-stoichiometric coefficients replace the energy/extent Scalar adapters in the affected process
-models. The distributed spatial coordinate remains dimensionless. Both BTIdeal enthalpy and BT_PR
-enthalpy/entropy bindings now name explicit reference translations and scientific anchors, including
-the BT_PR entropy pressure correction. Translation templates retain anchor calls and composition
-in ordinary library expressions; they do not evaluate scientific functions in the static selector.
-Gauge conversion derives its origin from the selected datum after unit representation; affine
-conversion declarations must agree with that authority. The duplicated gauge rule and unused
-runtime conversion-expression helper/test are removed.
-Report rows now have a declared transfer context carrying the actual instance, boundary,
-ordered coordinate identities and direction. Unbound and unreconstructed roles refuse at that
-boundary. This is a generated transport addition; it does not establish execution of a complete
-process report journey.
+The architectural amendment, blueprint revision and R-51 trigger widening are prepared through
+ADR-0135/0136. Those records remain proposed; accepting or superseding decision records follows
+the decision-PR route. The implementation amendment does not claim that route has completed.
 
-**Decision/document boundary.** ADR-0135 and ADR-0136 remain proposed and describe the selected
-target, including the bounded design assessment. Proposal status is not implementation acceptance.
-The enduring architecture amendment, revision row and any successor treatment of ADR-0124 still
-belong to the decision/design route once the implementation boundary is settled. Full series
-qualification remains in 25k.
+### Remaining acceptance work
 
-**Focused verification at the checkpoint.** The final core reruns passed the eight quantity
-algebra controls, three datum/reference controls, four anonymous/contextual modeling controls,
-five mapped-operation admission controls, and the mathematical UA/cancellation/derivative
-control. Compiler controls passed transfer execution, composition-dependent reference
-translation and its inverse, and the existing multiplicative-chain case. Symbolica evaluation
-was serialized, and unit recipes enabled explicit force-validation. Generation passed after
-repairing the invariant-evidence producer to declare its tagged alternative through the existing
-checked-value operation.
-The final schema-facet, columnar-facet and engine-output selections passed 3, 4 and 3 controls
-respectively. The transfer-report generated-row roundtrip, tagged-evidence producer and two
-authoring physical-syntax controls also passed. Their successful compilation and generation do
-not substitute for the authored scientific acceptance still open below.
-`just check` passed for the workspace and all targets after removing the last two test calls to
-the deleted unchecked conversion helper. `just codegen` passed. The build still reports the
-existing `proc-macro-error2` future-incompatibility notice; this is not a warning-free lint claim.
-The updated independent source-package scientific-unit control also passed via
-`just test-package xtask -E 'test(codegen::physical::tests::reference_package_admission_scientific_units)' --test-threads 1`
-(one selected test, zero failures). All agents have stopped editing; no task-owned build or test
-process remains running at this checkpoint.
+Finish indexed/inherited boundary admission, rerun the affected source and process controls,
+and compile the cross-crate consumers. Record final commands and zero-target results in Outcome,
+then update series finding dispositions only within this plan's ownership. Full integration,
+solver/Python journeys, lint and performance qualification remain in 25k.
 
-The remaining failing command is
-`just unit-package pse-compiler 'test(reference_physical_potential_sources_admit)' --test-threads 1`:
-one failure against the zero-failure target, at the subject-erasure boundary described below.
-The earlier five-test physical-potential selection was blocked before scientific evaluation;
-none of those scientific cases is claimed to pass. There was no integration, solver, Python,
-performance, formatting or lint campaign.
+### Bounded consumer inventory
 
-### Resume order and remaining work
+| Consumer family | Physical boundary and deletion | Retained numerical role |
+|---|---|---|
+| Helmholtz, PR, PC-SAFT and NRTL | Physical T/V/amount wrappers; named species responses; composition-aware references; ordinary independent partials | Reduced algorithms consume their declared map slots; calibrated scientific constants remain |
+| Cubic density and flash roots | Density and pressure-difference residuals; physical T/P/composition polynomial front doors; old scalar coordinate members removed | Polynomial helpers, dimensionless compressibility and solver start/bound multipliers relative to the declared density scale |
+| Equilibrium and caloric states | Named log-component-fugacity and Gibbs products; shared pressure/composition entropy map; physical weighted-pressure sum; explicit Cp/R fixture reconstruction | Neutral composition weights, phase fractions and the existing complementarity slacks normalized by the explicit 1 K scale |
+| Vessel, reactor, heater, exchanger and pressure changer | Direct stored-energy products, datum-free owner-relative transfer rates and composition-aware reference translations | Efficiencies, split fractions and numerical tolerances remain neutral scales |
+| Material and element projections, separator | ComponentFlow/Flow composition, physical energy-flow products and indexed totals; explicit elemental-count map | Element counts are scientific coordinates; no component-flow/total-flow/pressure-difference unit helpers remain |
+| Reaction and dilute-liquid laws | Declared Arrhenius, second-order and selected-solvent maps; physical reaction-extent reports | Calibrated coefficient, concentration and activation-energy references occur inside maps/reconstruction |
 
-1. Read this checkpoint and inspect the current diff without resetting the shared checkout.
-   Preserve Plan 24 changes. Keep the current checkout/toolchain and serialize Cargo work.
-2. Resolve the known A3 source-admission failure first. `helmholtz.fugacity_response` declares
-   plain Scalar, but its partial with respect to component Amount retains the species subject.
-   The physical-response boundary correctly refuses that erasure. Establish the explicit
-   component response contract and migrate the matching fugacity/activity consumers, including
-   `ln_phi`, NRTL `activity_response`/`ln_gamma` and `gibbs_duhem_response`, as applicable.
-   Do not weaken the generic subject-preservation guard or add a scalar cast to make the test pass.
-   Then rerun source admission and the five `physical_potential_tests` controls serially.
-   No scientific response value/derivative acceptance is established by the current failed runs.
-   Finish the other focused A2/A3/A4 exits. Regenerate from schema/physical sources whenever they
-   change; never repair generated output by hand.
-3. Close the authored consumer migration using actual package admission and isolated physical
-   evaluations. In particular, verify the full process energy/stoichiometry changes, reference
-   translation composition and inverse behavior, distributed boundary coordinates, actual report
-   context and quantity/unit metadata. A helper test or successful compiler build does not establish
-   those whole source-package claims.
-   Retained adapters needing explicit disposition include the vessel amount/stored-energy
-   closures and the BT_PR entropy anchor's increment/gas-constant representation. The PR-specific
-   density/oracle reduced helpers serve a separate local cubic calculation; distinguish them
-   from the removed generic reduced-potential interface before deciding what to delete.
-4. Complete the remaining acceptance cases in A2–A4: qualified cancellation and empty/indexed
-   reductions, coincident physical partial arguments, composition-dependent coordinate references,
-   all physical potential responses against independent oracles, wrong-owner/double-sign refusals,
-   gauge-datum perturbation and both caloric reference families. Keep targeted checks distinct from
-   the deferred cross-owner journeys.
-5. Reconcile the scoped deletion inventory and documentation with the completed behavior; remove
-   any remaining replaced adapters/callers/fixtures once their replacements are demonstrated.
-   Check that changes to physical context reach every touched consumer, not just numerical payload
-   extraction. Complete architecture/blueprint and deferred-decision trigger updates through the
-   owning route; update finding dispositions only when the required correction evidence exists.
-6. Mark this plan complete only when all four packets and their focused exits are satisfied.
-   Formatting, lint, integration, solver/Python journeys and performance qualification remain in
-   25k under the maintainer's chosen execution rhythm.
+The obsolete `ChainTree`/`BodyBuilder::chain` inference path, dependency-presence witness walk,
+and migrated stripping/re-dressing callers are removed. The existing library differentiation
+and numeric lowering remain the sole execution path.
 
 ## Outcome (recorded after implementation)
 

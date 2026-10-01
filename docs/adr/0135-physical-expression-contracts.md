@@ -30,10 +30,12 @@ that every intermediate resolve to a registered quantity contributes to this pre
 
 This proposed successor changes intermediate inference, mapped-function admission,
 physical reconstruction, transfer/reference operations and their preparation identities.
-ADR-0124's canonical unit products, defined-unit admission and exact exponents remain.
-Its named-only intermediate result restriction is replaced when this decision is accepted
-through the decision route; the accepted record is not rewritten during implementation.
-Public named quantities remain declared; no new quantity IDs are synthesized.
+The intended successor scope for ADR-0124 is its named-only intermediate inference and
+competing stepwise/chain admission, together with the replaced lowering contract. Its
+canonical unit products, defined-unit admission, rational exponents and public declaration
+requirements remain. Acceptance and symmetric supersession links require the decision PR;
+this proposed record leaves both records' lifecycle fields unchanged. Public named
+quantities remain declared; no new quantity IDs are synthesized.
 
 ## Drivers
 
@@ -61,8 +63,14 @@ remain missing. Inline, column and mathematical scalar consumers share this oper
 Internal physical contracts carry semantic kind factors, exact exponents, unresolved
 basis/datum/scale/subject obligations, free binders, ordered axes and numerical unit
 representation. A registered quantity identity is optional internally and required at
-public named boundaries. The checker retains the admitted operation per occurrence;
-lowering consumes it rather than rebuilding a competing inference decision.
+public named boundaries. The checker retains the admitted operation by structural body
+occurrence and lexical
+position, not merely rendered syntax or source span. Concrete products retain the selected
+rule and operand/result contracts; generic products retain requests and schemes, instantiated
+once against the actual caller substitutions. Specialized functions preserve these products.
+Lowering refuses a missing product and consumes admitted operations before numerical
+construction. Finite mathematical requests create admission at their resolved occurrence;
+BodyBuilder never rebuilds a competing inference decision.
 
 Normalization cannot rescue a refused registered operation. Valid routes must agree.
 Cancellation cannot discard qualified-factor obligations or free binders. Declared
@@ -90,10 +98,17 @@ potential-derived terms with other physical terms when dimensions agree. Registe
 operation matches, ambiguity and prerequisite refusals remain final. The scoped formula
 authority preserves compatible basis, datum, subject, ordered axes and actual binders,
 and survives specialization and mathematical lowering. The selected physical function
-must reach an admitted reconstruction; an unused or arbitrary same-signature function
-does not provide a scientific witness. A common basis may be consumed at a reconstruction
-or response boundary only when the result has no basis, its amount exponent is zero,
+must retain an admitted reconstruction after library
+normalization, and a response must retain its selected potential or physical partials.
+Abstract scientific calls establish this dependence before substituting reduced-law
+implementations. Syntactic reachability, unused calls, zero coefficients and cancellation
+do not provide a witness; a legitimate zero reduced law can still return zero value and
+partials. A common basis may be consumed at a reconstruction or response boundary only when the result has no basis, its amount exponent is zero,
 and the carried nonempty bases agree. Ordinary expressions retain full semantic contracts.
+
+LogFugacityCoefficient/FugacityCoefficient and LogActivityCoefficient/ActivityCoefficient
+are named species-subject contracts. Exponentiation preserves that scientific subject;
+unit `1` does not authorize interchange with neutral Scalar.
 
 ResidualMolarEnthalpy and ResidualMolarEntropy are datum-free physical responses, distinct
 from the referenced DeltaH/DeltaS differences between material points. Explicit mixed
@@ -102,7 +117,8 @@ the latter's datum.
 
 ### Directed transfers and reference changes
 
-EnergyTransferRate is datum-free. Transfer<quantity,boundary,Into|OutOf> is a modeling
+EnergyTransferRate and MechanicalEnergy are datum-free.
+Transfer<quantity,boundary,Into|OutOf> is a modeling
 contract whose owner resolves to instance, boundary declaration and coordinates. Numeric
 negation does not change owner/convention. Same-owner reorientation and paired-boundary
 reflection are explicit admitted operations. Contributions consume canonical Into once;
@@ -146,8 +162,11 @@ datum translation. Scientific oracles detect type-correct but wrong formulas.
 
 ### Confirmation
 
-The owning plan records actual implementation and focused evidence. This proposed decision
-does not claim runtime qualification; Plan 25k owns the assembled campaign.
+Implemented contract scope is recorded in blueprint §8, §9.8 and §14.3. The owning plan
+records the actual focused commands and outcomes. Selected scientific-declaration controls
+retain current scientific bodies and use small synthetic parameter rows; external dataset
+transport and full package journeys remain Plan 25k scope. This proposed decision does not
+claim runtime qualification or acceptance.
 
 ## Pros and cons
 

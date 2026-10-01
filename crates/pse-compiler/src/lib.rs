@@ -10,6 +10,11 @@ mod physical_identity;
 pub mod workspace;
 
 #[cfg(test)]
+mod authored_transfer_tests;
+#[cfg(test)]
 mod contextual_contract_tests;
 #[cfg(test)]
 mod physical_potential_tests;
+
+#[cfg(test)]
+mod scientific_witness_tests;

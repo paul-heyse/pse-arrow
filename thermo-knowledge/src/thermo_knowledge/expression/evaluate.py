@@ -33,7 +33,7 @@ import hashlib
 import itertools
 from collections.abc import Callable, Hashable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Literal, cast
 
 import numpy as np
 import scipy.integrate
@@ -67,11 +67,12 @@ from thermo_knowledge.expression.scope import (
     classify_slot,
 )
 from thermo_knowledge.expression.lowering import lower_relation, substitute
+from thermo_knowledge.expression.symbolic import add, apply, div, free_symbols, mul, sub
 from thermo_knowledge.expression.units import unit_literal
 from thermo_knowledge.expression.validity import membership
 
 _PRECISION = 17
-_SIMPLE = {
+_SIMPLE: dict[str, Callable[..., object]] = {
     "exp": sympy.exp,
     "log": sympy.log,
     "sqrt": sympy.sqrt,
@@ -101,9 +102,10 @@ def _parsed_residual(text: str) -> t.Expr:
 
 # -- numbers -------------------------------------------------------------------------------------
 
-type Value = int | sympy.Expr | str | bool | Contribution
+type Value = int | sympy.Basic | str | bool | Contribution
 """What an expression is while it is expanded: a Python int for index arithmetic, a SymPy
-expression for any other number, a subject (text), a condition or a contribution."""
+expression for any other number or condition, a subject (text), a truth value or a
+contribution."""
 
 
 @dataclass(frozen=True)
@@ -117,7 +119,7 @@ class Contribution:
 
 
 def _normal(value: Value) -> Value:
-    if isinstance(value, sympy.Basic) and value.is_Integer:
+    if isinstance(value, sympy.Integer):
         return int(value)
     return value
 
@@ -127,6 +129,8 @@ def _expr(value: Value) -> sympy.Expr:
         raise EvaluationRefusal(f"{value!r} is not a number")
     if isinstance(value, int):
         return sympy.Integer(value)
+    if not isinstance(value, sympy.Expr):
+        raise EvaluationRefusal(f"{value!r} is not a number")
     return value
 
 
@@ -134,11 +138,13 @@ def _float(value: float) -> sympy.Float:
     return sympy.Float(value, _PRECISION)
 
 
-def _truth(value: sympy.Basic | bool) -> bool | sympy.Basic:
+def _truth(value: Value) -> bool | sympy.Basic:
     if value is sympy.true or value is True:
         return True
     if value is sympy.false or value is False:
         return False
+    if not isinstance(value, sympy.Basic):
+        raise EvaluationRefusal(f"{value!r} is not a condition")
     return value
 
 
@@ -148,11 +154,17 @@ class _Debye(sympy.Function):
 
     nargs = 2
 
-    def fdiff(self, argindex: int = 2) -> sympy.Expr:
+    def fdiff(self, argindex: int = 2) -> sympy.Derivative | sympy.Subs:
         if argindex != 2:
             raise ArgumentIndexError(self, argindex)
         n, x = self.args
-        return -n / x * self + n / (sympy.exp(x) - 1)
+        assert isinstance(n, sympy.Expr) and isinstance(x, sympy.Expr)
+        derivative = add(
+            mul(div(-n, x), self), div(n, sub(apply(sympy.exp, x), sympy.Integer(1)))
+        )
+        # the stubs infer `Function.fdiff` as returning derivative objects; a subclass returns
+        # the expression of the derivative
+        return cast(sympy.Derivative | sympy.Subs, derivative)
 
 
 def _debye_value(n: float, x: float) -> float:
@@ -343,11 +355,11 @@ class _Machine:
     def decide(self, frame: _Frame, condition: Value) -> bool | sympy.Basic:
         """`condition` as a truth value when it is one: already, or because it depends on
         stored values alone, which are known here."""
-        truth = _truth(condition)  # type: ignore[arg-type]
+        truth = _truth(condition)
         if isinstance(truth, bool):
             return truth
         inlined = self.inline(frame, truth)
-        free = inlined.free_symbols
+        free = free_symbols(inlined)
         if free and free <= set(self.values):
             decided = _truth(inlined.xreplace(self.numbers))
             if isinstance(decided, bool):
@@ -469,7 +481,8 @@ class _Machine:
                 unknowns.append(symbol)
                 labels.append(unknown.name)
         for unknown in block.unknowns:
-            count = len(frame.unknowns[unknown.name]) if unknown.over else 1  # type: ignore[arg-type]
+            held = frame.unknowns[unknown.name]
+            count = len(held) if isinstance(held, dict) else 1
             lower.extend([bound(unknown.lower)] * count)
             upper.extend([bound(unknown.upper)] * count)
             start.extend([bound(unknown.start)] * count)
@@ -492,7 +505,7 @@ class _Machine:
         start = [
             s
             if s is not None
-            else (low + high) / 2
+            else div(add(low, high), sympy.Integer(2))
             if low is not None and high is not None
             else None
             for s, low, high in zip(start, lower, upper)
@@ -503,12 +516,12 @@ class _Machine:
                 name=block.name,
                 unknowns=tuple(unknowns),
                 labels=tuple(labels),
-                residuals=tuple(self.inline(frame, r) for r in residuals),  # type: ignore[misc]
-                lower=tuple(None if e is None else self.inline(frame, e) for e in lower),  # type: ignore[misc]
-                upper=tuple(None if e is None else self.inline(frame, e) for e in upper),  # type: ignore[misc]
-                start=tuple(None if e is None else self.inline(frame, e) for e in start),  # type: ignore[misc]
+                residuals=tuple(self.inline(frame, r) for r in residuals),
+                lower=tuple(None if e is None else self.inline(frame, e) for e in lower),
+                upper=tuple(None if e is None else self.inline(frame, e) for e in upper),
+                start=tuple(None if e is None else self.inline(frame, e) for e in start),
                 select=block.select,
-                by=None if by is None else self.inline(frame, by),  # type: ignore[arg-type]
+                by=None if by is None else self.inline(frame, by),
                 guards=[(text, self.inline(frame, cond)) for text, cond in frame.guards],
             )
         )
@@ -554,7 +567,7 @@ class _Machine:
         for name, symbol in frame.local_symbols.items():
             yield name, symbol, _expr(frame.local_values[name])
 
-    def inline(self, frame: _Frame, expr: sympy.Basic) -> sympy.Basic:
+    def inline[E: sympy.Basic](self, frame: _Frame, expr: E) -> E:
         """`expr` with every local replaced by its definition."""
         for _, symbol, definition in reversed(list(self.local_definitions(frame))):
             expr = substitute(expr, {symbol: definition})
@@ -574,7 +587,7 @@ class _Machine:
             pending.extend(by_symbol[s] for s in definitions[name].free_symbols if s in by_symbol)
         return found
 
-    def inline_dependents(self, frame: _Frame, expr: sympy.Basic, local: str) -> sympy.Basic:
+    def inline_dependents[E: sympy.Basic](self, frame: _Frame, expr: E, local: str) -> E:
         """`expr` with the locals that depend on `local` replaced by their definitions, so a
         derivative with respect to `local` follows them and holds the other locals fixed."""
         dependent = {frame.local_symbols[local]}
@@ -662,13 +675,13 @@ class _Machine:
                 return left**right
         x, y = _expr(left), _expr(right)
         if op == "+":
-            return _normal(x + y)
+            return _normal(add(x, y))
         if op == "-":
-            return _normal(x - y)
+            return _normal(sub(x, y))
         if op == "*":
-            return _normal(x * y)
+            return _normal(mul(x, y))
         if op == "/":
-            return _normal(x / y)
+            return _normal(div(x, y))
         return _normal(x**y)
 
     def unary(self, frame: _Frame, node: t.UnaryOp, env: dict[str, Value]) -> Value:
@@ -710,14 +723,11 @@ class _Machine:
         symbolic: list[sympy.Basic] = []
         for element in node.values:
             truth = self.decide(frame, self.ev(frame, element, env))
-            if truth is True:
-                if not is_and:
-                    return True
-            elif truth is False:
-                if is_and:
-                    return False
+            if isinstance(truth, bool):
+                if truth is not is_and:
+                    return truth
             else:
-                symbolic.append(truth)  # type: ignore[arg-type]
+                symbolic.append(truth)
         if not symbolic:
             return is_and
         return sympy.And(*symbolic) if is_and else sympy.Or(*symbolic)
@@ -740,9 +750,9 @@ class _Machine:
         values = [self.ev(frame, a, env) for a in node.args]
         name = node.name
         if name in _SIMPLE:
-            return _normal(_SIMPLE[name](_expr(values[0])))
+            return _normal(apply(_SIMPLE[name], _expr(values[0])))
         if name == "log10":
-            return _normal(sympy.log(_expr(values[0]), 10))
+            return _normal(apply(sympy.log, _expr(values[0]), 10))
         if name in ("min", "max"):
             function = sympy.Min if name == "min" else sympy.Max
             return _normal(function(*(_expr(v) for v in values)))
@@ -750,8 +760,8 @@ class _Machine:
         if not isinstance(order, int):
             raise EvaluationRefusal(f"the order of `{name}` is not an integer known at expansion")
         if name == "chebyshev_t":
-            return _normal(sympy.chebyshevt(order, _expr(values[1])))
-        return _normal(_Debye(sympy.Integer(order), _expr(values[1])))
+            return _normal(apply(sympy.chebyshevt, order, _expr(values[1])))
+        return _normal(apply(_Debye, sympy.Integer(order), _expr(values[1])))
 
     # -- references ------------------------------------------------------------------------
 
@@ -973,7 +983,8 @@ class _Machine:
             nested = ref.nested
             nested_subjects = self.subjects(frame, nested.subjects, env)
             positions = tuple(self.ev(frame, node, env) for node in nested.indices)
-            if not all(isinstance(position, int) for position in positions):
+            integers = tuple(position for position in positions if isinstance(position, int))
+            if len(integers) != len(positions):
                 raise EvaluationRefusal(
                     f"the family index of `{nested.slot.name}` is an integer known at expansion"
                 )
@@ -990,7 +1001,7 @@ class _Machine:
                     nested.group.qualified,
                     where,
                     candidate,
-                    positions,  # type: ignore[arg-type]
+                    integers,
                 ),
                 f"set held by `{where}`",
             )
@@ -1050,17 +1061,18 @@ class _Machine:
                 f"form `{form.name}` implements `{form.implements}`, not `{accepted.name}`"
             )
         scope = FormScope.of(self.decl, form)
+        symbols = {name: self.fresh(f"{form.name}.{name}") for name in arguments}
         placeholders: dict[str, sympy.Symbol | dict[tuple[Subject, ...], sympy.Symbol]] = {
-            name: self.fresh(f"{form.name}.{name}") for name in arguments
+            name: symbol for name, symbol in symbols.items()
         }
         substitution: dict[sympy.Basic, sympy.Basic] = {
-            placeholders[name]: value
-            for name, value in arguments.items()  # type: ignore[misc]
+            symbols[name]: value for name, value in arguments.items()
         }
         for name, elements in vectors.items():
             table = {key: self.fresh(f"{form.name}.{name}") for key in elements}
             placeholders[name] = table
-            substitution.update({table[key]: value for key, value in elements.items()})
+            for key, value in elements.items():
+                substitution[table[key]] = value
         callee = _Frame(
             scope=scope,
             roles=dict(roles),
@@ -1153,7 +1165,7 @@ class _Machine:
                     "depends on an implicit block's unknowns: differentiate with respect to an "
                     "argument"
                 )
-            expr = self.inline_dependents(frame, expr, wrt.id)  # type: ignore[assignment]
+            expr = self.inline_dependents(frame, expr, wrt.id)
             return _normal(sympy.diff(expr, symbol))
         if isinstance(wrt, t.Name):
             symbol = frame.args[wrt.id]
@@ -1164,7 +1176,7 @@ class _Machine:
             symbol = table[self.subjects(frame, wrt.indices, env)]
         assert isinstance(symbol, sympy.Symbol)
         inlined = self.inline(frame, expr)
-        return _normal(sympy.diff(inlined, symbol) + self.implicit_terms(frame, inlined, symbol))
+        return _normal(add(sympy.diff(inlined, symbol), self.implicit_terms(frame, inlined, symbol)))
 
     def implicit_terms(self, frame: _Frame, expr: sympy.Basic, symbol: sympy.Symbol) -> sympy.Expr:
         """The part of the total derivative of `expr` with respect to the argument `symbol` that
@@ -1241,7 +1253,7 @@ class _Machine:
                 if pieces[k][1] == pieces[k + 1][0]:
                     cuts.append(high_symbols[k])
                 else:
-                    cuts.append((high_symbols[k] + low_symbols[k + 1]) / 2)
+                    cuts.append(div(add(high_symbols[k], low_symbols[k + 1]), sympy.Integer(2)))
         branches: list[tuple[sympy.Expr, sympy.Basic]] = []
         last = len(pieces) - 1
         for position, (_, _, index) in enumerate(pieces):
@@ -1253,10 +1265,14 @@ class _Machine:
             conditions: list[sympy.Basic] = []
             if start is not None:
                 first_closed = above or position == 0
-                conditions.append(z >= start if first_closed else z > start)
+                conditions.append(
+                    sympy.GreaterThan(z, start) if first_closed else sympy.StrictGreaterThan(z, start)
+                )
             if stop is not None:
                 last_closed = (not above) or position == last
-                conditions.append(z <= stop if last_closed else z < stop)
+                conditions.append(
+                    sympy.LessThan(z, stop) if last_closed else sympy.StrictLessThan(z, stop)
+                )
             branches.append((sympy.Integer(index), sympy.And(*conditions)))
         if not nearest:
             anywhere = sympy.Or(*(condition for _, condition in branches)) if branches else sympy.false
@@ -1303,7 +1319,7 @@ class _Machine:
         symbols of its integrand (arguments and parameters), evaluated by
         `scipy.integrate.quad`. The function is named by the structure of the integrand, so two
         integrals of one structure are one function and two of different structure never are."""
-        free = sorted(body.free_symbols - {variable}, key=str)
+        free = sorted(free_symbols(body) - {variable}, key=str)
         digest = hashlib.sha256(sympy.srepr((variable, body, tuple(free))).encode()).hexdigest()
         name = f"_Quad{digest[:24]}"
         integrand = self.cache.entry(
@@ -1328,7 +1344,7 @@ class _Machine:
             return result
 
         self.functions[name] = integrate
-        return sympy.Function(name)(lower, upper, *free)
+        return apply(sympy.Function(name), lower, upper, *free)
 
 
 # -- the bound form ------------------------------------------------------------------------------
@@ -1427,9 +1443,9 @@ class BoundForm:
         if output not in self._outputs:
             expr, guards = self.machine.output(self.frame, output)
             self.machine.resolve_conventions()
-            needed = set(expr.free_symbols)
+            needed = free_symbols(expr)
             for _, condition in guards:
-                needed |= condition.free_symbols
+                needed |= free_symbols(condition)
             blocks = tuple(b for b in self.frame.blocks if set(b.unknowns) & needed)
             self._outputs[output] = _Prepared(
                 expr, tuple(guards), blocks, tuple(sorted(needed, key=str))
@@ -1586,11 +1602,11 @@ class BoundForm:
         return {name: np.asarray(next(iter(held))) for name, held in found.items() if len(held) == 1}
 
     def _guard(self, condition: sympy.Basic) -> _Guard:
-        symbols = tuple(sorted(condition.free_symbols, key=str))
+        symbols = tuple(sorted(free_symbols(condition), key=str))
         return _Guard(symbols, self._compile(symbols, condition))
 
     def _output(self, expr: sympy.Expr) -> _Output:
-        symbols = tuple(sorted(expr.free_symbols, key=str))
+        symbols = tuple(sorted(free_symbols(expr), key=str))
         return _Output(symbols, self._compile(symbols, expr))
 
     def _solve(

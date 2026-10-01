@@ -7,11 +7,31 @@
 @id("01a0e18b78db742e8fd36e1308c99e5c") use math @"1.0.0";
 @id("01a0e18b78db742e8fd36e14a5a5f8b3") use caloric @"1.0.0";
 @id("01a0e18b78db742e8fd36e155522a7b8") use pure_properties @"1.0.0";
-@id("74a301a092ad413bb5de501ccd67ffb5") fn pressure_difference_unit()->DeltaPressure=1{Pa};
-@id("56a9a222e4c048fc8c76aa9017ae3413") fn component_flow_unit()->ComponentFlow=1{mol/s};
-@id("4695e4aa4fc843eba60c3a122a932b9c") fn flow_unit()->Flow=1{mol/s};
+@id("80c9e2e7b2f9423486c77cd23fc44b47") use provenance @"1.0.0";
+// Bubble-pressure contributions use absolute vacuum so their raw weighted sum
+// is unchanged even away from normalized composition.
+@id("a9146c49e0a74c10a71a82f2ef54c7db") entity provenance.source vacuum_pressure_reference {title="Absolute vacuum pressure origin for the authored ideal bubble-pressure sum, preserving unnormalized-composition behavior"}
+@id("c0e8731764714986aca8a36a1600d4ef") constant vacuum_pressure:Pressure=0{Pa} provenance(vacuum_pressure_reference,provenance.Role.published);
 @id("01a0e18b78db742e8fd36e16de242b6d") fn fraction_unit()->MoleFraction=1{1};
-@id("01a0e1ad3a7f706c8439ef48ad021285") fn log_fugacity(x:MoleFraction,pure_fugacity:Pressure)->Scalar=log(x/fraction_unit())+log(pure_fugacity/constants.pressure_unit);
+@id("b0bc90741e1446589273c37652e20d88") fn component_log_fugacity(x:MoleFraction,ln_phi:LogFugacityCoefficient)->LogComponentFugacity=log(x)+ln_phi;
+@id("270e9b28d7cc49a987b3f859e1147837") entity provenance.source ideal_fugacity_reference {title="Ideal component fugacity logarithm relative to 1 Pa; mole fraction relative to one, preserving the authored equilibrium convention"}
+@id("7519b1d0bd914351bc3096797908ea38") coordinate map ideal_fugacity_coordinates(x:MoleFraction,pure_fugacity:Pressure) valid(x>0{1} and pure_fugacity>0{Pa}) {
+@id("fbde6c9f40d64a91b88b3630fbd9403a") slot composition=x/fraction_unit();
+@id("836ff321b70848f5a65c4b5f7c1b542b") slot pressure=pure_fugacity/constants.pressure_unit;
+}
+@id("d0888a0cbbaa44f99f4e0b5d50f303a2") reconstruction ideal_component_log_fugacity for ideal_fugacity_coordinates(x:MoleFraction,pure_fugacity:Pressure)->LogComponentFugacity reference ideal_fugacity_reference=1;
+@id("15ab6999e510429b8158d6a1f8909e4a") fn reduced_log_fugacity(composition:Coordinate<ideal_fugacity_coordinates.composition>,pressure:Coordinate<ideal_fugacity_coordinates.pressure>)->Reduced<ideal_component_log_fugacity>=log(composition)+log(pressure);
+@id("01a0e1ad3a7f706c8439ef48ad021285") fn log_fugacity(x:MoleFraction,pure_fugacity:Pressure)->LogComponentFugacity=reconstruct(ideal_component_log_fugacity,reduced_log_fugacity,x,pure_fugacity);
+// Ideal-mixture entropy relative to the supplied pressure origin, retaining the
+// authored positive-composition logarithmic convention.
+@id("ce112172f8534d0cbfdd29507c4f480b") entity provenance.source ideal_entropy_reference {title="Ideal-gas pressure and ideal-mixture entropy increment R*(ln(p/p0)+sum(x*ln(x))) at the supplied pressure reference"}
+@id("eb2a8a3cb8d34101bcb0f056e5084c6d") coordinate map ideal_entropy_coordinates(p:Pressure,p0:Pressure,x:MoleFraction[chemistry.species],members:Set<chemistry.species>) valid(p>0{Pa} and p0>0{Pa} and sum(j in members | if x[j]>0{1} then 0 else 1)==0) {
+@id("f6aa38dc63ee47c19440e7d43940cdb7") slot pressure_ratio=p/p0;
+@id("84dca65899dc4bb5a499962807da8e74") slot weights[j in members]=x[j]/fraction_unit();
+}
+@id("a6b0baadc14a403b9e5c3abbfebeca63") reconstruction ideal_entropy for ideal_entropy_coordinates(p:Pressure,p0:Pressure,x:MoleFraction[chemistry.species],members:Set<chemistry.species>)->DeltaS reference ideal_entropy_reference=constants.gas_constant;
+@id("811e47145d154c56892ae4603674b836") fn ideal_entropy_reduced(pressure_ratio:Coordinate<ideal_entropy_coordinates.pressure_ratio>,weights:Coordinate<ideal_entropy_coordinates.weights>[chemistry.species],members:Set<chemistry.species>)->Reduced<ideal_entropy> =log(pressure_ratio)+sum(j in members | weights[j]*log(weights[j]));
+@id("23dfe7f65a774ea3bd55a29ccca659f4") fn ideal_entropy_increment(p:Pressure,p0:Pressure,x:MoleFraction[chemistry.species],members:Set<chemistry.species>)->DeltaS=reconstruct(ideal_entropy,ideal_entropy_reduced,p,p0,x,members);
 @id("01a0e18b78db742e8fd36e17b5a6be89") interface MaterialState {
 @id("01a0e1db89d8722baac398bf7f110f21") param defined:Boolean=true;
 @id("01a0e18b78db742e8fd36e18c7e3ae74") param components:Set<chemistry.species>;
@@ -53,7 +73,7 @@
 @id("01a0e18b78db742e8fd36e2f9415a08c") var bubble:Temperature;
 @id("01a0e18b78db742e8fd36e30344c517f") var dew:Temperature;
 @id("01a0e18b78db742e8fd36e310fe29b12") var equilibrium_temperature:Temperature;
-@id("01a0e18b78db742e8fd36e326c35c691") eq bubble_point:sum(j in components | z[j]/fraction_unit()*(psat(bubble,j)/constants.pressure_unit))==pressure/constants.pressure_unit;
+@id("01a0e18b78db742e8fd36e326c35c691") eq bubble_point:sum(j in components | (z[j]/fraction_unit())*(psat(bubble,j)-vacuum_pressure))==pressure-vacuum_pressure;
 @id("01a0e18b78db742e8fd36e33e2347c1d") eq dew_point:sum(j in components | z[j]/fraction_unit()*(pressure/psat(dew,j)))==1;
 @id("01a0e18b78db742e8fd36e34de742536") eq equilibrium_temperature_binding:equilibrium_temperature==math.smooth_min(math.smooth_max(T,bubble,epsilon_bubble),dew,epsilon_dew);
 @id("01a0e19bbec57004aabdabb974cf6de8") let initial_K[j in components]:Scalar=psat(T,j)/pressure;

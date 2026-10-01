@@ -16,7 +16,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import psycopg
-from psycopg import sql
 
 from thermo_knowledge.verify.checks import Check
 
@@ -87,9 +86,10 @@ def _text(value: object) -> str:
     return "" if value is None else str(value)
 
 
-def _over(check: Check, template: str, **parameters: sql.Composable) -> sql.Composable:
-    """`template` with `{query}` replaced by the check's query."""
-    return sql.SQL(template).format(query=sql.SQL(check.query + "\n"), **parameters)
+def _over(check: Check, before: str, after: str) -> bytes:
+    """The check's query between `before` and `after`: its text comes from a declared check file,
+    not from a value, so it is passed as encoded text (a `psycopg` query given as bytes)."""
+    return f"{before}{check.query}\n{after}".encode()
 
 
 def run_check(conn: psycopg.Connection, check: Check, *, shown: int = SHOWN) -> CheckResult:
@@ -98,19 +98,15 @@ def run_check(conn: psycopg.Connection, check: Check, *, shown: int = SHOWN) -> 
     try:
         with conn.transaction(force_rollback=True):
             if check.setup:
-                conn.execute(check.setup)  # type: ignore[call-overload]
-            described = conn.execute(_over(check, "SELECT * FROM ({query}) AS v LIMIT 0"))
+                conn.execute(check.setup.encode())
+            described = conn.execute(_over(check, "SELECT * FROM (", ") AS v LIMIT 0"))
             columns = tuple(column.name for column in described.description or ())
             if "id" not in columns:
                 return CheckResult(check, 0, columns, error="the query returns no `id` column")
-            counted = conn.execute(_over(check, "SELECT count(*) FROM ({query}) AS v")).fetchone()
+            counted = conn.execute(_over(check, "SELECT count(*) FROM (", ") AS v")).fetchone()
             assert counted is not None
             rows = conn.execute(
-                _over(
-                    check,
-                    'SELECT * FROM ({query}) AS v ORDER BY "id" LIMIT {limit}',
-                    limit=sql.Literal(shown),
-                )
+                _over(check, "SELECT * FROM (", f') AS v ORDER BY "id" LIMIT {shown}')
             ).fetchall()
     except psycopg.Error as error:
         return CheckResult(check, 0, error=str(error).strip())

@@ -8,7 +8,6 @@
 @id("01a0ee04daaa77568ef4eee61460448c") use chemistry @"1.0.0";
 @id("01a0e1b4f60e71eab3418874249719e8") use equilibrium @"1.0.0";
 @id("01a0e1b4f60e71eab341887593cd8c35") use peng_robinson @"1.0.0";
-@id("01a0e1b4f60e71eab341887694f214e0") use helmholtz @"1.0.0";
 @id("01a0e1b4f60e71eab341887787200a43") use caloric @"1.0.0";
 @id("01a0e1b4f60e71eab34188786b191015") use pure_properties @"1.0.0";
 @id("01a0eeced80374ab83c0818e557e8e92") use math @"1.0.0";
@@ -131,14 +130,14 @@
 @id("01a0e1b4f60e71eab34188e8d1d85a76") annotation bounds vapor.target_pressure(50000{Pa},200000{Pa});
 @id("01a0e1b4f60e71eab34188e9485a0824") annotation bounds vapor.amount(1e-10{mol},1{mol});
 @id("01a0e1b4f60e71eab34188ea618c7e44") override eq bubble_point:sum(j in components | bubble_vapor[j]/equilibrium.fraction_unit())==1;
-@id("01a0e1b4f60e71eab34188eb04902430") eq bubble_fugacity[j in components]:log(z[j]/equilibrium.fraction_unit())+bubble_liquid.ln_phi[j]==log(bubble_vapor[j]/equilibrium.fraction_unit())+bubble_gas.ln_phi[j];
+@id("01a0e1b4f60e71eab34188eb04902430") eq bubble_fugacity[j in components]:equilibrium.component_log_fugacity(z[j],bubble_liquid.ln_phi[j])==equilibrium.component_log_fugacity(bubble_vapor[j],bubble_gas.ln_phi[j]);
 @id("01a0e1b4f60e71eab34188ec68ced640") override eq dew_point:sum(j in components | dew_liquid[j]/equilibrium.fraction_unit())==1;
-@id("01a0e1b4f60e71eab34188edf8406654") eq dew_fugacity[j in components]:log(dew_liquid[j]/equilibrium.fraction_unit())+dew_condensate.ln_phi[j]==log(z[j]/equilibrium.fraction_unit())+dew_vapor.ln_phi[j];
-@id("01a0e1b4f60e71eab34188eea2200d0a") override eq fugacity[j in components]:log(x[j]/equilibrium.fraction_unit())+eq_liquid.ln_phi[j]==log(y[j]/equilibrium.fraction_unit())+eq_vapor.ln_phi[j];
+@id("01a0e1b4f60e71eab34188edf8406654") eq dew_fugacity[j in components]:equilibrium.component_log_fugacity(dew_liquid[j],dew_condensate.ln_phi[j])==equilibrium.component_log_fugacity(z[j],dew_vapor.ln_phi[j]);
+@id("01a0e1b4f60e71eab34188eea2200d0a") override eq fugacity[j in components]:equilibrium.component_log_fugacity(x[j],eq_liquid.ln_phi[j])==equilibrium.component_log_fugacity(y[j],eq_vapor.ln_phi[j]);
 @id("01a0e1b4f60e71eab34188ef8f05e6d1") override let h_liquid:MolarEnthalpy=constants.standard_enthalpy_datum+sum(j in components | (x[j]/equilibrium.fraction_unit())*(liquid_enthalpy(T,j)-constants.standard_enthalpy_datum))+liquid.h_residual;
-@id("01a0e1b4f60e71eab34188f0a5751f23") let s_liquid:MolarEntropy=constants.standard_entropy_datum+sum(j in components | (x[j]/equilibrium.fraction_unit())*(ideal_entropy(T,j)-constants.standard_entropy_datum))+liquid.s_residual-constants.entropy_increment_unit*helmholtz.reduced_gas_constant()*(log(pressure/constants.standard_pressure)+sum(j in components | (x[j]/equilibrium.fraction_unit())*log(x[j]/equilibrium.fraction_unit())));
+@id("01a0e1b4f60e71eab34188f0a5751f23") let s_liquid:MolarEntropy=constants.standard_entropy_datum+sum(j in components | (x[j]/equilibrium.fraction_unit())*(ideal_entropy(T,j)-constants.standard_entropy_datum))+liquid.s_residual-equilibrium.ideal_entropy_increment(pressure,constants.standard_pressure,x,components);
 @id("01a0e1b4f60e71eab34188f1d78b3b6f") override let h_vapor:MolarEnthalpy=constants.standard_enthalpy_datum+sum(j in components | (y[j]/equilibrium.fraction_unit())*(vapor_enthalpy(T,j)-constants.standard_enthalpy_datum))+vapor.h_residual;
-@id("01a0e1b4f60e71eab34188f29b90d9e7") let s_vapor:MolarEntropy=constants.standard_entropy_datum+sum(j in components | (y[j]/equilibrium.fraction_unit())*(ideal_entropy(T,j)-constants.standard_entropy_datum))+vapor.s_residual-constants.entropy_increment_unit*helmholtz.reduced_gas_constant()*(log(pressure/constants.standard_pressure)+sum(j in components | (y[j]/equilibrium.fraction_unit())*log(y[j]/equilibrium.fraction_unit())));
+@id("01a0e1b4f60e71eab34188f29b90d9e7") let s_vapor:MolarEntropy=constants.standard_entropy_datum+sum(j in components | (y[j]/equilibrium.fraction_unit())*(ideal_entropy(T,j)-constants.standard_entropy_datum))+vapor.s_residual-equilibrium.ideal_entropy_increment(pressure,constants.standard_pressure,y,components);
 }
 @id("01a0eeced80374ab83c0819051f61a80") def ComplementarityPR(selected:Set<chemistry.species>,vapor_pressure:Fn(T:Temperature,j:chemistry.species)->Pressure,minimum:Temperature,maximum:Temperature,bubble:Temperature,dew:Temperature,epsilon:Scalar=0.0001,pkg:properties.property_package,law:Fn(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy,family:cubic.cubic_family=cubic.pr):nested_equilibrium.FlashSplit {
 @id("01a0eeced80374ab83c081916b461427") override param components:Set<chemistry.species>=selected;
@@ -180,7 +179,7 @@
 @id("01a0eeced80374ab83c081b5e028dd8d") annotation bounds eq_vapor.T(minimum_temperature,maximum_temperature);
 @id("01a0eeced80374ab83c081b60a0d7124") annotation bounds eq_vapor.target_pressure(50000{Pa},200000{Pa});
 @id("01a0eeced80374ab83c081b77296ee5d") annotation bounds eq_vapor.amount(1e-10{mol},1{mol});
-@id("01a0eeced80374ab83c081b80d4f5d73") eq fugacity[j in components]:log(liquid[j]/equilibrium.fraction_unit())+eq_liquid.ln_phi[j]==log(vapor[j]/equilibrium.fraction_unit())+eq_vapor.ln_phi[j];
+@id("01a0eeced80374ab83c081b80d4f5d73") eq fugacity[j in components]:equilibrium.component_log_fugacity(liquid[j],eq_liquid.ln_phi[j])==equilibrium.component_log_fugacity(vapor[j],eq_vapor.ln_phi[j]);
 @id("01a0eeced80374ab83c081b96288cccb") complements liquid_disappearance:(liquid_slack>=0,liquid_fraction>=0);
 @id("01a0eeced80374ab83c081baf7f8d84b") complements vapor_disappearance:(vapor_slack>=0,fraction>=0);
 @id("01a0eeced80374ab83c081bb38312bec") realize liquid_realization on liquid_disappearance using smooth(math.smooth_min,epsilon);

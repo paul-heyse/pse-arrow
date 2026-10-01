@@ -2156,6 +2156,498 @@
           "den": 1
         }
       ]
+    },
+    {
+      "quantity_kind_id": "b2cc3e5cb3924b01b522a913bc02016e",
+      "name": "log_fugacity_coefficient",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "extensive": false,
+      "addition_kind": "additive",
+      "doc": "Distinct component LogFugacityCoefficient scientific response; dimension equality does not confer interchangeability."
+    },
+    {
+      "quantity_kind_id": "9b37d8534f9d4909aebf4f4aa5709209",
+      "name": "log_activity_coefficient",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "extensive": false,
+      "addition_kind": "additive",
+      "doc": "Distinct component LogActivityCoefficient scientific response; dimension equality does not confer interchangeability."
+    },
+    {
+      "quantity_kind_id": "7adc20302bcd4d5e86ae855fe533bd16",
+      "name": "gibbs_duhem_residual",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "extensive": false,
+      "addition_kind": "additive",
+      "doc": "Distinct component GibbsDuhemResidual scientific response; dimension equality does not confer interchangeability."
+    },
+    {
+      "quantity_kind_id": "4b5ef512c59648839e2934d77f224fc1",
+      "name": "fugacity_coefficient",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "extensive": false,
+      "addition_kind": "additive",
+      "doc": "Distinct component FugacityCoefficient scientific response; dimension equality does not confer interchangeability."
+    },
+    {
+      "quantity_kind_id": "74411a3b3b0849c6b65e4429836132d0",
+      "name": "activity_coefficient",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "extensive": false,
+      "addition_kind": "additive",
+      "doc": "Distinct component ActivityCoefficient scientific response; dimension equality does not confer interchangeability."
+    },
+    {
+      "quantity_kind_id": "534c4cdfb967436c9c9a62a480e34331",
+      "name": "mechanical_energy",
+      "dimension": [
+        {
+          "num": 2,
+          "den": 1
+        },
+        {
+          "num": 1,
+          "den": 1
+        },
+        {
+          "num": -2,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "extensive": true,
+      "addition_kind": "additive",
+      "doc": "Explicit mechanical_energy physical meaning; no implicit dimension-only conversion."
+    },
+    {
+      "quantity_kind_id": "507ff8dafed34a23a774b25128b8352e",
+      "name": "log_component_fugacity",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "extensive": false,
+      "addition_kind": "additive",
+      "doc": "Explicit log_component_fugacity physical meaning; no implicit dimension-only conversion."
+    },
+    {
+      "quantity_kind_id": "f1b753f6d1704af5ac65fc5ed6bd7baf",
+      "name": "reduced_gibbs_contribution",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "extensive": false,
+      "addition_kind": "additive",
+      "doc": "Explicit reduced_gibbs_contribution physical meaning; no implicit dimension-only conversion."
+    },
+    {
+      "quantity_kind_id": "01ba5608f6944413be2576007852c43f",
+      "name": "reduced_gibbs_energy",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "extensive": false,
+      "addition_kind": "additive",
+      "doc": "Explicit reduced_gibbs_energy physical meaning; no implicit dimension-only conversion."
+    },
+    {
+      "quantity_kind_id": "2ff3bf9329ea4f0fa089dd933531131a",
+      "name": "component_energy_flow",
+      "dimension": [
+        {
+          "num": 2,
+          "den": 1
+        },
+        {
+          "num": 1,
+          "den": 1
+        },
+        {
+          "num": -3,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "extensive": true,
+      "addition_kind": "additive",
+      "doc": "Explicit component_energy_flow physical meaning; no implicit dimension-only conversion."
+    },
+    {
+      "quantity_kind_id": "8d23403e0c3242ac840b13996865cd1c",
+      "name": "fugacity_weighted_fraction",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "extensive": false,
+      "addition_kind": "additive",
+      "doc": "Explicit fugacity_weighted_fraction physical meaning; no implicit dimension-only conversion."
+    },
+    {
+      "quantity_kind_id": "20ac832a0e81493c9b8a9f0530529834",
+      "name": "phase_stability_ratio",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "extensive": false,
+      "addition_kind": "additive",
+      "doc": "Explicit phase_stability_ratio physical meaning; no implicit dimension-only conversion."
     }
   ],
   "quantity_operations": [
@@ -4903,6 +5395,584 @@
         "05fbd094e80f491db004a209049d718b",
         "df25eb9dc90042d596ad2e1bb74fb6b1"
       ]
+    },
+    {
+      "operation_id": "5c50835b15874bf18d06dc89e928a192",
+      "opcode": "Exp",
+      "input_kind_ids": [
+        "b2cc3e5cb3924b01b522a913bc02016e"
+      ],
+      "result_kind_id": "4b5ef512c59648839e2934d77f224fc1",
+      "basis_rule": "require_equal",
+      "reference_rule": "require_equal",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "require_equal",
+      "subject_source": null,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": []
+    },
+    {
+      "operation_id": "a131e4af29b34dfaaf0bc22e1e311712",
+      "opcode": "Exp",
+      "input_kind_ids": [
+        "9b37d8534f9d4909aebf4f4aa5709209"
+      ],
+      "result_kind_id": "74411a3b3b0849c6b65e4429836132d0",
+      "basis_rule": "require_equal",
+      "reference_rule": "require_equal",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "require_equal",
+      "subject_source": null,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": []
+    },
+    {
+      "operation_id": "c59af8afd531491ba5d780e971a0111a",
+      "opcode": "SumOver",
+      "input_kind_ids": [
+        "4ae5c1106e204702a2fe6cb653624850"
+      ],
+      "result_kind_id": "4ae5c1106e204702a2fe6cb653624850",
+      "basis_rule": "declared_result",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "reduce_bound_index",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "declared_result",
+      "subject_source": null,
+      "result_subject_kind": null,
+      "result_basis_id": "04d4600b17cbfb717ec549e688ea3503",
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "72f8503ee4fb46abba6224d6b6ef4945"
+      ]
+    },
+    {
+      "operation_id": "7d60f9a913fc4d9ebf3eafccf8a447e5",
+      "opcode": "Mul",
+      "input_kind_ids": [
+        "c9f5ceb86a0c4842b220055099696f74",
+        "f789180fbded8b11fd73e2436d33fc9e"
+      ],
+      "result_kind_id": "534c4cdfb967436c9c9a62a480e34331",
+      "basis_rule": "declared_result",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "declared_result",
+      "subject_source": null,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "151e8f44fab5418c9f39edc7800d1fa0",
+        "83b4a7b084bb464984d2f354c637900d"
+      ]
+    },
+    {
+      "operation_id": "6bfd8d1abde84d5fbfda9f21704aa604",
+      "opcode": "Mul",
+      "input_kind_ids": [
+        "c9f5ceb86a0c4842b220055099696f74",
+        "f789180fbded8b11fd73e2436d33fc9e"
+      ],
+      "result_kind_id": "534c4cdfb967436c9c9a62a480e34331",
+      "basis_rule": "declared_result",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "declared_result",
+      "subject_source": null,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "2753e650d4db4c44832cee1d9d7c9f6c",
+        "b5b61749c05b43b1a0fabc13964f8f99"
+      ]
+    },
+    {
+      "operation_id": "790751e4d0604a08aec488412f903ae2",
+      "opcode": "Sub",
+      "input_kind_ids": [
+        "172d45499cbd4d8bbabc6c02c2a0f56b",
+        "534c4cdfb967436c9c9a62a480e34331"
+      ],
+      "result_kind_id": "172d45499cbd4d8bbabc6c02c2a0f56b",
+      "basis_rule": "declared_result",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "declared_result",
+      "subject_source": null,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": "ebfd9ee6148d4c6497d47099a39e0bfa",
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "6ae2820bef3940c39c66dbecd3291ecb",
+        "bf365448ab504101bcd07e953606a3c3"
+      ]
+    },
+    {
+      "operation_id": "2c540bb3ed74411ba851f890d46e65ea",
+      "opcode": "Mul",
+      "input_kind_ids": [
+        "4ae5c1106e204702a2fe6cb653624850",
+        "99263c30741ca81f1c4c3d4b987d4085"
+      ],
+      "result_kind_id": "172d45499cbd4d8bbabc6c02c2a0f56b",
+      "basis_rule": "declared_result",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "declared_result",
+      "subject_source": null,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": "ebfd9ee6148d4c6497d47099a39e0bfa",
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "b0d7d37e34b54ae1b80aa1135abcad19",
+        "98432e2d5b76479f85bb5073645e3121"
+      ]
+    },
+    {
+      "operation_id": "49b6321de7bc455fb63416082283c5a6",
+      "opcode": "Mul",
+      "input_kind_ids": [
+        "89a563673835109d4c3a68d4603bab31",
+        "99263c30741ca81f1c4c3d4b987d4085"
+      ],
+      "result_kind_id": "65af5b931e46425f8e5797144491640e",
+      "basis_rule": "declared_result",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "declared_result",
+      "subject_source": null,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": "ebfd9ee6148d4c6497d47099a39e0bfa",
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "b5c3c016549f4604a36d15653a1776e9",
+        "9f02c4a57ea9436aa1fe60e4f7c12a6a"
+      ]
+    },
+    {
+      "operation_id": "9dbdd064fbab4afd8417a6cb5f1b58e2",
+      "opcode": "Sub",
+      "input_kind_ids": [
+        "65af5b931e46425f8e5797144491640e",
+        "f789180fbded8b11fd73e2436d33fc9e"
+      ],
+      "result_kind_id": "65af5b931e46425f8e5797144491640e",
+      "basis_rule": "declared_result",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "declared_result",
+      "subject_source": null,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": "ebfd9ee6148d4c6497d47099a39e0bfa",
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "8b3ae7cd38d04293862c0a75a5af28f4",
+        "da1e4932387a4bf9bbfcbfe6f7654254"
+      ]
+    },
+    {
+      "operation_id": "1123639938ac48398a396026c4a7b0b5",
+      "opcode": "Div",
+      "input_kind_ids": [
+        "4ae5c1106e204702a2fe6cb653624850",
+        "89a563673835109d4c3a68d4603bab31"
+      ],
+      "result_kind_id": "c9f5ceb86a0c4842b220055099696f74",
+      "basis_rule": "declared_result",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "declared_result",
+      "subject_source": null,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "e559cc08e7c04f6fb3f5c5355dfa5be4",
+        "3f2c21c4428f4f90a5f0f0e0aa470def"
+      ]
+    },
+    {
+      "operation_id": "d008d2ee07674b9db4621dc8f940ee57",
+      "opcode": "Div",
+      "input_kind_ids": [
+        "4ae5c1106e204702a2fe6cb653624850",
+        "4ae5c1106e204702a2fe6cb653624850"
+      ],
+      "result_kind_id": "8f4371dab851e04c2bca4625159cdfca",
+      "basis_rule": "declared_result",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "declared_result",
+      "subject_source": null,
+      "result_subject_kind": "1c998211e5d74955863f377662f56526",
+      "result_basis_id": "04d4600b17cbfb717ec549e688ea3503",
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "77b992299e95465aa2647129a8f64a12",
+        "fec70f3e02c24899abf042e4f81a1206"
+      ]
+    },
+    {
+      "operation_id": "eb32e141006d4ff29baf03e70e8c081c",
+      "opcode": "Add",
+      "input_kind_ids": [
+        "223e3a3419af1afad5ca8d61823beec1",
+        "b2cc3e5cb3924b01b522a913bc02016e"
+      ],
+      "result_kind_id": "507ff8dafed34a23a774b25128b8352e",
+      "basis_rule": "declared_result",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "declared_result",
+      "subject_source": null,
+      "result_subject_kind": "1c998211e5d74955863f377662f56526",
+      "result_basis_id": null,
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "e8e35fce2943456298ef56d5fa10fc89",
+        "378dbb5633104e659b7e77de7dc507c5"
+      ]
+    },
+    {
+      "operation_id": "c3e451b0389b4783b859e43359a46f55",
+      "opcode": "Mul",
+      "input_kind_ids": [
+        "8f4371dab851e04c2bca4625159cdfca",
+        "507ff8dafed34a23a774b25128b8352e"
+      ],
+      "result_kind_id": "f1b753f6d1704af5ac65fc5ed6bd7baf",
+      "basis_rule": "declared_result",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "declared_result",
+      "subject_source": null,
+      "result_subject_kind": "1c998211e5d74955863f377662f56526",
+      "result_basis_id": null,
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "9242966282844bd999ded4659c513b1e",
+        "b4e2cd0b16584808a96921bb6537e923"
+      ]
+    },
+    {
+      "operation_id": "61fdc642d6264e3a864c97b98b0ad309",
+      "opcode": "SumOver",
+      "input_kind_ids": [
+        "f1b753f6d1704af5ac65fc5ed6bd7baf"
+      ],
+      "result_kind_id": "01ba5608f6944413be2576007852c43f",
+      "basis_rule": "declared_result",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "reduce_bound_index",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "declared_result",
+      "subject_source": null,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "019a3d42098241b796703d1b63dc5d0a"
+      ]
+    },
+    {
+      "operation_id": "6014284373f5428696b1eff35f121be0",
+      "opcode": "Div",
+      "input_kind_ids": [
+        "9ed4576374b1809385f72b1f33d17ee6",
+        "a2b5006844e3f6b70dd5d84bcabf5f46"
+      ],
+      "result_kind_id": "8f4371dab851e04c2bca4625159cdfca",
+      "basis_rule": "declared_result",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "declared_result",
+      "subject_source": null,
+      "result_subject_kind": "1c998211e5d74955863f377662f56526",
+      "result_basis_id": "04d4600b17cbfb717ec549e688ea3503",
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "91155246112a4db590a338157a70e837",
+        "5715f7cf2c564c9c9d27d23cc014413b"
+      ]
+    },
+    {
+      "operation_id": "54c2c686230542f6b02d1d8fb48ceb99",
+      "opcode": "Mul",
+      "input_kind_ids": [
+        "9ed4576374b1809385f72b1f33d17ee6",
+        "99263c30741ca81f1c4c3d4b987d4085"
+      ],
+      "result_kind_id": "2ff3bf9329ea4f0fa089dd933531131a",
+      "basis_rule": "declared_result",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "declared_result",
+      "subject_source": null,
+      "result_subject_kind": "1c998211e5d74955863f377662f56526",
+      "result_basis_id": null,
+      "result_reference_state_id": "ebfd9ee6148d4c6497d47099a39e0bfa",
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "430b35083a284d8f8cb816b6644ffb47",
+        "2e8de6cd45a1437f910749756695ca30"
+      ]
+    },
+    {
+      "operation_id": "73d7a7b82a71435bb2ba044e8dcbd4a4",
+      "opcode": "SumOver",
+      "input_kind_ids": [
+        "2ff3bf9329ea4f0fa089dd933531131a"
+      ],
+      "result_kind_id": "05408163cb6c117e9a1bc4a2cfe35cd2",
+      "basis_rule": "declared_result",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "reduce_bound_index",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "declared_result",
+      "subject_source": null,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": "ebfd9ee6148d4c6497d47099a39e0bfa",
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "cbd63f6604fe441fa0a9ef406ceef7aa"
+      ]
+    },
+    {
+      "operation_id": "cc22cdfacb9f480eaca6d9eff1db184e",
+      "opcode": "Mul",
+      "input_kind_ids": [
+        "8f4371dab851e04c2bca4625159cdfca",
+        "4b5ef512c59648839e2934d77f224fc1"
+      ],
+      "result_kind_id": "8d23403e0c3242ac840b13996865cd1c",
+      "basis_rule": "declared_result",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "declared_result",
+      "subject_source": null,
+      "result_subject_kind": "1c998211e5d74955863f377662f56526",
+      "result_basis_id": "04d4600b17cbfb717ec549e688ea3503",
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "ff52c725d14b4800b35fee8cfc4c45c9",
+        "d9e783c04e0d4e48a4a0ebaabbda72f2"
+      ]
+    },
+    {
+      "operation_id": "0c6d07ef2cce40dab8035b87f45a5cec",
+      "opcode": "SumOver",
+      "input_kind_ids": [
+        "8d23403e0c3242ac840b13996865cd1c"
+      ],
+      "result_kind_id": "20ac832a0e81493c9b8a9f0530529834",
+      "basis_rule": "declared_result",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "reduce_bound_index",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "declared_result",
+      "subject_source": null,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "50761cb97ce1494d85620f359ae5a9e1"
+      ]
+    },
+    {
+      "operation_id": "9473cc2228664e60afa421a35df7a81b",
+      "opcode": "Sub",
+      "input_kind_ids": [
+        "b2cc3e5cb3924b01b522a913bc02016e",
+        "b2cc3e5cb3924b01b522a913bc02016e"
+      ],
+      "result_kind_id": "b2cc3e5cb3924b01b522a913bc02016e",
+      "basis_rule": "declared_result",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "declared_result",
+      "subject_source": null,
+      "result_subject_kind": "1c998211e5d74955863f377662f56526",
+      "result_basis_id": null,
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "87367617a3e2466dab41229307ce4021",
+        "7a10b17730d24f24ab2305292f16d6a0"
+      ]
+    },
+    {
+      "operation_id": "0c532d7b69bb436b85ff4dcdecd49ad2",
+      "opcode": "Div",
+      "input_kind_ids": [
+        "89a563673835109d4c3a68d4603bab31",
+        "89a563673835109d4c3a68d4603bab31"
+      ],
+      "result_kind_id": "8f4371dab851e04c2bca4625159cdfca",
+      "basis_rule": "declared_result",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "declared_result",
+      "subject_source": null,
+      "result_subject_kind": "1c998211e5d74955863f377662f56526",
+      "result_basis_id": "04d4600b17cbfb717ec549e688ea3503",
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "0c5d436768d947349257acdb60021e23",
+        "70ffc203ba154fc696666d7c6bf46b53"
+      ]
+    },
+    {
+      "operation_id": "79e2e461d96948348d7f18fd7724ebb9",
+      "opcode": "Mul",
+      "input_kind_ids": [
+        "c9f5ceb86a0c4842b220055099696f74",
+        "89a563673835109d4c3a68d4603bab31"
+      ],
+      "result_kind_id": "4ae5c1106e204702a2fe6cb653624850",
+      "basis_rule": "declared_result",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "declared_result",
+      "subject_source": null,
+      "result_subject_kind": null,
+      "result_basis_id": "04d4600b17cbfb717ec549e688ea3503",
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "9a0e7b0c397e42eba317b7650f9ef90d",
+        "185ac33b8b8040c9a3d898a98d61c29c"
+      ]
     }
   ],
   "quantity_types": [
@@ -5054,7 +6124,8 @@
       "subject_kind": "1c998211e5d74955863f377662f56526",
       "canonical_unit_id": "cd44727295e77c03f21ac3117e36df23",
       "nominal_magnitude": null,
-      "doc": "Complete physical contract; origin, basis, subject and shape are explicit."
+      "doc": "Complete physical contract; origin, basis, subject and shape are explicit.",
+      "name": "LogMoleFraction"
     },
     {
       "quantity_type_id": "b6edcb08fc072d81a9f99b45f7f9c90a",
@@ -6148,7 +7219,8 @@
       "subject_kind": "1fe263f6a81d4a9fb4584520b4dd4a0b",
       "canonical_unit_id": "cd44727295e77c03f21ac3117e36df23",
       "nominal_magnitude": null,
-      "doc": "Explicit indexed Element projection; source count and kg/mol molecular weight are revalidated."
+      "doc": "Explicit indexed Element projection; source count and kg/mol molecular weight are revalidated.",
+      "name": "ElementCountPerSpecies"
     },
     {
       "quantity_type_id": "bd1e715f0b004da285a65c8f9eac4b6e",
@@ -6596,6 +7668,162 @@
       "canonical_unit_id": "7f8505e26f9ca348b58b483a017de526",
       "nominal_magnitude": null,
       "doc": "Datum-free residual caloric increment; the scientific response retains its selected reconstructed potential."
+    },
+    {
+      "quantity_type_id": "c983c6b77eeb44e197fdcf9f34ce461f",
+      "name": "LogFugacityCoefficient",
+      "quantity_kind_id": "b2cc3e5cb3924b01b522a913bc02016e",
+      "basis_id": null,
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": "1c998211e5d74955863f377662f56526",
+      "canonical_unit_id": "cd44727295e77c03f21ac3117e36df23",
+      "nominal_magnitude": null,
+      "doc": "Species-bound LogFugacityCoefficient; datum-free and dimensionless, with its own admitted scientific meaning."
+    },
+    {
+      "quantity_type_id": "d366cac2936d496ca1afde2208935c87",
+      "name": "LogActivityCoefficient",
+      "quantity_kind_id": "9b37d8534f9d4909aebf4f4aa5709209",
+      "basis_id": null,
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": "1c998211e5d74955863f377662f56526",
+      "canonical_unit_id": "cd44727295e77c03f21ac3117e36df23",
+      "nominal_magnitude": null,
+      "doc": "Species-bound LogActivityCoefficient; datum-free and dimensionless, with its own admitted scientific meaning."
+    },
+    {
+      "quantity_type_id": "4e8329ec1a414415888d59b634f7d24f",
+      "name": "GibbsDuhemResidual",
+      "quantity_kind_id": "7adc20302bcd4d5e86ae855fe533bd16",
+      "basis_id": null,
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": "1c998211e5d74955863f377662f56526",
+      "canonical_unit_id": "cd44727295e77c03f21ac3117e36df23",
+      "nominal_magnitude": null,
+      "doc": "Species-bound GibbsDuhemResidual; datum-free and dimensionless, with its own admitted scientific meaning."
+    },
+    {
+      "quantity_type_id": "2fe8c4c487f945818c7c3d26ed1b6d53",
+      "name": "FugacityCoefficient",
+      "quantity_kind_id": "4b5ef512c59648839e2934d77f224fc1",
+      "basis_id": null,
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": "1c998211e5d74955863f377662f56526",
+      "canonical_unit_id": "cd44727295e77c03f21ac3117e36df23",
+      "nominal_magnitude": null,
+      "doc": "Species-bound FugacityCoefficient; datum-free and dimensionless, with its own admitted scientific meaning."
+    },
+    {
+      "quantity_type_id": "9bed766af3b64de8a93e85019719e8f0",
+      "name": "ActivityCoefficient",
+      "quantity_kind_id": "74411a3b3b0849c6b65e4429836132d0",
+      "basis_id": null,
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": "1c998211e5d74955863f377662f56526",
+      "canonical_unit_id": "cd44727295e77c03f21ac3117e36df23",
+      "nominal_magnitude": null,
+      "doc": "Species-bound ActivityCoefficient; datum-free and dimensionless, with its own admitted scientific meaning."
+    },
+    {
+      "quantity_type_id": "aebcd023287241a0bd2103fe00346179",
+      "name": "MechanicalEnergy",
+      "quantity_kind_id": "534c4cdfb967436c9c9a62a480e34331",
+      "basis_id": null,
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "94e71aed4ef8d26cd686cf578884d940",
+      "nominal_magnitude": null,
+      "doc": "Declared mechanical_energy contract."
+    },
+    {
+      "quantity_type_id": "e3cd9c431f0f49f8b0bc85614165b1db",
+      "name": "LogComponentFugacity",
+      "quantity_kind_id": "507ff8dafed34a23a774b25128b8352e",
+      "basis_id": null,
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": "1c998211e5d74955863f377662f56526",
+      "canonical_unit_id": "cd44727295e77c03f21ac3117e36df23",
+      "nominal_magnitude": null,
+      "doc": "Declared log_component_fugacity contract."
+    },
+    {
+      "quantity_type_id": "3d707ad88b5c4b0e8ed41b5474a52a68",
+      "name": "ReducedGibbsContribution",
+      "quantity_kind_id": "f1b753f6d1704af5ac65fc5ed6bd7baf",
+      "basis_id": null,
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": "1c998211e5d74955863f377662f56526",
+      "canonical_unit_id": "cd44727295e77c03f21ac3117e36df23",
+      "nominal_magnitude": null,
+      "doc": "Declared reduced_gibbs_contribution contract."
+    },
+    {
+      "quantity_type_id": "a05f1563e6a3435da105d1ef933768ad",
+      "name": "ReducedGibbsEnergy",
+      "quantity_kind_id": "01ba5608f6944413be2576007852c43f",
+      "basis_id": null,
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "cd44727295e77c03f21ac3117e36df23",
+      "nominal_magnitude": null,
+      "doc": "Declared reduced_gibbs_energy contract."
+    },
+    {
+      "quantity_type_id": "659d3d1cbc754426918f41b5d8cb7dca",
+      "name": "ComponentEnergyFlow",
+      "quantity_kind_id": "2ff3bf9329ea4f0fa089dd933531131a",
+      "basis_id": null,
+      "reference_state_id": "ebfd9ee6148d4c6497d47099a39e0bfa",
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": "1c998211e5d74955863f377662f56526",
+      "canonical_unit_id": "34207cdbb6fab2ee10002e057595c758",
+      "nominal_magnitude": null,
+      "doc": "Declared component_energy_flow contract."
+    },
+    {
+      "quantity_type_id": "52e25e300f4f4e2caf16202bf4ed59a4",
+      "name": "FugacityWeightedFraction",
+      "quantity_kind_id": "8d23403e0c3242ac840b13996865cd1c",
+      "basis_id": "04d4600b17cbfb717ec549e688ea3503",
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": "1c998211e5d74955863f377662f56526",
+      "canonical_unit_id": "cd44727295e77c03f21ac3117e36df23",
+      "nominal_magnitude": null,
+      "doc": "Declared fugacity_weighted_fraction contract."
+    },
+    {
+      "quantity_type_id": "ed8655ab68b1435aa720d1d9e41964ce",
+      "name": "PhaseStabilityRatio",
+      "quantity_kind_id": "20ac832a0e81493c9b8a9f0530529834",
+      "basis_id": null,
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "cd44727295e77c03f21ac3117e36df23",
+      "nominal_magnitude": null,
+      "doc": "Declared phase_stability_ratio contract."
     }
   ],
   "reference_states": [
@@ -9274,6 +10502,366 @@
       "required_basis_id": null,
       "required_quantity_type_id": "3a8f6d2c9b1e4f7a8c5d0e3b6a9f2c18",
       "match_shape": false
+    },
+    {
+      "invariant_id": "72f8503ee4fb46abba6224d6b6ef4945",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "12c45d05b6a64dd2ac6eb2f06ec816b1",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "151e8f44fab5418c9f39edc7800d1fa0",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "0a5c3c4563964c8389c72e4344aed80e",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "83b4a7b084bb464984d2f354c637900d",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        1
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "a0fa145fd8b2ecec448c39666960debc",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "2753e650d4db4c44832cee1d9d7c9f6c",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "0a5c3c4563964c8389c72e4344aed80e",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "b5b61749c05b43b1a0fabc13964f8f99",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        1
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "d3e8173d5c454d8b94388323bb7f05c2",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "6ae2820bef3940c39c66dbecd3291ecb",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "95a63d951afd459b9af1ef6bc6d53185",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "bf365448ab504101bcd07e953606a3c3",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        1
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "aebcd023287241a0bd2103fe00346179",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "b0d7d37e34b54ae1b80aa1135abcad19",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "67cd93d093514a2e9f3f01c7519435d7",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "98432e2d5b76479f85bb5073645e3121",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        1
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "d5bb3d48b9804f2f8d5a6f0a7cadaee8",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "b5c3c016549f4604a36d15653a1776e9",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "b6edcb08fc072d81a9f99b45f7f9c90a",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "9f02c4a57ea9436aa1fe60e4f7c12a6a",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        1
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "d5bb3d48b9804f2f8d5a6f0a7cadaee8",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "8b3ae7cd38d04293862c0a75a5af28f4",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "e4af547ff9774ed9b71a903c86b43aea",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "da1e4932387a4bf9bbfcbfe6f7654254",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        1
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "d3e8173d5c454d8b94388323bb7f05c2",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "e559cc08e7c04f6fb3f5c5355dfa5be4",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "67cd93d093514a2e9f3f01c7519435d7",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "3f2c21c4428f4f90a5f0f0e0aa470def",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        1
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "b6edcb08fc072d81a9f99b45f7f9c90a",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "77b992299e95465aa2647129a8f64a12",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "12c45d05b6a64dd2ac6eb2f06ec816b1",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "fec70f3e02c24899abf042e4f81a1206",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        1
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "67cd93d093514a2e9f3f01c7519435d7",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "e8e35fce2943456298ef56d5fa10fc89",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "a37400111065e4e8233dd19eede0e608",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "378dbb5633104e659b7e77de7dc507c5",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        1
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "c983c6b77eeb44e197fdcf9f34ce461f",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "9242966282844bd999ded4659c513b1e",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "4f842bb63da53a798dca2764c2c64ece",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "b4e2cd0b16584808a96921bb6537e923",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        1
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "e3cd9c431f0f49f8b0bc85614165b1db",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "019a3d42098241b796703d1b63dc5d0a",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "3d707ad88b5c4b0e8ed41b5474a52a68",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "91155246112a4db590a338157a70e837",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "8ce2f0977877ae56c3712f710201be89",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "5715f7cf2c564c9c9d27d23cc014413b",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        1
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "6df479e3be3bda77c5938727311f1063",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "430b35083a284d8f8cb816b6644ffb47",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "8ce2f0977877ae56c3712f710201be89",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "2e8de6cd45a1437f910749756695ca30",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        1
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "1831d0d72dc74b299ba8ecb6d4da6f53",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "cbd63f6604fe441fa0a9ef406ceef7aa",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "659d3d1cbc754426918f41b5d8cb7dca",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "ff52c725d14b4800b35fee8cfc4c45c9",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "4f842bb63da53a798dca2764c2c64ece",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "d9e783c04e0d4e48a4a0ebaabbda72f2",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        1
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "2fe8c4c487f945818c7c3d26ed1b6d53",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "50761cb97ce1494d85620f359ae5a9e1",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "52e25e300f4f4e2caf16202bf4ed59a4",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "87367617a3e2466dab41229307ce4021",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "c983c6b77eeb44e197fdcf9f34ce461f",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "7a10b17730d24f24ab2305292f16d6a0",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        1
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "c983c6b77eeb44e197fdcf9f34ce461f",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "0c5d436768d947349257acdb60021e23",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "39bebc51897c494a9f7f84bf3962cb0e",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "70ffc203ba154fc696666d7c6bf46b53",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        1
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "b6edcb08fc072d81a9f99b45f7f9c90a",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "9a0e7b0c397e42eba317b7650f9ef90d",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "0a5c3c4563964c8389c72e4344aed80e",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "185ac33b8b8040c9a3d898a98d61c29c",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        1
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "b6edcb08fc072d81a9f99b45f7f9c90a",
+      "match_shape": false
     }
   ],
   "quantity_operation_reductions": [
@@ -9283,6 +10871,22 @@
     },
     {
       "operation_id": "01a0e1d9b0257478868a5b866b5b1e4a",
+      "domain_kind": "1c998211e5d74955863f377662f56526"
+    },
+    {
+      "operation_id": "c59af8afd531491ba5d780e971a0111a",
+      "domain_kind": "1c998211e5d74955863f377662f56526"
+    },
+    {
+      "operation_id": "61fdc642d6264e3a864c97b98b0ad309",
+      "domain_kind": "1c998211e5d74955863f377662f56526"
+    },
+    {
+      "operation_id": "73d7a7b82a71435bb2ba044e8dcbd4a4",
+      "domain_kind": "1c998211e5d74955863f377662f56526"
+    },
+    {
+      "operation_id": "0c6d07ef2cce40dab8035b87f45a5cec",
       "domain_kind": "1c998211e5d74955863f377662f56526"
     }
   ]

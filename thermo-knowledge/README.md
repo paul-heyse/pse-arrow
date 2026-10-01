@@ -6,7 +6,7 @@ domain model and consolidation into one PostgreSQL database, `pse_thermo`.
 
 The tree is standalone. It imports, depends on and modifies no production code (`crates/`,
 `python/pse`, `packages/`, `xtask/`), is not a member of the root uv project, and has its own
-Python 3.12 environment, lock, lint and test configuration. The root lint and type-check
+Python 3.14.7 environment, lock, lint, type-check (`pyrefly.toml`) and test configuration. The root lint and type-check
 configuration excludes it.
 
 **No third-party data is committed.** The store (`.store/`: raw sources, staged and canonical
@@ -23,6 +23,7 @@ directory, `just <recipe>`. Every recipe runs in `thermo-knowledge/.venv`.
 | `tk-sync` | create or refresh the locked environment |
 | `tk-lock` | resolve dependencies and update `uv.lock` |
 | `tk-test [args]` | run pytest |
+| `tk-types [args]` | type check `src/` and `tests/` with pyrefly (`pyrefly.toml`) |
 | `tk-db-bootstrap` | create `pse_thermo` if missing (peer authentication over the Unix socket, no sudo) |
 | `tk-db-status` | server version, database, user and schemas |
 | `tk <subcommand>` | run the stage CLI (`tk --help`) |

@@ -33,6 +33,10 @@ tk-lock:
 tk-test *args:
     unset VIRTUAL_ENV; uv run --project {{ quote(tree) }} --locked pytest "$@"
 
+[doc('Type check src/ and tests/ with pyrefly (pyrefly.toml); arguments go to pyrefly check')]
+tk-types *args:
+    unset VIRTUAL_ENV; uv run --project {{ quote(tree) }} --locked pyrefly check --min-severity warn "$@"
+
 [doc('Create the pse_thermo database if missing (peer authentication, no sudo); idempotent')]
 tk-db-bootstrap:
     unset VIRTUAL_ENV; uv run --project {{ quote(tree) }} --locked tk db bootstrap

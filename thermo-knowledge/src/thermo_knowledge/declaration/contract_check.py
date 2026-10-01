@@ -26,10 +26,10 @@ class _Report:
         self.found: list[Diagnostic] = []
 
     def add(self, module: str | None, construct: str, required_by: str, message: str) -> None:
-        known = module is not None and module in self.decl.modules
+        owner = self.decl.modules.get(module) if module is not None else None
         self.found.append(
             Diagnostic(
-                document=self.decl.modules[module].document if known else CONTRACT_DOCUMENT,  # type: ignore[index]
+                document=owner.document if owner is not None else CONTRACT_DOCUMENT,
                 construct=construct,
                 code=Code.PIPELINE_CONTRACT,
                 message=f"{message} (required by the pipeline contract, {required_by})",

@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import re
 import uuid
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Generator, Iterator, Mapping, Sequence
 from contextlib import AbstractContextManager, contextmanager, nullcontext
 from dataclasses import dataclass, field
 
@@ -362,6 +362,8 @@ class RunContext[E]:
             return None
         if rule.text_unit and not isinstance(raw, str):
             assert rule.unit is not None  # validated: a default has its unit
+            if not isinstance(raw, (int, float)):
+                raise RowHeld("not_a_number", f"{row.table}.{column}: {raw!r} is not a number")
             self._use(row, column, rule)
             return Quantity(float(raw), rule.unit)
         if rule.text_unit and isinstance(raw, str):
@@ -624,7 +626,7 @@ class RunContext[E]:
         raise NotImplementedError
 
     @contextmanager
-    def emit(self, row: SourceRow, *also: SourceRow) -> Iterator[E]:
+    def emit(self, row: SourceRow, *also: SourceRow) -> Generator[E]:
         """One unit of work whose records come from `row` (and `also`)."""
         if self._block is not None:
             raise MappingError("emit blocks do not nest")
@@ -724,7 +726,7 @@ class IdentityContext(RunContext["IdentityEmitter"]):
         self._declared: dict[tuple[str, str], claims.EntityClaim] = {}
 
     @contextmanager
-    def _unit(self) -> Iterator[None]:
+    def _unit(self) -> Generator[None]:
         marks = (
             len(self.entities),
             len(self.assertions),

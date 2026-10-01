@@ -23,6 +23,22 @@
 @id("8f5112417b6d446c9c880acc3ab3dc21") constant rate_constant_unit:SecondOrderRateConstant=1{m^3/(mol*s)} provenance(constants.codata_2018,provenance.Role.published);
 @id("0f63d0648159494e928778796900676c") constant volumetric_rate_unit:VolumetricReactionRate=1{mol/(m^3*s)} provenance(constants.codata_2018,provenance.Role.published);
 @id("0201ef420b6245c3bb829f0fac6abe19") constant concentration_unit:MolarDensity=1{mol/m^3} provenance(constants.codata_2018,provenance.Role.published);
-@id("48b4c403b28d43ada0242571d0e29c12") fn arrhenius(T:Temperature,s:arrhenius_second_order)->SecondOrderRateConstant valid(T>constants.absolute_zero)=s.k0*exp(-(s.E/activation_energy_unit)/((constants.gas_constant/constants.gas_constant_unit)*(T/constants.temperature_scale)));
-@id("6abaf0468a334fbab91a337422c7200b") fn second_order(T:Temperature,a:MolarDensity,b:MolarDensity,s:arrhenius_second_order)->VolumetricReactionRate valid(a>=0{mol/m^3} and b>=0{mol/m^3})=volumetric_rate_unit*(s.rate_constant(T,s)/rate_constant_unit)*(a/concentration_unit)*(b/concentration_unit);
+// Physical arguments and selected reaction data enter explicit scientific coordinate maps.
+// Unit-valued constants normalize slots and reconstruct rates only at these declared boundaries.
+@id("2517d5a821844603b650ffbd8e167867") entity provenance.source arrhenius_reference {title="Arrhenius second-order rate constant: selected prefactor times exp(-activation energy/(R*T)); unit constants define only the declared reduced coordinates"}
+@id("cf991a250cac4d8fb80a1649f6e3c6e0") entity provenance.source second_order_reference {title="Second-order reaction rate: selected reaction rate constant times its first and second species concentrations; reconstruction assigns the selected reaction amount-rate convention"}
+@id("21d59f1f81414ee48418aafcbc5876f2") coordinate map arrhenius_coordinates(T:Temperature,s:arrhenius_second_order) valid(T>constants.absolute_zero) {
+@id("816f175e571a4dd1abc06e07de874ea9") slot exponent=-(s.E/activation_energy_unit)/((constants.gas_constant/constants.gas_constant_unit)*(T/constants.temperature_scale));
+}
+@id("4eb508a96fe74a05be16b206376cb411") reconstruction arrhenius_rate for arrhenius_coordinates(T:Temperature,s:arrhenius_second_order)->SecondOrderRateConstant reference arrhenius_reference=s.k0;
+@id("bdb7973e88cd4f56b10d35292a621207") fn reduced_arrhenius(exponent:Coordinate<arrhenius_coordinates.exponent>,s:arrhenius_second_order)->Reduced<arrhenius_rate>=exp(exponent);
+@id("61d5117c87514797a5c468506a3eba02") coordinate map second_order_coordinates(T:Temperature,a:MolarDensity,b:MolarDensity,s:arrhenius_second_order) valid(a>=0{mol/m^3} and b>=0{mol/m^3}) {
+@id("31bdfa6c240f40339f1a259d9b9fa0b8") slot coefficient=s.rate_constant(T,s)/rate_constant_unit;
+@id("554b30e092644f6bb8ec626163933d7c") slot first=a/concentration_unit;
+@id("126ee62445f142968bbc7779ba4c8102") slot second=b/concentration_unit;
+}
+@id("c9464539b4fb4ccf8097ce33a539d9a1") reconstruction second_order_rate for second_order_coordinates(T:Temperature,a:MolarDensity,b:MolarDensity,s:arrhenius_second_order)->VolumetricReactionRate reference second_order_reference=volumetric_rate_unit;
+@id("5e1433f6db4a4a5788f40ca3e93d1b98") fn reduced_second_order(coefficient:Coordinate<second_order_coordinates.coefficient>,first:Coordinate<second_order_coordinates.first>,second:Coordinate<second_order_coordinates.second>,s:arrhenius_second_order)->Reduced<second_order_rate>=coefficient*first*second;
+@id("48b4c403b28d43ada0242571d0e29c12") fn arrhenius(T:Temperature,s:arrhenius_second_order)->SecondOrderRateConstant valid(T>constants.absolute_zero)=reconstruct(arrhenius_rate,reduced_arrhenius,T,s);
+@id("6abaf0468a334fbab91a337422c7200b") fn second_order(T:Temperature,a:MolarDensity,b:MolarDensity,s:arrhenius_second_order)->VolumetricReactionRate valid(a>=0{mol/m^3} and b>=0{mol/m^3})=reconstruct(second_order_rate,reduced_second_order,T,a,b,s);
 }

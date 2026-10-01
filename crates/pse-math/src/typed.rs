@@ -2,6 +2,9 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Physical admission precedes library normalization at every construction boundary.
+#[path = "typed_witness.rs"]
+mod witness;
+pub use witness::ScientificWitness;
 #[path = "typed_external.rs"]
 mod external;
 #[path = "typed_partial.rs"]
@@ -59,44 +62,11 @@ impl TypedValue {
     }
 }
 
-/// One maximal product, quotient and exact-power subtree of admitted operands, typed as
-/// a whole (ADR-0124). Each node keeps its source occurrence for domain diagnostics.
-#[derive(Clone, Debug)]
-pub enum ChainTree {
-    /// An admitted factor.
-    Leaf(TypedValue),
-    /// Ordered product.
-    Mul(Box<ChainTree>, Box<ChainTree>, SemanticId),
-    /// Ordered quotient; the divisor acquires a nonzero requirement.
-    Div(Box<ChainTree>, Box<ChainTree>, SemanticId),
-    /// Exact rational power of a subtree.
-    Pow {
-        /// The base subtree.
-        base: Box<ChainTree>,
-        /// The exact exponent fact.
-        exponent: Ratio,
-        /// The admitted exponent value, which must equal the fact.
-        power: TypedValue,
-        /// Source occurrence.
-        source: SemanticId,
-    },
-}
-impl ChainTree {
-    fn check_degrees(&self) -> Result<(), MathError> {
-        match self {
-            Self::Leaf(_) => Ok(()),
-            Self::Mul(left, right, _) | Self::Div(left, right, _) => {
-                left.check_degrees()?;
-                right.check_degrees()
-            }
-            Self::Pow { base, exponent, .. } => {
-                if exponent.den() == 1 && exponent.num().unsigned_abs() > 1024 {
-                    return Err(MathError::Limit("integral power degree"));
-                }
-                base.check_degrees()
-            }
-        }
+fn check_power_degree(exponent: Ratio) -> Result<(), MathError> {
+    if exponent.den() == 1 && exponent.num().unsigned_abs() > 1024 {
+        return Err(MathError::Limit("integral power degree"));
     }
+    Ok(())
 }
 
 /// Source arithmetic distinction retained until physical inference has completed.
@@ -151,6 +121,7 @@ pub struct FunctionScope(usize);
 pub struct DomainAssumption(Option<usize>);
 
 /// A single specialization's typed construction context, never a model-wide graph.
+#[derive(Clone)]
 pub struct BodyBuilder<'a> {
     context: &'a crate::SymbolicContext,
     registry: &'a QuantityRegistry,
@@ -274,6 +245,38 @@ impl<'a> BodyBuilder<'a> {
         self.admissions.push(result.clone());
         Ok(result)
     }
+    /// Consume a checker-owned operation without reconstructing physical algebra.
+    /// The exact operand check prevents an admission from being replayed after a change
+    /// of representation, subject, datum, axes or bound-index identity.
+    fn consume_admission(
+        &mut self,
+        admission: ResolvedInference,
+        args: &[&TypedValue],
+    ) -> Result<ResolvedInference, MathError> {
+        self.tick()?;
+        if admission.operands.len() != args.len()
+            || admission
+                .operands
+                .iter()
+                .zip(args)
+                .any(|(expected, actual)| expected != &actual.quantity)
+        {
+            return Err(MathError::Contract(
+                "checked operation operands differ from lowering occurrence".into(),
+            ));
+        }
+        if !admission.conversions.is_empty() {
+            return Err(MathError::Contract(
+                "physical input conversion requires an explicit model operation".into(),
+            ));
+        }
+        self.admissions.push(admission.clone());
+        Ok(admission)
+    }
+    /// Read the currently scoped declaration-owned formula authority for specialization.
+    pub fn physical_formula_authority(&self) -> Option<&pse_quantity::PhysicalFormulaAuthority> {
+        self.formula_authority.as_ref()
+    }
     fn result(
         &mut self,
         request: OpRequest<'_>,
@@ -338,7 +341,7 @@ impl<'a> BodyBuilder<'a> {
     }
     /// Versioned identity of the admitted physical operation stream.
     pub fn admission_identity(&self) -> pse_ids::ContentHash {
-        let mut hash = pse_ids::FramedHasher::new(pse_ids::Frame::MathResolvedAdmissionsV1);
+        let mut hash = pse_ids::FramedHasher::new(pse_ids::Frame::MathResolvedAdmissionsV2);
         self.frame_admissions(&mut hash);
         hash.finish_hash()
     }
@@ -599,6 +602,32 @@ impl<'a> BodyBuilder<'a> {
             self.checker,
         )?;
         self.admissions.push(admission.clone());
+        self.partial_checked(scope, value, arguments, admission, source)
+    }
+    /// Differentiate a checked physical occurrence without recomputing its contract.
+    pub fn partial_admitted(
+        &mut self,
+        scope: FunctionScope,
+        value: TypedValue,
+        arguments: &[TypedValue],
+        admission: ResolvedInference,
+        source: SemanticId,
+    ) -> Result<TypedValue, MathError> {
+        let operands = std::iter::once(&value).chain(arguments).collect::<Vec<_>>();
+        let admission = self.consume_admission(admission, &operands)?;
+        self.partial_checked(scope, value, arguments, admission, source)
+    }
+    fn partial_checked(
+        &mut self,
+        scope: FunctionScope,
+        value: TypedValue,
+        arguments: &[TypedValue],
+        admission: ResolvedInference,
+        source: SemanticId,
+    ) -> Result<TypedValue, MathError> {
+        if arguments.is_empty() || arguments.len() > 8 || scope.0 > self.stages.len() {
+            return Err(MathError::Limit("function partial order or scope"));
+        }
         let quantity = admission.result;
         let scale = admission.result_scale;
         if !self.physical_only
@@ -686,10 +715,7 @@ impl<'a> BodyBuilder<'a> {
         });
         Ok(slot)
     }
-    /// Admit ordered physical arithmetic, then normalize with Symbolica. A product,
-    /// quotient or exact power is typed as a (two-factor) multiplicative chain
-    /// (ADR-0124); a caller lowering a larger product passes the whole subtree to
-    /// [`Self::chain`].
+    /// Admit one ordered physical arithmetic operation, then normalize with Symbolica.
     /// # Errors
     /// Incompatible physical contracts or unsupported real power facts.
     pub fn binary(
@@ -712,32 +738,18 @@ impl<'a> BodyBuilder<'a> {
         let admission = self.admit(request, &[&left, &right])?;
         self.combine(op, left, right, exponent, admission, source)
     }
-    /// Construct a chain node by node, consuming each node's own admitted contract.
-    pub fn chain(&mut self, tree: ChainTree) -> Result<TypedValue, MathError> {
-        tree.check_degrees()?;
-        match tree {
-            ChainTree::Leaf(value) => Ok(value),
-            ChainTree::Mul(left, right, source) => {
-                let op = Binary::Mul;
-                let left = self.chain(*left)?;
-                let right = self.chain(*right)?;
-                self.binary(op, left, right, None, source)
-            }
-            ChainTree::Div(left, right, source) => {
-                let left = self.chain(*left)?;
-                let right = self.chain(*right)?;
-                self.binary(Binary::Div, left, right, None, source)
-            }
-            ChainTree::Pow {
-                base,
-                exponent,
-                power,
-                source,
-            } => {
-                let base = self.chain(*base)?;
-                self.binary(Binary::Pow, base, power, Some(exponent), source)
-            }
-        }
+    /// Lower one binary occurrence using the concrete admission supplied by checking.
+    pub fn binary_admitted(
+        &mut self,
+        op: Binary,
+        left: TypedValue,
+        right: TypedValue,
+        exponent: Option<Ratio>,
+        admission: ResolvedInference,
+        source: SemanticId,
+    ) -> Result<TypedValue, MathError> {
+        let admission = self.consume_admission(admission, &[&left, &right])?;
+        self.combine(op, left, right, exponent, admission, source)
     }
     /// Build one node from its retained physical admission.
     fn combine(
@@ -749,6 +761,11 @@ impl<'a> BodyBuilder<'a> {
         admission: ResolvedInference,
         source: SemanticId,
     ) -> Result<TypedValue, MathError> {
+        if op == Binary::Pow
+            && let Some(exponent) = exponent
+        {
+            check_power_degree(exponent)?;
+        }
         let quantity = admission.result;
         let indices = quantity.indices().clone();
         for (value, scale) in [&mut left, &mut right]
@@ -843,13 +860,33 @@ impl<'a> BodyBuilder<'a> {
         value: TypedValue,
         source: SemanticId,
     ) -> Result<TypedValue, MathError> {
-        let (quantity, indices) = self.result(OpRequest::Neg, &[&value])?;
+        let admission = self.admit(OpRequest::Neg, &[&value])?;
+        self.negate_checked(value, admission, source)
+    }
+    /// Lower unary negation from its occurrence-owned admission.
+    pub fn negate_admitted(
+        &mut self,
+        value: TypedValue,
+        admission: ResolvedInference,
+        source: SemanticId,
+    ) -> Result<TypedValue, MathError> {
+        let admission = self.consume_admission(admission, &[&value])?;
+        self.negate_checked(value, admission, source)
+    }
+    fn negate_checked(
+        &mut self,
+        value: TypedValue,
+        admission: ResolvedInference,
+        source: SemanticId,
+    ) -> Result<TypedValue, MathError> {
+        let quantity = admission.result;
+        let indices = quantity.indices().clone();
         Ok(TypedValue {
             effects: value.effects.clone(),
             atom: if self.physical_only {
                 Atom::num(0)
             } else {
-                -value.atom
+                -value.atom * Atom::num(admission.operand_scales[0] * admission.result_scale)
             },
             quantity,
             indices,
@@ -862,7 +899,7 @@ impl<'a> BodyBuilder<'a> {
     pub fn unary(
         &mut self,
         function: Function,
-        mut value: TypedValue,
+        value: TypedValue,
         source: SemanticId,
     ) -> Result<TypedValue, MathError> {
         let crate::Implementation::Unary(function) = function.implementation() else {
@@ -880,6 +917,32 @@ impl<'a> BodyBuilder<'a> {
             Unary::Cos => OpRequest::Transcendental(Opcode::Cos),
         };
         let admission = self.admit(request, &[&value])?;
+        self.unary_checked(function, value, admission, source)
+    }
+    /// Lower a primitive function from its retained physical operation.
+    pub fn unary_admitted(
+        &mut self,
+        function: Function,
+        value: TypedValue,
+        admission: ResolvedInference,
+        source: SemanticId,
+    ) -> Result<TypedValue, MathError> {
+        let crate::Implementation::Unary(function) = function.implementation() else {
+            return Err(MathError::Contract(
+                "function needs a distinct admitted constructor".into(),
+            ));
+        };
+        let admission = self.consume_admission(admission, &[&value])?;
+        self.unary_checked(function, value, admission, source)
+    }
+    fn unary_checked(
+        &mut self,
+        function: crate::UnaryFunction,
+        mut value: TypedValue,
+        admission: ResolvedInference,
+        source: SemanticId,
+    ) -> Result<TypedValue, MathError> {
+        use crate::UnaryFunction as Unary;
         let quantity = admission.result;
         let indices = quantity.indices().clone();
         if admission.operand_scales[0] != 1.0 {
@@ -1267,48 +1330,65 @@ impl<'a> BodyBuilder<'a> {
         &mut self,
         kind: pse_quantity::ReductionKind,
         domain: Option<pse_quantity::EntityKindId>,
-        prototype: QuantityTypeId,
+        prototype: &ResolvedPhysicalContract,
         terms: &[TypedValue],
         source: SemanticId,
     ) -> Result<TypedValue, MathError> {
-        let indices = IndexSet::new();
-        self.tick()?;
-        let inferred = infer::infer_with_evidence(
+        let admission = pse_quantity::resolved::infer_in_context(
             &OpRequest::FiniteReduce { kind, domain },
-            &[Operand {
-                quantity_type: prototype,
-                indices: &indices,
-            }],
+            std::slice::from_ref(prototype),
+            None,
             self.registry,
             self.checker,
+            self.formula_authority.as_ref(),
         )?;
-        if !inferred.conversions.is_empty() {
+        self.finite_reduce_admitted(kind, prototype, terms, admission, source)
+    }
+    /// Enumerated reduction consumes the independently checked prototype operation.
+    pub fn finite_reduce_admitted(
+        &mut self,
+        kind: pse_quantity::ReductionKind,
+        prototype: &ResolvedPhysicalContract,
+        terms: &[TypedValue],
+        admission: ResolvedInference,
+        source: SemanticId,
+    ) -> Result<TypedValue, MathError> {
+        let prototype_value = TypedValue {
+            quantity: prototype.clone(),
+            indices: IndexSet::new(),
+            atom: Atom::num(0),
+            effects: BTreeSet::new(),
+            source,
+        };
+        let admission = self.consume_admission(admission, &[&prototype_value])?;
+        if !prototype.indices().is_empty() {
             return Err(MathError::Contract(
-                "finite reduction conversion requires an explicit model operation".into(),
+                "finite reduction prototype retains free indices".into(),
             ));
         }
-        for term in terms {
-            pse_quantity::admission::require_same_contract(
-                prototype,
-                term.quantity()?,
-                self.registry,
-            )?;
-            if !term.indices.is_empty() {
-                return Err(MathError::Contract(
-                    "finite reduction cell retains free indices".into(),
-                ));
-            }
-        }
+        let terms = terms
+            .iter()
+            .map(|term| {
+                if !term.indices.is_empty() {
+                    return Err(MathError::Contract(
+                        "finite reduction cell retains free indices".into(),
+                    ));
+                }
+                self.contract_boundary(term.clone(), prototype)
+            })
+            .collect::<Result<Vec<_>, _>>()?;
         let atom = if self.physical_only {
             Atom::num(0)
         } else {
             match kind {
-                pse_quantity::ReductionKind::Sum => terms
-                    .iter()
-                    .fold(Atom::num(0), |sum, term| sum + &term.atom),
-                pse_quantity::ReductionKind::Prod => terms
-                    .iter()
-                    .fold(Atom::num(1), |product, term| product * &term.atom),
+                pse_quantity::ReductionKind::Sum => terms.iter().fold(Atom::num(0), |sum, term| {
+                    sum + &term.atom * Atom::num(admission.operand_scales[0])
+                }),
+                pse_quantity::ReductionKind::Prod => {
+                    terms.iter().fold(Atom::num(1), |product, term| {
+                        product * &term.atom * Atom::num(admission.operand_scales[0])
+                    })
+                }
                 _ => {
                     return Err(MathError::Contract(
                         "finite source reduction requires sum or product".into(),
@@ -1317,13 +1397,9 @@ impl<'a> BodyBuilder<'a> {
             }
         };
         Ok(TypedValue {
-            atom,
-            quantity: ResolvedPhysicalContract::named(
-                inferred.result,
-                indices.clone(),
-                self.registry,
-            )?,
-            indices: inferred.indices,
+            atom: atom * Atom::num(admission.result_scale),
+            indices: admission.result.indices().clone(),
+            quantity: admission.result,
             source,
             effects: terms
                 .iter()
@@ -1343,7 +1419,31 @@ impl<'a> BodyBuilder<'a> {
         terms: &[TypedValue],
         source: SemanticId,
     ) -> Result<TypedValue, MathError> {
-        let (quantity, indices) = self.result(OpRequest::Reduce { kind, bound }, &[prototype])?;
+        let admission = self.admit(OpRequest::Reduce { kind, bound }, &[prototype])?;
+        self.reduce_checked(kind, prototype, terms, admission, source)
+    }
+    /// Lower a bound-index reduction using the actual binder's retained admission.
+    pub fn reduce_admitted(
+        &mut self,
+        kind: pse_quantity::ReductionKind,
+        prototype: &TypedValue,
+        terms: &[TypedValue],
+        admission: ResolvedInference,
+        source: SemanticId,
+    ) -> Result<TypedValue, MathError> {
+        let admission = self.consume_admission(admission, &[prototype])?;
+        self.reduce_checked(kind, prototype, terms, admission, source)
+    }
+    fn reduce_checked(
+        &mut self,
+        kind: pse_quantity::ReductionKind,
+        prototype: &TypedValue,
+        terms: &[TypedValue],
+        admission: ResolvedInference,
+        source: SemanticId,
+    ) -> Result<TypedValue, MathError> {
+        let quantity = admission.result;
+        let indices = quantity.indices().clone();
         for term in terms {
             if !prototype.quantity.same_meaning(&term.quantity) {
                 return Err(MathError::Contract(

@@ -3,7 +3,7 @@
 
 # Side environments
 
-Most sources are read in the tree's core Python 3.12 environment (`thermo-knowledge/.venv`).
+Most sources are read in the tree's core Python 3.14 environment (`thermo-knowledge/.venv`).
 Three groups of libraries cannot live there because their constraints conflict with it, so each
 has its own locked environment. They serve two purposes only:
 

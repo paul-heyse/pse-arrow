@@ -11,6 +11,7 @@ use pse_ids::SemanticId;
 fn admitted(text: &str) -> Result<CheckedPackage> {
     let (registry, _) = physical();
     let context = TypeContext {
+        admissions: None,
         formula_authority: None,
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
@@ -27,6 +28,7 @@ fn refusal(text: &str) -> String {
 fn specialized(text: &str) -> Result<SpecializedModel> {
     let (registry, _) = physical();
     let context = TypeContext {
+        admissions: None,
         formula_authority: None,
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,

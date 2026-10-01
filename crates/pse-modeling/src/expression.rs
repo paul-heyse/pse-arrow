@@ -2,6 +2,8 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Source expression checking; executable arithmetic remains in pse-math.
+pub mod admission;
+
 use crate::{
     DeclarationId, Result,
     check::CheckedPackage,
@@ -164,14 +166,23 @@ fn rational(e: &Expr) -> Option<Ratio> {
     }
 }
 fn physical_op(
+    expression: &Expr,
     request: OpRequest<'_>,
     values: &[Scheme],
     context: &TypeContext<'_>,
     at: DeclarationId,
 ) -> Result<Option<Type>> {
     if values.iter().any(|value| !value.is_closed()) {
+        if let Some(recorder) = context.admissions {
+            recorder.record(
+                expression,
+                at,
+                admission::PhysicalAdmission::checked(&request, values.to_vec(), None, at)?,
+            )?;
+        }
         return Ok(None);
     }
+    let schemes = values.to_vec();
     let values = values
         .iter()
         .map(|value| {
@@ -193,6 +204,13 @@ fn physical_op(
         context.formula_authority.as_ref(),
     )
     .map_err(|error| invalid(at, error.to_string()))?;
+    if let Some(recorder) = context.admissions {
+        recorder.record(
+            expression,
+            at,
+            admission::PhysicalAdmission::checked(&request, schemes, Some(admitted.clone()), at)?,
+        )?;
+    }
     Ok(Some(Type::Quantity(Scheme::from_contract(admitted.result))))
 }
 /// A product, a quotient or an exact power belongs to a multiplicative chain.
@@ -207,6 +225,23 @@ pub(crate) fn chain_operation(op: BinaryOp, rhs: &Expr) -> bool {
 /// # Errors
 /// Undefined references, physical mismatch, invalid arguments or unsupported semantics.
 pub fn infer(
+    expr: &Expr,
+    env: &BTreeMap<String, Type>,
+    p: &CheckedPackage,
+    context: &TypeContext<'_>,
+    at: DeclarationId,
+    expected: Option<&Type>,
+) -> Result<Type> {
+    if let Some(recorder) = context.admissions {
+        recorder.enter(expr);
+    }
+    let result = infer_expression(expr, env, p, context, at, expected);
+    if let Some(recorder) = context.admissions {
+        recorder.leave();
+    }
+    result
+}
+fn infer_expression(
     expr: &Expr,
     env: &BTreeMap<String, Type>,
     p: &CheckedPackage,
@@ -239,8 +274,8 @@ pub fn infer(
                 at,
             )?;
             let a = scheme(&ty, at)?;
-            let result =
-                physical_op(OpRequest::Neg, std::slice::from_ref(&a), context, at)?.unwrap_or(q(a));
+            let result = physical_op(expr, OpRequest::Neg, std::slice::from_ref(&a), context, at)?
+                .unwrap_or(q(a));
             Ok(with_physical_refinement(result, refinement))
         }
         ExprKind::Binary { op, lhs, rhs } => {
@@ -289,7 +324,7 @@ pub fn infer(
             let refinement =
                 crate::contextual::arithmetic_refinement(&request, &[left, right], context, at)?;
             let operands = vec![a.clone(), b.clone()];
-            if let Some(ty) = physical_op(request, &operands, context, at)? {
+            if let Some(ty) = physical_op(expr, request, &operands, context, at)? {
                 return Ok(with_physical_refinement(ty, refinement));
             }
             let neutral = context
@@ -355,7 +390,7 @@ pub fn infer(
             }
             let refinement =
                 crate::contextual::arithmetic_refinement(&request, &types, context, at)?;
-            if let Some(ty) = physical_op(request, &values, context, at)? {
+            if let Some(ty) = physical_op(expr, request, &values, context, at)? {
                 return Ok(with_physical_refinement(ty, refinement));
             }
             match (function.as_str(), &values[0]) {
@@ -533,6 +568,7 @@ pub fn infer(
                 };
                 let axis = Scheme::Delta(Box::new(axis));
                 return Ok(physical_op(
+                    expr,
                     OpRequest::Mul,
                     &[value.clone(), axis.clone()],
                     context,
@@ -546,6 +582,7 @@ pub fn infer(
             if let Type::Quantity(s) = &ty {
                 let (kind, domain) = finite_reduction(*kind, element, at)?;
                 return Ok(physical_op(
+                    expr,
                     OpRequest::FiniteReduce { kind, domain },
                     std::slice::from_ref(s),
                     context,
@@ -599,13 +636,17 @@ pub fn infer(
             };
             let value = Scheme::Delta(Box::new(value));
             let axis = Scheme::Delta(Box::new(axis));
-            Ok(
-                physical_op(OpRequest::Div, &[value.clone(), axis.clone()], context, at)?
-                    .unwrap_or(Type::Quantity(Scheme::Quotient(
-                        Box::new(value),
-                        Box::new(axis),
-                    ))),
-            )
+            Ok(physical_op(
+                expr,
+                OpRequest::Div,
+                &[value.clone(), axis.clone()],
+                context,
+                at,
+            )?
+            .unwrap_or(Type::Quantity(Scheme::Quotient(
+                Box::new(value),
+                Box::new(axis),
+            ))))
         }
         ExprKind::Kernel { .. } => Err(invalid(
             at,
@@ -746,6 +787,7 @@ fn call(
             return Err(invalid(at, "reference is not a function"));
         };
         indirect = crate::Function {
+            physical_admissions: BTreeMap::new(),
             reduction: None,
             physical_operation: None,
             validity: None,
@@ -1072,7 +1114,23 @@ fn check_forms(
     }
     Ok(())
 }
-pub(crate) fn check_all(p: &CheckedPackage, context: &TypeContext<'_>) -> Result<()> {
+pub(crate) fn check_all(p: &mut CheckedPackage, context: &TypeContext<'_>) -> Result<()> {
+    let recorder = admission::AdmissionRecorder::default();
+    let physical_context = TypeContext {
+        admissions: Some(&recorder),
+        formula_authority: context.formula_authority.clone(),
+        quantities: context.quantities,
+        preconditions: context.preconditions,
+        scope: context.scope,
+    };
+    check_declarations(p, &physical_context)?;
+    p.physical_admissions = recorder.into_inner();
+    for (id, function) in &mut p.functions {
+        function.physical_admissions = p.physical_admissions.get(id).cloned().unwrap_or_default();
+    }
+    Ok(())
+}
+fn check_declarations(p: &CheckedPackage, context: &TypeContext<'_>) -> Result<()> {
     for (id, row) in &p.declarations {
         let mut env = declaration_environment(p, context, *id)?;
         let mut ancestors = Vec::new();
@@ -1302,6 +1360,7 @@ pub(crate) fn check_all(p: &CheckedPackage, context: &TypeContext<'_>) -> Result
         }
         if let Some(f) = p.functions.get(id) {
             let physical_context = TypeContext {
+                admissions: context.admissions,
                 formula_authority: matches!(
                     f.physical_operation,
                     Some(crate::PhysicalOperation::Response { .. })
@@ -1549,7 +1608,7 @@ pub(crate) fn check_all(p: &CheckedPackage, context: &TypeContext<'_>) -> Result
                 }
                 _ => {}
             }
-            if !matches!(target, Type::Quantity(_)) {
+            if target.quantity_scheme().is_none() {
                 return Err(invalid(*id, "annotation requires a physical member"));
             }
             let numeric = match shape {
@@ -1703,6 +1762,111 @@ pub(crate) fn check_all(p: &CheckedPackage, context: &TypeContext<'_>) -> Result
     Ok(())
 }
 
+fn member_indices(row: &crate::Declaration) -> Vec<(&String, &String)> {
+    row.value
+        .binding
+        .as_ref()
+        .map(|value| {
+            value
+                .indices
+                .iter()
+                .map(|index| (&index.name, &index.domain))
+                .collect()
+        })
+        .or_else(|| {
+            row.value.accumulator.as_ref().map(|value| {
+                value
+                    .indices
+                    .iter()
+                    .map(|index| (&index.name, &index.domain))
+                    .collect()
+            })
+        })
+        .or_else(|| {
+            row.value.boundary.as_ref().map(|value| {
+                value
+                    .indices
+                    .iter()
+                    .map(|index| (&index.name, &index.domain))
+                    .collect()
+            })
+        })
+        .or_else(|| {
+            row.value.exchange.as_ref().map(|value| {
+                value
+                    .indices
+                    .iter()
+                    .map(|index| (&index.name, &index.domain))
+                    .collect()
+            })
+        })
+        .unwrap_or_default()
+}
+/// Resolve a declaration reference that is consumed by a contextual intrinsic rather
+/// than an ordinary value type, validating each actual coordinate in its path.
+pub(crate) fn indexed_declaration_reference(
+    expression: &Expr,
+    env: &BTreeMap<String, Type>,
+    p: &CheckedPackage,
+    c: &TypeContext<'_>,
+    at: DeclarationId,
+) -> Result<DeclarationId> {
+    let ExprKind::Path(path) = &expression.kind else {
+        return Err(invalid(
+            at,
+            "a contextual declaration reference requires a member path",
+        ));
+    };
+    let mut prefix = String::new();
+    let mut selected = None;
+    for segment in &path.segments {
+        if !prefix.is_empty() {
+            prefix.push('.');
+        }
+        prefix.push_str(&segment.name);
+        let id = p
+            .resolve(at, &prefix)
+            .ok_or_else(|| invalid(at, "unknown contextual declaration reference"))?;
+        check_member_indices(
+            segment,
+            member_indices(&p.declarations[&id]),
+            env,
+            p,
+            c,
+            at,
+            id,
+        )?;
+        selected = Some(id);
+    }
+    selected.ok_or_else(|| invalid(at, "empty contextual declaration reference"))
+}
+fn check_member_indices(
+    segment: &dsl::PathSegment,
+    indices: Vec<(&String, &String)>,
+    env: &BTreeMap<String, Type>,
+    p: &CheckedPackage,
+    c: &TypeContext<'_>,
+    at: DeclarationId,
+    id: DeclarationId,
+) -> Result<()> {
+    if indices.len() != segment.indices.len() {
+        return Err(invalid(at, "member index arity"));
+    }
+    let mut local = declaration_environment(p, c, id)?;
+    for (index, (name, domain)) in segment.indices.iter().zip(indices) {
+        let domain = dsl::parse_expr(domain).map_err(|e| invalid(id, e.to_string()))?;
+        let (Type::Set(element) | Type::Continuous(_, element)) =
+            infer(&domain, &local, p, c, id, None)?
+        else {
+            return Err(invalid(id, "index domain must be a set"));
+        };
+        if !p.subsumes(&element, &infer(index, env, p, c, at, Some(&element))?) {
+            return Err(invalid(at, "index member kind differs"));
+        }
+        local.insert(name.clone(), *element);
+    }
+    Ok(())
+}
 fn path_type(
     path: &Path,
     env: &BTreeMap<String, Type>,
@@ -1731,13 +1895,10 @@ fn path_type(
         && let Some(ty) = env.get(&qualified)
     {
         // A declared indexed member still requires coordinates; lexical values do not.
-        if !p.resolve(at, &qualified).is_some_and(|id| {
-            p.declarations[&id]
-                .value
-                .binding
-                .as_ref()
-                .is_some_and(|b| !b.indices.is_empty())
-        }) {
+        if !p
+            .resolve(at, &qualified)
+            .is_some_and(|id| !member_indices(&p.declarations[&id]).is_empty())
+        {
             return Ok(ty.clone());
         }
     }
@@ -1838,24 +1999,7 @@ fn path_type(
             }
             declaration = None;
         } else if let Some(id) = declaration {
-            let indices = p.declarations[&id]
-                .value
-                .binding
-                .as_ref()
-                .map(|b| {
-                    b.indices
-                        .iter()
-                        .map(|i| (&i.name, &i.domain))
-                        .collect::<Vec<_>>()
-                })
-                .or_else(|| {
-                    p.declarations[&id]
-                        .value
-                        .accumulator
-                        .as_ref()
-                        .map(|a| a.indices.iter().map(|i| (&i.name, &i.domain)).collect())
-                })
-                .unwrap_or_default();
+            let indices = member_indices(&p.declarations[&id]);
             if segment.indices.is_empty() && !indices.is_empty() {
                 let mut axes = Vec::new();
                 let mut local = declaration_environment(p, c, id)?;
@@ -1884,22 +2028,7 @@ fn path_type(
                 };
                 continue;
             }
-            if indices.len() != segment.indices.len() {
-                return Err(invalid(at, "member index arity"));
-            }
-            let mut local = declaration_environment(p, c, id)?;
-            for (index, (name, domain)) in segment.indices.iter().zip(indices) {
-                let domain = dsl::parse_expr(domain).map_err(|e| invalid(id, e.to_string()))?;
-                let (Type::Set(element) | Type::Continuous(_, element)) =
-                    infer(&domain, &local, p, c, id, None)?
-                else {
-                    return Err(invalid(id, "index domain must be a set"));
-                };
-                if !p.subsumes(&element, &infer(index, env, p, c, at, Some(&element))?) {
-                    return Err(invalid(at, "index member kind differs"));
-                }
-                local.insert(name.clone(), *element);
-            }
+            check_member_indices(segment, indices, env, p, c, at, id)?;
         } else if !segment.indices.is_empty() {
             return Err(invalid(at, "scalar member cannot be indexed"));
         }

@@ -27,6 +27,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 import numpy as np
 import pyarrow as pa
@@ -106,32 +107,42 @@ def _and(left: pa.Array, right: pa.Array) -> pa.Array:
     return pc.and_(left, right)
 
 
+def _or(left: pa.Array, right: pa.Array) -> pa.Array:
+    return pc.or_(left, right)
+
+
+def _null_as_false(mask: pa.Array) -> pa.Array:
+    """`mask` with its nulls read as false."""
+    return mask.fill_null(False)
+
+
 def equal(left: pa.Array, right: pa.Array) -> pa.Array:
     """Element-wise equality as a boolean array with no nulls: two nulls are equal, a null and
     a value are not, two NaN are equal, lists and structs compare by their elements."""
-    if isinstance(left, pa.ExtensionArray):
-        return equal(left.storage, right.storage)
+    if isinstance(left, pa.ExtensionArray) or isinstance(right, pa.ExtensionArray):
+        return equal(_storage(left), _storage(right))
     kind = left.type
     if pa.types.is_list(kind) or pa.types.is_large_list(kind):
         return _equal_lists(left, right)
     if pa.types.is_struct(kind):
+        assert isinstance(left, pa.StructArray) and isinstance(right, pa.StructArray)
         both_valid = _and(pc.is_valid(left), pc.is_valid(right))
         fields = both_valid
         for index in range(kind.num_fields):
             fields = _and(fields, equal(left.field(index), right.field(index)))
-        return pc.or_(fields, _and(pc.is_null(left), pc.is_null(right)))
-    same = pc.fill_null(pc.equal(left, right), False)
+        return _or(fields, _and(pc.is_null(left), pc.is_null(right)))
+    same = _null_as_false(pc.equal(left, right))
     if pa.types.is_floating(kind):
-        both_nan = _and(pc.fill_null(pc.is_nan(left), False), pc.fill_null(pc.is_nan(right), False))
-        same = pc.or_(same, both_nan)
-    return pc.or_(same, _and(pc.is_null(left), pc.is_null(right)))
+        both_nan = _and(_null_as_false(pc.is_nan(left)), _null_as_false(pc.is_nan(right)))
+        same = _or(same, both_nan)
+    return _or(same, _and(pc.is_null(left), pc.is_null(right)))
 
 
 def _equal_lists(left: pa.Array, right: pa.Array) -> pa.Array:
     both_null = _and(pc.is_null(left), pc.is_null(right))
     both_valid = _and(pc.is_valid(left), pc.is_valid(right))
-    same_length = pc.fill_null(
-        pc.equal(pc.list_value_length(left), pc.list_value_length(right)), False
+    same_length = _null_as_false(
+        pc.equal(pc.list_value_length(left), pc.list_value_length(right))
     )
     candidates = _and(both_valid, same_length)
     result = pa.array(np.zeros(len(left), dtype=bool))
@@ -142,11 +153,11 @@ def _equal_lists(left: pa.Array, right: pa.Array) -> pa.Array:
         bad = pc.unique(pc.filter(parents, pc.invert(elements))).cast(pa.int64())
         rows = pa.array(np.arange(len(chosen_left), dtype=np.int64))
         result = pc.replace_with_mask(result, candidates, pc.invert(pc.is_in(rows, bad)))
-    return pc.or_(result, both_null)
+    return _or(result, both_null)
 
 
 def _python_equal(left: object, right: object) -> bool:
-    return bool(left == right or (left != left and right != right))
+    return left == right or (left != left and right != right)
 
 
 def _shown(value: object) -> str:
@@ -211,15 +222,14 @@ def union_table(
     origin = np.repeat(np.arange(len(sizes)), sizes)
 
     key_arrays = {column: _storage(data.column(column)) for column in keys}
-    order_array = pc.sort_indices(
-        pa.table(key_arrays), sort_keys=[(column, "ascending") for column in keys]
-    )
+    ascending: list[tuple[str, Literal["ascending"]]] = [(column, "ascending") for column in keys]
+    order_array = pc.sort_indices(pa.table(key_arrays), sort_keys=ascending)
     same = np.zeros(total, dtype=bool)
     if total > 1:
-        equal_to_previous = None
+        equal_to_previous: pa.Array | None = None
         for array in key_arrays.values():
             ordered = pc.take(array, order_array)
-            step = pc.fill_null(pc.equal(ordered.slice(1), ordered.slice(0, total - 1)), False)
+            step = _null_as_false(pc.equal(ordered.slice(1), ordered.slice(0, total - 1)))
             equal_to_previous = step if equal_to_previous is None else _and(equal_to_previous, step)
         assert equal_to_previous is not None
         same[1:] = equal_to_previous.to_numpy(zero_copy_only=False)
@@ -228,7 +238,8 @@ def union_table(
         return TableUnion(table, total, 0, originals)
 
     order = order_array.to_numpy()
-    current, previous = pa.array(order[duplicates]), pa.array(order[duplicates - 1])
+    current = pa.array(order[duplicates], type=pa.uint64())
+    previous = pa.array(order[duplicates - 1], type=pa.uint64())
     names = [name for name in data.column_names if name not in keys]
     differs = np.zeros(duplicates.size, dtype=bool)
     for name in names:

@@ -13,7 +13,7 @@ fn map<K, V>(values: &BTreeMap<K, V>, mut value: impl FnMut(&K, &V) -> usize) ->
             .saturating_add(value(k, v))
     })
 }
-fn scheme(value: &Scheme) -> usize {
+pub(crate) fn scheme(value: &Scheme) -> usize {
     match value {
         Scheme::Variable(n) => n.capacity(),
         Scheme::Concrete(_) => 0,
@@ -156,7 +156,16 @@ fn lineage(v: &Lineage) -> usize {
         + (v.demand.capacity() + v.presets.capacity()) * size_of::<pse_ids::SemanticId>()
 }
 fn function(v: &Function) -> usize {
-    v.validity.as_ref().map_or(0, predicate)
+    v.physical_admissions
+        .iter()
+        .map(|(occurrence, admission)| {
+            occurrence.syntax.capacity() + admission.retained_bytes() + 64
+        })
+        .sum::<usize>()
+        + v.reduction
+            .as_ref()
+            .map_or(0, |reduction| reduction.prototype.heap_bytes())
+        + v.validity.as_ref().map_or(0, predicate)
         + v.envelopes.capacity() * size_of::<crate::envelope::Guard>()
         + v.envelopes
             .iter()
@@ -238,6 +247,11 @@ impl CheckedPackage {
                 v.capacity() * size_of::<pse_ids::SemanticId>()
             })
             + map(&self.types, |_, v| ty(v))
+            + map(&self.physical_admissions, |_, admissions| {
+                map(admissions, |occurrence, admission| {
+                    occurrence.syntax.capacity() + admission.retained_bytes()
+                })
+            })
             + map(&self.functions, |_, v| function(v))
             + map(&self.members, |_, v| map(v, |n, _| n.capacity()))
             + map(&self.temporal, |_, (_, _, argument)| argument.capacity())

@@ -406,6 +406,20 @@ pub fn infer_in_context(
         // Pure scalar scaling preserves point semantics; it does not manufacture an
         // affine product between two physical factors.
         let preserved = match request {
+            OpRequest::Mul
+                if values
+                    .iter()
+                    .all(|value| value.pure_number && value.indices.is_empty())
+                    && values
+                        .iter()
+                        .any(|value| value.named == registry.neutral_dimensionless()) =>
+            {
+                // Switching an arbitrary neutral magnitude does not make it a discrete
+                // count or indicator merely because the coefficient appears first.
+                values
+                    .iter()
+                    .position(|value| value.named == registry.neutral_dimensionless())
+            }
             OpRequest::Mul | OpRequest::Div
                 if values[1].pure_number && values[1].indices.is_empty() =>
             {

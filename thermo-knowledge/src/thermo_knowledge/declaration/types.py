@@ -16,9 +16,12 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from functools import cache
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import pint
+
+if TYPE_CHECKING:
+    from pint._typing import Scalar  # the exponent type pint declares for a dimensionality
 
 PRIMITIVES = ("Boolean", "Integer", "Text", "Date", "Timestamp", "Hash")
 META_CONSTRUCTS = (
@@ -130,10 +133,16 @@ def registry() -> pint.UnitRegistry:
     return pint.UnitRegistry()
 
 
+def real_exponent(exponent: Scalar) -> float:
+    """A dimension exponent as a float: exponents are real, so the real part is the value."""
+    return float(exponent.real)
+
+
 def _info(unit: pint.Unit) -> UnitInfo:
     dimensions: list[tuple[str, int]] = []
-    for dimension, exponent in unit.dimensionality.items():
-        if float(exponent) != int(exponent):
+    for dimension, raw in unit.dimensionality.items():
+        exponent = real_exponent(raw)
+        if exponent != int(exponent):
             raise UnitError("bad-unit", f"unit `{unit}` has a fractional dimension exponent")
         dimensions.append((dimension.strip("[]"), int(exponent)))
     return UnitInfo(unit=format(unit, "~") or "dimensionless", dimensions=tuple(sorted(dimensions)))
@@ -144,10 +153,10 @@ def parse_storage_unit(text: str) -> tuple[pint.Unit, UnitInfo]:
     ureg = registry()
     try:
         unit = ureg.parse_units(text)
-        magnitude = ureg.Quantity(1.0, unit).to_root_units().magnitude
+        magnitude = float(ureg.Quantity(1.0, unit).to_root_units().magnitude)
     except Exception as error:  # pint raises many error types for bad text
         raise UnitError("bad-unit", f"`{text}` is not a unit pint can parse: {error}") from error
-    mass = unit.dimensionality.get("[mass]", 0)
+    mass = real_exponent(unit.dimensionality.get("[mass]", 0))
     # pint's root mass unit is the gram; the coherent SI base unit is the kilogram.
     factor = magnitude * 1e-3**mass
     if not math.isclose(factor, 1.0, rel_tol=1e-12):
@@ -156,6 +165,12 @@ def parse_storage_unit(text: str) -> tuple[pint.Unit, UnitInfo]:
             f"`{text}` is not a coherent SI unit product (its factor to base units is {factor:g})",
         )
     return unit, _info(unit)
+
+
+def as_unit(value: object) -> pint.Unit:
+    """Narrow the result of unit arithmetic (pint declares its operators with wider types)."""
+    assert isinstance(value, pint.Unit)
+    return value
 
 
 def evaluate_expression(
@@ -193,9 +208,9 @@ def evaluate_expression(
             if isinstance(node.op, ast.Mult):
                 return walk(node.left) * walk(node.right)
             if isinstance(node.op, ast.Div):
-                return walk(node.left) / walk(node.right)
+                return as_unit(walk(node.left) / walk(node.right))
             if isinstance(node.op, ast.Pow):
-                return walk(node.left) ** integer(node.right)
+                return as_unit(walk(node.left) ** integer(node.right))
         raise UnitError(
             "bad-quantity-expression",
             f"`{text}` may only multiply, divide and raise declared quantity types to integer "

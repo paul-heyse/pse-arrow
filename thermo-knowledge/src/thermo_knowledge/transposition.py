@@ -28,11 +28,16 @@ from __future__ import annotations
 import math
 from collections.abc import Mapping, Sequence
 from fractions import Fraction
+from typing import Protocol, Self
 
 from thermo_knowledge.declaration import model as m
 
-type Orderable = str | int | bytes
-"""A subject compared for orientation: an identifier as text, or a UUID's integer or bytes."""
+class Orderable(Protocol):
+    """A subject compared for orientation: an identifier as text, a UUID, an integer or bytes."""
+
+    def __lt__(self, other: Self, /) -> bool: ...
+
+    def __le__(self, other: Self, /) -> bool: ...
 
 
 type Owner = m.SlotGroup | m.Relation

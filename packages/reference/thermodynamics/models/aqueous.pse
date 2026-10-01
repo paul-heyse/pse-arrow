@@ -7,6 +7,16 @@
 @id("01a0e1db89d8722baac398dc283f9e89") use equilibrium @"1.0.0";
 @id("01a0e1db89d8722baac398dd3ce60598") use helmholtz @"1.0.0";
 @id("01a0e1db89d8722baac398b7943e4b30") fn concentration_unit()->MolarDensity=1{mol/m^3};
+// The pure-solvent total density becomes a component concentration only for the
+// explicitly selected solvent under the declared dilute-liquid convention.
+@id("f313656271874ca18fa05a094d5a1012") use provenance @"1.0.0";
+@id("bd86b75f18cf45c6838e110903cd2b8d") entity provenance.source selected_solvent_reference {title="Dilute liquid convention: the selected solvent component concentration equals its supplied pure-solvent total molar density"}
+@id("a8552b98310c4d00a8b924beb056065b") coordinate map solvent_coordinates(density:Density,solvent:chemistry.species) valid(density>=0{mol/m^3}) {
+@id("fb7eba294dbd40a693512a40ff06d891") slot relative_density=density/constants.density_unit;
+}
+@id("c98876452ad8449e86c867585e2e652e") reconstruction selected_solvent for solvent_coordinates(density:Density,solvent:chemistry.species)->MolarDensity reference selected_solvent_reference=concentration_unit();
+@id("c6cb9fa5c8e04c0eb4c9483c47bf5310") fn reduced_solvent_density(relative_density:Coordinate<solvent_coordinates.relative_density>,solvent:chemistry.species)->Reduced<selected_solvent>=relative_density;
+@id("a483b95df5ae4b39b78750a56a329918") fn solvent_concentration(density:Density,solvent:chemistry.species)->MolarDensity=reconstruct(selected_solvent,reduced_solvent_density,density,solvent);
 @id("01a0e1db89d8722baac398b849aaf90f") interface DiluteLiquid extends equilibrium.ThermoPackage {
 @id("01a0f1955e96736397df7b5332e270eb") param liquid_phase:chemistry.phase=chemistry.liquid;
 @id("01a0f1955e96736397df7b54c0ab7a32") require liquid_phase.type==compatibility.PhaseType.liquidPhase : "the dilute liquid phase slot is liquid";
@@ -25,10 +35,10 @@
 @id("01a0e1db89d8722baac398c247815d86") var concentration[j in components]:MolarDensity;
 @id("01a0e1db89d8722baac398c3092bf2b6") let total_density:Density=sum(j in components | concentration[j]);
 @id("01a0e1db89d8722baac398c429ae852c") eq molar_flow:flow==volume_flow*total_density;
-@id("01a0e1db89d8722baac398c5163c1dcd") eq composition[j in components]:z[j]==equilibrium.fraction_unit()*(concentration[j]/concentration_unit())/(total_density/constants.density_unit);
+@id("01a0e1db89d8722baac398c5163c1dcd") eq composition[j in components]:z[j]==concentration[j]/total_density;
 @id("01a0e1db89d8722baac398c61801dabe") eq caloric:h==constants.standard_enthalpy_datum+(solvent_density/total_density)*solvent_cp*(T-reference_temperature);
 @id("01a0e1db89d8722baac398c7627f5f04") when not defined {
-@id("01a0e1db89d8722baac398c8f8bbe9d9") eq solvent_concentration:concentration[solvent]==concentration_unit()*(solvent_density/constants.density_unit);
+@id("01a0e1db89d8722baac398c8f8bbe9d9") eq solvent_concentration:concentration[solvent]==aqueous.solvent_concentration(solvent_density,solvent);
 }
 @id("01a0e1db89d8722baac398c9a449c86d") annotation bounds concentration(0{mol/m^3},100000{mol/m^3});
 @id("01a0e1db89d8722baac398cabd7cb5cd") annotation start concentration(100{mol/m^3});

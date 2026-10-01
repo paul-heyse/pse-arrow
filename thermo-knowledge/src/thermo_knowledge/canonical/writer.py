@@ -40,7 +40,7 @@ from __future__ import annotations
 import math
 import unicodedata
 import uuid
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Generator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 
@@ -275,7 +275,7 @@ class CanonicalWriter:
     # -- bookkeeping --------------------------------------------------------------------------
 
     @contextmanager
-    def transaction(self) -> Iterator[None]:
+    def transaction(self) -> Generator[None]:
         """Group the records written inside into one unit: if the block raises, every row it
         wrote is withdrawn."""
         if self._journal is not None:
@@ -296,7 +296,7 @@ class CanonicalWriter:
             self._journal = None
 
     @contextmanager
-    def _atomic(self) -> Iterator[None]:
+    def _atomic(self) -> Generator[None]:
         """A call's rows are all written or none: a transaction of its own unless one is open."""
         if self._journal is not None:
             yield

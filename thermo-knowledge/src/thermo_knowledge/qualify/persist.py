@@ -26,6 +26,7 @@ import shutil
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
 
 import adbc_driver_manager
 import adbc_driver_postgresql.dbapi as adbc
@@ -196,7 +197,9 @@ def read_output(canonical: Path, case: str) -> Stored | None:
 
 
 def _uuids(path: Path, column: str) -> list[uuid.UUID]:
-    return pq.read_table(path, columns=[column]).column(column).to_pylist()
+    values = pq.read_table(path, columns=[column]).column(column).to_pylist()
+    # pyarrow's `to_pylist` is untyped; the `id` column of an output table holds UUIDs.
+    return cast("list[uuid.UUID]", values)
 
 
 def load_live(url: str, directory: Path, manifest: CanonicalManifest, prefix: str) -> None:

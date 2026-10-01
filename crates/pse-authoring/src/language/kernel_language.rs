@@ -28,7 +28,7 @@ fn physical_maps_responses_translations_and_transfers_roundtrip() {
   boundary thermal[i in sides];
   exchange transfer[i in sides] between hot.thermal[i] and cold.thermal[i];
   var rate: Transfer<EnergyTransferRate,thermal,Into>;
-  accumulate energy: Power boundary thermal conservation tolerance 1e-6{W};
+  accumulate energy[i in sides]: Power boundary thermal[i] conservation tolerance 1e-6{W};
   contribute energy role directed = rate;
  }
 }"#;
@@ -46,6 +46,12 @@ fn physical_maps_responses_translations_and_transfers_roundtrip() {
     assert_eq!(semantic(parse_named(&rendered)), semantic(rows.clone()));
     assert!(rows.iter().any(|r| r.value.coordinate_map.is_some()));
     assert!(rows.iter().any(|r| r.value.reference_translation.is_some()));
+    assert!(rows.iter().any(|r| {
+        r.value
+            .accumulator
+            .as_ref()
+            .is_some_and(|value| value.boundary.as_deref() == Some("thermal[i]"))
+    }));
     for spelling in [
         "Coordinate<reduced.temperature>",
         "Reduced<residual>",

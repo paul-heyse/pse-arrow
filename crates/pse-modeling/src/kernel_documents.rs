@@ -42,6 +42,7 @@ fn text(values: &[Option<&str>]) -> Values {
 fn admitted(text: &str, columns: Vec<DocumentColumn>) -> Result<CheckedPackage> {
     let (registry, _) = physical();
     let context = TypeContext {
+        admissions: None,
         formula_authority: None,
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
@@ -243,6 +244,7 @@ fn canonical_numeric_admission_matches_inline_columns_and_uncertainty_scale() {
     use pse_quantity::{UnitProduct, scheme::Scheme};
     let (registry, names) = physical();
     let context = TypeContext {
+        admissions: None,
         formula_authority: None,
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
@@ -321,6 +323,7 @@ fn canonical_numeric_overflow_refuses_with_document_row_and_inline_attribution()
     }
     let (registry, names) = physical();
     let context = TypeContext {
+        admissions: None,
         formula_authority: None,
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
@@ -376,6 +379,7 @@ fn document_identity_references_name_admitted_entities() {
 fn admitted_names(text: &str) -> std::collections::BTreeMap<String, DeclarationId> {
     let (registry, _) = physical();
     let context = TypeContext {
+        admissions: None,
         formula_authority: None,
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,

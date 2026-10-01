@@ -190,7 +190,7 @@ JSON value whose key order depends on the build graph
 **Modeling source identity.** A modeling source revision's identity
 (`pse-runtime::math::modeling::source_revision`, frame `pse.modeling.source-revision.v4`)
 frames the structured declaration rows in order, each binary document identity and
-content hash, and the identity of the physical inventory they are admitted against (`pse.math.physical-inventory.v5`,
+content hash, and the identity of the physical inventory they are admitted against (`pse.math.physical-inventory.v6`,
 [§8](physical-semantics.md#section-8)) and the physical name bindings admission resolved
 them with, each name with the identity it denotes. Binding a name to another type, admitting
 the same rows against another inventory, or changing a row is another revision; unchanged
@@ -205,6 +205,28 @@ product's identity is the new frame `pse.quantity.unit-product.v1`. *Tested* by
 `unchanged_inputs_reproduce_the_source_revision` (runtime units), and by the frozen vectors
 `the_structured_ir_frame_variants_are_frozen` and `the_unit_product_identity_is_frozen`
 (`pse-ids`).
+
+**Physical and field-purpose identities.** The current physical inventory preimage is
+`pse.math.physical-inventory.v6`, including declared kind equivalences and complete operation
+contracts. Checked function occurrences retain selected admissions; composed unit scales,
+actual binders, map/slot identity, reconstruction normalization, scientific references and
+transfer/reference operations enter the typed-body product. Its frame is
+`pse.math.typed-definition.v7`; concrete resolved admissions use
+`pse.math.resolved-admissions.v2`. A changed preimage takes a new declared variant; old
+recorded digests are never reinterpreted.
+
+A field identity first selects its schema-declared purpose (§4.4), then frames that
+projection. Execution, value and logical type identity remain distinct; root normalization
+and recursive metadata omission occur only where the selected purpose permits them.
+Unknown metadata is retained. Transfer owner/coordinate/direction context is semantic
+and survives identity projection. These field projections establish equivalence for their
+purpose, not physical compatibility or directional target admission. Source revision,
+relation content and typed execution products keep their separate owners.
+
+> Decision: [ADR-0136](../../adr/0136-declared-field-facets.md) (proposed) — field comparison
+> purposes are declared once and consumed at their actual identity boundaries;
+> [ADR-0135](../../adr/0135-physical-expression-contracts.md) (proposed) — admitted physical meaning
+> and scientific reconstruction dependencies enter preparation identity.
 
 **Floating-point rule** ([ADR-0030](../../adr/0030-canonical-float-hashing-and-no-float-keys.md)).
 `canonical_f64_bits`/`canonical_f32_bits` map every NaN to the positive quiet NaN with

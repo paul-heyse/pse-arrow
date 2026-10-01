@@ -213,6 +213,7 @@ pub(crate) fn admit_translations(
         package.functions.insert(
             at,
             crate::Function {
+                physical_admissions: BTreeMap::new(),
                 physical_operation: Some(PhysicalOperation::ReferenceTranslation(descriptor)),
                 reduction: None,
                 validity: None,
@@ -875,17 +876,28 @@ pub(crate) fn call_type(
         if name == "reorient" {
             boundary.clone()
         } else {
-            let id = package
-                .resolve(at, &dsl::render_expr(&args[0]))
-                .ok_or_else(|| invalid(at, "reflection names an exchange"))?;
+            let id = crate::expression::indexed_declaration_reference(
+                &args[0], env, package, context, at,
+            )?;
             let exchange = package.declarations[&id]
                 .value
                 .exchange
                 .as_ref()
                 .ok_or_else(|| invalid(at, "reflection names an exchange"))?;
+            let mut endpoint_env = env.clone();
+            for index in &exchange.indices {
+                let domain = dsl::parse_expr(&index.domain)
+                    .map_err(|error| invalid(at, error.to_string()))?;
+                let (Type::Set(element) | Type::Continuous(_, element)) =
+                    crate::expression::infer(&domain, &endpoint_env, package, context, at, None)?
+                else {
+                    return Err(invalid(at, "exchange index domain must be a set"));
+                };
+                endpoint_env.insert(index.name.clone(), *element);
+            }
             let endpoint = |text: &str| -> Result<DeclarationId> {
                 let expr = dsl::parse_expr(text).map_err(|error| invalid(at, error.to_string()))?;
-                match crate::expression::infer(&expr, env, package, context, at, None)? {
+                match crate::expression::infer(&expr, &endpoint_env, package, context, at, None)? {
                     Type::Boundary(id) => Ok(id),
                     _ => Err(invalid(at, "exchange endpoint requires a boundary")),
                 }
@@ -1000,6 +1012,7 @@ mod tests {
         )
         .unwrap();
         let context = crate::TypeContext {
+            admissions: None,
             formula_authority: None,
             quantities: &registry,
             preconditions: &checks,
@@ -1065,6 +1078,87 @@ mod tests {
             )
             .is_err()
         );
+    }
+    #[test]
+    fn inherited_transfer_boundary_resolves_from_effective_interface_members() {
+        let text = r#"package p {
+          interface Base { boundary wall; }
+          interface Other { boundary unrelated; }
+          interface Derived extends Base { var heat:Transfer<EnergyTransferRate,wall,Into>; }
+          def Root:Derived { let q:EnergyTransferRate=25{W}; eq directed:heat==transfer(q,wall,Into); }
+        }"#;
+        let prepared = model(text, "p.Root").unwrap();
+        assert!(prepared.functions.values().any(|function| matches!(
+            function.physical_operation,
+            Some(crate::PhysicalOperation::Transfer {
+                result: PhysicalRefinement::Transfer {
+                    boundary: BoundaryRef::Bound { .. },
+                    ..
+                },
+                ..
+            })
+        )));
+        assert!(
+            model(
+                &text.replace(
+                    "EnergyTransferRate,wall,Into",
+                    "EnergyTransferRate,unrelated,Into"
+                ),
+                "p.Root"
+            )
+            .is_err()
+        );
+    }
+    #[test]
+    fn indexed_boundaries_and_exchanges_check_and_bind_actual_coordinates() {
+        let text = r#"package p { def Root {
+          entity kind position {} entity position a {} entity position b {}
+          entity kind other {} entity other wrong {}
+          set positions:Set<position>={a,b};
+          boundary wall[i in positions]; boundary opposite[i in positions];
+          exchange pair[i in positions] between wall[i] and opposite[i];
+          let q:EnergyTransferRate=25{W};
+          var heat[i in positions]:Transfer<EnergyTransferRate,wall,Into>;
+          var cold_heat[i in positions]:Transfer<EnergyTransferRate,opposite,Into>;
+          eq directed[j in positions]:heat[j]==transfer(q,wall[j],Into);
+          eq reflected[j in positions]:cold_heat[j]==reflect(pair[j],transfer(q,wall[j],Into),Into);
+        }}"#;
+        let prepared = model(text, "p.Root").unwrap();
+        assert_eq!(prepared.exchanges.len(), 2);
+        let mut coordinates = BTreeSet::new();
+        for exchange in prepared.exchanges.values() {
+            let (
+                BoundaryRef::Bound {
+                    coordinates: first, ..
+                },
+                BoundaryRef::Bound {
+                    coordinates: second,
+                    ..
+                },
+            ) = (&exchange.first, &exchange.second)
+            else {
+                panic!("indexed exchange endpoints must be bound");
+            };
+            assert_eq!(first.len(), 1);
+            assert_eq!(first, second);
+            coordinates.insert(first.clone());
+            assert!(prepared.functions.values().any(|function| matches!(
+                &function.physical_operation,
+                Some(crate::PhysicalOperation::Transfer { result: PhysicalRefinement::Transfer { boundary, .. }, factor: -1, exchange: Some(_), .. }) if boundary == &exchange.second
+            )));
+        }
+        assert_eq!(coordinates.len(), 2);
+        for invalid in [
+            text.replace("wall[j],Into", "wall,Into"),
+            text.replace("wall[j],Into", "wall[j,j],Into"),
+            text.replace("wall[j],Into", "wall[wrong],Into"),
+            text.replace("reflect(pair[j]", "reflect(pair"),
+            text.replace("reflect(pair[j]", "reflect(pair[j,j]"),
+            text.replace("reflect(pair[j]", "reflect(pair[wrong]"),
+            text.replace("reflect(pair[j]", "reflect(pair[a]"),
+        ] {
+            assert!(model(&invalid, "p.Root").is_err(), "{invalid}");
+        }
     }
     #[test]
     fn all_transfer_conventions_reflect_and_reorient_once() {

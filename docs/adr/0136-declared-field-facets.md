@@ -55,17 +55,22 @@ pse-columnar; columnar does not depend on schema. Native field projection remain
 
 Physical observation preserves exact fields. Execution identity omits declared presentation.
 Value identity additionally omits declared usage-role/reference facets and normalizes only
-the permitted root properties. Logical value type keeps its separate storage question.
+the permitted root properties. Logical storage type keeps its separate root storage
+question and exact nested fields;
+logical type identity additionally omits declared structure presentation recursively.
 Unknown metadata is significant by default. Dictionary ordering remains part of the
-existing field contract. Directional target admission and missing-metadata restoration
+existing field contract. Actual transfer owner, ordered coordinates and direction are a
+declared semantic report facet retained by execution, value and logical type identity.
+Directional target admission and missing-metadata restoration
 remain distinct operations, not aliases for projected equality.
 
 Move the pure checked-row physical decoder into pse-relations, depending downward on
 pse-quantity. Runtime retains selection/execution/resource ownership. Catalog supplies exact
 selected relation revisions; the shared builder admits their required physical definitions
 and constructs compatibility projections for distinct encountered quantity/unit pairs.
-Definitions, including composite-unit dimensions/scales and reference-condition dependencies,
-come from this closure. Missing definitions cannot be filled by global state.
+Definitions, including composite-unit dimensions/scales, affine single-factor admission,
+unit datum restrictions and typed reference-condition dependencies, come from this closure.
+Missing definitions cannot be filled by global state.
 
 Preserve reference/normalized-unit reconciliation and reject conflicting definitions.
 Quantity obligation binding consumes the immutable admitted projection and attributes
@@ -88,8 +93,10 @@ Numeric admission controls are owned by the common quantity operation.
 
 ### Confirmation
 
-Plan 25a records focused implementation evidence, with actual commands and zero-target
-results. This decision is Proposed; full integration remains Plan 25k work.
+Implemented mechanism scope is recorded in blueprint §4.4, §5.3 and §8.2. Plan 25a owns
+focused evidence, with actual commands and zero-target results. This decision remains
+Proposed; acceptance requires the decision route, and full integration remains Plan 25k
+work. No qualification follows from schema consistency or documentation alone.
 
 ## Pros and cons
 

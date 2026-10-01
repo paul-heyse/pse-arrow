@@ -46,8 +46,8 @@
 @id("c87ea2ee566e4eee86f3e5ba699ab68b") let outlet_phase_flow[o in outlets,p in phases]:Flow=sum(j in components | outlet_phase_component_flow[o,p,j]);
 @id("8890d5ecdc0d43b4882fd02fee133e45") let outlet_flow[o in outlets]:Flow=sum(p in phases | outlet_phase_flow[o,p]);
 @id("d40ad127970e416891e7ad7e59ac94f1") let outlet_component_flow[o in outlets,j in components]:ComponentFlow=sum(p in phases | outlet_phase_component_flow[o,p,j]);
-@id("42767530fa1e4fc8ac5dabc10812fd31") let outlet_composition[o in outlets,j in components]:MoleFraction=equilibrium.fraction_unit()*(outlet_component_flow[o,j]/equilibrium.component_flow_unit())/(outlet_flow[o]/equilibrium.flow_unit());
-@id("dd06b51bee5947158a5b0e69ce991a36") let outlet_energy_flow[o in outlets]:Power=sum(p in phases | sum(j in components | equilibrium.flow_unit()*(outlet_phase_component_flow[o,p,j]/equilibrium.component_flow_unit())*component_enthalpy(inlet.T,p,j)));
+@id("42767530fa1e4fc8ac5dabc10812fd31") let outlet_composition[o in outlets,j in components]:MoleFraction=outlet_component_flow[o,j]/outlet_flow[o];
+@id("dd06b51bee5947158a5b0e69ce991a36") let outlet_energy_flow[o in outlets]:Power=sum(p in phases | sum(j in components | outlet_phase_component_flow[o,p,j]*component_enthalpy(inlet.T,p,j)));
 @id("b04c23f792874a16a8b4545adc9a4842") port flow[o in outlets]:Flow=outlet_flow[o];
 @id("795f0e47bb52456e8f6b98bcbfcabf2a") port composition[o in outlets,j in components]:MoleFraction=outlet_composition[o,j];
 @id("a47a68dc0a4d4c1f93c0ef63df5d46bb") port component_flow[o in outlets,j in components]:ComponentFlow=outlet_component_flow[o,j];

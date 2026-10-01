@@ -6,8 +6,8 @@
 @id("01a0f19e1d7d74efbbf1a16340b8d4f8") use references @"1.0.0";
 @id("01a0f19e1d7d74efbbf1a164393371e9") entity provenance.oracle_test pcsaft_departures { title = "Seven independent PC-SAFT homogeneous states; published normal-alkane parameters; same T and p departure convention", release = references.feos_0_10_1, locator = "xtask feos-reference" }
 @id("01a0f19e1d7d74efbbf1a1659ef88bcd") table states[case:0..6]:{T:Temperature storage {K},rho:Density storage {mol/m^3},pressure:Pressure storage {Pa},h_residual:ResidualMolarEnthalpy storage {J/mol},s_residual:ResidualMolarEntropy storage {J/(mol*K)},cp_residual:MolarCp storage {J/(mol*K)}} complete_over(case in 0..6);
-@id("01a0f19e1d7d74efbbf1a166169e02b2") table components[case:0..6,subject:chemistry.species by chemistry.cas]:{fraction:Scalar storage {1},ln_phi:Scalar storage {1}} missing optional;
+@id("01a0f19e1d7d74efbbf1a166169e02b2") table components[case:0..6,subject:chemistry.species by chemistry.cas]:{fraction:Scalar storage {1},ln_phi:LogFugacityCoefficient storage {1}} missing optional;
 @id("01a0f19e1d7d74efbbf1a16793011dc6") dataset state_values:states provenance(pcsaft_departures,provenance.Role.oracle_input,lineage(source references.feos_gross2001_json)) from "data/states.parquet";
 @id("01a0f19e1d7d74efbbf1a168c47de99a") dataset component_values:components provenance(pcsaft_departures,provenance.Role.oracle_input,lineage(source references.feos_gross2001_json)) from "data/components.parquet";
-@id("30830102ce684444b769df7a99b2266d") fn ln_phi_value(case:Integer,j:chemistry.species)->Scalar valid(present(components[case,j]))=if present(components[case,j]) then components[case,j].ln_phi else 0;
+@id("30830102ce684444b769df7a99b2266d") fn ln_phi_value(case:Integer,j:chemistry.species)->LogFugacityCoefficient valid(present(components[case,j]))=if present(components[case,j]) then components[case,j].ln_phi else 0;
 }

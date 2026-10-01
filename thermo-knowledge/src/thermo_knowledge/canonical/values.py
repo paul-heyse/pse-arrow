@@ -117,7 +117,7 @@ def storage_unit(decl: m.Declaration, type_: TypeRef) -> str | None:
 
 def is_dimensionless(unit: str) -> bool:
     ureg = registry()
-    return bool(ureg.parse_units(unit).dimensionless)
+    return ureg.parse_units(unit).dimensionless
 
 
 def convert(value: float, source: str, target: str) -> float:

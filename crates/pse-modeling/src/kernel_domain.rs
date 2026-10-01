@@ -12,6 +12,7 @@ use crate::*;
 fn admitted(text: &str) -> Result<CheckedPackage> {
     let (registry, _) = physical();
     let context = TypeContext {
+        admissions: None,
         formula_authority: None,
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,

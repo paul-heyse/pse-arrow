@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+
+# Type-checker configuration for this standalone tree (`pyrefly init` generates the file; the
+# scope below narrows its default). Takes precedence over any [tool.pyrefly] in pyproject.toml,
+# which is why none is kept there. Checks the locked Python 3.14 environment in `.venv`.
+
+python-version = "3.14"
+project-includes = ["src", "tests"]
+project-excludes = ["**/.venv*/**", ".store/**", "envs/**", "sources/**", "survey/**"]
+search-path = ["src", "tests"]
+site-package-path = [".venv/lib/python3.14/site-packages"]

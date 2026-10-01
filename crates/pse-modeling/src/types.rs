@@ -125,6 +125,8 @@ impl PhysicalScope {
 /// Physical context supplied by admission; no registry is inferred from source literals.
 #[derive(Debug)]
 pub struct TypeContext<'a> {
+    /// Optional construction-only collector; the immutable package owns the result.
+    pub admissions: Option<&'a crate::expression::admission::AdmissionRecorder>,
     /// Scientific formula authority scoped to one admitted response body.
     pub formula_authority: Option<pse_quantity::PhysicalFormulaAuthority>,
     /// Fully admitted reference physical registry, including its declared names.

@@ -30,7 +30,7 @@ from __future__ import annotations
 
 import ast
 import operator
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 
 import pyarrow as pa
 
@@ -105,7 +105,7 @@ LITERAL_ENTRIES = table_schema(
 
 SCHEMAS = {"literal_entries": LITERAL_ENTRIES}
 
-_BINARY = {
+_BINARY: dict[type[ast.operator], Callable[[float, float], float | complex]] = {
     ast.Add: operator.add,
     ast.Sub: operator.sub,
     ast.Mult: operator.mul,

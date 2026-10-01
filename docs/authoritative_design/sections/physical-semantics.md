@@ -25,18 +25,21 @@ Physical checking comes before Symbolica normalization ([ADR-0082](../../adr/008
 Algebraic simplification must never be the step that finds or hides a physical error.
 No hash is part of validity, type selection or the proof that a conversion applies. The
 framed identity of the admitted physical inventory
-(`pse-compiler::physical_identity`, frame `pse.math.physical-inventory.v5`) enters
+(`pse-compiler::physical_identity`, frame `pse.math.physical-inventory.v6`) enters
 preparation keys, so editing a unit or type invalidates dependent artifacts
 ([§5](identity-and-publication.md#section-5)). Besides every declared contract, it frames
-unit compositions, derived-kind definitions, and the names and typed conditions by which
-packages address quantity types and reference states. *Tested* by
+unit compositions, derived-kind definitions, declared kind equivalences, operation contracts,
+and the names and typed conditions by which packages address quantity types and reference
+states. *Tested* by
 `physical_inventory_identity_frames_derived_definitions` (compiler units, with a frozen
 empty-inventory vector).
 
 ### 8.1 QuantityType
 
+> Decision: [ADR-0135](../../adr/0135-physical-expression-contracts.md) (proposed) — internal anonymous contracts retain declared public quantity boundaries.
+
 > Decision: [ADR-0124](../../adr/0124-unit-algebra-and-derived-kinds.md) — a quantity kind
-> may be declared as a monomial of other kinds with its canonical unit and chain result
+> may be declared as a monomial of other kinds with its canonical unit and declared result
 > (Plan 23 KR2, implemented);
 > [ADR-0127](../../adr/0127-chemical-core-in-physical.md) — the species, element and
 > reaction kinds that quantity types name as subjects are declared in `pse.physical` itself
@@ -88,8 +91,8 @@ inventory identity (§8).
 
 **Derived kinds.** A quantity kind is base or derived (`reference.quantity_kinds` version
 3). A base kind authors its dimension. A derived kind authors a monomial over declared kinds
-with reduced rational exponents, its canonical unit, and the complete result a
-multiplicative chain resolving to it takes: scale, optional datum and subject, and a basis
+with reduced rational exponents, its canonical unit, and the complete result admitted
+at its named boundary: scale, optional datum and subject, and a basis
 when its factors' bases may differ ([§8.3](#section-8-3)). Admission expands the monomial
 to canonical base-kind factors and derives the dimension. It refuses a cycle, a monomial
 that is empty or a single kind, two kinds with one monomial, a pure-number factor (the
@@ -100,7 +103,9 @@ The physical document declares the DIPPR 100 and RPP4 coefficient kinds (molar h
 capacity per temperature to the first through fourth power), the Shomate E kind (molar heat
 capacity times squared temperature), `molar_enthalpy` (molar heat capacity times
 temperature) and `molar_entropy` ([§8.3](#section-8-3)), each with a defined canonical
-unit. Kinds are declared, never synthesized. *Tested* by
+unit. Public kinds and quantity identities are declared. Internal semantic kind expressions
+may remain anonymous until a named boundary (§8.3); they do not create registry rows.
+*Tested* by
 `derived_kinds_are_admitted_acyclic_unique_and_derived` (`pse-quantity` units).
 
 **Names.** A quantity type may carry the name packages address it by, and every reference
@@ -110,13 +115,17 @@ one namespace of unique identifiers. A package sees them unqualified and as
 `<package>.<name>` exactly when its manifest depends on the declaring package. A
 package-level declaration or import alias equal to one of them is refused as ambiguous,
 while a definition's own members shadow it lexically. A manifest declares no physical
-names. The reference inventory names 42 quantity types, `Scalar`, `Count` and `Indicator`
-among them. *Tested* by `quantity_names_declared_once_in_physical_document` and
+names. The physical inventory names public quantity types, including `Scalar`, `Count` and
+`Indicator`, and the named species response contracts in §9.8. *Tested* by
+`quantity_names_declared_once_in_physical_document` and
 `quantity_name_requires_manifest_dependency` (runtime units),
 `ambiguous_quantity_name_refused` and `physical_names_are_scoped_by_document`
 (`pse-modeling` units) and `physical_names_are_unique_identifiers` (`pse-quantity` tests).
 
 ### 8.2 Units and unit sets
+
+> Decision: [ADR-0135](../../adr/0135-physical-expression-contracts.md) and
+> [ADR-0136](../../adr/0136-declared-field-facets.md) (proposed) — checked canonical values and admission from selected physical definitions.
 
 > Decision: [ADR-0124](../../adr/0124-unit-algebra-and-derived-kinds.md) — unit literals
 > are canonical products of atomic units with rational exponents, and a product's identity
@@ -134,18 +143,19 @@ affine or datum-restricted factor, and an identity other than the product identi
 The physical document defines its composite units this way (`J/(K*mol)` and `m^3` among
 them), and the dimensionless `1` is the empty product.
 
-- **Representation conversion.** `convert_spec_for_type` changes representation units
-  inside a complete quantity context. A point applies the affine offset; a difference
-  applies the scale only. Conversion is refused when the dimensions differ or a unit's
-  datum restriction differs from the quantity's reference. The context-free
-  `convert_spec` refuses datum-restricted units altogether.
-- **Datum and basis changes are physical conversions.** Gauge-to-absolute, molar↔mass
-  and enthalpy-reference changes are registered `ConversionRule`s. Each is of kind scale,
-  affine, or kernel with named parameters, and each is separate from representation. A
-  datum is applied exactly once and never by a unit edge. Conversion requires matching
-  kind, basis, reference and scale. A composition-dependent conversion needs an explicit
-  physical operation: `pse-math::typed` refuses an inferred input conversion and does not
-  apply one implicitly.
+- **Representation conversion.** `CanonicalConversionPlan` binds a selected complete
+  quantity contract and its source unit. It checks finite source and result values around
+  the canonical multiply-then-add operation. A point applies the representation offset;
+  a difference applies the scale only. Dimensions and any unit datum restriction must
+  agree with that quantity. Missing optional cells remain missing. Inline literals,
+  document columns and mathematical scalar boundaries use this quantity-owned operation.
+- **Datum and basis changes are physical conversions.** Representation conversion cannot
+  change basis, reference or subject. `DatumConversionPlan` consumes the selected reference
+  condition after representation conversion, so a gauge origin is applied exactly once;
+  a pressure difference receives no origin shift. Composition-dependent enthalpy and
+  entropy translations use paired authored scientific anchors (§8.4). Other admitted
+  basis conversions retain their declared parameter dependencies. No expected dimension,
+  unit spelling or numerical constant authorizes a physical conversion.
 - **Where conversions occur.** Instance slots (`pse-math::binding::SlotBinding`), typed
   connections (`pse-structural::flowsheet`) and provider ports (`pse-math::typed`) each
   first require the same complete contract. They then apply a visible scale/offset
@@ -182,6 +192,16 @@ them), and the dimensionless `1` is the empty product.
   costing package's sourced CEPCI conversions
   ([§19.5](workflows-and-results.md#section-19-5)).
 
+The selected relational physical closure uses the same quantity admission. The pure
+`pse-relations::physical` builder consumes checked relation rows, reconciles reference
+and normalized units, admits defined-unit factors and typed reference conditions, and
+returns immutable definitions. Catalog selection supplies the exact revisions; runtime
+owns retention and execution. Compatibility projects only distinct encountered
+quantity/unit pairs. Missing definitions refuse admission and cannot be supplied by a
+process-global inventory. Inputs without quantity occurrences need no physical closure.
+This replaces relational dimension/scale approximations with the actual unit algebra
+(proposed [ADR-0136](../../adr/0136-declared-field-facets.md)).
+
 Smoothing and safe-domain functions are authored prelude functions with polymorphic
 physical signatures. Their widths are positive differences in the operand's quantity
 context; an affine representation offset is never a width. Function requirements and
@@ -190,78 +210,51 @@ is selected by a scientific name in production Rust.
 
 ### 8.3 Quantity inference
 
-> Decision: [ADR-0124](../../adr/0124-unit-algebra-and-derived-kinds.md) — a multiplicative
-> chain resolves by its canonical monomial against the declared kinds, with defined leaf
-> eligibility, basis rule and result policy, and must agree with the registered stepwise
-> rules (Plan 23 KR2, implemented).
+> Decision: [ADR-0135](../../adr/0135-physical-expression-contracts.md)
+> (proposed) — one resolved physical contract admits anonymous scientific intermediates
+> and explicit named boundaries. The implementation replaces ADR-0124's named-only
+> intermediate inference; ADR-0124's exact unit algebra remains the unit authority (§8.2).
 
-`pse_quantity::infer::infer_with_evidence` runs once for every operation while typed
-preparation builds a body. `pse-compiler::typed_math` lowers authored syntax, and
-`pse-math::typed::BodyBuilder` calls inference before it constructs any Symbolica atom.
-Dynamics applies the same inference to time derivatives
-(`pse-compiler::workspace::modeling`). The result is the complete result type
-together with the selected rule and its operand order, never a dimension alone.
+`pse_quantity::resolved` is the operation authority. A `ResolvedPhysicalContract` contains
+canonical semantic kind factors with exact rational exponents, complete basis/reference/
+scale/subject obligations, actual free binders, ordered index axes and numerical unit
+representation. An internal result need not have a registered quantity identity. A public
+quantity boundary requires its declared contract; a matching dimension alone is insufficient.
+Declared kind equivalences admit scientific identities without manufacturing public types.
+
+`pse-modeling` checks physical operations before numerical construction and retains their
+admissions by structural expression occurrence, including lexical scope. A source span or
+rendered expression is not a unique operation address. Concrete admissions retain their
+actual result and selected rule; generic admissions retain owned requests and operand
+schemes, instantiated once against the caller's admitted substitutions. Specialized
+functions keep these products. Compiler lowering requires the checked product at each
+function operation and passes it to `BodyBuilder`; a missing admission refuses. Finite
+mathematical requests create an admission at their resolved occurrence before passing it
+into the same builder. The builder consumes admitted operands/results and explicit boundary
+scale normalization, rather than selecting a competing physical route (§14.3).
 
 | Operation | Rule |
 |---|---|
-| Literal | A literal whose source span has a declared type in the definition takes that type. Otherwise a bare number takes the registry's explicitly designated neutral dimensionless type, and a number with a unit takes the type its context expects (the opposite equation side or an additive sibling) or else needs a unique scalar candidate; an ambiguous literal fails. Context belongs to the occurrence, so one source literal can resolve to a point in one place and a difference in another. Count and indicator values are therefore written with the dimensionless unit, as in `1{1}`, and take their type from context; a bare `1` is the neutral scalar, a different kind. |
-| Add / Sub | Kind, basis, reference and subject must be equal. The index sets must also agree. |
-| Origin-sensitive points | point ± difference → point. difference ± difference → difference. point − point → difference, only when the datums are the same. point + point and difference − point fail. |
-| Discrete scaling | Multiplying by a count or indicator on either side, or dividing by one, keeps the other operand's complete type, with the union of both operands' indices (`discrete_scaling`): units in operation times a per-unit capacity is a capacity, a power times an on/off indicator is a power, and a total over a count of units is a per-unit value. The rule precedes neutral scaling, so the neutral scalar switched by an indicator stays neutral, and an indicator times an indicator is an indicator. Dividing a count or indicator by another quantity is not covered by this rule. |
-| Neutral scaling | Otherwise, multiplying or dividing by the neutral scalar with no indices keeps the other operand's full type, including difference. A composition fraction is not neutral. |
-| Other Mul/Div, Pow, roots, functions | Exactly one registered `quantity_operations` rule must match the operand kinds, including a swapped order. It fixes the result kind and the basis, reference, scale, shape and subject policies (preserve, require-equal, registered-conversion, cancel, declared-result). No match or several matches fails, unless chain resolution types the chain (below); no rule is ever derived from dimensions. A variable exponent needs a dimensionless base. |
-| WeightedMean | Values must share one complete type, and weights must be dimensionless. This is the only operation that averages origin-sensitive points. Certified unit-sum normalization needs its invariant proved against the actual operands. |
-| Reduction | Removes exactly its bound index. A sum of points fails; a product needs a dimensionless body. |
-| UnitConvert, KernelCall/provider, Gather, Broadcast, Conditional, Derivative, Integral | Declared input and output contracts are checked exactly. Conditional branches must have identical types. Derivative and integral combine with the domain unit through a registered rule. |
+| Literal | Bare numbers use the designated neutral `Scalar`. A unit-bearing literal uses the actual expected complete contract or requires a unique admitted candidate. `1{1}` can be a mole fraction, count or species response in its declared context; bare `1` cannot acquire that meaning. |
+| Add / Sub | Complete kind and contextual obligations must agree, including actual binders and ordered axes. Origin-sensitive point ± difference gives a point; point − point gives a difference only at the same datum. Point + point and difference − point refuse. |
+| Discrete / neutral scaling | Count and indicator scaling precedes neutral scaling and keeps the other operand's complete context. An unindexed neutral scalar preserves the physical operand; a composition fraction is a distinct kind. |
+| Registered operations | Matching and prerequisites use actual operands. A selected rule fixes result and operand order. Ambiguity or a selected rule's refusal is final and cannot be rescued by algebraic normalization. |
+| Anonymous products / quotients / exact powers | Canonical semantic factors and numerical unit representation compose exactly. Qualified-factor cancellation retains contextual obligations and free binders. Named boundaries require admitted kind equivalence and compatible contextual meaning, not dimensions. |
+| WeightedMean | Values have one complete type; dimensionless weights require the actual certified unit-sum invariant. Point averaging uses a point and weighted differences, preserving the selected datum. |
+| Reduction | Removes exactly its bound coordinate, with its admitted empty-set prototype. A sum of points refuses. Species amount reduction explicitly produces `TotalAmount`; a different subject cannot silently become a species total. |
+| Calls / conditionals / physical partials | Arguments and results cross checked complete boundaries. Conditional alternatives agree. A physical partial uses its actual independently bound argument and difference contract, even if numerical argument values coincide. |
 
-A registered rule can name preconditions (`reference.quantity_preconditions`: equal
-operand bases, or a required operand contract). `PhysicalPreconditions` checks each one
-against the actual operands at the point of application. A declared invariant ID is not
-evidence that the invariant holds.
+The physical package owns the operation declarations required by knowledge bundles.
+Preconditions are checked against the actual operands; naming an invariant does not prove
+it. A scoped response formula authority can assemble dimension-compatible potential terms,
+but preserves basis, datum, subject, axes and binders. It cannot override a selected rule's
+refusal or authorize an unrelated ordinary expression. Reconstruction and response
+boundaries explicitly authorize the named result (§9.8).
 
-The physical package owns the operation declarations required by its knowledge bundles.
-The standard-package tests exercise representative products, gauge datums and quantity
-contracts. New physical compositions add explicit rules; adapters never infer them from
-dimensions. Finite reductions retain their contracted kind and an empty-set prototype;
-disjoint rule contracts are selected by actual operand prerequisites.
-
-**Chain resolution** (`infer::infer_chain`). A maximal subtree of products, quotients and
-exact rational powers is typed by two routes. The registered rules type it node by node, as
-above. Chain resolution flattens its factors into one canonical monomial over base kinds,
-expanding each derived kind's definition, and looks the monomial up among the declared
-kinds (`QuantityRegistry::kind_by_monomial`); it never synthesizes a kind.
-
-- **Leaf eligibility.** A factor is eligible when it is a difference, dimensionless, or a
-  point without a datum, such as an absolute temperature or pressure (a true-zero ratio
-  point). A point with a nonzero datum, such as a gauge pressure or an enthalpy measured
-  from a datum, makes the chain ineligible (`ChainLeafIneligible` names that factor), and a
-  chain is never partly resolved. The neutral scalar and count or indicator factors are
-  pure numbers outside the monomial.
-- **Result.** A declared derived kind fixes the result's scale, datum and subject, and its
-  basis when it declares one; otherwise every basis-carrying factor must agree
-  (`basis_mismatch`). A monomial that is one additive base kind resolves to that kind's
-  point type with the factors' common basis and subject. The result must be a registered
-  type.
-- **Agreement.** When both routes type a chain, the results must agree: a disagreement is
-  refused naming both (`RouteDisagreement`), and neither route takes precedence. Where no
-  registered rule matches, chain resolution decides, and its refusal is the one reported:
-  an ineligible factor, an undeclared monomial named by its factors
-  (`UndeclaredMonomial`), disagreeing bases or an unregistered result. Where a rule matched
-  and refused, for example on an unestablished precondition, only an explicitly declared
-  derived kind overrides that refusal. A chain whose factors carry free indices, or that is
-  one factor scaled by pure numbers, is left to the registered rules and their neutral and
-  discrete scaling.
-
-Language type expressions such as `MolarCp/Temperature^2` resolve through the same route,
-so every spelling of one monomial is one type. The modeling checker, static evaluation and
-typed lowering (`BodyBuilder::chain`) share it. *Tested* by
-`eligible_leaves_are_exactly_true_zero_ratio_points_and_differences`,
-`nonzero_datum_leaf_is_refused_with_its_factor`, `basis_must_agree_or_be_declared`,
-`undeclared_monomial_is_refused_with_factors`, `rule_and_chain_disagreement_is_refused` and
-`registered_rules_and_chains_agree_on_the_caloric_product` (`pse-quantity` units);
-`seed_forms_type_without_intermediate_kinds` (DIPPR 100, Shomate and RPP4 `cp`, `dh` and
-`ds` without intermediate kinds) and `type_expression_resolves_by_monomial`
-(`pse-modeling` units); and `multiplicative_chains_lower_by_monomial` (compiler units).
+A valid scientific product can therefore pass through anonymous intermediates without
+unit stripping and re-dressing. Unsupported physical compositions require an admitted
+operation or declared scientific contract. They never acquire meaning from a target type,
+a scalar cast or a same-dimension substitute.
 
 **Entropy increments.** A molar heat capacity and a molar entropy have one dimension, so the
 physical document separates them by kind, never by the type a context expects. It declares
@@ -270,7 +263,7 @@ and three registered rules: two absolute temperatures divide to a temperature ra
 temperature difference over an absolute temperature is a logarithmic temperature
 increment, with preconditions disjoint from the difference-over-difference rule; and the
 logarithm of a temperature ratio is a logarithmic temperature increment. `molar_entropy` is
-the derived kind molar heat capacity times logarithmic temperature increment, whose chain
+the derived kind molar heat capacity times logarithmic temperature increment, whose admitted
 result is the stock-datum difference `DeltaS`, as `molar_enthalpy` (molar heat capacity
 times temperature) resolves to `DeltaH`. An entropy increment is therefore written with
 ordinary products, as `c1*log(T/T0) + (…)*r` with `r = (T - T0)/T` and heat-capacity terms
@@ -289,6 +282,8 @@ Failures use the `compile.math` family ([§23.2](operations-and-validation.md#se
 Malformed registry declarations are validation invariants.
 
 ### 8.4 Bases and reference states
+
+> Decision: [ADR-0135](../../adr/0135-physical-expression-contracts.md) (proposed) — contextual reference translation and owner-relative transfers.
 
 A `Basis` states what a quantity is per: molar, mass, volume, energy, standard volume or
 dimensionless. It may add a composition or rate convention, and a standard-volume basis
@@ -316,6 +311,24 @@ and `bt_pr_oracle` (298.15 K, 101325 Pa). A method that needs any other datum de
 it. A change of basis or reference goes through a registered conversion
 together with its parameter dependencies, applied by an explicit model operation (§8.2).
 Reaction definitions state their actual basis and heat convention (§9.7).
+
+Reference translation is an explicit operation with source and target contracts,
+composition, actual component membership, paired anchor functions and provenance. Both
+anchors are evaluated at the same explicit temperature and pressure. Finite weighted
+means preserve point meaning; the authorized source-difference to target-difference step
+and target-point addition leave composition dependence visible to evaluation and
+physical differentiation. A numerical offset cannot erase or mint a reference.
+
+Energy stock and energy transfer are distinct. `EnergyTransferRate` and `MechanicalEnergy`
+are datum-free; referenced material energy flow and stored energy retain their selected
+stock datum through registered mixed operations. `Transfer<quantity,boundary,Into|OutOf>`
+adds an actual owner contract: instance, boundary declaration and ordered coordinates.
+Negation changes the numeric value, never the owner or convention. Reorientation within
+one owner and reflection across an admitted boundary pair are explicit operations.
+Accumulator contributions consume canonical `Into` exactly once; an additional sign
+modifier, wrong owner, wrong coordinate or unconverted `OutOf` contribution refuses.
+Reports retain the actual quantity/unit and optional bound transfer context; presentation
+labels do not establish physical meaning (§4.4).
 
 ### 8.5 Nominal magnitudes
 
@@ -481,18 +494,62 @@ qualification. Extending those sciences means new package definitions and fixtur
 
 ### 9.8 Authored thermodynamic implementations
 
-The current authored thermodynamic seed contains ideal gas/liquid forms, Peng–Robinson
-residual potentials and the IDAES delta-convention override, and nonassociating PC-SAFT
-hard-chain/dispersion potentials. Interface defaults derive properties through physical
-partial derivatives. Density closures exercise inline, nested and cubic-accelerated
-realizations. Caloric and residual terms retain separate explicit reference choices.
+> Decision: [ADR-0135](../../adr/0135-physical-expression-contracts.md) (proposed) — authored
+> maps, physical reconstructions, responses and reference translations preserve scientific
+> meaning through ordinary checked mathematical composition.
 
-Methane/ethane/propane data feed both homogeneous process models and the vessel. A declared
-C² directional-valve function replaces the Rust provider. Independent frozen teqp, FeOS
-and caloric oracle inputs remain in tests, with source and convention notes in each bundle.
-The source packages contain no general multiparameter Helmholtz or CoolProp implementation.
-Focused executed evidence and its limits are recorded by the owning execution packet;
-this inventory does not claim the integrated campaign that Plan 23 owns.
+A coordinate map declares physical arguments, validity and identified scalar or indexed
+slots. `Coordinate<map.slot>` is a nominal refinement; another slot or map, or a general
+`Scalar`, cannot substitute for it. `Reduced<reconstruction>` carries the selected reduced
+law contract. Reconstruction consumes the explicit normalization and scientific reference
+convention and produces a declared physical potential or increment. These operations lower
+to ordinary checked functions and the existing library-owned mathematics; there is no
+second differentiation or reduced-law engine.
+
+The current authored seed contains ideal gas/liquid forms, Peng–Robinson residual
+potentials and the IDAES delta-convention override, and nonassociating PC-SAFT hard-chain/
+dispersion potentials. PR and PC-SAFT reconstruct `ResidualHelmholtzEnergy`, retaining the
+ideal pressure and standard-state fugacity terms. NRTL reconstructs `ExcessGibbsEnergy`
+under its declared degree-one reduced-amount convention; reconstruction does not multiply
+by total amount a second time. Physical derivatives bind independent `T,V,n` or `T,p,n`
+arguments before substituting density/composition coordinates.
+
+Species response quantities include `LogFugacityCoefficient` / `FugacityCoefficient` and
+`LogActivityCoefficient` / `ActivityCoefficient`. The logarithmic response and its
+exponential are named subject-bearing contracts, even though their unit is `1`. They do
+not return a neutral scalar. Datum-free `ResidualMolarEnthalpy` and `ResidualMolarEntropy`
+remain distinct from the referenced material differences `DeltaH` and `DeltaS`. Explicit
+mixed operations combine residual responses with material points while retaining the
+material reference.
+
+A response must consume its actual selected potential or physical partials. Generic
+lowering first checks the selected potential's dependence on its admitted reconstruction,
+and the response's dependence on that potential, using abstract scientific calls and
+library normalization before substituting the reduced-law implementation. An unused call,
+a zero coefficient or cancelling copies cannot supply a witness. A legitimately zero
+reduced law can still produce zero value and derivatives because its scientific dependence
+is checked before the implementation becomes zero. Syntactic call reachability alone is
+insufficient.
+
+Source consumers retain their original scientific origins explicitly. Vessel energy is
+amount times the enthalpy difference from `constants.standard_enthalpy_datum`, minus
+volume times absolute pressure. The reactor inventory uses that enthalpy difference and
+the pressure difference from `constants.standard_pressure`. BTIdeal and BT_PR oracle
+translations use their actual paired caloric anchors and composition. BT_PR's ideal-gas
+pressure entropy increment maps physical pressure and reference pressure to their ratio,
+then reconstructs `DeltaS` from the logarithmic reduced law and gas constant with named
+scientific provenance. Reaction extent is a reaction-subject amount rate; explicit
+stoichiometric projection yields component rates, and report units remain `mol/s`.
+
+Methane/ethane/propane data feed homogeneous process models and the vessel. A declared C²
+directional-valve function replaces the Rust provider. Independent frozen teqp, FeOS and
+caloric oracle inputs remain with source and convention notes. Independent cubic helper
+science remains authored alongside the physical potential path. The source packages
+contain no general multiparameter Helmholtz or CoolProp implementation. Focused source
+controls select current scientific declarations and provide small synthetic parameter
+rows for isolated numerical behavior; they exclude external dataset transport. The owning
+execution packet records actual evidence. Full package/data transport and assembled
+qualification remain Plan 25k work.
 
 ### 9.9 Electrolytes and inherent reactions
 

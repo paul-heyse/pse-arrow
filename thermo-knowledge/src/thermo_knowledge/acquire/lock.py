@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import fcntl
 import os
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -84,7 +84,7 @@ def lock_guard_path(path: Path) -> Path:
 
 
 @contextmanager
-def exclusive(path: Path) -> Iterator[None]:
+def exclusive(path: Path) -> Generator[None]:
     """Hold the exclusive lock on the sidecar of the lock at `path`, waiting for other
     processes that hold it. The lock is released when the block ends or the process dies."""
     descriptor = os.open(lock_guard_path(path), os.O_RDWR | os.O_CREAT | os.O_CLOEXEC, 0o644)

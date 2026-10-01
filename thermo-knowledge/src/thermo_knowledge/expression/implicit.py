@@ -30,6 +30,7 @@ import scipy.optimize
 import sympy
 
 from thermo_knowledge.expression.lowering import substitute
+from thermo_knowledge.expression.symbolic import apply, div, free_symbols
 
 _EPS = float(np.finfo(float).eps)
 _SCAN_POINTS = 4001
@@ -84,7 +85,7 @@ class Block:
         """The argument and parameter symbols the block depends on, in name order."""
         found: set[sympy.Symbol] = set()
         for expr in self.expressions():
-            found |= expr.free_symbols
+            found |= free_symbols(expr)
         found -= set(self.unknowns)
         return tuple(sorted(found, key=str))
 
@@ -132,7 +133,9 @@ def _polynomial_coefficients(residual: sympy.Expr, unknown: sympy.Symbol) -> lis
     coefficients: list[sympy.Expr] = []
     derivative = residual
     for power in range(_MAX_DEGREE + 1):
-        coefficients.append(derivative.xreplace({unknown: sympy.S.Zero}) / sympy.factorial(power))
+        coefficients.append(
+            div(derivative.xreplace({unknown: sympy.S.Zero}), apply(sympy.factorial, power))
+        )
         if not derivative.has(unknown):
             break
         derivative = sympy.diff(derivative, unknown)
@@ -162,7 +165,7 @@ class BlockSolver:
         self.scale = compile_(both, sympy.Tuple(*scales))
         self.lower = [_bound(e, params, compile_, -np.inf) for e in block.lower]
         self.upper = [_bound(e, params, compile_, np.inf) for e in block.upper]
-        self.start = [None if e is None else _bound(e, params, compile_, None) for e in block.start]
+        self.start = [None if e is None else _expression_bound(e, params, compile_) for e in block.start]
         self.by = None if block.by is None else compile_(both, block.by)
         self.coefficients: Callable[..., np.ndarray] | None = None
         if self.n == 1:
@@ -440,11 +443,18 @@ def _bound(
     expr: sympy.Expr | None,
     params: Sequence[sympy.Symbol],
     compile_: Compiler,
-    default: float | None,
-) -> Callable[..., float | None]:
+    default: float,
+) -> Callable[..., float]:
     """A bound as a function of the parameters: the expression, else `default`."""
     if expr is None:
         return lambda *_: default
+    return _expression_bound(expr, params, compile_)
+
+
+def _expression_bound(
+    expr: sympy.Expr, params: Sequence[sympy.Symbol], compile_: Compiler
+) -> Callable[..., float]:
+    """The expression as a function of the parameters."""
     function = compile_(params, expr)
     return lambda *p: float(np.asarray(function(*p)))
 

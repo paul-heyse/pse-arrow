@@ -37,7 +37,9 @@ def default_text(value: m.Scalar | None) -> str | None:
         return value.isoformat()
     if isinstance(value, date):
         return value.isoformat()
-    return str(value) if not isinstance(value, float) else repr(value)
+    if isinstance(value, int):
+        return str(value)
+    return repr(value) if isinstance(value, float) else value
 
 
 def _type(type_: TypeRef) -> Row:

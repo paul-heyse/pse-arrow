@@ -468,6 +468,31 @@ so a shared workspace cannot mix two revisions during one preparation. Returned 
 (`PreparedCase`, `CasePlan`, artifact requests) are owned values that outlive a workspace
 generation and keep their own allocation owner.
 
+Physical preparation consumes immutable checked products. Source functions retain
+physical operation admissions by structural expression occurrence: body-relative preorder
+and lexical position distinguish identical syntax, including rewritten nodes with empty
+spans. Concrete products retain operand/result contracts and selected rule; generic
+products retain requests and operand schemes and instantiate against the caller's admitted
+substitutions before numerical construction. Specialized function bodies preserve those
+products. Missing or conflicting occurrence admission refuses lowering; an expected return
+type cannot supply it. Finite mathematical requests admit their actual resolved operation
+before handing it to `BodyBuilder`. The builder constructs library atoms from that product
+and explicit named boundary authorization, including canonical numerical scale normalization.
+It does not select a second physical inference route.
+
+Scientific response preparation also checks normalized dependence. A selected potential
+must retain its declared reconstruction, and a response must retain that selected potential
+or its physical partials. Abstract scientific calls are normalized through the same library
+path before reduced-law implementations are substituted. Zero coefficients and cancellation
+cannot masquerade as dependence; a legitimately zero selected law remains admissible.
+Physical partials bind independent actual arguments, so equal numerical argument values do
+not identify their differentiation coordinates. These admissions and scientific contracts
+enter the typed preparation identity (§5.3). This is implemented mechanism scope; focused
+check results belong to the owning packet and assembled qualification remains Plan 25k.
+
+> Decision: [ADR-0135](../../adr/0135-physical-expression-contracts.md) (proposed) — retain admitted
+> physical operations and normalized scientific witnesses through lowering.
+
 #### 14.3.1 Artifact construction, retention and completion
 
 `ArtifactRequest` is issued only by the compiler; its private fields prevent runtime code

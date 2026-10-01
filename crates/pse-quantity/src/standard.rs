@@ -88,6 +88,100 @@ mod tests {
     use crate::{IndexSet, QuantityTypeId, infer::infer_with_evidence};
 
     #[test]
+    fn component_responses_keep_distinct_meanings_and_species_context() {
+        use crate::{PhysicalName, ResolvedPhysicalContract, resolved::infer_operation};
+        let registry = standard_registry().unwrap();
+        let quantity = |name| match registry.physical_name(name).unwrap() {
+            PhysicalName::QuantityType(id) => id,
+            PhysicalName::ReferenceState(_) => panic!("expected a quantity"),
+        };
+        let resolved = |name| {
+            ResolvedPhysicalContract::named(quantity(name), IndexSet::new(), &registry).unwrap()
+        };
+        for name in [
+            "LogFugacityCoefficient",
+            "LogActivityCoefficient",
+            "GibbsDuhemResidual",
+        ] {
+            let value = resolved(name);
+            assert!(
+                registry
+                    .quantity_type(quantity(name))
+                    .unwrap()
+                    .key
+                    .subject_kind
+                    .is_some()
+            );
+            assert!(value.at_boundary(quantity("Scalar"), &registry).is_err());
+            for other in [
+                "LogFugacityCoefficient",
+                "LogActivityCoefficient",
+                "GibbsDuhemResidual",
+            ] {
+                assert_eq!(
+                    value.at_boundary(quantity(other), &registry).is_ok(),
+                    name == other
+                );
+                assert_eq!(
+                    infer_operation(
+                        &OpRequest::Add,
+                        &[value.clone(), resolved(other)],
+                        None,
+                        &registry,
+                        &StandardInvariantChecker
+                    )
+                    .is_ok(),
+                    name == other
+                );
+            }
+        }
+        for (logarithm, coefficient) in [
+            ("LogFugacityCoefficient", "FugacityCoefficient"),
+            ("LogActivityCoefficient", "ActivityCoefficient"),
+        ] {
+            let result = infer_operation(
+                &OpRequest::Transcendental(crate::Opcode::Exp),
+                &[resolved(logarithm)],
+                None,
+                &registry,
+                &StandardInvariantChecker,
+            )
+            .unwrap();
+            assert_eq!(
+                result.result.require_named().unwrap(),
+                quantity(coefficient)
+            );
+            assert_eq!(
+                result.result.qualified_factors()[0].key.subject_kind,
+                registry
+                    .quantity_type(quantity(logarithm))
+                    .unwrap()
+                    .key
+                    .subject_kind
+            );
+        }
+        let total = infer_operation(
+            &OpRequest::FiniteReduce {
+                kind: crate::ReductionKind::Sum,
+                domain: registry
+                    .quantity_type(quantity("Amount"))
+                    .unwrap()
+                    .key
+                    .subject_kind,
+            },
+            &[resolved("Amount")],
+            None,
+            &registry,
+            &StandardInvariantChecker,
+        )
+        .unwrap();
+        assert_eq!(
+            total.result.require_named().unwrap(),
+            quantity("TotalAmount")
+        );
+    }
+
+    #[test]
     fn caloric_operations_require_the_declared_datum_and_difference_roles() {
         let registry = standard_registry().expect("source package projection");
         let quantity = |hex| QuantityTypeId::from_id(pse_ids::SemanticId::parse_hex(hex).unwrap());

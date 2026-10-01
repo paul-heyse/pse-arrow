@@ -52,6 +52,7 @@ fn schema() -> Vec<Declaration> {
 fn admitted(rows: &[Declaration]) -> Result<CheckedPackage> {
     let (registry, _) = physical();
     let context = TypeContext {
+        admissions: None,
         formula_authority: None,
         preconditions: &pse_quantity::PhysicalPreconditions::new(
             pse_quantity::generated::standard_preconditions(),

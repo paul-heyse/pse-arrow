@@ -17,21 +17,21 @@
 @id("86e84e07a9094a6eaa6a11ae440067e2") def Binary(composition:Scalar,total:Amount=constants.amount_unit) {
 @id("4f2e80415b8941ecb83e13024befabab") let n[j in members]:Amount=total*(if j==chem.benzene then composition else 1-composition);
 @id("6dba012ae3e44f96af6bf72efffeac41") let excess:Scalar=nrtl.normalized_excess(constants.standard_temperature,constants.standard_pressure,n,members,package_selection,nrtl.potential);
-@id("77117de01346421887afa3957075e23a") let gamma[j in members]:Scalar=nrtl.ln_gamma(constants.standard_temperature,constants.standard_pressure,n,members,package_selection,j);
-@id("6a8808622dc0470c9e0e2c4ff8a77c48") let gibbs_duhem[j in members]:Scalar=nrtl.gibbs_duhem_response(constants.standard_temperature,constants.standard_pressure,n,members,package_selection,j,nrtl.potential);
+@id("77117de01346421887afa3957075e23a") let gamma[j in members]:LogActivityCoefficient=nrtl.ln_gamma(constants.standard_temperature,constants.standard_pressure,n,members,package_selection,j);
+@id("6a8808622dc0470c9e0e2c4ff8a77c48") let gibbs_duhem[j in members]:GibbsDuhemResidual=nrtl.gibbs_duhem_response(constants.standard_temperature,constants.standard_pressure,n,members,package_selection,j,nrtl.potential);
 }
 @id("ee8c7df5633b4a6a86b9f747da770636") test default_nrtl_closed_form_derivatives_and_idaes oracle nrtl_reference.defaults fixture {dof 0;run pure;} {
 @id("ef0b0e4f1a214085918a7857dbf27b8e") set compositions:Set<Scalar>={0.2,0.5,0.8};
 @id("d9ccffdaaf204644989be4739ac9a6b9") child point[x in compositions]:Binary=Binary(composition=x);
-@id("51fb362de8b043d19c02d3d9e53083e8") expect sum(x in compositions | abs(point[x].excess-nrtl.binary(x,1,1,0.3,0.3)))==0 tolerance 1e-12;
-@id("ce7e23846bac40868d47e84166e29e94") expect sum(x in compositions | sum(j in members | abs(point[x].gamma[j]-nrtl_reference.observations[x,j])))==0 tolerance 1e-12;
-@id("f927845fa2bf494d90b879250c999895") expect sum(x in compositions | sum(j in members | abs(point[x].gibbs_duhem[j])))==0 tolerance 1e-12;
+@id("51fb362de8b043d19c02d3d9e53083e8") expect sum(x in compositions | abs(point[x].excess-nrtl.binary(x,1,1,0.3,0.3)))==0{1} tolerance 1e-12{1};
+@id("ce7e23846bac40868d47e84166e29e94") expect sum(x in compositions | sum(j in members | abs(point[x].gamma[j]-nrtl_reference.observations[x,j])))==0{1} tolerance 1e-12{1};
+@id("f927845fa2bf494d90b879250c999895") expect sum(x in compositions | sum(j in members | abs(point[x].gibbs_duhem[j])))==0{1} tolerance 1e-12{1};
 }
 @id("04ece38aec494e4da773690b00b809a9") test degree_one_excess_and_amount_invariant_activity oracle nrtl_reference.defaults fixture {dof 0;run pure;} {
 @id("42e3b97590a24c019754fdcab147f7a0") child one:Binary=Binary(composition=0.3,total=1{mol});
 @id("c772e7721e53411a9de17f6a821215b4") child three:Binary=Binary(composition=0.3,total=3{mol});
 @id("b9a5b3bdaebc4e5ca60bb8d06f6afd8e") expect three.excess==3*one.excess tolerance 1e-12;
-@id("0a3674785fbe47e987aa061cc68e34b4") expect sum(j in members | abs(three.gamma[j]-one.gamma[j]))==0 tolerance 1e-12;
-@id("13411678c48c40e6b90956d345139636") expect sum(j in members | abs(three.gibbs_duhem[j]))==0 tolerance 1e-12;
+@id("0a3674785fbe47e987aa061cc68e34b4") expect sum(j in members | abs(three.gamma[j]-one.gamma[j]))==0{1} tolerance 1e-12{1};
+@id("13411678c48c40e6b90956d345139636") expect sum(j in members | abs(three.gibbs_duhem[j]))==0{1} tolerance 1e-12{1};
 }
 }

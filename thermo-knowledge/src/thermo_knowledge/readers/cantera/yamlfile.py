@@ -131,7 +131,7 @@ class FileReader:
             )
             return
         for kind, where, relative, leaf in walk(dict(mapping), units_pointer):
-            if kind == "units":
+            if kind == "units" and isinstance(leaf, dict):
                 # a units mapping nested in a units mapping: keep it as its own block
                 self.units("entry", relative, where, leaf)
             else:
@@ -149,7 +149,7 @@ class FileReader:
         owner = locator(self.artifact, owner_pointer)
         block = first_token(rel)
         for kind, where, relative, leaf in walk(value, at, rel):
-            if kind == "units":
+            if kind == "units" and isinstance(leaf, dict):
                 self.units("entry", relative, where, leaf)
                 continue
             self.row(

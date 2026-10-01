@@ -3,6 +3,8 @@
 
 //! Direct authored syntax to physically admitted library bodies.
 //! Source occurrences and formal bindings remain separate from Symbolica arithmetic.
+#[path = "typed_math_witness.rs"]
+mod witness;
 use pse_authoring::dsl::{self, BinaryOp, CompareOp, Expr, ExprKind, PredicateKind};
 use pse_ids::{ContentHash, FramedHasher, SemanticId};
 use pse_kernels::DerivativeOrder;
@@ -10,7 +12,7 @@ use pse_math::{
     MathError,
     binding::BodySpec,
     guarded::Comparison,
-    typed::{Binary, BodyBuilder, BodyLimits, ChainTree, Guard, TypedValue},
+    typed::{Binary, BodyBuilder, BodyLimits, Guard, TypedValue},
 };
 #[cfg(test)]
 use pse_math::{guarded::CompiledBody, library::Optimization};
@@ -24,6 +26,7 @@ use std::{
     collections::BTreeMap,
     sync::atomic::{AtomicBool, Ordering},
 };
+use witness::WitnessPass;
 
 /// One formal scalar declaration, independent of global instance values.
 #[derive(Clone, Debug, PartialEq)]
@@ -270,7 +273,7 @@ impl Request<'_> {
             self.limits,
         )?;
         let mut paths = BTreeMap::new();
-        let mut hash = FramedHasher::new(pse_ids::Frame::MathTypedDefinitionV6);
+        let mut hash = FramedHasher::new(pse_ids::Frame::MathTypedDefinitionV7);
         hash.u64(self.formals.len() as u64);
         for (slot, formal) in self.formals.iter().enumerate() {
             if paths.insert(formal.path.clone(), slot).is_some() {
@@ -295,6 +298,8 @@ impl Request<'_> {
             calls: Vec::new(),
             validity,
             validating: Vec::new(),
+            operation_scope: None,
+            witness_pass: None,
         };
         if self.expressions.is_empty() {
             return Err(MathError::Contract("empty authored output group".into()));
@@ -341,6 +346,24 @@ impl Request<'_> {
     }
 }
 
+#[derive(Clone)]
+struct OperationScope {
+    obligations: pse_modeling::expression::admission::ExpressionAdmissions,
+    admissions: BTreeMap<
+        pse_modeling::expression::admission::ExpressionOccurrence,
+        pse_quantity::ResolvedInference,
+    >,
+    occurrences: BTreeMap<usize, pse_modeling::expression::admission::ExpressionOccurrence>,
+}
+/// A short-circuit continuation retains the checked AST references of every branch.
+enum ConditionalBranch<'a> {
+    Expression(&'a Expr),
+    Predicate {
+        predicate: &'a dsl::Predicate,
+        then: &'a ConditionalBranch<'a>,
+        otherwise: &'a ConditionalBranch<'a>,
+    },
+}
 struct Lower<'a, 'b> {
     checker: &'a dyn InvariantChecker,
     request: &'a Request<'b>,
@@ -357,8 +380,30 @@ struct Lower<'a, 'b> {
     calls: Vec<DeclarationId>,
     validity: &'a BTreeMap<String, Validity>,
     validating: Vec<String>,
+    operation_scope: Option<OperationScope>,
+    witness_pass: Option<WitnessPass>,
 }
 impl Lower<'_, '_> {
+    fn finite_reduction_admission(
+        &self,
+        function: &pse_modeling::Function,
+    ) -> Result<pse_quantity::ResolvedInference, MathError> {
+        self.operation_scope
+            .as_ref()
+            .and_then(|scope| {
+                scope.admissions.get(
+                    &pse_modeling::expression::admission::ExpressionOccurrence::finite_reduction(
+                        function.id,
+                    ),
+                )
+            })
+            .cloned()
+            .ok_or_else(|| {
+                MathError::Contract(
+                    "checked finite reduction occurrence is missing its admission".into(),
+                )
+            })
+    }
     fn validated(
         &mut self,
         name: &str,
@@ -412,7 +457,7 @@ impl Lower<'_, '_> {
         if self.occurrences.len() >= self.request.limits.occurrences {
             return Err(MathError::Limit("authored syntax occurrences"));
         }
-        let mut h = FramedHasher::new(pse_ids::Frame::MathLocalOccurrenceV2);
+        let mut h = FramedHasher::new(pse_ids::Frame::MathLocalOccurrenceV3);
         h.u64(self.occurrences.len() as u64);
         let id = h.finish_id();
         self.occurrences.push(Occurrence {
@@ -422,53 +467,71 @@ impl Lower<'_, '_> {
         });
         Ok(id)
     }
-    /// One node of a multiplicative chain, with the occurrence and hash bookkeeping of
-    /// [`Self::expression_expected`]; any other expression is a factor.
-    fn chain_node(
-        &mut self,
-        expr: &Expr,
-        builder: &mut BodyBuilder<'_>,
-        depth: usize,
-    ) -> Result<ChainTree, MathError> {
-        match &expr.kind {
-            ExprKind::Binary { op, lhs, rhs } if chain_operation(*op, rhs) => {
-                let source = self.source(expr, depth)?;
-                self.chain_children(*op, lhs, rhs, builder, depth, source)
+    /// Instantiate an expression operation before numerical construction. A checked
+    /// function body must contain its occurrence product; missing admission is a refusal.
+    fn arithmetic_admission(
+        &self,
+        expression: &Expr,
+        request: pse_quantity::infer::OpRequest<'_>,
+        operands: &[&TypedValue],
+        builder: &BodyBuilder<'_>,
+    ) -> Result<pse_quantity::ResolvedInference, MathError> {
+        if let Some(scope) = &self.operation_scope {
+            let occurrence = scope
+                .occurrences
+                .get(&(std::ptr::from_ref(expression) as usize))
+                .ok_or_else(|| {
+                    MathError::Contract(
+                        "operation is outside its checked function occurrence tree".into(),
+                    )
+                })?;
+            let admission = scope.admissions.get(occurrence).cloned().ok_or_else(|| {
+                MathError::Contract(
+                    "checked function operation occurrence is missing its admission".into(),
+                )
+            })?;
+            if let pse_quantity::infer::OpRequest::Reduce { kind, bound } = request {
+                let [prototype] = operands else {
+                    return Err(MathError::Contract(
+                        "bound reduction prototype arity".into(),
+                    ));
+                };
+                return scope
+                    .obligations
+                    .get(occurrence)
+                    .ok_or_else(|| {
+                        MathError::Contract(
+                            "checked reduction occurrence is missing its obligation".into(),
+                        )
+                    })?
+                    .instantiate_reduction_binder(
+                        &admission,
+                        kind,
+                        bound,
+                        prototype.physical_contract(),
+                        self.registry,
+                        self.checker,
+                        DeclarationId::from(self.request.definition),
+                    )
+                    .map_err(|error| MathError::Contract(error.to_string()));
             }
-            _ => Ok(ChainTree::Leaf(
-                self.expression_expected(expr, builder, depth, None)?,
-            )),
+            return Ok(admission);
         }
-    }
-    fn chain_children(
-        &mut self,
-        op: BinaryOp,
-        lhs: &Expr,
-        rhs: &Expr,
-        builder: &mut BodyBuilder<'_>,
-        depth: usize,
-        source: SemanticId,
-    ) -> Result<ChainTree, MathError> {
-        self.hash.str(op.as_str());
-        let left = Box::new(self.chain_node(lhs, builder, depth + 1)?);
-        Ok(match (op, literal_exponent(rhs)) {
-            (BinaryOp::Pow, Some(exponent)) => ChainTree::Pow {
-                base: left,
-                exponent,
-                power: self.expression_expected(rhs, builder, depth + 1, None)?,
-                source,
-            },
-            (BinaryOp::Div, _) => ChainTree::Div(
-                left,
-                Box::new(self.chain_node(rhs, builder, depth + 1)?),
-                source,
-            ),
-            _ => ChainTree::Mul(
-                left,
-                Box::new(self.chain_node(rhs, builder, depth + 1)?),
-                source,
-            ),
-        })
+        // A Request is the admission front door for a finite mathematical definition.
+        // Its actual group binders and literal contracts are now resolved. The modeling
+        // checker creates the product here; BodyBuilder only consumes it below.
+        pse_modeling::expression::admission::admit_operation(
+            &request,
+            &operands
+                .iter()
+                .map(|value| value.physical_contract().clone())
+                .collect::<Vec<_>>(),
+            self.registry,
+            self.checker,
+            builder.physical_formula_authority(),
+            DeclarationId::from(self.request.definition),
+        )
+        .map_err(|error| MathError::Contract(error.to_string()))
     }
     fn expression(
         &mut self,
@@ -558,13 +621,13 @@ impl Lower<'_, '_> {
             ExprKind::Neg(value) => {
                 self.hash.str("neg");
                 let value = self.expression_expected(value, builder, depth + 1, expected)?;
-                builder.negate(value, source)
-            }
-            ExprKind::Binary { op, lhs, rhs } if chain_operation(*op, rhs) => {
-                // A maximal product, quotient and exact-power subtree is typed as one
-                // multiplicative chain (ADR-0124); its factors lower as before.
-                let tree = self.chain_children(*op, lhs, rhs, builder, depth, source)?;
-                builder.chain(tree)
+                let admission = self.arithmetic_admission(
+                    expr,
+                    pse_quantity::infer::OpRequest::Neg,
+                    &[&value],
+                    builder,
+                )?;
+                builder.negate_admitted(value, admission, source)
             }
             ExprKind::Binary { op, lhs, rhs } => {
                 self.hash.str(op.as_str());
@@ -597,7 +660,21 @@ impl Lower<'_, '_> {
                     BinaryOp::Div => Binary::Div,
                     BinaryOp::Pow => Binary::Pow,
                 };
-                builder.binary(operation, left, right, exponent, source)
+                let request = match op {
+                    BinaryOp::Add => pse_quantity::infer::OpRequest::Add,
+                    BinaryOp::Sub => pse_quantity::infer::OpRequest::Sub,
+                    BinaryOp::Mul => pse_quantity::infer::OpRequest::Mul,
+                    BinaryOp::Div => pse_quantity::infer::OpRequest::Div,
+                    BinaryOp::Pow => pse_quantity::infer::OpRequest::Pow {
+                        exponent: exponent.map_or(
+                            pse_quantity::infer::Exponent::Symbolic,
+                            pse_quantity::infer::Exponent::Rational,
+                        ),
+                    },
+                };
+                let admission =
+                    self.arithmetic_admission(expr, request, &[&left, &right], builder)?;
+                builder.binary_admitted(operation, left, right, exponent, admission, source)
             }
             ExprKind::Call { function, args } => {
                 self.hash.str("function").str(function.as_str());
@@ -620,7 +697,29 @@ impl Lower<'_, '_> {
                     ));
                 }
                 let value = self.expression(&args[0], builder, depth + 1)?;
-                builder.unary(*function, value, source)
+                let request = match function.as_str() {
+                    "sqrt" => pse_quantity::infer::OpRequest::Sqrt,
+                    "abs" => pse_quantity::infer::OpRequest::Abs,
+                    "exp" => {
+                        pse_quantity::infer::OpRequest::Transcendental(pse_quantity::Opcode::Exp)
+                    }
+                    "log" => {
+                        pse_quantity::infer::OpRequest::Transcendental(pse_quantity::Opcode::Log)
+                    }
+                    "sin" => {
+                        pse_quantity::infer::OpRequest::Transcendental(pse_quantity::Opcode::Sin)
+                    }
+                    "cos" => {
+                        pse_quantity::infer::OpRequest::Transcendental(pse_quantity::Opcode::Cos)
+                    }
+                    _ => {
+                        return Err(MathError::Contract(
+                            "primitive operation has no checked physical request".into(),
+                        ));
+                    }
+                };
+                let admission = self.arithmetic_admission(expr, request, &[&value], builder)?;
+                builder.unary_admitted(*function, value, admission, source)
             }
             ExprKind::Conditional {
                 guard,
@@ -649,7 +748,7 @@ impl Lower<'_, '_> {
                 result
             }
             ExprKind::Reduce { kind, binder, body } => {
-                self.reduce(*kind, binder, body, builder, depth + 1, source)
+                self.reduce(expr, *kind, binder, body, builder, depth + 1, source)
             }
             ExprKind::NamedCall { name, args } => {
                 self.function(name, args, &[], builder, depth + 1, source)
@@ -711,6 +810,7 @@ impl Lower<'_, '_> {
                 "package function argument count".into(),
             ));
         }
+        self.verify_scientific_response(&f, name, args, builder, depth, source)?;
         let mut substitutions = Substitution::new();
         let mut arguments = Vec::new();
         for (expr, (_, ty)) in args.iter().zip(&f.arguments) {
@@ -788,26 +888,76 @@ impl Lower<'_, '_> {
                 }
             }
         }
+        if let Some(value) = self.abstract_scientific_call(
+            &f,
+            name,
+            args,
+            &mut arguments,
+            &substitutions,
+            wrt,
+            builder,
+            depth,
+            source,
+        )? {
+            return Ok(value);
+        }
+        let concrete_admissions = f
+            .physical_admissions
+            .iter()
+            .map(|(occurrence, obligation)| {
+                obligation
+                    .specialize(
+                        self.registry,
+                        &substitutions,
+                        self.checker,
+                        builder.physical_formula_authority(),
+                        f.id,
+                    )
+                    .map(|admission| (occurrence.clone(), admission))
+                    .map_err(|error| MathError::Contract(error.to_string()))
+            })
+            .collect::<Result<BTreeMap<_, _>, _>>()?;
+        let mut occurrences = f
+            .body
+            .as_ref()
+            .map(pse_modeling::expression::admission::ExpressionOccurrence::in_body)
+            .unwrap_or_default();
+        for predicate in f
+            .validity
+            .iter()
+            .chain(f.envelopes.iter().map(|guard| &guard.predicate))
+        {
+            predicate_occurrences(predicate, &mut occurrences);
+        }
+        let prior_operations = self.operation_scope.replace(OperationScope {
+            obligations: f.physical_admissions.clone(),
+            admissions: concrete_admissions,
+            occurrences,
+        });
         if let Some(reduction) = &f.reduction
             && wrt.is_empty()
         {
             self.hash.str("finite-reduction").id(&f.id.as_id());
-            let value = builder.finite_reduce(
-                reduction.kind,
-                reduction.domain,
-                reduction.prototype,
-                &arguments,
-                source,
-            )?;
+            let value = {
+                let admission = self.finite_reduction_admission(&f)?;
+                builder.finite_reduce_admitted(
+                    reduction.kind,
+                    &reduction.prototype,
+                    &arguments,
+                    admission,
+                    source,
+                )
+            }?;
             let Some(result) = f.result.quantity_scheme() else {
                 return Err(MathError::Contract(
                     "finite reduction result must be physical".into(),
                 ));
             };
             let expected = result
-                .resolve_with_evidence(self.registry, &substitutions, self.checker)
+                .resolve_contract_with_evidence(self.registry, &substitutions, self.checker)
                 .map_err(|e| MathError::Contract(e.to_string()))?;
-            return builder.named_boundary(value, expected);
+            self.operation_scope = prior_operations;
+            return builder.contract_boundary(value, &expected);
         }
         // ADR-0123 Outcome 4: the form layer's domain and each rejecting data-layer guard are
         // domain predicates, each attributed to its own source: the function, or the
@@ -994,6 +1144,7 @@ impl Lower<'_, '_> {
             let value = assumptions.iter().fold(value, |value, assumption| {
                 builder.with_assumption(value, assumption)
             });
+            self.operation_scope = prior_operations;
             return builder.bind(value);
         }
         let scope = builder.function_scope();
@@ -1042,18 +1193,21 @@ impl Lower<'_, '_> {
             self.hash
                 .str("finite-reduction")
                 .str(reduction.kind.as_str())
-                .id(&reduction.prototype.as_id())
                 .bool(reduction.domain.is_some());
+            reduction.prototype.frame(&mut self.hash);
             if let Some(domain) = reduction.domain {
                 self.hash.id(&domain.as_id());
             }
-            builder.finite_reduce(
-                reduction.kind,
-                reduction.domain,
-                reduction.prototype,
-                &arguments,
-                source,
-            )
+            {
+                let admission = self.finite_reduction_admission(&f)?;
+                builder.finite_reduce_admitted(
+                    reduction.kind,
+                    &reduction.prototype,
+                    &arguments,
+                    admission,
+                    source,
+                )
+            }
         } else {
             let body = f
                 .body
@@ -1070,6 +1224,7 @@ impl Lower<'_, '_> {
                 },
             )
         };
+        self.operation_scope = prior_operations;
         builder.physical_formula_scope(prior_formula);
         self.locals = saved;
         self.calls.pop();
@@ -1116,7 +1271,18 @@ impl Lower<'_, '_> {
                     Ok(arguments[index].clone())
                 })
                 .collect::<Result<Vec<_>, MathError>>()?;
-            value = builder.partial(scope, value, &variables, source)?;
+            let admission = pse_modeling::expression::admission::admit_partial(
+                value.physical_contract(),
+                &variables
+                    .iter()
+                    .map(|value| value.physical_contract().clone())
+                    .collect::<Vec<_>>(),
+                self.registry,
+                self.checker,
+                f.id,
+            )
+            .map_err(|error| MathError::Contract(error.to_string()))?;
+            value = builder.partial_admitted(scope, value, &variables, admission, source)?;
         }
         let value = assumptions.iter().fold(value, |value, assumption| {
             builder.with_assumption(value, assumption)
@@ -1206,8 +1372,13 @@ impl Lower<'_, '_> {
         }
         builder.input(slot, group.quantity, indices, source)
     }
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the reduction's expression, kind, binder and body accompany the shared body builder, recursion depth and source identity"
+    )]
     fn reduce(
         &mut self,
+        expression: &Expr,
         kind: dsl::ReduceKind,
         binder: &dsl::Binder,
         body: &Expr,
@@ -1261,6 +1432,8 @@ impl Lower<'_, '_> {
             calls: self.calls.clone(),
             validity: self.validity,
             validating: self.validating.clone(),
+            operation_scope: self.operation_scope.clone(),
+            witness_pass: self.witness_pass.clone(),
         };
         let mut physical = builder.physical_pass()?;
         let prototype = prototype_lower.expression(body, &mut physical, depth)?;
@@ -1300,7 +1473,13 @@ impl Lower<'_, '_> {
                 self.coordinates.remove(&binder.var);
             }
         }
-        builder.reduce(kind, bound, &prototype, &terms, source)
+        let admission = self.arithmetic_admission(
+            expression,
+            pse_quantity::infer::OpRequest::Reduce { kind, bound },
+            &[&prototype],
+            builder,
+        )?;
+        builder.reduce_admitted(kind, &prototype, &terms, admission, source)
     }
     fn filter(&self, predicate: &dsl::Predicate) -> Result<bool, MathError> {
         match &predicate.kind {
@@ -1442,6 +1621,42 @@ impl Lower<'_, '_> {
         depth: usize,
         source: SemanticId,
     ) -> Result<TypedValue, MathError> {
+        self.conditional_branches(
+            predicate,
+            &ConditionalBranch::Expression(then),
+            &ConditionalBranch::Expression(otherwise),
+            builder,
+            depth,
+            source,
+        )
+    }
+    fn conditional_branch(
+        &mut self,
+        branch: &ConditionalBranch<'_>,
+        builder: &mut BodyBuilder<'_>,
+        depth: usize,
+        source: SemanticId,
+    ) -> Result<TypedValue, MathError> {
+        match branch {
+            ConditionalBranch::Expression(expression) => {
+                self.expression(expression, builder, depth)
+            }
+            ConditionalBranch::Predicate {
+                predicate,
+                then,
+                otherwise,
+            } => self.conditional_branches(predicate, then, otherwise, builder, depth, source),
+        }
+    }
+    fn conditional_branches(
+        &mut self,
+        predicate: &dsl::Predicate,
+        then: &ConditionalBranch<'_>,
+        otherwise: &ConditionalBranch<'_>,
+        builder: &mut BodyBuilder<'_>,
+        depth: usize,
+        source: SemanticId,
+    ) -> Result<TypedValue, MathError> {
         if depth > 128 {
             return Err(MathError::Limit("conditional depth"));
         }
@@ -1449,23 +1664,20 @@ impl Lower<'_, '_> {
         match &predicate.kind {
             PredicateKind::Not(inner) => {
                 self.hash.str("not");
-                self.conditional(inner, otherwise, then, builder, depth + 1, source)
+                self.conditional_branches(inner, otherwise, then, builder, depth + 1, source)
             }
             PredicateKind::And(a, b) | PredicateKind::Or(a, b) => {
                 let conjunction = matches!(predicate.kind, PredicateKind::And(..));
                 self.hash.str(if conjunction { "and" } else { "or" });
-                let nested = Expr {
-                    span: predicate.span,
-                    kind: ExprKind::Conditional {
-                        guard: Box::new((**b).clone()),
-                        then: Box::new(then.clone()),
-                        otherwise: Box::new(otherwise.clone()),
-                    },
+                let nested = ConditionalBranch::Predicate {
+                    predicate: b,
+                    then,
+                    otherwise,
                 };
                 if conjunction {
-                    self.conditional(a, &nested, otherwise, builder, depth + 1, source)
+                    self.conditional_branches(a, &nested, otherwise, builder, depth + 1, source)
                 } else {
-                    self.conditional(a, then, &nested, builder, depth + 1, source)
+                    self.conditional_branches(a, then, &nested, builder, depth + 1, source)
                 }
             }
             _ => {
@@ -1478,8 +1690,14 @@ impl Lower<'_, '_> {
                 let cell = std::cell::RefCell::new(self);
                 builder.conditional(
                     guard,
-                    |b| cell.borrow_mut().expression(then, b, depth + 1),
-                    |b| cell.borrow_mut().expression(otherwise, b, depth + 1),
+                    |b| {
+                        cell.borrow_mut()
+                            .conditional_branch(then, b, depth + 1, source)
+                    },
+                    |b| {
+                        cell.borrow_mut()
+                            .conditional_branch(otherwise, b, depth + 1, source)
+                    },
                     source,
                 )
             }
@@ -1511,11 +1729,28 @@ impl Lower<'_, '_> {
     }
 }
 /// A product, a quotient or an exact literal power belongs to a multiplicative chain.
-fn chain_operation(op: BinaryOp, rhs: &Expr) -> bool {
-    match op {
-        BinaryOp::Mul | BinaryOp::Div => true,
-        BinaryOp::Pow => literal_exponent(rhs).is_some(),
-        BinaryOp::Add | BinaryOp::Sub => false,
+fn predicate_occurrences(
+    predicate: &dsl::Predicate,
+    occurrences: &mut BTreeMap<usize, pse_modeling::expression::admission::ExpressionOccurrence>,
+) {
+    use pse_modeling::expression::admission::ExpressionOccurrence;
+    match &predicate.kind {
+        PredicateKind::Compare { lhs, rhs, .. } => {
+            occurrences.extend(ExpressionOccurrence::in_body(lhs));
+            occurrences.extend(ExpressionOccurrence::in_body(rhs));
+        }
+        PredicateKind::Atom(expression)
+        | PredicateKind::In {
+            expr: expression, ..
+        } => {
+            occurrences.extend(ExpressionOccurrence::in_body(expression));
+        }
+        PredicateKind::And(left, right) | PredicateKind::Or(left, right) => {
+            predicate_occurrences(left, occurrences);
+            predicate_occurrences(right, occurrences);
+        }
+        PredicateKind::Not(inner) => predicate_occurrences(inner, occurrences),
+        _ => {}
     }
 }
 fn literal_exponent(expression: &Expr) -> Option<Ratio> {
@@ -1598,6 +1833,409 @@ mod tests {
             Optimization::default(),
             &Arc::new(AtomicBool::new(false)),
         )
+    }
+    fn checked_physical_product(registry: &QuantityRegistry) -> pse_modeling::Function {
+        use pse_modeling::expression::admission::{ExpressionOccurrence, PhysicalAdmission};
+        let named = |name| match registry.physical_name(name).unwrap() {
+            pse_quantity::PhysicalName::QuantityType(id) => id,
+            other => panic!("{other:?}"),
+        };
+        let length = named("Length");
+        let body = dsl::parse_expr("a*b").unwrap();
+        let contract =
+            pse_quantity::ResolvedPhysicalContract::named(length, IndexSet::new(), registry)
+                .unwrap();
+        let admission = pse_modeling::expression::admission::admit_operation(
+            &pse_quantity::infer::OpRequest::Mul,
+            &[contract.clone(), contract],
+            registry,
+            &StandardInvariantChecker,
+            None,
+            DeclarationId::from(SemanticId::from_bytes([81; 16])),
+        )
+        .unwrap();
+        assert_eq!(admission.result.named_id(), None);
+        let product_result = admission.result.clone();
+        let occurrence = ExpressionOccurrence::in_body(&body)
+            .remove(&(std::ptr::from_ref(&body) as usize))
+            .unwrap();
+        pse_modeling::Function {
+            physical_admissions: BTreeMap::from([(
+                occurrence,
+                PhysicalAdmission::checked(
+                    &pse_quantity::infer::OpRequest::Mul,
+                    vec![pse_quantity::scheme::Scheme::Concrete(length); 2],
+                    Some(admission),
+                    DeclarationId::from(SemanticId::from_bytes([81; 16])),
+                )
+                .unwrap(),
+            )]),
+            physical_operation: None,
+            reduction: None,
+            validity: None,
+            envelopes: Vec::new(),
+            validity_reads: pse_modeling::envelope::Reads::default(),
+            external: None,
+            continuity: None,
+            id: DeclarationId::from(SemanticId::from_bytes([81; 16])),
+            variables: Default::default(),
+            arguments: ["a", "b"]
+                .map(|name| {
+                    (
+                        name.to_owned(),
+                        pse_modeling::Type::Quantity(pse_quantity::scheme::Scheme::Concrete(
+                            length,
+                        )),
+                    )
+                })
+                .to_vec(),
+            result: pse_modeling::Type::Quantity(pse_quantity::scheme::Scheme::from_contract(
+                product_result,
+            )),
+            body: Some(body),
+        }
+    }
+    #[test]
+    fn checked_occurrence_handoff_refuses_missing_admission_and_preserves_coincident_physical_partials()
+     {
+        pse_math::initialize().unwrap();
+        let registry = standard_registry().unwrap();
+        let function = checked_physical_product(&registry);
+        let length = function.arguments[0]
+            .1
+            .quantity_scheme()
+            .unwrap()
+            .resolve(&registry, &BTreeMap::new())
+            .unwrap();
+        let expression = dsl::parse_expr("partial(physical_product,a)(x,x)").unwrap();
+        let formals = [Formal {
+            path: "x".into(),
+            quantity: length,
+        }];
+        let h = ContentHash::from_bytes([1; 32]);
+        let empty = BTreeMap::new();
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let request = Request {
+            definition: SemanticId::from_bytes([82; 16]),
+            expressions: std::slice::from_ref(&expression),
+            formals: &formals,
+            domains: &empty,
+            groups: &BTreeMap::new(),
+            providers: &BTreeMap::new(),
+            literals: &BTreeMap::new(),
+            physical: h,
+            structure: h,
+            limits: BodyLimits::default(),
+        };
+        let mut functions = BTreeMap::from([("physical_product".into(), function)]);
+        let admitted = request
+            .admit_function_outputs(
+                &registry,
+                &StandardInvariantChecker,
+                &cancelled,
+                &functions,
+                &[length],
+                &BTreeMap::new(),
+            )
+            .unwrap();
+        assert_eq!(admitted.quantities, vec![length]);
+        let compiled = admitted
+            .math
+            .compile(
+                &[0],
+                &[0],
+                DerivativeOrder::Second,
+                Optimization::default(),
+                pse_math::jets::EvaluationLimits::default(),
+                &cancelled,
+            )
+            .unwrap();
+        let values = compiled
+            .worker()
+            .evaluate(
+                &[3.0],
+                DerivativeOrder::Second,
+                &mut BTreeMap::new(),
+                &cancelled,
+            )
+            .unwrap();
+        assert_eq!(values.values, vec![3.0]);
+        assert_eq!(values.jacobian, vec![1.0]);
+        functions
+            .get_mut("physical_product")
+            .unwrap()
+            .physical_admissions
+            .clear();
+        let error = request
+            .admit_function_outputs(
+                &registry,
+                &StandardInvariantChecker,
+                &cancelled,
+                &functions,
+                &[length],
+                &BTreeMap::new(),
+            )
+            .unwrap_err();
+        assert!(
+            error.to_string().contains("missing its admission"),
+            "{error}"
+        );
+    }
+    fn checked_scalar_function(registry: &QuantityRegistry, text: &str) -> pse_modeling::Function {
+        use pse_modeling::expression::admission::AdmissionRecorder;
+        let scalar = ids::quantity("neutral");
+        let ty = pse_modeling::Type::Quantity(pse_quantity::scheme::Scheme::Concrete(scalar));
+        let recorder = AdmissionRecorder::default();
+        let preconditions = pse_quantity::PhysicalPreconditions::new(
+            pse_quantity::generated::standard_preconditions(),
+        )
+        .unwrap();
+        let scope = pse_modeling::PhysicalScope::default();
+        let context = pse_modeling::TypeContext {
+            admissions: Some(&recorder),
+            formula_authority: None,
+            quantities: registry,
+            preconditions: &preconditions,
+            scope: &scope,
+        };
+        let package = pse_modeling::check(&[], &context).unwrap();
+        let mut function = checked_physical_product(registry);
+        let body = dsl::parse_expr(text).unwrap();
+        let arguments = BTreeMap::from([("x".into(), ty.clone())]);
+        pse_modeling::expression::infer(
+            &body,
+            &arguments,
+            &package,
+            &context,
+            function.id,
+            Some(&ty),
+        )
+        .unwrap();
+        function.physical_admissions = recorder.into_inner().remove(&function.id).unwrap();
+        function.arguments = arguments.into_iter().collect();
+        function.result = ty;
+        function.body = Some(body);
+        function
+    }
+    #[test]
+    fn checked_compound_guards_preserve_original_arithmetic_occurrences() {
+        pse_math::initialize().unwrap();
+        let registry = standard_registry().unwrap();
+        let scalar = ids::quantity("neutral");
+        let formals = [Formal {
+            path: "x".into(),
+            quantity: scalar,
+        }];
+        let expression = dsl::parse_expr("guarded(x)").unwrap();
+        let h = ContentHash::from_bytes([84; 32]);
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let request = Request {
+            definition: SemanticId::from_bytes([84; 16]),
+            expressions: std::slice::from_ref(&expression),
+            formals: &formals,
+            domains: &BTreeMap::new(),
+            groups: &BTreeMap::new(),
+            providers: &BTreeMap::new(),
+            literals: &BTreeMap::new(),
+            physical: h,
+            structure: h,
+            limits: BodyLimits::default(),
+        };
+        for (text, cases) in [
+            (
+                "if x != 0 and 1/x > 0 then x*x else x+x",
+                [(0.0, 0.0), (-2.0, -4.0), (2.0, 4.0)],
+            ),
+            (
+                "if x == 0 or 1/x > 0 then x+x else x*x",
+                [(0.0, 0.0), (-2.0, 4.0), (2.0, 4.0)],
+            ),
+        ] {
+            let functions =
+                BTreeMap::from([("guarded".into(), checked_scalar_function(&registry, text))]);
+            let admitted = request
+                .admit_function_outputs(
+                    &registry,
+                    &StandardInvariantChecker,
+                    &cancelled,
+                    &functions,
+                    &[scalar],
+                    &BTreeMap::new(),
+                )
+                .unwrap();
+            let compiled = admitted
+                .math
+                .compile(
+                    &[0],
+                    &[0],
+                    DerivativeOrder::Value,
+                    Optimization::default(),
+                    pse_math::jets::EvaluationLimits::default(),
+                    &cancelled,
+                )
+                .unwrap();
+            let mut worker = compiled.worker();
+            for (x, expected) in cases {
+                assert_eq!(
+                    worker
+                        .evaluate(
+                            &[x],
+                            DerivativeOrder::Value,
+                            &mut BTreeMap::new(),
+                            &cancelled
+                        )
+                        .unwrap()
+                        .values,
+                    vec![expected]
+                );
+            }
+        }
+    }
+    #[test]
+    fn checked_finite_reduction_refuses_missing_retained_admission() {
+        use pse_modeling::expression::admission::{ExpressionOccurrence, PhysicalAdmission};
+        pse_math::initialize().unwrap();
+        let registry = standard_registry().unwrap();
+        let scalar = ids::quantity("neutral");
+        let prototype =
+            pse_quantity::ResolvedPhysicalContract::named(scalar, IndexSet::new(), &registry)
+                .unwrap();
+        let request = pse_quantity::infer::OpRequest::FiniteReduce {
+            kind: pse_quantity::ReductionKind::Sum,
+            domain: None,
+        };
+        let admission = pse_modeling::expression::admission::admit_operation(
+            &request,
+            std::slice::from_ref(&prototype),
+            &registry,
+            &StandardInvariantChecker,
+            None,
+            DeclarationId::from(SemanticId::from_bytes([85; 16])),
+        )
+        .unwrap();
+        let mut function = checked_physical_product(&registry);
+        function.body = None;
+        function.reduction = Some(pse_modeling::FiniteReduction {
+            kind: pse_quantity::ReductionKind::Sum,
+            domain: None,
+            prototype,
+        });
+        function.arguments = ["term_0", "term_1"]
+            .map(|name| {
+                (
+                    name.into(),
+                    pse_modeling::Type::Quantity(pse_quantity::scheme::Scheme::Concrete(scalar)),
+                )
+            })
+            .to_vec();
+        function.result =
+            pse_modeling::Type::Quantity(pse_quantity::scheme::Scheme::Concrete(scalar));
+        function.physical_admissions = BTreeMap::from([(
+            ExpressionOccurrence::finite_reduction(function.id),
+            PhysicalAdmission::checked(
+                &request,
+                vec![pse_quantity::scheme::Scheme::Concrete(scalar)],
+                Some(admission),
+                function.id,
+            )
+            .unwrap(),
+        )]);
+        let formals = [Formal {
+            path: "x".into(),
+            quantity: scalar,
+        }];
+        let h = ContentHash::from_bytes([85; 32]);
+        let cancelled = Arc::new(AtomicBool::new(false));
+        for (text, expected) in [
+            ("finite_sum(x,x)", 6.0),
+            ("partial(finite_sum,term_0)(x,x)", 1.0),
+        ] {
+            let expression = dsl::parse_expr(text).unwrap();
+            let request = Request {
+                definition: SemanticId::from_bytes([85; 16]),
+                expressions: std::slice::from_ref(&expression),
+                formals: &formals,
+                domains: &BTreeMap::new(),
+                groups: &BTreeMap::new(),
+                providers: &BTreeMap::new(),
+                literals: &BTreeMap::new(),
+                physical: h,
+                structure: h,
+                limits: BodyLimits::default(),
+            };
+            let mut functions = BTreeMap::from([("finite_sum".into(), function.clone())]);
+            let admitted = request
+                .admit_function_outputs(
+                    &registry,
+                    &StandardInvariantChecker,
+                    &cancelled,
+                    &functions,
+                    &[scalar],
+                    &BTreeMap::new(),
+                )
+                .unwrap();
+            let compiled = admitted
+                .math
+                .compile(
+                    &[0],
+                    &[0],
+                    DerivativeOrder::Value,
+                    Optimization::default(),
+                    pse_math::jets::EvaluationLimits::default(),
+                    &cancelled,
+                )
+                .unwrap();
+            assert_eq!(
+                compiled
+                    .worker()
+                    .evaluate(
+                        &[3.0],
+                        DerivativeOrder::Value,
+                        &mut BTreeMap::new(),
+                        &cancelled
+                    )
+                    .unwrap()
+                    .values,
+                vec![expected]
+            );
+            functions
+                .get_mut("finite_sum")
+                .unwrap()
+                .physical_admissions
+                .clear();
+            let error = request
+                .admit_function_outputs(
+                    &registry,
+                    &StandardInvariantChecker,
+                    &cancelled,
+                    &functions,
+                    &[scalar],
+                    &BTreeMap::new(),
+                )
+                .unwrap_err();
+            assert!(
+                error
+                    .to_string()
+                    .contains("finite reduction occurrence is missing its admission"),
+                "{error}"
+            );
+        }
+    }
+    #[test]
+    fn direct_powers_preserve_integral_degree_bound() {
+        pse_math::initialize().unwrap();
+        let formals = [Formal {
+            path: "x".into(),
+            quantity: ids::quantity("neutral"),
+        }];
+        for text in ["x^1025", "x^(-1025)"] {
+            let error = compile(text, &formals, DerivativeOrder::Value).unwrap_err();
+            assert!(
+                error.to_string().contains("integral power degree"),
+                "{error}"
+            );
+        }
+        assert!(compile("x^1024", &formals, DerivativeOrder::Value).is_ok());
     }
     /// A maximal product lowers as one chain typed by its canonical monomial (ADR-0124):
     /// c3·t³/3 is a declared enthalpy increment although t³ alone names no kind.

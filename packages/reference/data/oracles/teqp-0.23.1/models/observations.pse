@@ -6,7 +6,7 @@
 @id("c888a8e5df684cb78153f3a6da46e77b") use provenance @"1.0.0";
 @id("93e6d9649f2e4766ab3c80db7f32807a") table states[case:0..4]:{T:Temperature storage {K},rho:Density storage {mol/m^3},pressure:Pressure storage {Pa},enthalpy:DeltaH storage {J/mol},ideal_enthalpy:DeltaH storage {J/mol},h_residual:ResidualMolarEnthalpy storage {J/mol}} complete_over(case in 0..4);
 @id("64c1aa1c8cdd49bf9b9b18d499dc2d04") dataset states_values:states provenance(references.plan14_thermo_reference,provenance.Role.oracle_input,lineage(source references.feos_gross2001_json)) from "data/states.parquet";
-@id("197162a89afa476d958b2ce51c0fc0fc") table components[case:0..4,subject:chemistry.species by chemistry.cas]:{ln_phi:Scalar storage {1}} complete_over(case in 0..4,subject in light_alkanes);
+@id("197162a89afa476d958b2ce51c0fc0fc") table components[case:0..4,subject:chemistry.species by chemistry.cas]:{ln_phi:LogFugacityCoefficient storage {1}} complete_over(case in 0..4,subject in light_alkanes);
 @id("87ee0ebd01664d00855b0e552ac00f6a") dataset components_values:components provenance(references.plan14_thermo_reference,provenance.Role.oracle_input,lineage(source references.feos_gross2001_json)) from "data/components.parquet";
 @id("f3cda36aceca4aaa841caa7d2a605217") table flash[case:0..0]:{T:Temperature storage {K},pressure:Pressure storage {Pa},liquid_density:Density storage {mol/m^3},vapor_density:Density storage {mol/m^3},beta:Scalar storage {1},maximum_scaled_residual:Scalar storage {1}} complete_over(case in 0..0);
 @id("d83afb89ce8a4c5180a808b74e51bca7") dataset flash_values:flash provenance(references.plan14_thermo_reference,provenance.Role.oracle_input,lineage(source references.feos_gross2001_json)) from "data/flash.parquet";

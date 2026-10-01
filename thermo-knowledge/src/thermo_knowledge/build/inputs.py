@@ -99,7 +99,7 @@ def discover(canonical: Path, only: Sequence[str] = ()) -> list[SourceInput]:
     found: list[SourceInput] = []
     if (canonical / RESOLUTION_ID / store.MANIFEST_NAME).is_file():
         found.append(_load(canonical / RESOLUTION_ID, RESOLUTION_ID))
-    available = (
+    available: list[str] = (
         sorted(
             entry.name
             for entry in canonical.iterdir()

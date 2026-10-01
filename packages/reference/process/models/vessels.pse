@@ -9,7 +9,6 @@
 @id("8ecb40e0ed434f0e813e36f937b48c71") use pure_properties @"1.0.0";
 @id("fb3524e88c784b649eb2ec69c8759454") use math @"1.0.0";
 @id("5ae4821f97574d13a6ccf312208799be") use distributed_volumes @"1.0.0";
-@id("3c3cac1f8d9f48d89043c3665983f067") fn amount_unit()->TotalAmount=1{mol};
 @id("dc2feadd3d654595974ade2ced45cc87") def HomogeneousInventory(selected:Set<chemistry.species>,law:Fn(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy,ideal_h:Fn(T:Temperature,j:chemistry.species)->DeltaH,composition:Fn(j:chemistry.species)->Scalar,V:Volume=0.1{m^3}) {
 @id("1f30d2fff1dc4bcaa50eec59dc02c1bb") param components:Set<chemistry.species>=selected;
 @id("6ff9152d6ade4e98af547589b315da58") param volume:Volume=V;
@@ -19,8 +18,8 @@
 @id("914319bb395943818a2d41088e35c17c") eq composition_binding[j in components]:phase.amount[j]==constants.amount_unit*composition(j);
 @id("92a6ea6bcdcd405cafabd829c2d6cfad") let enthalpy:MolarEnthalpy=constants.standard_enthalpy_datum+sum(j in components | composition(j)*ideal_h(phase.T,j))+phase.h_residual;
 @id("2453286052414d4a85a522d821531e43") let pressure:Pressure=phase.pressure;
-@id("437a2a4ce3c94cb282675cb8e608c37f") eq amount_closure:amount==amount_unit()*(phase.rho/constants.density_unit)*(volume/1{m^3});
-@id("037b6ad5c3254eb58ae2f433dc57240a") eq energy_closure:energy==1{J}*((amount/amount_unit())*((enthalpy-constants.standard_enthalpy_datum)/constants.enthalpy_increment_unit)-(volume/1{m^3})*(pressure/constants.pressure_unit));
+@id("437a2a4ce3c94cb282675cb8e608c37f") eq amount_closure:amount==phase.rho*volume;
+@id("037b6ad5c3254eb58ae2f433dc57240a") eq energy_closure:energy==amount*(enthalpy-constants.standard_enthalpy_datum)-volume*pressure;
 @id("bc0c80f5c44743fe9dd86b7ff0d36a74") annotation start amount(3.456556634933607{mol});
 @id("578177226844485faf741607c680b6e9") annotation nominal amount(3.456556634933607{mol});
 @id("c9575836d3034fab9e9347590517db71") annotation start energy(1202.3168203660216{J});

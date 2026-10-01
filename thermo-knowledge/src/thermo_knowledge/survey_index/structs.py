@@ -60,7 +60,7 @@ class Struct(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=Tr
     """Base of the record structs."""
 
 
-class Document(Struct, kw_only=True):
+class Document(Struct, frozen=True, kw_only=True):
     """One document of a payload made of documents (`[[payload]].documents`)."""
 
     slug: str
@@ -70,7 +70,7 @@ class Document(Struct, kw_only=True):
     bytes: int
 
 
-class Payload(Struct, kw_only=True):
+class Payload(Struct, frozen=True, kw_only=True):
     paths: list[str]
     format: str
     files: int
@@ -82,7 +82,7 @@ class Payload(Struct, kw_only=True):
     documents: list[Document] = []
 
 
-class Field(Struct, kw_only=True):
+class Field(Struct, frozen=True, kw_only=True):
     name: str
     meaning: str
     unit: str
@@ -90,7 +90,7 @@ class Field(Struct, kw_only=True):
     role: str
 
 
-class Construct(Struct, kw_only=True):
+class Construct(Struct, frozen=True, kw_only=True):
     name: str
     locator: str
     meaning: str
@@ -109,18 +109,18 @@ class Construct(Struct, kw_only=True):
     values: list[str] | None = None
 
 
-class Compose(Struct, kw_only=True):
+class Compose(Struct, frozen=True, kw_only=True):
     slot: str
     accepts: str
     default: str
 
 
-class Variant(Struct, kw_only=True):
+class Variant(Struct, frozen=True, kw_only=True):
     selector: str
     selects: str
 
 
-class ModelFamily(Struct, kw_only=True):
+class ModelFamily(Struct, frozen=True, kw_only=True):
     name: str
     locator: str
     # `class` is a Python keyword; the TOML key is `class`.
@@ -134,14 +134,14 @@ class ModelFamily(Struct, kw_only=True):
     data: str
 
 
-class Convention(Struct, kw_only=True):
+class Convention(Struct, frozen=True, kw_only=True):
     name: str
     locator: str
     statement: str
     scope: str
 
 
-class Selection(Struct, kw_only=True):
+class Selection(Struct, frozen=True, kw_only=True):
     name: str
     locator: str
     rule: str
@@ -149,14 +149,14 @@ class Selection(Struct, kw_only=True):
     documented: str
 
 
-class Discrepancy(Struct, kw_only=True):
+class Discrepancy(Struct, frozen=True, kw_only=True):
     locator: str
     documented: str
     actual: str
     consequence: str
 
 
-class Capability(Struct, kw_only=True):
+class Capability(Struct, frozen=True, kw_only=True):
     calculation: str
     offered: str
     scope: str
@@ -164,13 +164,13 @@ class Capability(Struct, kw_only=True):
     evidence: str
 
 
-class Question(Struct, kw_only=True):
+class Question(Struct, frozen=True, kw_only=True):
     about: str
     question: str
     why_it_matters: str
 
 
-class Survey(Struct, kw_only=True):
+class Survey(Struct, frozen=True, kw_only=True):
     """One survey file: a source and everything recorded about it."""
 
     source: str

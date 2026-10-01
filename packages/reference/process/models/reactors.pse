@@ -10,8 +10,7 @@
 @id("fa1a7c1344694910a9a4d8e8e4cd347a") use reactions @"1.0.0";
 @id("214a0301740d42d182d6ceab968018f6") use reaction_forms @"1.0.0";
 @id("1d34bc92921f4656bfb3c19c980f17ce") use control_volumes @"1.0.0";
-@id("6ba1eaf7ae4042aeb81dc761ce52e574") fn volume_unit()->Volume=1{m^3};
-@id("ecb3aec4215b4aed87fb9f5bd8c81f71") fn stored_energy(volume:Volume,density:Density,enthalpy:MolarEnthalpy,pressure:Pressure)->Energy=1{J}*(volume/volume_unit())*((density/constants.density_unit)*((enthalpy-constants.standard_enthalpy_datum)/constants.enthalpy_increment_unit)-(pressure-100000{Pa})/equilibrium.pressure_difference_unit());
+@id("ecb3aec4215b4aed87fb9f5bd8c81f71") fn stored_energy(volume:Volume,density:Density,enthalpy:MolarEnthalpy,pressure:Pressure)->Energy=volume*(density*(enthalpy-constants.standard_enthalpy_datum)-(pressure-constants.standard_pressure));
 @id("b176836e913849d69b3597b74930af5b") def CSTR(inlet_pkg:aqueous.DiluteLiquid,outlet_pkg:aqueous.DiluteLiquid,reaction_pkg:reactions.RateLaw,holdup:Boolean=false,times:Set<Time>={}):control_volumes.ControlVolume0D {
 @id("01a0ee398db8733eb490d0d9240cd2a2") override param time:Set<Time>=times;
 @id("01a0ee398db8733eb490d0da956665a6") override param constant_inventory:Set<chemistry.species>={outlet_pkg.solvent};

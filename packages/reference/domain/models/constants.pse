@@ -24,5 +24,6 @@
 @id("01a0f14ead437587972abc00118e8162") constant standard_enthalpy_datum:MolarEnthalpy=0{J/mol} provenance(reference_conventions,provenance.Role.published);
 @id("01a0f14ead437587972abc01ea5e1f77") constant standard_entropy_datum:MolarEntropy=0{J/(mol*K)} provenance(reference_conventions,provenance.Role.published);
 @id("c9b608c2e1d246f29d0e717af6a426ee") constant length_unit:Length=1{m} provenance(codata_2018,provenance.Role.published);
+@id("3b668271122741eaae165f9655981048") constant molar_reference_amount:TotalAmount=1{mol} provenance(reference_conventions,provenance.Role.published);
 @id("9691dc27a334464c9bac595c8612a13d") constant reciprocal_amount_unit:ReciprocalAmount=1{1/mol} provenance(codata_2018,provenance.Role.published);
 }

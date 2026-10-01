@@ -1149,3 +1149,189 @@ fn shared_aliases_reuse_slots_but_partial_arguments_remain_independent() {
     assert_eq!(result.values, vec![3.]);
     assert_eq!(result.jacobian, vec![1.]);
 }
+
+#[test]
+fn retained_physical_admission_refuses_mismatched_operands_and_binders() {
+    let registry = standard_registry().unwrap();
+    let mut builder = BodyBuilder::new(
+        crate::initialize().unwrap(),
+        &registry,
+        &StandardInvariantChecker,
+        2,
+        BodyLimits::default(),
+    )
+    .unwrap();
+    let neutral = builder
+        .input(0, ids::quantity("neutral"), IndexSet::new(), source())
+        .unwrap();
+    let length = match registry.physical_name("Length").unwrap() {
+        pse_quantity::PhysicalName::QuantityType(id) => id,
+        other => panic!("{other:?}"),
+    };
+    let length = builder.input(1, length, IndexSet::new(), source()).unwrap();
+    let admission = pse_quantity::resolved::infer_operation(
+        &pse_quantity::infer::OpRequest::Mul,
+        &[
+            neutral.physical_contract().clone(),
+            neutral.physical_contract().clone(),
+        ],
+        None,
+        &registry,
+        &StandardInvariantChecker,
+    )
+    .unwrap();
+    let error = builder
+        .binary_admitted(
+            Binary::Mul,
+            length,
+            neutral.clone(),
+            None,
+            admission,
+            source(),
+        )
+        .unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("checked operation operands differ"),
+        "{error}"
+    );
+    let kind = registry.entity_kind_named("species").unwrap();
+    let mut shaped = registry
+        .quantity_type(ids::quantity("neutral"))
+        .unwrap()
+        .clone();
+    shaped.id = pse_quantity::QuantityTypeId::from_id(SemanticId::from_bytes([26; 16]));
+    shaped.name = None;
+    shaped.key.shape = vec![kind];
+    let shaped_id = shaped.id;
+    let mut extended = registry.to_builder();
+    extended.quantity_type(shaped);
+    let extended = extended.build().unwrap();
+    let binders = [23, 24].map(|identity| {
+        let bound = pse_quantity::BoundIndexRef::new(
+            pse_quantity::BoundIndexId::from_id(SemanticId::from_bytes([identity; 16])),
+            pse_quantity::DomainId::from_id(SemanticId::from_bytes([25; 16])),
+            kind,
+        );
+        let mut indices = IndexSet::new();
+        indices.insert(bound).unwrap();
+        indices
+    });
+    let contract =
+        pse_quantity::ResolvedPhysicalContract::named(shaped_id, binders[0].clone(), &extended)
+            .unwrap();
+    let admission = pse_quantity::resolved::infer_operation(
+        &pse_quantity::infer::OpRequest::Neg,
+        &[contract],
+        None,
+        &extended,
+        &StandardInvariantChecker,
+    )
+    .unwrap();
+    let mut altered = neutral;
+    altered.indices = binders[1].clone();
+    altered.quantity = pse_quantity::ResolvedPhysicalContract::named(
+        shaped_id,
+        altered.indices.clone(),
+        &extended,
+    )
+    .unwrap();
+    let error = builder
+        .negate_admitted(altered, admission, source())
+        .unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("checked operation operands differ"),
+        "{error}"
+    );
+}
+
+#[test]
+fn retained_finite_reduction_accepts_anonymous_prototype_even_when_empty() {
+    let registry = standard_registry().unwrap();
+    let named = |name| match registry.physical_name(name).unwrap() {
+        pse_quantity::PhysicalName::QuantityType(id) => id,
+        other => panic!("{other:?}"),
+    };
+    let mut builder = BodyBuilder::new(
+        crate::initialize().unwrap(),
+        &registry,
+        &StandardInvariantChecker,
+        3,
+        BodyLimits::default(),
+    )
+    .unwrap();
+    let u = builder
+        .input(
+            0,
+            named("HeatTransferCoefficient"),
+            IndexSet::new(),
+            source(),
+        )
+        .unwrap();
+    let a = builder
+        .input(1, named("Area"), IndexSet::new(), source())
+        .unwrap();
+    let delta = builder
+        .input(2, named("DeltaTemperature"), IndexSet::new(), source())
+        .unwrap();
+    let product = builder.binary(Binary::Mul, u, a, None, source()).unwrap();
+    let prototype = product.physical_contract().clone();
+    assert!(prototype.named_id().is_none());
+    let admission = pse_quantity::resolved::infer_operation(
+        &pse_quantity::infer::OpRequest::FiniteReduce {
+            kind: pse_quantity::ReductionKind::Sum,
+            domain: None,
+        },
+        std::slice::from_ref(&prototype),
+        None,
+        &registry,
+        &StandardInvariantChecker,
+    )
+    .unwrap();
+    let nonempty = builder
+        .finite_reduce_admitted(
+            pse_quantity::ReductionKind::Sum,
+            &prototype,
+            &[product],
+            admission.clone(),
+            source(),
+        )
+        .unwrap();
+    let empty = builder
+        .finite_reduce_admitted(
+            pse_quantity::ReductionKind::Sum,
+            &prototype,
+            &[],
+            admission,
+            source(),
+        )
+        .unwrap();
+    let nonempty = builder
+        .binary(Binary::Mul, nonempty, delta.clone(), None, source())
+        .unwrap();
+    let empty = builder
+        .binary(Binary::Mul, empty, delta, None, source())
+        .unwrap();
+    let cancellation = Arc::new(AtomicBool::new(false));
+    let compiled = builder
+        .finish(
+            &[nonempty, empty],
+            DerivativeOrder::First,
+            Optimization::default(),
+            &cancellation,
+        )
+        .unwrap();
+    let values = compiled
+        .worker()
+        .evaluate(
+            &[2.0, 3.0, 5.0],
+            DerivativeOrder::First,
+            &mut BTreeMap::new(),
+            &cancellation,
+        )
+        .unwrap();
+    assert_eq!(values.values, vec![30.0, 0.0]);
+}

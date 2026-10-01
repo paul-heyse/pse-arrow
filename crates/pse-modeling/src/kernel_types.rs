@@ -55,6 +55,7 @@ fn physical_intermediates_cross_polymorphic_calls_without_quantity_ids() {
         pse_quantity::PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions())
             .unwrap();
     let context = TypeContext {
+        admissions: None,
         formula_authority: None,
         quantities: &registry,
         preconditions: &prerequisites,
@@ -83,6 +84,7 @@ fn physical_intermediates_cross_polymorphic_calls_without_quantity_ids() {
 fn polymorphic_smoothing_and_complete_substitution() {
     let (registry, names) = physical();
     let c = TypeContext {
+        admissions: None,
         formula_authority: None,
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
@@ -114,6 +116,7 @@ fn polymorphic_smoothing_and_complete_substitution() {
 fn powers_keep_the_exponent_quantity_in_the_authoritative_operation() {
     let (registry, names) = physical();
     let context = TypeContext {
+        admissions: None,
         formula_authority: None,
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
@@ -160,6 +163,7 @@ fn powers_keep_the_exponent_quantity_in_the_authoritative_operation() {
 fn default_override_and_diamond_conflict() {
     let (registry, _) = physical();
     let c = TypeContext {
+        admissions: None,
         formula_authority: None,
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
@@ -181,6 +185,7 @@ fn default_override_and_diamond_conflict() {
 fn wrong_basis_reference_and_uninstantiated_definition_are_rejected() {
     let (registry, _) = physical();
     let c = TypeContext {
+        admissions: None,
         formula_authority: None,
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
@@ -199,6 +204,7 @@ fn wrong_basis_reference_and_uninstantiated_definition_are_rejected() {
 fn arbitrary_entity_kinds_are_data() {
     let (registry, _) = physical();
     let c = TypeContext {
+        admissions: None,
         formula_authority: None,
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
@@ -212,6 +218,7 @@ fn arbitrary_entity_kinds_are_data() {
 fn every_dataset_row_is_checked_before_instantiation() {
     let (registry, _) = physical();
     let c = TypeContext {
+        admissions: None,
         formula_authority: None,
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
@@ -244,6 +251,7 @@ fn requirements_can_read_typed_rows_and_exact_integer_counts() {
     let text = r#"package p { entity kind item {} entity item a {} set items: Set<item> = {a}; table coeff[j: item]: { flow: Flow, count: Integer, next: Integer } complete_over(j in items); dataset data: coeff provenance(s, role.given) { [a] = [2{mol/s}, 9007199254740993, 9007199254740994]; } def Root { require coeff[a].count + 1 == coeff[a].next : "exact"; } }"#;
     let (registry, _) = physical();
     let c = TypeContext {
+        admissions: None,
         formula_authority: None,
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
@@ -264,6 +272,7 @@ fn requirements_can_read_typed_rows_and_exact_integer_counts() {
 fn recursive_functions_and_implicit_captures_are_refused_before_selection() {
     let (registry, _) = physical();
     let c = TypeContext {
+        admissions: None,
         formula_authority: None,
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
@@ -284,6 +293,7 @@ fn recursive_functions_and_implicit_captures_are_refused_before_selection() {
 fn polymorphic_functions_compose_without_dimension_only_substitution() {
     let (registry, _) = physical();
     let c = TypeContext {
+        admissions: None,
         formula_authority: None,
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
@@ -300,6 +310,7 @@ fn polymorphic_functions_compose_without_dimension_only_substitution() {
 fn indexed_function_types_and_partial_coordinates_are_checked_before_selection() {
     let (registry, _) = physical();
     let c = TypeContext {
+        admissions: None,
         formula_authority: None,
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
@@ -329,6 +340,7 @@ fn indexed_function_types_and_partial_coordinates_are_checked_before_selection()
 fn indirect_function_calls_use_only_visible_immutable_package_tables() {
     let (registry, _) = physical();
     let c = TypeContext {
+        admissions: None,
         formula_authority: None,
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
@@ -350,6 +362,7 @@ fn indirect_function_calls_use_only_visible_immutable_package_tables() {
 fn package_visibility_requires_an_import_for_functions_and_types() {
     let (registry, _) = physical();
     let context = TypeContext {
+        admissions: None,
         formula_authority: None,
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
@@ -403,6 +416,7 @@ fn admitted_physical_context_survives_caller_changes() {
     let checked = check(
         &source("package p { def Root {var x:Scalar; eq e:x==2;} }"),
         &TypeContext {
+            admissions: None,
             formula_authority: None,
             preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
             quantities: &registry,
@@ -435,6 +449,7 @@ fn physical_names_are_scoped_by_document() {
         documents: Some(BTreeSet::from([seen])),
     };
     let context = TypeContext {
+        admissions: None,
         formula_authority: None,
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
@@ -477,6 +492,7 @@ fn physical_names_are_scoped_by_document() {
 fn ambiguous_quantity_name_refused() {
     let (registry, _) = physical();
     let context = TypeContext {
+        admissions: None,
         formula_authority: None,
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
@@ -506,6 +522,7 @@ fn ambiguous_quantity_name_refused() {
 fn constraint_forms_are_placed_and_typed_at_declaration() {
     let (registry, names) = physical();
     let context = TypeContext {
+        admissions: None,
         formula_authority: None,
         preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
         quantities: &registry,
@@ -542,4 +559,109 @@ fn constraint_forms_are_placed_and_typed_at_declaration() {
     ] {
         assert!(check(&source(invalid), &context).is_err(), "{invalid}");
     }
+}
+
+#[test]
+fn physical_admissions_distinguish_identical_syntax_in_lexical_scopes() {
+    let (registry, names) = physical();
+    let prerequisites =
+        pse_quantity::PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions())
+            .unwrap();
+    let scope = PhysicalScope::default();
+    let context = TypeContext {
+        admissions: None,
+        formula_authority: None,
+        quantities: &registry,
+        preconditions: &prerequisites,
+        scope: &scope,
+    };
+    let package = check(
+        &source(
+            "package p { fn f(a:Length,b:Scalar)->Scalar = (x/x where x=a) + (x/x where x=b); }",
+        ),
+        &context,
+    )
+    .unwrap();
+    let function = &package.functions[&package.entry("p.f").unwrap()];
+    let mut body = function.body.clone().unwrap();
+    body.strip_spans();
+    let recorder = expression::admission::AdmissionRecorder::default();
+    let context = TypeContext {
+        admissions: Some(&recorder),
+        formula_authority: None,
+        quantities: &registry,
+        preconditions: &prerequisites,
+        scope: &scope,
+    };
+    expression::infer(
+        &body,
+        &function.arguments.iter().cloned().collect(),
+        &package,
+        &context,
+        function.id,
+        Some(&function.result),
+    )
+    .unwrap();
+    let admissions = recorder.into_inner();
+    let quotients = admissions[&function.id]
+        .iter()
+        .filter(|(occurrence, _)| occurrence.syntax == "(x / x)")
+        .collect::<Vec<_>>();
+    assert_eq!(quotients.len(), 2);
+    assert_eq!(quotients[0].0.range, (0, 0));
+    assert_eq!(quotients[1].0.range, (0, 0));
+    assert_ne!(quotients[0].0.position, quotients[1].0.position);
+    let left = quotients[0].1.resolved().unwrap();
+    let right = quotients[1].1.resolved().unwrap();
+    assert_eq!(left.operands[0].named_id(), Some(names["Length"]));
+    assert_eq!(right.operands[0].named_id(), Some(names["Scalar"]));
+}
+
+#[test]
+fn generic_physical_admission_is_an_explicit_specialization_obligation() {
+    let (registry, names) = physical();
+    let prerequisites =
+        pse_quantity::PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions())
+            .unwrap();
+    let context = TypeContext {
+        admissions: None,
+        formula_authority: None,
+        quantities: &registry,
+        preconditions: &prerequisites,
+        scope: &PhysicalScope::default(),
+    };
+    let package = check(
+        &source("package p { fn scale<Q>(x:Q,s:Scalar)->Q = x*s; }"),
+        &context,
+    )
+    .unwrap();
+    let function = &package.functions[&package.entry("p.scale").unwrap()];
+    assert_eq!(function.physical_admissions.len(), 1);
+    let obligation = function.physical_admissions.values().next().unwrap();
+    assert!(obligation.resolved().is_none());
+    assert!(
+        obligation
+            .specialize(
+                &registry,
+                &BTreeMap::new(),
+                &prerequisites,
+                None,
+                function.id
+            )
+            .is_err()
+    );
+    let substitutions = BTreeMap::from([(
+        "Q".to_owned(),
+        pse_quantity::ResolvedPhysicalContract::named(
+            names["Length"],
+            pse_quantity::IndexSet::new(),
+            &registry,
+        )
+        .unwrap(),
+    )]);
+    let admission = obligation
+        .specialize(&registry, &substitutions, &prerequisites, None, function.id)
+        .unwrap();
+    assert_eq!(admission.result.named_id(), Some(names["Length"]));
+    assert_eq!(admission.operands[0].named_id(), Some(names["Length"]));
 }

@@ -16,7 +16,7 @@
 @id("01a0e16f32a3739a874c127cae43c1ee") dataset bt_critical:cubic.critical_point bind(property=cubic.critical_parameters,phase_type=compatibility.PhaseType.vaporPhase,source=references.idaes_bt_pr) provenance(references.idaes_bt_pr, provenance.Role.oracle_input) from "data/bt_critical.parquet";
 @id("b3d08c295db9417ebae7e86e54316673") entity provenance.oracle_test srk_vapor { title="Independent IDAES SRK equimolar benzene/toluene vapor at 450 K and 1 bar",release=references.idaes_2_13,locator="scripts/idaes_srk_reference.py" }
 @id("74ed9dfcff7a4ec4879d9d63fd20ddc2") table srk_state[case:0..0]:{T:Temperature storage {K},rho:Density storage {mol/m^3},pressure:Pressure storage {Pa},Z:Scalar storage {1}} complete_over(case in 0..0);
-@id("f394a6a2b9cc45f9a674219d49455d31") table srk_component[j:chemistry.species by chemistry.cas]:{fraction:Scalar storage {1},ln_phi:Scalar storage {1}} complete_over(j in srk_members);
+@id("f394a6a2b9cc45f9a674219d49455d31") table srk_component[j:chemistry.species by chemistry.cas]:{fraction:Scalar storage {1},ln_phi:LogFugacityCoefficient storage {1}} complete_over(j in srk_members);
 @id("17b98b2632e24053b04826cbd032528c") dataset srk_states:srk_state provenance(srk_vapor,provenance.Role.oracle_input,lineage(source references.idaes_bt_pr)) from "data/srk_state.parquet";
 @id("fa529185f14c4bb3bb5752c89be64e8e") dataset srk_components:srk_component provenance(srk_vapor,provenance.Role.oracle_input,lineage(source references.idaes_bt_pr)) from "data/srk_components.parquet";
 @id("dc7dc5e8212046e1b426cea75cf81b1b") set srk_members:Set<chemistry.species>={chem.benzene,chem.toluene};

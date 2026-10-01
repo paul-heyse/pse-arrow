@@ -102,6 +102,7 @@ fn function(
     operation: PhysicalOperation,
 ) -> Result<Function> {
     Ok(Function {
+        physical_admissions: BTreeMap::new(),
         physical_operation: Some(operation),
         reduction: None,
         validity: None,
@@ -782,6 +783,7 @@ mod tests {
         crate::check(
             &source(text),
             &TypeContext {
+                admissions: None,
                 formula_authority: None,
                 quantities: &registry,
                 preconditions: &pse_quantity::PhysicalPreconditions::new(

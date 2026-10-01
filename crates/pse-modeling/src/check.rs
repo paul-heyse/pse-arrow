@@ -76,6 +76,8 @@ fn expected_failure_shape(
 /// Resolved function contract and its declaration-owned body.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Function {
+    /// Occurrence-owned concrete admissions and unresolved generic obligations.
+    pub physical_admissions: crate::expression::admission::ExpressionAdmissions,
     /// Declaration-owned authorization retained through specialization and lowering.
     pub physical_operation: Option<crate::PhysicalOperation>,
     /// Generic finite reduction generated from a checked lexical reduction.
@@ -113,11 +115,13 @@ pub struct FiniteReduction {
     /// Source set's entity kind, retained after coordinate enumeration.
     pub domain: Option<pse_quantity::EntityKindId>,
     /// Independently checked element contract, including for an empty set.
-    pub prototype: pse_quantity::QuantityTypeId,
+    pub prototype: pse_quantity::ResolvedPhysicalContract,
 }
 /// Checked package inventory. Every map is keyed by semantic identity, never backend handles.
 #[derive(Clone, Debug, PartialEq)]
 pub struct CheckedPackage {
+    pub(crate) physical_admissions:
+        BTreeMap<DeclarationId, crate::expression::admission::ExpressionAdmissions>,
     pub(crate) quantities: Arc<pse_quantity::QuantityRegistry>,
     pub(crate) preconditions: Arc<pse_quantity::PhysicalPreconditions>,
     pub(crate) scope: Arc<crate::PhysicalScope>,
@@ -166,6 +170,7 @@ impl CheckedPackage {
     /// The immutable physical environment used to admit this package.
     pub fn context(&self) -> TypeContext<'_> {
         TypeContext {
+            admissions: None,
             formula_authority: None,
             quantities: &self.quantities,
             preconditions: &self.preconditions,
@@ -528,6 +533,7 @@ fn check_declarations(
     documents: &dyn crate::document::Documents,
 ) -> Result<CheckedPackage> {
     let mut p = CheckedPackage {
+        physical_admissions: BTreeMap::new(),
         quantities: Arc::new(context.quantities.clone()),
         preconditions: Arc::new(context.preconditions.clone()),
         scope: Arc::new(context.scope.clone()),
@@ -1176,6 +1182,77 @@ fn check_declarations(
             ),
         ));
     }
+    let inheritance_order = toposort(&inheritance, None)
+        .map_err(|c| invalid(inheritance[c.node_id()], "interface cycle"))?;
+    // Project declaration-owned candidate namespaces before resolving signatures.
+    // Nominal types can name inherited boundaries; the same candidates receive the
+    // full override and signature validation below, without a second name authority.
+    let mut candidate_scopes = BTreeMap::new();
+    for node in &inheritance_order {
+        let id = inheritance[*node];
+        let row = &p.declarations[&id];
+        let Some(scope) = &row.value.scope else {
+            continue;
+        };
+        if row.value.kind == DeclarationKind::EntityKind {
+            continue;
+        }
+        let own = p
+            .children
+            .get(&id)
+            .into_iter()
+            .flatten()
+            .map(|child| (p.declarations[child].name.clone(), *child))
+            .collect::<BTreeMap<_, _>>();
+        let mut effective = BTreeMap::new();
+        let mut contracts = BTreeSet::new();
+        for base in &scope.bases {
+            let base = p
+                .resolve(id, base)
+                .ok_or_else(|| invalid(id, "unknown interface"))?;
+            contracts.insert(base);
+            contracts.extend(p.interfaces.get(&base).into_iter().flatten().copied());
+            for (name, member) in p.members.get(&base).into_iter().flatten() {
+                if let Some(previous) = effective.insert(name.clone(), *member)
+                    && previous != *member
+                    && !own
+                        .get(name)
+                        .is_some_and(|id| p.declarations[id].is_override)
+                {
+                    // A diamond may expose both an ancestor declaration and its
+                    // already checked refinement. Keep the more specific owner,
+                    // independently of the order in which bases are listed.
+                    let previous_owner = p.declarations[&previous].parent_id;
+                    let member_owner = p.declarations[member].parent_id;
+                    if let (Some(a), Some(b)) = (
+                        previous_owner.and_then(|owner| inode.get(&owner)),
+                        member_owner.and_then(|owner| inode.get(&owner)),
+                    ) {
+                        if a != b && petgraph::algo::has_path_connecting(&inheritance, *a, *b, None)
+                        {
+                            continue;
+                        }
+                        if a != b && petgraph::algo::has_path_connecting(&inheritance, *b, *a, None)
+                        {
+                            effective.insert(name.clone(), previous);
+                            continue;
+                        }
+                    }
+                    return Err(invalid(
+                        id,
+                        format!("competing defaults for {name}; explicit override required"),
+                    ));
+                }
+            }
+        }
+        let mut projected = effective.clone();
+        projected.extend(own.clone());
+        // Resolve inherited sibling names against the complete candidate scope;
+        // validation must not depend on the lexical order of member names.
+        p.members.insert(id, projected.clone());
+        p.interfaces.insert(id, contracts.clone());
+        candidate_scopes.insert(id, (own, effective, contracts));
+    }
     for row in rows {
         let id = row.declaration_id;
         let mut names = p.named_types(id);
@@ -1291,6 +1368,7 @@ fn check_declarations(
             p.functions.insert(
                 id,
                 Function {
+                    physical_admissions: BTreeMap::new(),
                     physical_operation: None,
                     reduction: None,
                     validity: v
@@ -1355,12 +1433,10 @@ fn check_declarations(
         crate::physical_operations::admit_reduced_law(&p, &mut function)?;
         p.functions.insert(id, function);
     }
-    for node in toposort(&inheritance, None)
-        .map_err(|c| invalid(inheritance[c.node_id()], "interface cycle"))?
-    {
+    for node in inheritance_order {
         let id = inheritance[node];
         let row = &p.declarations[&id];
-        let Some(scope) = &row.value.scope else {
+        let Some(_) = &row.value.scope else {
             continue;
         };
         // A kind's members are its refined kind's and its own; a binding names an inherited
@@ -1396,59 +1472,10 @@ fn check_declarations(
             p.members.insert(id, members);
             continue;
         }
-        let own = p
-            .children
-            .get(&id)
-            .into_iter()
-            .flatten()
-            .map(|child| (p.declarations[child].name.clone(), *child))
-            .collect::<BTreeMap<_, _>>();
-        let mut effective = BTreeMap::new();
-        let mut contracts = BTreeSet::new();
-        for base in &scope.bases {
-            let base = p
-                .resolve(id, base)
-                .ok_or_else(|| invalid(id, "unknown interface"))?;
-            contracts.insert(base);
-            contracts.extend(p.interfaces.get(&base).into_iter().flatten().copied());
-            for (name, member) in p.members.get(&base).into_iter().flatten() {
-                if let Some(previous) = effective.insert(name.clone(), *member)
-                    && previous != *member
-                    && !own
-                        .get(name)
-                        .is_some_and(|id| p.declarations[id].is_override)
-                {
-                    // A diamond may expose both an ancestor declaration and its
-                    // already checked refinement. Keep the more specific owner,
-                    // independently of the order in which bases are listed.
-                    let previous_owner = p.declarations[&previous].parent_id;
-                    let member_owner = p.declarations[member].parent_id;
-                    if let (Some(a), Some(b)) = (
-                        previous_owner.and_then(|owner| inode.get(&owner)),
-                        member_owner.and_then(|owner| inode.get(&owner)),
-                    ) {
-                        if a != b && petgraph::algo::has_path_connecting(&inheritance, *a, *b, None)
-                        {
-                            continue;
-                        }
-                        if a != b && petgraph::algo::has_path_connecting(&inheritance, *b, *a, None)
-                        {
-                            effective.insert(name.clone(), previous);
-                            continue;
-                        }
-                    }
-                    return Err(invalid(
-                        id,
-                        format!("competing defaults for {name}; explicit override required"),
-                    ));
-                }
-            }
-        }
-        let mut projected = effective.clone();
-        projected.extend(own.clone());
-        // Resolve inherited sibling names against the complete candidate scope;
-        // validation must not depend on the lexical order of member names.
-        p.members.insert(id, projected.clone());
+        let (own, mut effective, contracts) = candidate_scopes
+            .remove(&id)
+            .ok_or_else(|| invalid(id, "interface candidate namespace absent"))?;
+        let projected = p.members.get(&id).cloned().unwrap_or_default();
         let inherited = effective.clone();
         for (name, member) in own {
             if let Some(base) = effective.get(&name).copied() {
@@ -1663,7 +1690,7 @@ fn check_declarations(
     crate::data::verify_rows(&p, &requirements)?;
     crate::entity::verify(&p)?;
     crate::envelope::admit(&mut p, context)?;
-    crate::expression::check_all(&p, context)?;
+    crate::expression::check_all(&mut p, context)?;
     Ok(p)
 }
 
@@ -2034,6 +2061,7 @@ impl CheckedPackage {
         p.names.retain(|_, id| selected.contains(id));
         p.types.retain(|id, _| selected.contains(id));
         p.functions.retain(|id, _| selected.contains(id));
+        p.physical_admissions.retain(|id, _| selected.contains(id));
         p.tables.retain(|id, _| selected.contains(id));
         p.children.retain(|id, _| selected.contains(id));
         for members in p.children.values_mut() {

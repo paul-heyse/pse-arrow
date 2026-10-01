@@ -50,7 +50,7 @@ _ALIGNMENT_ROW = re.compile(r"^\|\s*(\d+)\s*\|", re.MULTILINE)
 _REVIEW_HEADING = re.compile(r"^#{2,4}\s+(F\d{2})\b", re.MULTILINE)
 
 
-class Disposition(st.Struct, kw_only=True):
+class Disposition(st.Struct, frozen=True, kw_only=True):
     construct: str
     disposition: str
     ref: str = ""

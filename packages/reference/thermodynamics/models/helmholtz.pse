@@ -22,7 +22,7 @@
 @id("1dcbab0e17da4f63a1e54f6084c6f42f") response entropy_response from potential(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>,potential:Fn(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy)->ResidualMolarEntropy=-partial(potential,T)(T,V,n,members)/(sum(j in members | n[j]))+constants.gas_constant*log(compressibility_response(T,V,n,members,potential));
 @id("52cdda25c6eb4f77af177367545f0dc7") response isochoric_heat_capacity from potential(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>,potential:Fn(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy)->MolarCp=-(T-constants.absolute_zero)*partial(potential,T,T)(T,V,n,members)/(sum(j in members | n[j]));
 @id("41b370ca71254a2c84a2f0ab5f036256") response isobaric_heat_capacity from potential(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>,potential:Fn(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy)->MolarCp=-(T-constants.absolute_zero)*partial(potential,T,T)(T,V,n,members)/(sum(j in members | n[j]))-(T-constants.absolute_zero)*partial(pressure_response,T)(T,V,n,members,potential)^2/((sum(j in members | n[j]))*partial(pressure_response,V)(T,V,n,members,potential))-constants.gas_constant;
-@id("039c31916e504b23a13ea23cefd22df7") response fugacity_response from potential(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>,j:chemistry.species,potential:Fn(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy)->Scalar=partial(potential,n[j])(T,V,n,members)/(constants.gas_constant*(T-constants.absolute_zero))-log(compressibility_response(T,V,n,members,potential));
+@id("039c31916e504b23a13ea23cefd22df7") response fugacity_response from potential(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>,j:chemistry.species,potential:Fn(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy)->LogFugacityCoefficient=partial(potential,n[j])(T,V,n,members)/(constants.gas_constant*(T-constants.absolute_zero))-log(compressibility_response(T,V,n,members,potential));
 @id("81df2af0b86b4a5e8a66ad7c3037362c") response compressibility_response from potential(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>,potential:Fn(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy)->Scalar=1-V*partial(potential,V)(T,V,n,members)/(sum(j in members | n[j])*constants.gas_constant*(T-constants.absolute_zero));
 @id("fa2cec78601d483db0f08cf92dd9b319") response mechanical_stability_response from potential(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>,potential:Fn(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy)->Scalar=1+V^2*partial(potential,V,V)(T,V,n,members)/(sum(j in members | n[j])*constants.gas_constant*(T-constants.absolute_zero));
 @id("01a0e169482c760bbd985b8c35f27202") interface PhaseThermo {
@@ -35,12 +35,12 @@
 @id("01a0e169482c760bbd985b9333b96e87") let s_residual:ResidualMolarEntropy;
 @id("01a0e169482c760bbd985b943745d287") let cp_residual:MolarCp;
 @id("01a0e169482c760bbd985b958b0ebd60") let cv_residual:MolarCp;
-@id("01a0e169482c760bbd985b965c2e1880") let ln_phi[j in components]:Scalar;
+@id("01a0e169482c760bbd985b965c2e1880") let ln_phi[j in components]:LogFugacityCoefficient;
 }
 @id("01a0e169482c760bbd985b978b04ff85") interface HelmholtzPhase extends PhaseThermo {
 @id("01a0e169482c760bbd985b986b16ec53") param potential:Fn(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy;
 @id("01a0e169482c760bbd985b99cc558184") let gas_constant:GasConstant=constants.gas_constant;
-@id("01a0e169482c760bbd985b9d1a14a735") let total:Amount=sum(j in components | amount[j]);
+@id("01a0e169482c760bbd985b9d1a14a735") let total:TotalAmount=sum(j in components | amount[j]);
 @id("3837ca0190c549dc90779c6ac4b0285c") let volume:Volume=total/rho;
 @id("01a0e169482c760bbd985ba4f258aede") let Z:Scalar=compressibility_response(T,volume,amount,components,potential);
 @id("01a0e169482c760bbd985ba582487cba") let mechanical_response:Scalar=mechanical_stability_response(T,volume,amount,components,potential);
@@ -49,7 +49,7 @@
 @id("01a0e169482c760bbd985ba98abcefb5") override let s_residual:ResidualMolarEntropy=entropy_response(T,volume,amount,components,potential);
 @id("01a0e169482c760bbd985baa3e89eb8f") override let cv_residual:MolarCp=isochoric_heat_capacity(T,volume,amount,components,potential);
 @id("01a0e169482c760bbd985babe5fcfc4a") override let cp_residual:MolarCp=isobaric_heat_capacity(T,volume,amount,components,potential);
-@id("01a0e169482c760bbd985bacc3823e79") override let ln_phi[j in components]:Scalar=fugacity_response(T,volume,amount,components,j,potential);
+@id("01a0e169482c760bbd985bacc3823e79") override let ln_phi[j in components]:LogFugacityCoefficient=fugacity_response(T,volume,amount,components,j,potential);
 @id("01a0e169482c760bbd985bade69cd1af") annotation check rho(mechanical_response>0 and Z>0);
 }
 @id("01a0e169482c760bbd985baed5a8101a") def HomogeneousPhase(selected:Set<chemistry.species>,law:Fn(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy):HelmholtzPhase {

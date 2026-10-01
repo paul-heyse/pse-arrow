@@ -68,6 +68,11 @@ PARAM_SCHEMA = m.PARAM_SCHEMA
 _MAX_REDIRECTS = 8
 
 
+def table_identifier(table: str) -> sql.Identifier:
+    """The identifier of a schema-qualified table of the pipeline contract (`schema.table`)."""
+    return sql.Identifier(*table.split("."))
+
+
 class SourceError(Exception):
     """The source cannot read the database: it was built from another declaration, or a
     record is not what its slot group declares."""
@@ -187,12 +192,17 @@ class _Backend:
             found: dict[str, float] = {}
             if self.policy is not None:
                 default = pc.POLICY_DEFAULT
-                for qualified, value in self.conn.execute(
-                    f"SELECT sl.qualified_name, d.{default.value} FROM {default.table} d "  # noqa: S608
-                    f"JOIN meta.slot sl ON sl.id = d.{default.slot} "
-                    f"WHERE d.{default.policy} = %s AND d.{default.value} IS NOT NULL",
-                    (self.policy,),
-                ).fetchall():
+                query = sql.SQL(
+                    "SELECT sl.qualified_name, d.{value} FROM {table} d "
+                    "JOIN meta.slot sl ON sl.id = d.{slot} "
+                    "WHERE d.{policy} = %s AND d.{value} IS NOT NULL"
+                ).format(
+                    value=sql.Identifier(default.value),
+                    table=table_identifier(default.table),
+                    slot=sql.Identifier(default.slot),
+                    policy=sql.Identifier(default.policy),
+                )
+                for qualified, value in self.conn.execute(query, (self.policy,)).fetchall():
                     found[qualified] = float(value)
             self._policy_defaults = found
         return self._policy_defaults
@@ -206,8 +216,11 @@ class _Backend:
             return None
         policy = pc.SELECTION_POLICY
         row = self.conn.execute(
-            f"SELECT p.{policy.unasserted}::text, p.{policy.scope_slot_group} FROM {policy.table} p "  # noqa: S608
-            "WHERE p.id = %s",
+            sql.SQL("SELECT p.{unasserted}::text, p.{scope} FROM {table} p WHERE p.id = %s").format(
+                unasserted=sql.Identifier(policy.unasserted),
+                scope=sql.Identifier(policy.scope_slot_group),
+                table=table_identifier(policy.table),
+            ),
             (self.policy,),
         ).fetchone()
         if row is None or row[0] != pc.UNASSERTED_POLICY.member("stated_default"):
@@ -406,7 +419,10 @@ class _Backend:
         if known is not None:
             return known
         row = self.conn.execute(
-            f"SELECT {pc.PARAMETER_SET.slot_group} FROM {pc.PARAMETER_SET.table} WHERE id = %s",  # noqa: S608
+            sql.SQL("SELECT {slot_group} FROM {table} WHERE id = %s").format(
+                slot_group=sql.Identifier(pc.PARAMETER_SET.slot_group),
+                table=table_identifier(pc.PARAMETER_SET.table),
+            ),
             (identifier,),
         ).fetchone()
         if row is None:
@@ -482,7 +498,11 @@ class _Backend:
         """`key@revision`, how a message names a parameterization."""
         pz = pc.PARAMETERIZATION
         row = self.conn.execute(
-            f"SELECT {pz.key}, {pz.revision} FROM {pz.table} WHERE id = %s",  # noqa: S608
+            sql.SQL("SELECT {key}, {revision} FROM {table} WHERE id = %s").format(
+                key=sql.Identifier(pz.key),
+                revision=sql.Identifier(pz.revision),
+                table=table_identifier(pz.table),
+            ),
             (parameterization,),
         ).fetchone()
         return f"{row[0]}@{row[1]}" if row is not None else str(parameterization)
@@ -539,16 +559,29 @@ class _Backend:
         identifiers = [holder for holder, _ in holders]
         states = dict(
             self.conn.execute(
-                f"SELECT {coverage_table.record}, {coverage_table.value}::text "  # noqa: S608
-                f"FROM {coverage_table.table} "
-                f"WHERE {coverage_table.kind}::text = %s AND {coverage_table.record} = ANY(%s)",
+                sql.SQL(
+                    "SELECT {record}, {value}::text FROM {table} "
+                    "WHERE {kind}::text = %s AND {record} = ANY(%s)"
+                ).format(
+                    record=sql.Identifier(coverage_table.record),
+                    value=sql.Identifier(coverage_table.value),
+                    table=table_identifier(coverage_table.table),
+                    kind=sql.Identifier(coverage_table.kind),
+                ),
                 (kind, identifiers),
             ).fetchall()
         )
         regions = self.conn.execute(
-            f"SELECT id, {region_table.record} FROM {region_table.table} "  # noqa: S608
-            f"WHERE {region_table.kind}::text = %s AND {region_table.record} = ANY(%s) "
-            f"ORDER BY {region_table.record}, {region_table.ordinal}",
+            sql.SQL(
+                "SELECT id, {record} FROM {table} "
+                "WHERE {kind}::text = %s AND {record} = ANY(%s) "
+                "ORDER BY {record}, {ordinal}"
+            ).format(
+                record=sql.Identifier(region_table.record),
+                table=table_identifier(region_table.table),
+                kind=sql.Identifier(region_table.kind),
+                ordinal=sql.Identifier(region_table.ordinal),
+            ),
             (kind, identifiers),
         ).fetchall()
         clauses: dict[uuid.UUID, list[RegionClause]] = {}
@@ -556,13 +589,22 @@ class _Backend:
             observables = self._names(self.decl.framework[m.OBSERVABLE_ROLE])
             aggregations = self._names(pc.AGGREGATION.declared)
             rows = self.conn.execute(
-                f"SELECT {clause_table.region}, {clause_table.observable}, "  # noqa: S608
-                f"{clause_table.component}, {clause_table.aggregation}, "
-                f"{clause_table.lower}, {clause_table.upper}, "
-                f"{clause_table.lower_relative_to}, {clause_table.upper_relative_to} "
-                f"FROM {clause_table.table} "
-                f"WHERE {clause_table.region} = ANY(%s) ORDER BY {clause_table.region}, "
-                f"{clause_table.ordinal}",
+                sql.SQL(
+                    "SELECT {region}, {observable}, {component}, {aggregation}, {lower}, {upper}, "
+                    "{lower_relative_to}, {upper_relative_to} FROM {table} "
+                    "WHERE {region} = ANY(%s) ORDER BY {region}, {ordinal}"
+                ).format(
+                    region=sql.Identifier(clause_table.region),
+                    observable=sql.Identifier(clause_table.observable),
+                    component=sql.Identifier(clause_table.component),
+                    aggregation=sql.Identifier(clause_table.aggregation),
+                    lower=sql.Identifier(clause_table.lower),
+                    upper=sql.Identifier(clause_table.upper),
+                    lower_relative_to=sql.Identifier(clause_table.lower_relative_to),
+                    upper_relative_to=sql.Identifier(clause_table.upper_relative_to),
+                    table=table_identifier(clause_table.table),
+                    ordinal=sql.Identifier(clause_table.ordinal),
+                ),
                 ([identifier for identifier, _ in regions],),
             ).fetchall()
             for (
@@ -603,8 +645,15 @@ class _Backend:
             return ()
         placed = pc.CONSTITUENT_ARRAY_MEMBER
         rows = self.conn.execute(
-            f'SELECT "{placed.position}" FROM {placed.table} '  # noqa: S608
-            f'WHERE "{placed.array}" = %s AND "{placed.species}" = %s ORDER BY "{placed.position}"',
+            sql.SQL(
+                "SELECT {position} FROM {table} "
+                "WHERE {array} = %s AND {species} = %s ORDER BY {position}"
+            ).format(
+                position=sql.Identifier(placed.position),
+                table=table_identifier(placed.table),
+                array=sql.Identifier(placed.array),
+                species=sql.Identifier(placed.species),
+            ),
             (array_id, member_id),
         ).fetchall()
         return tuple(int(row[0]) for row in rows)
@@ -621,9 +670,19 @@ class _Backend:
             return []
         choice = pc.SUBJECT_SUBFORM_CHOICE
         rows = self.conn.execute(
-            f"SELECT {choice.parameterization}, {choice.form}, {choice.source_parameterization} "  # noqa: S608
-            f"FROM {choice.table} WHERE {choice.slot} = %s AND {choice.subject_key} = %s "
-            f"AND {choice.parameterization} = ANY(%s) ORDER BY {choice.ordinal}",
+            sql.SQL(
+                "SELECT {parameterization}, {form}, {source_parameterization} "
+                "FROM {table} WHERE {slot} = %s AND {subject_key} = %s "
+                "AND {parameterization} = ANY(%s) ORDER BY {ordinal}"
+            ).format(
+                parameterization=sql.Identifier(choice.parameterization),
+                form=sql.Identifier(choice.form),
+                source_parameterization=sql.Identifier(choice.source_parameterization),
+                table=table_identifier(choice.table),
+                slot=sql.Identifier(choice.slot),
+                subject_key=sql.Identifier(choice.subject_key),
+                ordinal=sql.Identifier(choice.ordinal),
+            ),
             (self.subform_ids[slot], key, list(parameterizations)),
         ).fetchall()
         for parameterization in parameterizations:

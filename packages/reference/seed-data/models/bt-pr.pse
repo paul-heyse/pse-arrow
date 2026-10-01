@@ -25,7 +25,15 @@
 }
 @id("dad3df578bf642ba8be32332d5bb0126") fn stock_enthalpy_anchor(T:Temperature,p:Pressure,j:chemistry.species)->MolarEnthalpy valid(T==bt_pr_oracle.temperature)=constants.standard_enthalpy_datum;
 @id("57e2201c0a1842c09736f484af83e4e5") fn oracle_enthalpy_anchor(T:Temperature,p:Pressure,j:chemistry.species)->PrOracleEnthalpy valid(T==bt_pr_oracle.temperature and p==bt_pr_oracle.pressure)=reference[j].h;
-@id("8baf004442a64b7c8f564e1111b9140e") fn stock_entropy_anchor(T:Temperature,p:Pressure,j:chemistry.species)->MolarEntropy valid(T==bt_pr_oracle.temperature)=constants.standard_entropy_datum-constants.entropy_increment_unit*(constants.gas_constant/constants.gas_constant_unit)*log(p/constants.standard_pressure);
+// The ideal-gas pressure entropy difference is a physical reconstruction of ln(p/p0).
+// Its pressure origin remains the selected stock datum, rather than a numeric adapter.
+@id("512278c09ad544ae8cb3dc6c31290037") coordinate map entropy_pressure_coordinates(p:Pressure,p0:Pressure) valid(p>0{Pa} and p0>0{Pa}) {
+@id("3629a3b28ba54856afc4bc74a3d7d2ee") slot pressure_ratio=p/p0;
+}
+@id("d5603c687012492aa816897dba6396e9") reconstruction pressure_entropy for entropy_pressure_coordinates(p:Pressure,p0:Pressure)->DeltaS reference constants.reference_conventions=constants.gas_constant;
+@id("18e908a8ae274ddbadf8f3b594e213fd") fn pressure_entropy_reduced(pressure_ratio:Coordinate<entropy_pressure_coordinates.pressure_ratio>)->Reduced<pressure_entropy> valid(pressure_ratio>0)=log(pressure_ratio);
+@id("b90d80f5b42d4b3c860b477a84c3411a") fn pressure_entropy_increment(p:Pressure,p0:Pressure)->DeltaS=reconstruct(pressure_entropy,pressure_entropy_reduced,p,p0);
+@id("8baf004442a64b7c8f564e1111b9140e") fn stock_entropy_anchor(T:Temperature,p:Pressure,j:chemistry.species)->MolarEntropy valid(T==bt_pr_oracle.temperature)=constants.standard_entropy_datum-pressure_entropy_increment(p,constants.standard_pressure);
 @id("687a07192afe417da2e880019320e9c2") fn oracle_entropy_anchor(T:Temperature,p:Pressure,j:chemistry.species)->PrOracleEntropy valid(T==bt_pr_oracle.temperature and p==bt_pr_oracle.pressure)=reference[j].s;
 @id("9246743bafe34a15b6175e7fb26bf703") reference translation stock_to_oracle_enthalpy(value:MolarEnthalpy,composition:MoleFraction[chemistry.species],members:Set<chemistry.species>)->PrOracleEnthalpy anchors(source=stock_enthalpy_anchor,target=oracle_enthalpy_anchor) at(temperature=bt_pr_oracle.temperature,pressure=bt_pr_oracle.pressure) provenance(references.idaes_bt_pr,provenance.Role.oracle_input);
 @id("36131f7421a94f4c8eb221a25649ecb6") reference translation stock_to_oracle_entropy(value:MolarEntropy,composition:MoleFraction[chemistry.species],members:Set<chemistry.species>)->PrOracleEntropy anchors(source=stock_entropy_anchor,target=oracle_entropy_anchor) at(temperature=bt_pr_oracle.temperature,pressure=bt_pr_oracle.pressure) provenance(references.idaes_bt_pr,provenance.Role.oracle_input);
@@ -82,10 +90,10 @@
 @id("01a0e1b4f611717da49a928e1252d268") expect root.y[chem.benzene]==0.6141738{1} tolerance 0.000007{1};
 @id("01a0e1b4f611717da49a928fd215bf33") expect root.liquid.Z==0.003504 tolerance 0.00000004;
 @id("01a0e1b4f611717da49a9290acb43cda") expect root.vapor.Z==0.97 tolerance 0.00001;
-@id("01a0e1b4f611717da49a9291770bbafa") expect exp(root.liquid.ln_phi[chem.benzene])==1.492049 tolerance 0.000015;
-@id("01a0e1b4f611717da49a9292e8692617") expect exp(root.liquid.ln_phi[chem.toluene])==0.621563 tolerance 0.000007;
-@id("01a0e1b4f611717da49a92938c6971c9") expect exp(root.vapor.ln_phi[chem.benzene])==0.97469 tolerance 0.00001;
-@id("01a0e1b4f611717da49a9294a8955322") expect exp(root.vapor.ln_phi[chem.toluene])==0.964642 tolerance 0.00001;
+@id("01a0e1b4f611717da49a9291770bbafa") expect exp(root.liquid.ln_phi[chem.benzene])==1.492049{1} tolerance 0.000015{1};
+@id("01a0e1b4f611717da49a9292e8692617") expect exp(root.liquid.ln_phi[chem.toluene])==0.621563{1} tolerance 0.000007{1};
+@id("01a0e1b4f611717da49a92938c6971c9") expect exp(root.vapor.ln_phi[chem.benzene])==0.97469{1} tolerance 0.00001{1};
+@id("01a0e1b4f611717da49a9294a8955322") expect exp(root.vapor.ln_phi[chem.toluene])==0.964642{1} tolerance 0.00001{1};
 @id("01a0e1b4f611717da49a92957bcae0e8") expect root.oracle_h_liquid==38235.1{J/mol} tolerance 0.4{J/mol};
 @id("01a0e1b4f611717da49a9296becb6936") expect root.oracle_h_vapor==77155.4{J/mol} tolerance 0.8{J/mol};
 @id("01a0e1b4f611717da49a92973e438b65") expect root.oracle_s_liquid==-359.256{J/(mol*K)} tolerance 0.004{J/(mol*K)};

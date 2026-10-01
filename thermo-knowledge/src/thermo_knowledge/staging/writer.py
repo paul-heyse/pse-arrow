@@ -19,7 +19,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pyarrow as pa
-import pyarrow.compute as pc
 import pyarrow.parquet as pq
 
 from thermo_knowledge.staging import schema as schema_module
@@ -139,12 +138,12 @@ class Writer:
         locators = batch.column(LOCATOR).to_pylist()
         seen = self._locators[table]
         for artifact, locator in zip(artifacts, locators, strict=True):
-            if artifact not in self._payload_set:
+            if artifact is None or artifact not in self._payload_set:
                 raise StagingError(
                     f"table {table}: row cites {artifact!r}, which is not a payload file "
                     "of the source"
                 )
-            if not locator.startswith(f"{artifact}#"):
+            if locator is None or not locator.startswith(f"{artifact}#"):
                 raise StagingError(
                     f"table {table}: _locator {locator!r} must start with "
                     f"'<_artifact>#' ({artifact}#)"
@@ -152,7 +151,7 @@ class Writer:
             if locator in seen:
                 raise StagingError(f"table {table}: duplicate _locator {locator!r}")
             seen.add(locator)
-        self._cited.update(pc.unique(batch.column(ARTIFACT)).to_pylist())
+        self._cited.update(artifact for artifact in artifacts if artifact is not None)
         writer = self._writers.get(table)
         if writer is None:
             writer = pq.ParquetWriter(

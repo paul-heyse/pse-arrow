@@ -4,6 +4,7 @@
 @id("01a0f14ead4e761899b3c3aaf2068f70") use constants @"1.0.0";
 @id("01a0ee04daaa77568ef4eee5865a5e3f") use chemistry @"1.0.0";
 @id("9979e313cae34cf0bab68ec561f382f4") use helmholtz @"1.0.0";
+@id("d34b860c5c754d12ae89de893049b427") use equilibrium @"1.0.0";
 @id("043576baf0f247acb82a7a9fddfc1bc1") def TangentPlaneStability(selected:Set<chemistry.species>,law:Fn(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy,feed:Fn(j:chemistry.species)->Scalar) {
 @id("8f58dc3850ee403b9646d7c019781a20") param components:Set<chemistry.species>=selected;
 @id("a67be3743a7244fbb8eb026de3132be9") param temperature:Temperature=280{K};
@@ -12,7 +13,7 @@
 @id("dc87119428b744ad83535119b1b31427") param reference_upper:Density=18000{mol/m^3};
 @id("7e58a4531c4243be9f29eedf77e7c4e8") param trial_lower:Density=1{mol/m^3};
 @id("fa64885349e745a1b9c1111a580e0d56") param trial_upper:Density=18000{mol/m^3};
-@id("bf19d72e857b487b9c6511e09e60910f") param tolerance:Scalar=0.000001;
+@id("bf19d72e857b487b9c6511e09e60910f") param tolerance:ReducedGibbsEnergy=0.000001{1};
 @id("c7c6109c830d49b88714bcd471e0046a") child reference:helmholtz.HelmholtzPhase=helmholtz.HomogeneousPhase(selected=selected,law=law);
 @id("447058ea639f4de197cd3e3e7a2cc145") child trial:helmholtz.HelmholtzPhase=helmholtz.HomogeneousPhase(selected=selected,law=law);
 @id("ca8c7ce1acb24030b1f76382c4baf79b") eq reference_temperature:reference.T==temperature;
@@ -20,8 +21,8 @@
 @id("1fd44bad57794bef9d966ea5206b459f") eq reference_composition[j in components]:reference.amount[j]==constants.amount_unit*feed(j);
 @id("5bac52ae262740c6b0b8ff88e52d7aef") eq trial_temperature:trial.T==temperature;
 @id("976d45d856214af2863d0107774411c0") eq trial_pressure:trial.pressure==pressure;
-@id("7e69861b5a304f2eab2c2261b0612944") eq trial_normalization:sum(j in components | trial.amount[j]/constants.amount_unit)==1;
-@id("3f22a6f06f334dcbabb53a6d9feebb1e") let tpd:Scalar=sum(j in components | trial.n[j]*(log(trial.n[j])+trial.ln_phi[j]-log(feed(j))-reference.ln_phi[j]));
+@id("7e69861b5a304f2eab2c2261b0612944") eq trial_normalization:trial.total==constants.molar_reference_amount;
+@id("3f22a6f06f334dcbabb53a6d9feebb1e") let tpd:ReducedGibbsEnergy=sum(j in components | (trial.amount[j]/trial.total)*(equilibrium.component_log_fugacity(trial.amount[j]/trial.total,trial.ln_phi[j])-equilibrium.component_log_fugacity(reference.amount[j]/reference.total,reference.ln_phi[j])));
 @id("26851b7bf5fd4c049f5a54ecd55e2357") annotation objective tpd(minimize);
 @id("cf7deebc57f244f8a52ec8e924140225") annotation check tpd(tpd>-tolerance);
 @id("981bb43b39fd4cbc90125c3a4f880951") annotation bounds reference.T(temperature,temperature);

@@ -2764,7 +2764,7 @@ impl Cursor<'_> {
                 self.expect(":")?;
                 let r#type = self.type_expr()?;
                 let boundary = if self.eat("boundary") {
-                    Some(self.path()?)
+                    Some(self.until(&["conservation", "accounting"])?)
                 } else {
                     None
                 };

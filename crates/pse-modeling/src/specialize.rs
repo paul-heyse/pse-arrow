@@ -2080,6 +2080,7 @@ impl Engine<'_, '_> {
         self.apply_relaxations()?;
         self.admit_objectives()?;
         self.group_bodies()?;
+        self.admit_function_occurrences()?;
         self.model.equations.sort_by_key(|r| r.id);
         Ok(())
     }

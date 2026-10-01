@@ -17,6 +17,7 @@ import uuid
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import date, datetime
+from typing import Literal
 
 import pint
 from pint.util import UnitsContainer
@@ -30,6 +31,7 @@ from thermo_knowledge.expression.units import describe, from_info, type_dimensio
 from thermo_knowledge.declaration.types import (
     META_CONSTRUCTS,
     PRIMITIVES,
+    ElementKind,
     TypeRef,
     UnitError,
     UnitInfo,
@@ -637,13 +639,14 @@ class Resolver:
     ) -> TypeRef | None:
         if text in PRIMITIVES:
             return TypeRef(container="scalar", element_kind="primitive", element=text, text=text)
-        simple = {"Record": "record", "Real": "real", "SourceText": "source_text"}
+        simple: dict[str, ElementKind] = {
+            "Record": "record",
+            "Real": "real",
+            "SourceText": "source_text",
+        }
         if text in simple:
             return TypeRef(
-                container="scalar",
-                element_kind=simple[text],
-                element=text,
-                text=text,  # type: ignore[arg-type]
+                container="scalar", element_kind=simple[text], element=text, text=text
             )
         if is_bare_name(text):
             category = self.lookup(
@@ -655,13 +658,12 @@ class Resolver:
                 text, module, construct, allowed=allow_dependent
             ):
                 return None
-            kind = {"quantity_type": "quantity", "enum": "enum", "kind": "kind"}[category]
-            return TypeRef(
-                container="scalar",
-                element_kind=kind,  # type: ignore[arg-type]
-                element=text,
-                text=text,
-            )
+            kinds: dict[str, ElementKind] = {
+                "quantity_type": "quantity",
+                "enum": "enum",
+                "kind": "kind",
+            }
+            return TypeRef(container="scalar", element_kind=kinds[category], element=text, text=text)
         try:
             normalised, unit = evaluate_expression(
                 text, lambda name: self._unit_of(name, module, construct)
@@ -679,7 +681,7 @@ class Resolver:
 
     # -- values ----------------------------------------------------------------------------
 
-    def scalar_value(self, type_: TypeRef, raw: object, *, absolute_check: bool = True) -> object:
+    def scalar_value(self, type_: TypeRef, raw: object, *, absolute_check: bool = True) -> m.Scalar:
         """Check a scalar `raw` against a scalar type and return its normalised value."""
         kind = type_.element_kind
         if kind == "primitive":
@@ -757,7 +759,7 @@ class Resolver:
         except _Refused as refused:
             self.err(module, f"{construct}.default", Code(refused.code), str(refused))
             return False, None
-        return True, value  # type: ignore[return-value]
+        return True, value
 
     def _attribute(
         self,
@@ -808,7 +810,7 @@ class Resolver:
             )
             return None
         if text in ("own", "declaration", "none"):
-            return m.Provenance(mode=text)  # type: ignore[arg-type]
+            return m.Provenance(mode=text)
         head, _, attribute = text.partition(":")
         if head == "inherit" and SYMBOL.match(attribute):
             return m.Provenance(mode="inherit", attribute=attribute)
@@ -1024,7 +1026,7 @@ class Resolver:
             ok = False
         requires = self._requires(module, construct, raw.requires, own, owner="kind")
         uniques = self._uniques(module, construct, raw, attributes, own)
-        if requires is None or uniques is None or not ok:
+        if requires is None or uniques is None or provenance is None or not ok:
             return None
         return m.Kind(
             name=name,
@@ -1035,7 +1037,7 @@ class Resolver:
             root=root,
             abstract=raw.abstract,
             identity=tuple(raw.identity) if parent is None else (),
-            provenance=provenance,  # type: ignore[arg-type]
+            provenance=provenance,
             attributes=tuple(attributes),
             requires=requires,
             uniques=uniques,
@@ -1553,7 +1555,7 @@ class Resolver:
             ok = False
         elif not self._check_inherit(module, construct, provenance, keys):
             ok = False
-        absence: str = "required"
+        absence: Literal["required", "optional", "default"] = "required"
         absence_default: m.Scalar | None = None
         if raw.absence is None:
             self.err(
@@ -1576,7 +1578,7 @@ class Resolver:
                 ok = False
             else:
                 try:
-                    absence_default = self.scalar_value(only.type, raw.absence.default)  # type: ignore[assignment]
+                    absence_default = self.scalar_value(only.type, raw.absence.default)
                 except _Refused as refused:
                     self.err(module, f"{construct}.absence", Code.BAD_ABSENCE, str(refused))
                     ok = False
@@ -1608,7 +1610,7 @@ class Resolver:
             schema=self.headers[module].schema or "tk",
             doc=raw.doc,
             provenance=provenance,
-            absence=absence,  # type: ignore[arg-type]
+            absence=absence,
             absence_default=absence_default,
             keys=tuple(keys.values()),
             values=tuple(values.values()),
@@ -2626,8 +2628,8 @@ class Resolver:
         interval: tuple[str, str] | None = None
         if raw.interval is not None:
             bounds = (raw.interval.lower, raw.interval.upper)
-            fields = [slots.get(b) for b in bounds]
-            if any(f is None for f in fields) or bounds[0] == bounds[1]:
+            lower, upper = (slots.get(b) for b in bounds)
+            if lower is None or upper is None or bounds[0] == bounds[1]:
                 self.err(
                     module,
                     f"{construct}.interval",
@@ -2635,7 +2637,7 @@ class Resolver:
                     "an interval names two different slots of the family",
                 )
                 ok = False
-            elif not all(f is not None and f.type.element_kind == "quantity" for f in fields):
+            elif not (lower.type.element_kind == "quantity" and upper.type.element_kind == "quantity"):
                 self.err(
                     module,
                     f"{construct}.interval",
@@ -2643,7 +2645,7 @@ class Resolver:
                     "interval bounds are slots of one quantity type",
                 )
                 ok = False
-            elif fields[0].type != fields[1].type:  # type: ignore[union-attr]
+            elif lower.type != upper.type:
                 self.err(
                     module,
                     f"{construct}.interval",
@@ -2674,9 +2676,9 @@ class Resolver:
         for form in self.forms.values():
             edges = graph.setdefault(form.implements, set())
             for group in form.slot_groups:
-                edges.update(_contract_of(slot) for slot in group.slots if _contract_of(slot))
+                edges.update(c for slot in group.slots if (c := _contract_of(slot)))
                 for family in group.families:
-                    edges.update(_contract_of(s) for s in family.slots if _contract_of(s))
+                    edges.update(c for s in family.slots if (c := _contract_of(s)))
             edges.update(sub.accepts for sub in form.subforms)
         try:
             graphlib.TopologicalSorter(graph).prepare()
@@ -2902,13 +2904,15 @@ class Resolver:
                 continue
             if field_.construct.startswith("forms.") or len(quantity_attributes) != 1:
                 continue  # a slot holds a reference to an observable; the writer checks its set
-            named = quantity_names.get(entity.values.get(quantity_attributes[0]))  # type: ignore[arg-type]
+            identifier = entity.values.get(quantity_attributes[0])
+            named = quantity_names.get(identifier) if isinstance(identifier, uuid.UUID) else None
             if named is None:
                 continue
             expected = type_dimension(
                 declaration,
                 TypeRef(container="scalar", element_kind="quantity", element=named, text=named),
             )
+            assert expected is not None  # a quantity type has a dimension
             found = type_dimension(declaration, field_.type, field_.extra_order)
             if found is not None and expected != found:
                 self.err(
@@ -3183,9 +3187,9 @@ class _EntityBuilder:
                     continue
                 try:
                     values.append(
-                        attribute.default  # type: ignore[arg-type]
+                        attribute.default
                         if given is None
-                        else self._coerce(raw, attribute, given)  # type: ignore[arg-type]
+                        else self._coerce(raw, attribute, given)
                     )
                 except _Refused as refused:
                     self._err(raw, f".{attr_name}", refused.code, str(refused))
@@ -3210,7 +3214,7 @@ class _EntityBuilder:
             given = self._raw_value(raw, attribute)
             if given is None:
                 if attribute.default is not None:
-                    values[name] = attribute.default  # type: ignore[assignment]
+                    values[name] = attribute.default
                 elif attribute.type.container == "set":
                     values[name] = ()
                 elif not attribute.optional:
@@ -3218,7 +3222,7 @@ class _EntityBuilder:
                     ok = False
                 continue
             try:
-                values[name] = self._coerce(raw, attribute, given)  # type: ignore[assignment]
+                values[name] = self._coerce(raw, attribute, given)
             except _Refused as refused:
                 self._err(raw, f".{name}", refused.code, str(refused))
                 ok = False

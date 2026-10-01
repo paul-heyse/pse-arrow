@@ -16,7 +16,7 @@ import re
 from dataclasses import dataclass
 from functools import cache
 
-from rdkit import Chem, RDLogger
+from rdkit import Chem, rdBase
 from rdkit.Chem import inchi as rd_inchi
 
 STANDARD_INCHIKEY = re.compile(r"^[A-Z]{14}-[A-Z]{8}SA-[A-Z]$")
@@ -24,7 +24,7 @@ STANDARD_INCHI_PREFIX = "InChI=1S/"
 STRUCTURAL_SCHEMES = ("inchikey", "inchi", "smiles")
 """The naming schemes this module can compute a key from."""
 
-RDLogger.DisableLog("rdApp.*")
+rdBase.DisableLog("rdApp.*")
 
 
 @dataclass(frozen=True)

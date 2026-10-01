@@ -179,7 +179,9 @@ def decimal_text(value: float | int | str) -> str:
     """A fraction as exact decimal text: the shortest decimal that reads back as the source's
     number (`repr` of a float), written without exponent or trailing zeros. The same number is
     always the same text, so a key built from it is stable."""
-    number = decimal.Decimal(repr(value) if isinstance(value, float) else str(value))
+    number = decimal.Decimal(
+        value if isinstance(value, str) else repr(value) if isinstance(value, float) else str(value)
+    )
     if not number.is_finite():
         raise ValueError(f"{value!r} is not a finite number")
     text = format(number.normalize(), "f")

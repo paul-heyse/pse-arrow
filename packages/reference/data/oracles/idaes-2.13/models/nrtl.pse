@@ -10,7 +10,7 @@
 @id("19f8e5a44fff43b6b812bdef645cce75") set sources:Set<provenance.source>={defaults};
 @id("57c93a5c4be94120a64e82382a43aa32") set members:Set<chemistry.species>={chem.benzene,chem.toluene};
 @id("dd9a474a42de437b9b9e868ed5084693") dataset parameters:nrtl.parameters complete_over(s in sources,i in members,j in members) provenance(defaults,provenance.Role.oracle_input) from "data/nrtl_parameters.parquet";
-@id("1f07a7560f1442f7aefb1140d34b83e5") table observations[x:Scalar storage {1},j:chemistry.species by chemistry.cas]:Scalar storage {1} complete_over(x,j);
+@id("1f07a7560f1442f7aefb1140d34b83e5") table observations[x:Scalar storage {1},j:chemistry.species by chemistry.cas]:LogActivityCoefficient storage {1} complete_over(x,j);
 @id("3f4301ed53a848c4b316a0b914474563") set compositions:Set<Scalar>={0.2,0.5,0.8};
 @id("6f1072ae1c3349cebc409753f8637c01") dataset activities:observations complete_over(x in compositions,j in members) provenance(defaults,provenance.Role.oracle_input) from "data/nrtl_activities.parquet";
 }

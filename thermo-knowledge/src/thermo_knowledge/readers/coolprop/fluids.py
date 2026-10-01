@@ -317,7 +317,7 @@ def read_fluid(tree: Path, artifact: str, sink: Sink) -> None:
         raise StagingError(f"{artifact}: INFO, EOS, STATES and ANCILLARIES are required")
 
     name = _info(sink, artifact, info)
-    key = {"fluid": name}
+    key: dict[str, object] = {"fluid": name}
     for state_name, state in states.items():
         sink.add_object(
             STATES,

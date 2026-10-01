@@ -403,7 +403,7 @@ impl Engine<'_, '_> {
                 }
                 if let Type::Quantity(scheme) = &prototype {
                     let quantity = scheme
-                        .resolve_with_evidence(
+                        .resolve_contract_with_evidence(
                             self.c.quantities,
                             &BTreeMap::new(),
                             self.c.preconditions,
@@ -411,11 +411,10 @@ impl Engine<'_, '_> {
                         .map_err(|e| invalid(at, e.to_string()))?;
                     let (reduction, domain) =
                         crate::expression::finite_reduction(*kind, &element, at)?;
-                    let mut hash = FramedHasher::new(pse_ids::Frame::ModelingFiniteReductionV1);
-                    hash.str(kind.as_str())
-                        .id(&quantity.as_id())
-                        .bool(domain.is_some())
-                        .u64(terms.len() as u64);
+                    let mut hash = FramedHasher::new(pse_ids::Frame::ModelingFiniteReductionV2);
+                    hash.str(kind.as_str());
+                    quantity.frame(&mut hash);
+                    hash.bool(domain.is_some()).u64(terms.len() as u64);
                     if let Some(domain) = domain {
                         hash.id(&domain.as_id());
                     }
@@ -426,6 +425,7 @@ impl Engine<'_, '_> {
                         .functions
                         .entry(name.clone())
                         .or_insert(crate::Function {
+                            physical_admissions: BTreeMap::new(),
                             physical_operation: None,
                             reduction: Some(crate::FiniteReduction {
                                 kind: reduction,

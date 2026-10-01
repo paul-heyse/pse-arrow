@@ -64,63 +64,61 @@
 @id("01a0eeced80374ab83c081d38efde5b6") def NestedPRFlash(selected:Set<chemistry.species>,vapor_pressure:Fn(T:Temperature,j:chemistry.species)->Pressure,pkg:properties.property_package,family:cubic.cubic_family=cubic.pr):FlashSplit {
 @id("01a0eeced80374ab83c081d42d24356a") override param components:Set<chemistry.species>=selected;
 @id("01a0eeced80374ab83c081d5f25d6fd1") let feed[j in components]:Scalar=z[j]/equilibrium.fraction_unit();
-@id("01a0eeced80374ab83c081d6d645e5af") let t:Scalar=T/constants.temperature_scale;
-@id("01a0eeced80374ab83c081d7e880cad4") let p:Scalar=pressure/constants.pressure_unit;
 @id("01a0eeced80374ab83c081d83d236f3f") let K[j in components]:Scalar=vapor_pressure(T,j)/pressure;
 @id("01a0eeced80374ab83c081d96835dd53") let seed:Scalar=equilibrium.rr_start(feed,K,components);
-@id("01a0eeced80374ab83c081dacaffe6ca") implicit split select minimum((1-fraction)*sum(k in components | liquid[k]*(log(liquid[k])+peng_robinson.compressibility_ln_phi(t,p,liquid_compressibility,liquid,components,k,pkg,family)))+fraction*sum(k in components | vapor[k]*(log(vapor[k])+peng_robinson.compressibility_ln_phi(t,p,vapor_compressibility,vapor,components,k,pkg,family))),1e-9) {
+@id("01a0eeced80374ab83c081dacaffe6ca") implicit split select minimum((1-fraction)*sum(k in components | liquid[k]*(equilibrium.component_log_fugacity(liquid[k],peng_robinson.compressibility_fugacity_response(T,pressure,liquid_compressibility,liquid,components,k,pkg,family))))+fraction*sum(k in components | vapor[k]*(equilibrium.component_log_fugacity(vapor[k],peng_robinson.compressibility_fugacity_response(T,pressure,vapor_compressibility,vapor,components,k,pkg,family)))),1e-9{1}) {
 @id("01a0eeced80374ab83c081db14994aa2") var fraction:Scalar;
-@id("01a0eeced80374ab83c081dc477abaa0") var liquid[j in components]:Scalar;
-@id("01a0eeced80374ab83c081ddbd22059e") var vapor[j in components]:Scalar;
+@id("01a0eeced80374ab83c081dc477abaa0") var liquid[j in components]:MoleFraction;
+@id("01a0eeced80374ab83c081ddbd22059e") var vapor[j in components]:MoleFraction;
 @id("01a0eeced80374ab83c081dea4a20c7c") var liquid_compressibility:Scalar;
 @id("01a0eeced80374ab83c081df983b8af1") var vapor_compressibility:Scalar;
 @id("01a0eeced80374ab83c081e089c086c2") annotation bounds fraction(-20,20);
-@id("01a0eeced80374ab83c081e14d034f23") annotation bounds liquid(1e-10,1);
-@id("01a0eeced80374ab83c081e236226fe7") annotation bounds vapor(1e-10,1);
+@id("01a0eeced80374ab83c081e14d034f23") annotation bounds liquid(1e-10{1},1{1});
+@id("01a0eeced80374ab83c081e236226fe7") annotation bounds vapor(1e-10{1},1{1});
 @id("01a0eeced80374ab83c081e3c504e423") annotation bounds liquid_compressibility(0.0001,0.2);
 @id("01a0eeced80374ab83c081e40108a8f7") annotation bounds vapor_compressibility(0.5,1.2);
 @id("01a0eedc4859757a92b28698fad9418f") annotation nominal liquid_compressibility(0.004);
 @id("01a0eedc4859757a92b28699465b0c64") annotation nominal vapor_compressibility(1);
 @id("01a0eeced80374ab83c081e54c29cda5") regime two_phase eligible(fraction>0 and fraction<1) {
-@id("01a0eeced80374ab83c081e629846668") eq material[j in components]:feed[j]==(1-fraction)*liquid[j]+fraction*vapor[j];
-@id("01a0eeced80374ab83c081e7a57ae73a") eq normalization:sum(j in components | liquid[j]-vapor[j])==0;
-@id("01a0eeced80374ab83c081e88ed625a0") eq fugacity[j in components]:log(liquid[j])+peng_robinson.compressibility_ln_phi(t,p,liquid_compressibility,liquid,components,j,pkg,family)==log(vapor[j])+peng_robinson.compressibility_ln_phi(t,p,vapor_compressibility,vapor,components,j,pkg,family);
-@id("01a0eeced80374ab83c081e970a43092") eq liquid_root:peng_robinson.compressibility_residual(t,p,liquid_compressibility,liquid,components,pkg,family)==0;
-@id("01a0eeced80374ab83c081ea13d8f651") eq vapor_root:peng_robinson.compressibility_residual(t,p,vapor_compressibility,vapor,components,pkg,family)==0;
+@id("01a0eeced80374ab83c081e629846668") eq material[j in components]:z[j]==(1-fraction)*liquid[j]+fraction*vapor[j];
+@id("01a0eeced80374ab83c081e7a57ae73a") eq normalization:sum(j in components | liquid[j]/equilibrium.fraction_unit()-vapor[j]/equilibrium.fraction_unit())==0;
+@id("01a0eeced80374ab83c081e88ed625a0") eq fugacity[j in components]:equilibrium.component_log_fugacity(liquid[j],peng_robinson.compressibility_fugacity_response(T,pressure,liquid_compressibility,liquid,components,j,pkg,family))==equilibrium.component_log_fugacity(vapor[j],peng_robinson.compressibility_fugacity_response(T,pressure,vapor_compressibility,vapor,components,j,pkg,family));
+@id("01a0eeced80374ab83c081e970a43092") eq liquid_root:peng_robinson.compressibility_residual(T,pressure,liquid_compressibility,liquid,components,pkg,family)==0;
+@id("01a0eeced80374ab83c081ea13d8f651") eq vapor_root:peng_robinson.compressibility_residual(T,pressure,vapor_compressibility,vapor,components,pkg,family)==0;
 @id("01a0eeced80374ab83c081eb69695c2d") annotation start fraction(seed);
-@id("01a0eeced80374ab83c081ec4fe6bfa4") annotation start liquid(feed[j]/(1+seed*(K[j]-1)));
-@id("01a0eeced80374ab83c081ed690e4a9a") annotation start vapor(K[j]*feed[j]/(1+seed*(K[j]-1)));
+@id("01a0eeced80374ab83c081ec4fe6bfa4") annotation start liquid(z[j]/(1+seed*(K[j]-1)));
+@id("01a0eeced80374ab83c081ed690e4a9a") annotation start vapor(K[j]*z[j]/(1+seed*(K[j]-1)));
 @id("01a0eeced80374ab83c081ee6daab6bd") annotation start liquid_compressibility(0.004);
 @id("01a0eeced80374ab83c081ef7b455404") annotation start vapor_compressibility(0.97);
 }
-@id("01a0eeced80374ab83c081f037dcd405") regime liquid_only eligible(sum(k in components | feed[k]*exp(peng_robinson.compressibility_ln_phi(t,p,liquid_compressibility,liquid,components,k,pkg,family)-peng_robinson.compressibility_ln_phi(t,p,vapor_compressibility,vapor,components,k,pkg,family)))<1) {
+@id("01a0eeced80374ab83c081f037dcd405") regime liquid_only eligible(sum(k in components | z[k]*exp(peng_robinson.compressibility_fugacity_response(T,pressure,liquid_compressibility,liquid,components,k,pkg,family)-peng_robinson.compressibility_fugacity_response(T,pressure,vapor_compressibility,vapor,components,k,pkg,family)))<1{1}) {
 @id("01a0eeced80374ab83c081f188e50423") eq phase:fraction==0;
-@id("01a0eeced80374ab83c081f2fb80ba33") eq composition_l[j in components]:liquid[j]==feed[j];
-@id("01a0eeced80374ab83c081f3f0c29258") eq composition_v[j in components]:vapor[j]==feed[j];
-@id("01a0eeced80374ab83c081f4e9290094") eq liquid_root:peng_robinson.compressibility_residual(t,p,liquid_compressibility,liquid,components,pkg,family)==0;
-@id("01a0eeced80374ab83c081f599850dd3") eq vapor_root:peng_robinson.compressibility_residual(t,p,vapor_compressibility,vapor,components,pkg,family)==0;
+@id("01a0eeced80374ab83c081f2fb80ba33") eq composition_l[j in components]:liquid[j]==z[j];
+@id("01a0eeced80374ab83c081f3f0c29258") eq composition_v[j in components]:vapor[j]==z[j];
+@id("01a0eeced80374ab83c081f4e9290094") eq liquid_root:peng_robinson.compressibility_residual(T,pressure,liquid_compressibility,liquid,components,pkg,family)==0;
+@id("01a0eeced80374ab83c081f599850dd3") eq vapor_root:peng_robinson.compressibility_residual(T,pressure,vapor_compressibility,vapor,components,pkg,family)==0;
 @id("01a0eeced80374ab83c081f62ba13e83") annotation start fraction(0);
-@id("01a0eeced80374ab83c081f76bd59690") annotation start liquid(feed[j]);
-@id("01a0eeced80374ab83c081f8e4c1ba25") annotation start vapor(feed[j]);
+@id("01a0eeced80374ab83c081f76bd59690") annotation start liquid(z[j]);
+@id("01a0eeced80374ab83c081f8e4c1ba25") annotation start vapor(z[j]);
 @id("01a0eeced80374ab83c081f94e6ed950") annotation start liquid_compressibility(0.004);
 @id("01a0eeced80374ab83c081fa467c95ba") annotation start vapor_compressibility(0.97);
 }
-@id("01a0eeced80374ab83c081fbb5ecc47e") regime vapor_only eligible(sum(k in components | feed[k]*exp(peng_robinson.compressibility_ln_phi(t,p,vapor_compressibility,vapor,components,k,pkg,family)-peng_robinson.compressibility_ln_phi(t,p,liquid_compressibility,liquid,components,k,pkg,family)))<1) {
+@id("01a0eeced80374ab83c081fbb5ecc47e") regime vapor_only eligible(sum(k in components | z[k]*exp(peng_robinson.compressibility_fugacity_response(T,pressure,vapor_compressibility,vapor,components,k,pkg,family)-peng_robinson.compressibility_fugacity_response(T,pressure,liquid_compressibility,liquid,components,k,pkg,family)))<1{1}) {
 @id("01a0eeced80374ab83c081fc213288bb") eq phase:fraction==1;
-@id("01a0eeced80374ab83c081fdb0617870") eq composition_l[j in components]:liquid[j]==feed[j];
-@id("01a0eeced80374ab83c081fed83732bd") eq composition_v[j in components]:vapor[j]==feed[j];
-@id("01a0eeced80374ab83c081ffcc0af8b4") eq liquid_root:peng_robinson.compressibility_residual(t,p,liquid_compressibility,liquid,components,pkg,family)==0;
-@id("01a0eeced80374ab83c08200ea3d4707") eq vapor_root:peng_robinson.compressibility_residual(t,p,vapor_compressibility,vapor,components,pkg,family)==0;
+@id("01a0eeced80374ab83c081fdb0617870") eq composition_l[j in components]:liquid[j]==z[j];
+@id("01a0eeced80374ab83c081fed83732bd") eq composition_v[j in components]:vapor[j]==z[j];
+@id("01a0eeced80374ab83c081ffcc0af8b4") eq liquid_root:peng_robinson.compressibility_residual(T,pressure,liquid_compressibility,liquid,components,pkg,family)==0;
+@id("01a0eeced80374ab83c08200ea3d4707") eq vapor_root:peng_robinson.compressibility_residual(T,pressure,vapor_compressibility,vapor,components,pkg,family)==0;
 @id("01a0eeced80374ab83c08201d4d904b8") annotation start fraction(1);
-@id("01a0eeced80374ab83c0820285611369") annotation start liquid(feed[j]);
-@id("01a0eeced80374ab83c08203b1efaded") annotation start vapor(feed[j]);
+@id("01a0eeced80374ab83c0820285611369") annotation start liquid(z[j]);
+@id("01a0eeced80374ab83c08203b1efaded") annotation start vapor(z[j]);
 @id("01a0eeced80374ab83c082049b99c518") annotation start liquid_compressibility(0.004);
 @id("01a0eeced80374ab83c0820597e810ea") annotation start vapor_compressibility(0.97);
 }
 }
 @id("01a0eeced80374ab83c082062327112f") realize closure_policy on split using nested;
 @id("01a0eeced80374ab83c0820754a6e89d") override let beta:Scalar=split.fraction;
-@id("01a0eeced80374ab83c0820876de3a5c") override let x[j in components]:MoleFraction=split.liquid[j]*equilibrium.fraction_unit();
-@id("01a0eeced80374ab83c082093cb42f6d") override let y[j in components]:MoleFraction=split.vapor[j]*equilibrium.fraction_unit();
+@id("01a0eeced80374ab83c0820876de3a5c") override let x[j in components]:MoleFraction=split.liquid[j];
+@id("01a0eeced80374ab83c082093cb42f6d") override let y[j in components]:MoleFraction=split.vapor[j];
 }
 }
