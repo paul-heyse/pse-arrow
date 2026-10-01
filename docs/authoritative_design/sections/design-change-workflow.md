@@ -10,7 +10,7 @@ status: current
 > Decision: [ADR-0094](../../adr/0094-architecture-first-design-review.md),
 > [ADR-0096](../../adr/0096-current-rationale-and-selective-retirement.md),
 > [ADR-0129](../../adr/0129-domain-model-review-scope.md),
-> [ADR-0139](../../adr/0139-selective-agent-coordination.md).
+> [ADR-0147](../../adr/0147-library-research-writes.md).
 
 The [selected design standard](../../design_review/design_principles/standard.toml) governs
 architecture review. Its core foundations organize assessment around separation of concerns,
@@ -36,8 +36,13 @@ available planning interface without switching runtime modes or creating another
 sequence. That focused assessment does not certify an enclosing subsystem or initiate recurring
 model assessment during ordinary implementation.
 
-The [shared roles](../../../.agents/roles/README.md) own reusable worker behavior and coordination;
-the separate native adapters own model, effort and tool defaults. The root coordinator retains
+The [shared roles](../../../.agents/roles/README.md) own reusable worker behavior, coordination
+and each role's permitted effects; the separate native adapters own model, effort and tool
+defaults. Codex roles inherit the session's sandbox and approval settings (Codex ignores sandbox
+keys in role files), so no adapter declares one. `library-research` may write new dated folders
+in the evidence locations AGENTS.md names and the shared library skill its brief assigns, and
+lists every file written; the other evidence roles stay read-only. These scopes are instructions,
+not runtime enforcement; the edit-protection hook still applies to every role. The root coordinator retains
 design decisions, integration and acceptance; executors choose local details inside their brief.
 Delegate when independent work, context isolation, distinct capabilities or independent judgment
 justify coordination and integration. Small or tightly coupled tasks may stay with the root.
@@ -48,7 +53,7 @@ repair failure are surfaced to the coordinator, who chooses the least sufficient
 Reviews remain proportional to the binding; fresh reviewers receive concrete criteria and consumers.
 Process skills are canonical in `.codex/skills/`, with `.claude/skills` and `.agents/skills` as
 aliases. The existing alias synchronizer never generates or modifies native agent definitions.
-These workflow/configuration surfaces are Implemented (2026-09-30). The selected defaults raise
+These workflow/configuration surfaces are Implemented (2026-09-30; evidence write scope 2026-10-01). The selected defaults raise
 Codex implementation review to Sol/high and Claude evidence roles to Sonnet/medium, while Claude
 design review uses Opus/high. Model-allocation quality and native agent behavior remain unmeasured;
 no calibration exercise or recurring telemetry is required. The current-work index routes to the active plan or packet

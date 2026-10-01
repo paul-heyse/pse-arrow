@@ -58,7 +58,7 @@ create implementation plans, and plan or execute authorized work. This index rou
 owning plan or active packet checkpoint for current state, decisions and next steps; it does
 not duplicate packet status. Handoff updates that owner when the actual tree changes.
 The role and workflow rollout is owned by [§24.4](../authoritative_design/sections/design-change-workflow.md)
-and ADR-0139 ([governance review: Accept](../design_review/reviews/design_review_agent-coordination_2026-09-30.md), static policy scope); it changes no production plan's lifecycle or qualification status.
+and ADR-0147 ([governance review: Accept](../design_review/reviews/design_review_library-research-writes_2026-10-01.md), static policy scope, carrying forward ADR-0139's [2026-09-30 review](../design_review/reviews/design_review_agent-coordination_2026-09-30.md)); it changes no production plan's lifecycle or qualification status.
 
 ## Norms
 
