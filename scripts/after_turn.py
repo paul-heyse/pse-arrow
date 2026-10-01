@@ -55,7 +55,7 @@ CLAUDE_EFFORTS = ("low", "medium", "high", "xhigh", "max")
 
 PENDING_GRACE = 30
 # A session's next prompt waits at most this long; the hook's own timeout (1800 s) stays above it.
-PROMPT_WAIT = 25 * 60
+PROMPT_WAIT = 0  # a prompt never waits for the end-of-turn checks
 
 
 @dataclasses.dataclass(frozen=True)
@@ -658,7 +658,7 @@ def cmd_prompt(harness: str) -> int:
         time.sleep(1)
     if waiting():
         message: str | None = (
-            f"End-of-turn checks still running after {PROMPT_WAIT // 60} min; "
+            "End-of-turn checks still running in the background; "
             f"this turn started without waiting (logs: {logs})"
         )
     else:

@@ -52,24 +52,23 @@ pub(crate) enum Shape {
 /// # Errors
 /// Arguments or typed members that disagree with the kind.
 pub(crate) fn shape(a: &Declared, at: DeclarationId) -> Result<Shape> {
-    // (arguments, objective, extrapolation, scheme, connectivity)
+    // (arguments, objective, scheme, connectivity)
     let (shape, expected) = match a.kind {
         AnnotationKind::Start | AnnotationKind::Nominal => {
-            (Shape::Expressions(1), (1, false, false, false, false))
+            (Shape::Expressions(1), (1, false, false, false))
         }
-        AnnotationKind::Bounds => (Shape::Expressions(2), (2, false, false, false, false)),
-        // ADR-0115 Outcome 3: the endpoints, and the typed extrapolation policy.
-        AnnotationKind::Valid => (Shape::Expressions(2), (2, false, true, false, false)),
-        AnnotationKind::Report => (Shape::Label, (1, false, false, false, false)),
-        AnnotationKind::Check => (Shape::Predicate, (1, false, false, false, false)),
-        AnnotationKind::Objective => (Shape::Objective, (0, true, false, false, false)),
-        AnnotationKind::Scale => (Shape::Scheme, (0, false, false, true, false)),
-        AnnotationKind::Connectivity => (Shape::Connectivity, (0, false, false, false, true)),
+        AnnotationKind::Bounds => (Shape::Expressions(2), (2, false, false, false)),
+        // Hard closure ranges have exactly two physical endpoints.
+        AnnotationKind::Valid => (Shape::Expressions(2), (2, false, false, false)),
+        AnnotationKind::Report => (Shape::Label, (1, false, false, false)),
+        AnnotationKind::Check => (Shape::Predicate, (1, false, false, false)),
+        AnnotationKind::Objective => (Shape::Objective, (0, true, false, false)),
+        AnnotationKind::Scale => (Shape::Scheme, (0, false, true, false)),
+        AnnotationKind::Connectivity => (Shape::Connectivity, (0, false, false, true)),
     };
     let actual = (
         a.arguments.len(),
         a.objective.is_some(),
-        a.extrapolation.is_some(),
         a.scheme.is_some(),
         a.connectivity.is_some(),
     );
@@ -100,21 +99,14 @@ pub enum AnnotationValue {
     Objective(ObjectiveDeclaration),
     /// Output label.
     Report(String),
-    /// Physical validity range, its layer and its selected extrapolation policy (ADR-0123
-    /// Outcome 4): an annotated closure range, or a data envelope whose consumer selected
-    /// extrapolation, which is observed rather than enforced.
+    /// An unconditional physical validity range and its owning layer.
     Valid {
         /// Lower endpoint of the validity range.
         lower: Expr,
         /// Upper endpoint of the validity range.
         upper: Expr,
-        /// What evaluation outside the range does.
-        policy: pse_model::generated::enums::ExtrapolationPolicy,
         /// The validity layer the range belongs to.
         layer: pse_model::generated::enums::ModelingValidityLayer,
-        /// The declaration that selected the data layer's policy; a closure range states
-        /// its own.
-        selection: Option<DeclarationId>,
     },
     /// Knowledge-specific post-solve check, not a new equation.
     Check(Predicate),
@@ -296,17 +288,11 @@ impl Engine<'_, '_> {
                     AnnotationValue::Scale(a.scheme.ok_or_else(|| invalid(at, "scaling scheme"))?)
                 }
                 AnnotationKind::Report => AnnotationValue::Report(label(&a.arguments[0], at)?),
-                AnnotationKind::Valid => {
-                    if a.extrapolation != Some(pse_model::generated::enums::ExtrapolationPolicy::Reject) {return Err(invalid(at,"hard validity domains cannot extrapolate; use a named applicability claim and permission for empirical evidence"));}
-                    AnnotationValue::Valid {
+                AnnotationKind::Valid => AnnotationValue::Valid {
                     lower: expression(self, 0)?,
                     upper: expression(self, 1)?,
-                    policy: a
-                        .extrapolation
-                        .ok_or_else(|| invalid(at, "validity extrapolation policy"))?,
                     layer: pse_model::generated::enums::ModelingValidityLayer::Closure,
-                    selection: None,
-                }},
+                },
                 AnnotationKind::Check => {
                     let predicate = dsl::parse_predicate(&a.arguments[0])
                         .map_err(|e| invalid(at, e.to_string()))?;

@@ -319,11 +319,10 @@ const OPERATIONS: &str = r#"package operations {
 #[test]
 fn property_operations_dispatch_through_selection() {
     outcome(OPERATIONS, Some("operations.Root")).unwrap();
+    let selected_call = "properties.cp(pkg, chemistry.liquid,";
+    assert_eq!(OPERATIONS.matches(selected_call).count(), 1);
     let error = outcome(
-        &OPERATIONS.replace(
-            "properties.cp(corpus.pkg, chemistry.liquid,",
-            "properties.cp(corpus.pkg, chemistry.vapor,",
-        ),
+        &OPERATIONS.replacen(selected_call, "properties.cp(pkg, chemistry.vapor,", 1),
         Some("operations.Root"),
     )
     .unwrap_err();

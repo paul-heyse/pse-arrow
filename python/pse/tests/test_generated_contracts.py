@@ -17,9 +17,7 @@ from pse.contracts.authored import (
     AuthoredPackagesRow,
 )
 from pse.contracts.enums import (
-    ExtrapolationPolicy,
     ModelingEnvelopeExtent,
-    ModelingValidityLayer,
     ModelingVariableDomain,
     PackageKind,
 )
@@ -277,27 +275,8 @@ def test_modeling_declaration_tag_has_one_typed_payload() -> None:
 
 
 @pytest.mark.unit
-def test_validity_selection_and_envelope_guards_are_typed() -> None:
-    # ADR-0123 Outcome 4: a consumer's selection and a form's guards are registry
-    # vocabulary, never text.
-    empty: dict[str, object] = {
-        field.metadata.get(FIELD_NAME_METADATA, field.name): None
-        for field in attrs.fields(AuthoredModelingDeclarationsFieldValue)
-    }
-    selection = empty | {
-        "kind": "extrapolation",
-        "extrapolation": {"layer": "data", "policy": "extrapolate"},
-    }
-    value = converter().structure(selection, AuthoredModelingDeclarationsFieldValue)
-    assert value.extrapolation is not None
-    assert value.extrapolation.layer is ModelingValidityLayer.DATA
-    assert value.extrapolation.policy is ExtrapolationPolicy.EXTRAPOLATE
-    with pytest.raises((ValueError, cattrs.BaseValidationError)):
-        converter().structure(
-            selection
-            | {"extrapolation": {"layer": "everywhere", "policy": "extrapolate"}},
-            AuthoredModelingDeclarationsFieldValue,
-        )
+def test_hard_domain_interval_guards_are_typed() -> None:
+    # Explicit hard-domain guards retain their declared whole interval.
     guard = converter().structure(
         {
             "carrier": "p",
@@ -309,3 +288,73 @@ def test_validity_selection_and_envelope_guards_are_typed() -> None:
     )
     assert guard.extent is ModelingEnvelopeExtent.INTERVAL
     assert guard.arguments == ("T0", "T")
+
+
+@pytest.mark.unit
+def test_applicability_observation_retains_owner_and_scoped_permission() -> None:
+    document: dict[str, object] = {
+        "run_id": "01" * 16,
+        "step": 0,
+        "sample_index": 0,
+        "time": None,
+        "target_id": "02" * 16,
+        "source_id": "03" * 16,
+        "kind": "applicability",
+        "value": 0.0,
+        "tolerance": None,
+        "satisfied": True,
+        "within_validity": None,
+        "extrapolation_allowed": False,
+        "basis": "point",
+        "layer": "data",
+        "claim_id": "04" * 16,
+        "claim_owner": "05" * 16,
+        "claim_owner_lineage": ["05" * 16, "06" * 16],
+        "coverage_id": None,
+        "evidence_id": "07" * 16,
+        "form_id": "08" * 16,
+        "call_id": "09" * 16,
+        "selected_records": ["0a" * 16],
+        "dependencies": ["0b" * 16],
+        "input_values": [{"name": "T", "value": 303.15, "quantity_type": "0c" * 16}],
+        "applicability_outcome": "unknown_evidence",
+        "applicability_basis": None,
+        "permission_ids": ["0d" * 16],
+        "unknown_allowed": True,
+        "observation_instance": "0e" * 16,
+        "applicability_required": True,
+        "applicability_reason": "Source has no region for this use",
+        "applicability_permissions": [
+            {
+                "permission_id": "0d" * 16,
+                "scope": "0f" * 16,
+                "target_kind": "families",
+                "targets": ["06" * 16],
+                "allow_unknown": True,
+                "allow_extrapolation": False,
+            }
+        ],
+    }
+    row = structure_rows([document], runtime_contracts.RuntimeModelingChecksRow)[0]
+    assert row.claim_owner_lineage == (
+        SemanticId(bytes([5] * 16)),
+        SemanticId(bytes([6] * 16)),
+    )
+    assert row.observation_instance == SemanticId(bytes([14] * 16))
+    assert row.applicability_reason == "Source has no region for this use"
+    assert row.input_values[0].value == 303.15
+    permission = row.applicability_permissions[0]
+    assert permission.permission_id == row.permission_ids[0]
+    assert permission.scope == SemanticId(bytes([15] * 16))
+    assert permission.targets == (SemanticId(bytes([6] * 16)),)
+    assert permission.allow_unknown
+    assert not permission.allow_extrapolation
+    encoded = converter().unstructure(row)
+    assert (
+        structure_rows([encoded], runtime_contracts.RuntimeModelingChecksRow)[0] == row
+    )
+    with pytest.raises(cattrs.BaseValidationError):
+        structure_rows(
+            [document | {"claim_owner_lineage": ["invalid-id"]}],
+            runtime_contracts.RuntimeModelingChecksRow,
+        )

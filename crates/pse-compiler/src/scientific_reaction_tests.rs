@@ -6,7 +6,7 @@
     reason = "focused checked scientific contract assertions"
 )]
 use crate::{
-    authored_transfer_tests::{inputs, reference_sources, root, rows},
+    authored_transfer_tests::{inputs, root, rows},
     workspace::{CompilerWorkspace, ModelingOutput, WorkspaceLimits},
 };
 use pse_kernels::DerivativeOrder;
@@ -26,33 +26,74 @@ const FIXTURE: &str = r#"package scientific_reaction_fixture {
 use chemistry @"1.0.0"; use reaction_forms @"1.0.0"; use reactions @"1.0.0"; use references @"1.0.0";
 use reactors @"1.0.0"; use saponification @"1.0.0"; use chem @"1.0.0";
 use control_volumes @"1.0.0"; use equilibrium @"1.0.0"; use ciaaw @"1.0.0";
-set material:Set<chemistry.species>=saponification.saponification_species;
-def ProjectionPoint {
- permission kinetic_use families(reaction_forms.reaction_set) allow_unknown true allow_extrapolation false;
- child projection:reactions.Projection=reactions.Projection(material=material,selected=saponification.SaponificationReactions.records,selection=saponification.SaponificationReactions.admitted);
+use correlations @"1.0.0"; use properties @"1.0.0"; use compatibility @"1.0.0";
+set selected_species:Set<chemistry.species>=saponification.saponification_species;
+test ConstantPoint {
+ permission solvent_constants records(correlations.constant[chem.water,properties.heat_capacity,compatibility.PhaseType.liquidPhase,references.saponification_caloric_fit],correlations.constant_density[chem.water,properties.liquid_molar_density,compatibility.PhaseType.liquidPhase,references.saponification_density_fit]) allow_unknown true allow_extrapolation false;
+ param cp:MolarCp=correlations.constant[chem.water,properties.heat_capacity,compatibility.PhaseType.liquidPhase,references.saponification_caloric_fit].c0;
+ param density:MolarDensity=correlations.constant_density[chem.water,properties.liquid_molar_density,compatibility.PhaseType.liquidPhase,references.saponification_density_fit].c0;
+ expect cp==75.327{J/(mol*K)} tolerance 1e-12{J/(mol*K)};
+ expect density==55388{mol/m^3} tolerance 1e-9{mol/m^3};
 }
-def CstrPoint {
+test ProjectionPoint {
  permission kinetic_use families(reaction_forms.reaction_set) allow_unknown true allow_extrapolation false;
- child cstr:reactors.CSTR=reactors.CSTR(inlet_pkg=saponification.Saponification(defined_state=true,selected=material),outlet_pkg=saponification.Saponification(defined_state=false,selected=material),reaction_pkg=saponification.SaponificationReactions);
+ child projection:reactions.Projection=reactions.Projection(material=selected_species,selected=saponification.SaponificationReactions.records,selection=saponification.SaponificationReactions.admitted);
 }
-def PfrPoint {
+test CstrPoint {
+ // Standalone seed constants retain unknown form-signature evidence.
+ permission solvent_constants records(correlations.constant[chem.water,properties.heat_capacity,compatibility.PhaseType.liquidPhase,references.saponification_caloric_fit],correlations.constant_density[chem.water,properties.liquid_molar_density,compatibility.PhaseType.liquidPhase,references.saponification_density_fit]) allow_unknown true allow_extrapolation false;
  permission kinetic_use families(reaction_forms.reaction_set) allow_unknown true allow_extrapolation false;
- child pfr:reactors.PFR=reactors.PFR(inlet_pkg=saponification.Saponification(defined_state=true,selected=material),outlet_pkg=saponification.Saponification(defined_state=false,selected=material),reaction_pkg=saponification.SaponificationReactions,elements=1,use_radau=false);
+ child cstr:reactors.CSTR=reactors.CSTR(inlet_pkg=saponification.Saponification(defined_state=true,selected=selected_species),outlet_pkg=saponification.Saponification(defined_state=false,selected=selected_species),reaction_pkg=saponification.SaponificationReactions);
 }
-def ElementalPoint:control_volumes.ControlVolume0D {
+test PfrPoint {
+ // Standalone seed constants retain unknown form-signature evidence.
+ permission solvent_constants records(correlations.constant[chem.water,properties.heat_capacity,compatibility.PhaseType.liquidPhase,references.saponification_caloric_fit],correlations.constant_density[chem.water,properties.liquid_molar_density,compatibility.PhaseType.liquidPhase,references.saponification_density_fit]) allow_unknown true allow_extrapolation false;
+ permission kinetic_use families(reaction_forms.reaction_set) allow_unknown true allow_extrapolation false;
+ child pfr:reactors.PFR=reactors.PFR(inlet_pkg=saponification.Saponification(defined_state=true,selected=selected_species),outlet_pkg=saponification.Saponification(defined_state=false,selected=selected_species),reaction_pkg=saponification.SaponificationReactions,elements=1,use_radau=false);
+}
+test ElementalPoint:control_volumes.ControlVolume0D {
+ // Standalone seed constants retain unknown form-signature evidence.
+ permission solvent_constants records(correlations.constant[chem.water,properties.heat_capacity,compatibility.PhaseType.liquidPhase,references.saponification_caloric_fit],correlations.constant_density[chem.water,properties.liquid_molar_density,compatibility.PhaseType.liquidPhase,references.saponification_density_fit]) allow_unknown true allow_extrapolation false;
  override param material_basis:control_volumes.MaterialBalance=control_volumes.MaterialBalance.elementTotal;
  override param elements:Set<chemistry.element>={ciaaw.C};
- override param inlet_package:equilibrium.ThermoPackage=saponification.Saponification(defined_state=true,selected=material);
- override param outlet_package:equilibrium.ThermoPackage=saponification.Saponification(defined_state=false,selected=material);
+ override param inlet_package:equilibrium.ThermoPackage=saponification.Saponification(defined_state=true,selected=selected_species);
+ override param outlet_package:equilibrium.ThermoPackage=saponification.Saponification(defined_state=false,selected=selected_species);
 }
-def Both {
+test Both {
+ // Standalone seed constants retain unknown form-signature evidence.
+ permission solvent_constants records(correlations.constant[chem.water,properties.heat_capacity,compatibility.PhaseType.liquidPhase,references.saponification_caloric_fit],correlations.constant_density[chem.water,properties.liquid_molar_density,compatibility.PhaseType.liquidPhase,references.saponification_density_fit]) allow_unknown true allow_extrapolation false;
  permission kinetic_use families(reaction_forms.reaction_set) allow_unknown true allow_extrapolation false;
- child cstr:reactors.CSTR=reactors.CSTR(inlet_pkg=saponification.Saponification(defined_state=true,selected=material),outlet_pkg=saponification.Saponification(defined_state=false,selected=material),reaction_pkg=saponification.SaponificationReactions);
- child pfr:reactors.PFR=reactors.PFR(inlet_pkg=saponification.Saponification(defined_state=true,selected=material),outlet_pkg=saponification.Saponification(defined_state=false,selected=material),reaction_pkg=saponification.SaponificationReactions,elements=1,use_radau=false);
+ child cstr:reactors.CSTR=reactors.CSTR(inlet_pkg=saponification.Saponification(defined_state=true,selected=selected_species),outlet_pkg=saponification.Saponification(defined_state=false,selected=selected_species),reaction_pkg=saponification.SaponificationReactions);
+ child pfr:reactors.PFR=reactors.PFR(inlet_pkg=saponification.Saponification(defined_state=true,selected=selected_species),outlet_pkg=saponification.Saponification(defined_state=false,selected=selected_species),reaction_pkg=saponification.SaponificationReactions,elements=1,use_radau=false);
 }
 }"#;
+// Complete production documents in the reaction consumers' imported dependency closure.
+const REACTION_SOURCES: &[&str] = &[
+    include_str!("../../../packages/reference/thermodynamics/models/aqueous.pse"),
+    include_str!("../../../packages/reference/methods/models/caloric.pse"),
+    include_str!("../../../packages/reference/data/species/models/catalogue.pse"),
+    include_str!("../../../packages/reference/physical/models/chemistry.pse"),
+    include_str!("../../../packages/reference/data/ciaaw/models/catalogue.pse"),
+    include_str!("../../../packages/reference/physical/models/compatibility.pse"),
+    include_str!("../../../packages/reference/domain/models/constants.pse"),
+    include_str!("../../../packages/reference/process/models/control-volumes.pse"),
+    include_str!("../../../packages/reference/methods/models/correlations.pse"),
+    include_str!("../../../packages/reference/process/models/control-volume-1d.pse"),
+    include_str!("../../../packages/reference/thermodynamics/models/equilibrium.pse"),
+    include_str!("../../../packages/reference/thermodynamics/models/helmholtz.pse"),
+    include_str!("../../../packages/reference/physical/models/kinds.pse"),
+    include_str!("../../../packages/reference/physical/models/math.pse"),
+    include_str!("../../../packages/reference/domain/models/properties.pse"),
+    include_str!("../../../packages/reference/domain/models/provenance.pse"),
+    include_str!("../../../packages/reference/methods/models/pure-properties.pse"),
+    include_str!("../../../packages/reference/methods/models/reaction-forms.pse"),
+    include_str!("../../../packages/reference/thermodynamics/models/reactions.pse"),
+    include_str!("../../../packages/reference/process/models/reactors.pse"),
+    include_str!("../../../packages/reference/data/references/models/references.pse"),
+    include_str!("../../../packages/reference/seed-data/models/saponification.pse"),
+];
 fn source() -> String {
-    format!("{}\n{FIXTURE}", reference_sources())
+    format!("{}\n{FIXTURE}", REACTION_SOURCES.join("\n"))
 }
 fn specialize(text: &str, name: &str) -> Result<Arc<SpecializedModel>, String> {
     let declarations = rows(text);
@@ -131,6 +172,7 @@ fn contributions(text: &str, point: &str) -> Vec<(String, f64)> {
                     "Volume" | "Length" | "VolumeFlow" => 0.001,
                     "Area" => 1.0,
                     "MoleFraction" => 0.2,
+                    "Flow" => 0.5,
                     _ => 0.0,
                 };
                 (*id, value)
@@ -334,15 +376,16 @@ fn scientific_reaction_multiple_selected_variants_refuse_one_rate_and_heat_vecto
 package extra_kinetics {
  use reaction_forms @"1.0.0"; use references @"1.0.0";
  use saponification @"1.0.0"; use chem @"1.0.0";
- entity reaction_forms.arrhenius_second_order duplicate {
-  parameterization=references.saponification_kinetics_fit,family=reaction_forms.kinetic_parameters,
-  reaction=saponification.hydrolysis,variant=2,source=references.idaes_saponification_reactions,
-  rate_extent=saponification.hydrolysis_extent,heat_extent=saponification.hydrolysis_extent,
-  k0=3132000{m^3/(mol*s)},E=43000{J/mol},heat=-49000{J/mol},
-  first=chem.sodium_hydroxide,second=chem.ethyl_acetate
+ use provenance @"1.0.0";
+ dataset duplicate:reaction_forms.arrhenius_second_order
+ bind(parameterization=references.saponification_kinetics_fit,family=reaction_forms.kinetic_parameters,
+      source=references.idaes_saponification_reactions,dependencies={},conventions={},
+      rate_extent=saponification.hydrolysis_extent,heat_extent=saponification.hydrolysis_extent)
+ provenance(references.idaes_saponification_reactions,provenance.Role.synthetic) {
+ [saponification.hydrolysis,2]=[3132000{m^3/(mol*s)},43000{J/mol},-49000{J/mol},chem.sodium_hydroxide,chem.ethyl_acetate];
  }
 }"#;
-    let text=text.replace("selected=saponification.SaponificationReactions.records","selected={reaction_forms.arrhenius_second_order[references.saponification_kinetics_fit,reaction_forms.kinetic_parameters,saponification.hydrolysis],extra_kinetics.duplicate}");
+    let text=text.replace("selected=saponification.SaponificationReactions.records","selected={reaction_forms.arrhenius_second_order[references.saponification_kinetics_fit,reaction_forms.kinetic_parameters,saponification.hydrolysis],reaction_forms.arrhenius_second_order[references.saponification_kinetics_fit,reaction_forms.kinetic_parameters,saponification.hydrolysis,2]}");
     let error = specialize(&text, "ProjectionPoint").unwrap_err();
     assert!(
         error.contains("exactly one kinetic and heat record per reaction")
@@ -380,7 +423,15 @@ const COSTING_FIXTURE: &str = r#"package scientific_costing_fixture {
 fn costing_point(name: &str) -> Result<(), String> {
     let text = format!(
         "{}\n{}\n{}\n{COSTING_FIXTURE}",
-        reference_sources(),
+        [
+            include_str!("../../../packages/reference/physical/models/chemistry.pse"),
+            include_str!("../../../packages/reference/physical/models/compatibility.pse"),
+            include_str!("../../../packages/reference/domain/models/provenance.pse"),
+            include_str!("../../../packages/reference/domain/models/constants.pse"),
+            include_str!("../../../packages/reference/domain/models/properties.pse"),
+            include_str!("../../../packages/reference/data/references/models/references.pse"),
+        ]
+        .join("\n"),
         include_str!("../../../packages/reference/process/models/costing.pse"),
         include_str!("../../../packages/reference/seed-data/models/sslw.pse")
     );
@@ -439,4 +490,51 @@ fn scientific_reaction_records_require_admitted_closure_and_participant_scope() 
     assert_ne!(original, incomplete);
     let error = specialize(&incomplete, "ProjectionPoint").unwrap_err();
     assert!(error.contains("MissingScientificParticipant"), "{error}");
+}
+
+#[test]
+fn scientific_seed_constant_parameter_reads_require_exact_unknown_permission() {
+    fn point(text: &str) -> Result<crate::workspace::ModelingPointChecks, String> {
+        let declarations = rows(text);
+        let id = root(
+            &declarations,
+            "scientific_reaction_fixture",
+            "ConstantPoint",
+        );
+        let mut workspace = CompilerWorkspace::new(inputs(), WorkspaceLimits::default()).unwrap();
+        workspace
+            .publish_modeling(declarations, PhysicalScope::default())
+            .map_err(|e| e.to_string())?;
+        workspace
+            .check_modeling_point(
+                id,
+                root_instance(id),
+                Bindings::default(),
+                Limits::default(),
+                &CaseValues {
+                    scalars: BTreeMap::new(),
+                },
+                crate::workspace::Profile::default(),
+                Arc::new(AtomicBool::new(false)),
+            )
+            .map_err(|e| e.to_string())
+    }
+    let text = source();
+    let permission = "permission solvent_constants records(correlations.constant[chem.water,properties.heat_capacity,compatibility.PhaseType.liquidPhase,references.saponification_caloric_fit],correlations.constant_density[chem.water,properties.liquid_molar_density,compatibility.PhaseType.liquidPhase,references.saponification_density_fit]) allow_unknown true allow_extrapolation false;";
+    assert!(text.contains(permission));
+    for replacement in [
+        "",
+        "permission solvent_constants records(correlations.constant[chem.water,properties.heat_capacity,compatibility.PhaseType.liquidPhase,references.saponification_caloric_fit],correlations.constant_density[chem.water,properties.liquid_molar_density,compatibility.PhaseType.liquidPhase,references.saponification_density_fit]) allow_unknown false allow_extrapolation true;",
+    ] {
+        let error = point(&text.replace(permission, replacement)).unwrap_err();
+        assert!(error.contains("applicability"), "{error}");
+    }
+    let checks = point(&text).unwrap();
+    assert!(checks.expectations.iter().all(|e| e.passed));
+    use pse_model::generated::enums::ModelingApplicabilityOutcome as O;
+    assert_eq!(checks.applicability.len(), 2);
+    assert!(checks.applicability.iter().all(|o| o.required
+        && o.outcome == O::UnknownEvidence
+        && o.unknown_allowed
+        && !o.extrapolation_allowed));
 }

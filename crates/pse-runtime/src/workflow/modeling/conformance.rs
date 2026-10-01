@@ -10,9 +10,9 @@ use crate::math::{
 use pse_compiler::workspace::{ModelingCaseBindings, ModelingHint, ModelingOutput, Profile};
 use pse_kernels::DerivativeOrder;
 use pse_model::generated::enums::{
-    ExtrapolationPolicy, ModelingAnalysisRoute as Route, ModelingCheckKind,
-    ModelingConformanceKind as Kind, ModelingConformanceStatus as Status,
-    ModelingDeclarationKind as DeclarationKind, ModelingFixtureExecution as Execution,
+    ModelingAnalysisRoute as Route, ModelingCheckKind, ModelingConformanceKind as Kind,
+    ModelingConformanceStatus as Status, ModelingDeclarationKind as DeclarationKind,
+    ModelingFixtureExecution as Execution,
 };
 use pse_model::generated::identities::RunId;
 pub use pse_model::generated::runtime::modeling_conformance::Row as ModelingConformanceCheck;
@@ -249,7 +249,7 @@ pub struct ModelingConformanceReport {
     /// Recorded checks, in execution order.
     pub checks: Vec<ModelingConformanceCheck>,
     /// Demanded pure-point evidence retains complete typed authorization and input lineage.
-    pub applicability: BTreeMap<DeclarationId,Vec<pse_model::applicability::Observation>>,
+    pub applicability: BTreeMap<DeclarationId, Vec<pse_model::applicability::Observation>>,
     /// Solve results, by fixture.
     pub results: BTreeMap<DeclarationId, ModelingResult>,
     /// Initialization reports, by fixture.
@@ -883,15 +883,28 @@ impl ModelingConformanceReport {
                             if expected == dof { Status::Passed } else { Status::Failed },
                             format!("pure point evaluation; structural DoF {dof}; expected {expected}; no solve attempted"), oracle, cap);
                 self.point_validity(fixture, &checks.validity, oracle, cap);
-                let bytes=checks.applicability.capacity()*size_of::<pse_model::applicability::Observation>()+checks.applicability.iter().map(|o|o.retained_bytes()).sum::<usize>();
+                let bytes = checks.applicability.capacity()
+                    * size_of::<pse_model::applicability::Observation>()
+                    + checks
+                        .applicability
+                        .iter()
+                        .map(|o| o.retained_bytes())
+                        .sum::<usize>();
                 if self._owner.try_grow(bytes).is_err() {
-                    self.complete=false;
-                    self.record_fixture(fixture,Kind::Check,Status::Failed,"scientific evidence exceeds report memory budget",oracle,cap);
+                    self.complete = false;
+                    self.record_fixture(
+                        fixture,
+                        Kind::Check,
+                        Status::Failed,
+                        "scientific evidence exceeds report memory budget",
+                        oracle,
+                        cap,
+                    );
                     return;
                 }
-                let evidence=super::results::applicability_checks(self.run_id,&checks.applicability);
-                self.model_checks(fixture,&evidence,oracle,cap);
-                self.applicability.insert(fixture,checks.applicability);
+                let evidence = results::applicability_checks(self.run_id, &checks.applicability);
+                self.model_checks(fixture, &evidence, oracle, cap);
+                self.applicability.insert(fixture, checks.applicability);
                 for check in checks.expectations {
                     let index = self.checks.len();
                     self.record(
@@ -942,11 +955,8 @@ impl ModelingConformanceReport {
             ),
         }
     }
-    /// The validity obligations of a pure point, as a solved point's are assessed (Plan 23
-    /// H5): each observed closure range, data envelope and static observation is an
-    /// envelope check, satisfied within its bounds or where its consumer selected
-    /// extrapolation, which is recorded. A rejecting range or guard refused the evaluation
-    /// itself.
+    /// Report the annotated hard ranges of a pure point using the same bounds as a
+    /// solved point. Out-of-domain evaluation is never waived.
     fn point_validity(
         &mut self,
         fixture: DeclarationId,
@@ -971,23 +981,18 @@ impl ModelingConformanceReport {
                 v.target,
                 v.source,
                 Kind::Envelope,
-                if within || v.extrapolation {
+                if within {
                     Status::Passed
                 } else {
                     Status::Failed
                 },
                 format!(
-                    "{}-layer value {} {} [{}, {}]{}",
+                    "{}-layer value {} {} [{}, {}]",
                     v.layer.as_str(),
                     v.value,
                     if within { "within" } else { "outside" },
                     v.lower,
                     v.upper,
-                    if v.extrapolation {
-                        "; extrapolation selected"
-                    } else {
-                        ""
-                    }
                 ),
                 oracle,
                 cap,
@@ -995,8 +1000,33 @@ impl ModelingConformanceReport {
         }
     }
     /// Pure-point scientific evidence as the registry-owned `modeling_checks` relation.
-    pub fn applicability_table(&self)->Result<pse_relations::columnar::FieldCheckedBatch,WorkflowError> {
-        let rows=self.applicability.values().flat_map(|observations|super::results::applicability_checks(self.run_id,observations)).collect::<Vec<_>>();
+    pub fn applicability_table(
+        &self,
+    ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
+        let scratch = pse_columnar::MemoryConsumer::new("conformance:applicability-export")
+            .register(&self.pool);
+        let bytes = self
+            .applicability
+            .values()
+            .flatten()
+            .try_fold(0usize, |bytes, o| {
+                bytes
+                    .checked_add(size_of::<ModelingCheck>())
+                    .and_then(|bytes| bytes.checked_add(o.retained_bytes()))
+                    .and_then(|bytes| bytes.checked_add(512))
+            })
+            .and_then(|bytes| bytes.checked_mul(2))
+            .ok_or_else(|| contract("applicability projection byte allowance overflow"))?;
+        scratch
+            .try_grow(bytes)
+            .map_err(pse_columnar::CanonError::from)
+            .map_err(pse_relations::RelationError::from)
+            .map_err(relation)?;
+        let rows = self
+            .applicability
+            .values()
+            .flat_map(|observations| results::applicability_checks(self.run_id, observations))
+            .collect::<Vec<_>>();
         self.export(&rows)
     }
     /// The recorded checks as a checked `modeling_conformance` relation.
@@ -1329,19 +1359,7 @@ impl ModelingPackage {
                             }
                             for range in ranges {
                                 let check_index = report.checks.len();
-                                let (status, message, failure) = if matches!(
-                                    &range.value,
-                                    AnnotationValue::Valid {
-                                        policy: ExtrapolationPolicy::Extrapolate,
-                                        ..
-                                    }
-                                ) {
-                                    (
-                                        Status::NotApplicable,
-                                        "extrapolation explicitly selected".into(),
-                                        None,
-                                    )
-                                } else {
+                                let (status, message, failure) = {
                                     match self.conformance_envelope(&model, &values, &providers, range, policy.compiler, cancel).await {
                                     Ok(Some(true)) => (Status::Passed, "both outside-envelope trials rejected at this sample".into(), None),
                                     Ok(Some(false)) => (Status::Failed, "outside-envelope trial accepted".into(), None),
@@ -1641,16 +1659,6 @@ impl ModelingPackage {
                 if report.checks.len() >= cap {
                     report.complete = false;
                     break;
-                }
-                if matches!(
-                    &range.value,
-                    AnnotationValue::Valid {
-                        policy: ExtrapolationPolicy::Extrapolate,
-                        ..
-                    }
-                ) {
-                    report.record(fixture,range.target,range.lineage.declaration,Kind::Envelope,Status::NotApplicable,"extrapolation explicitly selected; validity membership is reported separately",oracle,cap);
-                    continue;
                 }
                 let tested = self
                     .conformance_envelope(
@@ -2002,12 +2010,9 @@ impl ModelingPackage {
         compiler: Profile,
         cancel: &crate::CancelSource,
     ) -> Result<Option<bool>, WorkflowError> {
-        let AnnotationValue::Valid { policy, .. } = &range.value else {
+        let AnnotationValue::Valid { .. } = &range.value else {
             return Err(contract("validity sample contract"));
         };
-        if *policy == ExtrapolationPolicy::Extrapolate {
-            return Ok(None);
-        }
         if !values.scalars.contains_key(&range.target) {
             return Ok(None);
         }
@@ -2855,7 +2860,7 @@ mod tests {
             r#"package p {
  def D { var x:Scalar; accumulate balance:Scalar conservation tolerance 1e-6;
    contribute balance role inflow = x*x; contribute balance role outflow = 4;
-   annotation start x(1); annotation valid x(0,10,reject); }
+   annotation start x(1); annotation valid x(0,10); }
  entity kind source provenance { attribute title: Text; }
  entity source synthetic { title = "synthetic fixture" }
  test fixture oracle synthetic fixture { dof 0; lower root.x = 0; } {
@@ -3164,83 +3169,6 @@ mod tests {
         let mut other_class = finding(&[1, 2]);
         other_class.class = pse_model::diagnostic::BoundaryClass::Numerical;
         assert!(!fixture.matches(&other_class));
-    }
-    /// Plan 23 H5: a pure point is a static evaluation of the model and meets the validity
-    /// obligations a solved point meets. A rejecting data guard or closure range refuses the
-    /// evaluation, named by its lineage; a data envelope or closure range whose consumer
-    /// selected extrapolation is observed at the member or static argument it bounds and
-    /// recorded as an envelope check, never passed over.
-    #[tokio::test]
-    async fn static_evaluation_enforces_envelopes() {
-        let source = format!(
-            r#"package p {{ {ENVELOPE_BANK}
- def D {{ param T: Temperature; let c: MolarCp = cp(T, cp_data[a]); annotation valid T(200{{K}}, 600{{K}}, reject); }}
- test static_rejected fixture {{ dof 0; run pure; failure trial_rejected validity(data) form(cp) set(cp_data[a]) variable(T); }} {{ expect cp(450{{K}}, cp_data[a]) == 75{{J/(mol*K)}} tolerance 1e-9{{J/(mol*K)}}; }}
- test static_extrapolated fixture {{ dof 0; run pure; }} {{ extrapolation data extrapolate; expect cp(450{{K}}, cp_data[a]) == 75{{J/(mol*K)}} tolerance 1e-9{{J/(mol*K)}}; }}
- test member_extrapolated fixture {{ dof 0; run pure; value root.T = 450{{K}}; }} {{ extrapolation data extrapolate; child root: D = D(); expect root.c == 75{{J/(mol*K)}} tolerance 1e-9{{J/(mol*K)}}; }}
- test closure_rejected fixture {{ dof 0; run pure; value root.T = 700{{K}}; failure trial_rejected validity(closure) variable(root.T); }} {{ extrapolation data extrapolate; child root: D = D(); expect root.c == 75{{J/(mol*K)}} tolerance 1e-9{{J/(mol*K)}}; }}
-}}"#
-        );
-        let p = package(&source);
-        let report = p
-            .conform(policy(), &crate::CancelSource::new())
-            .await
-            .unwrap();
-        assert!(report.passed(), "{:?}", report.checks);
-        assert!(statuses(&p, &report).values().all(|s| *s == Status::Passed));
-        let id = |name: &str| {
-            p.declarations()
-                .iter()
-                .find(|r| r.name == name)
-                .unwrap()
-                .declaration_id
-        };
-        let envelopes = |fixture: &str| {
-            report
-                .checks
-                .iter()
-                .filter(|c| c.fixture_id == id(fixture) && c.kind == Kind::Envelope)
-                .map(|c| (c.source_id, c.status, c.message.clone()))
-                .collect::<Vec<_>>()
-        };
-        // A static argument outside the row's envelope is observed and recorded.
-        assert_eq!(
-            envelopes("static_extrapolated"),
-            [(
-                id("cp_data"),
-                Status::Passed,
-                "data-layer value 450 outside [250, 400]; extrapolation selected".into()
-            )]
-        );
-        // At a member: the data envelope extrapolates and the closure range holds.
-        let member = envelopes("member_extrapolated");
-        assert_eq!(member.len(), 2, "{member:?}");
-        assert!(member.contains(&(
-            id("cp_data"),
-            Status::Passed,
-            "data-layer value 450 outside [250, 400]; extrapolation selected".into()
-        )));
-        assert!(
-            member
-                .iter()
-                .any(|(source, status, message)| *source != id("cp_data")
-                    && *status == Status::Passed
-                    && message == "closure-layer value 450 within [200, 600]")
-        );
-        // A rejecting closure range refuses the evaluation, naming the member it bounds.
-        let closure = report
-            .failures
-            .iter()
-            .find_map(|f| {
-                f.validity.clone().filter(|v| {
-                    v.layer == pse_model::generated::enums::ModelingValidityLayer::Closure
-                })
-            })
-            .expect("the closure rejection carries its lineage");
-        assert_eq!(closure.form, None);
-        assert_eq!(closure.members.len(), 1);
-        // Without a selection the data guard rejects, and no envelope check passes it over.
-        assert!(envelopes("static_rejected").is_empty());
     }
     /// Plan 23 H6 (CT-S14): the parity report lists every fixture that names an oracle,
     /// grouped by the definition it exercises and by its oracle, with the oracle's release,

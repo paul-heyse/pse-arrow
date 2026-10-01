@@ -5,6 +5,121 @@ use pse_authoring::dsl::{Predicate, PredicateKind, ReduceKind};
 /// The owning instance, the member declaration and the member's index coordinates.
 type ResolvedPath = (InstanceId, DeclarationId, Vec<(String, Value)>);
 impl Engine<'_, '_> {
+    fn set_source_origin(
+        &self,
+        instance: InstanceId,
+        path: &Path,
+        env: &Environment,
+        at: DeclarationId,
+    ) -> Option<&NumericalSource> {
+        let [segment] = path.segments.as_slice() else {
+            return None;
+        };
+        if self.p.functions.contains_key(&at)
+            || !segment.indices.is_empty()
+            || !matches!(env.get(&segment.name), Some(Value::Set(_)))
+        {
+            return None;
+        }
+        if let Some(source) = self.set_alias_sources.get(&segment.name) {
+            return Some(source);
+        }
+        if self.source_locals.contains(&segment.name) {
+            return None;
+        }
+        self.numerical_sources
+            .get(&(instance, segment.name.clone()))
+    }
+    // A Set's pre-evaluated value remains authoritative. Re-evaluate only the
+    // source of a scope Set that this static read actually consumes, in the
+    // current consumer frame, so its selection receipt accompanies the read.
+    fn restore_set_source(
+        &mut self,
+        instance: InstanceId,
+        path: &Path,
+        env: &Environment,
+        at: DeclarationId,
+    ) -> Result<()> {
+        let [segment] = path.segments.as_slice() else {
+            return Ok(());
+        };
+        let Some(source) = self.set_source_origin(instance, path, env, at).cloned() else {
+            return Ok(());
+        };
+        let key = (instance, segment.name.clone());
+        if self.numerical_source_stack.contains(&key) {
+            return Err(invalid(at, "recursive scope Set source"));
+        }
+        if self.numerical_source_stack.len() >= self.limits.depth {
+            return Err(ModelingError::Budget("scope Set source depth".into()));
+        }
+        self.numerical_source_stack.push(key);
+        let locals = std::mem::take(&mut self.source_locals);
+        let aliases = std::mem::take(&mut self.set_alias_sources);
+        let result = (|| {
+            // A forwarded scope Set retains its original constructor origin.
+            if let ExprKind::Path(path) = &source.expression.kind {
+                self.restore_set_source(source.instance, path, &source.env, source.declaration)?;
+            }
+            let replay = self.eval(
+                source.declaration,
+                &source.env,
+                &dsl::render_expr(&source.expression),
+                None,
+            )?;
+            if Some(&replay) != env.get(&segment.name) {
+                return Err(invalid(
+                    at,
+                    "scope Set source differs from its admitted binding",
+                ));
+            }
+            Ok(())
+        })();
+        self.source_locals = locals;
+        self.set_alias_sources = aliases;
+        self.numerical_source_stack.pop();
+        result
+    }
+    fn static_source_predicate(
+        &mut self,
+        instance: InstanceId,
+        predicate: &Predicate,
+        env: &Environment,
+        at: DeclarationId,
+    ) -> Result<bool> {
+        match &predicate.kind {
+            PredicateKind::And(a, b) => Ok(self.static_source_predicate(instance, a, env, at)?
+                && self.static_source_predicate(instance, b, env, at)?),
+            PredicateKind::Or(a, b) => Ok(self.static_source_predicate(instance, a, env, at)?
+                || self.static_source_predicate(instance, b, env, at)?),
+            PredicateKind::Not(p) => Ok(!self.static_source_predicate(instance, p, env, at)?),
+            PredicateKind::In { domain, .. } => {
+                self.restore_set_source(instance, domain, env, at)?;
+                Evaluator {
+                    package: self.p,
+                    physical: self.c,
+                    at,
+                    env,
+                    limit: self.limits.members,
+                    stack: Vec::new(),
+                    reader: self.reader,
+                    selections: Some(&self.selection_collector),
+                }
+                .predicate(predicate)
+            }
+            _ => Evaluator {
+                package: self.p,
+                physical: self.c,
+                at,
+                env,
+                limit: self.limits.members,
+                stack: Vec::new(),
+                reader: self.reader,
+                selections: Some(&self.selection_collector),
+            }
+            .predicate(predicate),
+        }
+    }
     // Integrated coordinates are runtime inputs for numerical conditions. Their
     // admitted lower endpoint still selects topology, but cannot fold a check or
     // a numerical conditional for the entire trajectory.
@@ -277,13 +392,19 @@ impl Engine<'_, '_> {
                         });
                 }
                 if let Some(value) = env.get(&text) {
-                    return self.value_expression(value, at);
+                    if !in_function
+                        && path.segments.len() == 1
+                        && path.segments[0].indices.is_empty()
+                    {
+                        return self.scope_parameter_expression(instance, &text, value, at);
+                    }
+                    return self.scientific_value_expression(instance, path, value, at, &env);
                 }
                 // A pure function's free names belong to its definition scope. A caller
                 // instance cannot capture a table, entity or constant with a same-named member.
                 if in_function {
                     let value = self.eval(at, &env, &text, None)?;
-                    return self.value_expression(&value, at);
+                    return self.scientific_value_expression(instance, path, &value, at, &env);
                 }
                 // Tables and attributes are immutable admitted data, never I/O from this operation.
                 let first = path
@@ -305,15 +426,15 @@ impl Engine<'_, '_> {
                             self.resolve_path(instance, at, path, &env, true)
                     {
                         let id = self.symbol(owner, member, &coordinates, chain)?;
-                        return Ok(symbol_expr(id));
+                        return self.symbol_value_expression(owner, member, &coordinates, id);
                     }
                     let value = self.eval(at, &env, &text, None)?;
-                    return self.value_expression(&value, at);
+                    return self.scientific_value_expression(instance, path, &value, at, &env);
                 }
                 let (owner, member, coordinates) =
                     self.resolve_path(instance, at, path, &env, false)?;
                 let id = self.symbol(owner, member, &coordinates, chain)?;
-                return Ok(symbol_expr(id));
+                return self.symbol_value_expression(owner, member, &coordinates, id);
             }
             ExprKind::Neg(e) => ExprKind::Neg(Box::new(self.rewrite(instance, e, &env, chain)?)),
             ExprKind::Binary { op, lhs, rhs } => ExprKind::Binary {
@@ -373,6 +494,7 @@ impl Engine<'_, '_> {
                     crate::expression::infer(body, &body_types, self.p, self.c, at, None)?;
                 let result_type =
                     crate::expression::infer(expression, &types, self.p, self.c, at, None)?;
+                self.restore_set_source(instance, &binder.domain, &env, at)?;
                 let Value::Set(values) =
                     self.eval(at, &env, &dsl::render_path(&binder.domain), None)?
                 else {
@@ -429,6 +551,7 @@ impl Engine<'_, '_> {
                         .or_insert(crate::Function {
                             applicability: Vec::new(),
                             applicability_uses: Vec::new(),
+                            prerequisites: Vec::new(),
                             physical_admissions: BTreeMap::new(),
                             physical_operation: None,
                             reduction: Some(crate::FiniteReduction {
@@ -497,6 +620,15 @@ impl Engine<'_, '_> {
             ExprKind::Let { bindings, body } => {
                 let saved = self.lexical.clone();
                 let saved_types = self.function_types.clone();
+                let saved_locals = self.source_locals.clone();
+                let mut alias_nodes = self.set_alias_sources.len();
+                for source in self.set_alias_sources.values() {
+                    source
+                        .expression
+                        .walk(|_| alias_nodes = alias_nodes.saturating_add(1));
+                }
+                self.reserve(alias_nodes)?;
+                let saved_aliases = self.set_alias_sources.clone();
                 let mut output = Vec::new();
                 let mut env = env.clone();
                 for (name, value) in bindings {
@@ -511,6 +643,15 @@ impl Engine<'_, '_> {
                     // A structural binding, a `Ref` above all, is a static value: a call
                     // through it selects its body at specialization (ADR-0123 Outcome 2).
                     if !matches!(ty, Type::Quantity(_) | Type::Integer | Type::Indexed { .. }) {
+                        // A plain Set alias keeps the exact source it read before
+                        // the new local name shadows any scope argument.
+                        let origin = if matches!(ty, Type::Set(_))
+                            && let ExprKind::Path(path) = &value.kind
+                        {
+                            self.set_source_origin(instance, path, &env, at).cloned()
+                        } else {
+                            None
+                        };
                         let value = self
                             .eval(at, &env, &dsl::render_expr(value), Some(&ty))
                             .map_err(|e| {
@@ -518,6 +659,14 @@ impl Engine<'_, '_> {
                             })?;
                         self.lexical.remove(name);
                         env.insert(name.clone(), value);
+                        self.source_locals.insert(name.clone());
+                        self.set_alias_sources.remove(name);
+                        if let Some(origin) = origin {
+                            let mut count = 0usize;
+                            origin.expression.walk(|_| count += 1);
+                            self.reserve(count.saturating_add(1))?;
+                            self.set_alias_sources.insert(name.clone(), origin);
+                        }
                         continue;
                     }
                     let value = self.rewrite(instance, value, &env, chain)?;
@@ -536,11 +685,15 @@ impl Engine<'_, '_> {
                             span: Span::default(),
                         },
                     );
+                    self.source_locals.insert(name.clone());
+                    self.set_alias_sources.remove(name);
                     output.push((fresh, value));
                 }
                 let result = self.rewrite(instance, body, &env, chain);
                 self.lexical = saved;
                 self.function_types = saved_types;
+                self.source_locals = saved_locals;
+                self.set_alias_sources = saved_aliases;
                 if output.is_empty() {
                     return result;
                 }
@@ -554,18 +707,8 @@ impl Engine<'_, '_> {
                 then,
                 otherwise,
             } => {
-                let static_env = self.numerical_guard_environment(&env);
-                let static_guard = Evaluator {
-                    package: self.p,
-                    physical: self.c,
-                    at,
-                    env: &static_env,
-                    limit: self.limits.members,
-                    stack: Vec::new(),
-                    reader: self.reader,
-                    selections: Some(&self.selection_collector),
-                }
-                .predicate(guard);
+                let static_env = self.numerical_guard_environment(&env).into_owned();
+                let static_guard = self.static_source_predicate(instance, guard, &static_env, at);
                 if let Ok(selected) = static_guard {
                     return self.rewrite(
                         instance,
@@ -575,13 +718,9 @@ impl Engine<'_, '_> {
                     );
                 }
                 let guard = self.rewrite_predicate(instance, guard, &env, chain)?;
-                // A call in a branch is evaluated only where the branch is selected; the data
-                // layer cannot observe it unconditionally (ADR-0123 Outcome 4).
-                self.branches += 1;
                 let branches = self
                     .rewrite(instance, then, &env, chain)
                     .and_then(|then| Ok((then, self.rewrite(instance, otherwise, &env, chain)?)));
-                self.branches -= 1;
                 let (then, otherwise) = branches?;
                 ExprKind::Conditional {
                     guard: Box::new(guard),
@@ -604,7 +743,7 @@ impl Engine<'_, '_> {
             span: Span::default(),
         })
     }
-    fn value_expression(&mut self, value: &Value, at: DeclarationId) -> Result<Expr> {
+    pub(super) fn value_expression(&mut self, value: &Value, at: DeclarationId) -> Result<Expr> {
         if let Value::Coordinate { id, .. } = value
             && let Some(axis) = self
                 .model
@@ -699,19 +838,8 @@ impl Engine<'_, '_> {
             .last()
             .copied()
             .unwrap_or(self.states[&instance].definition);
-        let static_env = self.numerical_guard_environment(env);
-        if let Ok(value) = (Evaluator {
-            package: self.p,
-            physical: self.c,
-            at,
-            env: &static_env,
-            limit: self.limits.members,
-            stack: Vec::new(),
-            reader: self.reader,
-            selections: Some(&self.selection_collector),
-        })
-        .predicate(p)
-        {
+        let static_env = self.numerical_guard_environment(env).into_owned();
+        if let Ok(value) = self.static_source_predicate(instance, p, &static_env, at) {
             return Ok(Predicate {
                 kind: PredicateKind::Bool(value),
                 span: Span::default(),

@@ -2582,8 +2582,6 @@ pub struct AuthoredModelingDeclarationsFieldValueAnnotation {
     pub r#target: String,
     ///arguments
     pub r#arguments: Vec<String>,
-    ///extrapolation
-    pub r#extrapolation: Option<crate::generated::enums::ExtrapolationPolicy>,
     ///scheme
     pub r#scheme: Option<crate::generated::enums::ConstraintScalingScheme>,
     ///connectivity
@@ -2598,10 +2596,7 @@ impl crate::SemanticEq for AuthoredModelingDeclarationsFieldValueAnnotation {
         crate::SemanticEq::semantic_eq(&self.r#kind, &other.r#kind)
             && crate::SemanticEq::semantic_eq(&self.r#target, &other.r#target)
             && crate::SemanticEq::semantic_eq(&self.r#arguments, &other.r#arguments)
-            && crate::SemanticEq::semantic_eq(
-                &self.r#extrapolation,
-                &other.r#extrapolation,
-            ) && crate::SemanticEq::semantic_eq(&self.r#scheme, &other.r#scheme)
+            && crate::SemanticEq::semantic_eq(&self.r#scheme, &other.r#scheme)
             && crate::SemanticEq::semantic_eq(
                 &self.r#connectivity,
                 &other.r#connectivity,
@@ -10825,8 +10820,6 @@ impl crate::SemanticFrame for AuthoredModelingDeclarationsFieldValueAnnotation {
         crate::SemanticFrame::frame(&self.r#target, hash);
         hash.str(stringify!(r#arguments));
         crate::SemanticFrame::frame(&self.r#arguments, hash);
-        hash.str(stringify!(r#extrapolation));
-        crate::SemanticFrame::frame(&self.r#extrapolation, hash);
         hash.str(stringify!(r#scheme));
         crate::SemanticFrame::frame(&self.r#scheme, hash);
         hash.str(stringify!(r#connectivity));
@@ -10841,7 +10834,6 @@ impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueAnnotation {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#kind))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#target))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#arguments))
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#extrapolation))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#scheme))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#connectivity))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#objective))

@@ -10,9 +10,7 @@ use pse_model::generated::identities::RunId;
 use pse_modeling::annotation::AnnotationValue;
 use std::{collections::BTreeSet, sync::Arc};
 
-use pse_model::generated::enums::{
-    ModelingCheckBasis as Basis, ModelingCheckKind as CheckKind,
-};
+use pse_model::generated::enums::{ModelingCheckBasis as Basis, ModelingCheckKind as CheckKind};
 /// Registry-owned check and report rows are also the public Rust values.
 pub use pse_model::generated::runtime::modeling_checks::Row as ModelingCheck;
 pub use pse_model::generated::runtime::modeling_reports::Row as ModelingReport;
@@ -498,6 +496,7 @@ pub(in crate::workflow) fn assess_observations(
             layer: None,
             claim_id: None,
             claim_owner: None,
+            claim_owner_lineage: Vec::new(),
             coverage_id: None,
             evidence_id: None,
             form_id: None,
@@ -509,6 +508,10 @@ pub(in crate::workflow) fn assess_observations(
             applicability_basis: None,
             permission_ids: Vec::new(),
             unknown_allowed: None,
+            observation_instance: None,
+            applicability_required: None,
+            applicability_reason: None,
+            applicability_permissions: Vec::new(),
         })
         .collect::<Vec<_>>();
     // The compiler's typed classification of objective-bound checks, with the compared
@@ -561,6 +564,7 @@ pub(in crate::workflow) fn assess_observations(
                     layer: None,
                     claim_id: None,
                     claim_owner: None,
+                    claim_owner_lineage: Vec::new(),
                     coverage_id: None,
                     evidence_id: None,
                     form_id: None,
@@ -572,6 +576,10 @@ pub(in crate::workflow) fn assess_observations(
                     applicability_basis: None,
                     permission_ids: Vec::new(),
                     unknown_allowed: None,
+                    observation_instance: None,
+                    applicability_required: None,
+                    applicability_reason: None,
+                    applicability_permissions: Vec::new(),
                 });
             }
             ModelingOutput::Contribution {
@@ -624,6 +632,7 @@ pub(in crate::workflow) fn assess_observations(
                     layer: None,
                     claim_id: None,
                     claim_owner: None,
+                    claim_owner_lineage: Vec::new(),
                     coverage_id: None,
                     evidence_id: None,
                     form_id: None,
@@ -635,6 +644,10 @@ pub(in crate::workflow) fn assess_observations(
                     applicability_basis: None,
                     permission_ids: Vec::new(),
                     unknown_allowed: None,
+                    observation_instance: None,
+                    applicability_required: None,
+                    applicability_reason: None,
+                    applicability_permissions: Vec::new(),
                 });
             }
             _ => {}
@@ -672,6 +685,7 @@ pub(in crate::workflow) fn assess_observations(
                 layer: None,
                 claim_id: None,
                 claim_owner: None,
+                claim_owner_lineage: Vec::new(),
                 coverage_id: None,
                 evidence_id: None,
                 form_id: None,
@@ -683,6 +697,10 @@ pub(in crate::workflow) fn assess_observations(
                 applicability_basis: None,
                 permission_ids: Vec::new(),
                 unknown_allowed: None,
+                observation_instance: None,
+                applicability_required: None,
+                applicability_reason: None,
+                applicability_permissions: Vec::new(),
             });
         }
     }
@@ -701,7 +719,7 @@ pub(in crate::workflow) fn assess_observations(
             })
             .ok_or_else(|| contract("model check/report target absent"))
     };
-    checks.extend(applicability_checks(run_id,applicability));
+    checks.extend(applicability_checks(run_id, applicability));
     let mut reports = Vec::new();
     let mut reported = BTreeSet::new();
     for a in &product.model.annotations {
@@ -757,7 +775,6 @@ pub(in crate::workflow) fn assess_observations(
                     return Err(contract("reversed validity interval"));
                 }
                 let inside = v >= lo && v <= hi;
-                let extrapolate = false;
                 checks.push(ModelingCheck {
                     step: 0,
                     run_id,
@@ -768,13 +785,14 @@ pub(in crate::workflow) fn assess_observations(
                     kind: CheckKind::Validity,
                     value: v,
                     tolerance: None,
-                    satisfied: inside || extrapolate,
+                    satisfied: inside,
                     within_validity: Some(inside),
-                    extrapolation_allowed: Some(extrapolate),
+                    extrapolation_allowed: None,
                     basis: Basis::Point,
                     layer: Some(*layer),
                     claim_id: None,
                     claim_owner: None,
+                    claim_owner_lineage: Vec::new(),
                     coverage_id: None,
                     evidence_id: None,
                     form_id: None,
@@ -786,6 +804,10 @@ pub(in crate::workflow) fn assess_observations(
                     applicability_basis: None,
                     permission_ids: Vec::new(),
                     unknown_allowed: None,
+                    observation_instance: None,
+                    applicability_required: None,
+                    applicability_reason: None,
+                    applicability_permissions: Vec::new(),
                 });
             }
             _ => {}
@@ -851,10 +873,55 @@ impl ModelingResult {
     }
 }
 
+/// Project demanded evidence once into the registry-owned numerical check relation.
+pub(super) fn applicability_checks(
+    run_id: RunId,
+    applicability: &[pse_model::applicability::Observation],
+) -> Vec<ModelingCheck> {
+    applicability.iter().map(|observation| {
+        let claim = &observation.claim;
+        let source = DeclarationId::from(claim.id.unwrap_or(claim.form));
+        ModelingCheck {
+            run_id,step:0,sample_index:0,time:None,target_id:observation_identity(observation),source_id:source,
+            kind:CheckKind::Applicability,value:if observation.admitted {1.} else {0.},tolerance:None,
+            satisfied:observation.admitted,within_validity:None,extrapolation_allowed:Some(observation.extrapolation_allowed),
+            basis:Basis::Point,layer:Some(claim.layer),claim_id:claim.id,claim_owner:Some(claim.owner),claim_owner_lineage:claim.owner_lineage.clone(),coverage_id:claim.coverage,
+            evidence_id:claim.evidence,form_id:Some(claim.form),call_id:Some(claim.call),selected_records:claim.records.clone(),dependencies:claim.dependencies.clone(),
+            input_values:observation.inputs.iter().map(|input|pse_model::generated::runtime::modeling_checks::RuntimeModelingChecksFieldInputValuesItem {name:input.name.clone(),value:input.value,quantity_type:input.quantity_type}).collect(),
+            applicability_outcome:Some(observation.outcome),applicability_basis:claim.basis,
+            permission_ids:observation.permissions.iter().map(|p|p.id).collect(),unknown_allowed:Some(observation.unknown_allowed),
+            observation_instance:observation.instance,applicability_required:Some(observation.required),applicability_reason:claim.reason.clone(),
+            applicability_permissions:observation.permissions.iter().map(|p|pse_model::generated::runtime::modeling_checks::RuntimeModelingChecksFieldApplicabilityPermissionsItem {permission_id:p.id,scope:p.scope,target_kind:p.target_kind,targets:p.targets.clone(),allow_unknown:p.allow_unknown,allow_extrapolation:p.allow_extrapolation}).collect(),
+        }
+    }).collect()
+}
+
+fn observation_identity(observation: &pse_model::applicability::Observation) -> SemanticId {
+    let mut h = pse_ids::FramedHasher::new(pse_ids::Frame::ModelingApplicabilityObservationV2);
+    h.id(&observation.claim.call)
+        .bool(observation.claim.id.is_some())
+        .id(&observation.claim.id.unwrap_or(SemanticId::NIL))
+        .bool(observation.instance.is_some())
+        .id(&observation.instance.unwrap_or(SemanticId::NIL))
+        .bool(observation.required)
+        .id(&observation.claim.owner)
+        .u64(observation.claim.owner_lineage.len() as u64);
+    for owner in &observation.claim.owner_lineage {
+        h.id(owner);
+    }
+    h.u64(observation.inputs.len() as u64);
+    for input in &observation.inputs {
+        h.str(&input.name)
+            .id(&input.quantity_type)
+            .u64(input.value.to_bits());
+    }
+    h.finish_id()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pse_compiler::workspace::{ModelingCaseBindings, ModelingVariableState};
+    use pse_compiler::workspace::ModelingCaseBindings;
     use pse_relations::columnar::RelationRow;
     #[test]
     fn report_transfer_context_retains_actual_owner_order_and_direction() {
@@ -1081,22 +1148,4 @@ mod tests {
         );
         assert_eq!(check_value(1.0, None, Some(minimum)), (1.0, Basis::Point));
     }
-}
-
-/// Project demanded evidence once into the registry-owned numerical check relation.
-pub(super) fn applicability_checks(run_id:RunId,applicability:&[pse_model::applicability::Observation])->Vec<ModelingCheck> {
-    applicability.iter().map(|observation| {
-        let claim = &observation.claim;
-        let source = DeclarationId::from(claim.id.unwrap_or(claim.form));
-        ModelingCheck {
-            run_id,step:0,sample_index:0,time:None,target_id:claim.call,source_id:source,
-            kind:CheckKind::Applicability,value:if observation.admitted {1.} else {0.},tolerance:None,
-            satisfied:observation.admitted,within_validity:None,extrapolation_allowed:Some(observation.extrapolation_allowed),
-            basis:Basis::Point,layer:Some(claim.layer),claim_id:claim.id,claim_owner:Some(claim.owner),coverage_id:claim.coverage,
-            evidence_id:claim.evidence,form_id:Some(claim.form),call_id:Some(claim.call),selected_records:claim.records.clone(),dependencies:claim.dependencies.clone(),
-            input_values:observation.inputs.iter().map(|input|pse_model::generated::runtime::modeling_checks::RuntimeModelingChecksFieldInputValuesItem {name:input.name.clone(),value:input.value,quantity_type:input.quantity_type}).collect(),
-            applicability_outcome:Some(observation.outcome),applicability_basis:claim.basis,
-            permission_ids:observation.permissions.iter().map(|p|p.id).collect(),unknown_allowed:Some(observation.unknown_allowed),
-        }
-    }).collect()
 }

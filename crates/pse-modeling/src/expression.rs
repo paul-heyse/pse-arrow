@@ -590,9 +590,11 @@ fn infer_expression(
             Ok(values[n.value as usize].clone())
         }
         ExprKind::NamedCall { name, args } if name == "require_present" => {
-            if args.len()!=1 {return Err(invalid(at,"require_present takes one optional value"));}
-            let Type::Optional(inner)=infer(&args[0],env,p,context,at,None)? else {
-                return Err(invalid(at,"require_present requires an optional value"));
+            if args.len() != 1 {
+                return Err(invalid(at, "require_present takes one optional value"));
+            }
+            let Type::Optional(inner) = infer(&args[0], env, p, context, at, None)? else {
+                return Err(invalid(at, "require_present requires an optional value"));
             };
             Ok(*inner)
         }
@@ -931,6 +933,7 @@ fn call(
         indirect = crate::Function {
             applicability: Vec::new(),
             applicability_uses: Vec::new(),
+            prerequisites: Vec::new(),
             physical_admissions: BTreeMap::new(),
             reduction: None,
             physical_operation: None,
@@ -1070,6 +1073,9 @@ fn call(
             (formal, actual) if p.subsumes(formal, actual) => {}
             _ => return Err(invalid(at, "function argument type")),
         }
+    }
+    if wrt.is_empty() && f.result.quantity_scheme().is_none() {
+        return Ok(f.result.clone());
     }
     let mut result = scheme(&f.result, at)?;
     for path in wrt {
@@ -1585,7 +1591,11 @@ fn check_declarations(p: &CheckedPackage, context: &TypeContext<'_>) -> Result<(
                         .is_some_and(|id| p.functions.contains_key(&id))
                         || matches!(
                             name.as_str(),
-                            "keys"
+                            "selection_closure"
+                                | "set_of"
+                                | "tuple"
+                                | "require_present"
+                                | "keys"
                                 | "at"
                                 | "size"
                                 | "present"
@@ -1607,6 +1617,12 @@ fn check_declarations(p: &CheckedPackage, context: &TypeContext<'_>) -> Result<(
                     Ok(())
                 })?;
                 for path in dependencies.free_paths() {
+                    if path.segments.len() == 1
+                        && path.segments[0].indices.is_empty()
+                        && matches!(path.segments[0].name.as_str(), "missing" | "true" | "false")
+                    {
+                        continue;
+                    }
                     let explicit = path
                         .segments
                         .first()

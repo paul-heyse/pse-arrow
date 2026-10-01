@@ -3,7 +3,7 @@
 // A reaction's stoichiometry conserves every element.
 // refusal: combustion of kind reaction violates the requirement
 // refusal: a reaction conserves every element
-// control: [combustion, corpus.water] = [1]; => [combustion, corpus.water] = [2];
+// control: [combustion, corpus.water] = [1{1}]; => [combustion, corpus.water] = [2{1}];
 package refusal {
  use chemistry @"1.0.0";
  use corpus @"1.0.0";
@@ -11,7 +11,7 @@ package refusal {
  entity chemistry.extent_convention combustion_extent {normalization=chemistry.ExtentNormalization.AsAuthored}
  entity chemistry.reaction combustion {extent=combustion_extent}
  dataset equation: chemistry.stoichiometry provenance(corpus.bank, provenance.Role.published) {
-  [combustion, corpus.methane] = [-1]; [combustion, corpus.oxygen] = [-2];
-  [combustion, corpus.carbon_dioxide] = [1]; [combustion, corpus.water] = [1];
+  [combustion, corpus.methane] = [-1{1}]; [combustion, corpus.oxygen] = [-2{1}];
+  [combustion, corpus.carbon_dioxide] = [1{1}]; [combustion, corpus.water] = [1{1}];
  }
 }

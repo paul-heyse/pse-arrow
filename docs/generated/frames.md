@@ -92,6 +92,8 @@ Derived in: pse-compiler.
 | `MathTypedDefinitionV5` | `pse.math.typed-definition.v5` | A typed definition's admitted outputs; function validity predicates and the rejecting data-layer guards, each with its layer, the declaration stating it and its lineage (the parameter sets and arguments it reads), are framed in their canonical spelling, unit literals by their canonical products (ADR-0123 Outcomes 4 and 8, Plan 23 H5). |
 | `MathTypedDefinitionV6` | `pse.math.typed-definition.v6` | A typed definition including the retained resolved physical admissions. |
 | `MathTypedDefinitionV7` | `pse.math.typed-definition.v7` | Checked expression occurrences and complete contextual admission products. |
+| `MathTypedDefinitionV8` | `pse.math.typed-definition.v8` | Scientific applicability effect stages, selected records and named permissions. |
+| `MathTypedDefinitionV9` | `pse.math.typed-definition.v9` | Scientific parameter source prerequisites retained through numeric input lowering. |
 | `CompilerModelingViewV2` | `pse.compiler.modeling-view.v2` | A prepared view of a compiled modeling structure. |
 | `CompilerModelingParametricV1` | `pse.compiler.modeling-parametric.v1` | The parametric projection of a prepared modeling view over requested parameters. |
 | `ModelingConsumerBodyV2` | `pse.modeling.consumer-body.v2` | A grouped consumer body, its expressions and validity ranges in canonical spelling (ADR-0123 Outcome 8). |
@@ -109,9 +111,18 @@ Derived in: pse-modeling.
 | `ModelingDispatchBodyV2` | `pse.modeling.dispatch-body.v2` | A dispatch group body, its expressions and equations in canonical spelling (ADR-0123 Outcome 8). |
 | `ModelingDispatchBodyV3` | `pse.modeling.dispatch-body.v3` | Dispatch bodies retaining full physical contracts and nominal contextual roles. |
 | `ModelingDispatchBodyV4` | `pse.modeling.dispatch-body.v4` | Checked expression occurrences and complete contextual admission products. |
+| `ModelingDispatchBodyV5` | `pse.modeling.dispatch-body.v5` | Checked scientific record identities and dependency closure products. |
+| `ModelingDispatchBodyV6` | `pse.modeling.dispatch-body.v6` | Dispatch bodies including generated parameter-read prerequisite contracts. |
 | `ModelingFiniteFunctionV5` | `pse.modeling.finite-function.v5` | A finite function specialization, its validity, data-layer guards with their envelopes and selected policies, each with the parameter sets and arguments it reads, and body in canonical spelling, and its static arguments, enumeration members by identity (ADR-0123 Outcomes 2, 4 and 8, Plan 23 H5). |
 | `ModelingFiniteFunctionV6` | `pse.modeling.finite-function.v6` | Finite physical function with full anonymous contracts and contextual authority. |
 | `ModelingFiniteFunctionV7` | `pse.modeling.finite-function.v7` | Checked expression occurrences and complete contextual admission products. |
+| `ModelingFiniteFunctionV8` | `pse.modeling.finite-function.v8` | Checked scientific record identities and dependency closure products. |
+| `ModelingFiniteFunctionV9` | `pse.modeling.finite-function.v9` | Finite functions including generated parameter-read prerequisite contracts. |
+| `ModelingParameterReadV1` | `pse.modeling.parameter-read.v1` | A demanded numeric parameter read with its lexical source and prerequisites. |
+| `ModelingApplicabilityCallV1` | `pse.modeling.applicability-call.v1` | Declared claim, form, actual selected identities and numerical arguments. |
+| `ModelingApplicabilityObservationV1` | `pse.modeling.applicability-observation.v1` | One source claim application at its actual instance and typed physical inputs. |
+| `ModelingApplicabilityObservationV2` | `pse.modeling.applicability-observation.v2` | One source claim application with its owner lineage, requirement and typed inputs. |
+| `ModelingApplicabilityCoverageV1` | `pse.modeling.applicability-coverage.v1` | Explicit whole-interval coverage of the same declared interval claim. |
 | `ModelingFiniteReductionV1` | `pse.modeling.finite-reduction.v1` | A finite reduction rewrite. |
 | `ModelingFiniteReductionV2` | `pse.modeling.finite-reduction.v2` | Checked expression occurrences and complete contextual admission products. |
 | `ModelingKeyedEntityV1` | `pse.modeling.keyed-entity.v1` | A keyed entity's identity: its key-declaring kind and its ordered, typed key values, defaults included. The concrete refinement is content, not identity (ADR-0123 Outcome 2). |

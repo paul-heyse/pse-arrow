@@ -3,7 +3,7 @@
 // A production root reads no oracle data, even through a package's selection.
 // root: refusal.Root
 // refusal: test-only data is read outside a test fixture
-// refusal: row selection[pkg, ethane, heat_capacity, liquidPhase] supplied by choice with role published, referencing test-only data, read by root Root
+// refusal: entity pkg referencing test-only data, read by root Root
 // control: provenance.Role.oracle_input => provenance.Role.published
 package refusal {
  use chemistry @"1.0.0";

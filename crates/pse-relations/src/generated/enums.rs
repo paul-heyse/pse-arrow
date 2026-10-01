@@ -11,14 +11,14 @@ pub use pse_model::generated::r#enums::{
     ConversionKind, CovarianceApproximation, DerivationGranularity, DerivedQuantity,
     Determinism, DiagnosticCode, DiagnosticSeverity, DiffsolLinear, DiffsolMethod,
     DualQualification, DynamicSensitivity, DynamicsMethod, EntityKind, EventDirection,
-    EvidenceUnavailableReason, ExternalDerivativeSource, ExtrapolationPolicy,
-    FailureClass, FeralOrdering, FeralScaling, FindingSeverity, FitDerivatives,
-    HessianMode, HighsMethod, IdPolicy, IdasInitialization, InputConsumptionKind,
-    IntervalEnd, IntervalMethod, IntervalOutcome, InvariantKind, IpoptLinearSolver,
-    JobState, KinsolOrthogonalization, KinsolStrategy, MemberSelectionKind, MigrationOp,
-    ModelingAccumulatorMode, ModelingAnalysisRoute, ModelingAnnotationKind,
-    ModelingApplicabilityBasis, ModelingApplicabilityKind, ModelingApplicabilityOutcome,
-    ModelingCellKind, ModelingCheckBasis, ModelingCheckKind, ModelingConformanceKind,
+    EvidenceUnavailableReason, ExternalDerivativeSource, FailureClass, FeralOrdering,
+    FeralScaling, FindingSeverity, FitDerivatives, HessianMode, HighsMethod, IdPolicy,
+    IdasInitialization, InputConsumptionKind, IntervalEnd, IntervalMethod,
+    IntervalOutcome, InvariantKind, IpoptLinearSolver, JobState, KinsolOrthogonalization,
+    KinsolStrategy, MemberSelectionKind, MigrationOp, ModelingAccumulatorMode,
+    ModelingAnalysisRoute, ModelingAnnotationKind, ModelingApplicabilityBasis,
+    ModelingApplicabilityKind, ModelingApplicabilityOutcome, ModelingCellKind,
+    ModelingCheckBasis, ModelingCheckKind, ModelingConformanceKind,
     ModelingConformanceStatus, ModelingContributionRole, ModelingDataFacet,
     ModelingDeclarationKind, ModelingDiagnosticSampleStop, ModelingDiagonalPolicy,
     ModelingDiscreteInitialization, ModelingElasticObservation, ModelingEnvelopeExtent,
@@ -768,25 +768,6 @@ impl crate::columnar::ArrowValue for EvidenceUnavailableReason {
     }
 }
 impl crate::columnar::ArrowValue for ExternalDerivativeSource {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, Some(self.as_str()))
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, None)
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
-    }
-}
-impl crate::columnar::ArrowValue for ExtrapolationPolicy {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,

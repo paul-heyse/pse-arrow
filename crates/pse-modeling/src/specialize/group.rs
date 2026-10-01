@@ -120,8 +120,8 @@ impl Engine<'_, '_> {
                 rename_equation(&mut equation, &names)?;
                 body.equations.push(equation);
             }
-            let mut h = FramedHasher::new(pse_ids::Frame::ModelingDispatchBodyV5);
-            crate::scientific_selection::frame(&state.selections, &mut h);
+            let mut h = FramedHasher::new(pse_ids::Frame::ModelingDispatchBodyV6);
+            crate::scientific_selection::frame(&state.selections, self.p, &mut h);
             h.id(&state.definition.as_id())
                 .u64(body.coordinates.len() as u64);
             for (ty, role) in &body.coordinates {
@@ -181,6 +181,10 @@ impl Engine<'_, '_> {
                 }
                 if let Some(function) = self.model.functions.get(&name) {
                     h.id(&function.id.as_id());
+                    h.u64(function.prerequisites.len() as u64);
+                    for index in &function.prerequisites {
+                        h.u64(*index as u64);
+                    }
                     if let Some(expression) = &function.body {
                         h.str(&dsl::render_expr(expression));
                         expression.walk(|e| match &e.kind {

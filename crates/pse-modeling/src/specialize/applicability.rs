@@ -9,6 +9,20 @@ use pse_model::generated::enums::{
 };
 
 impl Engine<'_, '_> {
+    fn claim_owner_lineage(&self, owner: DeclarationId) -> Result<Vec<SemanticId>> {
+        let mut lineage = Vec::new();
+        let mut current = Some(owner);
+        let mut seen = BTreeSet::new();
+        while let Some(id) = current {
+            if !seen.insert(id) {
+                return Err(invalid(owner, "cyclic scientific owner kind ancestry"));
+            }
+            lineage.push(id.as_id());
+            current = self.p.kinds.get(&id).and_then(|kind| kind.base);
+        }
+        Ok(lineage)
+    }
+
     fn evidence_permissions(&self, instance: InstanceId) -> Result<Vec<Permission>> {
         let mut permissions = Vec::new();
         let mut current = Some(instance);
@@ -237,44 +251,11 @@ impl Engine<'_, '_> {
                 inputs,
             });
         }
-        // A reached scientific record without a bound claim remains Unknown. Ordinary
-        // structural helpers are unaffected unless a record was selected scientifically
-        // or its family declares an Applicability-returning attribute.
-        let selected = self
-            .selection_collector
-            .current_frame()
-            .values()
-            .flat_map(|c| c.records.iter().cloned())
-            .collect::<BTreeSet<_>>();
-        let mut bound = BTreeSet::new();
-        for usage in &uses {
-            node_records(&usage.node, &mut bound);
-        }
-        let actual_records = self
-            .selection_collector
-            .current_direct_records()
-            .into_iter()
-            .map(|id| id.as_id())
-            .collect::<BTreeSet<_>>();
-        for id in actual_records {
-            if bound.contains(&id) {
-                continue;
-            }
-            let Some(record) = self.p.entities.get(&DeclarationId::from(id)) else {
-                continue;
-            };
-            let scientific=selected.contains(&Value::Entity {id:DeclarationId::from(id),kind:record.kind}) || record.values.values().any(|value|matches!(value,Value::Function(function) if self.p.functions.get(function).is_some_and(|f|f.result==Type::Applicability)));
-            if scientific {
-                let usage = self.selected_record_claim(instance, form, id, env, &permissions)?;
-                node_records(&usage.node, &mut bound);
-                uses.push(usage);
-            }
-        }
         // Selection edges are required scientific dependencies. Named fit unions occur
         // only inside claim declarations; distinct reached records are never merged.
         let edges = self
             .selection_collector
-            .current_frame()
+            .current_consumer_frame()
             .values()
             .flat_map(|c| c.edges.iter())
             .map(|(a, b)| (a.clone(), b.clone()))
@@ -293,6 +274,121 @@ impl Engine<'_, '_> {
             )?;
         }
         Ok(uses)
+    }
+    /// Attach implicit evidence to the exact numerical read, so inactive branches and
+    /// undemanded members never acquire evidence obligations from another path.
+    pub(super) fn scientific_value_expression(
+        &mut self,
+        instance: InstanceId,
+        path: &Path,
+        value: &Value,
+        at: DeclarationId,
+        env: &Environment,
+    ) -> Result<Expr> {
+        let expression = self.value_expression(value, at)?;
+        if !matches!(value, Value::Number { .. })
+            || path.segments.len() < 2
+            || self
+                .p
+                .functions
+                .get(&at)
+                .is_some_and(|f| f.result == Type::Applicability)
+        {
+            return Ok(expression);
+        }
+        let receiver = Path {
+            segments: path.segments[..path.segments.len() - 1].to_vec(),
+        };
+        let Ok(Value::Entity { id, kind }) = self.eval(at, env, &dsl::render_path(&receiver), None)
+        else {
+            return Ok(expression);
+        };
+        let selected = self.selection_collector.current_consumer_frame();
+        let scientific=selected.values().any(|c|c.records.contains(&Value::Entity {id,kind})) || self.p.entities.get(&id).is_some_and(|record|record.values.values().any(|value|matches!(value,Value::Function(f) if self.p.functions.get(f).is_some_and(|f|f.result==Type::Applicability))));
+        if !scientific {
+            return Ok(expression);
+        }
+        let result = value_type(value)
+            .ok_or_else(|| invalid(at, "scientific numerical read has no physical type"))?;
+        let mut form = crate::Function {
+            applicability: Vec::new(),
+            applicability_uses: Vec::new(),
+            prerequisites: Vec::new(),
+            physical_admissions: BTreeMap::new(),
+            physical_operation: None,
+            reduction: None,
+            validity: None,
+            envelopes: Vec::new(),
+            validity_reads: Default::default(),
+            external: None,
+            continuity: None,
+            id: at,
+            variables: BTreeSet::new(),
+            arguments: self
+                .function_types
+                .iter()
+                .map(|(n, t)| (n.clone(), t.clone()))
+                .collect(),
+            result: result.clone(),
+            body: None,
+        };
+        let permissions = self.evidence_permissions(instance)?;
+        let mut usage =
+            self.selected_record_claim(instance, &form, id.as_id(), env, &permissions)?;
+        let edges = selected
+            .values()
+            .flat_map(|c| c.edges.iter())
+            .map(|(a, b)| (a.clone(), b.clone()))
+            .collect::<Vec<_>>();
+        let mut visited = BTreeSet::new();
+        node_records(&usage.node, &mut visited);
+        self.selected_dependencies(
+            instance,
+            &form,
+            env,
+            &permissions,
+            &edges,
+            &mut visited,
+            &mut usage,
+        )?;
+        let mut arguments = BTreeMap::new();
+        for (name, ty) in &self.function_types {
+            if ty.quantity_scheme().is_some()
+                && let Some(actual) = self.lexical.get(name)
+                && let ExprKind::Path(p) = &actual.kind
+            {
+                arguments.insert(dsl::render_path(p), (ty.clone(), actual.clone()));
+            }
+        }
+        let mut identity = FramedHasher::new(pse_ids::Frame::ModelingApplicabilityCallV1);
+        identity
+            .str("demanded-scientific-record-read-v1")
+            .id(&instance.as_id())
+            .id(&at.as_id())
+            .str(&dsl::render_path(path))
+            .u64(self.local_serial as u64);
+        self.local_serial += 1;
+        usage.frame(&mut identity);
+        identity.str(&dsl::render_expr(&expression));
+        let call = identity.finish_id();
+        usage.node.claim.call = call;
+        form.id = DeclarationId::from(call);
+        form.arguments = arguments
+            .iter()
+            .map(|(name, (ty, _))| (name.clone(), ty.clone()))
+            .collect();
+        form.body = Some(expression);
+        form.applicability_uses = vec![usage];
+        let name = format!("f_{}", call.to_hex());
+        self.reserve(1)?;
+        self.model.functions.insert(name.clone(), form);
+        Ok(Expr {
+            kind: ExprKind::NamedCall {
+                name,
+                args: arguments.into_values().map(|(_, actual)| actual).collect(),
+            },
+            span: Span::default(),
+        })
     }
     fn selected_record_claim(
         &mut self,
@@ -415,7 +511,7 @@ impl Engine<'_, '_> {
                 input_indices.push((name.clone(), inputs.len(), quantity.as_id()));
                 inputs.push(actual);
             }
-            Node {claim:Claim {id:None,coverage:None,owner:record.kind.as_id(),evidence:self.p.provenance(record.origin).map(|p|p.source.as_id()),form:form.id.as_id(),call:identity.finish_id(),records:vec![record_id],dependencies:Vec::new(),layer:pse_model::generated::enums::ModelingValidityLayer::Data,basis:None,reason:Some("Selected scientific record has no claim applicable to this actual form signature".into())},region:Region::Unknown,dependencies:Vec::new(),inputs:input_indices,permissions:permissions.to_vec()}
+            Node {claim:Claim {id:None,coverage:None,owner:record.kind.as_id(),owner_lineage:self.claim_owner_lineage(record.kind)?,evidence:self.p.provenance(record.origin).map(|p|p.source.as_id()),form:form.id.as_id(),call:identity.finish_id(),records:vec![record_id],dependencies:Vec::new(),layer:pse_model::generated::enums::ModelingValidityLayer::Data,basis:None,reason:Some("Selected scientific record has no claim applicable to this actual form signature".into())},region:Region::Unknown,dependencies:Vec::new(),inputs:input_indices,permissions:permissions.to_vec()}
         };
         Ok(crate::applicability::Use {
             node,
@@ -510,7 +606,15 @@ impl Engine<'_, '_> {
                 "applicability metadata is a typed named claim application",
             ));
         };
-        let value = self.eval(at, env, name, None)?;
+        let value = self.eval(at, env, name, None).map_err(|error| {
+            invalid(
+                at,
+                format!(
+                    "claim callable {name} at {at} resolves {:?}: {error}",
+                    self.p.resolve(at, name)
+                ),
+            )
+        })?;
         let Value::Function(id) = value else {
             return Err(invalid(
                 at,
@@ -658,6 +762,7 @@ impl Engine<'_, '_> {
                 id: Some(id.as_id()),
                 coverage: None,
                 owner: owner.as_id(),
+                owner_lineage: self.claim_owner_lineage(owner)?,
                 evidence: Some(evidence.as_id()),
                 form: form.as_id(),
                 call: identity.finish_id(),

@@ -390,13 +390,6 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `supplied` | `` | false |
 | `implicit` | `` | false |
 
-## `ExtrapolationPolicy`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `reject` | `` | false |
-| `extrapolate` | `` | false |
-
 ## `FailureClass`
 
 | Member | IDAES name | Deprecated |
@@ -615,6 +608,33 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `objective` | `` | false |
 | `connectivity` | `` | false |
 
+## `ModelingApplicabilityBasis`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `fitted` | `` | false |
+| `recommended` | `` | false |
+| `validated` | `` | false |
+| `reported` | `` | false |
+
+## `ModelingApplicabilityKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `region` | `` | false |
+| `interval` | `` | false |
+| `unrestricted` | `` | false |
+| `unknown` | `` | false |
+| `union` | `` | false |
+
+## `ModelingApplicabilityOutcome`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `applicable` | `` | false |
+| `outside_region` | `` | false |
+| `unknown_evidence` | `` | false |
+
 ## `ModelingCellKind`
 
 | Member | IDAES name | Deprecated |
@@ -645,6 +665,7 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `original_equation` | `` | false |
 | `closure` | `` | false |
 | `validity` | `` | false |
+| `applicability` | `` | false |
 
 ## `ModelingConformanceKind`
 
@@ -738,8 +759,9 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `logic` | `` | false |
 | `complementarity` | `` | false |
 | `table` | `` | false |
+| `applicability` | `` | false |
+| `permission` | `` | false |
 | `envelope` | `` | false |
-| `extrapolation` | `` | false |
 | `attribute` | `` | false |
 | `dataset` | `` | false |
 | `entity` | `` | false |
@@ -900,6 +922,13 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `native` | `` | false |
 | `staged` | `` | false |
 
+## `ModelingPermissionTarget`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `records` | `` | false |
+| `families` | `` | false |
+
 ## `ModelingRealValueKind`
 
 | Member | IDAES name | Deprecated |
@@ -964,6 +993,7 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `power` | `` | false |
 | `identifier` | `` | false |
 | `quantity_type` | `` | false |
+| `applicability` | `` | false |
 | `reference_state` | `` | false |
 | `coordinate` | `` | false |
 | `reduced_law` | `` | false |

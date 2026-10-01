@@ -361,13 +361,11 @@ fn projection(
         if let pse_modeling::annotation::AnnotationValue::Valid {
             lower,
             upper,
-            policy,
             layer,
             ..
         } = &a.value
         {
-            // One closure range per member; data-layer observations are one per member and
-            // envelope, and are observed, never enforced (ADR-0123 Outcome 4).
+            // An annotated hard range is unconditional; one closure range owns each member.
             if *layer == pse_model::generated::enums::ModelingValidityLayer::Closure
                 && !validity_targets.insert(a.target)
             {
@@ -375,7 +373,7 @@ fn projection(
                     "competing validity intervals for a model member".into(),
                 ));
             }
-            if *policy == pse_model::generated::enums::ExtrapolationPolicy::Reject {
+            {
                 validity.insert(
                     symbol_name(a.target),
                     crate::typed_math::Validity {
@@ -978,10 +976,37 @@ fn projection(
         );
     }
     implicit::project(&model, registry, &mut p, &mut bindings)?;
-    p.conservation.retain(|row, _| {
-        p.outputs
-            .iter()
-            .any(|output| matches!(output, ModelingOutput::Equation {id, ..} if id == row))
+    // Scatter addition has no authority to convert between physical contracts. A
+    // mixed ledger keeps its complete typed expression, whose declared operations
+    // consume the individual payloads; contribution observations remain separate.
+    let conservation_quantities = p
+        .outputs
+        .iter()
+        .zip(&p.quantities)
+        .filter(|(output, _)| {
+            matches!(
+                output,
+                ModelingOutput::Equation { .. } | ModelingOutput::Contribution { .. }
+            )
+        })
+        .map(|(output, quantity)| {
+            Ok((
+                output.row_id(),
+                registry.quantity_type(*quantity).map_err(MathError::from)?,
+            ))
+        })
+        .collect::<Result<BTreeMap<_, _>>>()?;
+    p.conservation.retain(|row, terms| {
+        let Some(ledger) = conservation_quantities.get(row) else {
+            return false;
+        };
+        terms.iter().all(|(term, _)| {
+            conservation_quantities
+                .get(&pse_ids::named_id(*term, "modeling-contribution-output"))
+                .is_some_and(|physical| {
+                    physical.key == ledger.key && physical.canonical_unit == ledger.canonical_unit
+                })
+        })
     });
     let members = MemberReads::new(&bindings, &p.validity);
     for expression in &mut p.expressions {

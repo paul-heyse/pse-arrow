@@ -355,9 +355,9 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `table_uri`.
 
 ## `modeling_checks`
 
-Independent model checks supplement native outcomes. Step identifies the requested solve within a finite sequence; standalone analyses use zero. Static checks use sample_index zero without time; trajectory checks identify the requested sample and physical time in seconds. Validity membership and permission to extrapolate remain distinct observations. Version two adds basis: point for a check evaluated at the step's point, global_bound for an objective-bound check evaluated against the step's certified dual bound (ADR-0119); a point result states no global property. Version three adds the validity layer a validity check observes, present exactly on validity checks (ADR-0123 Outcome 4): closure for an annotated range, whose source is the annotation, and data for a declared envelope whose consumer selected extrapolation, whose source is the relation or kind declaring it. The form layer never extrapolates, so a value outside it is a rejected evaluation, not a check.
+Independent model checks supplement native outcomes. Step identifies the requested solve within a finite sequence; standalone analyses use zero. Static checks use sample_index zero without time; trajectory checks identify the requested sample and physical time in seconds. Validity membership and permission to extrapolate remain distinct observations. Version two adds basis: point for a check evaluated at the step's point, global_bound for an objective-bound check evaluated against the step's certified dual bound (ADR-0119); a point result states no global property. Version three adds the validity layer a validity check observes, present exactly on validity checks (ADR-0123 Outcome 4): closure for an annotated range, whose source is the annotation, and data for a declared envelope whose consumer selected extrapolation, whose source is the relation or kind declaring it. The form layer never extrapolates, so a value outside it is a rejected evaluation, not a check. Version four retains complete demanded scientific applicability evidence: immutable observation target identity distinct from source call identity, bound instance, required versus alternative status, unknown reason, actual physical input values and types, selected records, claim dependencies and evidence, and exact matched permission declarations with scopes, targets and independent flags. Classification remains distinct from low-level authorization; these rows do not establish final scientific qualification.
 
-Version: 3. Snapshot class: `derived`. Primary key: `run_id, step, sample_index, target_id, source_id, kind`.
+Version: 5. Snapshot class: `derived`. Primary key: `run_id, step, sample_index, target_id, source_id, kind`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
@@ -375,6 +375,40 @@ Version: 3. Snapshot class: `derived`. Primary key: `run_id, step, sample_index,
 | `extrapolation_allowed` | `Boolean` | true | `payload` | — | — |
 | `basis` | `enum:ModelingCheckBasis` | false | `payload` | — | — |
 | `layer` | `enum:ModelingValidityLayer` | true | `payload` | — | — |
+| `claim_id` | `semantic_id` | true | `payload` | — | — |
+| `claim_owner` | `semantic_id` | true | `payload` | — | — |
+| `claim_owner_lineage` | `List` | false | `payload` | — | — |
+| `claim_owner_lineage.item` | `semantic_id` | false | `payload` | — | — |
+| `coverage_id` | `semantic_id` | true | `payload` | — | — |
+| `evidence_id` | `semantic_id` | true | `payload` | — | — |
+| `form_id` | `semantic_id` | true | `payload` | — | — |
+| `call_id` | `semantic_id` | true | `payload` | — | — |
+| `selected_records` | `List` | false | `payload` | — | — |
+| `selected_records.item` | `semantic_id` | false | `payload` | — | — |
+| `dependencies` | `List` | false | `payload` | — | — |
+| `dependencies.item` | `semantic_id` | false | `payload` | — | — |
+| `input_values` | `List` | false | `payload` | — | — |
+| `input_values.ModelingApplicabilityInput` | `Struct` | false | `payload` | — | — |
+| `input_values.ModelingApplicabilityInput.name` | `Utf8` | false | `payload` | — | — |
+| `input_values.ModelingApplicabilityInput.value` | `Float64` | false | `payload` | — | — |
+| `input_values.ModelingApplicabilityInput.quantity_type` | `semantic_id` | false | `payload` | — | — |
+| `applicability_outcome` | `enum:ModelingApplicabilityOutcome` | true | `payload` | — | — |
+| `applicability_basis` | `enum:ModelingApplicabilityBasis` | true | `payload` | — | — |
+| `permission_ids` | `List` | false | `payload` | — | — |
+| `permission_ids.item` | `semantic_id` | false | `payload` | — | — |
+| `unknown_allowed` | `Boolean` | true | `payload` | — | — |
+| `observation_instance` | `semantic_id` | true | `payload` | — | — |
+| `applicability_required` | `Boolean` | true | `payload` | — | — |
+| `applicability_reason` | `Utf8` | true | `payload` | — | — |
+| `applicability_permissions` | `List` | false | `payload` | — | — |
+| `applicability_permissions.ModelingApplicabilityAuthorization` | `Struct` | false | `payload` | — | — |
+| `applicability_permissions.ModelingApplicabilityAuthorization.permission_id` | `semantic_id` | false | `payload` | — | — |
+| `applicability_permissions.ModelingApplicabilityAuthorization.scope` | `semantic_id` | false | `payload` | — | — |
+| `applicability_permissions.ModelingApplicabilityAuthorization.target_kind` | `enum:ModelingPermissionTarget` | false | `payload` | — | — |
+| `applicability_permissions.ModelingApplicabilityAuthorization.targets` | `List` | false | `payload` | — | — |
+| `applicability_permissions.ModelingApplicabilityAuthorization.targets.item` | `semantic_id` | false | `payload` | — | — |
+| `applicability_permissions.ModelingApplicabilityAuthorization.allow_unknown` | `Boolean` | false | `payload` | — | — |
+| `applicability_permissions.ModelingApplicabilityAuthorization.allow_extrapolation` | `Boolean` | false | `payload` | — | — |
 
 ## `modeling_conformance`
 

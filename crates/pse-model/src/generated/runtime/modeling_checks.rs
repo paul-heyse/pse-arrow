@@ -37,6 +37,47 @@ impl PartialEq for RuntimeModelingChecksFieldInputValuesItem {
     reason = "field names are the authoritative relation contract"
 )]
 #[derive(Clone, Debug)]
+pub struct RuntimeModelingChecksFieldApplicabilityPermissionsItem {
+    ///permission_id
+    pub r#permission_id: pse_ids::SemanticId,
+    ///scope
+    pub r#scope: pse_ids::SemanticId,
+    ///target_kind
+    pub r#target_kind: crate::generated::enums::ModelingPermissionTarget,
+    ///targets
+    pub r#targets: Vec<pse_ids::SemanticId>,
+    ///allow_unknown
+    pub r#allow_unknown: bool,
+    ///allow_extrapolation
+    pub r#allow_extrapolation: bool,
+}
+impl crate::SemanticEq for RuntimeModelingChecksFieldApplicabilityPermissionsItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#permission_id, &other.r#permission_id)
+            && crate::SemanticEq::semantic_eq(&self.r#scope, &other.r#scope)
+            && crate::SemanticEq::semantic_eq(&self.r#target_kind, &other.r#target_kind)
+            && crate::SemanticEq::semantic_eq(&self.r#targets, &other.r#targets)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#allow_unknown,
+                &other.r#allow_unknown,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#allow_extrapolation,
+                &other.r#allow_extrapolation,
+            )
+    }
+}
+impl PartialEq for RuntimeModelingChecksFieldApplicabilityPermissionsItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+#[derive(Clone, Debug)]
 pub struct RuntimeModelingChecksRow {
     ///The run that produced the row: minted once when a run starts or a job is enqueued, and shared by the job's retried attempts. It names the execution, not the request's content.
     pub r#run_id: crate::generated::identities::RunId,
@@ -70,6 +111,8 @@ pub struct RuntimeModelingChecksRow {
     pub r#claim_id: Option<pse_ids::SemanticId>,
     ///claim_owner
     pub r#claim_owner: Option<pse_ids::SemanticId>,
+    ///claim_owner_lineage
+    pub r#claim_owner_lineage: Vec<pse_ids::SemanticId>,
     ///coverage_id
     pub r#coverage_id: Option<pse_ids::SemanticId>,
     ///evidence_id
@@ -96,6 +139,16 @@ pub struct RuntimeModelingChecksRow {
     pub r#permission_ids: Vec<pse_ids::SemanticId>,
     ///unknown_allowed
     pub r#unknown_allowed: Option<bool>,
+    ///observation_instance
+    pub r#observation_instance: Option<pse_ids::SemanticId>,
+    ///applicability_required
+    pub r#applicability_required: Option<bool>,
+    ///applicability_reason
+    pub r#applicability_reason: Option<String>,
+    ///applicability_permissions
+    pub r#applicability_permissions: Vec<
+        RuntimeModelingChecksFieldApplicabilityPermissionsItem,
+    >,
 }
 impl crate::SemanticEq for RuntimeModelingChecksRow {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -122,6 +175,10 @@ impl crate::SemanticEq for RuntimeModelingChecksRow {
             && crate::SemanticEq::semantic_eq(&self.r#layer, &other.r#layer)
             && crate::SemanticEq::semantic_eq(&self.r#claim_id, &other.r#claim_id)
             && crate::SemanticEq::semantic_eq(&self.r#claim_owner, &other.r#claim_owner)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#claim_owner_lineage,
+                &other.r#claim_owner_lineage,
+            )
             && crate::SemanticEq::semantic_eq(&self.r#coverage_id, &other.r#coverage_id)
             && crate::SemanticEq::semantic_eq(&self.r#evidence_id, &other.r#evidence_id)
             && crate::SemanticEq::semantic_eq(&self.r#form_id, &other.r#form_id)
@@ -154,6 +211,22 @@ impl crate::SemanticEq for RuntimeModelingChecksRow {
                 &self.r#unknown_allowed,
                 &other.r#unknown_allowed,
             )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#observation_instance,
+                &other.r#observation_instance,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#applicability_required,
+                &other.r#applicability_required,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#applicability_reason,
+                &other.r#applicability_reason,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#applicability_permissions,
+                &other.r#applicability_permissions,
+            )
     }
 }
 impl PartialEq for RuntimeModelingChecksRow {
@@ -179,6 +252,33 @@ impl crate::HeapUsage for RuntimeModelingChecksFieldInputValuesItem {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#name))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#value))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#quantity_type))
+    }
+}
+impl crate::SemanticFrame for RuntimeModelingChecksFieldApplicabilityPermissionsItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#permission_id));
+        crate::SemanticFrame::frame(&self.r#permission_id, hash);
+        hash.str(stringify!(r#scope));
+        crate::SemanticFrame::frame(&self.r#scope, hash);
+        hash.str(stringify!(r#target_kind));
+        crate::SemanticFrame::frame(&self.r#target_kind, hash);
+        hash.str(stringify!(r#targets));
+        crate::SemanticFrame::frame(&self.r#targets, hash);
+        hash.str(stringify!(r#allow_unknown));
+        crate::SemanticFrame::frame(&self.r#allow_unknown, hash);
+        hash.str(stringify!(r#allow_extrapolation));
+        crate::SemanticFrame::frame(&self.r#allow_extrapolation, hash);
+    }
+}
+impl crate::HeapUsage for RuntimeModelingChecksFieldApplicabilityPermissionsItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#permission_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#scope))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#target_kind))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#targets))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#allow_unknown))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#allow_extrapolation))
     }
 }
 impl crate::SemanticFrame for RuntimeModelingChecksRow {
@@ -215,6 +315,8 @@ impl crate::SemanticFrame for RuntimeModelingChecksRow {
         crate::SemanticFrame::frame(&self.r#claim_id, hash);
         hash.str(stringify!(r#claim_owner));
         crate::SemanticFrame::frame(&self.r#claim_owner, hash);
+        hash.str(stringify!(r#claim_owner_lineage));
+        crate::SemanticFrame::frame(&self.r#claim_owner_lineage, hash);
         hash.str(stringify!(r#coverage_id));
         crate::SemanticFrame::frame(&self.r#coverage_id, hash);
         hash.str(stringify!(r#evidence_id));
@@ -237,6 +339,14 @@ impl crate::SemanticFrame for RuntimeModelingChecksRow {
         crate::SemanticFrame::frame(&self.r#permission_ids, hash);
         hash.str(stringify!(r#unknown_allowed));
         crate::SemanticFrame::frame(&self.r#unknown_allowed, hash);
+        hash.str(stringify!(r#observation_instance));
+        crate::SemanticFrame::frame(&self.r#observation_instance, hash);
+        hash.str(stringify!(r#applicability_required));
+        crate::SemanticFrame::frame(&self.r#applicability_required, hash);
+        hash.str(stringify!(r#applicability_reason));
+        crate::SemanticFrame::frame(&self.r#applicability_reason, hash);
+        hash.str(stringify!(r#applicability_permissions));
+        crate::SemanticFrame::frame(&self.r#applicability_permissions, hash);
     }
 }
 impl crate::HeapUsage for RuntimeModelingChecksRow {
@@ -258,6 +368,7 @@ impl crate::HeapUsage for RuntimeModelingChecksRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#layer))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#claim_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#claim_owner))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#claim_owner_lineage))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#coverage_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#evidence_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#form_id))
@@ -269,5 +380,11 @@ impl crate::HeapUsage for RuntimeModelingChecksRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#applicability_basis))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#permission_ids))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#unknown_allowed))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#observation_instance))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#applicability_required))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#applicability_reason))
+            .saturating_add(
+                crate::HeapUsage::heap_bytes(&self.r#applicability_permissions),
+            )
     }
 }

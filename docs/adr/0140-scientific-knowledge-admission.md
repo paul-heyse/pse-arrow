@@ -6,9 +6,9 @@ date: 2026-09-30
 deciders: [paul-heyse]
 level: decision
 principles: [AP-02, AP-03, AP-04, AP-06, DP-01, DP-03, PS-01, PS-02, PS-03]
-blueprint: [§9.1, §9.3, §9.7, §9.9, §14.3]
+blueprint: [§6.15.2, §9.1, §9.3, §9.7, §9.9, §14.3]
 review: docs/design_review/reviews/design_review_codebase-domain-alignment-follow-up_2026-09-30.md#fu01
-evidence: Proposed
+evidence: Implemented
 supersedes: []
 superseded-by: null
 revisit: A scientific extension requires a second coefficient authority, a sentinel key or implicit permission for missing evidence.
@@ -65,7 +65,12 @@ Plan 25b controls sparse/empty/unknown evidence, charge versus elements, missing
 
 ### Confirmation
 
-Proposed contract reviewed at the scoped decision boundary; actual implementation/tests belong to Plan 25b Outcome. Full product qualification belongs to Plan 25k.
+**Implemented, 2026-10-01. Tested:** `just unit-package pse-modeling 'test(scientific_composition_tests)' --test-threads 1`
+and `just unit-package pse-modeling 'test(scientific_selection_tests)' --test-threads 1`
+passed 5 and 12 controls respectively against zero, with explicit force-validation in the
+optimized test profile. Reaction, potential and consumed-identity compiler controls have
+composite successful receipts in the [Plan 25b Outcome](../plans/25b-scientific-knowledge-and-applicability.md#verification).
+Full product qualification belongs to Plan 25k. This record remains proposed pending its decision PR.
 
 ## Pros and cons
 

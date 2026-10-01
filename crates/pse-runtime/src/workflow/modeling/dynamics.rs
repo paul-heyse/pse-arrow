@@ -1680,10 +1680,7 @@ impl ModelingPackage {
                         )),
                     )
                 }
-                AnnotationValue::Valid {
-                    policy: pse_model::generated::enums::ExtrapolationPolicy::Reject,
-                    ..
-                } => {
+                AnnotationValue::Valid { .. } => {
                     if !valid.insert(a.target) {
                         return Err(contract("competing dynamic validity ranges"));
                     }
@@ -1873,7 +1870,7 @@ mod tests {
     async fn kernel_conformance_integrates_authored_samples_and_retains_each_check() {
         let runtime = super::super::super::tests::runtime();
         let physical = physical();
-        let text = "package p { def Root {domain t:Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); var x[i in t]:Time; eq rate[i in t]:d(x[i])/di==2; eq initial:x[0{s}]==1{s}; annotation check x(x[i]<=4{s}); annotation valid x(0{s},4{s},reject); let area:Time=integral(i in t | 2); annotation check area(area>1.9{s});} test dynamic fixture {dof 0; run integrated; integrate samples(0{s},0.5{s},1{s}) relative(1e-6) normalized_absolute(1e-8) step(1e-4{s}) quadrature_relative(1e-6) quadrature_absolute(root.area=1e-7{s});} {child root:Root=Root();} }";
+        let text = "package p { def Root {domain t:Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); var x[i in t]:Time; eq rate[i in t]:d(x[i])/di==2; eq initial:x[0{s}]==1{s}; annotation check x(x[i]<=4{s}); annotation valid x(0{s},4{s}); let area:Time=integral(i in t | 2); annotation check area(area>1.9{s});} test dynamic fixture {dof 0; run integrated; integrate samples(0{s},0.5{s},1{s}) relative(1e-6) normalized_absolute(1e-8) step(1e-4{s}) quadrature_relative(1e-6) quadrature_absolute(root.area=1e-7{s});} {child root:Root=Root();} }";
         let rows = pse_authoring::language::parse(
             text,
             SemanticId::NIL,
@@ -2595,7 +2592,7 @@ mod tests {
     async fn kernel_integrated_sample_checks_share_model_semantics_and_owned_rows() {
         let runtime = super::super::super::tests::runtime();
         let physical = physical();
-        let source = "package p { def Root { domain t: Time from 0{s} to 2{s}; discretize grid on t using integrated(elements=1,order=1); var x[i in t]: Time; eq rate[i in t]: d(x[i])/di == 2; eq initial: x[0{s}] == 1{s}; annotation check x(x[i] <= 4{s}); annotation valid x(0{s},4{s},extrapolate); } }";
+        let source = "package p { def Root { domain t: Time from 0{s} to 2{s}; discretize grid on t using integrated(elements=1,order=1); var x[i in t]: Time; eq rate[i in t]: d(x[i])/di == 2; eq initial: x[0{s}] == 1{s}; annotation check x(x[i] <= 4{s}); } }";
         for (text, accepted) in [
             (source.to_string(), false),
             (source.replace("x[i] <= 4{s}", "x[i] <= 6{s}"), true),
@@ -2639,12 +2636,7 @@ mod tests {
             assert_eq!(result.report.termination, native::Termination::Completed);
             assert!(result.checks_complete, "{:?}", result.validation_error);
             assert_eq!(result.accepted, accepted);
-            assert_eq!(result.checks.len(), 6);
-            assert!(result.checks.iter().any(|c| c.sample_index == 2
-                && c.time == Some(2.)
-                && c.within_validity == Some(false)
-                && c.extrapolation_allowed == Some(true)
-                && c.satisfied));
+            assert_eq!(result.checks.len(), 3);
             let tables = result.tables().unwrap();
             use pse_relations::{
                 columnar::RelationRow,
@@ -3212,7 +3204,7 @@ mod tests {
         let guarded = package
             .with_declarations(parse(&source.replace(
                 "annotation start x(0{s});",
-                "annotation start x(0{s}); annotation valid x(0{s},2{s},reject);",
+                "annotation start x(0{s}); annotation valid x(0{s},2{s});",
             )))
             .unwrap();
         let prepared = guarded

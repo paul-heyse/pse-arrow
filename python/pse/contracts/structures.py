@@ -140,6 +140,7 @@ class ModelingCellValueReferencesPathsItem:
     """Declared relation row or nested value."""
 
     path: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    keys: b.tuple[ModelingKeyCell, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ModelingKeyCell), iterable_validator=attrs.validators.instance_of(b.tuple))))
 
 
 @attrs.frozen(kw_only=True)

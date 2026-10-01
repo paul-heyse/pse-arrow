@@ -584,7 +584,7 @@ fn annotations_resolve_existing_targets_and_physical_expressions() {
     let text = r#"package p { def Root { var x: Flow; var y: Flow;
  annotation start x(2{mol/s}); annotation start y(x);
  annotation bounds x(0{mol/s}, 10{mol/s}); annotation report x("flow");
- annotation valid x(0{mol/s}, 20{mol/s}, reject); annotation check x(x >= 0{mol/s});
+ annotation valid x(0{mol/s}, 20{mol/s}); annotation check x(x >= 0{mol/s});
  } }"#;
     let model = run(text, "p.Root", Bindings::default()).unwrap();
     assert_eq!(model.symbols.len(), 2);
@@ -932,7 +932,7 @@ fn annotation_kind_dispatch_is_exhaustive() {
             var x: Scalar; eq e: x == 1; port o: Scalar = x;
             annotation start x(1); annotation nominal x(1); annotation bounds x(0, 2);
             annotation scale e(inverseSum); annotation report x(label);
-            annotation valid x(0, 5, extrapolate); annotation check x(x > 0);
+            annotation valid x(0, 5); annotation check x(x > 0);
             annotation objective x(minimize); annotation connectivity o(1, many);
         }
     }"#;
@@ -981,10 +981,10 @@ fn annotation_kind_dispatch_is_exhaustive() {
         extra.arguments.push("1".into());
         assert!(shape(&extra, at).is_err(), "{:?}", row.kind);
         let mut foreign = row.clone();
-        if row.kind == Kind::Valid {
+        if row.kind != Kind::Scale {
             foreign.scheme = Some(pse_model::generated::enums::ConstraintScalingScheme::InverseSum);
         } else {
-            foreign.extrapolation = Some(pse_model::generated::enums::ExtrapolationPolicy::Reject);
+            foreign.connectivity=Some(pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueAnnotationConnectivity {incoming:None,outgoing:None});
         }
         assert!(shape(&foreign, at).is_err(), "{:?}", row.kind);
     }

@@ -42,7 +42,7 @@
 @id("ec1c452f7e06480599776ed06dff93db") attribute source:provenance.source;
 @id("ad1e4195258542e1a116f454fee9c8e0") attribute dependencies:Set<parameter_set>={};
 @id("3aa70232fa974ef0b1dc7e7934cfa882") attribute conventions:Set<provenance.source>={};
-@id("4542a624e8424da493f89abbd52be2e9") derived fit_groups:Set<fit_group>=fold(acc,value; g in fit_group | if self in g.members then set_of(g) else {};union(acc,value));
+@id("4542a624e8424da493f89abbd52be2e9") derived fit_groups:Set<fit_group>=fold(acc,value; g in fit_group | if self in g.members then set_of(g) else set_of();union(acc,value));
 }
 @id("de5011656be14f8c94ac223816155f08") entity kind pure_parameter extends parameter_set abstract {
 @id("076ea90a9c6d44218d1c546fd9f29733") require slot(self)==pure_slot(self) : "the scientific slot is the owned pure_parameter key projection";
@@ -120,10 +120,10 @@
 @id("087b88ab56234bdcab834909781f82cf") table selected_projection[c:selection_context,g:fit_group]:permitted_projection missing optional require value.group==g and value.subjects==c.subjects;
 @id("f4fec791db5b4c5188cec273748b30ad") fn required_records(r:parameter_set,c:selection_context)->Set<parameter_set>=group_records(r,c,r.fit_groups);
 @id("ebffb4f3d96848739c7a50dcb26c6e67") fn group_records(r:parameter_set,c:selection_context,groups:Set<fit_group>)->Set<parameter_set> valid(sum(g in groups | if present(selected_projection[c,g]) then if r in selected_projection[c,g].records then 0 else 1 else 0)==0)=if size(groups)==0 then r.dependencies else union(r.dependencies,fold(acc,value; g in groups | if present(selected_projection[c,g]) then selected_projection[c,g].records else g.members;union(acc,value)));
-@id("d79cf0a4c7d744798588a183adaeca52") fn root_in_scope(r:parameter_set,c:selection_context)->Boolean=if family in c.models then if present(first) then if first in c.subjects then if present(second) then if second in c.subjects then true else false else true else false else true else false where slot=r.slot(r),family=at(slot,0),pair=at(slot,1),first=at(pair,0),second=at(pair,1);
+@id("d79cf0a4c7d744798588a183adaeca52") fn root_in_scope(r:parameter_set,c:selection_context)->Boolean=(if family in c.models then if present(first) then if first in c.subjects then if present(second) then if second in c.subjects then true else false else true else false else true else false) where slot=r.slot(r),family=at(slot,0),pair=at(slot,1),first=at(pair,0),second=at(pair,1);
 // A property package selects individual records and explicit predictive rules. Its
 // phase formulation is a definition binding of its model.
-@id("34fc04050f4447a2a80899682393ab0a") fn selection_roots(c:selection_context)->Set<parameter_set>=if size(rules)==0 then c.roots else union(c.roots,fold(acc,value; rule in rules | rule.dependencies;union(acc,value))) where rules=c.rules;
+@id("34fc04050f4447a2a80899682393ab0a") fn selection_roots(c:selection_context)->Set<parameter_set>=(if size(rules)==0 then c.roots else union(c.roots,fold(acc,value; rule in rules | rule.dependencies;union(acc,value)))) where rules=c.rules;
 @id("01a0f00c1fbb76f19ac7c82b8f313387") entity kind property_package {
 @id("6ee51dc290e044c0b9f7c90762ca6214") attribute admitted:selection_context;
 }

@@ -58,8 +58,8 @@
 @id("01a0e1b4f611717da49a92863a6d1dc5") let oracle_s_liquid:PrOracleEntropy=stock_to_oracle_entropy(s_liquid,x,components);
 @id("01a0e1b4f611717da49a92879be8970c") let oracle_h_vapor:PrOracleEnthalpy=stock_to_oracle_enthalpy(h_vapor,y,components);
 @id("01a0e1b4f611717da49a9288957882c3") let oracle_s_vapor:PrOracleEntropy=stock_to_oracle_entropy(s_vapor,y,components);
-@id("01a0e1b4f611717da49a9289db1e3f2c") annotation valid T(minimum_temperature,maximum_temperature,reject);
-@id("01a0e1b4f611717da49a928a09891d4a") annotation valid pressure(80000{Pa},120000{Pa},reject);
+@id("01a0e1b4f611717da49a9289db1e3f2c") annotation valid T(minimum_temperature,maximum_temperature);
+@id("01a0e1b4f611717da49a928a09891d4a") annotation valid pressure(80000{Pa},120000{Pa});
 @id("01a0eed1000d7436b90c08550d1c0196") when formulation==equilibrium.VleFormulation.complementarity {
 @id("01a0eeced80374ab83c0820cd5bb1246") child closure:nested_equilibrium.FlashSplit=pr_equilibrium.ComplementarityPR(selected=bt_ideal.aromatics,pkg=eos_package,law=eos_potential,family=eos_family,vapor_pressure=bt_pr.psat,minimum=minimum,maximum=maximum,bubble=365{K},dew=370{K});
 @id("01a0eeced80374ab83c0820dd9a03750") eq bind_temperature:closure.T==T;

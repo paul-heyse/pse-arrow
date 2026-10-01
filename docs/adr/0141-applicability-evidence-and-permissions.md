@@ -6,9 +6,9 @@ date: 2026-09-30
 deciders: [paul-heyse]
 level: decision
 principles: [AP-02, AP-03, AP-04, AP-06, DP-01, DP-03, PS-01, PS-02, PS-03]
-blueprint: [§9.3, §9.10, §14.3, §19.3]
+blueprint: [§6.15.2, §9.3, §9.10, §14.3, §19.3, §19.5]
 review: docs/design_review/reviews/design_review_codebase-domain-alignment_2026-09-30.md#f12
-evidence: Proposed
+evidence: Implemented
 supersedes: []
 superseded-by: null
 revisit: A scientific extension requires a second coefficient authority, a sentinel key or implicit permission for missing evidence.
@@ -43,9 +43,19 @@ The generic evaluation emits Applicable, OutsideRegion or UnknownEvidence for ea
 
 Required dependencies retain every observation: outside and unknown obligations require independent permissions. Declared alternatives form unions: a known applicable alternative satisfies the union; otherwise unknown alternatives make it unknown, and wholly known failures make it outside. Unrelated fits are never implicitly unioned. Interval increments require explicit whole-interval guards; endpoint coverage is sufficient only for declared interval regions.
 
-A binding's independent allow-unknown and allow-extrapolation permissions default false, name records or declared families and retain authorizing declaration/lineage. Scope inheritance may resolve an existing named permission, but cannot widen its target. Claims, selection closures, conventions and permissions enter admission/preparation identity with changed frame versions. Observations survive active branches, derived arguments, cancellation and differentiation; inactive branches are not evaluated.
+A binding's independent allow-unknown and allow-extrapolation permissions default false, name records or declared families and retain authorizing declaration/lineage. Scope inheritance may resolve an existing named permission, but cannot widen its target. A named nominal family covers its checked subtypes; the observation retains actual owner and checked owner ancestry, and the permission keeps its authored targets. Claims, selection closures, conventions and permissions enter admission/preparation identity with changed frame versions. Observations survive active branches, derived arguments, cancellation and differentiation; inactive branches are not evaluated.
 
 Migrate every represented parameter/form family, including empirical costing, without inventing source ranges. Seed consumers select individually justified claims or named permissions. Universal constants may declare genuinely unrestricted claims without invented regression intervals.
+
+Numerical record reads carry their evidence gate on the actual expression, including direct member reads outside functions. Generated observations retain consuming instance, required or alternative status, unknown reason, physical inputs and complete matched permission scope, targets and flags. `pse.modeling.applicability-observation.v2` frames the source call, claim, checked owner ancestry, instance, required status and typed physical inputs, so separate applications cannot collide. Claim capture references, finite numerical values and owned observation storage remain mandatory contracts under every permission. Blanket extrapolation declarations, the hard-range annotation policy field and their static observer path are retired. A hard-range annotation accepts only its lower and upper bounds; scientific permissions cannot waive it.
+
+Numeric defaults and scope/constructor arguments retain their actual lexical source through
+parameter lowering. On a demanded parameter read, a generated identity function returns the
+numerical input and transfers only the source expression's prerequisite effects. Explicit
+prerequisite indices are compiler-checked and framed; ordinary unused authored locals do not
+become eager. A literal authored override discards the prior default source. Later CaseValues
+changes vary the formal value while retaining its declared source lineage; Plan 25e/25f owns
+final qualification of changed inputs. This stores no second editable coefficient authority.
 
 ### Consequences
 
@@ -57,7 +67,13 @@ Plan 25b tests unknown/unrestricted distinctions, the two permissions independen
 
 ### Confirmation
 
-Proposed contract reviewed at the scoped decision boundary. Plan 25b Outcome owns focused executed evidence; complete product/scientific qualification remains Plan 25k.
+**Implemented, 2026-10-01. Tested:** `just unit-package pse-model 'test(applicability_tests)' --test-threads 1`,
+`just unit-package pse-math 'test(applicability_tests)' --test-threads 1` and
+`just unit-package pse-runtime 'test(applicability_tests)' --test-threads 1` passed 13, 7 and
+4 controls respectively against zero, with explicit force-validation in the optimized test
+profile. Demanded source/permission compiler controls and the isolated generated Python codec
+control have successful receipts in the [Plan 25b Outcome](../plans/25b-scientific-knowledge-and-applicability.md#verification).
+Complete product/scientific qualification remains Plan 25k. This record remains proposed pending its decision PR.
 
 ## Pros and cons
 

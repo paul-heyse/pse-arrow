@@ -190,6 +190,7 @@ impl ModelingSimulation {
                         layer: None,
                         claim_id: None,
                         claim_owner: None,
+                        claim_owner_lineage: Vec::new(),
                         coverage_id: None,
                         evidence_id: None,
                         form_id: None,
@@ -201,6 +202,10 @@ impl ModelingSimulation {
                         applicability_basis: None,
                         permission_ids: Vec::new(),
                         unknown_allowed: None,
+                        observation_instance: None,
+                        applicability_required: None,
+                        applicability_reason: None,
+                        applicability_permissions: Vec::new(),
                     });
                 }
                 for check in &mut sample_checks {

@@ -331,6 +331,27 @@ class RuntimeMaintenanceOutcomesRow:
 
 
 @attrs.frozen(kw_only=True)
+class RuntimeModelingChecksFieldInputValuesItem:
+    """Declared relation row or nested value."""
+
+    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    value: b.float = attrs.field(validator=v.finite_float)
+    quantity_type: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeModelingChecksFieldApplicabilityPermissionsItem:
+    """Declared relation row or nested value."""
+
+    permission_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    scope: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    target_kind: e.ModelingPermissionTarget = attrs.field(validator=attrs.validators.instance_of(e.ModelingPermissionTarget))
+    targets: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    allow_unknown: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    allow_extrapolation: b.bool = attrs.field(validator=v.exact_type(b.bool))
+
+
+@attrs.frozen(kw_only=True)
 class RuntimeModelingChecksRow:
     """Declared relation row or nested value."""
 
@@ -348,6 +369,24 @@ class RuntimeModelingChecksRow:
     extrapolation_allowed: b.bool | None = attrs.field(validator=attrs.validators.optional(v.exact_type(b.bool)))
     basis: e.ModelingCheckBasis = attrs.field(validator=attrs.validators.instance_of(e.ModelingCheckBasis))
     layer: e.ModelingValidityLayer | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.ModelingValidityLayer)))
+    claim_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    claim_owner: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    claim_owner_lineage: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    coverage_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    evidence_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    form_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    call_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    selected_records: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    dependencies: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    input_values: b.tuple[RuntimeModelingChecksFieldInputValuesItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeModelingChecksFieldInputValuesItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    applicability_outcome: e.ModelingApplicabilityOutcome | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.ModelingApplicabilityOutcome)))
+    applicability_basis: e.ModelingApplicabilityBasis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.ModelingApplicabilityBasis)))
+    permission_ids: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    unknown_allowed: b.bool | None = attrs.field(validator=attrs.validators.optional(v.exact_type(b.bool)))
+    observation_instance: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    applicability_required: b.bool | None = attrs.field(validator=attrs.validators.optional(v.exact_type(b.bool)))
+    applicability_reason: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    applicability_permissions: b.tuple[RuntimeModelingChecksFieldApplicabilityPermissionsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeModelingChecksFieldApplicabilityPermissionsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
 
 @attrs.frozen(kw_only=True)

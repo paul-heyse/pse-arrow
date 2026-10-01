@@ -2174,8 +2174,232 @@ pub(crate) fn derive(p: &mut CheckedPackage, c: &TypeContext<'_>) -> Result<()> 
     Ok(())
 }
 
+/// Follow typed attribute reads through statically named functions and callbacks.
+/// Member declaration IDs distinguish an inherited derived attribute from an
+/// unrelated record column with the same spelling.
+fn derivation_mentions(
+    p: &CheckedPackage,
+    derivation: &Derivation,
+) -> Result<BTreeSet<DeclarationId>> {
+    use pse_authoring::dsl::{Expr, ExprKind, Path, Predicate, PredicateKind};
+    fn function(
+        p: &CheckedPackage,
+        at: DeclarationId,
+        name: &str,
+        pending: &mut Vec<DeclarationId>,
+    ) {
+        if p.functions
+            .get(&at)
+            .is_some_and(|f| f.arguments.iter().any(|(n, _)| n == name))
+        {
+            return;
+        }
+        if let Some(id) = p
+            .resolve(at, name)
+            .filter(|id| p.functions.contains_key(id))
+        {
+            pending.push(id);
+        }
+    }
+    fn path(
+        p: &CheckedPackage,
+        at: DeclarationId,
+        path: &Path,
+        env: &BTreeMap<String, Type>,
+        reads: &mut BTreeSet<DeclarationId>,
+        pending: &mut Vec<DeclarationId>,
+    ) -> Result<()> {
+        function(p, at, &pse_authoring::dsl::render_path(path), pending);
+        let mut local = env.clone();
+        let mut receiver = None;
+        for (position, segment) in path.segments.iter().enumerate() {
+            let owner = if position == 0 {
+                p.declarations[&at]
+                    .parent_id
+                    .filter(|id| p.kinds.contains_key(id))
+            } else {
+                match &receiver {
+                    Some(Type::Entity(kind)) => Some(*kind),
+                    _ => None,
+                }
+            };
+            if let Some(owner) = owner
+                && let Some((_, row)) = p.kinds[&owner]
+                    .derived
+                    .iter()
+                    .find(|(name, _)| name == &segment.name)
+            {
+                reads.insert(*row);
+            }
+            let prefix = Path {
+                segments: path.segments[..=position].to_vec(),
+            };
+            let expression = Expr {
+                kind: ExprKind::Path(prefix.clone()),
+                span: Default::default(),
+            };
+            // Namespace prefixes have no type. Later typed prefixes resolve them.
+            match crate::expression::infer(&expression, &local, p, &p.context(), at, None) {
+                Ok(Type::Optional(inner)) => {
+                    local.insert(pse_authoring::dsl::render_path(&prefix), *inner.clone());
+                    receiver = Some(*inner);
+                }
+                Ok(ty) => receiver = Some(ty),
+                Err(_) => receiver = None,
+            }
+            for index in &segment.indices {
+                collect(p, at, index, env, reads, pending)?;
+            }
+        }
+        Ok(())
+    }
+    fn predicate(
+        p: &CheckedPackage,
+        at: DeclarationId,
+        value: &Predicate,
+        env: &BTreeMap<String, Type>,
+        reads: &mut BTreeSet<DeclarationId>,
+        pending: &mut Vec<DeclarationId>,
+    ) -> Result<()> {
+        match &value.kind {
+            PredicateKind::Compare { lhs, rhs, .. } => {
+                collect(p, at, lhs, env, reads, pending)?;
+                collect(p, at, rhs, env, reads, pending)?;
+            }
+            PredicateKind::In { expr, domain } => {
+                collect(p, at, expr, env, reads, pending)?;
+                path(p, at, domain, env, reads, pending)?;
+            }
+            PredicateKind::Atom(expr) => collect(p, at, expr, env, reads, pending)?,
+            PredicateKind::And(a, b) | PredicateKind::Or(a, b) => {
+                predicate(p, at, a, env, reads, pending)?;
+                predicate(p, at, b, env, reads, pending)?;
+            }
+            PredicateKind::Not(value) => predicate(p, at, value, env, reads, pending)?,
+            PredicateKind::Bool(_) | PredicateKind::Null => {}
+        }
+        Ok(())
+    }
+    fn collect(
+        p: &CheckedPackage,
+        at: DeclarationId,
+        expression: &Expr,
+        env: &BTreeMap<String, Type>,
+        reads: &mut BTreeSet<DeclarationId>,
+        pending: &mut Vec<DeclarationId>,
+    ) -> Result<()> {
+        match &expression.kind {
+            ExprKind::Path(value) => path(p, at, value, env, reads, pending)?,
+            ExprKind::Neg(value) | ExprKind::Derivative { body: value, .. } => {
+                collect(p, at, value, env, reads, pending)?
+            }
+            ExprKind::Binary { lhs, rhs, .. } => {
+                collect(p, at, lhs, env, reads, pending)?;
+                collect(p, at, rhs, env, reads, pending)?;
+            }
+            ExprKind::NamedCall { name, args }
+            | ExprKind::Partial {
+                function: name,
+                args,
+                ..
+            } => {
+                function(p, at, name, pending);
+                for arg in args {
+                    collect(p, at, arg, env, reads, pending)?;
+                }
+            }
+            ExprKind::Call { args, .. } | ExprKind::Kernel { args, .. } => {
+                for arg in args {
+                    collect(p, at, arg, env, reads, pending)?;
+                }
+            }
+            ExprKind::Let { bindings, body } => {
+                let mut local = env.clone();
+                for (name, value) in bindings {
+                    collect(p, at, value, &local, reads, pending)?;
+                    let ty = crate::expression::infer(value, &local, p, &p.context(), at, None)?;
+                    local.insert(name.clone(), ty);
+                }
+                collect(p, at, body, &local, reads, pending)?;
+            }
+            ExprKind::Conditional {
+                guard,
+                then,
+                otherwise,
+            } => {
+                predicate(p, at, guard, env, reads, pending)?;
+                collect(p, at, then, env, reads, pending)?;
+                collect(p, at, otherwise, env, reads, pending)?;
+            }
+            ExprKind::Reduce { binder, body, .. }
+            | ExprKind::Fold {
+                binder,
+                value: body,
+                ..
+            } => {
+                path(p, at, &binder.domain, env, reads, pending)?;
+                let domain = Expr {
+                    kind: ExprKind::Path(binder.domain.clone()),
+                    span: Default::default(),
+                };
+                let mut local = env.clone();
+                if let Type::Set(element) | Type::Continuous(_, element) =
+                    crate::expression::infer(&domain, env, p, &p.context(), at, None)?
+                {
+                    local.insert(binder.var.clone(), *element);
+                }
+                if let Some(filter) = &binder.filter {
+                    predicate(p, at, filter, &local, reads, pending)?;
+                }
+                collect(p, at, body, &local, reads, pending)?;
+                if let ExprKind::Fold {
+                    accumulator,
+                    item,
+                    step,
+                    ..
+                } = &expression.kind
+                {
+                    let ty = crate::expression::infer(body, &local, p, &p.context(), at, None)?;
+                    local.insert(accumulator.clone(), ty.clone());
+                    local.insert(item.clone(), ty);
+                    collect(p, at, step, &local, reads, pending)?;
+                }
+            }
+            ExprKind::Number(_) => {}
+        }
+        Ok(())
+    }
+    let mut reads = BTreeSet::new();
+    let mut pending = Vec::new();
+    let mut visited = BTreeSet::new();
+    collect(
+        p,
+        derivation.row,
+        &derivation.expression,
+        &kind_types(p, derivation.kind, derivation.row),
+        &mut reads,
+        &mut pending,
+    )?;
+    while let Some(id) = pending.pop() {
+        if !visited.insert(id) {
+            continue;
+        }
+        let f = &p.functions[&id];
+        let mut env = p.named_types(id);
+        extents(p, id, &mut env);
+        env.extend(f.arguments.iter().cloned());
+        if let Some(body) = &f.body {
+            collect(p, id, body, &env, &mut reads, &mut pending)?;
+        }
+        if let Some(validity) = &f.validity {
+            predicate(p, id, validity, &env, &mut reads, &mut pending)?;
+        }
+    }
+    Ok(reads)
+}
+
 /// Derived attributes ordered by the attribute names their expressions mention: a mention
-/// of a derived attribute's name, as an attribute of the entity or of any other, orders that
+/// of a derived attribute's name, directly or through statically named functions, orders that
 /// derivation first. The order is conservative; a cycle is refused with its attributes named.
 fn derivation_order(p: &CheckedPackage, derivations: &[Derivation]) -> Result<Vec<usize>> {
     let mut graph = petgraph::graph::DiGraph::<usize, ()>::new();
@@ -2183,14 +2407,9 @@ fn derivation_order(p: &CheckedPackage, derivations: &[Derivation]) -> Result<Ve
         .map(|index| graph.add_node(index))
         .collect::<Vec<_>>();
     for (to, derivation) in derivations.iter().enumerate() {
-        let mentions = derivation
-            .expression
-            .paths()
-            .into_iter()
-            .flat_map(|path| path.segments.iter().map(|s| s.name.as_str()))
-            .collect::<BTreeSet<_>>();
+        let mentions = derivation_mentions(p, derivation)?;
         for (from, other) in derivations.iter().enumerate() {
-            if mentions.contains(other.name.as_str()) {
+            if mentions.contains(&other.row) {
                 graph.add_edge(nodes[from], nodes[to], ());
             }
         }

@@ -158,7 +158,7 @@ fn same_publication_variants_are_distinct_but_conflicting_slot_selection_refuses
 #[test]
 fn missing_required_pair_is_not_an_implicit_zero() {
     let fixture=BASE.replace(" [model,pair_contract,b,c]=[interactions.symmetric_scalar[fit_y,pair_contract,b,c],missing];", "");
-    refuses(&fixture, "missing");
+    refuses(&fixture, "but no row");
 }
 
 #[test]
@@ -166,7 +166,12 @@ fn symmetric_reverse_record_and_double_orientation_refuse() {
     let fixture = BASE
         .replace("[a,b,1]=[0.1]", "[b,a,1]=[0.1]")
         .replace("[fit_x,pair_contract,a,b,1]", "[fit_x,pair_contract,b,a,1]");
-    refuses(&fixture, "canonical orientation");
+    refuses(&fixture, "record.first==i and record.second==j");
+    let reversed_record = BASE.replacen("entity properties.property_package model", r#"dataset reversed:interactions.symmetric_scalar bind(parameterization=fit_y,family=pair_contract,source=publication,dependencies={},conventions={}) provenance(publication,provenance.Role.published) {
+        [b,a]=[0.1];
+    }
+    entity properties.property_package model"#, 1);
+    refuses(&reversed_record, "canonical orientation");
     let fixture=BASE.replace(" [model,pair_contract,a,b]=[interactions.symmetric_scalar[fit_x,pair_contract,a,b,1],missing];",
         " [model,pair_contract,a,b]=[interactions.symmetric_scalar[fit_x,pair_contract,a,b,1],missing];\n [model,pair_contract,b,a]=[interactions.symmetric_scalar[fit_x,pair_contract,a,b,1],missing];");
     refuses(&fixture, "both orientations");
@@ -251,7 +256,6 @@ fn atomic_membership_is_closed_without_an_authored_backlink() {
     assert_eq!(records(&p, "selection_fixture.selected").len(), 3);
 }
 
-
 #[test]
 fn optional_record_unwrap_refuses_absence_and_preserves_the_supplied_identity() {
     let fixture=BASE.replacen("entity properties.property_package model",r#"entity kind index_probe {
@@ -259,22 +263,51 @@ fn optional_record_unwrap_refuses_absence_and_preserves_the_supplied_identity() 
 }
 entity index_probe demanded {}
 entity properties.property_package model"#,1);
-    refuses(&fixture,"required optional value is absent");
+    refuses(&fixture, "required optional value is absent");
     let supplied=fixture.replacen("entity properties.property_package model",r#"dataset indexed:interactions.symmetric_records provenance(publication,provenance.Role.published) {
  [fit_x,pair_contract,a,b,1]=[interactions.symmetric_scalar[fit_x,pair_contract,a,b,1]];
 }
 entity properties.property_package model"#,1);
-    let p=admitted(&supplied).unwrap();
-    let Value::Set(chosen)=&p.entities[&p.names["selection_fixture.demanded"]].values["chosen"] else {panic!("chosen existing record")};
-    assert_eq!(chosen.len(),1);
-    assert!(records(&p,"selection_fixture.selected").contains(&chosen[0]));
+    let p = admitted(&supplied).unwrap();
+    let Value::Set(chosen) = &p.entities[&p.names["selection_fixture.demanded"]].values["chosen"]
+    else {
+        panic!("chosen existing record")
+    };
+    assert_eq!(chosen.len(), 1);
+    assert!(records(&p, "selection_fixture.selected").contains(&chosen[0]));
 }
-
 
 #[test]
 fn record_subtype_cannot_relabel_its_owned_scientific_slot() {
-    let fixture=BASE.replacen("dataset x:interactions.symmetric_scalar",r#"entity kind relabeled extends interactions.symmetric_scalar {slot=wrong_slot;}
+    let fixture=BASE.replacen("dataset x:interactions.symmetric_scalar",r#"entity kind relabeled extends interactions.symmetric_scalar {override slot=wrong_slot;}
 fn wrong_slot(r:relabeled)->Tuple<properties.property,Tuple<chemistry.species?,chemistry.species?>,compatibility.PhaseType?,chemistry.reaction?>=tuple(r.family,tuple(r.first,r.first),missing,missing);
 dataset x:relabeled"#,1);
-    refuses(&fixture,"owned symmetric record key projection");
+    refuses(&fixture, "owned symmetric record key projection");
+}
+
+#[test]
+fn derived_order_follows_transitive_named_callbacks_and_refuses_hidden_cycles() {
+    let fixture = r#"package derivation_fixture {
+        entity kind item {
+            derived observed:Set<item>=forward(self,read_actual);
+            derived actual:Set<item>=set_of(self);
+        }
+        entity kind unrelated { attribute observed:Set<item>; }
+        entity unrelated facts { observed={a} }
+        fn forward(r:item,read:Fn(r:item)->Set<item>)->Set<item>=union(read(r),read_unrelated(facts));
+        fn read_actual(r:item)->Set<item>=r.actual;
+        fn read_unrelated(r:unrelated)->Set<item>=r.observed;
+        entity item a {}
+    }"#;
+    let p = admitted(fixture).unwrap();
+    let id = p.names["derivation_fixture.a"];
+    assert_eq!(
+        p.entities[&id].values["observed"],
+        p.entities[&id].values["actual"]
+    );
+    let cycle = fixture.replace(
+        "derived actual:Set<item>=set_of(self)",
+        "derived actual:Set<item>=forward(self,read_actual)",
+    );
+    refuses(&cycle, "derive from one another");
 }

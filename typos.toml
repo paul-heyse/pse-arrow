@@ -70,6 +70,7 @@ iz = "iz"
 Datas = "Datas"
 compilability = "compilability"
 Serializeable = "Serializeable"
+overrideable = "overrideable"   # Accepted spelling variant in the physical-semantics design page.
 
 [default.extend-identifiers]
 # Exact crate/feature name retained from Cargo metadata, not prose.

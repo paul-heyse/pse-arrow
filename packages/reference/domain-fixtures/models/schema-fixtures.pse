@@ -10,8 +10,8 @@
 @id("01a0f014fa44727ba187db363fb8f6b1") entity provenance.source schema_fixture_data { title = "Synthetic values exercising the domain schema; not a scientific source" }
 @id("01a0f014fa44727ba187db37debda849") entity chemistry.element light { symbol = "Lt", atomic_number = 1, standard_atomic_weight = 0.001{kg/mol} }
 @id("01a0f014fa44727ba187db38d398d677") entity chemistry.element heavy { symbol = "Hv", atomic_number = 8, standard_atomic_weight = 0.016{kg/mol} }
-@id("01a0f014fa44727ba187db39d29e3cdc") entity chemistry.species light_heavy {}
-@id("01a0f014fa44727ba187db3a1b310862") entity chemistry.species heavy_pair {}
+@id("01a0f014fa44727ba187db39d29e3cdc") entity chemistry.species light_heavy {composition=chemistry.CompositionKnowledge.Complete}
+@id("01a0f014fa44727ba187db3a1b310862") entity chemistry.species heavy_pair {composition=chemistry.CompositionKnowledge.Complete}
 @id("01a0f014fa44727ba187db3b86cbd03d") entity chemistry.species unformulated {}
 @id("01a0f014fa44727ba187db3cd9cbca23") dataset formulas: chemistry.formula provenance(schema_fixture_data, provenance.Role.synthetic) { [light_heavy, light] = [2{1}]; [light_heavy, heavy] = [1{1}]; [heavy_pair, heavy] = [2{1}]; }
 @id("01a0f014fa44727ba187db3d8be68cc3") fn molar_mass_or_zero(j: chemistry.species) -> MolarMass = if present(j.molar_mass) then j.molar_mass else 0{kg/mol};
@@ -73,7 +73,7 @@
 @id("01a0f014fa44727ba187db6999c6f3ef") set pair_species: Set<chemistry.species> = {light_heavy, heavy_pair};
 @id("b4a003f9a1ad4b2fb93596b4bfffeba3") dataset binary_values:interactions.symmetric_scalar bind(parameterization=fixture_fit,family=binary,source=schema_fixture_data,dependencies={},conventions={}) provenance(schema_fixture_data,provenance.Role.synthetic) {[light_heavy,heavy_pair]=[0.25];}
 @id("75e8fd57ec1a45ffa13079758a227166") dataset binary_index:interactions.symmetric_records provenance(schema_fixture_data,provenance.Role.synthetic) {[fixture_fit,binary,light_heavy,heavy_pair,1]=[interactions.symmetric_scalar[fixture_fit,binary,light_heavy,heavy_pair]];}
-@id("5dd761bb2e9d4448b56fc00ace03280a") dataset binary_selection:interactions.symmetric_selection complete_over(k in packages,family in binaries,i in pair_species,j in pair_species) provenance(schema_fixture_data,provenance.Role.synthetic) {[fixture_package,binary,light_heavy,heavy_pair]=[interactions.symmetric_records[fixture_fit,binary,light_heavy,heavy_pair,1],missing];}
+@id("5dd761bb2e9d4448b56fc00ace03280a") dataset binary_selection:interactions.symmetric_selection complete_over(k in packages,family in binaries,i in pair_species,j in pair_species) provenance(schema_fixture_data,provenance.Role.synthetic) {[fixture_package,binary,light_heavy,heavy_pair]=[interactions.symmetric_scalar[fixture_fit,binary,light_heavy,heavy_pair],missing];}
 @id("b1bf3e57c1254a4ca343adaba6f19673") dataset fixture_self:interactions.self_rule complete_over(k in packages,family in binaries) provenance(schema_fixture_data,provenance.Role.synthetic) {[fixture_package,binary]=[interactions.zero_self];}
 @id("9d500736b1794aeaa16fd1adca807ec7") entity properties.selection_context fixture_admitted {roots={properties.phased_parameter[light_heavy,properties.heat_capacity,liquidPhase,fixture_fit],properties.phased_parameter[light_heavy,properties.vapor_pressure,liquidPhase,fixture_fit],properties.phased_parameter[light_heavy,properties.liquid_molar_density,liquidPhase,fixture_fit],interactions.symmetric_scalar[fixture_fit,binary,light_heavy,heavy_pair]},subjects=pair_species,models={properties.heat_capacity,properties.vapor_pressure,properties.liquid_molar_density,binary},rules={}}
 @id("01a0f014fa44727ba187db6c12cf8da2") test property_operations_read_the_selected_form oracle schema_fixture_data fixture {dof 0; run pure;} {

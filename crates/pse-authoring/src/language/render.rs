@@ -858,13 +858,11 @@ fn print_block(
                 use pse_model::generated::enums::ModelingAnnotationKind as A;
                 let typed = (
                     v.objective.is_some(),
-                    v.extrapolation.is_some(),
                     v.scheme.is_some(),
                     v.connectivity.is_some(),
                 );
                 let expected = (
                     v.kind == A::Objective,
-                    v.kind == A::Valid,
                     v.kind == A::Scale,
                     v.kind == A::Connectivity,
                 );
@@ -888,10 +886,7 @@ fn print_block(
                         }
                         members.join(", ")
                     }
-                    (A::Valid, [lower, upper]) => format!(
-                        "{lower}, {upper}, {}",
-                        v.extrapolation.map_or("", |p| p.as_str())
-                    ),
+                    (A::Valid, [lower, upper]) => format!("{lower}, {upper}"),
                     (A::Scale, []) => v.scheme.map_or("", |s| s.as_str()).to_owned(),
                     (A::Connectivity, []) => {
                         let c = v.connectivity.as_ref().ok_or_else(|| bad("connectivity maxima"))?;

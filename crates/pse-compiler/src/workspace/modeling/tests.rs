@@ -24,7 +24,17 @@ fn setup(
     PhysicalScope,
     DeclarationId,
 ) {
-    let input = super::super::tests::inputs();
+    setup_with_inputs(text, super::super::tests::inputs())
+}
+fn setup_with_inputs(
+    text: &str,
+    input: Inputs,
+) -> (
+    CompilerWorkspace,
+    Vec<Declaration>,
+    PhysicalScope,
+    DeclarationId,
+) {
     let names = PhysicalScope::default();
     let rows = source(text);
     let root = rows
@@ -2169,7 +2179,7 @@ impl FixtureWorker<'_> {
 fn kernel_validity_obligations_survive_cancellation_and_cover_derived_members() {
     for expression in ["x-x", "z-z"] {
         let text = format!(
-            "package p {{ def Root {{ var x: Scalar; let z: Scalar = 2*x; eq e: {expression} == 0; annotation valid x(1,3,reject); annotation valid z(2,6,reject); }} }}"
+            "package p {{ def Root {{ var x: Scalar; let z: Scalar = 2*x; eq e: {expression} == 0; annotation valid x(1,3); annotation valid z(2,6); }} }}"
         );
         let (mut workspace, _, _, root) = setup(&text);
         let admitted = admit(&mut workspace, root);
@@ -4110,7 +4120,8 @@ const ENVELOPE_BANK: &str = r#"entity kind source provenance { attribute title: 
 fn evaluate_named(
     text: &str,
 ) -> impl FnMut(&[(&str, f64)]) -> std::result::Result<Vec<f64>, MathError> + use<> {
-    let (mut workspace, _, _, root) = setup(text);
+    let (mut workspace, _, _, root) =
+        setup_with_inputs(text, crate::authored_transfer_tests::inputs());
     let admitted = admit(&mut workspace, root);
     let model = workspace
         .specialize_modeling(
@@ -4199,57 +4210,131 @@ fn increment_guards_its_integration_interval() {
     }
 }
 
-/// ADR-0123 Outcome 4: validity is the intersection of the form, data and closure layers.
-/// A consumer selecting extrapolation relaxes only the data layer: the form layer's domain
-/// never extrapolates and a rejecting closure range still holds; under reject, the data
-/// layer refuses and names its relation. A selection of the form layer is refused.
 #[test]
-fn layers_intersect_and_form_never_extrapolates() {
-    let text = format!(
-        "package p {{ {ENVELOPE_BANK}
- fn cp(T: Temperature, p: Row<cp_data>) -> MolarCp guards(p.T: T) valid(T > 200{{K}}) = p.c;
- def Root {{ extrapolation data extrapolate; var T: Temperature; var c: MolarCp; eq e: c == cp(T, cp_data[a]); annotation valid T(100{{K}}, 450{{K}}, reject); }}
-}}"
-    );
-    let rows = source(&text);
-    let id = |name: &str| rows.iter().find(|r| r.name == name).unwrap().declaration_id;
-    let mut extrapolating = evaluate_named(&text);
-    // Inside every layer, and outside only the data layer, whose consumer extrapolates.
-    extrapolating(&[("T", 300.)]).unwrap();
-    extrapolating(&[("T", 420.)]).unwrap();
-    // Outside the form layer: refused whatever the data layer's policy.
-    let error = extrapolating(&[("T", 150.)]).expect_err("the form layer never extrapolates");
-    assert_eq!(domain_source(&error), Some(id("cp").as_id()), "{error}");
-    // Outside the rejecting closure range: refused.
-    assert!(extrapolating(&[("T", 470.)]).is_err());
-    // Without the selection the data layer rejects and names its relation.
-    let mut rejecting = evaluate_named(&text.replace("extrapolation data extrapolate; ", ""));
-    rejecting(&[("T", 300.)]).unwrap();
-    let error = rejecting(&[("T", 420.)]).expect_err("the data layer rejects by default");
-    assert_eq!(
-        domain_source(&error),
-        Some(id("cp_data").as_id()),
-        "{error}"
-    );
-    // The form layer is not selectable.
-    for selection in [
-        "extrapolation form extrapolate;",
-        "extrapolation form reject;",
+fn kernel_conservation_scatter_preserves_mixed_contracts_and_homogeneous_control() {
+    for (mixed, text) in [
+        (
+            false,
+            "package p {def Root {var x:Scalar;var y:Scalar;accumulate total:Scalar conservation tolerance 0.01;contribute total role inflow=x;contribute total role outflow=y;}}",
+        ),
+        (
+            true,
+            "package p {def Root {boundary wall;var x:Power;var y:Transfer<EnergyTransferRate,wall,Into>;accumulate total:Power boundary wall conservation tolerance 0.01{W};contribute total role inflow=x;contribute total role directed=y;}}",
+        ),
     ] {
-        let mut workspace =
-            CompilerWorkspace::new(super::super::tests::inputs(), WorkspaceLimits::default())
-                .unwrap();
-        let error = workspace
-            .publish_modeling(
-                source(&text.replace("extrapolation data extrapolate;", selection)),
-                PhysicalScope::default(),
+        let (mut workspace, _, _, root) =
+            setup_with_inputs(text, crate::authored_transfer_tests::inputs());
+        let cancel = Arc::new(AtomicBool::new(false));
+        let prepared = workspace
+            .prepare_modeling_cancellable(
+                root,
+                InstanceId::from_id(SemanticId::NIL),
+                Bindings::default(),
+                Limits::default(),
+                cancel.clone(),
             )
-            .expect_err("form layer selection");
-        assert!(
-            error
-                .to_string()
-                .contains("the form layer never extrapolates"),
-            "{error}"
+            .unwrap();
+        let a = &prepared.admitted;
+        let equation = a
+            .outputs
+            .iter()
+            .find_map(|o| {
+                if let ModelingOutput::Equation { id, .. } = o {
+                    Some(*id)
+                } else {
+                    None
+                }
+            })
+            .unwrap();
+        let scatter = a
+            .case
+            .instances()
+            .iter()
+            .filter(|i| {
+                i.contributions
+                    .iter()
+                    .any(|c| c.target == Target::Row(equation))
+            })
+            .count();
+        assert_eq!(scatter, if mixed { 1 } else { 2 });
+        assert_eq!(
+            a.outputs
+                .iter()
+                .filter(|o| matches!(o, ModelingOutput::Contribution { .. }))
+                .count(),
+            2
         );
+        if mixed {
+            let payload = workspace
+                .inputs
+                .quantities
+                .physical_name("EnergyTransferRate")
+                .unwrap();
+            assert!(
+                a.outputs
+                    .iter()
+                    .filter(|o| matches!(o, ModelingOutput::Contribution { .. }))
+                    .any(|o| {
+                        let row = a
+                            .case
+                            .rows()
+                            .iter()
+                            .find(|row| row.id == o.row_id())
+                            .unwrap();
+                        payload == pse_quantity::PhysicalName::QuantityType(row.quantity)
+                    })
+            );
+            assert!(prepared.model.symbols.values().any(|s|s.lineage.path.ends_with(".y") && s.ty.physical_refinement().is_some()));
+        }
+        let plan = a
+            .plan(
+                &workspace.inputs.quantities,
+                DerivativeOrder::First,
+                AssemblyLimits::default(),
+                &cancel,
+            )
+            .unwrap();
+        let assembly = Arc::new(
+            plan.compile(Default::default(), Default::default(), &cancel)
+                .unwrap(),
+        );
+        let mut worker = assembly.worker(BTreeMap::new(), cancel);
+        let values = CaseValues {
+            scalars: a
+                .inputs
+                .iter()
+                .map(|id| {
+                    (
+                        *id,
+                        if prepared.model.symbols[id].lineage.path.ends_with(".x") {
+                            2.
+                        } else {
+                            3.
+                        },
+                    )
+                })
+                .collect(),
+        };
+        let row = a
+            .case
+            .rows()
+            .iter()
+            .position(|row| row.id == equation)
+            .unwrap();
+        assert_eq!(
+            worker.constraints(&values).unwrap()[row],
+            if mixed { 5. } else { -1. }
+        );
+        let jacobian = worker.jacobian(&values).unwrap().to_dense();
+        for (column, id) in plan.columns().iter().enumerate() {
+            assert_eq!(
+                jacobian[(row, column)],
+                if mixed || prepared.model.symbols[id].lineage.path.ends_with(".x") {
+                    1.
+                } else {
+                    -1.
+                }
+            );
+        }
     }
 }

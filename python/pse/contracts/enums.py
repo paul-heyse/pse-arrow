@@ -390,13 +390,6 @@ class ExternalDerivativeSource(StrEnum):
     IMPLICIT = "implicit"
 
 
-class ExtrapolationPolicy(StrEnum):
-    """The declared ExtrapolationPolicy enumeration."""
-
-    REJECT = "reject"
-    EXTRAPOLATE = "extrapolate"
-
-
 class FailureClass(StrEnum):
     """The declared FailureClass enumeration."""
 
@@ -615,6 +608,33 @@ class ModelingAnnotationKind(StrEnum):
     CONNECTIVITY = "connectivity"
 
 
+class ModelingApplicabilityBasis(StrEnum):
+    """The declared ModelingApplicabilityBasis enumeration."""
+
+    FITTED = "fitted"
+    RECOMMENDED = "recommended"
+    VALIDATED = "validated"
+    REPORTED = "reported"
+
+
+class ModelingApplicabilityKind(StrEnum):
+    """The declared ModelingApplicabilityKind enumeration."""
+
+    REGION = "region"
+    INTERVAL = "interval"
+    UNRESTRICTED = "unrestricted"
+    UNKNOWN = "unknown"
+    UNION = "union"
+
+
+class ModelingApplicabilityOutcome(StrEnum):
+    """The declared ModelingApplicabilityOutcome enumeration."""
+
+    APPLICABLE = "applicable"
+    OUTSIDE_REGION = "outside_region"
+    UNKNOWN_EVIDENCE = "unknown_evidence"
+
+
 class ModelingCellKind(StrEnum):
     """The declared ModelingCellKind enumeration."""
 
@@ -644,6 +664,7 @@ class ModelingCheckKind(StrEnum):
     ORIGINAL_EQUATION = "original_equation"
     CLOSURE = "closure"
     VALIDITY = "validity"
+    APPLICABILITY = "applicability"
 
 
 class ModelingConformanceKind(StrEnum):
@@ -737,8 +758,9 @@ class ModelingDeclarationKind(StrEnum):
     LOGIC = "logic"
     COMPLEMENTARITY = "complementarity"
     TABLE = "table"
+    APPLICABILITY = "applicability"
+    PERMISSION = "permission"
     ENVELOPE = "envelope"
-    EXTRAPOLATION = "extrapolation"
     ATTRIBUTE = "attribute"
     DATASET = "dataset"
     ENTITY = "entity"
@@ -900,6 +922,13 @@ class ModelingObjectiveRoute(StrEnum):
     STAGED = "staged"
 
 
+class ModelingPermissionTarget(StrEnum):
+    """The declared ModelingPermissionTarget enumeration."""
+
+    RECORDS = "records"
+    FAMILIES = "families"
+
+
 class ModelingRealValueKind(StrEnum):
     """The declared ModelingRealValueKind enumeration."""
 
@@ -963,6 +992,7 @@ class ModelingTypeNode(StrEnum):
     POWER = "power"
     IDENTIFIER = "identifier"
     QUANTITY_TYPE = "quantity_type"
+    APPLICABILITY = "applicability"
     REFERENCE_STATE = "reference_state"
     COORDINATE = "coordinate"
     REDUCED_LAW = "reduced_law"

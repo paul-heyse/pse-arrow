@@ -361,7 +361,7 @@ implementation or general IDAES equivalence (§6.14).
 
 ### 9.1 Material declarations
 
-> Proposed amendment: [ADR-0140](../../adr/0140-scientific-knowledge-admission.md),
+> Implemented amendment: [ADR-0140](../../adr/0140-scientific-knowledge-admission.md),
 > maintainer-authorized Plan 25b; execution status belongs to that plan.
 
 Conservation consumes an explicit complete composition claim, including complete-empty,
@@ -403,7 +403,7 @@ authored equation; every analysis still consumes the same checked definitions.
 
 ### 9.3 Property method data
 
-> Proposed amendment: [ADR-0140](../../adr/0140-scientific-knowledge-admission.md) and
+> Implemented amendment: [ADR-0140](../../adr/0140-scientific-knowledge-admission.md) and
 > [ADR-0141](../../adr/0141-applicability-evidence-and-permissions.md).
 
 Scientific records identify parameterization, declared family/contract, subject tuple and
@@ -503,7 +503,7 @@ registered capability references; scientific names never choose a Rust factory.
 
 ### 9.7 Reaction binding
 
-> Proposed amendment: [ADR-0140](../../adr/0140-scientific-knowledge-admission.md).
+> Implemented amendment: [ADR-0140](../../adr/0140-scientific-knowledge-admission.md).
 
 A concrete checked reaction/material projection derives all source coefficients from the
 authoritative reaction, checks every nonzero participant, and admits inert extra species.
@@ -580,7 +580,7 @@ qualification remain Plan 25k work.
 
 ### 9.9 Electrolytes and inherent reactions
 
-> Proposed amendment: [ADR-0140](../../adr/0140-scientific-knowledge-admission.md).
+> Implemented amendment: [ADR-0140](../../adr/0140-scientific-knowledge-admission.md).
 
 An apparent/true-species transformation claiming conservation requires complete elemental
 composition and independent charge evidence for every nonzero participant. Charge balance
@@ -595,22 +595,30 @@ kernel gap, not permission for a scientific special case in Rust.
 
 ### 9.10 Scaling defaults and validity
 
-> Proposed amendment: [ADR-0141](../../adr/0141-applicability-evidence-and-permissions.md).
+> Implemented amendment: [ADR-0141](../../adr/0141-applicability-evidence-and-permissions.md).
 
 Applicability claims are known regions, explicitly unrestricted evidence or unknown evidence.
-Region observations preserve fitted/recommended/validated meaning, selected record and
+Region observations preserve fitted/recommended/validated/reported meaning, selected record and
 responsible form/model layer. Named record/family permissions for unknown evidence and
 extrapolation default false, are independent, and retain binding authorization; they cannot
-upgrade evidence. B4 enforces the use gate; final result qualification remains a distinct
+upgrade evidence. A named nominal family covers only its checked subtypes; the claim retains
+its actual owner and checked owner ancestry, while the permission retains its authored targets.
+B4 enforces the use gate; final result qualification remains a distinct
 consumer. Mathematical and hard model domains always refuse. Required dependencies retain
-all observations; declared alternative regions form unions. Arbitrary predicate regions do
-not gain whole-interval coverage from endpoint tests.
+all observations; a winning declared alternative retains its own required dependencies.
+Numerical record reads attach evidence at the actual demanded expression, including direct
+member reads; inactive branches acquire no evidence obligation. Arbitrary predicate regions
+do not gain whole-interval coverage from endpoint tests. Generated observations retain actual
+physical inputs, consuming instance, required/alternative status, unknown reason and complete
+matched permission scope, targets and independent flags, including the checked owner ancestry. Their framed identity distinguishes
+applications of the same source call at different instances or physical inputs.
 
 Starts, nominals, validity intervals and scientific checks are annotations on the same
 model that is solved. Numerical policy resolution retains source priority and unit
 conversion (§16); block and recycle projections consume that resolved policy.
 
-A validity annotation records membership independently from permission to extrapolate.
+Hard validity annotations and mathematical domains are unwaivable. Scientific applicability
+records membership independently from permission to extrapolate.
 An out-of-domain trial is typed and attributed to its source/member/value/bounds. A final
 candidate must pass original equations, declared checks and fixture expectations. A policy
 allowing unclosed conservation does not waive arbitrary failed checks. Solver success,

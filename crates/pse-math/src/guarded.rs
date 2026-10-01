@@ -207,8 +207,13 @@ pub(crate) fn validate_dependencies(
                 predicates,
                 inputs,
                 token,
-                ..
+                plan,
             } => {
+                if !plan.valid_capture(predicates.len(), inputs.len(), *remaining) {
+                    return Err(MathError::Contract(
+                        "invalid or excessive applicability capture".into(),
+                    ));
+                }
                 let mut local = assigned.clone();
                 validate_dependencies(stages, symbols, &mut local, depth + 1, remaining)?;
                 if predicates

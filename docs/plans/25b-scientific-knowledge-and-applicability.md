@@ -1,6 +1,6 @@
 ---
 title: "25b: Scientific knowledge and applicability"
-status: in-progress
+status: done
 date: 2026-09-30
 adrs: [ADR-0140, ADR-0141]
 review_sources: [docs/design_review/reviews/design_review_codebase-domain-alignment_2026-09-30.md, docs/design_review/reviews/design_review_codebase-domain-alignment-follow-up_2026-09-30.md]
@@ -69,10 +69,10 @@ legitimate knowledge. The selected target makes completeness local to the operat
 
 | Packet | Prerequisites | Responsibility | Status |
 |---|---|---|---|
-| <a id="b1"></a>B1 Composition completeness | Existing authored relations | Distinguish complete, complete-empty and unknown composition; enforce conserved claims | in-progress |
-| <a id="b2"></a>B2 Reaction/material projection | B1; A2/A4 | Derive reaction sources and bind kinetics/heat to one extent convention | in-progress |
-| <a id="b3"></a>B3 Parameterization and pair selection | A1/A2 for affected physical declarations | Separate phase scope, parameter identity, provenance and coherence; migrate selections/data | in-progress |
-| <a id="b4"></a>B4 Applicability and data-use policy | B3; A3 for mapped family contracts | Compose evidence, consuming-model domains and explicit permission; export observations to E3 | in-progress |
+| <a id="b1"></a>B1 Composition completeness | Existing authored relations | Distinguish complete, complete-empty and unknown composition; enforce conserved claims | done |
+| <a id="b2"></a>B2 Reaction/material projection | B1; A2/A4 | Derive reaction sources and bind kinetics/heat to one extent convention | done |
+| <a id="b3"></a>B3 Parameterization and pair selection | A1/A2 for affected physical declarations | Separate phase scope, parameter identity, provenance and coherence; migrate selections/data | done |
+| <a id="b4"></a>B4 Applicability and data-use policy | B3; A3 for mapped family contracts | Compose evidence, consuming-model domains and explicit permission; export observations to E3 | done |
 
 ### B1 — Complete composition and conserved claims
 
@@ -196,39 +196,159 @@ record actual commands, conditions and failures against zero in the final qualif
 
 ### Execution checkpoint
 
-Work starts from the current checkout at `ef5bd2ec`, including the completed 25a dirty baseline.
-Concurrent Plan 24 and governance changes are preserved. ADR-0140/0141 precede the new
-contracts; their scoped target review accepted the proposal and their status remains proposed.
+Completed 2026-10-01. Work began at `ef5bd2ec` with the completed 25a dirty baseline and
+integrated into the shared checkout, now at `be469cc9`; concurrent governance changes and the
+Plan 24 repository move are preserved. B1–B4 are complete. The Outcome below owns the
+implementation, composite focused evidence and handoff; the series coordinator owns finding
+dispositions. ADR-0140/0141 preceded implementation and remain proposed pending their decision PRs.
 
-The selected approach uses authored complete/unknown composition and guarded sparse lookups,
-a concrete nonoverrideable reaction/material projection, and record-mediated kinetic/heat
-methods bound to explicit extent conventions. Parameterization/family/subjects/variant are
-distinct from provenance. Existing separate keyed shapes avoid optional/tuple-key extensions;
-joint-fit membership is separate from derivation lineage.
+The [selection implementation review](../design_review/reviews/design_review_plan25b-selection-implementation_2026-10-01.md)
+identified consumed-context and late-identity gaps (IR25B-01/02) and duplicate fit membership
+authority (IR25B-03). Consumed function/instance-scoped closures and derived backlinks repair
+those gaps. The [applicability implementation review](../design_review/reviews/design_review_plan25b-applicability-implementation_2026-10-01.md)
+identified winning-union obligations, branch-hoisted claims, ungated direct reads and lost
+attribution (IR25B4-01–04). Demanded source gates and complete typed observations repair them.
+Subsequent numeric-default, Set-origin and local-alias gaps are also corrected. Focused
+controls exercise the repaired obligations; neither historical review alone establishes acceptance.
 
-Applicability observations remain per claim. Required dependencies can be both outside and
-unknown; their independent named permissions are both required. Declared alternatives use a
-known applicable region when available, otherwise unknown evidence remains unknown. Mathematical
-and hard model-domain requirements always refuse. Whole-interval coverage is explicit; arbitrary
-predicate regions do not inherit an endpoint-only shortcut.
-
-The [selection implementation review](../design_review/reviews/design_review_plan25b-selection-implementation_2026-10-01.md) found three material gaps. IR25B-01/02 are being corrected with consumed-owner/table retention and function/instance-scoped selection framing after consumption. IR25B-03 is corrected in source by deriving record backlinks from the sole authored group membership; focused execution remains pending. Authored selection controls are also exposing source syntax/layout defects during integration. The [applicability implementation review](../design_review/reviews/design_review_plan25b-applicability-implementation_2026-10-01.md) additionally found IR25B4-01–04: incomplete winning-union obligations, branch-hoisted implicit claims, ungated direct record reads and lost observation attribution. Corrections and regression controls are in progress; neither review establishes functional acceptance. The next steps are admission controls, actual numerical consumers, applicability refusal/export controls and review of the stable corrections.
-
-Chemistry/reaction and parameter-selection implementation have disjoint worktree ownership.
-The root integrates changes, owns shared declarations/generation and runs serialized compile
-and focused functional checks. Generic applicability follows the selected identities. Immediate
-deletion accompanies each replaced consumer; comprehensive qualification remains Plan 25k.
+No functional work remains in this child packet. Later packets consume the admitted conserved
+products, immutable selections and full observations described below. Full integration and
+qualification remain 25k; F12 retains its E3 result-qualification obligation.
 
 ## Outcome (recorded after implementation)
 
 ### What was built
 
-Not implemented; record actual behavior and evidence labels at closure.
+**Implemented, 2026-10-01:** B1 distinguishes complete, complete-empty and unknown
+composition, with independent charge evidence and guarded sparse lookup. Conservation and
+explicit apparent/lumped translations require the evidence they claim; atomic weights remain
+separate from completeness. B2 derives one immutable reaction/material projection from the
+reaction's coefficients, checks all nonzero participants, allows inert extras and binds kinetic
+and heat records to the same explicit extent convention. Both authored reactors consume it.
+
+**Implemented:** B3 separates parameterization, family, subject tuple, variant and provenance;
+phase is present only where relevant. Ordered and symmetric selections use existing records or
+an explicit predictive rule. Required dependency/fit-group closure, declared subsystem
+projections and convention identity survive consumption. Joint-fit membership has one authored
+owner and derived record backlinks. Ternary independent sources compose without copied
+coefficients, and fitted zero, missing pair and predictive zero remain distinct.
+
+**Implemented:** B4 retains fitted/recommended/validated/reported evidence, unknown and
+unrestricted claims, declared alternatives and required dependencies. Default use is strict;
+exact-record or declared-family Unknown and extrapolation permissions remain independent.
+Checked nominal ancestry supports family targeting without widening authored targets. The actual
+read carries its gate through branches, cancellation, partials, parameter defaults, constructor
+arguments and evidence-bearing aliases. Parameters remain case-value inputs; generated
+prerequisite indices transfer effects without recomputing their numerical authority. Set-origin
+receipts follow actual membership/reduction reads and local aliases without importing an
+unused instance's selections. Hard mathematical and model domains remain unwaivable.
+
+**Implemented:** full typed assessments survive refusals and generated
+`runtime.modeling_checks` version 5 observations. They retain actual owner/ancestry, consuming
+instance, required/alternative status, reasons, typed inputs, records/dependencies and complete
+matched permission identity, scope, targets and flags. Authored declarations are version 22.
+Changed preparation preimages use parameter-read v1, finite-function v9, dispatch-body v6,
+typed-definition v9 and observation v2 frames. Twenty-three concrete seed/campaign scopes name
+only the two water constant fits whose standalone parameter reads lack an applicable form
+signature; extrapolation stays disabled and generic liquid models stay strict.
+
+Deleted the RateLaw coefficient callback and forwarding source tables, source-wide pair-bank
+selectors and vapor-key sentinel, editable fit backlinks, blanket extrapolation declarations,
+hard-range permission fields and the static optional-envelope observer path with its obsolete
+fixtures/tests. Rust, generated transports and Python decoders consume the replacement meaning.
+
+### Verification
+
+**Tested, 2026-10-01:** 100 distinct focused Rust controls have successful receipts against a
+**zero-failure baseline**. The recipe for each table row is
+`just unit-package <package> '<filter>' --test-threads 1`, using the pinned toolchain,
+optimized test profile and explicit `--features pse-relations/force-validate`.
+
+| Package | Exact filter | Result |
+|---|---|---|
+| pse-modeling | `test(scientific_composition_tests)` | 5 passed, 0 failed |
+| pse-modeling | `test(scientific_selection_tests)` | 12 passed, 0 failed |
+| pse-modeling | `test(static_reduction_and_fold_resolve_lexical_entity_member_domains) \| test(domain_schema)`; then `test(domain_schema_refusals_name_the_violated_constraint)` | composite: 5 distinct passed, 0 unresolved failures |
+| pse-model | `test(applicability_tests)` | 13 passed, 0 failed |
+| pse-math | `test(applicability_tests)` | 7 passed, 0 failed |
+| pse-runtime | `test(applicability_tests)` | 4 passed, 0 failed |
+| pse-authoring | `test(annotation_kinds_parse_typed_members) \| test(cell_spellings_parse_to_one_value) \| test(cell_render_parse_roundtrip)` | 3 passed, 0 failed |
+| pse-compiler | source selections below | composite: 51 distinct passed, 0 unresolved failures |
+
+Compiler source verification used these actual final selections:
+
+```sh
+just unit-package pse-compiler 'test(applicability_tests) | test(selection_identity_tests) | test(scientific_parameter_tests) | test(physical_potential_tests) | test(scientific_reaction_tests) | test(authored_material_projection_preserves_complete_component_support) | test(authored_cstr_extent_report_retains_quantity_and_unit_contract) | test(authored_reaction_extent_and_stoichiometric_component_rates_are_physical) | test(kernel_conservation_scatter_preserves_mixed_contracts_and_homogeneous_control) | test(increment_guards_its_integration_interval)' --test-threads 1
+just unit-package pse-compiler 'test(applicability_tests) | test(authored_cstr_extent_report_retains_quantity_and_unit_contract) | test(scientific_composition_elemental_control_volume) | test(scientific_reaction_authoritative_coefficients) | test(scientific_reaction_inert_extra_material) | test(scientific_reaction_missing_products) | test(authored_material_projections_keep_component_and_element_contracts)' --test-threads 1
+just unit-package pse-compiler 'test(scientific_composition_elemental_control_volume) | test(scientific_reaction_authoritative_coefficients) | test(scientific_reaction_inert_extra_material) | test(scientific_seed_constant_parameter_reads)' --test-threads 1
+```
+
+The 49-control run had 44 passed and 5 failed: source tracking incorrectly parsed a literal
+Set default as a numerical expression. After correction, the 27-control rerun had 24 passed
+and 3 data-use refusals, which required the exact seed record permissions described above.
+The new permission control initially declared component density as total density, making all
+four selected tests fail admission; correcting that fixture's nominal type gave 4 passed and
+0 failed. The first command's material filter matched no test; the second command explicitly
+exercised the correctly named material projection control. These are **composite receipts**,
+not an initially clean run. Earlier domain/reaction integration failures were repaired and
+rerun; none are treated as a permitted baseline.
+
+The controls exercise guarded composition, source vectors in both reactors, missing products,
+inert zero sources, extent/heat mismatches, elemental flow, actual ternary NRTL and
+symmetric/directional values, fit closure, convention-only identity, branch/alias/source demand,
+union obligations, both permissions, interval coverage, nominal family matching, full refusal
+and observation transport, and mixed-contract conservation scatter. The prerequisite math
+control returns input 7 while observing source input 999, preserves its physical type and
+first/second derivatives, and refuses missing permission even after numerical cancellation.
+They execute authored scientific expressions with bounded source-selected inputs, not solves
+or storage journeys. `just nrtl-reference` generated the ordered-pair source input without
+fabricated diagonal rows; it is input-generation evidence.
+
+**Tested, 2026-10-01:** `just py-unit-native python/pse/tests/test_generated_contracts.py -k applicability_observation`
+passed 1 isolated unit control, with 15 deselected and 0 failures against zero, on Linux,
+Python 3.14.7 and the refreshed editable dev native-solvers extension. It round-trips the
+generated version 5 observation, checked owner ancestry and complete scoped permission and
+rejects malformed ancestry identity. The initial unlinked `just py-unit` invocation failed
+import because the MKL library was unavailable in that recipe's environment; the first
+native invocation then failed import because the extension held the old registry. Neither
+executed a test. `just py-sync-native` refreshed the extension and actual compiled API stubs;
+the native unit rerun above passed. No solver was invoked by this codec control.
+
+**Interface-checked, 2026-10-01:** `just codegen` completed all six schema targets and found
+no hakari changes; `just check` compiled the workspace's all-target dev selection with
+0 errors against zero. Cargo reported an upstream future-incompatibility notice for
+`proc-macro-error2 v2.0.1`; it is not a functional test result. Full integration/native solves,
+linked Python journeys, parity, feature powersets and performance campaigns belong to 25k.
+Formatting and static hygiene remain owned by the end-of-turn hooks; no new product
+qualification or measurement is claimed here.
 
 ### A mistake made and corrected
 
-Record an actual implementation correction, not a hypothetical planning example.
+A numeric default retained its value while erasing the scientific read that supplied it.
+The first replay correction then reused an owner's aggregate selections and could import an
+unused context's dependency. Exact lexical source replay, demanded Set/alias receipts and an
+explicit effect-only prerequisite correct both mistakes. Runtime inactive-branch, same-record
+unused-context and constructor/alias controls exercise the correction. Literal Set defaults
+remain structural values, and the density fixture now preserves its component contract.
 
 ### Deviations from the plan, deliberate
 
-None recorded. A changed architectural decision follows its owning ADR/design route.
+**Implemented:** the authored target required small generic structural tuple/set, optional
+reference and keyed-reference-set mechanisms, transitive typed derived-attribute ordering and
+numerical prerequisites. They carry the existing owned records and effects rather than adding
+scientific-name dispatch or another coefficient authority. No quantity-valued authored function
+static evaluator or thermodynamic database/snapshot bridge was added.
+
+Standalone parameter coefficients and source range bounds may lack a consuming form signature
+even when their record reports a region. Their observations remain Unknown; individually named
+seed permissions permit those reads without relabelling the region or waiving hard domains.
+The generic mixed-contract conservation lowering falls back to a complete typed closure when
+terms cannot be safely scattered under one ledger contract; independent contribution outputs
+remain available. Its homogeneous control retains the scatter path.
+
+ADR-0140/0141 remain proposed pending the decision-PR route. Enduring meaning lives in blueprint
+§6.15.2, §9.1/§9.3/§9.7/§9.9/§9.10, §14.3 and §19.3/§19.5, amended explicitly under
+`PSE_DESIGN_EDIT=1` and revision 88. The completed child record stays linked while later series
+packets consume its handoff; retirement follows series closure. 25c consumes the conserved
+products, 25e/25f consume observations and declared policy, 25g owns persisted evolution and
+25j owns the remaining public inventory. The coordinator retains F12's E3 qualification work.

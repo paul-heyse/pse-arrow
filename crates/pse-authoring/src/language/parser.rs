@@ -1339,12 +1339,7 @@ impl Cursor<'_> {
         }
         let anonymous = matches!(
             keyword.as_str(),
-            "when"
-                | "require"
-                | "connect"
-                | "contribute"
-                | "expect"
-                | "annotation"
+            "when" | "require" | "connect" | "contribute" | "expect" | "annotation"
         );
         let entity_kind = if keyword == "entity" {
             Some(self.path()?)
@@ -3203,7 +3198,6 @@ impl Cursor<'_> {
                     kind,
                     target,
                     arguments: Vec::new(),
-                    extrapolation: None,
                     scheme: None,
                     connectivity: None,
                     objective: None,
@@ -3212,15 +3206,11 @@ impl Cursor<'_> {
                     // ADR-0111: `annotation objective t(sense, member = value, ...)` carries
                     // typed members, not positional arguments.
                     A::Objective => annotation.objective = Some(self.objective_members()?),
-                    // `annotation valid t(lower, upper, policy)`: the endpoints stay
-                    // expressions and the policy is the registry enumeration.
+                    // A hard physical domain range has exactly two endpoints.
                     A::Valid => {
-                        for _ in 0..2 {
-                            annotation.arguments.push(self.until(&[",", ")"])?);
-                            self.expect(",")?;
-                        }
-                        annotation.extrapolation =
-                            Some(self.vocabulary("validity policy reject or extrapolate")?);
+                        annotation.arguments.push(self.until(&[","])?);
+                        self.expect(",")?;
+                        annotation.arguments.push(self.until(&[",", ")"])?);
                         self.expect(")")?;
                     }
                     A::Scale => {

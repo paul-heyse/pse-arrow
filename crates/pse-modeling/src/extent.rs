@@ -13,6 +13,33 @@ fn map<K, V>(values: &BTreeMap<K, V>, mut value: impl FnMut(&K, &V) -> usize) ->
             .saturating_add(value(k, v))
     })
 }
+fn selections(values: &crate::scientific_selection::Selections) -> usize {
+    map(values, |occurrence, closure| {
+        occurrence.expression.capacity()
+            + occurrence.roots.capacity() * size_of::<Value>()
+            + occurrence
+                .roots
+                .iter()
+                .map(Value::retained_bytes)
+                .sum::<usize>()
+            + occurrence.context.retained_bytes()
+            + (closure.roots.capacity() + closure.records.capacity()) * size_of::<Value>()
+            + closure
+                .roots
+                .iter()
+                .chain(&closure.records)
+                .map(Value::retained_bytes)
+                .sum::<usize>()
+            + closure.context.retained_bytes()
+            + map(&closure.edges, |record, dependencies| {
+                record.retained_bytes()
+                    + dependencies
+                        .iter()
+                        .map(|value| size_of::<Value>() + 64 + value.retained_bytes())
+                        .sum::<usize>()
+            })
+    })
+}
 pub(crate) fn scheme(value: &Scheme) -> usize {
     match value {
         Scheme::Variable(n) => n.capacity(),
@@ -156,12 +183,26 @@ fn lineage(v: &Lineage) -> usize {
         + (v.demand.capacity() + v.presets.capacity()) * size_of::<pse_ids::SemanticId>()
 }
 fn function(v: &Function) -> usize {
-    v.physical_admissions
-        .iter()
-        .map(|(occurrence, admission)| {
-            occurrence.syntax.capacity() + admission.retained_bytes() + 64
-        })
-        .sum::<usize>()
+    v.applicability.capacity() * size_of::<Expr>()
+        + v.prerequisites.capacity() * size_of::<usize>()
+        + v.applicability.iter().map(expression).sum::<usize>()
+        + v.applicability_uses.capacity() * size_of::<crate::applicability::Use>()
+        + v.applicability_uses
+            .iter()
+            .map(|usage| {
+                usage.node.retained_bytes()
+                    + usage.predicates.capacity() * size_of::<Predicate>()
+                    + usage.predicates.iter().map(predicate).sum::<usize>()
+                    + usage.inputs.capacity() * size_of::<Expr>()
+                    + usage.inputs.iter().map(expression).sum::<usize>()
+            })
+            .sum::<usize>()
+        + v.physical_admissions
+            .iter()
+            .map(|(occurrence, admission)| {
+                occurrence.syntax.capacity() + admission.retained_bytes() + 64
+            })
+            .sum::<usize>()
         + v.reduction
             .as_ref()
             .map_or(0, |reduction| reduction.prototype.heap_bytes())
@@ -224,6 +265,7 @@ impl CheckedPackage {
     /// Conservative owned declaration, table, type and lookup storage.
     pub fn retained_bytes(&self) -> usize {
         size_of::<Self>()
+            + selections(&self.selection_closures)
             + self
                 .preconditions
                 .declarations()
@@ -321,6 +363,7 @@ impl SpecializedModel {
     /// Conservative owned specialization storage, excluding separately owned library math.
     pub fn retained_bytes(&self) -> usize {
         size_of::<Self>()
+            + selections(&self.selection_closures)
             + map(&self.regimes, |_, r| {
                 expression(&r.criterion)
                     + expression(&r.tolerance)
@@ -508,7 +551,6 @@ impl SpecializedModel {
                 .iter()
                 .map(|v| lineage(&v.lineage) + annotation(&v.value))
                 .sum::<usize>()
-
     }
 }
 

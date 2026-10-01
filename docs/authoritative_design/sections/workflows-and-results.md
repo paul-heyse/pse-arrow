@@ -388,11 +388,20 @@ reasons, never invented NaN values.
 bound instead of its point value when the step carries one: an assurance of `global_bound`
 or `exact_certificate` with a finite dual bound, and only when that bound bounds the checked
 side (a lower-bound check under minimization, an upper-bound check under maximization).
-`runtime.modeling_checks` (version 2) records each check's `basis`, `point` or
+`runtime.modeling_checks` (version 5) records each check's `basis`, `point` or
 `global_bound`; a point result states no global property, and a check never starts a solve.
 *Tested* by `objective_bound_check_classified` (compiler units),
 `objective_bound_check_uses_certified_bound` (runtime units) and `tpd_certifies_stable_feed`
 (native acceptance conformance).
+
+> Implemented amendment: [ADR-0141](../../adr/0141-applicability-evidence-and-permissions.md), Plan 25b.
+
+Scientific applicability observations in `runtime.modeling_checks` preserve the actual
+consuming instance, claim owner and checked nominal ancestry, selected records, physical
+inputs, evidence basis, unknown reason and required or alternative status. A matched
+permission retains its identity, scope, authored targets and independent unknown/extrapolation
+flags. Refusals retain the same typed assessment through boundary diagnostics. These are
+low-level data-use observations; Plan 25e owns the later result qualification decision.
 
 Results are registry-generated `runtime.*` relations (solve runs/variables/constraints/
 metrics, computation runs, simulation samples/events, fit parameters/variables/
@@ -638,9 +647,10 @@ parmest's within 1e-6 on a weighted linear regression
 ### 19.5 Costing
 
 The authored SSLW heat-exchanger seed composes design, material and tube-length tables,
-explicit pressure validity, CEPCI currency units and accounting accumulators. The
-low-pressure upstream comparison explicitly selects extrapolation; the default correlation
-refuses it. This is a selected costing method and flowsheet-accounting demonstration, not a
+source-reported pressure/length regions, CEPCI currency units and accounting accumulators.
+Area/base and material evidence with no supplied region remains unknown. The selected seed
+names those unknown-evidence families explicitly; its low-pressure upstream comparison adds
+separate pressure extrapolation permission. Positivity remains a mandatory mathematical domain. This is a selected costing method and flowsheet-accounting demonstration, not a
 claim that the full SSLW catalogue has been ported. See `packages/reference/process`.
 
 ### 19.6 Utility minimization

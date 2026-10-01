@@ -56,6 +56,9 @@
 @id("01a0e1db89d8722baac3990e291f8ed9") expect reaction_forms.second_order(303.15{K},100{mol/m^3},100{mol/m^3},reaction_forms.arrhenius_second_order[references.saponification_kinetics_fit,reaction_forms.kinetic_parameters,hydrolysis])==1221.230445517785{mol/(m^3*s)} tolerance 1e-8{mol/(m^3*s)};
 }
 @id("01a0e1db89d8722baac39914571745c5") test liquid_state oracle references.idaes_saponification_thermo fixture {dof 0; run steady; fix root.T=303.15{K}; fix root.pressure=101325{Pa}; fix root.volume_flow=0.001{m^3/s}; fix root.concentration[chem.sodium_hydroxide]=100{mol/m^3}; fix root.concentration[chem.ethyl_acetate]=100{mol/m^3}; fix root.concentration[chem.sodium_acetate]=0{mol/m^3}; fix root.concentration[chem.ethanol]=0{mol/m^3};} {
+// These concrete analyses read the recorded water constants through parameter defaults.
+// Accept their missing form-axis evidence only for these two fits; extrapolation stays disallowed.
+@id("ab56fcd7ea3b41eb803b48e5d33423d3") permission solvent_parameter_use records(correlations.constant[chem.water,properties.heat_capacity,compatibility.PhaseType.liquidPhase,references.saponification_caloric_fit],correlations.constant_density[chem.water,properties.liquid_molar_density,compatibility.PhaseType.liquidPhase,references.saponification_density_fit]) allow_unknown true allow_extrapolation false;
 @id("01a0e1db89d8722baac399154a22bbd3") child root:Saponification=Saponification;
 @id("01a0e1db89d8722baac39916130018ae") expect root.concentration[chem.water]==55388{mol/m^3} tolerance 1e-5{mol/m^3};
 @id("01a0e1db89d8722baac39917df9dcea0") expect root.component_flow[chem.sodium_hydroxide]==0.1{mol/s} tolerance 1e-8{mol/s};

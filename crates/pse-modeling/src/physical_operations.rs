@@ -104,6 +104,7 @@ fn function(
     Ok(Function {
         applicability: Vec::new(),
         applicability_uses: Vec::new(),
+        prerequisites: Vec::new(),
         physical_admissions: BTreeMap::new(),
         physical_operation: Some(operation),
         reduction: None,

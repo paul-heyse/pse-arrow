@@ -450,3 +450,37 @@ fn replica_derivative_refuses_a_coordinate_without_a_mesh() {
     );
     assert!(run(&text).is_err());
 }
+
+#[test]
+fn static_reduction_and_fold_resolve_lexical_entity_member_domains() {
+    let text = r#"package p {
+        entity kind item { attribute ordinal:Integer; }
+        entity item a { ordinal=1 }
+        entity item b { ordinal=2 }
+        entity kind group { attribute members:Set<item>; attribute limit:Integer; }
+        entity group populated { members={a,b},limit=2 }
+        entity group empty { members={},limit=0 }
+        set groups:Set<group>={populated,empty};
+        def D {
+            require sum(g in groups | sum(j in g.members | j.ordinal))==3
+                : "member sum retains the actual values";
+            require sum(g in groups | size(fold(acc,value; j in g.members | set_of(j);union(acc,value))))==2
+                : "member fold retains the actual finite membership";
+        }
+    }"#;
+    run(text).unwrap();
+    let wrong_sum = run(&text.replace("==3", "==4")).unwrap_err().to_string();
+    assert!(
+        wrong_sum.contains("member sum retains the actual values"),
+        "{wrong_sum}"
+    );
+    let wrong_fold = run(&text.replace("==2", "==3")).unwrap_err().to_string();
+    assert!(
+        wrong_fold.contains("member fold retains the actual finite membership"),
+        "{wrong_fold}"
+    );
+    let non_set = run(&text.replace("g.members", "g.limit"))
+        .unwrap_err()
+        .to_string();
+    assert!(non_set.contains("set"), "{non_set}");
+}

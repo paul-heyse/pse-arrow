@@ -273,7 +273,7 @@ impl Request<'_> {
             self.limits,
         )?;
         let mut paths = BTreeMap::new();
-        let mut hash = FramedHasher::new(pse_ids::Frame::MathTypedDefinitionV8);
+        let mut hash = FramedHasher::new(pse_ids::Frame::MathTypedDefinitionV9);
         hash.u64(self.formals.len() as u64);
         for (slot, formal) in self.formals.iter().enumerate() {
             if paths.insert(formal.path.clone(), slot).is_some() {
@@ -813,6 +813,17 @@ impl Lower<'_, '_> {
                 "package function argument count".into(),
             ));
         }
+        self.hash
+            .str("numerical-prerequisites")
+            .u64(f.prerequisites.len() as u64);
+        for index in &f.prerequisites {
+            if *index >= args.len() {
+                return Err(MathError::Contract(
+                    "numerical prerequisite argument index".into(),
+                ));
+            }
+            self.hash.u64(*index as u64);
+        }
         self.verify_scientific_response(&f, name, args, builder, depth, source)?;
         let mut substitutions = Substitution::new();
         let mut arguments = Vec::new();
@@ -970,7 +981,11 @@ impl Lower<'_, '_> {
                 .resolve_contract_with_evidence(self.registry, &substitutions, self.checker)
                 .map_err(|e| MathError::Contract(e.to_string()))?;
             self.operation_scope = prior_operations;
-            return builder.contract_boundary(value, &expected);
+            let value = builder.contract_boundary(value, &expected)?;
+            let value = f.prerequisites.iter().fold(value, |value, index| {
+                builder.with_prerequisite(value, &arguments[*index])
+            });
+            return Ok(value);
         }
         // ADR-0123 Outcome 4: the form layer's domain and each rejecting data-layer guard are
         // domain predicates, each attributed to its own source: the function, or the
@@ -998,17 +1013,13 @@ impl Lower<'_, '_> {
                     validity,
                 )
             })
-            .chain(
-                f.envelopes
-                    .iter()
-                    .map(|guard| {
-                        (
-                            "envelope-guard",
-                            lineage(Layer::Data, guard.envelope.owner.as_id(), &guard.reads),
-                            &guard.predicate,
-                        )
-                    }),
-            )
+            .chain(f.envelopes.iter().map(|guard| {
+                (
+                    "envelope-guard",
+                    lineage(Layer::Data, guard.envelope.owner.as_id(), &guard.reads),
+                    &guard.predicate,
+                )
+            }))
             .collect::<Vec<_>>();
         let mut assumptions = Vec::with_capacity(domains.len());
         for (label, lineage, validity) in domains {
@@ -1186,6 +1197,9 @@ impl Lower<'_, '_> {
             let value = assumptions.iter().fold(value, |value, assumption| {
                 builder.with_assumption(value, assumption)
             });
+            let value = f.prerequisites.iter().fold(value, |value, index| {
+                builder.with_prerequisite(value, &arguments[*index])
+            });
             self.operation_scope = prior_operations;
             return builder.bind(value);
         }
@@ -1328,6 +1342,9 @@ impl Lower<'_, '_> {
         }
         let value = assumptions.iter().fold(value, |value, assumption| {
             builder.with_assumption(value, assumption)
+        });
+        let value = f.prerequisites.iter().fold(value, |value, index| {
+            builder.with_prerequisite(value, &arguments[*index])
         });
         builder.bind(value)
     }
@@ -1904,6 +1921,7 @@ mod tests {
         pse_modeling::Function {
             applicability: Vec::new(),
             applicability_uses: Vec::new(),
+            prerequisites: Vec::new(),
             physical_admissions: BTreeMap::from([(
                 occurrence,
                 PhysicalAdmission::checked(

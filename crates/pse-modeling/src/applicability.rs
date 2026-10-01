@@ -76,6 +76,7 @@ pub(crate) fn signature(
         Function {
             applicability: Vec::new(),
             applicability_uses: Vec::new(),
+            prerequisites: Vec::new(),
             physical_admissions: BTreeMap::new(),
             physical_operation: None,
             reduction: None,

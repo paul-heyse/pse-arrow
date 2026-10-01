@@ -378,6 +378,9 @@ impl Evaluator<'_, '_> {
         if matches!(self.reader, crate::provenance::Reader::Admission(_)) {
             crate::entity::extents(self.package, self.at, &mut types);
         }
+        if let Some(function) = self.package.functions.get(&self.at) {
+            types.extend(function.arguments.iter().cloned());
+        }
         types
     }
     fn reference(&mut self, name: &str, depth: usize) -> Result<Value> {
@@ -496,10 +499,6 @@ impl Evaluator<'_, '_> {
     /// read from its record, typed once at admission (ADR-0123 Outcome 2).
     fn member(&mut self, value: Value, name: &str) -> Result<Value> {
         crate::scientific_selection::retain_context(self.package, &value, self.selections);
-        let numeric_owner = match &value {
-            Value::Entity { id, .. } => Some(*id),
-            _ => None,
-        };
         let result = match value {
             Value::Definition { id, bindings } => self.definition_member(id, &bindings, name)?,
             Value::Row { names, fields, .. } => names
@@ -541,14 +540,6 @@ impl Evaluator<'_, '_> {
             _ => return Err(invalid(self.at, "static value has no named member")),
         };
         crate::scientific_selection::retain_context(self.package, &result, self.selections);
-        if matches!(
-            &result,
-            Value::Number { .. } | Value::Integer(_) | Value::Coordinate { .. }
-        ) && let Some(id) = numeric_owner
-            && let Some(collector) = self.selections
-        {
-            collector.record_numeric(id);
-        }
         Ok(result)
     }
     /// The row of a keyed kind with the given key values: the key-declaring kind's keys in
@@ -650,11 +641,12 @@ impl Evaluator<'_, '_> {
     }
     /// The complete type of a static arithmetic result, inferred at its root.
     fn typed_result(&mut self, e: &Expr, result: f64, expected: Option<&Type>) -> Result<Value> {
-        let mut env = self
-            .env
-            .iter()
-            .filter_map(|(n, v)| value_type(v).map(|t| (n.clone(), t)))
-            .collect::<BTreeMap<_, _>>();
+        let mut env = self.named_types();
+        env.extend(
+            self.env
+                .iter()
+                .filter_map(|(n, v)| value_type(v).map(|t| (n.clone(), t))),
+        );
         // At admission, a reduction over a kind ranges over its extent (Plan 23 D0).
         if matches!(self.reader, crate::provenance::Reader::Admission(_)) {
             e.walk(|node| {
@@ -677,7 +669,7 @@ impl Evaluator<'_, '_> {
         let mut presence_paths = BTreeSet::new();
         e.walk(|node| {
             if let ExprKind::NamedCall { name, args } = &node.kind
-                && matches!(name.as_str(),"present" | "require_present")
+                && matches!(name.as_str(), "present" | "require_present")
                 && let [
                     Expr {
                         kind: ExprKind::Path(path),
@@ -1097,8 +1089,14 @@ impl Evaluator<'_, '_> {
                         "continuous integral is not a static requirement",
                     ));
                 }
-                let Value::Set(values) =
-                    self.reference(&dsl::render_path(&binder.domain), depth + 1)?
+                let Value::Set(values) = self.expr(
+                    &Expr {
+                        kind: ExprKind::Path(binder.domain.clone()),
+                        span: dsl::Span::default(),
+                    },
+                    None,
+                    depth + 1,
+                )?
                 else {
                     return Err(invalid(self.at, "finite reduction set required"));
                 };
@@ -1231,8 +1229,14 @@ impl Evaluator<'_, '_> {
                 value,
                 step,
             } => {
-                let Value::Set(members) =
-                    self.reference(&dsl::render_path(&binder.domain), depth + 1)?
+                let Value::Set(members) = self.expr(
+                    &Expr {
+                        kind: ExprKind::Path(binder.domain.clone()),
+                        span: dsl::Span::default(),
+                    },
+                    None,
+                    depth + 1,
+                )?
                 else {
                     return Err(invalid(self.at, "fold requires finite membership"));
                 };
@@ -1565,7 +1569,9 @@ impl Evaluator<'_, '_> {
                 .and_then(|i| values.get(i))
                 .cloned()
                 .ok_or_else(|| invalid(self.at, "tuple coordinate out of bounds")),
-            ("require_present", [Value::Missing]) => Err(invalid(self.at,"required optional value is absent")),
+            ("require_present", [Value::Missing]) => {
+                Err(invalid(self.at, "required optional value is absent"))
+            }
             ("require_present", [value]) => Ok(value.clone()),
             ("present", [value]) => Ok(Value::Boolean(!matches!(value, Value::Missing))),
             ("size", [Value::Set(values)]) => Ok(Value::Integer(values.len() as i64)),

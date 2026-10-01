@@ -110,9 +110,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 22u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    123u8, 107u8, 198u8, 159u8, 29u8, 51u8, 249u8, 250u8, 84u8, 63u8, 218u8, 116u8, 44u8,
-    144u8, 11u8, 24u8, 253u8, 219u8, 22u8, 101u8, 239u8, 45u8, 76u8, 14u8, 60u8, 178u8,
-    18u8, 67u8, 194u8, 87u8, 22u8, 127u8,
+    252u8, 144u8, 35u8, 99u8, 153u8, 92u8, 70u8, 82u8, 232u8, 247u8, 113u8, 219u8, 52u8,
+    61u8, 155u8, 166u8, 27u8, 178u8, 57u8, 6u8, 86u8, 206u8, 251u8, 153u8, 137u8, 172u8,
+    161u8, 182u8, 199u8, 49u8, 116u8, 1u8,
 ]);
 impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueTemporal {
     fn append(
@@ -5648,18 +5648,14 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueAnnot
             &self.r#arguments,
             children[2usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#extrapolation,
-            children[3usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(&self.r#scheme, children[4usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#scheme, children[3usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#connectivity,
-            children[5usize].as_mut(),
+            children[4usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
             &self.r#objective,
-            children[6usize].as_mut(),
+            children[5usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -5679,17 +5675,14 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueAnnot
             String,
         > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
         <Option<
-            crate::generated::enums::ExtrapolationPolicy,
+            crate::generated::enums::ConstraintScalingScheme,
         > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
         <Option<
-            crate::generated::enums::ConstraintScalingScheme,
+            AuthoredModelingDeclarationsFieldValueAnnotationConnectivity,
         > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueAnnotationConnectivity,
-        > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
-        <Option<
             AuthoredModelingDeclarationsFieldValueAnnotationObjective,
-        > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -5714,28 +5707,22 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueAnnot
                 input.column(2usize).as_ref(),
                 index,
             )?,
-            r#extrapolation: <Option<
-                crate::generated::enums::ExtrapolationPolicy,
-            > as crate::columnar::ArrowValue>::read(
-                input.column(3usize).as_ref(),
-                index,
-            )?,
             r#scheme: <Option<
                 crate::generated::enums::ConstraintScalingScheme,
             > as crate::columnar::ArrowValue>::read(
-                input.column(4usize).as_ref(),
+                input.column(3usize).as_ref(),
                 index,
             )?,
             r#connectivity: <Option<
                 AuthoredModelingDeclarationsFieldValueAnnotationConnectivity,
             > as crate::columnar::ArrowValue>::read(
-                input.column(5usize).as_ref(),
+                input.column(4usize).as_ref(),
                 index,
             )?,
             r#objective: <Option<
                 AuthoredModelingDeclarationsFieldValueAnnotationObjective,
             > as crate::columnar::ArrowValue>::read(
-                input.column(6usize).as_ref(),
+                input.column(5usize).as_ref(),
                 index,
             )?,
         })
@@ -6954,10 +6941,10 @@ impl crate::columnar::RelationRow for AuthoredModelingDeclarationsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        2_163_712_usize + size_of::<Self::Builder>()
+        2_161_664_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        16904usize
+        16888usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -17476,17 +17463,6 @@ impl crate::columnar::RelationRow for AuthoredModelingDeclarationsRow {
                                                 crate::columnar::allocation_add(8, (item).len())?,
                                             ),
                                         )?,
-                                )?;
-                                bytes = crate::columnar::allocation_add(
-                                    bytes,
-                                    if let Some(value) = ((value).r#extrapolation).as_ref() {
-                                        crate::columnar::allocation_add(
-                                            1,
-                                            crate::columnar::allocation_add(8, (value).as_str().len())?,
-                                        )
-                                    } else {
-                                        Ok::<usize, crate::RelationError>(1)
-                                    }?,
                                 )?;
                                 bytes = crate::columnar::allocation_add(
                                     bytes,

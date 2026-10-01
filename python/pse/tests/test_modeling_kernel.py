@@ -783,7 +783,7 @@ def test_modeling_authored_fixture_shared_checks_and_owned_tables(
   @id("{identity(203).to_hex()}") var x:Scalar;
   @id("{identity(204).to_hex()}") eq e:x==2;
   @id("{identity(205).to_hex()}") annotation report x("value");
-  @id("{identity(206).to_hex()}") annotation valid x(0,1,extrapolate);
+  @id("{identity(206).to_hex()}") annotation valid x(0,3);
  }}
  @id("{identity(207).to_hex()}") test sample
   fixture {{ dof -1; policy {{ presolve off;
@@ -884,11 +884,12 @@ def test_modeling_authored_fixture_shared_checks_and_owned_tables(
     assert isolated_rows[2]["predecessor"] == 1
     assert not isolated_rows[2]["accepted"]
     assert reports.column("value").to_pylist() == [2.0]
-    # ADR-0123 Outcome 4: a validity check names its layer; an annotated range is
-    # closure.
+    # An annotated hard range retains its closure layer and cannot select an
+    # empirical evidence permission policy.
     assert any(
-        row["within_validity"] is False
-        and row["extrapolation_allowed"] is True
+        row["within_validity"] is True
+        and row["extrapolation_allowed"] is None
+        and row["satisfied"] is True
         and row["layer"] == "closure"
         for row in validation.to_pylist()
     )

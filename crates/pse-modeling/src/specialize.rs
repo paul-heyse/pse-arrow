@@ -307,8 +307,7 @@ pub struct SpecializedModel {
     pub connections: BTreeMap<SemanticId, Connection>,
     /// Selected pure function bodies keyed by resolved semantic call identity.
     pub functions: BTreeMap<String, crate::Function>,
-    /// Typed authored annotations and their instantiated owner, and the data envelopes
-    /// whose consumer selected extrapolation, observed at the members they guard.
+    /// Typed authored annotations and their instantiated owner.
     pub annotations: Vec<crate::annotation::Annotation>,
     /// Named lowerings of constraint forms and disjunctions, inner-first (ADR-0104).
     pub lowerings: Vec<Lowering>,
@@ -363,6 +362,15 @@ struct State {
     symbols: BTreeMap<(DeclarationId, Vec<SemanticId>), SemanticId>,
     stack: Vec<DeclarationId>,
 }
+/// Syntax ownership of a numerical or Set scope argument before its value is inlined.
+/// Coefficients remain owned by the admitted records; this retains only their read source.
+#[derive(Clone)]
+struct NumericalSource {
+    instance: InstanceId,
+    declaration: DeclarationId,
+    expression: Expr,
+    env: std::sync::Arc<Environment>,
+}
 /// One deferred equation occurrence: its instance, declaration, coordinates and scope.
 #[derive(Clone)]
 struct ReplicatedEquation {
@@ -378,6 +386,10 @@ pub(crate) struct Engine<'a, 'b> {
     limits: Limits,
     pub(crate) model: SpecializedModel,
     states: BTreeMap<InstanceId, State>,
+    numerical_sources: BTreeMap<(InstanceId, String), NumericalSource>,
+    numerical_source_stack: Vec<(InstanceId, String)>,
+    source_locals: BTreeSet<String>,
+    set_alias_sources: BTreeMap<String, NumericalSource>,
     /// Time-independent numerical parameter owner of each temporal descendant.
     temporal_owners: BTreeMap<InstanceId, InstanceId>,
     temporal_axis: Option<SemanticId>,
@@ -405,8 +417,6 @@ pub(crate) struct Engine<'a, 'b> {
     /// The root's reader: a test fixture reads any admitted data; any other root reads no
     /// test-only data (ADR-0123 Outcome 5).
     reader: crate::provenance::Reader<'static>,
-    /// Dynamic conditional branches enclosing the expression being rewritten.
-    branches: usize,
 }
 
 /// The identity a declared analysis gives its root instance: the root declaration's own.
@@ -502,6 +512,10 @@ pub fn specialize_with_discretizer(
         limits,
         model: SpecializedModel::default(),
         states: BTreeMap::new(),
+        numerical_sources: BTreeMap::new(),
+        numerical_source_stack: Vec::new(),
+        source_locals: BTreeSet::new(),
+        set_alias_sources: BTreeMap::new(),
         temporal_owners: BTreeMap::new(),
         temporal_axis: None,
         stack: Vec::new(),
@@ -521,7 +535,6 @@ pub fn specialize_with_discretizer(
         discretizer,
         cancel,
         reader: crate::provenance::Reader::of(package, root),
-        branches: 0,
     };
     engine.checkpoint()?;
     let mut args = bindings.arguments.clone();
@@ -784,6 +797,311 @@ impl Engine<'_, '_> {
         }
         .text(text, expected)
     }
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "one constructor application keeps its target, owner, source and the three environments explicit"
+    )]
+    fn remember_constructor_sources(
+        &mut self,
+        target: InstanceId,
+        owner: InstanceId,
+        at: DeclarationId,
+        source: &str,
+        env: &Environment,
+        supplied: &Environment,
+        overridden: &Environment,
+    ) -> Result<()> {
+        use pse_authoring::language::{StaticValue, parse_static};
+        let StaticValue::Apply { arguments, .. } =
+            parse_static(source).map_err(|e| invalid(at, e.to_string()))?
+        else {
+            return Ok(());
+        };
+        let mut source_env = None;
+        for (name, argument) in arguments {
+            if overridden.contains_key(&name)
+                || !supplied.get(&name).is_some_and(|value| {
+                    matches!(value, Value::Set(_))
+                        || value_type(value).is_some_and(|ty| ty.quantity_scheme().is_some())
+                })
+            {
+                continue;
+            }
+            if let StaticValue::Expression(expression) = argument {
+                let env = if let Some(env) = &source_env {
+                    std::sync::Arc::clone(env)
+                } else {
+                    let retained = self.numerical_source_environment(env)?;
+                    source_env = Some(retained.clone());
+                    retained
+                };
+                let mut count = 0usize;
+                expression.walk(|_| count += 1);
+                self.reserve(count.saturating_add(1))?;
+                self.numerical_sources
+                    .entry((target, name))
+                    .or_insert(NumericalSource {
+                        instance: owner,
+                        declaration: at,
+                        expression,
+                        env,
+                    });
+            }
+        }
+        Ok(())
+    }
+    fn numerical_source_environment(
+        &mut self,
+        env: &Environment,
+    ) -> Result<std::sync::Arc<Environment>> {
+        fn nodes(value: &Value) -> usize {
+            let children = match value {
+                Value::Definition { bindings, .. } => bindings
+                    .values()
+                    .map(nodes)
+                    .fold(0usize, usize::saturating_add),
+                Value::Set(values) | Value::Tuple(values) => {
+                    values.iter().map(nodes).fold(0usize, usize::saturating_add)
+                }
+                Value::Row { fields, .. } => {
+                    fields.iter().map(nodes).fold(0usize, usize::saturating_add)
+                }
+                _ => 0,
+            };
+            children.saturating_add(1)
+        }
+        self.reserve(
+            env.values()
+                .map(nodes)
+                .fold(env.len(), usize::saturating_add),
+        )?;
+        Ok(std::sync::Arc::new(env.clone()))
+    }
+    fn inline_evidence_members(
+        &mut self,
+        expression: &Expr,
+        visited: &mut BTreeSet<SemanticId>,
+        depth: usize,
+    ) -> Result<Expr> {
+        if depth >= self.limits.depth {
+            return Err(ModelingError::Budget(
+                "numerical prerequisite member depth".into(),
+            ));
+        }
+        let mut expression = expression.clone();
+        expression.try_walk_mut(|node| -> Result<()> {
+            self.reserve(1)?;
+            let ExprKind::Path(path) = &node.kind else {
+                return Ok(());
+            };
+            let [segment] = path.segments.as_slice() else {
+                return Ok(());
+            };
+            let Some(id) = segment
+                .name
+                .strip_prefix("s_")
+                .and_then(|id| SemanticId::parse_hex(id).ok())
+            else {
+                return Ok(());
+            };
+            let Some(definition) = self
+                .model
+                .symbols
+                .get(&id)
+                .and_then(|s| s.expression.clone())
+            else {
+                return Ok(());
+            };
+            if !visited.insert(id) {
+                return Err(invalid(id, "cyclic numerical prerequisite member"));
+            }
+            let result = self.inline_evidence_members(&definition, visited, depth + 1);
+            visited.remove(&id);
+            *node = result?;
+            Ok(())
+        })?;
+        Ok(expression)
+    }
+    fn has_applicability_effect(&self, expression: &Expr) -> bool {
+        let mut pending = Vec::new();
+        let calls = |expression: &Expr, pending: &mut Vec<String>| {
+            expression.walk(|node| match &node.kind {
+                ExprKind::NamedCall { name, .. } | ExprKind::Partial { function: name, .. } => {
+                    pending.push(name.clone());
+                }
+                _ => {}
+            });
+        };
+        calls(expression, &mut pending);
+        let mut seen = BTreeSet::new();
+        while let Some(name) = pending.pop() {
+            if !seen.insert(name.clone()) {
+                continue;
+            }
+            if let Some(function) = self.model.functions.get(&name) {
+                if !function.applicability_uses.is_empty() {
+                    return true;
+                }
+                if let Some(body) = &function.body {
+                    calls(body, &mut pending);
+                }
+            }
+        }
+        false
+    }
+    fn numerical_source_expression(
+        &mut self,
+        consumer: InstanceId,
+        source: &NumericalSource,
+        value: Expr,
+        ty: Type,
+    ) -> Result<Expr> {
+        // The default owns its lexical environment. A numerical caller's local aliases
+        // and function arguments cannot capture any name in that source.
+        let lexical = std::mem::take(&mut self.lexical);
+        let indexed = std::mem::take(&mut self.indexed_arguments);
+        let types = std::mem::take(&mut self.function_types);
+        let locals = std::mem::take(&mut self.source_locals);
+        let aliases = std::mem::take(&mut self.set_alias_sources);
+        let result = self.with_instance_selections(source.instance, |engine| {
+            engine.rewrite(
+                source.instance,
+                &source.expression,
+                &source.env,
+                &[source.declaration],
+            )
+        });
+        self.lexical = lexical;
+        self.indexed_arguments = indexed;
+        self.function_types = types;
+        self.source_locals = locals;
+        self.set_alias_sources = aliases;
+        let prerequisite = self.inline_evidence_members(&result?, &mut BTreeSet::new(), 0)?;
+        if !self.has_applicability_effect(&prerequisite) {
+            return Ok(value);
+        }
+        let mut identity = FramedHasher::new(pse_ids::Frame::ModelingParameterReadV1);
+        identity
+            .id(&consumer.as_id())
+            .id(&source.instance.as_id())
+            .id(&source.declaration.as_id())
+            .str(&dsl::render_expr(&source.expression))
+            .str(&dsl::render_expr(&prerequisite))
+            .str(&dsl::render_expr(&value))
+            .u64(source.env.len() as u64);
+        for (name, value) in source.env.iter() {
+            identity.str(name);
+            value.frame(&mut identity);
+        }
+        if let Some(scheme) = ty.quantity_scheme() {
+            scheme.frame(&mut identity);
+        }
+        identity.bool(ty.physical_refinement().is_some());
+        if let Some(refinement) = ty.physical_refinement() {
+            refinement.frame(&mut identity);
+        }
+        identity.u64(1).u64(1);
+        let id = DeclarationId::from(identity.finish_id());
+        let name = format!("f_{}", id.as_id().to_hex());
+        self.reserve(1)?;
+        self.model
+            .functions
+            .entry(name.clone())
+            .or_insert(crate::Function {
+                applicability: Vec::new(),
+                applicability_uses: Vec::new(),
+                prerequisites: vec![1],
+                physical_admissions: BTreeMap::new(),
+                physical_operation: None,
+                reduction: None,
+                validity: None,
+                envelopes: Vec::new(),
+                validity_reads: Default::default(),
+                external: None,
+                continuity: None,
+                id,
+                variables: BTreeSet::new(),
+                arguments: vec![("value".into(), ty.clone()), ("source".into(), ty.clone())],
+                result: ty,
+                body: Some(dsl::parse_expr("value").map_err(|e| invalid(id, e.to_string()))?),
+            });
+        Ok(Expr {
+            kind: ExprKind::NamedCall {
+                name,
+                args: vec![value, prerequisite],
+            },
+            span: Span::default(),
+        })
+    }
+    fn scope_parameter_expression(
+        &mut self,
+        instance: InstanceId,
+        name: &str,
+        value: &Value,
+        at: DeclarationId,
+    ) -> Result<Expr> {
+        let expression = self.value_expression(value, at)?;
+        let Some(ty) = value_type(value).filter(|ty| ty.quantity_scheme().is_some()) else {
+            return Ok(expression);
+        };
+        let key = (instance, name.to_owned());
+        let Some(source) = self.numerical_sources.get(&key).cloned() else {
+            return Ok(expression);
+        };
+        if self.numerical_source_stack.contains(&key) {
+            return Err(invalid(at, "recursive numerical parameter source"));
+        }
+        if self.numerical_source_stack.len() >= self.limits.depth {
+            return Err(ModelingError::Budget(
+                "numerical parameter source depth".into(),
+            ));
+        }
+        self.numerical_source_stack.push(key);
+        let result = self.numerical_source_expression(instance, &source, expression, ty);
+        self.numerical_source_stack.pop();
+        result
+    }
+    fn symbol_value_expression(
+        &mut self,
+        instance: InstanceId,
+        member: DeclarationId,
+        coordinates: &[(String, Value)],
+        symbol: SemanticId,
+    ) -> Result<Expr> {
+        let row = &self.p.declarations[&member];
+        if matches!(row.value.kind, Kind::Let | Kind::Alias)
+            && let Some(expression) = self.model.symbols[&symbol].expression.clone()
+        {
+            let expanded = self.inline_evidence_members(&expression, &mut BTreeSet::new(), 0)?;
+            if self.has_applicability_effect(&expanded) {
+                return Ok(expanded);
+            }
+        }
+        let Some(expression) = row
+            .value
+            .binding
+            .as_ref()
+            .and_then(|b| b.expression.as_deref())
+            .filter(|_| row.value.kind == Kind::Parameter)
+        else {
+            return Ok(symbol_expr(symbol));
+        };
+        let source = NumericalSource {
+            instance,
+            declaration: member,
+            expression: dsl::parse_expr(expression).map_err(|e| invalid(member, e.to_string()))?,
+            env: self.numerical_source_environment(&coordinates_env(
+                &self.states[&instance].env,
+                coordinates,
+            ))?,
+        };
+        self.numerical_source_expression(
+            instance,
+            &source,
+            symbol_expr(symbol),
+            self.model.symbols[&symbol].ty.clone(),
+        )
+    }
     fn predicate(&self, at: DeclarationId, env: &Environment, text: &str) -> Result<bool> {
         let p = dsl::parse_predicate(text).map_err(|e| invalid(at, e.to_string()))?;
         Evaluator {
@@ -865,6 +1183,9 @@ impl Engine<'_, '_> {
             else {
                 return Err(invalid(definition, "preset target"));
             };
+            self.remember_constructor_sources(
+                id, id, definition, expr, &arguments, &bindings, &arguments,
+            )?;
             bindings.extend(arguments);
             self.stack.push(definition);
             self.preset_stack.push(definition);
@@ -925,6 +1246,43 @@ impl Engine<'_, '_> {
             selections: Some(&self.selection_collector),
         }
         .definition_environment(definition, &arguments, env.clone())?;
+        let mut source_env = None;
+        for parameter in &contract.parameters {
+            if !arguments.contains_key(&parameter.name)
+                && env.get(&parameter.name).is_some_and(|value| {
+                    matches!(value, Value::Set(_))
+                        || value_type(value).is_some_and(|ty| ty.quantity_scheme().is_some())
+                })
+                && let Some(source) = &parameter.default_value
+            {
+                let pse_authoring::language::StaticValue::Expression(expression) =
+                    pse_authoring::language::parse_static(source)
+                        .map_err(|e| invalid(definition, e.to_string()))?
+                else {
+                    // Literal structural collections have no numerical read or
+                    // selection expression to replay. Their admitted value is enough.
+                    continue;
+                };
+                let retained_env = if let Some(env) = &source_env {
+                    std::sync::Arc::clone(env)
+                } else {
+                    let retained = self.numerical_source_environment(&env)?;
+                    source_env = Some(retained.clone());
+                    retained
+                };
+                let mut count = 0usize;
+                expression.walk(|_| count += 1);
+                self.reserve(count.saturating_add(1))?;
+                self.numerical_sources
+                    .entry((id, parameter.name.clone()))
+                    .or_insert(NumericalSource {
+                        instance: id,
+                        declaration: definition,
+                        expression,
+                        env: retained_env,
+                    });
+            }
+        }
         let mut members = self.p.members.get(&definition).cloned().unwrap_or_default();
         let available_stages = members
             .values()
@@ -1209,6 +1567,17 @@ impl Engine<'_, '_> {
                         .children
                         .insert((r.name.clone(), ids), child);
                     let scope = self.states[&id].scope.clone();
+                    self.remember_constructor_sources(
+                        child,
+                        id,
+                        *member,
+                        b.expression
+                            .as_deref()
+                            .ok_or_else(|| invalid(*member, "child implementation"))?,
+                        &coordinates_env(&env, &coordinates),
+                        &bindings,
+                        &Environment::new(),
+                    )?;
                     self.instantiate(
                         target,
                         child,

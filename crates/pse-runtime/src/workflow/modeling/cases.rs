@@ -1432,7 +1432,7 @@ mod native_tests {
     async fn kernel_native_root_solves_and_qualifies_the_authored_model() {
         let rt = super::super::super::tests::runtime();
         let physical = super::super::super::tests::physical();
-        let rows=pse_authoring::language::parse("package p { def Root { var x:Scalar; eq e:x*x==4; annotation start x(1); annotation bounds x(0.5,3); annotation nominal x(2); annotation valid x(0.5,3,reject); annotation check x(x>0); annotation report x(\"root\"); expect x == 2 tolerance 1e-6; } }",SemanticId::NIL,pse_authoring::language::IdentityPolicy::Named,pse_authoring::ParseBudget::default()).unwrap();
+        let rows=pse_authoring::language::parse("package p { def Root { var x:Scalar; eq e:x*x==4; annotation start x(1); annotation bounds x(0.5,3); annotation nominal x(2); annotation valid x(0.5,3); annotation check x(x>0); annotation report x(\"root\"); expect x == 2 tolerance 1e-6; } }",SemanticId::NIL,pse_authoring::language::IdentityPolicy::Named,pse_authoring::ParseBudget::default()).unwrap();
         let root = rows
             .iter()
             .find(|r| r.name == "Root")

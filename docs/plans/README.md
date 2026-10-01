@@ -10,8 +10,9 @@ implementation packets, dependency order and final qualification. The coordinato
 finding dispositions; the linked plans own packet progress.
 [25a is complete](25a-physical-values-and-contextual-contracts.md#outcome-recorded-after-implementation),
 with focused verification recorded in its Outcome.
-[25b](25b-scientific-knowledge-and-applicability.md#execution-checkpoint) is authorized and in
-progress; its checkpoint owns the current implementation and handoff. Other lettered plans remain proposed.
+[25b is complete](25b-scientific-knowledge-and-applicability.md#outcome-recorded-after-implementation),
+with its scientific contracts, composite focused verification and handoff recorded in its
+Outcome. Other lettered plans remain proposed.
 The series reserves full integration and qualification for 25k after all functional
 work, with focused checks and immediate deletion of replaced mechanisms during the pivot.
 

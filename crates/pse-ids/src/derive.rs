@@ -227,6 +227,8 @@ frames! {
         MathTypedDefinitionV7 => "pse.math.typed-definition.v7",
         /// Scientific applicability effect stages, selected records and named permissions.
         MathTypedDefinitionV8 => "pse.math.typed-definition.v8",
+        /// Scientific parameter source prerequisites retained through numeric input lowering.
+        MathTypedDefinitionV9 => "pse.math.typed-definition.v9",
         /// A prepared view of a compiled modeling structure.
         CompilerModelingViewV2 => "pse.compiler.modeling-view.v2",
         /// The parametric projection of a prepared modeling view over requested parameters.
@@ -257,6 +259,8 @@ frames! {
         ModelingDispatchBodyV4 => "pse.modeling.dispatch-body.v4",
         /// Checked scientific record identities and dependency closure products.
         ModelingDispatchBodyV5 => "pse.modeling.dispatch-body.v5",
+        /// Dispatch bodies including generated parameter-read prerequisite contracts.
+        ModelingDispatchBodyV6 => "pse.modeling.dispatch-body.v6",
         /// A finite function specialization, its validity, data-layer guards with their
         /// envelopes and selected policies, each with the parameter sets and arguments it
         /// reads, and body in canonical spelling, and its static arguments, enumeration
@@ -268,9 +272,16 @@ frames! {
         ModelingFiniteFunctionV7 => "pse.modeling.finite-function.v7",
         /// Checked scientific record identities and dependency closure products.
         ModelingFiniteFunctionV8 => "pse.modeling.finite-function.v8",
+        /// Finite functions including generated parameter-read prerequisite contracts.
+        ModelingFiniteFunctionV9 => "pse.modeling.finite-function.v9",
+        /// A demanded numeric parameter read with its lexical source and prerequisites.
+        ModelingParameterReadV1 => "pse.modeling.parameter-read.v1",
         /// Declared claim, form, actual selected identities and numerical arguments.
         ModelingApplicabilityCallV1 => "pse.modeling.applicability-call.v1",
+        /// One source claim application at its actual instance and typed physical inputs.
         ModelingApplicabilityObservationV1 => "pse.modeling.applicability-observation.v1",
+        /// One source claim application with its owner lineage, requirement and typed inputs.
+        ModelingApplicabilityObservationV2 => "pse.modeling.applicability-observation.v2",
         /// Explicit whole-interval coverage of the same declared interval claim.
         ModelingApplicabilityCoverageV1 => "pse.modeling.applicability-coverage.v1",
         /// A finite reduction rewrite.

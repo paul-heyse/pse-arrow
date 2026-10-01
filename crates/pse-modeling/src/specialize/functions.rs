@@ -290,6 +290,7 @@ impl Engine<'_, '_> {
             .or_insert(crate::Function {
                 applicability: Vec::new(),
                 applicability_uses: Vec::new(),
+                prerequisites: Vec::new(),
                 physical_admissions: BTreeMap::new(),
                 reduction: None,
                 physical_operation: None,
@@ -389,9 +390,11 @@ impl Engine<'_, '_> {
             .into_iter()
             .map(|coordinates| {
                 let symbol = self.symbol(instance, member, &coordinates, chain)?;
+                let expression =
+                    self.symbol_value_expression(instance, member, &coordinates, symbol)?;
                 Ok((
                     coordinates.into_iter().map(|(_, value)| value).collect(),
-                    symbol_expr(symbol),
+                    expression,
                 ))
             })
             .collect()
@@ -504,7 +507,7 @@ impl Engine<'_, '_> {
         let mut indexed = BTreeMap::new();
         let mut statics = Environment::new();
         let mut selectors = BTreeMap::new();
-        let mut identity = FramedHasher::new(pse_ids::Frame::ModelingFiniteFunctionV8);
+        let mut identity = FramedHasher::new(pse_ids::Frame::ModelingFiniteFunctionV9);
         identity.id(&function.as_id());
         let selection_scope = self.selection_collector.scope();
         for quantity in substitution.values() {
@@ -731,8 +734,7 @@ impl Engine<'_, '_> {
             .unwrap_or_default();
         // The data layer: guards specialized in the frame under the consumer's policy
         // (ADR-0123 Outcome 4).
-        let guards =
-            self.specialize_guards(instance, function, &contract, &statics);
+        let guards = self.specialize_guards(instance, function, &contract, &statics);
         let applicability_uses = self.specialize_applicability(instance, &contract, &statics);
         self.function_stack.pop();
         self.lexical = saved_lexical;
@@ -759,6 +761,10 @@ impl Engine<'_, '_> {
         identity.u64(applicability_uses.len() as u64);
         for usage in &applicability_uses {
             usage.frame(&mut identity);
+        }
+        identity.u64(contract.prerequisites.len() as u64);
+        for index in &contract.prerequisites {
+            identity.u64(*index as u64);
         }
         if let Some(body) = &mut body {
             body.strip_spans();
@@ -791,12 +797,13 @@ impl Engine<'_, '_> {
             refinement.frame(&mut identity);
         }
         let consumed_selections = selection_scope.finish();
-        crate::scientific_selection::frame(&consumed_selections, &mut identity);
+        crate::scientific_selection::frame(&consumed_selections, self.p, &mut identity);
         let id = identity.finish_id();
         let name = format!("f_{}", id.to_hex());
         let function = crate::Function {
             applicability: Vec::new(),
             applicability_uses,
+            prerequisites: contract.prerequisites,
             physical_admissions: BTreeMap::new(),
             reduction: None,
             physical_operation: contract.physical_operation,

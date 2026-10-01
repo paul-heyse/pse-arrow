@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("5e8ff6278a5143e584ed0a8fc7debca8") package pressure_fixtures {
+@id("1c6f8a87eff14dc4aebf8106cde1595b") use correlations @"1.0.0";
+@id("8c31478a753d4379959581d56f7cf32e") use properties @"1.0.0";
+@id("7e915a1e20d64e1cb393ec45ff76ab88") use compatibility @"1.0.0";
 @id("01a0f14ead4d7118a57e3663b390e8aa") use constants @"1.0.0";
 @id("01a0ef604fe0732189b937316c4c667e") use references @"1.0.0";
 @id("01a0ee04daa874fc9167381793df0548") use chemistry @"1.0.0";
@@ -43,6 +46,9 @@
 @id("d47f0ec3393644d58dbfaac6cbae8e72") expect root.control.work_fluid==-2091.3409527896256{W} tolerance 1e-5{W};
 }
 @id("5d973a4431fb4299a8cda93476766999") test pump oracle references.analytic_hydraulic_work fixture {dof 0; run steady; fix root.control.inlet.T=320{K}; fix root.control.inlet.volume_flow=0.001{m^3/s}; fix root.control.inlet.pressure=101325{Pa}; fix root.control.inlet.concentration[chem.water]=55388{mol/m^3}; fix root.control.inlet.concentration[chem.sodium_hydroxide]=100{mol/m^3}; fix root.control.inlet.concentration[chem.ethyl_acetate]=100{mol/m^3}; fix root.control.inlet.concentration[chem.sodium_acetate]=1e-8{mol/m^3}; fix root.control.inlet.concentration[chem.ethanol]=1e-8{mol/m^3}; fix root.control.delta_pressure=20000{Pa}; fix root.control.efficiency=0.8;} {
+// These concrete analyses read the recorded water constants through parameter defaults.
+// Accept their missing form-axis evidence only for these two fits; extrapolation stays disallowed.
+@id("d7321b1cb2a74a11a10d9683c73b3775") permission solvent_parameter_use records(correlations.constant[chem.water,properties.heat_capacity,compatibility.PhaseType.liquidPhase,references.saponification_caloric_fit],correlations.constant_density[chem.water,properties.liquid_molar_density,compatibility.PhaseType.liquidPhase,references.saponification_density_fit]) allow_unknown true allow_extrapolation false;
 @id("07eaf3c432f242168af60c20ca10c35b") child root:pressure_change.PressureChanger=pressure_change.Pump(inlet_pkg=saponification.Saponification(defined_state=true),outlet_pkg=saponification.Saponification(defined_state=false));
 @id("22c361edf6f449cc81ff84aaaa456eff") expect root.control.outlet.pressure==121325{Pa} tolerance 0.01{Pa};
 @id("88c1e221726847d98b23ba54058aabf8") expect root.control.work==25{W} tolerance 1e-5{W};

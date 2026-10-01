@@ -93,6 +93,9 @@ pub struct Function {
     pub applicability: Vec<dsl::Expr>,
     /// Actual selected claims retained through numerical lowering.
     pub applicability_uses: Vec<crate::applicability::Use>,
+    /// Generated argument indices whose demanded effects precede the returned value.
+    /// These prerequisites retain evidence without making the argument's number the result.
+    pub prerequisites: Vec<usize>,
     /// Occurrence-owned concrete admissions and unresolved generic obligations.
     pub physical_admissions: crate::expression::admission::ExpressionAdmissions,
     /// Declaration-owned authorization retained through specialization and lowering.
@@ -1365,6 +1368,7 @@ fn check_declarations(
                         .map(|e| dsl::parse_expr(e).map_err(|e| invalid(id, e.to_string())))
                         .collect::<Result<_>>()?,
                     applicability_uses: Vec::new(),
+                    prerequisites: Vec::new(),
                     physical_admissions: BTreeMap::new(),
                     physical_operation: None,
                     reduction: None,
@@ -1752,6 +1756,12 @@ impl CheckedPackage {
                 // A test depends on its oracle source (ADR-0123 Outcome 5).
                 paths.extend(v.oracle.iter());
                 if let Some(fixture) = &v.fixture {
+                    if let Some(expected) = &fixture.expected_failure
+                        && let Some(v) = &expected.applicability
+                    {
+                        texts.extend([v.claim.as_str(), v.form.as_str()]);
+                        texts.extend(v.sets.iter().map(String::as_str));
+                    }
                     if let Some(integration) = &fixture.integration {
                         texts.extend(integration.samples.iter().map(String::as_str));
                         texts.push(&integration.initial_step);
@@ -1803,8 +1813,25 @@ impl CheckedPackage {
                 }
                 texts.extend(v.body.as_deref());
                 texts.extend(v.validity.as_deref());
+                texts.extend(v.applicability.iter().map(String::as_str));
                 types.push(&v.return_type);
                 types.extend(v.arguments.iter().map(|a| &a.r#type));
+            }
+            if let Some(v) = &row.value.applicability {
+                texts.extend([v.owner.as_str(), v.evidence.as_str()]);
+                texts.extend(v.predicate.as_deref());
+                texts.extend(v.lower.as_deref());
+                texts.extend(v.upper.as_deref());
+                texts.extend(
+                    v.alternatives
+                        .iter()
+                        .chain(&v.dependencies)
+                        .map(String::as_str),
+                );
+                types.extend(v.arguments.iter().map(|a| &a.r#type));
+            }
+            if let Some(v) = &row.value.permission {
+                texts.extend(v.targets.iter().map(String::as_str));
             }
             if let Some(v) = &row.value.coordinate_map {
                 types.extend(v.arguments.iter().map(|a| &a.r#type));

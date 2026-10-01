@@ -575,6 +575,7 @@ use chemistry @"1.0.0"; use chem @"1.0.0"; use provenance @"1.0.0";
 use references @"1.0.0"; use correlations @"1.0.0"; use properties @"1.0.0";
 use compatibility @"1.0.0"; use reactors @"1.0.0"; use vessels @"1.0.0";
 use helmholtz @"1.0.0"; use saponification @"1.0.0"; use reactions @"1.0.0"; use heat_exchange @"1.0.0";
+use reaction_forms @"1.0.0";
 reference translation pr_h_inverse(value:PrOracleEnthalpy,composition:MoleFraction[chemistry.species],members:Set<chemistry.species>)->MolarEnthalpy anchors(source=bt_pr.oracle_enthalpy_anchor,target=bt_pr.stock_enthalpy_anchor) at(temperature=bt_pr_oracle.temperature,pressure=bt_pr_oracle.pressure) provenance(references.idaes_bt_pr,provenance.Role.oracle_input);
 reference translation pr_s_inverse(value:PrOracleEntropy,composition:MoleFraction[chemistry.species],members:Set<chemistry.species>)->MolarEntropy anchors(source=bt_pr.oracle_entropy_anchor,target=bt_pr.stock_entropy_anchor) at(temperature=bt_pr_oracle.temperature,pressure=bt_pr_oracle.pressure) provenance(references.idaes_bt_pr,provenance.Role.oracle_input);
 reference translation ideal_inverse(value:MolarEnthalpy,composition:MoleFraction[chemistry.species],members:Set<chemistry.species>)->BtOracleEnthalpy anchors(source=bt_ideal.stock_reference_anchor,target=bt_ideal.oracle_reference_anchor) at(temperature=bt_ideal_oracle.temperature,pressure=bt_ideal_oracle.pressure) provenance(references.idaes_bt_ideal,provenance.Role.oracle_input);

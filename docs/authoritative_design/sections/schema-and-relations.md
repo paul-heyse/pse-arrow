@@ -66,7 +66,7 @@ Other declarations have the same single owner:
   is presentation only. IDAES-derived members carry their upstream name
   ([§6.14](#section-6-14)). Every vocabulary that decides behaviour and crosses a crate,
   process, store or language boundary is a registry enumeration, including the backend and
-  dynamics settings vocabularies, `ExtrapolationPolicy` and the store's lifecycle,
+  dynamics settings vocabularies, applicability evidence and the store's lifecycle,
   termination, retention and settlement vocabularies. A vocabulary whose source is
   hand-written Rust is declared with that source (`EnumDecl::sourced`: `pse-vocabulary`,
   `pse-diagnostics`, `pse-quantity`), and the generator re-exports that type instead of
@@ -749,7 +749,7 @@ guards. Unresolved configuration refuses rather than selecting a default. Finite
 and body construction have explicit resource policies; exhaustion never silently truncates
 a model.
 
-**Structured IR.** `authored.modeling_declarations` version 20 stores every type as a
+**Structured IR.** `authored.modeling_declarations` version 22 stores every type as a
 post-order arena (`ModelingTypeArenaNode`): each node's children precede it, and the last
 node is the root. Parameter, argument, binding, return, table key, column and value,
 accumulator and continuous types all use it. The registry enum `ModelingTypeNode` names the
@@ -763,8 +763,8 @@ segments, which checking resolves once. `pse-authoring` validates an arena once,
 type with a recursive-descent grammar and renders its canonical spelling; no string type
 grammar remains. The vocabulary the kernel acts on is registry enums, never words or
 prefixes: a table's `ModelingMissingPolicy` (`required`, `optional`, `default`);
-`ModelingAnnotationKind`, whose typed members (a validity annotation's extrapolation
-policy, a scaling annotation's scheme, a connectivity annotation's maxima) one exhaustive
+`ModelingAnnotationKind`, whose typed members (a validity annotation's unwaivable bounds,
+a scaling annotation's scheme, a connectivity annotation's maxima) one exhaustive
 shape function dispatches; and `ModelingFactNamespace` (`analysis`, `objective`, `stage`),
 which keys the typed facts of bindings, stage overlays and modes. An import carries its
 typed `VersionRequirement` ([§6.1](#section-6-1)). *Tested* by
@@ -773,6 +773,15 @@ typed `VersionRequirement` ([§6.1](#section-6-1)). *Tested* by
 `annotation_kinds_parse_typed_members` and `import_requirement_is_typed` (`pse-authoring`
 units), and `annotation_kind_dispatch_is_exhaustive` and
 `analysis_facts_are_typed_namespaces` (`pse-modeling` units).
+
+Version 22 adds nominal `Applicability` callable results, typed claim declarations and exact
+record/family permission declarations with independent flags (§9.10, ADR-0141). Reference-set
+cells retain plain or keyed references; ordered pair constraints keep separate orientations
+while applying their declared diagonal policy. Finite structural callbacks return admitted
+Tuple/Set/Boolean/Integer values without treating them as physical arithmetic. Derived-attribute
+ordering follows statically named callbacks to their actual attribute owners; a same-named
+attribute on another kind cannot invent a cycle. Dataset bindings may supply inherited
+nonderived attributes, but never override a derived or kind-bound value (ADR-0140).
 
 #### 6.15.3 Property demand and method selection
 

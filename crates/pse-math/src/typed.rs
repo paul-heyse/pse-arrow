@@ -484,6 +484,16 @@ impl<'a> BodyBuilder<'a> {
         value.effects.extend(assumption.0);
         value
     }
+    /// Preserve the demanded effects of a numerical prerequisite without changing
+    /// the returned value or its physical contract.
+    pub fn with_prerequisite(
+        &self,
+        mut value: TypedValue,
+        prerequisite: &TypedValue,
+    ) -> TypedValue {
+        value.effects.extend(prerequisite.effects.iter().copied());
+        value
+    }
     /// Evaluate a physically checked predicate of an authored form only for domain
     /// admission, at value order; a rejection names `lineage` (ADR-0123 Outcome 4).
     /// Predicate-local providers and branches do not supply mathematical derivatives.
@@ -545,6 +555,9 @@ impl<'a> BodyBuilder<'a> {
         self.provider_cache = cache;
         self.provider_order = order;
         let (predicates, inputs) = values?;
+        if !plan.valid_capture(predicates.len(), inputs.len(), self.limits.occurrences) {
+            return Err(MathError::Contract("invalid applicability capture".into()));
+        }
         if self.physical_only {
             return Ok(DomainAssumption(None));
         }

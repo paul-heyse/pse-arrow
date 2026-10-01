@@ -22,16 +22,15 @@ pub struct ModelingExpectationResult {
     /// Whether the absolute difference is within the combined tolerance.
     pub passed: bool,
 }
-/// A validity range or data envelope observed at a pure point (Plan 23 H5): the member or
-/// static argument it bounds, the declaration stating it, its layer, the observed value and
-/// bounds in their canonical unit, and whether its consumer selected extrapolation.
+/// An annotated hard range observed at a pure point, retaining its member, declaration,
+/// owning layer and canonical value and bounds.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ModelingValidityResult {
-    /// The bounded member, or the static observation's identity.
+    /// The bounded member.
     pub target: SemanticId,
-    /// The annotation, or the relation or kind declaring the envelope.
+    /// The annotation declaring the range.
     pub source: DeclarationId,
-    /// Closure or data layer; the form layer never extrapolates and is never observed.
+    /// The range's owning validity layer.
     pub layer: pse_model::generated::enums::ModelingValidityLayer,
     /// Observed canonical value.
     pub value: f64,
@@ -39,8 +38,6 @@ pub struct ModelingValidityResult {
     pub lower: f64,
     /// Canonical upper bound.
     pub upper: f64,
-    /// Whether the consumer selected extrapolation for this layer.
-    pub extrapolation: bool,
 }
 impl ModelingValidityResult {
     /// Whether the value lies within its bounds.
@@ -49,13 +46,13 @@ impl ModelingValidityResult {
     }
 }
 /// What one pure point establishes (Plan 23 H5): its authored expectations and the same
-/// validity obligations a solved point is assessed against. A rejecting range or guard
-/// refuses the evaluation itself; an extrapolating one is observed here.
+/// hard validity obligations a solved point is assessed against. Invalid domains refuse
+/// evaluation; scientific applicability observations remain a separate typed product.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ModelingPointChecks {
     /// Authored comparisons.
     pub expectations: Vec<ModelingExpectationResult>,
-    /// Observed validity ranges, data envelopes and static observations.
+    /// Observed annotated hard ranges.
     pub validity: Vec<ModelingValidityResult>,
     /// Demanded scientific evidence, with actual physical inputs and scoped permission lineage.
     pub applicability: Vec<pse_model::applicability::Observation>,
@@ -96,7 +93,6 @@ impl PreparedModeling {
         &self,
         observations: &BTreeMap<SemanticId, f64>,
     ) -> Result<Vec<ModelingValidityResult>> {
-        use pse_model::generated::enums::ExtrapolationPolicy;
         let observed = |output: ModelingOutput| {
             observations
                 .get(&output.row_id())
@@ -108,8 +104,7 @@ impl PreparedModeling {
         };
         let mut results = Vec::new();
         for a in &self.model.annotations {
-            let pse_modeling::annotation::AnnotationValue::Valid { policy, layer, .. } = &a.value
-            else {
+            let pse_modeling::annotation::AnnotationValue::Valid { layer, .. } = &a.value else {
                 continue;
             };
             let bound = |kind| ModelingOutput::Hint {
@@ -124,7 +119,6 @@ impl PreparedModeling {
                 value: observed(ModelingOutput::Member(a.target))?,
                 lower: observed(bound(ModelingHint::ValidLower))?,
                 upper: observed(bound(ModelingHint::ValidUpper))?,
-                extrapolation: *policy == ExtrapolationPolicy::Extrapolate,
             });
         }
         Ok(results)

@@ -4,24 +4,25 @@
 
 /// Registry-generated semantic values; native codecs remain local.
 pub use pse_model::generated::r#runtime::r#modeling_checks::{
-    RuntimeModelingChecksFieldInputValuesItem, RuntimeModelingChecksRow, Row,
+    RuntimeModelingChecksFieldInputValuesItem,
+    RuntimeModelingChecksFieldApplicabilityPermissionsItem, RuntimeModelingChecksRow, Row,
 };
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    127u8, 88u8, 203u8, 17u8, 135u8, 122u8, 5u8, 41u8, 117u8, 146u8, 162u8, 90u8, 198u8,
-    38u8, 151u8, 40u8,
+    193u8, 53u8, 39u8, 35u8, 81u8, 204u8, 26u8, 37u8, 102u8, 249u8, 197u8, 121u8, 159u8,
+    235u8, 213u8, 8u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "modeling_checks";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Runtime;
 /// The schema generation.
-pub const VERSION: u32 = 4u32;
+pub const VERSION: u32 = 5u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    255u8, 139u8, 79u8, 146u8, 109u8, 240u8, 149u8, 148u8, 224u8, 114u8, 211u8, 230u8,
-    62u8, 193u8, 199u8, 252u8, 10u8, 145u8, 71u8, 97u8, 207u8, 105u8, 140u8, 212u8,
-    112u8, 57u8, 153u8, 254u8, 20u8, 245u8, 95u8, 90u8,
+    115u8, 202u8, 246u8, 247u8, 88u8, 131u8, 163u8, 145u8, 102u8, 239u8, 176u8, 30u8,
+    201u8, 210u8, 186u8, 255u8, 29u8, 126u8, 157u8, 98u8, 42u8, 136u8, 87u8, 253u8, 45u8,
+    9u8, 91u8, 210u8, 30u8, 15u8, 183u8, 5u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeModelingChecksFieldInputValuesItem {
     fn append(
@@ -73,6 +74,97 @@ impl crate::columnar::ArrowValue for RuntimeModelingChecksFieldInputValuesItem {
             )?,
             r#quantity_type: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
                 input.column(2usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue
+for RuntimeModelingChecksFieldApplicabilityPermissionsItem {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(
+            &self.r#permission_id,
+            children[0usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#scope, children[1usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#target_kind,
+            children[2usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#targets, children[3usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#allow_unknown,
+            children[4usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#allow_extrapolation,
+            children[5usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[1usize].as_mut(),
+        )?;
+        <crate::generated::enums::ModelingPermissionTarget as crate::columnar::ArrowValue>::append_null(
+            children[2usize].as_mut(),
+        )?;
+        <Vec<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#permission_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#scope: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#target_kind: <crate::generated::enums::ModelingPermissionTarget as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#targets: <Vec<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#allow_unknown: <bool as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#allow_extrapolation: <bool as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
                 index,
             )?,
         })
@@ -131,48 +223,68 @@ impl crate::columnar::ArrowValue for RuntimeModelingChecksRow {
             children[15usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#coverage_id,
+            &self.r#claim_owner_lineage,
             children[16usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#evidence_id,
+            &self.r#coverage_id,
             children[17usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#form_id,
+            &self.r#evidence_id,
             children[18usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#call_id,
+            &self.r#form_id,
             children[19usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#selected_records,
+            &self.r#call_id,
             children[20usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#dependencies,
+            &self.r#selected_records,
             children[21usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#input_values,
+            &self.r#dependencies,
             children[22usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#applicability_outcome,
+            &self.r#input_values,
             children[23usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#applicability_basis,
+            &self.r#applicability_outcome,
             children[24usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#permission_ids,
+            &self.r#applicability_basis,
             children[25usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#unknown_allowed,
+            &self.r#permission_ids,
             children[26usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#unknown_allowed,
+            children[27usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#observation_instance,
+            children[28usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#applicability_required,
+            children[29usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#applicability_reason,
+            children[30usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#applicability_permissions,
+            children[31usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -224,7 +336,7 @@ impl crate::columnar::ArrowValue for RuntimeModelingChecksRow {
         <Option<
             pse_ids::SemanticId,
         > as crate::columnar::ArrowValue>::append_null(children[15usize].as_mut())?;
-        <Option<
+        <Vec<
             pse_ids::SemanticId,
         > as crate::columnar::ArrowValue>::append_null(children[16usize].as_mut())?;
         <Option<
@@ -236,27 +348,42 @@ impl crate::columnar::ArrowValue for RuntimeModelingChecksRow {
         <Option<
             pse_ids::SemanticId,
         > as crate::columnar::ArrowValue>::append_null(children[19usize].as_mut())?;
-        <Vec<
+        <Option<
             pse_ids::SemanticId,
         > as crate::columnar::ArrowValue>::append_null(children[20usize].as_mut())?;
         <Vec<
             pse_ids::SemanticId,
         > as crate::columnar::ArrowValue>::append_null(children[21usize].as_mut())?;
         <Vec<
-            RuntimeModelingChecksFieldInputValuesItem,
+            pse_ids::SemanticId,
         > as crate::columnar::ArrowValue>::append_null(children[22usize].as_mut())?;
-        <Option<
-            crate::generated::enums::ModelingApplicabilityOutcome,
+        <Vec<
+            RuntimeModelingChecksFieldInputValuesItem,
         > as crate::columnar::ArrowValue>::append_null(children[23usize].as_mut())?;
         <Option<
-            crate::generated::enums::ModelingApplicabilityBasis,
+            crate::generated::enums::ModelingApplicabilityOutcome,
         > as crate::columnar::ArrowValue>::append_null(children[24usize].as_mut())?;
+        <Option<
+            crate::generated::enums::ModelingApplicabilityBasis,
+        > as crate::columnar::ArrowValue>::append_null(children[25usize].as_mut())?;
         <Vec<
             pse_ids::SemanticId,
-        > as crate::columnar::ArrowValue>::append_null(children[25usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[26usize].as_mut())?;
         <Option<
             bool,
-        > as crate::columnar::ArrowValue>::append_null(children[26usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[27usize].as_mut())?;
+        <Option<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[28usize].as_mut())?;
+        <Option<
+            bool,
+        > as crate::columnar::ArrowValue>::append_null(children[29usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[30usize].as_mut())?;
+        <Vec<
+            RuntimeModelingChecksFieldApplicabilityPermissionsItem,
+        > as crate::columnar::ArrowValue>::append_null(children[31usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -345,70 +472,100 @@ impl crate::columnar::ArrowValue for RuntimeModelingChecksRow {
                 input.column(15usize).as_ref(),
                 index,
             )?,
-            r#coverage_id: <Option<
+            r#claim_owner_lineage: <Vec<
                 pse_ids::SemanticId,
             > as crate::columnar::ArrowValue>::read(
                 input.column(16usize).as_ref(),
                 index,
             )?,
-            r#evidence_id: <Option<
+            r#coverage_id: <Option<
                 pse_ids::SemanticId,
             > as crate::columnar::ArrowValue>::read(
                 input.column(17usize).as_ref(),
                 index,
             )?,
-            r#form_id: <Option<
+            r#evidence_id: <Option<
                 pse_ids::SemanticId,
             > as crate::columnar::ArrowValue>::read(
                 input.column(18usize).as_ref(),
                 index,
             )?,
-            r#call_id: <Option<
+            r#form_id: <Option<
                 pse_ids::SemanticId,
             > as crate::columnar::ArrowValue>::read(
                 input.column(19usize).as_ref(),
                 index,
             )?,
-            r#selected_records: <Vec<
+            r#call_id: <Option<
                 pse_ids::SemanticId,
             > as crate::columnar::ArrowValue>::read(
                 input.column(20usize).as_ref(),
                 index,
             )?,
-            r#dependencies: <Vec<
+            r#selected_records: <Vec<
                 pse_ids::SemanticId,
             > as crate::columnar::ArrowValue>::read(
                 input.column(21usize).as_ref(),
                 index,
             )?,
+            r#dependencies: <Vec<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(22usize).as_ref(),
+                index,
+            )?,
             r#input_values: <Vec<
                 RuntimeModelingChecksFieldInputValuesItem,
             > as crate::columnar::ArrowValue>::read(
-                input.column(22usize).as_ref(),
+                input.column(23usize).as_ref(),
                 index,
             )?,
             r#applicability_outcome: <Option<
                 crate::generated::enums::ModelingApplicabilityOutcome,
             > as crate::columnar::ArrowValue>::read(
-                input.column(23usize).as_ref(),
+                input.column(24usize).as_ref(),
                 index,
             )?,
             r#applicability_basis: <Option<
                 crate::generated::enums::ModelingApplicabilityBasis,
             > as crate::columnar::ArrowValue>::read(
-                input.column(24usize).as_ref(),
+                input.column(25usize).as_ref(),
                 index,
             )?,
             r#permission_ids: <Vec<
                 pse_ids::SemanticId,
             > as crate::columnar::ArrowValue>::read(
-                input.column(25usize).as_ref(),
+                input.column(26usize).as_ref(),
                 index,
             )?,
             r#unknown_allowed: <Option<
                 bool,
             > as crate::columnar::ArrowValue>::read(
-                input.column(26usize).as_ref(),
+                input.column(27usize).as_ref(),
+                index,
+            )?,
+            r#observation_instance: <Option<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(28usize).as_ref(),
+                index,
+            )?,
+            r#applicability_required: <Option<
+                bool,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(29usize).as_ref(),
+                index,
+            )?,
+            r#applicability_reason: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(30usize).as_ref(),
+                index,
+            )?,
+            r#applicability_permissions: <Vec<
+                RuntimeModelingChecksFieldApplicabilityPermissionsItem,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(31usize).as_ref(),
                 index,
             )?,
         })
@@ -503,42 +660,62 @@ impl crate::columnar::RelationRow for RuntimeModelingChecksRow {
             columns[15usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#coverage_id,
+            &self.r#claim_owner_lineage,
             columns[16usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#evidence_id,
+            &self.r#coverage_id,
             columns[17usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#form_id, columns[18usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#call_id, columns[19usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#evidence_id,
+            columns[18usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#form_id, columns[19usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#call_id, columns[20usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#selected_records,
-            columns[20usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#dependencies,
             columns[21usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#input_values,
+            &self.r#dependencies,
             columns[22usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#applicability_outcome,
+            &self.r#input_values,
             columns[23usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#applicability_basis,
+            &self.r#applicability_outcome,
             columns[24usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#permission_ids,
+            &self.r#applicability_basis,
             columns[25usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#unknown_allowed,
+            &self.r#permission_ids,
             columns[26usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#unknown_allowed,
+            columns[27usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#observation_instance,
+            columns[28usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#applicability_required,
+            columns[29usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#applicability_reason,
+            columns[30usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#applicability_permissions,
+            columns[31usize].as_mut(),
         )?;
         Ok(())
     }
@@ -574,10 +751,10 @@ impl crate::columnar::RelationRow for RuntimeModelingChecksRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        77_824_usize + size_of::<Self::Builder>()
+        107_520_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        608usize
+        840usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -693,6 +870,18 @@ impl crate::columnar::RelationRow for RuntimeModelingChecksRow {
             } else {
                 Ok::<usize, crate::RelationError>(1)
             }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            (self.r#claim_owner_lineage)
+                .iter()
+                .try_fold(
+                    8usize,
+                    |bytes, _| crate::columnar::allocation_add(
+                        bytes,
+                        Ok::<usize, crate::RelationError>(16usize)?,
+                    ),
+                )?,
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
@@ -834,6 +1023,89 @@ impl crate::columnar::RelationRow for RuntimeModelingChecksRow {
                 Ok::<usize, crate::RelationError>(1)
             }?,
         )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#observation_instance).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(16usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#applicability_required).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(8usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#applicability_reason).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            (self.r#applicability_permissions)
+                .iter()
+                .try_fold(
+                    8usize,
+                    |bytes, item| crate::columnar::allocation_add(
+                        bytes,
+                        {
+                            let mut bytes = 1usize;
+                            bytes = crate::columnar::allocation_add(
+                                bytes,
+                                Ok::<usize, crate::RelationError>(16usize)?,
+                            )?;
+                            bytes = crate::columnar::allocation_add(
+                                bytes,
+                                Ok::<usize, crate::RelationError>(16usize)?,
+                            )?;
+                            bytes = crate::columnar::allocation_add(
+                                bytes,
+                                crate::columnar::allocation_add(
+                                    8,
+                                    ((item).r#target_kind).as_str().len(),
+                                )?,
+                            )?;
+                            bytes = crate::columnar::allocation_add(
+                                bytes,
+                                ((item).r#targets)
+                                    .iter()
+                                    .try_fold(
+                                        8usize,
+                                        |bytes, _| crate::columnar::allocation_add(
+                                            bytes,
+                                            Ok::<usize, crate::RelationError>(16usize)?,
+                                        ),
+                                    )?,
+                            )?;
+                            bytes = crate::columnar::allocation_add(
+                                bytes,
+                                Ok::<usize, crate::RelationError>(8usize)?,
+                            )?;
+                            bytes = crate::columnar::allocation_add(
+                                bytes,
+                                Ok::<usize, crate::RelationError>(8usize)?,
+                            )?;
+                            Ok::<usize, crate::RelationError>(bytes)
+                        }?,
+                    ),
+                )?,
+        )?;
         Ok(bytes)
     }
 }
@@ -844,7 +1116,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 27usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 32usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "run_id",
@@ -927,58 +1199,83 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 27usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "coverage_id",
+        name: "claim_owner_lineage",
         position: 16usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "evidence_id",
+        name: "coverage_id",
         position: 17usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "form_id",
+        name: "evidence_id",
         position: 18usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "call_id",
+        name: "form_id",
         position: 19usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "selected_records",
+        name: "call_id",
         position: 20usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "dependencies",
+        name: "selected_records",
         position: 21usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "input_values",
+        name: "dependencies",
         position: 22usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "applicability_outcome",
+        name: "input_values",
         position: 23usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "applicability_basis",
+        name: "applicability_outcome",
         position: 24usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "permission_ids",
+        name: "applicability_basis",
         position: 25usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "unknown_allowed",
+        name: "permission_ids",
         position: 26usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "unknown_allowed",
+        position: 27usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "observation_instance",
+        position: 28usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "applicability_required",
+        position: 29usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "applicability_reason",
+        position: 30usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "applicability_permissions",
+        position: 31usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
@@ -1015,28 +1312,38 @@ pub mod columns {
     pub const CLAIM_ID: crate::columnar::ColumnReference = super::COLUMNS[14usize];
     ///claim_owner
     pub const CLAIM_OWNER: crate::columnar::ColumnReference = super::COLUMNS[15usize];
+    ///claim_owner_lineage
+    pub const CLAIM_OWNER_LINEAGE: crate::columnar::ColumnReference = super::COLUMNS[16usize];
     ///coverage_id
-    pub const COVERAGE_ID: crate::columnar::ColumnReference = super::COLUMNS[16usize];
+    pub const COVERAGE_ID: crate::columnar::ColumnReference = super::COLUMNS[17usize];
     ///evidence_id
-    pub const EVIDENCE_ID: crate::columnar::ColumnReference = super::COLUMNS[17usize];
+    pub const EVIDENCE_ID: crate::columnar::ColumnReference = super::COLUMNS[18usize];
     ///form_id
-    pub const FORM_ID: crate::columnar::ColumnReference = super::COLUMNS[18usize];
+    pub const FORM_ID: crate::columnar::ColumnReference = super::COLUMNS[19usize];
     ///call_id
-    pub const CALL_ID: crate::columnar::ColumnReference = super::COLUMNS[19usize];
+    pub const CALL_ID: crate::columnar::ColumnReference = super::COLUMNS[20usize];
     ///selected_records
-    pub const SELECTED_RECORDS: crate::columnar::ColumnReference = super::COLUMNS[20usize];
+    pub const SELECTED_RECORDS: crate::columnar::ColumnReference = super::COLUMNS[21usize];
     ///dependencies
-    pub const DEPENDENCIES: crate::columnar::ColumnReference = super::COLUMNS[21usize];
+    pub const DEPENDENCIES: crate::columnar::ColumnReference = super::COLUMNS[22usize];
     ///input_values
-    pub const INPUT_VALUES: crate::columnar::ColumnReference = super::COLUMNS[22usize];
+    pub const INPUT_VALUES: crate::columnar::ColumnReference = super::COLUMNS[23usize];
     ///applicability_outcome
-    pub const APPLICABILITY_OUTCOME: crate::columnar::ColumnReference = super::COLUMNS[23usize];
+    pub const APPLICABILITY_OUTCOME: crate::columnar::ColumnReference = super::COLUMNS[24usize];
     ///applicability_basis
-    pub const APPLICABILITY_BASIS: crate::columnar::ColumnReference = super::COLUMNS[24usize];
+    pub const APPLICABILITY_BASIS: crate::columnar::ColumnReference = super::COLUMNS[25usize];
     ///permission_ids
-    pub const PERMISSION_IDS: crate::columnar::ColumnReference = super::COLUMNS[25usize];
+    pub const PERMISSION_IDS: crate::columnar::ColumnReference = super::COLUMNS[26usize];
     ///unknown_allowed
-    pub const UNKNOWN_ALLOWED: crate::columnar::ColumnReference = super::COLUMNS[26usize];
+    pub const UNKNOWN_ALLOWED: crate::columnar::ColumnReference = super::COLUMNS[27usize];
+    ///observation_instance
+    pub const OBSERVATION_INSTANCE: crate::columnar::ColumnReference = super::COLUMNS[28usize];
+    ///applicability_required
+    pub const APPLICABILITY_REQUIRED: crate::columnar::ColumnReference = super::COLUMNS[29usize];
+    ///applicability_reason
+    pub const APPLICABILITY_REASON: crate::columnar::ColumnReference = super::COLUMNS[30usize];
+    ///applicability_permissions
+    pub const APPLICABILITY_PERMISSIONS: crate::columnar::ColumnReference = super::COLUMNS[31usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -1059,6 +1366,7 @@ pub struct RuntimeModelingChecksView<'a> {
     layer_column: &'a arrow_array::StringArray,
     claim_id_column: &'a arrow_array::FixedSizeBinaryArray,
     claim_owner_column: &'a arrow_array::FixedSizeBinaryArray,
+    claim_owner_lineage_column: &'a arrow_array::ListArray,
     coverage_id_column: &'a arrow_array::FixedSizeBinaryArray,
     evidence_id_column: &'a arrow_array::FixedSizeBinaryArray,
     form_id_column: &'a arrow_array::FixedSizeBinaryArray,
@@ -1070,6 +1378,10 @@ pub struct RuntimeModelingChecksView<'a> {
     applicability_basis_column: &'a arrow_array::StringArray,
     permission_ids_column: &'a arrow_array::ListArray,
     unknown_allowed_column: &'a arrow_array::BooleanArray,
+    observation_instance_column: &'a arrow_array::FixedSizeBinaryArray,
+    applicability_required_column: &'a arrow_array::BooleanArray,
+    applicability_reason_column: &'a arrow_array::StringArray,
+    applicability_permissions_column: &'a arrow_array::ListArray,
 }
 impl<'a> RuntimeModelingChecksView<'a> {
     /// Admits a raw candidate's actual schema and visible local values.
@@ -1157,39 +1469,54 @@ impl<'a> RuntimeModelingChecksView<'a> {
             claim_owner_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
             >(batch.column(15usize).as_ref())?,
+            claim_owner_lineage_column: crate::columnar::array::<
+                arrow_array::ListArray,
+            >(batch.column(16usize).as_ref())?,
             coverage_id_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
-            >(batch.column(16usize).as_ref())?,
+            >(batch.column(17usize).as_ref())?,
             evidence_id_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
-            >(batch.column(17usize).as_ref())?,
+            >(batch.column(18usize).as_ref())?,
             form_id_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
-            >(batch.column(18usize).as_ref())?,
+            >(batch.column(19usize).as_ref())?,
             call_id_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
-            >(batch.column(19usize).as_ref())?,
+            >(batch.column(20usize).as_ref())?,
             selected_records_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(20usize).as_ref())?,
+            >(batch.column(21usize).as_ref())?,
             dependencies_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(21usize).as_ref())?,
+            >(batch.column(22usize).as_ref())?,
             input_values_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(22usize).as_ref())?,
+            >(batch.column(23usize).as_ref())?,
             applicability_outcome_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(23usize).as_ref())?,
+            >(batch.column(24usize).as_ref())?,
             applicability_basis_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(24usize).as_ref())?,
+            >(batch.column(25usize).as_ref())?,
             permission_ids_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(25usize).as_ref())?,
+            >(batch.column(26usize).as_ref())?,
             unknown_allowed_column: crate::columnar::array::<
                 arrow_array::BooleanArray,
-            >(batch.column(26usize).as_ref())?,
+            >(batch.column(27usize).as_ref())?,
+            observation_instance_column: crate::columnar::array::<
+                arrow_array::FixedSizeBinaryArray,
+            >(batch.column(28usize).as_ref())?,
+            applicability_required_column: crate::columnar::array::<
+                arrow_array::BooleanArray,
+            >(batch.column(29usize).as_ref())?,
+            applicability_reason_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(30usize).as_ref())?,
+            applicability_permissions_column: crate::columnar::array::<
+                arrow_array::ListArray,
+            >(batch.column(31usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -1402,6 +1729,22 @@ impl<'a> RuntimeModelingChecksView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
+        "claim_owner_lineage",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn claim_owner_lineage_column(&self) -> &'a arrow_array::ListArray {
+        self.claim_owner_lineage_column
+    }
+    #[doc = concat!(
+        "Borrows the exact declared field for `",
+        "claim_owner_lineage",
+        "`.",
+    )]
+    pub fn claim_owner_lineage_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[16usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
         "coverage_id",
         "`, including its offsets and validity bitmap.",
     )]
@@ -1410,7 +1753,7 @@ impl<'a> RuntimeModelingChecksView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "coverage_id", "`.")]
     pub fn coverage_id_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[16usize]
+        &self.batch.schema_ref().fields()[17usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1422,7 +1765,7 @@ impl<'a> RuntimeModelingChecksView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "evidence_id", "`.")]
     pub fn evidence_id_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[17usize]
+        &self.batch.schema_ref().fields()[18usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1434,7 +1777,7 @@ impl<'a> RuntimeModelingChecksView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "form_id", "`.")]
     pub fn form_id_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[18usize]
+        &self.batch.schema_ref().fields()[19usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1446,7 +1789,7 @@ impl<'a> RuntimeModelingChecksView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "call_id", "`.")]
     pub fn call_id_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[19usize]
+        &self.batch.schema_ref().fields()[20usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1458,7 +1801,7 @@ impl<'a> RuntimeModelingChecksView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "selected_records", "`.")]
     pub fn selected_records_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[20usize]
+        &self.batch.schema_ref().fields()[21usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1470,7 +1813,7 @@ impl<'a> RuntimeModelingChecksView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "dependencies", "`.")]
     pub fn dependencies_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[21usize]
+        &self.batch.schema_ref().fields()[22usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1482,7 +1825,7 @@ impl<'a> RuntimeModelingChecksView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "input_values", "`.")]
     pub fn input_values_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[22usize]
+        &self.batch.schema_ref().fields()[23usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1498,7 +1841,7 @@ impl<'a> RuntimeModelingChecksView<'a> {
         "`.",
     )]
     pub fn applicability_outcome_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[23usize]
+        &self.batch.schema_ref().fields()[24usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1514,7 +1857,7 @@ impl<'a> RuntimeModelingChecksView<'a> {
         "`.",
     )]
     pub fn applicability_basis_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[24usize]
+        &self.batch.schema_ref().fields()[25usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1526,7 +1869,7 @@ impl<'a> RuntimeModelingChecksView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "permission_ids", "`.")]
     pub fn permission_ids_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[25usize]
+        &self.batch.schema_ref().fields()[26usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1538,7 +1881,73 @@ impl<'a> RuntimeModelingChecksView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "unknown_allowed", "`.")]
     pub fn unknown_allowed_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[26usize]
+        &self.batch.schema_ref().fields()[27usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "observation_instance",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn observation_instance_column(
+        &self,
+    ) -> &'a arrow_array::FixedSizeBinaryArray {
+        self.observation_instance_column
+    }
+    #[doc = concat!(
+        "Borrows the exact declared field for `",
+        "observation_instance",
+        "`.",
+    )]
+    pub fn observation_instance_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[28usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "applicability_required",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn applicability_required_column(&self) -> &'a arrow_array::BooleanArray {
+        self.applicability_required_column
+    }
+    #[doc = concat!(
+        "Borrows the exact declared field for `",
+        "applicability_required",
+        "`.",
+    )]
+    pub fn applicability_required_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[29usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "applicability_reason",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn applicability_reason_column(&self) -> &'a arrow_array::StringArray {
+        self.applicability_reason_column
+    }
+    #[doc = concat!(
+        "Borrows the exact declared field for `",
+        "applicability_reason",
+        "`.",
+    )]
+    pub fn applicability_reason_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[30usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "applicability_permissions",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn applicability_permissions_column(&self) -> &'a arrow_array::ListArray {
+        self.applicability_permissions_column
+    }
+    #[doc = concat!(
+        "Borrows the exact declared field for `",
+        "applicability_permissions",
+        "`.",
+    )]
+    pub fn applicability_permissions_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[31usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -1592,6 +2001,10 @@ impl<'a> RuntimeModelingChecksView<'a> {
                 self.claim_owner_column,
                 index,
             )?,
+            r#claim_owner_lineage: crate::columnar::ArrowValue::read(
+                self.claim_owner_lineage_column,
+                index,
+            )?,
             r#coverage_id: crate::columnar::ArrowValue::read(
                 self.coverage_id_column,
                 index,
@@ -1628,6 +2041,22 @@ impl<'a> RuntimeModelingChecksView<'a> {
             )?,
             r#unknown_allowed: crate::columnar::ArrowValue::read(
                 self.unknown_allowed_column,
+                index,
+            )?,
+            r#observation_instance: crate::columnar::ArrowValue::read(
+                self.observation_instance_column,
+                index,
+            )?,
+            r#applicability_required: crate::columnar::ArrowValue::read(
+                self.applicability_required_column,
+                index,
+            )?,
+            r#applicability_reason: crate::columnar::ArrowValue::read(
+                self.applicability_reason_column,
+                index,
+            )?,
+            r#applicability_permissions: crate::columnar::ArrowValue::read(
+                self.applicability_permissions_column,
                 index,
             )?,
         })

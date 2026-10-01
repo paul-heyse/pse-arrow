@@ -94,13 +94,13 @@ pub struct SelectionOccurrence {
 }
 /// Immutable selection products retained after static construction.
 pub type Selections = BTreeMap<SelectionOccurrence, SelectionClosure>;
+type Frames =
+    std::rc::Rc<std::cell::RefCell<Vec<(ScopeKind, std::rc::Weak<std::cell::RefCell<Consumed>>)>>>;
 /// Construction-local collector, never stored inside an admitted package.
 #[derive(Clone, Default)]
 pub(crate) struct Collector {
     products: std::rc::Rc<std::cell::RefCell<Selections>>,
-    frames: std::rc::Rc<
-        std::cell::RefCell<Vec<(ScopeKind, std::rc::Weak<std::cell::RefCell<Consumed>>)>>,
-    >,
+    frames: Frames,
 }
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum ScopeKind {
@@ -110,7 +110,6 @@ enum ScopeKind {
 #[derive(Default)]
 struct Consumed {
     selections: Selections,
-    direct_records: BTreeSet<DeclarationId>,
 }
 /// One active consumer captures its own products. Instance scopes exclude nested owners.
 pub(crate) struct SelectionScope {
@@ -118,9 +117,6 @@ pub(crate) struct SelectionScope {
     products: std::rc::Rc<std::cell::RefCell<Consumed>>,
 }
 impl Collector {
-    pub(crate) fn borrow(&self) -> std::cell::Ref<'_, Selections> {
-        self.products.borrow()
-    }
     pub(crate) fn into_inner(self) -> Selections {
         match std::rc::Rc::try_unwrap(self.products) {
             Ok(products) => products.into_inner(),
@@ -146,23 +142,6 @@ impl Collector {
             }
         }
     }
-    /// Track numerical attribute consumption; applicability interprets admitted record contracts.
-    pub(crate) fn record_numeric(&self, id: DeclarationId) {
-        let frames = self.frames.borrow();
-        let origin = frames
-            .iter()
-            .rposition(|(kind, _)| *kind == ScopeKind::Function);
-        for (index, (kind, frame)) in frames.iter().enumerate() {
-            if *kind == ScopeKind::Function
-                && let Some(frame) = frame.upgrade()
-            {
-                let mut consumed = frame.borrow_mut();
-                if origin == Some(index) {
-                    consumed.direct_records.insert(id);
-                }
-            }
-        }
-    }
     fn open(&self, kind: ScopeKind) -> SelectionScope {
         let products = std::rc::Rc::new(std::cell::RefCell::new(Consumed::default()));
         self.frames
@@ -179,32 +158,13 @@ impl Collector {
     pub(crate) fn instance_scope(&self) -> SelectionScope {
         self.open(ScopeKind::Instance)
     }
-    /// Products consumed by the current function, without unrelated prior calls.
-    pub(crate) fn current_frame(&self) -> Selections {
+    pub(crate) fn current_consumer_frame(&self) -> Selections {
         self.frames
             .borrow()
             .iter()
             .rev()
-            .find_map(|(kind, frame)| {
-                (*kind == ScopeKind::Function)
-                    .then(|| frame.upgrade())
-                    .flatten()
-            })
+            .find_map(|(_, frame)| frame.upgrade())
             .map(|products| products.borrow().selections.clone())
-            .unwrap_or_default()
-    }
-    /// Direct reads belong to the innermost function; nested helpers carry their own claims.
-    pub(crate) fn current_direct_records(&self) -> BTreeSet<DeclarationId> {
-        self.frames
-            .borrow()
-            .iter()
-            .rev()
-            .find_map(|(kind, frame)| {
-                (*kind == ScopeKind::Function)
-                    .then(|| frame.upgrade())
-                    .flatten()
-            })
-            .map(|products| products.borrow().direct_records.clone())
             .unwrap_or_default()
     }
 }
@@ -246,7 +206,11 @@ impl SelectionClosure {
     }
 }
 /// Frame immutable admitted products in source-occurrence order.
-pub(crate) fn frame(selections: &Selections, hash: &mut pse_ids::FramedHasher) {
+pub(crate) fn frame(
+    selections: &Selections,
+    package: &crate::CheckedPackage,
+    hash: &mut pse_ids::FramedHasher,
+) {
     hash.str("scientific-selections-v1")
         .u64(selections.len() as u64);
     for (occurrence, closure) in selections {
@@ -254,6 +218,25 @@ pub(crate) fn frame(selections: &Selections, hash: &mut pse_ids::FramedHasher) {
             .id(&occurrence.dependencies.as_id())
             .str(&occurrence.expression);
         closure.frame(hash);
+        for value in &closure.records {
+            if let Value::Entity { id, .. } = value
+                && let Some(record) = package.record(*id)
+            {
+                hash.id(&record.kind.as_id())
+                    .id(&record.origin.as_id())
+                    .u64(record.values.len() as u64);
+                for (name, value) in &record.values {
+                    hash.str(name);
+                    value.frame(hash);
+                }
+                hash.u64(record.uncertainties.len() as u64);
+                for (name, uncertainty) in &record.uncertainties {
+                    hash.str(name)
+                        .str(uncertainty.kind.as_str())
+                        .u64(uncertainty.magnitude.to_bits());
+                }
+            }
+        }
     }
 }
 

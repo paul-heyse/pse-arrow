@@ -84,7 +84,10 @@ fn child_group(model: &SpecializedModel, suffix: &str) -> pse_ids::ContentHash {
         .group
 }
 fn changed_main_edge() -> String {
-    FIXTURE.replace("dependencies={bc}", "dependencies={ac}")
+    FIXTURE.replace(
+        "dependencies={interactions.symmetric_scalar[fit,family,b,c]}",
+        "dependencies={interactions.symmetric_scalar[fit,family,a,c]}",
+    )
 }
 fn prepared_body_ids(fixture: &str) -> BTreeSet<pse_ids::ContentHash> {
     let source = format!("{}\n{fixture}", SOURCES.join("\n"));
@@ -114,6 +117,21 @@ fn prepared_body_ids(fixture: &str) -> BTreeSet<pse_ids::ContentHash> {
     prepared.admitted.bodies.keys().copied().collect()
 }
 
+fn numerical_literals(model: &SpecializedModel) -> Vec<u64> {
+    let mut literals = Vec::new();
+    for function in model.functions.values() {
+        if let Some(body) = &function.body {
+            body.walk(|expression| {
+                if let ExprKind::Number(number) = &expression.kind {
+                    literals.push(number.value.to_bits());
+                }
+            });
+        }
+    }
+    literals.sort();
+    literals
+}
+
 #[test]
 fn selected_property_table_retains_only_consumed_owner_context_and_first_call_edges() {
     let original = specialized(FIXTURE, "Isolated", &["result"]);
@@ -141,19 +159,10 @@ fn selected_property_table_retains_only_consumed_owner_context_and_first_call_ed
         original_id, changed_id,
         "the first isolated finite call must frame its consumed edges"
     );
-    let find_body = |model: &SpecializedModel, id: SemanticId| {
-        model
-            .functions
-            .values()
-            .find(|function| function.id.as_id() == id)
-            .unwrap()
-            .body
-            .clone()
-    };
     assert_eq!(
-        find_body(&original, original_id),
-        find_body(&changed, changed_id),
-        "the admitted coefficients and numerical body did not change"
+        numerical_literals(&original),
+        numerical_literals(&changed),
+        "the numerical literals did not change when the scientific dependency edge changed"
     );
     assert_ne!(
         original.instances.values().next().unwrap().group,
@@ -163,6 +172,35 @@ fn selected_property_table_retains_only_consumed_owner_context_and_first_call_ed
         prepared_body_ids(FIXTURE),
         prepared_body_ids(&changed_main_edge()),
         "changed scientific edges must reach preparation identity with equal numerical coefficients"
+    );
+}
+
+#[test]
+fn consumed_convention_changes_identity_with_equal_records_edges_and_coefficients() {
+    let changed = FIXTURE.replacen("conventions={}", "conventions={coefficient_convention}", 1);
+    assert_ne!(changed, FIXTURE);
+    let original = specialized(FIXTURE, "Isolated", &["result"]);
+    let updated = specialized(&changed, "Isolated", &["result"]);
+    assert_eq!(contexts(&original), contexts(&updated));
+    let before = original.selection_closures.values().next().unwrap();
+    let after = updated.selection_closures.values().next().unwrap();
+    assert_eq!(before.roots, after.roots);
+    assert_eq!(before.records, after.records);
+    assert_eq!(before.edges, after.edges);
+    assert_eq!(numerical_literals(&original), numerical_literals(&updated));
+    assert_ne!(
+        call_id(&original, ".result"),
+        call_id(&updated, ".result"),
+        "a consumed convention is part of the finite function's scientific meaning"
+    );
+    assert_ne!(
+        original.instances.values().next().unwrap().group,
+        updated.instances.values().next().unwrap().group
+    );
+    assert_ne!(
+        prepared_body_ids(FIXTURE),
+        prepared_body_ids(&changed),
+        "convention-only changes must reach preparation identity"
     );
 }
 
@@ -179,7 +217,10 @@ fn unrelated_selection_call_order_does_not_change_either_finite_function_identit
 #[test]
 fn late_child_demand_frames_own_selection_without_an_unrelated_instance_edge() {
     let original = specialized(FIXTURE, "Children", &["first.result", "second.result"]);
-    let unrelated = FIXTURE.replace("dependencies={bc_other}", "dependencies={ac_other}");
+    let unrelated = FIXTURE.replace(
+        "dependencies={interactions.symmetric_scalar[other_fit,family,b,c]}",
+        "dependencies={interactions.symmetric_scalar[other_fit,family,a,c]}",
+    );
     assert_ne!(unrelated, FIXTURE);
     let changed = specialized(&unrelated, "Children", &["second.result", "first.result"]);
     assert_eq!(
@@ -207,30 +248,31 @@ use properties @"1.0.0"; use interactions @"1.0.0";
 @id("51000000000000000000000000000002") entity chemistry.species b {}
 @id("51000000000000000000000000000003") entity chemistry.species c {}
 entity provenance.source evidence {title="Isolated selection identity controls; independently specified equal coefficients"}
+entity provenance.source coefficient_convention {title="Synthetic coefficient convention for the isolated identity control"}
 entity properties.parameterization fit {title="First scientific selection",source=evidence}
 entity properties.parameterization other_fit {title="Unrelated scientific selection",source=evidence}
 entity properties.property family {quantity=Scalar,shape=properties.IndexShape.pair,applies={compatibility.PhaseType.liquidPhase}}
-entity interactions.symmetric_scalar ab {parameterization=fit,family=family,first=a,second=b,value=0.25,source=evidence,dependencies={bc},conventions={}}
-entity interactions.symmetric_scalar ac {parameterization=fit,family=family,first=a,second=c,value=0.25,source=evidence,dependencies={},conventions={}}
-entity interactions.symmetric_scalar bc {parameterization=fit,family=family,first=b,second=c,value=0.25,source=evidence,dependencies={},conventions={}}
-entity interactions.symmetric_scalar ab_other {parameterization=other_fit,family=family,first=a,second=b,value=0.25,source=evidence,dependencies={bc_other},conventions={}}
-entity interactions.symmetric_scalar ac_other {parameterization=other_fit,family=family,first=a,second=c,value=0.25,source=evidence,dependencies={},conventions={}}
-entity interactions.symmetric_scalar bc_other {parameterization=other_fit,family=family,first=b,second=c,value=0.25,source=evidence,dependencies={},conventions={}}
-entity properties.selection_context selected_context {roots={ab,ac,bc},subjects={a,b,c},models={family},rules={}}
-entity properties.selection_context other_context {roots={ab_other,ac_other,bc_other},subjects={a,b,c},models={family},rules={}}
+dataset rows_ab:interactions.symmetric_scalar bind(parameterization=fit,family=family,source=evidence,dependencies={interactions.symmetric_scalar[fit,family,b,c]},conventions={}) provenance(evidence,provenance.Role.synthetic) {[a,b]=[0.25];}
+dataset rows_ac:interactions.symmetric_scalar bind(parameterization=fit,family=family,source=evidence,dependencies={},conventions={}) provenance(evidence,provenance.Role.synthetic) {[a,c]=[0.25];}
+dataset rows_bc:interactions.symmetric_scalar bind(parameterization=fit,family=family,source=evidence,dependencies={},conventions={}) provenance(evidence,provenance.Role.synthetic) {[b,c]=[0.25];}
+dataset rows_ab_other:interactions.symmetric_scalar bind(parameterization=other_fit,family=family,source=evidence,dependencies={interactions.symmetric_scalar[other_fit,family,b,c]},conventions={}) provenance(evidence,provenance.Role.synthetic) {[a,b]=[0.25];}
+dataset rows_ac_other:interactions.symmetric_scalar bind(parameterization=other_fit,family=family,source=evidence,dependencies={},conventions={}) provenance(evidence,provenance.Role.synthetic) {[a,c]=[0.25];}
+dataset rows_bc_other:interactions.symmetric_scalar bind(parameterization=other_fit,family=family,source=evidence,dependencies={},conventions={}) provenance(evidence,provenance.Role.synthetic) {[b,c]=[0.25];}
+entity properties.selection_context selected_context {roots={interactions.symmetric_scalar[fit,family,a,b],interactions.symmetric_scalar[fit,family,a,c],interactions.symmetric_scalar[fit,family,b,c]},subjects={a,b,c},models={family},rules={}}
+entity properties.selection_context other_context {roots={interactions.symmetric_scalar[other_fit,family,a,b],interactions.symmetric_scalar[other_fit,family,a,c],interactions.symmetric_scalar[other_fit,family,b,c]},subjects={a,b,c},models={family},rules={}}
 entity properties.property_package model {admitted=selected_context}
 entity properties.property_package other_model {admitted=other_context}
 set packages:Set<properties.property_package>={model,other_model};
 set families:Set<properties.property>={family}; set members:Set<chemistry.species>={a,b,c};
 dataset chosen:interactions.symmetric_selection complete_over(k in packages,family in families,i in members,j in members) provenance(evidence,provenance.Role.synthetic) {
-[model,family,a,b]=[ab,missing];[model,family,a,c]=[ac,missing];[model,family,b,c]=[bc,missing];
-[other_model,family,a,b]=[ab_other,missing];[other_model,family,a,c]=[ac_other,missing];[other_model,family,b,c]=[bc_other,missing];
+[model,family,a,b]=[interactions.symmetric_scalar[fit,family,a,b],missing];[model,family,a,c]=[interactions.symmetric_scalar[fit,family,a,c],missing];[model,family,b,c]=[interactions.symmetric_scalar[fit,family,b,c],missing];
+[other_model,family,a,b]=[interactions.symmetric_scalar[other_fit,family,a,b],missing];[other_model,family,a,c]=[interactions.symmetric_scalar[other_fit,family,a,c],missing];[other_model,family,b,c]=[interactions.symmetric_scalar[other_fit,family,b,c],missing];
 }
-def Isolated {
+test Isolated {
 permission empirical families(interactions.symmetric_scalar) allow_unknown true allow_extrapolation false;
 let result:Scalar=interactions.selected_off_diagonal(model,family,a,b);
 }
-def Calls {
+test Calls {
 permission empirical families(interactions.symmetric_scalar) allow_unknown true allow_extrapolation false;
 let first:Scalar=interactions.selected_off_diagonal(model,family,a,b);
 let second:Scalar=interactions.selected_off_diagonal(other_model,family,a,b);
@@ -239,7 +281,7 @@ def Reader(k:properties.property_package) {
 permission empirical families(interactions.symmetric_scalar) allow_unknown true allow_extrapolation false;
 let result:Scalar=interactions.selected_off_diagonal(k,family,a,b);
 }
-def Children {
-child first:Reader=Reader(model); child second:Reader=Reader(other_model);
+test Children {
+child first:Reader=Reader(k=model); child second:Reader=Reader(k=other_model);
 }
 }"#;

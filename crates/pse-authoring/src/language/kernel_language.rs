@@ -189,9 +189,7 @@ fn roundtrip_all_declarations_and_explicit_identity() {
         ]
     );
     // ADR-0123 Outcome 4: envelopes, guards and selections are typed, not text.
-    use pse_model::generated::enums::{
-        ExtrapolationPolicy, ModelingEnvelopeExtent, ModelingValidityLayer,
-    };
+    use pse_model::generated::enums::ModelingEnvelopeExtent;
     let band = rows
         .iter()
         .find_map(|r| r.value.table.as_ref().filter(|t| !t.envelopes.is_empty()))
@@ -1116,9 +1114,7 @@ fn import_requirement_is_typed() {
 /// typed members of `valid`, `scale` and `connectivity` replace their words.
 #[test]
 fn annotation_kinds_parse_typed_members() {
-    use pse_model::generated::enums::{
-        ConstraintScalingScheme, ExtrapolationPolicy, ModelingAnnotationKind as A,
-    };
+    use pse_model::generated::enums::{ConstraintScalingScheme, ModelingAnnotationKind as A};
     let source = r#"package p {
  def D {
  var x: Mass; port o: Mass = x; eq e: x == 1{kg};
@@ -1127,7 +1123,7 @@ fn annotation_kinds_parse_typed_members() {
  annotation bounds x(0{kg}, 2{kg});
  annotation scale e(inverseSum);
  annotation report x(label);
- annotation valid x(0{kg}, 5{kg}, extrapolate);
+ annotation valid x(0{kg}, 5{kg});
  annotation check x(x > 0{kg});
  annotation objective x(minimize);
  annotation connectivity o(1, many);
@@ -1145,10 +1141,6 @@ fn annotation_kinds_parse_typed_members() {
     let of = |kind| annotations.iter().find(|a| a.kind == kind).unwrap();
     assert_eq!(of(A::Valid).arguments, ["0{kg}", "5{kg}"]);
     assert_eq!(
-        of(A::Valid).extrapolation,
-        Some(ExtrapolationPolicy::Extrapolate)
-    );
-    assert_eq!(
         (of(A::Scale).arguments.len(), of(A::Scale).scheme),
         (0, Some(ConstraintScalingScheme::InverseSum))
     );
@@ -1156,7 +1148,7 @@ fn annotation_kinds_parse_typed_members() {
     assert_eq!((limits.incoming, limits.outgoing), (Some(1), None));
     let printed = render(&rows).unwrap();
     for spelled in [
-        "annotation valid x(0{kg}, 5{kg}, extrapolate);",
+        "annotation valid x(0{kg}, 5{kg});",
         "annotation scale e(inverseSum);",
         "annotation connectivity o(1, many);",
     ] {

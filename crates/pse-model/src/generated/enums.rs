@@ -3059,97 +3059,6 @@ impl core::str::FromStr for ExternalDerivativeSource {
         }
     }
 }
-/// A string enumeration projected from the registry.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize
-)]
-#[allow(
-    clippy::enum_variant_names,
-    reason = "closed enum spellings preserve registry and sanctioned parity names"
-)]
-pub enum ExtrapolationPolicy {
-    ///reject
-    #[serde(rename = "reject")]
-    Reject,
-    ///extrapolate
-    #[serde(rename = "extrapolate")]
-    Extrapolate,
-}
-impl crate::SemanticEq for ExtrapolationPolicy {
-    fn semantic_eq(&self, other: &Self) -> bool {
-        self == other
-    }
-}
-impl ExtrapolationPolicy {
-    /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Reject, Self::Extrapolate];
-    /// The declared member spelling.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Reject => "reject",
-            Self::Extrapolate => "extrapolate",
-        }
-    }
-    /// The presentation ordinal, never a semantic identity.
-    pub const fn ordinal(self) -> usize {
-        match self {
-            Self::Reject => 0usize,
-            Self::Extrapolate => 1usize,
-        }
-    }
-    /// The sanctioned IDAES member name, where applicable.
-    #[allow(
-        clippy::match_same_arms,
-        clippy::unnecessary_wraps,
-        reason = "uniform optional parity-name projection follows one member declaration per arm"
-    )]
-    pub const fn idaes_name(self) -> Option<&'static str> {
-        match self {
-            Self::Reject => None,
-            Self::Extrapolate => None,
-        }
-    }
-}
-/// A boundary document states this vocabulary as its registry spellings, which are
-/// its serde spellings (ADR-0116 Outcome 7).
-impl schemars::JsonSchema for ExtrapolationPolicy {
-    fn schema_name() -> std::borrow::Cow<'static, str> {
-        std::borrow::Cow::Borrowed(stringify!(ExtrapolationPolicy))
-    }
-    fn schema_id() -> std::borrow::Cow<'static, str> {
-        std::borrow::Cow::Borrowed(
-            concat!("pse_model::", stringify!(ExtrapolationPolicy)),
-        )
-    }
-    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
-        schemars::json_schema!({ "type" : "string", "enum" : ["reject", "extrapolate"] })
-    }
-}
-impl core::str::FromStr for ExtrapolationPolicy {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "reject" => Ok(Self::Reject),
-            "extrapolate" => Ok(Self::Extrapolate),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ExtrapolationPolicy).to_owned(),
-                    enumeration: stringify!(ExtrapolationPolicy).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
-        }
-    }
-}
 /// A vocabulary owned by its source type; the registry declares its members.
 pub type FailureClass = pse_diagnostics::FailureClass;
 impl crate::SemanticEq for FailureClass {
@@ -17892,16 +17801,6 @@ impl crate::HeapUsage for ExternalDerivativeSource {
     }
 }
 impl crate::SemanticFrame for ExternalDerivativeSource {
-    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
-        hash.str(self.as_str());
-    }
-}
-impl crate::HeapUsage for ExtrapolationPolicy {
-    fn heap_bytes(&self) -> usize {
-        0
-    }
-}
-impl crate::SemanticFrame for ExtrapolationPolicy {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }

@@ -109,8 +109,18 @@ impl PreparedBody {
                         Stage::Branch {
                             then, otherwise, ..
                         } => stages(then) + stages(otherwise),
-                        Stage::Domain { stages: local, .. }
-                        | Stage::Applicability { stages: local, .. } => stages(local),
+                        Stage::Domain { stages: local, .. } => stages(local),
+                        Stage::Applicability {
+                            stages: local,
+                            predicates,
+                            inputs,
+                            plan,
+                            ..
+                        } => {
+                            stages(local)
+                                + (predicates.capacity() + inputs.capacity()) * size_of::<usize>()
+                                + plan.retained_bytes()
+                        }
                         Stage::Provider {
                             inputs,
                             outputs,
@@ -510,14 +520,23 @@ impl PreparedBody {
             layouts[requested] = Some(layout);
             programs[requested] = Some(program);
         }
+        let evidence_bytes = applicability_extent(&stages).saturating_mul(4);
+        let scratch_bytes = used
+            .checked_mul(size_of::<f64>())
+            .and_then(|b| b.checked_add(evidence_bytes))
+            .ok_or(MathError::Limit("applicability observation storage"))?;
+        if scratch_bytes > limits.scratch_bytes {
+            return Err(MathError::Limit("applicability observation storage"));
+        }
         Ok(CompiledBody {
             owner: None,
             inputs: self.inputs,
             slots: self.slots,
-            scratch_bytes: used * size_of::<f64>(),
+            scratch_bytes,
             retained_bytes: retained_numeric
                 .checked_mul(size_of::<f64>())
                 .and_then(|n| n.checked_add(retained_instructions))
+                .and_then(|n| n.checked_add(evidence_bytes))
                 .ok_or(MathError::Limit("retained program storage"))?,
             outputs: Arc::new(selected),
             layouts: Arc::new(layouts),
@@ -1165,6 +1184,15 @@ fn evaluate_stages(
                     context,
                     observations,
                 )?;
+                if predicates
+                    .iter()
+                    .chain(inputs.iter())
+                    .any(|slot| !local[*slot].is_finite())
+                {
+                    return Err(MathError::Contract(
+                        "nonfinite applicability capture".into(),
+                    ));
+                }
                 let predicates = predicates
                     .iter()
                     .map(|slot| local[*slot] > 0.)
@@ -1803,4 +1831,19 @@ fn analyze(
         }
     }
     Ok(())
+}
+
+fn applicability_extent(stages: &[Stage]) -> usize {
+    stages.iter().fold(0usize, |sum, stage| {
+        sum.saturating_add(match stage {
+            Stage::Applicability { stages, plan, .. } => plan
+                .observation_bytes()
+                .saturating_add(applicability_extent(stages)),
+            Stage::Domain { stages, .. } => applicability_extent(stages),
+            Stage::Branch {
+                then, otherwise, ..
+            } => applicability_extent(then).saturating_add(applicability_extent(otherwise)),
+            _ => 0,
+        })
+    })
 }

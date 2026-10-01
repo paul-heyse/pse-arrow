@@ -449,14 +449,26 @@ recursive-inference consumer needs its own reviewed contract.
 
 ### 14.3 The preparation engine and ownership
 
-> Proposed amendment: [ADR-0140](../../adr/0140-scientific-knowledge-admission.md) and
+> Implemented amendment: [ADR-0140](../../adr/0140-scientific-knowledge-admission.md) and
 > [ADR-0141](../../adr/0141-applicability-evidence-and-permissions.md), Plan 25b.
 
 Scientific selection retains roots, dependency closure, conventions and applicability
 references in admitted preparation. Claim and named permission identities are framed with
 their actual scope. Applicability observations follow the demanded call/branch and survive
 rewriting, derived arguments and differentiation; numerical-body reuse cannot erase their
-attribution or use gate. Changed preimages and generated transports receive new versions.
+attribution or use gate. Construction-local function and instance captures exclude unrelated selections; finite-call
+identity is sealed after consumption. Changed preimages and generated transports receive new
+versions. Claim capture references and finite values are validated independently of permission;
+retained metadata and evaluation observations enter owned memory allowances.
+
+Numeric parameters keep their case-value input role. Their authored default or constructor
+argument retains its lexical source separately, and an actual demanded read carries only the
+source's prerequisite effects into the returned input value. A generated function's explicit
+prerequisite indices distinguish this effect transfer from ordinary unused authored locals.
+Literal overrides replace the old source obligation; unused parameters and inactive branches
+produce no observation. A later numerical case-value change retains declared source lineage;
+result qualification for changed values belongs to §19.3 and Plan 25e/25f. Parameter-read,
+finite-function, dispatch-body and typed-definition identities include the prerequisite contract.
 
 `CompilerWorkspace` is a single-writer owner of one Salsa database. Callers serialize
 access; no database clone, Salsa handle or partial input batch escapes. Tracked queries are

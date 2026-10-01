@@ -1,7 +1,7 @@
 ---
 status: current
 revision: 88
-date: 2026-09-30
+date: 2026-10-01
 ---
 
 # Architecture blueprint: revisions and former anchors
@@ -60,7 +60,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 | 86 | 2026-09-30 | Plan 25a implemented contract amendment: schema-owned recursive field purposes and directional admission (§4.4); selected physical definition closure and checked canonical/datum conversion (§8.2); resolved anonymous physical contracts and retained operation occurrence admissions (§8.1–8.3, §14.3); actual transfer owners, reference anchors and report context (§8.4); mapped scientific laws, named species responses and normalized reconstruction/potential witnesses (§9.8); inventory v6, typed definition v7 and resolved admissions v2 (§5.3). Replaces the current `infer_chain` explanation while preserving exact unit products. | ADR-0135/0136 remain proposed; ADR-0124 successor scope is explicit without an acceptance/supersession transition. Focused evidence remains owned by Plan 25a, assembled qualification by Plan 25k; maintainer-authorized architecture amendment with `PSE_DESIGN_EDIT=1`. |
 
 | 87 | 2026-09-30 | ADR-0139 accepted: §24.4 adopts task-dependent delegation, task-specific context, explicit escalation and stronger review defaults. Shared contracts retain root acceptance and local executor discretion; canonical skills and separate adapters remain. AGENTS reference material moves to existing task and qualification guides to fit the instruction budget. The independent governance review returned Accept at static policy level; configuration/discovery checks passed and model quality is unmeasured. | maintainer-authorized implementation; `PSE_DESIGN_EDIT=1` |
-| 88 | 2026-10-01 | Plan 25b proposed contract amendment: complete/unknown composition, concrete reaction/material projection and explicit extent convention (§9.1/§9.7/§9.9); parameterization/family/subjects/variant selection and coherence (§9.3); claim-specific applicability and named data-use permissions (§9.10); retained selection/claim/permission preparation identities (§14.3). | ADR-0140/0141 remain proposed; bounded target review and maintainer-authorized implementation; `PSE_DESIGN_EDIT=1`. |
+| 88 | 2026-10-01 | Plan 25b implemented contract amendment: complete/unknown composition, concrete reaction/material projection and explicit extent convention (§9.1/§9.7/§9.9); parameterization/family/subjects/variant selection and coherence (§9.3); claim-specific applicability and named data-use permissions (§9.10); retained selection/claim/permission preparation identities (§14.3); typed authoring and record-reference transport (§6.15.2); full applicability observation transport (§19.3); costing evidence and independent permissions (§19.5). | ADR-0140/0141 remain proposed; bounded target review and maintainer-authorized implementation; focused acceptance belongs to Plan 25b and assembled qualification to Plan 25k; `PSE_DESIGN_EDIT=1`. |
 
 ## Former anchors
 
