@@ -35,7 +35,7 @@ impl<'a, 'b> Lower<'a, 'b> {
             paths: self.paths.clone(),
             locals: self.locals.clone(),
             occurrences: Vec::new(),
-            hash: FramedHasher::new(pse_ids::Frame::MathTypedDefinitionV7),
+            hash: FramedHasher::new(pse_ids::Frame::MathTypedDefinitionV8),
             cancelled: self.cancelled,
             coordinates: self.coordinates.clone(),
             physical_only: self.physical_only,

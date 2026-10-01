@@ -4,6 +4,8 @@
 // and identifiers are data, never parsed. A role on each dataset states how its values
 // were obtained; the qualification boundaries are in sources.md.
 @id("01a0ef5f693f74888be5964017529d60") package references {
+@id("e8d5ef6becbc487a905f9442a2ac38d9") use properties @"1.0.0";
+
 @id("01a0ef5f693f74888be59641ea14b27d") use provenance @"1.0.0";
 
 // Publications.
@@ -70,4 +72,26 @@
 @id("01a0ef5f693f74888be5967900811048") entity provenance.source synthetic_starts { title = "Rounded liquid and vapor composition starts near the solutions; not reference answers" }
 @id("01a0ef5fa28670bab2c02c75d6d53f39") entity provenance.publication gross_sadowski_2001 { title = "Perturbed-Chain SAFT: An Equation of State Based on a Perturbation Theory for Chain Molecules (Gross and Sadowski), Industrial & Engineering Chemistry Research 40, 1244-1260", year = 2001, doi = Id<provenance.doi>("10.1021/ie0003887") }
 @id("72adaa4d8f204103a9bf8a78cc002b30") entity provenance.oracle_test idaes_test_rpp5 { title="IDAES RPP5 water method tests (Poling fifth-edition coefficients)", release=idaes_2_13, locator="idaes/models/properties/modular_properties/pure/tests/test_RPP5.py" }
+
+// Independently named parameterizations; source references record their evidence.
+@id("c9419ee12eb14a729e4ef80304a1ebbe") entity properties.parameterization nist_chase_1998_shomate_fit {title="nist chase 1998 shomate fit",source=nist_chase_1998}
+@id("d8c7b65b9cf443489b765729c93a325a") entity properties.parameterization perry7_caloric_fit {title="perry7 caloric fit",source=perry7_table_2_196}
+@id("6ce3a4fc221e4c5da3caa5d72085f958") entity properties.parameterization perry7_density_fit {title="perry7 density fit",source=perry7_table_2_30}
+@id("f582e5776a97476a950ecf1f2ca73ee6") entity properties.parameterization poling2000_caloric_fit {title="poling2000 caloric fit",source=poling2000}
+@id("e1047e0227a94a449356922ef5247b77") entity properties.parameterization poling2000_critical_fit {title="poling2000 critical fit",source=poling2000}
+@id("15aed130ecd44828a2be89da34456d28") entity properties.parameterization idaes_rpp5_caloric_fit {title="idaes rpp5 caloric fit",source=idaes_test_rpp5}
+@id("4a4dabb21deb4b639dadf08561ebb951") entity properties.parameterization idaes_rpp5_pressure_fit {title="idaes rpp5 pressure fit",source=idaes_test_rpp5}
+@id("e633b3e253484eb38c3a2f4e829bab96") entity properties.parameterization idaes_bt_ideal_vapor_fit {title="idaes bt ideal vapor fit",source=idaes_bt_ideal}
+@id("194ce77ec1b34c4eb440b702dee07870") entity properties.parameterization idaes_bt_ideal_liquid_fit {title="idaes bt ideal liquid fit",source=idaes_bt_ideal}
+@id("48683876283d423d9dbdf79292e45adf") entity properties.parameterization idaes_perry_density_fit {title="idaes perry density fit",source=idaes_test_perrys}
+@id("8752ec9194df41e881ed56e0933655fa") entity properties.parameterization idaes_rpp4_pressure_fit {title="idaes rpp4 pressure fit",source=idaes_test_rpp4}
+@id("7bfb3ed0bd3a4e99acfa965184ab8040") entity properties.parameterization idaes_bt_pr_critical_fit {title="idaes bt pr critical fit",source=idaes_bt_pr}
+@id("c6e5fcc9f1d644859c82cb11cb63fb16") entity properties.parameterization gross2001_segments_fit {title="gross2001 segments fit",source=gross_sadowski_2001}
+@id("d1fcf36c41314ca1b78ef8ef295fef4f") entity properties.parameterization analytic_constant_fit {title="analytic constant fit",source=analytic_identities}
+@id("9662f1490cc94b4796188017e8cb461f") entity properties.parameterization idaes_pr_critical_fit {title="idaes pr critical fit",source=idaes_test_ceos_pr}
+@id("7133c0862aa94d3783f8b7f88fc56404") entity properties.parameterization analytic_cubic_critical_fit {title="analytic cubic critical fit",source=analytic_cubic_fugacity}
+@id("d3c2ac7e292c4e0a845d1144751bbea6") entity properties.parameterization analytic_cubic_pair_fit {title="analytic cubic pair fit",source=analytic_cubic_fugacity}
+@id("d43638b9ff984a30bea2fa5ede49b395") entity properties.parameterization saponification_density_fit {title="saponification density fit",source=idaes_saponification_thermo}
+@id("81e79ede65924170aff462b7f14b41cf") entity properties.parameterization saponification_caloric_fit {title="saponification caloric fit",source=idaes_saponification_thermo}
+@id("beedcddccba94a67a659356d66ba7beb") entity properties.parameterization saponification_kinetics_fit {title="saponification kinetics fit",source=idaes_saponification_reactions}
 }

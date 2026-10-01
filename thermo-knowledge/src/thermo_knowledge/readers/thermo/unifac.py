@@ -43,6 +43,7 @@ from pathlib import Path
 import pyarrow as pa
 
 from thermo_knowledge.staging import tabular
+from thermo_knowledge.staging.errors import StagingError
 from thermo_knowledge.staging.tabular import (
     Col,
     flag,
@@ -52,7 +53,6 @@ from thermo_knowledge.staging.tabular import (
     text,
     texts,
 )
-from thermo_knowledge.staging.errors import StagingError
 from thermo_knowledge.staging.writer import Writer
 
 PHASE_CHANGE = "thermo/Phase Change"
@@ -114,10 +114,22 @@ _SUBGROUPS = (
     number("R", "fifth argument: R"),
     number("Q", "sixth argument: Q"),
     text("smarts_expr", "smarts argument, source text"),
-    texts("smarts", "smarts argument", note="the literal string or list of strings; null for a reference"),
+    texts(
+        "smarts",
+        "smarts argument",
+        note="the literal string or list of strings; null for a reference",
+    ),
     text("atoms_expr", "atoms argument, source text"),
-    text("atoms_json", "atoms argument", note="a literal dictionary as JSON text; null for a reference"),
-    text("bonds_expr", "bonds argument, source text", note="bond kinds are names imported by the module"),
+    text(
+        "atoms_json",
+        "atoms argument",
+        note="a literal dictionary as JSON text; null for a reference",
+    ),
+    text(
+        "bonds_expr",
+        "bonds argument, source text",
+        note="bond kinds are names imported by the module",
+    ),
     integer("priority", "priority argument"),
     flag("hydrogen_from_smarts", "hydrogen_from_smarts argument"),
 )
@@ -245,7 +257,7 @@ def _optional_literal(node: ast.AST | None) -> object:
         return None
     try:
         return ast.literal_eval(node)
-    except (ValueError, SyntaxError):
+    except ValueError, SyntaxError:
         return None
 
 

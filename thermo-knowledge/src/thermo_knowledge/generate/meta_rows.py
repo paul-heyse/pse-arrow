@@ -9,8 +9,8 @@ order of `META_TABLES`, so a column added to a table cannot silently fall out of
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
 import uuid
+from collections.abc import Callable, Iterable
 from datetime import date, datetime
 
 from thermo_knowledge.declaration import model as m

@@ -25,9 +25,9 @@ from pathlib import Path
 import numpy as np
 import psycopg
 import pytest
+
 from build_support import fingerprint, inputs_of, write_source
 from mapping_support import carrier, origin, writer
-
 from thermo_knowledge import config, db, identity
 from thermo_knowledge.build import build_database
 from thermo_knowledge.canonical.provenance import SourceRef
@@ -120,10 +120,15 @@ def write_isotopes(w: CanonicalWriter, decl: Declaration, ids: dict[str, uuid.UU
         )
         for quantity, amount in composition.items():
             w.relation(
-                "composition", {"entity": species, "quantity": quantity}, {"value": amount}, at="a.json#/c"
+                "composition",
+                {"entity": species, "quantity": quantity},
+                {"value": amount},
+                at="a.json#/c",
             )
     exchange = w.kind(
-        "reaction", {"canonical_key": "H2O + D2O = 2 HDO", "extent": "as_written"}, origins=at("exchange")
+        "reaction",
+        {"canonical_key": "H2O + D2O = 2 HDO", "extent": "as_written"},
+        origins=at("exchange"),
     )
     for name, coefficient in (("D2O", -1), ("H2O", -1), ("HDO", 2)):
         w.relation(
@@ -183,7 +188,12 @@ def write_conventions(w: CanonicalWriter, decl: Declaration, ids: dict[str, uuid
     ):
         w.kind(
             "convention_set",
-            {"key": key, "revision": "1", "temperature_scale": scale, "energy_reference": reference},
+            {
+                "key": key,
+                "revision": "1",
+                "temperature_scale": scale,
+                "energy_reference": reference,
+            },
             origins=at(f"conventions-{key}"),
         )
     # standard states that state no pressure and no scale, and a transformed one (items 32 and 33)
@@ -194,10 +204,17 @@ def write_conventions(w: CanonicalWriter, decl: Declaration, ids: dict[str, uuid
     )
     w.kind(
         "standard_state",
-        {"key": "transformed", "kind": "transformed_biochemical", "pressure_rule": "fixed", "pressure": Quantity(1.0, "bar")},
+        {
+            "key": "transformed",
+            "kind": "transformed_biochemical",
+            "pressure_rule": "fixed",
+            "pressure": Quantity(1.0, "bar"),
+        },
         origins=at("ss-transformed"),
     )
-    water = w.kind("species", {"canonical_key": "solvent water", "label": "water"}, origins=at("solvent"))
+    water = w.kind(
+        "species", {"canonical_key": "solvent water", "label": "water"}, origins=at("solvent")
+    )
     w.kind(
         "standard_state",
         {
@@ -251,7 +268,9 @@ def write_groups(w: CanonicalWriter, decl: Declaration, ids: dict[str, uuid.UUID
         )
         for code, label in (("9", "CHO"), ("10", "CHO"), ("1", "CH3"))
     }
-    species = w.kind("species", {"canonical_key": "propanal", "label": "propanal"}, origins=at("propanal"))
+    species = w.kind(
+        "species", {"canonical_key": "propanal", "label": "propanal"}, origins=at("propanal")
+    )
     ids.update(groups_scheme=scheme, groups_species=species)
     assignments = {}
     for occurrence in (1, 2):
@@ -268,7 +287,12 @@ def write_groups(w: CanonicalWriter, decl: Declaration, ids: dict[str, uuid.UUID
         )
     first = assignments[1]
     for code, count in (("9", 1), ("1", 2)):
-        w.relation("group_count", {"assignment": first, "group": groups[code]}, {"value": count}, at="a.json#/n")
+        w.relation(
+            "group_count",
+            {"assignment": first, "group": groups[code]},
+            {"value": count},
+            at="a.json#/n",
+        )
     w.relation(
         "group_bond_count",
         {"assignment": first, "first": groups["9"], "second": groups["1"]},
@@ -314,7 +338,12 @@ def write_phases(w: CanonicalWriter, decl: Declaration, ids: dict[str, uuid.UUID
     )
     phase = w.kind(
         "dataset_phase",
-        {"dataset": dataset, "ordinal": 1, "aggregation": crystalline, "phase_definition": phases["BCC_B2"]},
+        {
+            "dataset": dataset,
+            "ordinal": 1,
+            "aggregation": crystalline,
+            "phase_definition": phases["BCC_B2"],
+        },
         at="a.json#/site-fractions",
     )
     column = w.kind(
@@ -329,7 +358,9 @@ def write_phases(w: CanonicalWriter, decl: Declaration, ids: dict[str, uuid.UUID
         },
         at="a.json#/site-fractions",
     )
-    ids.update(phase_ordered=phases["BCC_B2"], phase_disordered=phases["BCC_A2"], column_site=column)
+    ids.update(
+        phase_ordered=phases["BCC_B2"], phase_disordered=phases["BCC_A2"], column_site=column
+    )
 
 
 def write_accuracy(w: CanonicalWriter, decl: Declaration, ids: dict[str, uuid.UUID]) -> None:
@@ -352,15 +383,29 @@ def write_accuracy(w: CanonicalWriter, decl: Declaration, ids: dict[str, uuid.UU
         iapws95,
         {"kind": "validated_range"},
         [
-            {"observable": temperature, "lower": Quantity(273.16, "K"), "upper": Quantity(350.0, "K")},
-            {"observable": pressure, "lower": Quantity(0.1, "MPa"), "upper": Quantity(100.0, "MPa")},
+            {
+                "observable": temperature,
+                "lower": Quantity(273.16, "K"),
+                "upper": Quantity(350.0, "K"),
+            },
+            {
+                "observable": pressure,
+                "lower": Quantity(0.1, "MPa"),
+                "upper": Quantity(100.0, "MPa"),
+            },
         ],
         origins=at("iapws95-region"),
     )
     reference = w.validity_region(
         iapws95,
         {"kind": "validated_range"},
-        [{"observable": temperature, "lower": Quantity(298.15, "K"), "upper": Quantity(298.15, "K")}],
+        [
+            {
+                "observable": temperature,
+                "lower": Quantity(298.15, "K"),
+                "upper": Quantity(298.15, "K"),
+            }
+        ],
         origins=at("iapws95-reference"),
         ordinal=2,
     )
@@ -463,7 +508,9 @@ def write_levels(w: CanonicalWriter, decl: Declaration, ids: dict[str, uuid.UUID
 def write_samples(w: CanonicalWriter, decl: Declaration, ids: dict[str, uuid.UUID]) -> None:
     """A sample with two purity statements and an impurity content, and a purification history, a
     mixture of a stated multicomponent kind and components that state their function."""
-    species = w.kind("species", {"canonical_key": "ethanol", "label": "ethanol"}, origins=at("ethanol"))
+    species = w.kind(
+        "species", {"canonical_key": "ethanol", "label": "ethanol"}, origins=at("ethanol")
+    )
     water = w.kind("species", {"canonical_key": "water", "label": "water"}, origins=at("water"))
     sample = w.kind(
         "sample",
@@ -492,7 +539,13 @@ def write_samples(w: CanonicalWriter, decl: Declaration, ids: dict[str, uuid.UUI
     w.relation(
         "purity_statement",
         {"sample": sample, "ordinal": 2},
-        {"basis": "mass", "value": 0.0003, "digits": 1, "method_text": "Karl Fischer titration", "impurity": water},
+        {
+            "basis": "mass",
+            "value": 0.0003,
+            "digits": 1,
+            "method_text": "Karl Fischer titration",
+            "impurity": water,
+        },
         at="a.json#/sample-1",
     )
     w.relation(
@@ -542,7 +595,12 @@ def write_samples(w: CanonicalWriter, decl: Declaration, ids: dict[str, uuid.UUI
         origins=[origin("a.json#/biochemistry", "measured")],
     )
     for ordinal, (function, speciation) in enumerate(
-        (("buffer", "equilibrium_mixture"), ("inert", "single_species"), ("cofactor", "not_stated")), 1
+        (
+            ("buffer", "equilibrium_mixture"),
+            ("inert", "single_species"),
+            ("cofactor", "not_stated"),
+        ),
+        1,
     ):
         w.kind(
             "dataset_component",
@@ -639,11 +697,18 @@ def write_forms(w: CanonicalWriter, decl: Declaration, ids: dict[str, uuid.UUID]
     published = at("forms")
     cosmo = w.kind(
         "parameterization",
-        {"key": "cosmo-sac-dsp", "revision": "1", "title": "COSMO-SAC dispersion", "coherence": "independent_records"},
+        {
+            "key": "cosmo-sac-dsp",
+            "revision": "1",
+            "title": "COSMO-SAC dispersion",
+            "coherence": "independent_records",
+        },
         origins=published,
     )
     species = {
-        name: w.kind("species", {"canonical_key": f"k-{name}", "label": name}, origins=at(f"k-{name}"))
+        name: w.kind(
+            "species", {"canonical_key": f"k-{name}", "label": name}, origins=at(f"k-{name}")
+        )
         for name in ("water", "ethanol", "oxygen")
     }
     for name, flag, energy in (("water", "water", 3.2e2), ("ethanol", "hb_donor_acceptor", 2.1e2)):
@@ -789,14 +854,17 @@ def test_every_fixture_satisfies_every_invariant(world: World, conn: psycopg.Con
     assert failing == []
     flagged = run_check(conn, CHECKS["parameterization_has_conventions"])
     assert set(flagged.ids) == {
-        str(world.ids[key]) for key in ("p_kb_only_boltzmann", "p_kb_only_avogadro", "p_kb_with_gas")
+        str(world.ids[key])
+        for key in ("p_kb_only_boltzmann", "p_kb_only_avogadro", "p_kb_with_gas")
     }
 
 
 # -- 17: conserved quantities beyond elements ---------------------------------------------------
 
 
-def test_an_isotope_is_a_conserved_quantity_of_an_element(world: World, conn: psycopg.Connection) -> None:
+def test_an_isotope_is_a_conserved_quantity_of_an_element(
+    world: World, conn: psycopg.Connection
+) -> None:
     row = conn.execute(
         "SELECT q.key, q.kind::text, e.key, i.mass_number, i.atomic_mass, i.symbol "
         "FROM tk.isotope i JOIN tk.conserved_quantity q ON q.id = i.id "
@@ -845,7 +913,9 @@ def test_the_writer_refuses_an_isotope_with_no_element_or_no_positive_mass_numbe
             origins=at("bad"),
         )
     with pytest.raises(ValidationError, match="mass_number"):
-        w.kind("isotope", {"key": "xH", "kind": "isotope", "of_element": hydrogen}, origins=at("bad"))
+        w.kind(
+            "isotope", {"key": "xH", "kind": "isotope", "of_element": hydrogen}, origins=at("bad")
+        )
 
 
 # -- 20: temperature scales ------------------------------------------------------------------
@@ -869,7 +939,8 @@ def test_a_scheme_holds_two_groups_with_one_label_and_one_carrier_two_decomposit
     world: World, conn: psycopg.Connection
 ) -> None:
     rows = conn.execute(
-        "SELECT code, label FROM tk.\"group\" WHERE scheme = %s ORDER BY code", (world.ids["groups_scheme"],)
+        'SELECT code, label FROM tk."group" WHERE scheme = %s ORDER BY code',
+        (world.ids["groups_scheme"],),
     ).fetchall()
     assert rows == [("1", "CH3"), ("10", "CHO"), ("9", "CHO")]
     assert conn.execute(
@@ -883,7 +954,7 @@ def test_a_bond_between_two_groups_is_one_unordered_row_and_may_join_a_group_to_
 ) -> None:
     rows = conn.execute(
         "SELECT g1.code, g2.code, b.value FROM tk.group_bond_count b "
-        "JOIN tk.\"group\" g1 ON g1.id = b.first JOIN tk.\"group\" g2 ON g2.id = b.second "
+        'JOIN tk."group" g1 ON g1.id = b.first JOIN tk."group" g2 ON g2.id = b.second '
         "WHERE b.assignment = %s ORDER BY 1, 2",
         (world.ids["assignment_first"],),
     ).fetchall()
@@ -908,14 +979,35 @@ def test_the_writer_stores_a_bond_in_the_canonical_orientation_whichever_way_it_
         {"entity": first, "scheme": scheme, "asserted_by": CARRIER, "origin": "published"},
         origins=at("x"),
     )
-    forward = w.relation("group_bond_count", {"assignment": assignment, "first": first, "second": second}, {"value": 1}, at="a.json#/1")
-    backward = w.relation("group_bond_count", {"assignment": assignment, "first": second, "second": first}, {"value": 1}, at="a.json#/1")
+    forward = w.relation(
+        "group_bond_count",
+        {"assignment": assignment, "first": first, "second": second},
+        {"value": 1},
+        at="a.json#/1",
+    )
+    backward = w.relation(
+        "group_bond_count",
+        {"assignment": assignment, "first": second, "second": first},
+        {"value": 1},
+        at="a.json#/1",
+    )
     assert forward == backward, "the pair is unordered: the same row"
-    w.relation("group_bond_count", {"assignment": assignment, "first": first, "second": first}, {"value": 2}, at="a.json#/2")
+    w.relation(
+        "group_bond_count",
+        {"assignment": assignment, "first": first, "second": first},
+        {"value": 2},
+        at="a.json#/2",
+    )
     with pytest.raises(ValidationError, match="occurrence"):
         w.kind(
             "group_assignment",
-            {"entity": first, "scheme": scheme, "asserted_by": CARRIER, "origin": "published", "occurrence": 0},
+            {
+                "entity": first,
+                "scheme": scheme,
+                "asserted_by": CARRIER,
+                "origin": "published",
+                "occurrence": 0,
+            },
             origins=at("y"),
         )
 
@@ -1037,7 +1129,9 @@ def test_a_column_reports_on_a_site_class_of_the_phase_definition_its_phase_name
 # -- 25: order-disorder pairing -----------------------------------------------------------------------
 
 
-def test_an_ordered_phase_names_its_disordered_partner(world: World, conn: psycopg.Connection) -> None:
+def test_an_ordered_phase_names_its_disordered_partner(
+    world: World, conn: psycopg.Connection
+) -> None:
     row = conn.execute(
         "SELECT o.key, d.key, p.never_disorder FROM tk.disordered_partner p "
         "JOIN tk.phase_definition o ON o.id = p.ordered JOIN tk.phase_definition d ON d.id = p.disordered"
@@ -1103,7 +1197,9 @@ def test_if97_states_a_25_millikelvin_consistency_bound_against_a_second_record(
     assert row == (pytest.approx(0.025), world.ids["iapws95"], "interval", None)
 
 
-def test_a_condition_is_a_region_with_a_clause_of_one_point(world: World, conn: psycopg.Connection) -> None:
+def test_a_condition_is_a_region_with_a_clause_of_one_point(
+    world: World, conn: psycopg.Connection
+) -> None:
     lower, upper = conn.execute(
         "SELECT c.lower, c.upper FROM tk.accuracy_statement a JOIN tk.region_clause c ON c.region = a.region "
         "WHERE a.id = %s",
@@ -1133,13 +1229,17 @@ def test_a_multiplicative_factor_and_an_unspecified_magnitude_are_held(
     assert rows == {"unspecified": pytest.approx(1e-8), "multiplicative_factor": 1.1}
 
 
-def test_the_facet_factor_marks_the_multiplicative_kind_only(world: World, conn: psycopg.Connection) -> None:
+def test_the_facet_factor_marks_the_multiplicative_kind_only(
+    world: World, conn: psycopg.Connection
+) -> None:
     assert conn.execute(
         "SELECT member FROM meta.enum_member_facet WHERE enum = 'uncertainty_kind' AND facet = 'factor'"
     ).fetchall() == [("multiplicative_factor",)]
     members = {
         name
-        for (name,) in conn.execute("SELECT name FROM meta.enum_member WHERE enum = 'uncertainty_kind'")
+        for (name,) in conn.execute(
+            "SELECT name FROM meta.enum_member WHERE enum = 'uncertainty_kind'"
+        )
     }
     assert {"unspecified", "multiplicative_factor"} <= members
     assert ("unspecified",) not in conn.execute(
@@ -1175,7 +1275,9 @@ def test_the_writer_refuses_a_statement_with_a_position_of_zero_or_no_sample(wor
 # -- 28: convention constants -------------------------------------------------------------------------
 
 
-def test_the_constants_are_quantity_types_and_convention_attributes(world: World, conn: psycopg.Connection) -> None:
+def test_the_constants_are_quantity_types_and_convention_attributes(
+    world: World, conn: psycopg.Connection
+) -> None:
     assert conn.execute(
         "SELECT name, scale::text FROM meta.quantity_type "
         "WHERE name IN ('BoltzmannConstant', 'AvogadroConstant') ORDER BY name"
@@ -1211,7 +1313,11 @@ def test_a_form_reads_the_boltzmann_and_avogadro_constants_of_the_convention_set
 def test_a_parameterisation_that_omits_a_constant_the_form_reads_is_refused(
     world: World, conn: psycopg.Connection
 ) -> None:
-    for key, missing in (("kb_only_boltzmann", "avogadro_constant"), ("kb_only_avogadro", "boltzmann_constant"), ("kb_with_gas", "boltzmann_constant")):
+    for key, missing in (
+        ("kb_only_boltzmann", "avogadro_constant"),
+        ("kb_only_avogadro", "boltzmann_constant"),
+        ("kb_with_gas", "boltzmann_constant"),
+    ):
         with pytest.raises(EvaluationRefusal, match=rf"`p-{key}@1`.*`{missing}`"):
             weighted(world, constants_source(world, conn, key), ["water", "oxygen"])
 
@@ -1221,8 +1327,14 @@ def test_the_check_flags_the_parameterisations_that_state_no_constant_a_form_rea
 ) -> None:
     flagged = run_check(conn, CHECKS["parameterization_has_conventions"])
     reasons = {row[0]: row[-1] for row in flagged.rows}
-    assert reasons[str(world.ids["p_kb_only_boltzmann"])] == "its convention set states no avogadro_constant"
-    assert reasons[str(world.ids["p_kb_only_avogadro"])] == "its convention set states no boltzmann_constant"
+    assert (
+        reasons[str(world.ids["p_kb_only_boltzmann"])]
+        == "its convention set states no avogadro_constant"
+    )
+    assert (
+        reasons[str(world.ids["p_kb_only_avogadro"])]
+        == "its convention set states no boltzmann_constant"
+    )
 
 
 def test_sets_drawn_from_parameterisations_with_different_avogadro_constants_are_refused(
@@ -1230,8 +1342,14 @@ def test_sets_drawn_from_parameterisations_with_different_avogadro_constants_are
 ) -> None:
     # `kb_same` holds only oxygen: water comes from the second parameterisation
     with pytest.raises(EvaluationRefusal, match="`avogadro_constant` differs"):
-        weighted(world, constants_source(world, conn, "kb_same", "kb_other_avogadro"), ["water", "oxygen"])
-    value = weighted(world, constants_source(world, conn, "kb_same", "kb_both"), ["water", "oxygen"])
+        weighted(
+            world,
+            constants_source(world, conn, "kb_same", "kb_other_avogadro"),
+            ["water", "oxygen"],
+        )
+    value = weighted(
+        world, constants_source(world, conn, "kb_same", "kb_both"), ["water", "oxygen"]
+    )
     np.testing.assert_allclose(value, 1.380649e-23 * 6.02214076e23 * 5.0, rtol=1e-14)
 
 
@@ -1288,7 +1406,9 @@ def test_a_sample_states_its_source_and_status_and_several_purity_statements(
     ]
 
 
-def test_a_sample_has_a_stepwise_purification_history(world: World, conn: psycopg.Connection) -> None:
+def test_a_sample_has_a_stepwise_purification_history(
+    world: World, conn: psycopg.Connection
+) -> None:
     rows = conn.execute(
         "SELECT s.step, m.key, s.method_text FROM tk.purification_step s "
         "LEFT JOIN tk.purification_method m ON m.id = s.method WHERE s.sample = %s ORDER BY s.step",
@@ -1297,7 +1417,9 @@ def test_a_sample_has_a_stepwise_purification_history(world: World, conn: psycop
     assert rows == [(1, "fractional_distillation", None), (2, None, "dried over molecular sieves")]
 
 
-def test_a_sample_has_no_purity_attribute_of_its_own(world: World, conn: psycopg.Connection) -> None:
+def test_a_sample_has_no_purity_attribute_of_its_own(
+    world: World, conn: psycopg.Connection
+) -> None:
     columns = {
         name
         for (name,) in conn.execute(
@@ -1308,7 +1430,9 @@ def test_a_sample_has_no_purity_attribute_of_its_own(world: World, conn: psycopg
     assert {"source", "status", "supplier"} <= columns
 
 
-def test_the_writer_refuses_a_step_with_no_method_or_two_and_a_position_of_zero(world: World) -> None:
+def test_the_writer_refuses_a_step_with_no_method_or_two_and_a_position_of_zero(
+    world: World,
+) -> None:
     w = fresh_writer(world)
     species = w.kind("species", {"canonical_key": "x", "label": "x"}, origins=at("x"))
     sample = w.kind(
@@ -1329,7 +1453,9 @@ def test_the_writer_refuses_a_step_with_no_method_or_two_and_a_position_of_zero(
         ({"method_text": "distilled"}, 0, "step_from_one"),
     ):
         with pytest.raises(ValidationError, match=message):
-            w.relation("purification_step", {"sample": sample, "step": step}, values, at="a.json#/s")
+            w.relation(
+                "purification_step", {"sample": sample, "step": step}, values, at="a.json#/s"
+            )
     with pytest.raises(ValidationError, match="ordinal_from_one"):
         w.relation(
             "purity_statement", {"sample": sample, "ordinal": 0}, {"basis": "mole"}, at="a.json#/s"
@@ -1349,7 +1475,9 @@ def test_components_state_their_function_and_speciation_and_a_mixture_its_multic
         ("inert", "single_species"),
         ("cofactor", "not_stated"),
     ]
-    assert conn.execute("SELECT multicomponent_kind::text FROM tk.defined_mixture").fetchall() == [("alloy",)]
+    assert conn.execute("SELECT multicomponent_kind::text FROM tk.defined_mixture").fetchall() == [
+        ("alloy",)
+    ]
     assert conn.execute(
         "SELECT name FROM meta.enum_member WHERE enum = 'speciation_state' ORDER BY name"
     ).fetchall() == [("equilibrium_mixture",), ("not_stated",), ("single_species",)]
@@ -1358,7 +1486,9 @@ def test_components_state_their_function_and_speciation_and_a_mixture_its_multic
     ).fetchall() == [("alloy",), ("clathrate",), ("complex",), ("crystal",), ("solution",)]
 
 
-def test_a_component_that_states_no_speciation_does_not_state_a_single_species(world: World) -> None:
+def test_a_component_that_states_no_speciation_does_not_state_a_single_species(
+    world: World,
+) -> None:
     w = fresh_writer(world)
     species = w.kind("species", {"canonical_key": "x", "label": "x"}, origins=at("x"))
     dataset = w.kind(
@@ -1379,13 +1509,21 @@ def test_a_component_that_states_no_speciation_does_not_state_a_single_species(w
 # -- 32 and 33: transformed quantities and unstated conventions ----------------------------------------------------
 
 
-def test_a_transformed_quantity_and_standard_state_are_members(world: World, conn: psycopg.Connection) -> None:
+def test_a_transformed_quantity_and_standard_state_are_members(
+    world: World, conn: psycopg.Connection
+) -> None:
     assert conn.execute(
         "SELECT relation::text, path::text, basis::text, diffusion::text, key FROM tk.observable "
         "WHERE key LIKE 'fixture\\_%' ORDER BY key"
     ).fetchall() == [
         ("absolute", "none", "none", "not_stated", "fixture_binary_diffusion"),
-        ("increment", "none", "per_mole_of_solute", "not_applicable", "fixture_enthalpy_of_solution"),
+        (
+            "increment",
+            "none",
+            "per_mole_of_solute",
+            "not_applicable",
+            "fixture_enthalpy_of_solution",
+        ),
         ("absolute", "isenthalpic", "none", "not_applicable", "fixture_joule_thomson_coefficient"),
         ("absolute", "none", "none", "not_applicable", "fixture_kinematic_viscosity"),
         ("absolute", "none", "none", "not_applicable", "fixture_quadrupole_moment"),
@@ -1410,7 +1548,9 @@ def test_a_standard_state_may_state_no_pressure_and_no_scale_for_infinite_diluti
     ]
 
 
-def test_an_infinite_dilution_standard_state_still_needs_a_scale_and_a_solvent(world: World) -> None:
+def test_an_infinite_dilution_standard_state_still_needs_a_scale_and_a_solvent(
+    world: World,
+) -> None:
     w = fresh_writer(world)
     with pytest.raises(ValidationError, match="names a solvent and a composition scale"):
         w.kind(
@@ -1443,7 +1583,8 @@ def test_the_new_quantity_types_have_the_storage_units_and_scales_declared(
         assert same_unit(found.unit, unit) and found.scale == scale, name
     assert dict(
         conn.execute(
-            "SELECT name, scale::text FROM meta.quantity_type WHERE name = ANY(%s)", (list(declared),)
+            "SELECT name, scale::text FROM meta.quantity_type WHERE name = ANY(%s)",
+            (list(declared),),
         ).fetchall()
     ) == {name: scale for name, (_, scale) in declared.items()}
 
@@ -1470,7 +1611,7 @@ def test_an_attribution_says_where_in_the_primary_work_the_content_is(
     world: World, conn: psycopg.Connection
 ) -> None:
     assert conn.execute(
-        "SELECT page, \"table\", equation, figure FROM prov.attribution WHERE id = %s",
+        'SELECT page, "table", equation, figure FROM prov.attribution WHERE id = %s',
         (world.ids["attribution"],),
     ).fetchall() == [("217", "3", "(12)", "4b")]
 

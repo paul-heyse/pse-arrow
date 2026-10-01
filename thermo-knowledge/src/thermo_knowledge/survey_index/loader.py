@@ -71,10 +71,7 @@ def _keyword_prefix(keywords: tuple[str, ...]) -> KeyCheck:
         if isinstance(value, str) and pattern.match(value):
             return None
         shown = value if not isinstance(value, str) or len(value) <= 60 else value[:57] + "..."
-        return (
-            f"{shown!r} does not start with one of "
-            f"{', '.join(repr(word) for word in keywords)}"
-        )
+        return f"{shown!r} does not start with one of {', '.join(repr(word) for word in keywords)}"
 
     return check
 
@@ -91,10 +88,7 @@ _OTHER_CLASS = re.compile(r"other( \(.+\))?", re.DOTALL)
 def _class_check(value: object) -> str | None:
     if isinstance(value, str) and (value in st.CLASSES or _OTHER_CLASS.fullmatch(value)):
         return None
-    return (
-        f"{value!r} is not a representation class (section 3); `other` may carry "
-        "`(what it is)`"
-    )
+    return f"{value!r} is not a representation class (section 3); `other` may carry `(what it is)`"
 
 
 def _date_check(value: object) -> str | None:
@@ -183,9 +177,7 @@ def _load_file(
         with path.open("rb") as handle:
             data = tomllib.load(handle)
     except (tomllib.TOMLDecodeError, UnicodeDecodeError) as error:
-        diagnostics.append(
-            SurveyDiagnostic(file=label, code=Code.TOML_SYNTAX, message=str(error))
-        )
+        diagnostics.append(SurveyDiagnostic(file=label, code=Code.TOML_SYNTAX, message=str(error)))
         return None
     clean = True
     header_ctx = Context(file=label, table="", record="")

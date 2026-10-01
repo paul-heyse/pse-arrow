@@ -47,7 +47,7 @@ from pathlib import Path
 import psycopg
 from psycopg import sql
 
-from thermo_knowledge import config, identity, transposition
+from thermo_knowledge import identity, transposition
 from thermo_knowledge import pipeline_contract as pc
 from thermo_knowledge.declaration import model as m
 from thermo_knowledge.expression.parameters import (
@@ -288,7 +288,9 @@ class _Backend:
         """The sets `where` selects; `where` may use the group's row as `g` and its parameter-set
         row as `ps`."""
         ps = pc.PARAMETER_SET
-        query = sql.SQL("SELECT {columns} FROM {table} g JOIN {sets} ps ON ps.id = g.id {where}").format(
+        query = sql.SQL(
+            "SELECT {columns} FROM {table} g JOIN {sets} ps ON ps.id = g.id {where}"
+        ).format(
             columns=sql.SQL(", ").join(self._columns(group)),
             table=sql.Identifier(PARAM_SCHEMA, group.id),
             sets=sql.Identifier(*ps.table.split(".")),
@@ -475,7 +477,9 @@ class _Backend:
                 sql.SQL(", ").join(columns), sql.Identifier(PARAM_SCHEMA, family.id)
             )
             rows: dict[uuid.UUID, dict[tuple[int, ...], dict[str, float]]] = {i: {} for i in ids}
-            sets: dict[uuid.UUID, dict[str, dict[tuple[int, ...], uuid.UUID]]] = {i: {} for i in ids}
+            sets: dict[uuid.UUID, dict[str, dict[tuple[int, ...], uuid.UUID]]] = {
+                i: {} for i in ids
+            }
             for row in self.conn.execute(query, (ids,)).fetchall():
                 identifier, rest = row[0], row[1:]
                 key = tuple(int(part) for part in rest[: len(family.indices)])
@@ -734,7 +738,10 @@ class DatabaseSource:
     ) -> None:
         check_database(conn, decl, tree)
         self._init(
-            _Backend(conn, decl, policy), Scope.of(parameterizations, occurrences), subforms or {}, None
+            _Backend(conn, decl, policy),
+            Scope.of(parameterizations, occurrences),
+            subforms or {},
+            None,
         )
 
     def _init(
@@ -787,9 +794,8 @@ class DatabaseSource:
     def _set(self, group: str, subjects: tuple[Subject, ...]) -> _Set | None:
         slot_group = self._backend.group(group)
         if self._pinned is not None:
-            if (
-                self._pinned.group == group
-                and self._pinned.subjects == self._backend.canonical(slot_group, subjects)
+            if self._pinned.group == group and self._pinned.subjects == self._backend.canonical(
+                slot_group, subjects
             ):
                 return self._pinned
             return None

@@ -8,6 +8,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+
+from declaration_support import full_declaration
 from survey_support import (
     ALPHA_NEEDING,
     BETA_NEEDING,
@@ -21,8 +23,6 @@ from survey_support import (
     make_tree,
     write_dispositions,
 )
-
-from declaration_support import full_declaration
 from thermo_knowledge.survey_index import (
     Code,
     RefIndex,

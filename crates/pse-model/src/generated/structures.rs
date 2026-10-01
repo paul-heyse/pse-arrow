@@ -209,10 +209,13 @@ impl PartialEq for MemberDescriptor {
 pub struct ModelingCellValueReferencesPathsItem {
     ///path
     pub r#path: Vec<String>,
+    ///keys
+    pub r#keys: Option<Vec<ModelingKeyCell>>,
 }
 impl crate::SemanticEq for ModelingCellValueReferencesPathsItem {
     fn semantic_eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(&self.r#path, &other.r#path)
+            && crate::SemanticEq::semantic_eq(&self.r#keys, &other.r#keys)
     }
 }
 impl PartialEq for ModelingCellValueReferencesPathsItem {
@@ -1432,11 +1435,15 @@ impl crate::SemanticFrame for ModelingCellValueReferencesPathsItem {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(stringify!(r#path));
         crate::SemanticFrame::frame(&self.r#path, hash);
+        hash.str(stringify!(r#keys));
+        crate::SemanticFrame::frame(&self.r#keys, hash);
     }
 }
 impl crate::HeapUsage for ModelingCellValueReferencesPathsItem {
     fn heap_bytes(&self) -> usize {
-        0usize.saturating_add(crate::HeapUsage::heap_bytes(&self.r#path))
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#path))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#keys))
     }
 }
 impl crate::SemanticFrame for ModelingCellValueReferences {

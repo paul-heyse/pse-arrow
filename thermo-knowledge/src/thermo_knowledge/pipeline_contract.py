@@ -36,7 +36,17 @@ CONTRACT_DOCUMENT = "thermo_knowledge/pipeline_contract.toml"
 """How diagnostics name the contract file."""
 
 RESERVED = frozenset(
-    {"declared", "table", "schema", "identity", "extends", "category", "columns", "listed", "qualified"}
+    {
+        "declared",
+        "table",
+        "schema",
+        "identity",
+        "extends",
+        "category",
+        "columns",
+        "listed",
+        "qualified",
+    }
 )
 """Names an entry answers itself, so no listed column may use them."""
 
@@ -202,8 +212,10 @@ def parse(text: str) -> PipelineContract:
         where = f"kinds.{name}"
         extra = set(body) - {"schema", "identity", "extends", "attributes"}
         if extra or "schema" not in body:
-            raise ContractError(f"{where}: states its `schema` and only `schema`, `identity`, "
-                                "`extends` and `attributes`")
+            raise ContractError(
+                f"{where}: states its `schema` and only `schema`, `identity`, "
+                "`extends` and `attributes`"
+            )
         kinds[name] = Entry(
             name,
             "kind",
@@ -217,7 +229,9 @@ def parse(text: str) -> PipelineContract:
         where = f"relations.{name}"
         extra = set(body) - {"schema", "keys", "columns"}
         if extra or "schema" not in body:
-            raise ContractError(f"{where}: states its `schema` and only `schema`, `keys` and `columns`")
+            raise ContractError(
+                f"{where}: states its `schema` and only `schema`, `keys` and `columns`"
+            )
         columns = _columns(body.get("keys"), "key", f"{where}.keys")
         columns.update(_columns(body.get("columns"), "column", f"{where}.columns"))
         relations[name] = Entry(name, "relation", body["schema"], columns, None, None)

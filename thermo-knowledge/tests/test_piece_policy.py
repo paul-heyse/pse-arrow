@@ -18,8 +18,8 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from expression_support import scenario
 
+from expression_support import scenario
 from thermo_knowledge.expression.compiled import CompileCache
 from thermo_knowledge.expression.evaluate import EvaluationRefusal, PiecePolicy, bind
 from thermo_knowledge.expression.parameters import InMemorySource
@@ -27,8 +27,28 @@ from thermo_knowledge.qualify import run
 from thermo_knowledge.qualify.case import CaseError, load_case
 
 R = 8.314462618
-LOW = dict(T_low=200.0, T_high=1000.0, a1=3.53, a2=-1.2e-3, a3=2.3e-6, a4=-1.1e-9, a5=3.1e-13, a6=-1044.0, a7=2.97)
-HIGH = dict(T_low=1000.0, T_high=6000.0, a1=2.95, a2=1.4e-3, a3=-4.9e-7, a4=7.7e-11, a5=-5.2e-15, a6=-922.9, a7=5.87)
+LOW = dict(
+    T_low=200.0,
+    T_high=1000.0,
+    a1=3.53,
+    a2=-1.2e-3,
+    a3=2.3e-6,
+    a4=-1.1e-9,
+    a5=3.1e-13,
+    a6=-1044.0,
+    a7=2.97,
+)
+HIGH = dict(
+    T_low=1000.0,
+    T_high=6000.0,
+    a1=2.95,
+    a2=1.4e-3,
+    a3=-4.9e-7,
+    a4=7.7e-11,
+    a5=-5.2e-15,
+    a6=-922.9,
+    a7=5.87,
+)
 UPPER, LOWER = "upper_piece", "lower_piece"
 
 
@@ -38,13 +58,23 @@ def cp_of(piece: dict[str, float], T: float) -> float:
     )
 
 
-def bound_with(pieces: dict[tuple[int, ...], dict[str, float]], policy: PiecePolicy | None, cache: CompileCache | None = None):  # noqa: ANN201
+def bound_with(
+    pieces: dict[tuple[int, ...], dict[str, float]],
+    policy: PiecePolicy | None,
+    cache: CompileCache | None = None,
+):  # noqa: ANN201
     source = InMemorySource(families={("nasa7.pure", "piece", ("n2",)): pieces})
-    return bind(scenario("nasa7"), "nasa7", source=source, roles={"i": "n2"}, pieces=policy, cache=cache)
+    return bind(
+        scenario("nasa7"), "nasa7", source=source, roles={"i": "n2"}, pieces=policy, cache=cache
+    )
 
 
-def cp(pieces: dict[tuple[int, ...], dict[str, float]], policy: PiecePolicy | None, T: float) -> float:
-    return float(np.asarray(bound_with(pieces, policy).evaluate("cp", T=np.array([T]))).reshape(-1)[0])
+def cp(
+    pieces: dict[tuple[int, ...], dict[str, float]], policy: PiecePolicy | None, T: float
+) -> float:
+    return float(
+        np.asarray(bound_with(pieces, policy).evaluate("cp", T=np.array([T]))).reshape(-1)[0]
+    )
 
 
 TWO = {(1,): LOW, (2,): HIGH}
@@ -55,24 +85,32 @@ TWO = {(1,): LOW, (2,): HIGH}
 
 def test_a_point_at_the_common_boundary_belongs_to_the_piece_above_by_default() -> None:
     assert cp(TWO, None, 1000.0) == pytest.approx(cp_of(HIGH, 1000.0), rel=1e-13)
-    assert cp(TWO, PiecePolicy(boundary=UPPER), 1000.0) == pytest.approx(cp_of(HIGH, 1000.0), rel=1e-13)
+    assert cp(TWO, PiecePolicy(boundary=UPPER), 1000.0) == pytest.approx(
+        cp_of(HIGH, 1000.0), rel=1e-13
+    )
 
 
 def test_a_point_at_the_common_boundary_belongs_to_the_piece_below_under_the_other_rule() -> None:
     assert abs(cp_of(LOW, 1000.0) - cp_of(HIGH, 1000.0)) > 1e-3  # the pieces differ there
-    assert cp(TWO, PiecePolicy(boundary=LOWER), 1000.0) == pytest.approx(cp_of(LOW, 1000.0), rel=1e-13)
+    assert cp(TWO, PiecePolicy(boundary=LOWER), 1000.0) == pytest.approx(
+        cp_of(LOW, 1000.0), rel=1e-13
+    )
 
 
 @pytest.mark.parametrize("boundary", [UPPER, LOWER])
 @pytest.mark.parametrize("outside", ["refuse", "nearest"])
-def test_a_point_off_the_boundary_is_in_the_same_piece_under_every_rule(boundary: str, outside: str) -> None:
+def test_a_point_off_the_boundary_is_in_the_same_piece_under_every_rule(
+    boundary: str, outside: str
+) -> None:
     policy = PiecePolicy(boundary=boundary, outside=outside)  # type: ignore[arg-type]
     assert cp(TWO, policy, 999.0) == pytest.approx(cp_of(LOW, 999.0), rel=1e-13)
     assert cp(TWO, policy, 1001.0) == pytest.approx(cp_of(HIGH, 1001.0), rel=1e-13)
 
 
 @pytest.mark.parametrize("boundary", [UPPER, LOWER])
-def test_the_outermost_bounds_belong_to_the_outermost_pieces_under_either_rule(boundary: str) -> None:
+def test_the_outermost_bounds_belong_to_the_outermost_pieces_under_either_rule(
+    boundary: str,
+) -> None:
     policy = PiecePolicy(boundary=boundary)  # type: ignore[arg-type]
     assert cp(TWO, policy, 200.0) == pytest.approx(cp_of(LOW, 200.0), rel=1e-13)
     assert cp(TWO, policy, 6000.0) == pytest.approx(cp_of(HIGH, 6000.0), rel=1e-13)
@@ -152,7 +190,9 @@ def test_the_stored_pieces_are_the_same_whatever_the_policy() -> None:
     pieces = {(1,): dict(LOW), (2,): dict(HIGH)}
     before = {key: dict(row) for key, row in pieces.items()}
     for policy in (PiecePolicy(), PiecePolicy(boundary=LOWER, outside="nearest")):
-        bound_with(pieces, policy).evaluate("cp", T=np.array([1000.0, 7000.0 if policy.outside == "nearest" else 1000.0]))
+        bound_with(pieces, policy).evaluate(
+            "cp", T=np.array([1000.0, 7000.0 if policy.outside == "nearest" else 1000.0])
+        )
     assert pieces == before
 
 
@@ -202,7 +242,9 @@ def test_a_case_states_the_boundary_and_the_outside_rule(tmp_path: Path) -> None
     assert case.spec.pieces.__class__.__name__ == "PiecesSpec"
 
 
-def test_a_case_that_states_no_policy_keeps_the_half_open_reading_and_refuses_beyond(tmp_path: Path) -> None:
+def test_a_case_that_states_no_policy_keeps_the_half_open_reading_and_refuses_beyond(
+    tmp_path: Path,
+) -> None:
     case = load_case(case_file(tmp_path))
     assert (case.spec.pieces.boundary, case.spec.pieces.outside) == (UPPER, "refuse")
 

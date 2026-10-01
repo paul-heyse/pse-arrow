@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 
 import pytest
+
 from test_acquire_support import (
     HttpFixture,
     Route,
@@ -22,7 +23,6 @@ from test_acquire_support import (
     tree_files,
     write_manifest,
 )
-
 from thermo_knowledge.acquire.manifest import ManifestError, parse_manifest
 from thermo_knowledge.acquire.store import ACQUISITION_NAME
 

@@ -377,6 +377,15 @@ impl SpecializedModel {
                         })
                         .sum::<usize>()
                     + f.expected_failure.as_ref().map_or(0, |e| match &e.lineage {
+                        crate::specialize::ExpectedLineage::Applicability {
+                            sets,
+                            variables,
+                            ..
+                        } => {
+                            sets.capacity() * size_of::<pse_ids::SemanticId>()
+                                + variables.capacity() * size_of::<String>()
+                                + variables.iter().map(String::capacity).sum::<usize>()
+                        }
                         crate::specialize::ExpectedLineage::Validity {
                             sets,
                             variables,
@@ -499,12 +508,7 @@ impl SpecializedModel {
                 .iter()
                 .map(|v| lineage(&v.lineage) + annotation(&v.value))
                 .sum::<usize>()
-            + self.observations.capacity() * size_of::<crate::envelope::StaticObservation>()
-            + self
-                .observations
-                .iter()
-                .map(|v| lineage(&v.lineage))
-                .sum::<usize>()
+
     }
 }
 

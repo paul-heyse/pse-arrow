@@ -10,11 +10,11 @@
 @id("0e8db97e8257400f8572fb0d61e22948") use references @"1.0.0";
 @id("c645a728a31742c49d5904fee7e46b5e") use compatibility @"1.0.0";
 @id("eb82658c77034ca8a3372be1e677be8d") use poling2000_data @"1.0.0";
-@id("f70e57cb45734ba99442403bee874921") entity properties.property_package water_rpp5_package {}
+@id("f70e57cb45734ba99442403bee874921") entity properties.property_package water_rpp5_package {admitted=water_rpp5_package_admitted}
 @id("6609067506f743cdb3db726bd81c5d5a") set packages:Set<properties.property_package>={water_rpp5_package};
 @id("309ea66ab1124f0096c8edc4d5c1859d") set water:Set<chemistry.species>={chem.water};
-@id("fcd58adbec6c4537b76b00c239780a65") dataset caloric_selection:properties.selection complete_over(k in packages,j in water,p in properties.caloric_properties,t in properties.vapor_types) provenance(references.idaes_test_rpp5,provenance.Role.derived,lineage(dataset poling2000_data.water_rpp5)) { [water_rpp5_package,chem.water,properties.heat_capacity,compatibility.PhaseType.vaporPhase]=[correlations.rpp5_cp[chem.water,properties.heat_capacity,compatibility.PhaseType.vaporPhase,references.idaes_test_rpp5]]; }
-@id("98d575a6a9b64e79b2f939247c72ed55") dataset pressure_selection:properties.selection complete_over(k in packages,j in water,p in properties.vapor_pressure_properties,t in properties.liquid_types) provenance(references.idaes_test_rpp5,provenance.Role.derived,lineage(dataset poling2000_data.water_antoine)) { [water_rpp5_package,chem.water,properties.vapor_pressure,compatibility.PhaseType.liquidPhase]=[correlations.antoine[chem.water,properties.vapor_pressure,compatibility.PhaseType.liquidPhase,references.idaes_test_rpp5]]; }
+@id("fcd58adbec6c4537b76b00c239780a65") dataset caloric_selection:properties.selection complete_over(k in packages,j in water,p in properties.caloric_properties,t in properties.vapor_types) provenance(references.idaes_test_rpp5,provenance.Role.derived,lineage(dataset poling2000_data.water_rpp5)) { [water_rpp5_package,chem.water,properties.heat_capacity,compatibility.PhaseType.vaporPhase]=[correlations.rpp5_cp[chem.water,properties.heat_capacity,compatibility.PhaseType.vaporPhase,references.idaes_rpp5_caloric_fit]]; }
+@id("98d575a6a9b64e79b2f939247c72ed55") dataset pressure_selection:properties.selection complete_over(k in packages,j in water,p in properties.vapor_pressure_properties,t in properties.liquid_types) provenance(references.idaes_test_rpp5,provenance.Role.derived,lineage(dataset poling2000_data.water_antoine)) { [water_rpp5_package,chem.water,properties.vapor_pressure,compatibility.PhaseType.liquidPhase]=[correlations.antoine[chem.water,properties.vapor_pressure,compatibility.PhaseType.liquidPhase,references.idaes_rpp5_pressure_fit]]; }
 @id("ce332a6c805546d59cdacc69175704a9") constant reference_temperature:Temperature=273.15{K} provenance(references.idaes_test_rpp5,provenance.Role.oracle_input);
 @id("9527a955593a4ce4a1b435dee5d35904") constant formation_increment:DeltaH=-241810{J/mol} provenance(references.idaes_test_rpp5,provenance.Role.oracle_input);
 @id("3fc31bff385d459bafa7184ac7b484a4") constant entropy_reference_increment:DeltaS=188.84{J/(mol*K)} provenance(references.idaes_test_rpp5,provenance.Role.oracle_input);
@@ -29,4 +29,5 @@
 @id("66fd47c5d2ef4b82afe51339ddce35a4") expect entropy_reference_increment+properties.entropy_increment(water_rpp5_package,chemistry.vapor,chem.water,reference_temperature,400{K})==201.723{J/(mol*K)} tolerance 0.001{J/(mol*K)};
 @id("83afbf45425149d08948b94f53de1874") expect properties.psat(water_rpp5_package,chemistry.liquid,chem.water,298.15{K})==3173.066{Pa} tolerance 0.001{Pa};
 }
+@id("e18b4aa608bf4d01b4c4a2581ef81167") entity properties.selection_context water_rpp5_package_admitted {roots={correlations.rpp5_cp[chem.water,properties.heat_capacity,compatibility.PhaseType.vaporPhase,references.idaes_rpp5_caloric_fit],correlations.antoine[chem.water,properties.vapor_pressure,compatibility.PhaseType.liquidPhase,references.idaes_rpp5_pressure_fit]},subjects={chem.water},models={properties.heat_capacity,properties.vapor_pressure},rules={}}
 }

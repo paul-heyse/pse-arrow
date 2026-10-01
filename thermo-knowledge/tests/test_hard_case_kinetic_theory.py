@@ -24,9 +24,9 @@ from pathlib import Path
 import numpy as np
 import psycopg
 import pytest
+
 from hard_case_support import CHECKS, at, build, failing
 from mapping_support import real_declaration, writer
-
 from thermo_knowledge import db
 from thermo_knowledge.canonical.values import Quantity
 from thermo_knowledge.canonical.writer import CanonicalWriter, ValidationError
@@ -73,7 +73,9 @@ def viscosity(gas: str, T: np.ndarray, edition: str | None = None) -> np.ndarray
     M, sigma, eps, own = GASES[gas]
     kB, NA = EDITIONS[edition or own]
     m = M / NA
-    return 5.0 / 16.0 * np.sqrt(np.pi * m * kB * T) / (np.pi * (sigma * 1e-10) ** 2 * omega(T / eps))
+    return (
+        5.0 / 16.0 * np.sqrt(np.pi * m * kB * T) / (np.pi * (sigma * 1e-10) ** 2 * omega(T / eps))
+    )
 
 
 def conductivity(gas: str, T: np.ndarray, edition: str | None = None) -> np.ndarray:
@@ -89,7 +91,9 @@ def wilke(names: list[str], x: np.ndarray, T: float, edition: str | None = None)
     for i in range(len(names)):
         denominator = 0.0
         for j in range(len(names)):
-            phi = (1.0 + np.sqrt(eta[i] / eta[j]) * (M[j] / M[i]) ** 0.25) ** 2 / np.sqrt(8.0 * (1.0 + M[i] / M[j]))
+            phi = (1.0 + np.sqrt(eta[i] / eta[j]) * (M[j] / M[i]) ** 0.25) ** 2 / np.sqrt(
+                8.0 * (1.0 + M[i] / M[j])
+            )
             denominator += x[j] * phi
         total += x[i] * eta[i] / denominator
     return float(total)
@@ -125,13 +129,21 @@ def write_world(w: CanonicalWriter, ids: dict[str, uuid.UUID]) -> None:
         ids[name] = w.kind("species", {"canonical_key": name, "label": name}, origins=at(name))
     neufeld = w.kind(
         "parameterization",
-        {"key": "neufeld", "revision": "1", "title": "collision integral", "coherence": "independent_records"},
+        {
+            "key": "neufeld",
+            "revision": "1",
+            "title": "collision integral",
+            "coherence": "independent_records",
+        },
         origins=at("neufeld"),
     )
     ids["neufeld"] = neufeld
     w.parameter_set(
-        parameterization=neufeld, slot_group="neufeld_collision_integral.correlation", subjects=[],
-        slots=dict(NEUFELD), origins=at("neufeld-set"),
+        parameterization=neufeld,
+        slot_group="neufeld_collision_integral.correlation",
+        subjects=[],
+        slots=dict(NEUFELD),
+        origins=at("neufeld-set"),
     )
     for edition in EDITIONS:
         ids[f"constants_{edition}"] = convention_set(w, edition)
@@ -148,8 +160,14 @@ def write_world(w: CanonicalWriter, ids: dict[str, uuid.UUID]) -> None:
         )
     for name, (mass, sigma, eps, edition) in GASES.items():
         w.parameter_set(
-            parameterization=ids[f"pure_{edition}"], slot_group="chapman_enskog_transport.pure", subjects=[ids[name]],
-            slots={"M": Quantity(mass, "kg/mol"), "sigma": Quantity(sigma, "angstrom"), "epsilon_over_k": Quantity(eps, "K")},
+            parameterization=ids[f"pure_{edition}"],
+            slot_group="chapman_enskog_transport.pure",
+            subjects=[ids[name]],
+            slots={
+                "M": Quantity(mass, "kg/mol"),
+                "sigma": Quantity(sigma, "angstrom"),
+                "epsilon_over_k": Quantity(eps, "K"),
+            },
             origins=at(f"pure-{name}"),
         )
 
@@ -195,14 +213,20 @@ def source(world: World, conn: psycopg.Connection, editions: tuple[str, ...]) ->
         list(parameterizations),
         subforms={
             "chapman_enskog_transport.collision_integral": [neufeld],
-            "wilke_mixture_viscosity.pure": [SubformBinding("chapman_enskog_transport", parameterizations)],
+            "wilke_mixture_viscosity.pure": [
+                SubformBinding("chapman_enskog_transport", parameterizations)
+            ],
         },
     )
 
 
 def transport(world: World, conn: psycopg.Connection, gas: str):  # noqa: ANN201
     return bind(
-        world.decl, "chapman_enskog_transport", source=source(world, conn, (GASES[gas][3],)), roles={"i": str(world.ids[gas])}, cache=CACHE
+        world.decl,
+        "chapman_enskog_transport",
+        source=source(world, conn, (GASES[gas][3],)),
+        roles={"i": str(world.ids[gas])},
+        cache=CACHE,
     )
 
 
@@ -213,7 +237,9 @@ def test_the_fixture_satisfies_every_invariant(conn: psycopg.Connection) -> None
 # -- what the source holds -------------------------------------------------------------------------------------
 
 
-def test_each_gas_has_a_molar_mass_and_two_lennard_jones_parameters(world: World, conn: psycopg.Connection) -> None:
+def test_each_gas_has_a_molar_mass_and_two_lennard_jones_parameters(
+    world: World, conn: psycopg.Connection
+) -> None:
     for name, (mass, sigma, eps, edition) in GASES.items():
         row = conn.execute(
             'SELECT p."M", p.sigma, p.epsilon_over_k, s.parameterization FROM param."chapman_enskog_transport__pure" p '
@@ -222,11 +248,21 @@ def test_each_gas_has_a_molar_mass_and_two_lennard_jones_parameters(world: World
         ).fetchone()
         assert row[:3] == pytest.approx((mass, sigma * 1e-10, eps), rel=1e-12)
         assert row[3] == world.ids[f"pure_{edition}"]
-    slots = {s.name for group in world.decl.forms["chapman_enskog_transport"].slot_groups for s in group.slots}
-    assert slots == {"M", "sigma", "epsilon_over_k"}  # the constants have no slot: they belong to the convention set
+    slots = {
+        s.name
+        for group in world.decl.forms["chapman_enskog_transport"].slot_groups
+        for s in group.slots
+    }
+    assert slots == {
+        "M",
+        "sigma",
+        "epsilon_over_k",
+    }  # the constants have no slot: they belong to the convention set
 
 
-def test_the_boltzmann_and_avogadro_constants_are_two_convention_facts_the_form_declares(world: World, conn: psycopg.Connection) -> None:
+def test_the_boltzmann_and_avogadro_constants_are_two_convention_facts_the_form_declares(
+    world: World, conn: psycopg.Connection
+) -> None:
     facts = {
         r[0]
         for r in conn.execute(
@@ -236,15 +272,27 @@ def test_the_boltzmann_and_avogadro_constants_are_two_convention_facts_the_form_
     assert facts == {"boltzmann_constant", "avogadro_constant"}
     for edition, (kB, NA) in EDITIONS.items():
         row = conn.execute(
-            "SELECT boltzmann_constant, avogadro_constant, gas_constant FROM tk.convention_set WHERE id = %s", (world.ids[f"constants_{edition}"],)
+            "SELECT boltzmann_constant, avogadro_constant, gas_constant FROM tk.convention_set WHERE id = %s",
+            (world.ids[f"constants_{edition}"],),
         ).fetchone()
-        assert row == (kB, NA, None)  # a gas constant is not derived from them: it is a third fact, not stated here
-    assert world.decl.forms["wilke_mixture_viscosity"].conventions == ()  # the mixture form reads none itself
+        assert row == (
+            kB,
+            NA,
+            None,
+        )  # a gas constant is not derived from them: it is a third fact, not stated here
+    assert (
+        world.decl.forms["wilke_mixture_viscosity"].conventions == ()
+    )  # the mixture form reads none itself
 
 
 def test_the_collision_integral_is_a_form_of_its_own_in_a_subform_slot(world: World) -> None:
     (slot,) = world.decl.forms["chapman_enskog_transport"].subforms
-    assert (slot.name, slot.accepts, slot.multiplicity, slot.per) == ("collision_integral", "collision_integral", "one", "model")
+    assert (slot.name, slot.accepts, slot.multiplicity, slot.per) == (
+        "collision_integral",
+        "collision_integral",
+        "one",
+        "model",
+    )
     assert world.decl.forms["neufeld_collision_integral"].implements == "collision_integral"
     (group,) = world.decl.forms["neufeld_collision_integral"].slot_groups
     assert group.subjects == ()  # the coefficients belong to no species
@@ -254,7 +302,12 @@ def test_the_collision_integral_is_a_form_of_its_own_in_a_subform_slot(world: Wo
 
 
 def test_the_collision_integral_matches_numpy(world: World, conn: psycopg.Connection) -> None:
-    bound = bind(world.decl, "neufeld_collision_integral", source=DatabaseSource(conn, world.decl, [world.ids["neufeld"]]), cache=CACHE)
+    bound = bind(
+        world.decl,
+        "neufeld_collision_integral",
+        source=DatabaseSource(conn, world.decl, [world.ids["neufeld"]]),
+        cache=CACHE,
+    )
     T_star = np.geomspace(0.3, 30.0, 9)
     found = np.asarray(bound.evaluate("omega", T_star=T_star), dtype=float).reshape(-1)
     np.testing.assert_allclose(found, omega(T_star), rtol=1e-12)
@@ -262,13 +315,19 @@ def test_the_collision_integral_matches_numpy(world: World, conn: psycopg.Connec
 
 @pytest.mark.parametrize("gas", list(GASES))
 def test_the_viscosity_matches_numpy(world: World, conn: psycopg.Connection, gas: str) -> None:
-    found = np.asarray(transport(world, conn, gas).evaluate("eta", T=TEMPERATURES), dtype=float).reshape(-1)
+    found = np.asarray(
+        transport(world, conn, gas).evaluate("eta", T=TEMPERATURES), dtype=float
+    ).reshape(-1)
     np.testing.assert_allclose(found, viscosity(gas, TEMPERATURES), rtol=1e-11)
-    assert np.all(np.diff(found) > 0)  # a dilute gas grows more viscous when heated (over this range)
+    assert np.all(
+        np.diff(found) > 0
+    )  # a dilute gas grows more viscous when heated (over this range)
 
 
 @pytest.mark.parametrize("gas", list(GASES))
-def test_the_thermal_conductivity_is_fifteen_quarters_k_over_m_times_the_viscosity(world: World, conn: psycopg.Connection, gas: str) -> None:
+def test_the_thermal_conductivity_is_fifteen_quarters_k_over_m_times_the_viscosity(
+    world: World, conn: psycopg.Connection, gas: str
+) -> None:
     bound = transport(world, conn, gas)
     found = np.asarray(bound.evaluate("lam", T=TEMPERATURES), dtype=float).reshape(-1)
     np.testing.assert_allclose(found, conductivity(gas, TEMPERATURES), rtol=1e-11)
@@ -281,14 +340,21 @@ def test_the_thermal_conductivity_is_fifteen_quarters_k_over_m_times_the_viscosi
 def test_a_different_edition_of_the_constants_changes_the_value(world: World) -> None:
     exact = viscosity("gas-a", TEMPERATURES, "exact")
     earlier = viscosity("gas-a", TEMPERATURES, "earlier")
-    assert np.all(np.abs(exact / earlier - 1.0) > 1e-9) and np.all(np.abs(exact / earlier - 1.0) < 1e-6)
+    assert np.all(np.abs(exact / earlier - 1.0) > 1e-9) and np.all(
+        np.abs(exact / earlier - 1.0) < 1e-6
+    )
 
 
 @pytest.mark.parametrize("names", [["gas-a", "gas-b"], ["gas-b", "gas-a"]])
-def test_the_wilke_mixture_matches_numpy_in_either_order_of_the_components(world: World, conn: psycopg.Connection, names: list[str]) -> None:
+def test_the_wilke_mixture_matches_numpy_in_either_order_of_the_components(
+    world: World, conn: psycopg.Connection, names: list[str]
+) -> None:
     bound = bind(
-        world.decl, "wilke_mixture_viscosity", source=source(world, conn, ("exact",)),
-        sets={"components": [str(world.ids[n]) for n in names]}, cache=CACHE,
+        world.decl,
+        "wilke_mixture_viscosity",
+        source=source(world, conn, ("exact",)),
+        sets={"components": [str(world.ids[n]) for n in names]},
+        cache=CACHE,
     )
     for T in (250.0, 600.0):
         for x_first in (0.1, 0.5, 0.9):
@@ -306,18 +372,26 @@ def test_the_wilke_mixture_matches_numpy_in_either_order_of_the_components(world
             assert found == pytest.approx(wilke(names, x, T), rel=1e-11)
 
 
-def test_the_wilke_rule_reduces_to_the_pure_viscosity_for_a_pure_component(world: World, conn: psycopg.Connection) -> None:
+def test_the_wilke_rule_reduces_to_the_pure_viscosity_for_a_pure_component(
+    world: World, conn: psycopg.Connection
+) -> None:
     names = ["gas-a", "gas-b"]
     bound = bind(
-        world.decl, "wilke_mixture_viscosity", source=source(world, conn, ("exact",)),
-        sets={"components": [str(world.ids[n]) for n in names]}, cache=CACHE,
+        world.decl,
+        "wilke_mixture_viscosity",
+        source=source(world, conn, ("exact",)),
+        sets={"components": [str(world.ids[n]) for n in names]},
+        cache=CACHE,
     )
     found = float(
         np.asarray(
             bound.evaluate(
                 "eta",
                 T=np.array([300.0]),
-                x={str(world.ids["gas-a"]): np.array([1.0]), str(world.ids["gas-b"]): np.array([0.0])},
+                x={
+                    str(world.ids["gas-a"]): np.array([1.0]),
+                    str(world.ids["gas-b"]): np.array([0.0]),
+                },
                 M={str(world.ids[n]): np.array([GASES[n][0]]) for n in names},
             )
         ).reshape(-1)[0]
@@ -328,11 +402,16 @@ def test_the_wilke_rule_reduces_to_the_pure_viscosity_for_a_pure_component(world
 # -- the editions of the constants ----------------------------------------------------------------------------------------
 
 
-def test_components_whose_parameterisations_state_different_constants_cannot_be_combined(world: World, conn: psycopg.Connection) -> None:
+def test_components_whose_parameterisations_state_different_constants_cannot_be_combined(
+    world: World, conn: psycopg.Connection
+) -> None:
     names = ["gas-a", "gas-c"]  # the first from the exact edition, the second from the earlier one
     bound = bind(
-        world.decl, "wilke_mixture_viscosity", source=source(world, conn, ("exact", "earlier")),
-        sets={"components": [str(world.ids[n]) for n in names]}, cache=CACHE,
+        world.decl,
+        "wilke_mixture_viscosity",
+        source=source(world, conn, ("exact", "earlier")),
+        sets={"components": [str(world.ids[n]) for n in names]},
+        cache=CACHE,
     )
     with pytest.raises(EvaluationRefusal, match="boltzmann_constant|avogadro_constant"):
         bound.evaluate(
@@ -346,42 +425,79 @@ def test_components_whose_parameterisations_state_different_constants_cannot_be_
 # -- what the model refuses ---------------------------------------------------------------------------------------------------------
 
 
-def test_a_diameter_needs_a_length_and_a_constant_needs_its_own_dimension(decl: Declaration) -> None:
+def test_a_diameter_needs_a_length_and_a_constant_needs_its_own_dimension(
+    decl: Declaration,
+) -> None:
     w = writer(decl)
     gas = w.kind("species", {"canonical_key": "g", "label": "g"}, origins=at("g"))
-    p = w.kind("parameterization", {"key": "p", "revision": "1", "title": "p", "coherence": "independent_records"}, origins=at("p"))
+    p = w.kind(
+        "parameterization",
+        {"key": "p", "revision": "1", "title": "p", "coherence": "independent_records"},
+        origins=at("p"),
+    )
     with pytest.raises(ValidationError, match="cannot be converted"):
         w.parameter_set(
-            parameterization=p, slot_group="chapman_enskog_transport.pure", subjects=[gas],
-            slots={"M": Quantity(0.04, "kg/mol"), "sigma": Quantity(3.4, "K"), "epsilon_over_k": Quantity(120.0, "K")}, origins=at("wrong"),
+            parameterization=p,
+            slot_group="chapman_enskog_transport.pure",
+            subjects=[gas],
+            slots={
+                "M": Quantity(0.04, "kg/mol"),
+                "sigma": Quantity(3.4, "K"),
+                "epsilon_over_k": Quantity(120.0, "K"),
+            },
+            origins=at("wrong"),
         )
     with pytest.raises(ValidationError, match="cannot be converted"):
         w.kind(
             "convention_set",
-            {"key": "bad", "revision": "1", "temperature_scale": "its_90", "boltzmann_constant": Quantity(1.38e-23, "J/mol")},
+            {
+                "key": "bad",
+                "revision": "1",
+                "temperature_scale": "its_90",
+                "boltzmann_constant": Quantity(1.38e-23, "J/mol"),
+            },
             origins=at("bad"),
         )
 
 
-def test_the_verify_check_flags_a_parameterisation_that_does_not_state_the_constants_a_form_reads(decl: Declaration, tmp_path: Path) -> None:
+def test_the_verify_check_flags_a_parameterisation_that_does_not_state_the_constants_a_form_reads(
+    decl: Declaration, tmp_path: Path
+) -> None:
     ids: dict[str, uuid.UUID] = {}
 
     def emit(w: CanonicalWriter) -> None:
         gas = w.kind("species", {"canonical_key": "g", "label": "g"}, origins=at("g"))
         only_boltzmann = w.kind(
             "convention_set",
-            {"key": "half", "revision": "1", "temperature_scale": "its_90", "boltzmann_constant": Quantity(1.380649e-23, "J/K")},
+            {
+                "key": "half",
+                "revision": "1",
+                "temperature_scale": "its_90",
+                "boltzmann_constant": Quantity(1.380649e-23, "J/K"),
+            },
             origins=at("half"),
         )
         for key, conventions in (("half", only_boltzmann), ("none", None)):
             ids[key] = w.kind(
                 "parameterization",
-                {"key": key, "revision": "1", "title": key, "coherence": "independent_records", **({"convention_set": conventions} if conventions else {})},
+                {
+                    "key": key,
+                    "revision": "1",
+                    "title": key,
+                    "coherence": "independent_records",
+                    **({"convention_set": conventions} if conventions else {}),
+                },
                 origins=at(f"p-{key}"),
             )
             w.parameter_set(
-                parameterization=ids[key], slot_group="chapman_enskog_transport.pure", subjects=[gas],
-                slots={"M": Quantity(0.04, "kg/mol"), "sigma": Quantity(3.4, "angstrom"), "epsilon_over_k": Quantity(120.0, "K")},
+                parameterization=ids[key],
+                slot_group="chapman_enskog_transport.pure",
+                subjects=[gas],
+                slots={
+                    "M": Quantity(0.04, "kg/mol"),
+                    "sigma": Quantity(3.4, "angstrom"),
+                    "epsilon_over_k": Quantity(120.0, "K"),
+                },
                 origins=at(f"set-{key}"),
             )
 

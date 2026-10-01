@@ -11,8 +11,8 @@ import math
 import numpy as np
 import pytest
 import scipy.integrate
-from expression_support import scenario
 
+from expression_support import scenario
 from thermo_knowledge.expression.evaluate import EvaluationRefusal, bind
 from thermo_knowledge.expression.parameters import FormChoice, InMemorySource
 

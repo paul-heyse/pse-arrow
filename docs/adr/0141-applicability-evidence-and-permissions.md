@@ -7,7 +7,7 @@ deciders: [paul-heyse]
 level: decision
 principles: [AP-02, AP-03, AP-04, AP-06, DP-01, DP-03, PS-01, PS-02, PS-03]
 blueprint: [§9.3, §9.10, §14.3, §19.3]
-review: docs/design_review/reviews/design_review_plan25b-contracts_2026-09-30.md
+review: docs/design_review/reviews/design_review_codebase-domain-alignment_2026-09-30.md#f12
 evidence: Proposed
 supersedes: []
 superseded-by: null
@@ -37,7 +37,7 @@ Mandatory fabricated unbounded envelopes would mislabel unknown evidence. Blanke
 
 ## Outcome
 
-Claims name owner, scope, evidence and either Region(predicate, basis), Unrestricted or Unknown(reason). Region basis preserves fitted/recommended/validated distinctions. Form, selected-record/collection and consuming-model claims compose while retaining responsible layers and record/call/input attribution.
+Claims name owner, scope, evidence and either Region(predicate, basis), Unrestricted or Unknown(reason). Region basis preserves fitted/recommended/validated distinctions. Reported denotes only an explicitly supplied source region whose evidence does not classify it further; it adds no validation or recommendation claim. Form, selected-record/collection and consuming-model claims compose while retaining responsible layers and record/call/input attribution.
 
 The generic evaluation emits Applicable, OutsideRegion or UnknownEvidence for each demanded claim. Mathematical and hard model-domain requirements remain mandatory attributable failures under every permission. Missing claims cannot become unrestricted. B4 applies the low-level use gate; E3 later assesses result qualification from the unchanged observations.
 

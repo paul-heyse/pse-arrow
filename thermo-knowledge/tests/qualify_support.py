@@ -14,7 +14,6 @@ from pathlib import Path
 
 from build_support import fingerprint, inputs_of, write_source
 from mapping_support import carrier, origin
-
 from thermo_knowledge import config, identity
 from thermo_knowledge.build import build_database
 from thermo_knowledge.canonical.values import Quantity
@@ -135,7 +134,13 @@ def write_world(
         w.validity_region(
             sets[name],
             {"kind": "fitted_range"},
-            [{"observable": temperature.id, "lower": Quantity(low, "K"), "upper": Quantity(high, "K")}],
+            [
+                {
+                    "observable": temperature.id,
+                    "lower": Quantity(low, "K"),
+                    "upper": Quantity(high, "K"),
+                }
+            ],
             origins=[published],
         )
     world["sets"] = sets
@@ -173,7 +178,13 @@ def write_world(
         w.validity_region(
             identifier,
             {"kind": "fitted_range"},
-            [{"observable": temperature.id, "lower": Quantity(low, "K"), "upper": Quantity(high, "K")}],
+            [
+                {
+                    "observable": temperature.id,
+                    "lower": Quantity(low, "K"),
+                    "upper": Quantity(high, "K"),
+                }
+            ],
             origins=[published],
         )
     world["repeated"] = repeated
@@ -210,7 +221,9 @@ def write_world(
         )
         w.validity_not_stated(regional[name], "recommended_range", at="b.json#/0")
 
-    def clause(observable: uuid.UUID, low: float, high: float, unit: str, **extra: object) -> dict[str, object]:
+    def clause(
+        observable: uuid.UUID, low: float, high: float, unit: str, **extra: object
+    ) -> dict[str, object]:
         return {
             "observable": observable,
             "lower": Quantity(low, unit),
@@ -330,9 +343,7 @@ def build_world(canonical: Path, decl: Declaration, database_url: str) -> World:
         declaration=fingerprint(decl),
     )
     build_database(database_url, decl, inputs_of(canonical))
-    return World(
-        decl, canonical, made["species"], made["sets"], made["repeated"], made["regional"]
-    )
+    return World(decl, canonical, made["species"], made["sets"], made["repeated"], made["regional"])
 
 
 def case_text(

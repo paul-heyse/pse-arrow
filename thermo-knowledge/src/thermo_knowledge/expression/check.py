@@ -1328,7 +1328,11 @@ class Checker:
         an integer known without argument values, the position of `s` in `t`."""
         ok = True
         for operand, kind, what in (
-            (node.array, pc.CONSTITUENT_ARRAY.declared, "the first argument of `position` is an array"),
+            (
+                node.array,
+                pc.CONSTITUENT_ARRAY.declared,
+                "the first argument of `position` is an array",
+            ),
             (node.member, pc.SPECIES.declared, "the second argument of `position` is a species"),
         ):
             if not isinstance(operand, t.Name):
@@ -1389,7 +1393,7 @@ def _fold(op: str, left: int | float | None, right: int | float | None) -> int |
         if op == "/":
             return left / right
         result = left**right
-    except (ArithmeticError, ValueError):
+    except ArithmeticError, ValueError:
         return None
     return result if isinstance(result, int | float) else None
 

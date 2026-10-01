@@ -9,8 +9,8 @@ import uuid
 from pathlib import Path
 
 import pytest
-from declaration_support import FULL, empty_declaration, full_declaration
 
+from declaration_support import FULL, empty_declaration, full_declaration
 from thermo_knowledge import config, identity
 from thermo_knowledge.declaration import (
     DeclarationError,

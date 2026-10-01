@@ -43,7 +43,9 @@ def check(decl: m.Declaration, contract: PipelineContract) -> list[Diagnostic]:
     for name, entry in contract.kinds.items():
         kind = decl.kinds.get(name)
         if kind is None or kind.origin != "declared":
-            report.add(None, f"kinds.{name}", f"kinds.{name}", f"the declaration has no kind `{name}`")
+            report.add(
+                None, f"kinds.{name}", f"kinds.{name}", f"the declaration has no kind `{name}`"
+            )
         else:
             _kind(decl, kind, entry, report)
     for name, entry in contract.relations.items():
@@ -60,7 +62,9 @@ def check(decl: m.Declaration, contract: PipelineContract) -> list[Diagnostic]:
     for name, enum_entry in contract.enums.items():
         enum = decl.enums.get(name)
         if enum is None:
-            report.add(None, f"enums.{name}", f"enums.{name}", f"the declaration has no enum `{name}`")
+            report.add(
+                None, f"enums.{name}", f"enums.{name}", f"the declaration has no enum `{name}`"
+            )
             continue
         declared = {member.name for member in enum.members}
         for member in enum_entry.members:
@@ -174,7 +178,9 @@ def _column(
         )
     if (found.default is not None) != wanted.defaulted:
         state = "has a default" if found.default is not None else "has no default"
-        needed = "relies on a declared default" if wanted.defaulted else "relies on there being none"
+        needed = (
+            "relies on a declared default" if wanted.defaulted else "relies on there being none"
+        )
         report.add(
             module,
             at,

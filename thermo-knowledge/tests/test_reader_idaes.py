@@ -21,6 +21,7 @@ from pathlib import Path
 
 import pyarrow as pa
 import pytest
+
 from r3_reader_support import (
     field_metadata,
     run_reader,
@@ -28,7 +29,6 @@ from r3_reader_support import (
     staged_manifest_of,
     staged_table,
 )
-
 from thermo_knowledge import config
 from thermo_knowledge.readers import idaes
 from thermo_knowledge.staging.errors import StagingError
@@ -136,7 +136,11 @@ def test_configuration_parameter_data_keyed_by_scope_parameter_and_index(tmp_pat
     by_key = {(r["parameter"], r["parameter_index"]): r for r in rows}
     mw, unit = by_key[("mw", "[0]")], by_key[("mw", "[1]")]
     assert (mw["kind"], mw["number"], mw["text"]) == ("number", 10.5e-3, "10.5e-3")
-    assert (unit["kind"], unit["number"], unit["text"]) == ("expression", None, "pyunits.kg / pyunits.mol")
+    assert (unit["kind"], unit["number"], unit["text"]) == (
+        "expression",
+        None,
+        "pyunits.kg / pyunits.mol",
+    )
     assert by_key[("omega", None)]["number"] == 0.25
     assert by_key[("coeff", "A/[0]")]["number"] == -1.5
     folded = by_key[("coeff", "B/[0]")]
@@ -149,9 +153,7 @@ def test_configuration_parameter_data_keyed_by_scope_parameter_and_index(tmp_pat
     assert mw["scope_kind"] == "module" and mw["scope"] == ""
     assert mw["_locator"] == f"{DEMO}#L{mw['line']}:{mw['column']}"
 
-    package = {
-        (r["parameter"], r["parameter_index"]): r for r in rows_of(run, parameter_scope="")
-    }
+    package = {(r["parameter"], r["parameter_index"]): r for r in rows_of(run, parameter_scope="")}
     assert package[("kappa", "('alpha', 'alpha')")]["number"] == 0.0  # zero stays a number
     assert package[("kappa", "('alpha', 'beta')")]["number"] == -0.125
 
@@ -181,8 +183,12 @@ def test_old_style_declarations_and_local_tables(tmp_path: Path) -> None:
     elements = {r["path_text"]: r for r in entries if r["target"] == "self.element_comp"}
     assert elements["alpha/C"]["number"] == 1.0 and elements["alpha/H"]["number"] == 4.0
     assert elements["beta"]["kind"] == "empty" and elements["beta"]["text"] == "{}"
-    assert any(r["target"] == "ratio" and r["number"] == 1.5 for r in entries)  # scalar in a data module
-    assert any(r["target"] == "self.stoich['R1', 'Liq', 'A']" and r["number"] == -1.0 for r in entries)
+    assert any(
+        r["target"] == "ratio" and r["number"] == 1.5 for r in entries
+    )  # scalar in a data module
+    assert any(
+        r["target"] == "self.stoich['R1', 'Liq', 'A']" and r["number"] == -1.0 for r in entries
+    )
     lookup = {r["path_text"]: r for r in entries if r["target"] == "lookup"}
     assert lookup["x"]["kind"] == "expression" and lookup["y"]["number"] == 2.0
     assert not [r for r in entries if r["target"] == "ratio" and r["kind"] != "number"]
@@ -276,7 +282,11 @@ def test_json_file_is_read_leaf_by_leaf_in_its_own_keys(tmp_path: Path) -> None:
         1,
         None,
     )
-    assert line["path"] == ["eos", "reference", "1"] and line["path_steps"] == ["key", "key", "index"]
+    assert line["path"] == ["eos", "reference", "1"] and line["path_steps"] == [
+        "key",
+        "key",
+        "index",
+    ]
     # a key that looks like a number is a key; slash and tilde are escaped in the pointer only
     assert by_pointer["/eos/n/1"]["path_steps"] == ["key", "key", "key"]
     nested = by_pointer["/eos/a~1b/t~0c/2/0"]
@@ -293,7 +303,9 @@ def test_json_file_is_read_leaf_by_leaf_in_its_own_keys(tmp_path: Path) -> None:
         "[0]",
     )
     assert by_pointer["/have_visc"]["flag"] is False and by_pointer["/have_visc"]["number"] is None
-    assert by_pointer["/eos/absent"]["kind"] == "null" and by_pointer["/eos/absent"]["text"] == "null"
+    assert (
+        by_pointer["/eos/absent"]["kind"] == "null" and by_pointer["/eos/absent"]["text"] == "null"
+    )
     assert by_pointer["/eos/none_yet"]["kind"] == "empty_object"
     assert by_pointer["/eos/no_items"]["kind"] == "empty_array"
     # file order is kept
@@ -565,7 +577,12 @@ def test_example_configurations_are_found_by_name_and_count(staged: Path) -> Non
     }
     assert sum(1 for name, _ in configurations if name != "reaction_example.py") == 10
     texts = {
-        (r["_artifact"].rsplit("/", 1)[-1], r["parameter_scope"], r["parameter"], r["parameter_index"]): r
+        (
+            r["_artifact"].rsplit("/", 1)[-1],
+            r["parameter_scope"],
+            r["parameter"],
+            r["parameter_index"],
+        ): r
         for r in rows
         if r["parameter"]
     }
@@ -641,7 +658,9 @@ def test_configuration_numbers_equal_python_evaluation(staged: Path) -> None:
     rows = staged_table(staged, "literal_entries").to_pylist()
     by_assignment: dict[tuple[str, int], dict[str, dict]] = {}
     for row in rows:
-        by_assignment.setdefault((row["_artifact"], row["assignment_line"]), {})[row["path_text"]] = row
+        by_assignment.setdefault((row["_artifact"], row["assignment_line"]), {})[
+            row["path_text"]
+        ] = row
     checked = 0
     for module in (m for m in non_test_modules() if m.startswith(EXAMPLES)):
         source = (TREE / module).read_text(encoding="utf-8")

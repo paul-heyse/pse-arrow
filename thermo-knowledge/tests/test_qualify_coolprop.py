@@ -18,8 +18,8 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from mapping_support import real_declaration
 
+from mapping_support import real_declaration
 from thermo_knowledge import config, db
 from thermo_knowledge.qualify import harness, persist
 from thermo_knowledge.qualify.case import load_case

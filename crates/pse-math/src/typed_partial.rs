@@ -54,7 +54,7 @@ impl BodyBuilder<'_> {
                         }
                         bindings.extend(next);
                     }
-                    Stage::Require { .. } | Stage::Domain { .. } => {}
+                    Stage::Require { .. } | Stage::Domain { .. } | Stage::Applicability { .. } => {}
                     _ => {
                         return Err(MathError::Contract(
                             "shared partial requires a smooth pure function body".into(),

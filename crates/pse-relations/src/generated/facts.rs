@@ -47,8 +47,8 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
-            130u8, 89u8, 11u8, 202u8, 243u8, 81u8, 61u8, 101u8, 229u8, 206u8, 167u8,
-            60u8, 60u8, 191u8, 65u8, 33u8,
+            79u8, 118u8, 194u8, 146u8, 131u8, 219u8, 239u8, 243u8, 128u8, 38u8, 226u8,
+            197u8, 113u8, 237u8, 183u8, 99u8,
         ])
     {
         return Ok(
@@ -695,8 +695,8 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
-            126u8, 187u8, 163u8, 69u8, 32u8, 211u8, 236u8, 241u8, 26u8, 101u8, 65u8,
-            165u8, 226u8, 89u8, 255u8, 255u8,
+            127u8, 88u8, 203u8, 17u8, 135u8, 122u8, 5u8, 41u8, 117u8, 146u8, 162u8, 90u8,
+            198u8, 38u8, 151u8, 40u8,
         ])
     {
         return Ok(

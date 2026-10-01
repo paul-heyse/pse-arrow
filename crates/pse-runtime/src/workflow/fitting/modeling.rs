@@ -903,13 +903,15 @@ impl PreparedFit {
                     (Assessment::Steady{model,program,numerics},Experiment::Steady(s))=>{
                         let mut values=s.values.clone();
                         for (id,col) in &s.coordinates {values.scalars.insert(*id,candidate[col.get()]);}
+                        let mut applicability=Vec::new();
                         let observed=if let Some(program)=program {
                             let providers=s.providers.values().map(|p|p.worker_scoped(flag.clone()).map(|w|(p.spec().key(),w)).map_err(|e|WorkflowError::from(crate::math::MathRuntimeError::from(native::ProblemError::Provider(e))))).collect::<Result<_,_>>()?;
                             let mut worker=program.assembly.worker(providers,flag.clone());
                             let outputs=worker.constraints(&values).map_err(math)?;
+                            applicability=worker.applicability_observations();
                             program.assembly.structure().rows().iter().map(|r|r.id).zip(outputs).collect()
                         }else{BTreeMap::new()};
-                        let (checks,observations)=checks::assess_observations(run_id,model.compiled(),&values,&observed,numerics,&self.problem.quantities,true,None,None)?;
+                        let (checks,observations)=checks::assess_observations(run_id,model.compiled(),&values,&observed,&applicability,numerics,&self.problem.quantities,true,None,None)?;
                         rows.extend(checks); reports.extend(observations);
                     },
                     (Assessment::Transient(simulation),Experiment::Transient(s))=>{

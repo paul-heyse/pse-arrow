@@ -5380,6 +5380,345 @@ impl core::str::FromStr for ModelingAnnotationKind {
     clippy::enum_variant_names,
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
+pub enum ModelingApplicabilityBasis {
+    ///fitted
+    #[serde(rename = "fitted")]
+    Fitted,
+    ///recommended
+    #[serde(rename = "recommended")]
+    Recommended,
+    ///validated
+    #[serde(rename = "validated")]
+    Validated,
+    ///reported
+    #[serde(rename = "reported")]
+    Reported,
+}
+impl crate::SemanticEq for ModelingApplicabilityBasis {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl ModelingApplicabilityBasis {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 4usize] = [
+        Self::Fitted,
+        Self::Recommended,
+        Self::Validated,
+        Self::Reported,
+    ];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Fitted => "fitted",
+            Self::Recommended => "recommended",
+            Self::Validated => "validated",
+            Self::Reported => "reported",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Fitted => 0usize,
+            Self::Recommended => 1usize,
+            Self::Validated => 2usize,
+            Self::Reported => 3usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Fitted => None,
+            Self::Recommended => None,
+            Self::Validated => None,
+            Self::Reported => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ModelingApplicabilityBasis {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ModelingApplicabilityBasis))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(ModelingApplicabilityBasis)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["fitted", "recommended", "validated",
+            "reported"] }
+        )
+    }
+}
+impl core::str::FromStr for ModelingApplicabilityBasis {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "fitted" => Ok(Self::Fitted),
+            "recommended" => Ok(Self::Recommended),
+            "validated" => Ok(Self::Validated),
+            "reported" => Ok(Self::Reported),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(ModelingApplicabilityBasis).to_owned(),
+                    enumeration: stringify!(ModelingApplicabilityBasis).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum ModelingApplicabilityKind {
+    ///region
+    #[serde(rename = "region")]
+    Region,
+    ///interval
+    #[serde(rename = "interval")]
+    Interval,
+    ///unrestricted
+    #[serde(rename = "unrestricted")]
+    Unrestricted,
+    ///unknown
+    #[serde(rename = "unknown")]
+    Unknown,
+    ///union
+    #[serde(rename = "union")]
+    Union,
+}
+impl crate::SemanticEq for ModelingApplicabilityKind {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl ModelingApplicabilityKind {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 5usize] = [
+        Self::Region,
+        Self::Interval,
+        Self::Unrestricted,
+        Self::Unknown,
+        Self::Union,
+    ];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Region => "region",
+            Self::Interval => "interval",
+            Self::Unrestricted => "unrestricted",
+            Self::Unknown => "unknown",
+            Self::Union => "union",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Region => 0usize,
+            Self::Interval => 1usize,
+            Self::Unrestricted => 2usize,
+            Self::Unknown => 3usize,
+            Self::Union => 4usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Region => None,
+            Self::Interval => None,
+            Self::Unrestricted => None,
+            Self::Unknown => None,
+            Self::Union => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ModelingApplicabilityKind {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ModelingApplicabilityKind))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(ModelingApplicabilityKind)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["region", "interval", "unrestricted",
+            "unknown", "union"] }
+        )
+    }
+}
+impl core::str::FromStr for ModelingApplicabilityKind {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "region" => Ok(Self::Region),
+            "interval" => Ok(Self::Interval),
+            "unrestricted" => Ok(Self::Unrestricted),
+            "unknown" => Ok(Self::Unknown),
+            "union" => Ok(Self::Union),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(ModelingApplicabilityKind).to_owned(),
+                    enumeration: stringify!(ModelingApplicabilityKind).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum ModelingApplicabilityOutcome {
+    ///applicable
+    #[serde(rename = "applicable")]
+    Applicable,
+    ///outside_region
+    #[serde(rename = "outside_region")]
+    OutsideRegion,
+    ///unknown_evidence
+    #[serde(rename = "unknown_evidence")]
+    UnknownEvidence,
+}
+impl crate::SemanticEq for ModelingApplicabilityOutcome {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl ModelingApplicabilityOutcome {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 3usize] = [
+        Self::Applicable,
+        Self::OutsideRegion,
+        Self::UnknownEvidence,
+    ];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Applicable => "applicable",
+            Self::OutsideRegion => "outside_region",
+            Self::UnknownEvidence => "unknown_evidence",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Applicable => 0usize,
+            Self::OutsideRegion => 1usize,
+            Self::UnknownEvidence => 2usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Applicable => None,
+            Self::OutsideRegion => None,
+            Self::UnknownEvidence => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ModelingApplicabilityOutcome {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ModelingApplicabilityOutcome))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(ModelingApplicabilityOutcome)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["applicable", "outside_region",
+            "unknown_evidence"] }
+        )
+    }
+}
+impl core::str::FromStr for ModelingApplicabilityOutcome {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "applicable" => Ok(Self::Applicable),
+            "outside_region" => Ok(Self::OutsideRegion),
+            "unknown_evidence" => Ok(Self::UnknownEvidence),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(ModelingApplicabilityOutcome).to_owned(),
+                    enumeration: stringify!(ModelingApplicabilityOutcome).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
 pub enum ModelingCellKind {
     ///boolean
     #[serde(rename = "boolean")]
@@ -5638,6 +5977,9 @@ pub enum ModelingCheckKind {
     ///validity
     #[serde(rename = "validity")]
     Validity,
+    ///applicability
+    #[serde(rename = "applicability")]
+    Applicability,
 }
 impl crate::SemanticEq for ModelingCheckKind {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -5646,12 +5988,13 @@ impl crate::SemanticEq for ModelingCheckKind {
 }
 impl ModelingCheckKind {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 5usize] = [
+    pub const ALL: [Self; 6usize] = [
         Self::Expectation,
         Self::Check,
         Self::OriginalEquation,
         Self::Closure,
         Self::Validity,
+        Self::Applicability,
     ];
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
@@ -5661,6 +6004,7 @@ impl ModelingCheckKind {
             Self::OriginalEquation => "original_equation",
             Self::Closure => "closure",
             Self::Validity => "validity",
+            Self::Applicability => "applicability",
         }
     }
     /// The presentation ordinal, never a semantic identity.
@@ -5671,6 +6015,7 @@ impl ModelingCheckKind {
             Self::OriginalEquation => 2usize,
             Self::Closure => 3usize,
             Self::Validity => 4usize,
+            Self::Applicability => 5usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -5686,6 +6031,7 @@ impl ModelingCheckKind {
             Self::OriginalEquation => None,
             Self::Closure => None,
             Self::Validity => None,
+            Self::Applicability => None,
         }
     }
 }
@@ -5701,7 +6047,7 @@ impl schemars::JsonSchema for ModelingCheckKind {
     fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
         schemars::json_schema!(
             { "type" : "string", "enum" : ["expectation", "check", "original_equation",
-            "closure", "validity"] }
+            "closure", "validity", "applicability"] }
         )
     }
 }
@@ -5714,6 +6060,7 @@ impl core::str::FromStr for ModelingCheckKind {
             "original_equation" => Ok(Self::OriginalEquation),
             "closure" => Ok(Self::Closure),
             "validity" => Ok(Self::Validity),
+            "applicability" => Ok(Self::Applicability),
             _ => {
                 Err(crate::ModelError::EnumMember {
                     field: stringify!(ModelingCheckKind).to_owned(),
@@ -6404,12 +6751,15 @@ pub enum ModelingDeclarationKind {
     ///table
     #[serde(rename = "table")]
     Table,
+    ///applicability
+    #[serde(rename = "applicability")]
+    Applicability,
+    ///permission
+    #[serde(rename = "permission")]
+    Permission,
     ///envelope
     #[serde(rename = "envelope")]
     Envelope,
-    ///extrapolation
-    #[serde(rename = "extrapolation")]
-    Extrapolation,
     ///attribute
     #[serde(rename = "attribute")]
     Attribute,
@@ -6475,7 +6825,7 @@ impl crate::SemanticEq for ModelingDeclarationKind {
 }
 impl ModelingDeclarationKind {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 62usize] = [
+    pub const ALL: [Self; 63usize] = [
         Self::Temporal,
         Self::Relaxation,
         Self::Continuation,
@@ -6517,8 +6867,9 @@ impl ModelingDeclarationKind {
         Self::Logic,
         Self::Complementarity,
         Self::Table,
+        Self::Applicability,
+        Self::Permission,
         Self::Envelope,
-        Self::Extrapolation,
         Self::Attribute,
         Self::Dataset,
         Self::Entity,
@@ -6583,8 +6934,9 @@ impl ModelingDeclarationKind {
             Self::Logic => "logic",
             Self::Complementarity => "complementarity",
             Self::Table => "table",
+            Self::Applicability => "applicability",
+            Self::Permission => "permission",
             Self::Envelope => "envelope",
-            Self::Extrapolation => "extrapolation",
             Self::Attribute => "attribute",
             Self::Dataset => "dataset",
             Self::Entity => "entity",
@@ -6650,27 +7002,28 @@ impl ModelingDeclarationKind {
             Self::Logic => 38usize,
             Self::Complementarity => 39usize,
             Self::Table => 40usize,
-            Self::Envelope => 41usize,
-            Self::Extrapolation => 42usize,
-            Self::Attribute => 43usize,
-            Self::Dataset => 44usize,
-            Self::Entity => 45usize,
-            Self::Enum => 46usize,
-            Self::Constant => 47usize,
-            Self::Import => 48usize,
-            Self::When => 49usize,
-            Self::Accumulator => 50usize,
-            Self::Contribution => 51usize,
-            Self::Connection => 52usize,
-            Self::Annotation => 53usize,
-            Self::Requirement => 54usize,
-            Self::Expectation => 55usize,
-            Self::Continuous => 56usize,
-            Self::DifferenceScheme => 57usize,
-            Self::CollocationScheme => 58usize,
-            Self::Discretization => 59usize,
-            Self::Realization => 60usize,
-            Self::IdentifierScheme => 61usize,
+            Self::Applicability => 41usize,
+            Self::Permission => 42usize,
+            Self::Envelope => 43usize,
+            Self::Attribute => 44usize,
+            Self::Dataset => 45usize,
+            Self::Entity => 46usize,
+            Self::Enum => 47usize,
+            Self::Constant => 48usize,
+            Self::Import => 49usize,
+            Self::When => 50usize,
+            Self::Accumulator => 51usize,
+            Self::Contribution => 52usize,
+            Self::Connection => 53usize,
+            Self::Annotation => 54usize,
+            Self::Requirement => 55usize,
+            Self::Expectation => 56usize,
+            Self::Continuous => 57usize,
+            Self::DifferenceScheme => 58usize,
+            Self::CollocationScheme => 59usize,
+            Self::Discretization => 60usize,
+            Self::Realization => 61usize,
+            Self::IdentifierScheme => 62usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -6722,8 +7075,9 @@ impl ModelingDeclarationKind {
             Self::Logic => None,
             Self::Complementarity => None,
             Self::Table => None,
+            Self::Applicability => None,
+            Self::Permission => None,
             Self::Envelope => None,
-            Self::Extrapolation => None,
             Self::Attribute => None,
             Self::Dataset => None,
             Self::Entity => None,
@@ -6766,11 +7120,11 @@ impl schemars::JsonSchema for ModelingDeclarationKind {
             "coordinate_map", "coordinate_slot", "reconstruction", "response",
             "reference_translation", "boundary", "exchange", "equation", "sos1", "sos2",
             "atmost", "atleast", "exactly", "piecewise", "logic", "complementarity",
-            "table", "envelope", "extrapolation", "attribute", "dataset", "entity",
-            "enum", "constant", "import", "when", "accumulator", "contribution",
-            "connection", "annotation", "requirement", "expectation", "continuous",
-            "difference_scheme", "collocation_scheme", "discretization", "realization",
-            "identifier_scheme"] }
+            "table", "applicability", "permission", "envelope", "attribute", "dataset",
+            "entity", "enum", "constant", "import", "when", "accumulator",
+            "contribution", "connection", "annotation", "requirement", "expectation",
+            "continuous", "difference_scheme", "collocation_scheme", "discretization",
+            "realization", "identifier_scheme"] }
         )
     }
 }
@@ -6819,8 +7173,9 @@ impl core::str::FromStr for ModelingDeclarationKind {
             "logic" => Ok(Self::Logic),
             "complementarity" => Ok(Self::Complementarity),
             "table" => Ok(Self::Table),
+            "applicability" => Ok(Self::Applicability),
+            "permission" => Ok(Self::Permission),
             "envelope" => Ok(Self::Envelope),
-            "extrapolation" => Ok(Self::Extrapolation),
             "attribute" => Ok(Self::Attribute),
             "dataset" => Ok(Self::Dataset),
             "entity" => Ok(Self::Entity),
@@ -8552,6 +8907,97 @@ impl core::str::FromStr for ModelingObjectiveRoute {
     clippy::enum_variant_names,
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
+pub enum ModelingPermissionTarget {
+    ///records
+    #[serde(rename = "records")]
+    Records,
+    ///families
+    #[serde(rename = "families")]
+    Families,
+}
+impl crate::SemanticEq for ModelingPermissionTarget {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl ModelingPermissionTarget {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 2usize] = [Self::Records, Self::Families];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Records => "records",
+            Self::Families => "families",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Records => 0usize,
+            Self::Families => 1usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Records => None,
+            Self::Families => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ModelingPermissionTarget {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ModelingPermissionTarget))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(ModelingPermissionTarget)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({ "type" : "string", "enum" : ["records", "families"] })
+    }
+}
+impl core::str::FromStr for ModelingPermissionTarget {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "records" => Ok(Self::Records),
+            "families" => Ok(Self::Families),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(ModelingPermissionTarget).to_owned(),
+                    enumeration: stringify!(ModelingPermissionTarget).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
 pub enum ModelingRealValueKind {
     ///finite
     #[serde(rename = "finite")]
@@ -9092,6 +9538,9 @@ pub enum ModelingTypeNode {
     ///quantity_type
     #[serde(rename = "quantity_type")]
     QuantityType,
+    ///applicability
+    #[serde(rename = "applicability")]
+    Applicability,
     ///reference_state
     #[serde(rename = "reference_state")]
     ReferenceState,
@@ -9112,7 +9561,7 @@ impl crate::SemanticEq for ModelingTypeNode {
 }
 impl ModelingTypeNode {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 23usize] = [
+    pub const ALL: [Self; 24usize] = [
         Self::Boolean,
         Self::Integer,
         Self::Text,
@@ -9132,6 +9581,7 @@ impl ModelingTypeNode {
         Self::Power,
         Self::Identifier,
         Self::QuantityType,
+        Self::Applicability,
         Self::ReferenceState,
         Self::Coordinate,
         Self::ReducedLaw,
@@ -9159,6 +9609,7 @@ impl ModelingTypeNode {
             Self::Power => "power",
             Self::Identifier => "identifier",
             Self::QuantityType => "quantity_type",
+            Self::Applicability => "applicability",
             Self::ReferenceState => "reference_state",
             Self::Coordinate => "coordinate",
             Self::ReducedLaw => "reduced_law",
@@ -9187,10 +9638,11 @@ impl ModelingTypeNode {
             Self::Power => 16usize,
             Self::Identifier => 17usize,
             Self::QuantityType => 18usize,
-            Self::ReferenceState => 19usize,
-            Self::Coordinate => 20usize,
-            Self::ReducedLaw => 21usize,
-            Self::Transfer => 22usize,
+            Self::Applicability => 19usize,
+            Self::ReferenceState => 20usize,
+            Self::Coordinate => 21usize,
+            Self::ReducedLaw => 22usize,
+            Self::Transfer => 23usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -9220,6 +9672,7 @@ impl ModelingTypeNode {
             Self::Power => None,
             Self::Identifier => None,
             Self::QuantityType => None,
+            Self::Applicability => None,
             Self::ReferenceState => None,
             Self::Coordinate => None,
             Self::ReducedLaw => None,
@@ -9241,8 +9694,8 @@ impl schemars::JsonSchema for ModelingTypeNode {
             { "type" : "string", "enum" : ["boolean", "integer", "text", "named",
             "variable", "optional", "set", "row", "table", "tuple", "indexed",
             "function", "argument", "delta", "product", "quotient", "power",
-            "identifier", "quantity_type", "reference_state", "coordinate",
-            "reduced_law", "transfer"] }
+            "identifier", "quantity_type", "applicability", "reference_state",
+            "coordinate", "reduced_law", "transfer"] }
         )
     }
 }
@@ -9269,6 +9722,7 @@ impl core::str::FromStr for ModelingTypeNode {
             "power" => Ok(Self::Power),
             "identifier" => Ok(Self::Identifier),
             "quantity_type" => Ok(Self::QuantityType),
+            "applicability" => Ok(Self::Applicability),
             "reference_state" => Ok(Self::ReferenceState),
             "coordinate" => Ok(Self::Coordinate),
             "reduced_law" => Ok(Self::ReducedLaw),
@@ -17662,6 +18116,36 @@ impl crate::SemanticFrame for ModelingAnnotationKind {
         hash.str(self.as_str());
     }
 }
+impl crate::HeapUsage for ModelingApplicabilityBasis {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for ModelingApplicabilityBasis {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for ModelingApplicabilityKind {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for ModelingApplicabilityKind {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for ModelingApplicabilityOutcome {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for ModelingApplicabilityOutcome {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
 impl crate::HeapUsage for ModelingCellKind {
     fn heap_bytes(&self) -> usize {
         0
@@ -17888,6 +18372,16 @@ impl crate::HeapUsage for ModelingObjectiveRoute {
     }
 }
 impl crate::SemanticFrame for ModelingObjectiveRoute {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for ModelingPermissionTarget {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for ModelingPermissionTarget {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }

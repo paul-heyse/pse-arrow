@@ -8,8 +8,8 @@ decodings, structure checks and text values that carry their unit."""
 from __future__ import annotations
 
 import pytest
-from mapping_support import real_declaration
 
+from mapping_support import real_declaration
 from thermo_knowledge.mapping import spec as spec_module
 from thermo_knowledge.mapping.formula import hill
 from thermo_knowledge.mapping.spec import (
@@ -72,7 +72,9 @@ def test_an_element_of_a_list_column_is_absent_beyond_the_list_and_refused_on_a_
         row["x[0]"]
 
 
-def test_a_partition_condition_can_exclude_values_and_a_missing_joined_column_never_matches() -> None:
+def test_a_partition_condition_can_exclude_values_and_a_missing_joined_column_never_matches() -> (
+    None
+):
     assert _matches({"element": {"not": "E"}}, {"element": "H"})
     assert not _matches({"element": {"not": "E"}}, {"element": "E"})
     assert not _matches({"element": {"not": ["E", "D"]}}, {"element": "D"})
@@ -86,7 +88,12 @@ def test_a_partition_rule_replaces_the_tables_rules_of_that_column_and_its_eleme
         disposition="deferred",
         reason="r",
         wave=1,
-        fields={"a": structure, "coefficients[0]": structure, "coefficients[1]": structure, "b": structure},
+        fields={
+            "a": structure,
+            "coefficients[0]": structure,
+            "coefficients[1]": structure,
+            "b": structure,
+        },
         partitions=[
             Partition(
                 name="p",
@@ -108,17 +115,32 @@ def _problems(edit) -> list[str]:  # noqa: ANN001
     import pyarrow as pa
 
     decl = real_declaration()
-    schema = pa.schema([pa.field("_artifact", pa.string()), pa.field("_locator", pa.string()),
-                        pa.field("phase_flag", pa.int64()), pa.field("values", pa.list_(pa.float64()))])
+    schema = pa.schema(
+        [
+            pa.field("_artifact", pa.string()),
+            pa.field("_locator", pa.string()),
+            pa.field("phase_flag", pa.int64()),
+            pa.field("values", pa.list_(pa.float64())),
+        ]
+    )
     base = spec_module.MappingSpec(
         source="s",
         doc="d",
-        tables={"t": TableRule(disposition="mapped", origin_role="published", fields={
-            "phase_flag": FieldRule(role="structure", reason="a"),
-            "values[0]": FieldRule(
-                target="nasa7.pure.piece.a1", unit="dimensionless", precision="exact", loss="assumed"
-            ),
-        })},
+        tables={
+            "t": TableRule(
+                disposition="mapped",
+                origin_role="published",
+                fields={
+                    "phase_flag": FieldRule(role="structure", reason="a"),
+                    "values[0]": FieldRule(
+                        target="nasa7.pure.piece.a1",
+                        unit="dimensionless",
+                        precision="exact",
+                        loss="assumed",
+                    ),
+                },
+            )
+        },
     )
     return validate(edit(base), decl, {"t": schema}, source="s")
 
@@ -153,13 +175,20 @@ def test_a_decoding_names_an_entity_the_target_declares() -> None:
         )
         return spec
 
-    assert any("`plasma`, which is not a declared entity of kind `aggregation`" in p for p in _problems(edit))
+    assert any(
+        "`plasma`, which is not a declared entity of kind `aggregation`" in p
+        for p in _problems(edit)
+    )
 
 
 def test_a_default_is_an_assumption_the_rule_states() -> None:
     def edit(spec):  # noqa: ANN001, ANN202
         spec.tables["t"].fields["values[0]"] = FieldRule(
-            target="nasa7.pure.piece.a1", unit="dimensionless", precision="exact", loss="x", default=0.0
+            target="nasa7.pure.piece.a1",
+            unit="dimensionless",
+            precision="exact",
+            loss="x",
+            default=0.0,
         )
         spec.tables["t"].fields["values[1]"] = FieldRule(
             target="nasa7.pure.piece.a2", unit="1/K", precision="exact", default=0.0, loss=None

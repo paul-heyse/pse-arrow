@@ -9,9 +9,18 @@
 @id("12504e4bf5554e52aeee205a6187124b") use interactions @"1.0.0";
 @id("9f2755b2140c4cd88a5885c1856a2172") entity provenance.publication renon_prausnitz_1968 {title="Renon and Prausnitz, Local compositions in thermodynamic excess functions for liquid mixtures",year=1968,doi=Id<provenance.doi>("10.1002/aic.690140124")}
 @id("a11b2a8afdf245a194fa908e7119620c") entity properties.property interaction_parameters {quantity=Scalar,shape=properties.IndexShape.pair,applies={compatibility.PhaseType.liquidPhase}}
-@id("f87957b65ebd44b1879c9aabb99f5553") table parameters[s:provenance.source,i:chemistry.species by chemistry.cas,j:chemistry.species by chemistry.cas]:{tau:Scalar storage {1},alpha:Scalar storage {1}} complete_over(s,i,j);
-@id("406d64cdc035499aa1ee4a7939b52165") fn tau(k:properties.property_package,i:chemistry.species,j:chemistry.species)->Scalar=if i==j then 0 else parameters[interactions.pair_selection[k,interaction_parameters],i,j].tau;
-@id("56212a3a7b694b2f88eb1bf0c7eda4df") fn weight(k:properties.property_package,i:chemistry.species,j:chemistry.species)->Scalar=if i==j then 1 else exp(-parameters[interactions.pair_selection[k,interaction_parameters],i,j].alpha*tau(k,i,j));
+@id("94067ec23fe6448ea658a5d7d7081dfa") entity kind interaction_evidence extends properties.ordered_pair abstract {
+@id("fa29b0d49c4d4bbe888761bb6c219405") attribute applicability:Fn(s:parameters)->Applicability;
+}
+@id("609f0f6003fd4989ab4f94f0835a6886") entity kind parameters extends interaction_evidence {
+@id("75d3dcf61aa247be87352f2ea410dd55") applicability=interaction_unknown;
+@id("c6d68ca6384145ae8d35510493510f24") attribute tau:Scalar storage {1};
+@id("dcff76d397c74ff9b364ecf181ad59aa") attribute alpha:Scalar storage {1};
+@id("d80e0b169252426095c2b9375ce7c2a6") require family==interaction_parameters : "NRTL bundles belong to the directional liquid contract";
+}
+@id("4a340d261c434d539f6c01adb1076a5b") table selection[k:properties.property_package,i:chemistry.species,j:chemistry.species]:parameters ordered(i,j) diagonal excluded complete_over(k,i,j) require value.first==i and value.second==j and value.family==interaction_parameters require value in k.admitted.records;
+@id("2b495308960d427ca32287b1787dfa69") fn tau(k:properties.property_package,i:chemistry.species,j:chemistry.species)->Scalar=if i==j then 0 else tau_value(selection[k,i,j]);
+@id("a86f029c58e24fd089c6784756cf7851") fn weight(k:properties.property_package,i:chemistry.species,j:chemistry.species)->Scalar=if i==j then 1 else exp(-alpha_value(selection[k,i,j])*tau(k,i,j));
 // The reduced law is degree one in n/amount_unit: reconstruct once with R*T*amount_unit.
 @id("2970ba111f4f4dce839f52e096558721") entity provenance.source excess_reference {title="NRTL excess Gibbs energy relative to the ideal liquid mixture at the same T, pressure and amounts; reduced extensive law uses amounts divided by one mole"}
 @id("51202670a4bd4fa096cdfc8b52f77f42") coordinate map coordinates(T:Temperature,p:Pressure,n:Amount[chemistry.species],members:Set<chemistry.species>,k:properties.property_package) valid(T>constants.absolute_zero and p>0{Pa} and sum(j in members | n[j])>0{mol} and sum(j in members | if n[j]>0{mol} then 0 else 1)==0) {
@@ -25,4 +34,7 @@
 @id("896115b8eb1244bba8275f1190fe9615") response gibbs_duhem_response from law(T:Temperature,p:Pressure,n:Amount[chemistry.species],members:Set<chemistry.species>,k:properties.property_package,j:chemistry.species,law:Fn(T:Temperature,p:Pressure,n:Amount[chemistry.species],members:Set<chemistry.species>,k:properties.property_package)->ExcessGibbsEnergy)->GibbsDuhemResidual=sum(i in members | n[i]*partial(law,n[i],n[j])(T,p,n,members,k))/(constants.gas_constant*(T-constants.absolute_zero));
 @id("ed798387c9474870bfa90f8635fc3b0c") fn ln_gamma(T:Temperature,p:Pressure,n:Amount[chemistry.species],members:Set<chemistry.species>,k:properties.property_package,j:chemistry.species)->LogActivityCoefficient=activity_response(T,p,n,members,k,j,potential);
 @id("eb3b0eda9e824ccfad71e4af91d8c86a") fn binary(x:Scalar,tau12:Scalar,tau21:Scalar,alpha12:Scalar,alpha21:Scalar)->Scalar=x*(1-x)*(tau21*exp(-alpha21*tau21)/(x+(1-x)*exp(-alpha21*tau21))+tau12*exp(-alpha12*tau12)/((1-x)+x*exp(-alpha12*tau12)));
+@id("195882c211bc4ef6adc9d46f8a3213f4") applicability interaction_unknown(s:parameters) owner parameters scope data evidence s.source unknown("This record supplies no empirical applicability region");
+@id("1edfd9a400c8487ba7ca412da52f4aa9") fn tau_value(s:parameters)->Scalar applicability(s.applicability(s))=s.tau;
+@id("66e1ca75fadd47aab69e081d59d94b33") fn alpha_value(s:parameters)->Scalar applicability(s.applicability(s))=s.alpha;
 }

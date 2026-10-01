@@ -26,9 +26,9 @@ from dataclasses import dataclass
 import numpy as np
 import psycopg
 import pytest
+
 from hard_case_support import at, build, entity_id, failing
 from mapping_support import carrier, real_declaration, writer
-
 from thermo_knowledge import db, identity
 from thermo_knowledge.canonical.values import Quantity, QuantityArray
 from thermo_knowledge.canonical.writer import (
@@ -54,11 +54,29 @@ ANGSTROM = 1e-10
 
 SIGMA = np.round(np.linspace(-0.025, 0.025, 51), 6)  # e / angstrom^2
 MOLECULES = {  # name: (dispersion class, cavity volume in angstrom^3, dispersion energy over k in K, series centres and heights)
-    "methanol-like": ("hb_donor_acceptor", 52.0, 340.0, dict(nhb=(0.002, 0.010, 14.0), oh=(0.016, 0.006, 6.0), ot=(-0.015, 0.006, 5.0))),
-    "hexane-like": ("nhb", 140.0, 210.0, dict(nhb=(0.000, 0.012, 95.0), oh=(0.016, 0.006, 0.0), ot=(-0.015, 0.006, 0.0))),
+    "methanol-like": (
+        "hb_donor_acceptor",
+        52.0,
+        340.0,
+        dict(nhb=(0.002, 0.010, 14.0), oh=(0.016, 0.006, 6.0), ot=(-0.015, 0.006, 5.0)),
+    ),
+    "hexane-like": (
+        "nhb",
+        140.0,
+        210.0,
+        dict(nhb=(0.000, 0.012, 95.0), oh=(0.016, 0.006, 0.0), ot=(-0.015, 0.006, 0.0)),
+    ),
 }
 CONSTANTS = dict(  # in the units the source states, before conversion: kcal A^4 / (mol e^2) and K
-    effective_area=7.25, c_oh_oh=4013.78, c_oh_ot=932.31, c_ot_ot=3016.43, a_es=6525.69, b_es=1.4859e8, q0=79.53, r0=66.69, z=10.0
+    effective_area=7.25,
+    c_oh_oh=4013.78,
+    c_oh_ot=932.31,
+    c_ot_ot=3016.43,
+    a_es=6525.69,
+    b_es=1.4859e8,
+    q0=79.53,
+    r0=66.69,
+    z=10.0,
 )
 KCAL = 4184.0
 
@@ -105,7 +123,9 @@ class World:
     ids: dict[str, uuid.UUID]
 
 
-def sigma_function(decl: Declaration, shapes: dict[str, tuple[float, float, float]]) -> TabulatedFunction:
+def sigma_function(
+    decl: Declaration, shapes: dict[str, tuple[float, float, float]]
+) -> TabulatedFunction:
     return TabulatedFunction(
         "bin_weights",
         axes=[TabulatedAxis("SurfaceChargeDensity", QuantityArray(list(SIGMA), "e/angstrom**2"))],
@@ -146,7 +166,10 @@ def write_world(w: CanonicalWriter, decl: Declaration, ids: dict[str, uuid.UUID]
         )
     ids.update({key.replace("-", "_"): p for key, p in constants.items()})
     profiles = {}
-    for key, dependency in (("profiles-hsieh-averaging", "hsieh-constants"), ("profiles-refit-averaging", "refit-constants")):
+    for key, dependency in (
+        ("profiles-hsieh-averaging", "hsieh-constants"),
+        ("profiles-refit-averaging", "refit-constants"),
+    ):
         profiles[key] = w.kind(
             "parameterization",
             {"key": key, "revision": "1", "title": key, "coherence": "independent_records"},
@@ -175,16 +198,30 @@ def write_world(w: CanonicalWriter, decl: Declaration, ids: dict[str, uuid.UUID]
             origins=at(f"profile-{name}", "computed"),
         )
     # a polymer: repeat units, a Flory-Huggins set with its solvent, and the distribution of a sample
-    units = {n: w.kind("species", {"canonical_key": n, "label": n}, origins=at(f"s-{n}")) for n in REPEAT_UNITS}
-    solvent = w.kind("species", {"canonical_key": "solvent", "label": "solvent"}, origins=at("s-solvent"))
+    units = {
+        n: w.kind("species", {"canonical_key": n, "label": n}, origins=at(f"s-{n}"))
+        for n in REPEAT_UNITS
+    }
+    solvent = w.kind(
+        "species", {"canonical_key": "solvent", "label": "solvent"}, origins=at("s-solvent")
+    )
     polymer = w.kind(
         "polymer_type",
-        {"canonical_key": "copolymer-ab", "label": "a synthetic copolymer", "architecture": "random, linear"},
+        {
+            "canonical_key": "copolymer-ab",
+            "label": "a synthetic copolymer",
+            "architecture": "random, linear",
+        },
         origins=at("polymer"),
     )
     ids.update(solvent=solvent, polymer=polymer)
     for name, fraction in REPEAT_UNITS.items():
-        w.relation("repeat_unit", {"polymer": polymer, "unit": units[name]}, {"value": fraction}, at="a.json#/repeat")
+        w.relation(
+            "repeat_unit",
+            {"polymer": polymer, "unit": units[name]},
+            {"value": fraction},
+            at="a.json#/repeat",
+        )
     fh = w.kind(
         "parameterization",
         {
@@ -194,7 +231,12 @@ def write_world(w: CanonicalWriter, decl: Declaration, ids: dict[str, uuid.UUID]
             "coherence": "independent_records",
             "convention_set": w.kind(
                 "convention_set",
-                {"key": "fh-conventions", "revision": "1", "temperature_scale": "its_90", "gas_constant": Quantity(R, "J/(mol*K)")},
+                {
+                    "key": "fh-conventions",
+                    "revision": "1",
+                    "temperature_scale": "its_90",
+                    "gas_constant": Quantity(R, "J/(mol*K)"),
+                },
                 origins=at("fh-conventions"),
             ),
         },
@@ -237,7 +279,12 @@ def write_world(w: CanonicalWriter, decl: Declaration, ids: dict[str, uuid.UUID]
     ids["sample"] = sample
     distributions = w.kind(
         "parameterization",
-        {"key": "sample-distributions", "revision": "1", "title": "distributions", "coherence": "independent_records"},
+        {
+            "key": "sample-distributions",
+            "revision": "1",
+            "title": "distributions",
+            "coherence": "independent_records",
+        },
         origins=at("parameterization-distributions"),
     )
     ids["distributions"] = w.parameter_set(
@@ -248,8 +295,14 @@ def write_world(w: CanonicalWriter, decl: Declaration, ids: dict[str, uuid.UUID]
             "distribution": TabulatedFunction(
                 "bin_weights",
                 axes=[TabulatedAxis("MolarMass", QuantityArray(list(BINS * 1e3), "g/mol"))],
-                series=[TabulatedSeries("weight", "Scalar", QuantityArray(list(WEIGHTS), "dimensionless"))],
-                distribution=entity_id(decl, "distributed_attribute", "molar_mass_distribution_mass"),
+                series=[
+                    TabulatedSeries(
+                        "weight", "Scalar", QuantityArray(list(WEIGHTS), "dimensionless")
+                    )
+                ],
+                distribution=entity_id(
+                    decl, "distributed_attribute", "molar_mass_distribution_mass"
+                ),
             )
         },
         origins=at("distribution", "measured"),
@@ -264,7 +317,9 @@ def decl() -> Declaration:
 @pytest.fixture(scope="module")
 def world(decl: Declaration, tmp_path_factory: pytest.TempPathFactory) -> Iterator[World]:
     ids: dict[str, uuid.UUID] = {}
-    database = build(tmp_path_factory.mktemp("sigma-polymer"), lambda w: write_world(w, decl, ids), decl)
+    database = build(
+        tmp_path_factory.mktemp("sigma-polymer"), lambda w: write_world(w, decl, ids), decl
+    )
     try:
         yield World(decl, database, ids)
     finally:
@@ -295,8 +350,14 @@ def floats(value: object) -> np.ndarray:
     return np.asarray(value, dtype=float)
 
 
-def function_of(conn: psycopg.Connection, world: World, name: str, slot_group: str = "cosmosac_2010__molecule") -> uuid.UUID:
-    return scalar(conn, f'SELECT profile FROM param."{slot_group}" WHERE id = %s', world.ids[f"profile_{name}"])  # type: ignore[return-value]
+def function_of(
+    conn: psycopg.Connection, world: World, name: str, slot_group: str = "cosmosac_2010__molecule"
+) -> uuid.UUID:
+    return scalar(
+        conn,
+        f'SELECT profile FROM param."{slot_group}" WHERE id = %s',
+        world.ids[f"profile_{name}"],
+    )  # type: ignore[return-value]
 
 
 def test_the_fixture_satisfies_every_invariant(conn: psycopg.Connection) -> None:
@@ -320,18 +381,26 @@ def test_the_profile_is_one_function_with_three_named_series_on_one_grid(
         "SELECT ordinal, points FROM tk.tabulated_axis WHERE function = %s", (function,)
     ).fetchall()
     assert axis[0] == 1 and len(floats(axis[1])) == 51
-    np.testing.assert_allclose(floats(axis[1]), SIGMA * ELEMENTARY_CHARGE / ANGSTROM**2, rtol=1e-12)  # e / A^2 in C / m^2
+    np.testing.assert_allclose(
+        floats(axis[1]), SIGMA * ELEMENTARY_CHARGE / ANGSTROM**2, rtol=1e-12
+    )  # e / A^2 in C / m^2
     series = {
         n: floats(v)
-        for n, v in conn.execute("SELECT name, values FROM tk.tabulated_series WHERE function = %s", (function,)).fetchall()
+        for n, v in conn.execute(
+            "SELECT name, values FROM tk.tabulated_series WHERE function = %s", (function,)
+        ).fetchall()
     }
     assert sorted(series) == ["nhb", "oh", "ot"] and {len(v) for v in series.values()} == {51}
     for series_name, shape in MOLECULES[name][3].items():
-        np.testing.assert_allclose(series[series_name], series_of(shape) * ANGSTROM**2, rtol=1e-12, atol=0.0)
+        np.testing.assert_allclose(
+            series[series_name], series_of(shape) * ANGSTROM**2, rtol=1e-12, atol=0.0
+        )
 
 
 @pytest.mark.parametrize("name", list(MOLECULES))
-def test_the_area_of_the_profile_is_the_sum_of_its_series(world: World, conn: psycopg.Connection, name: str) -> None:
+def test_the_area_of_the_profile_is_the_sum_of_its_series(
+    world: World, conn: psycopg.Connection, name: str
+) -> None:
     function = function_of(conn, world, name)
     stored = float(
         scalar(
@@ -340,7 +409,9 @@ def test_the_area_of_the_profile_is_the_sum_of_its_series(world: World, conn: ps
             function,
         )  # type: ignore[arg-type]
     )
-    want = sum(float(np.sum(series_of(shape))) for shape in MOLECULES[name][3].values()) * ANGSTROM**2
+    want = (
+        sum(float(np.sum(series_of(shape))) for shape in MOLECULES[name][3].values()) * ANGSTROM**2
+    )
     assert stored == pytest.approx(want, rel=1e-12)
     per_series = dict(
         conn.execute(
@@ -351,17 +422,22 @@ def test_the_area_of_the_profile_is_the_sum_of_its_series(world: World, conn: ps
     assert sum(per_series.values()) == pytest.approx(want, rel=1e-12)
 
 
-def test_a_molecule_without_hydrogen_bonding_has_empty_donor_and_acceptor_series(world: World, conn: psycopg.Connection) -> None:
+def test_a_molecule_without_hydrogen_bonding_has_empty_donor_and_acceptor_series(
+    world: World, conn: psycopg.Connection
+) -> None:
     series = {
         n: floats(v)
         for n, v in conn.execute(
-            "SELECT name, values FROM tk.tabulated_series WHERE function = %s", (function_of(conn, world, "hexane-like"),)
+            "SELECT name, values FROM tk.tabulated_series WHERE function = %s",
+            (function_of(conn, world, "hexane-like"),),
         ).fetchall()
     }
     assert sum(series["oh"]) == 0.0 and sum(series["ot"]) == 0.0 and sum(series["nhb"]) > 0.0
 
 
-def test_the_molecule_has_a_cavity_volume_and_a_dispersion_class_and_energy(world: World, conn: psycopg.Connection) -> None:
+def test_the_molecule_has_a_cavity_volume_and_a_dispersion_class_and_energy(
+    world: World, conn: psycopg.Connection
+) -> None:
     for name, (dispersion_class, volume, energy, _) in MOLECULES.items():
         row = conn.execute(
             'SELECT cavity_volume, dispersion_class::text, dispersion_energy_over_k FROM param."cosmosac_2010__molecule" WHERE id = %s',
@@ -370,7 +446,9 @@ def test_the_molecule_has_a_cavity_volume_and_a_dispersion_class_and_energy(worl
         assert row == (pytest.approx(volume * ANGSTROM**3), dispersion_class, energy)
 
 
-def test_the_profile_parameterisation_depends_on_the_constants_it_was_generated_for(world: World, conn: psycopg.Connection) -> None:
+def test_the_profile_parameterisation_depends_on_the_constants_it_was_generated_for(
+    world: World, conn: psycopg.Connection
+) -> None:
     rows = dict(
         conn.execute(
             "SELECT dependent, prerequisite FROM tk.dependency WHERE kind = 'consistent_with'"
@@ -381,11 +459,17 @@ def test_the_profile_parameterisation_depends_on_the_constants_it_was_generated_
         world.ids["profiles_refit_averaging"]: world.ids["refit_constants"],
     }
     # the profiles of the molecules belong to the first, so they are valid with the first constants only
-    owner = scalar(conn, "SELECT parameterization FROM tk.parameter_set WHERE id = %s", world.ids["profile_methanol-like"])
+    owner = scalar(
+        conn,
+        "SELECT parameterization FROM tk.parameter_set WHERE id = %s",
+        world.ids["profile_methanol-like"],
+    )
     assert rows[owner] == world.ids["hsieh_constants"]  # type: ignore[index]
 
 
-def test_the_constants_are_one_global_set_in_the_storage_units(world: World, conn: psycopg.Connection) -> None:
+def test_the_constants_are_one_global_set_in_the_storage_units(
+    world: World, conn: psycopg.Connection
+) -> None:
     row = conn.execute(
         'SELECT c_oh_oh, b_es, effective_area, z_coordination FROM param."cosmosac_2010__constants" c '
         "JOIN tk.parameter_set s ON s.id = c.id WHERE s.parameterization = %s",
@@ -397,13 +481,17 @@ def test_the_constants_are_one_global_set_in_the_storage_units(world: World, con
     assert row[1] == pytest.approx(CONSTANTS["b_es"] * per_e2, rel=1e-9)  # with K^2 in the unit
     assert row[2] == pytest.approx(CONSTANTS["effective_area"] * ANGSTROM**2, rel=1e-12)
     assert row[3] == CONSTANTS["z"]
-    assert scalar(conn, 'SELECT count(*) FROM param."cosmosac_2010__constants"') == 2  # one set for each constants parameterisation
+    assert (
+        scalar(conn, 'SELECT count(*) FROM param."cosmosac_2010__constants"') == 2
+    )  # one set for each constants parameterisation
 
 
 # -- the polymer --------------------------------------------------------------------------------
 
 
-def test_a_polymer_type_has_repeat_units_and_no_distribution(world: World, conn: psycopg.Connection, decl: Declaration) -> None:
+def test_a_polymer_type_has_repeat_units_and_no_distribution(
+    world: World, conn: psycopg.Connection, decl: Declaration
+) -> None:
     rows = dict(
         conn.execute(
             "SELECT e.canonical_key, r.value FROM tk.repeat_unit r JOIN tk.material_entity e ON e.id = r.unit WHERE r.polymer = %s",
@@ -411,26 +499,38 @@ def test_a_polymer_type_has_repeat_units_and_no_distribution(world: World, conn:
         ).fetchall()
     )
     assert rows == REPEAT_UNITS
-    assert sorted(a.name for a in decl.attributes_of("polymer_type")) == ["architecture", "canonical_key", "label", "provisional"]
+    assert sorted(a.name for a in decl.attributes_of("polymer_type")) == [
+        "architecture",
+        "canonical_key",
+        "label",
+        "provisional",
+    ]
 
 
-def test_the_molar_mass_distribution_is_held_on_a_sample_of_the_polymer(world: World, conn: psycopg.Connection, decl: Declaration) -> None:
+def test_the_molar_mass_distribution_is_held_on_a_sample_of_the_polymer(
+    world: World, conn: psycopg.Connection, decl: Declaration
+) -> None:
     (group,) = decl.forms["molar_mass_distribution"].slot_groups
     assert [(s.name, s.type.text) for s in group.subjects] == [("s", "sample")]
     row = conn.execute(
-        'SELECT s, distribution FROM param."molar_mass_distribution__sample" WHERE id = %s', (world.ids["distributions"],)
+        'SELECT s, distribution FROM param."molar_mass_distribution__sample" WHERE id = %s',
+        (world.ids["distributions"],),
     ).fetchone()
     assert row is not None and row[0] == world.ids["sample"]
-    assert scalar(conn, "SELECT entity FROM tk.sample WHERE id = %s", world.ids["sample"]) == world.ids["polymer"]
+    assert (
+        scalar(conn, "SELECT entity FROM tk.sample WHERE id = %s", world.ids["sample"])
+        == world.ids["polymer"]
+    )
     kind = scalar(
         conn,
         "SELECT d.key FROM tk.tabulated_function f JOIN tk.distributed_attribute d ON d.id = f.distribution WHERE f.id = %s",
         row[1],
     )
     assert kind == "molar_mass_distribution_mass"
-    points, values = (
-        conn.execute("SELECT a.points, s.values FROM tk.tabulated_axis a JOIN tk.tabulated_series s ON s.function = a.function WHERE a.function = %s", (row[1],)).fetchone()  # type: ignore[misc]
-    )
+    points, values = conn.execute(
+        "SELECT a.points, s.values FROM tk.tabulated_axis a JOIN tk.tabulated_series s ON s.function = a.function WHERE a.function = %s",
+        (row[1],),
+    ).fetchone()  # type: ignore[misc]
     np.testing.assert_allclose(floats(points), BINS, rtol=1e-12)
     np.testing.assert_allclose(floats(values), WEIGHTS, rtol=1e-12)
 
@@ -445,7 +545,10 @@ def test_the_distribution_cannot_be_held_on_the_polymer_type(decl: Declaration) 
         {"key": "d", "revision": "1", "title": "d", "coherence": "independent_records"},
         origins=at("d"),
     )
-    with pytest.raises(ValidationError, match="subject `s` is a polymer_type, and the role of `molar_mass_distribution.sample` is of kind `sample`"):
+    with pytest.raises(
+        ValidationError,
+        match="subject `s` is a polymer_type, and the role of `molar_mass_distribution.sample` is of kind `sample`",
+    ):
         w.parameter_set(
             parameterization=p,
             slot_group="molar_mass_distribution.sample",
@@ -454,7 +557,11 @@ def test_the_distribution_cannot_be_held_on_the_polymer_type(decl: Declaration) 
                 "distribution": TabulatedFunction(
                     "bin_weights",
                     axes=[TabulatedAxis("MolarMass", QuantityArray([1.0, 2.0], "kg/mol"))],
-                    series=[TabulatedSeries("weight", "Scalar", QuantityArray([0.5, 0.5], "dimensionless"))],
+                    series=[
+                        TabulatedSeries(
+                            "weight", "Scalar", QuantityArray([0.5, 0.5], "dimensionless")
+                        )
+                    ],
                 )
             },
             origins=at("on-type"),
@@ -462,13 +569,24 @@ def test_the_distribution_cannot_be_held_on_the_polymer_type(decl: Declaration) 
     assert w.rows("param.molar_mass_distribution__sample") == 0
 
 
-def test_flory_huggins_with_the_chain_length_of_the_sample_matches_numpy(world: World, conn: psycopg.Connection) -> None:
+def test_flory_huggins_with_the_chain_length_of_the_sample_matches_numpy(
+    world: World, conn: psycopg.Connection
+) -> None:
     m_n = number_average(BINS, WEIGHTS)
     n_polymer = m_n / M_REPEAT
     source = DatabaseSource(conn, world.decl, [world.ids["flory_huggins"]])
     members = [str(world.ids["solvent"]), str(world.ids["polymer"])]
-    for order in (members, members[::-1]):  # the pair is symmetric: the order of the components does not matter
-        bound = bind(world.decl, "flory_huggins_excess_gibbs", source=source, sets={"components": order}, cache=CACHE)
+    for order in (
+        members,
+        members[::-1],
+    ):  # the pair is symmetric: the order of the components does not matter
+        bound = bind(
+            world.decl,
+            "flory_huggins_excess_gibbs",
+            source=source,
+            sets={"components": order},
+            cache=CACHE,
+        )
         for T in (300.0, 350.0, 420.0):
             for x_solvent in (0.6, 0.9, 0.995):
                 x = {"solvent": x_solvent, "polymer": 1 - x_solvent}
@@ -488,7 +606,9 @@ def test_flory_huggins_with_the_chain_length_of_the_sample_matches_numpy(world: 
                 assert found == pytest.approx(flory_huggins(T, x, n_seg), rel=1e-11)
 
 
-def test_the_number_of_segments_of_a_chain_depends_on_the_sample(world: World, conn: psycopg.Connection) -> None:
+def test_the_number_of_segments_of_a_chain_depends_on_the_sample(
+    world: World, conn: psycopg.Connection
+) -> None:
     """The same polymer type with another sample distribution gives another excess Gibbs energy: the
     chain length is a fact of the sample, which is why the type holds none."""
     longer = number_average(BINS * 3, WEIGHTS)
@@ -502,10 +622,16 @@ def test_the_number_of_segments_of_a_chain_depends_on_the_sample(world: World, c
 # -- what the model refuses ---------------------------------------------------------------------
 
 
-def test_a_profile_whose_series_does_not_cover_the_grid_or_has_the_wrong_dimension_is_refused(decl: Declaration) -> None:
+def test_a_profile_whose_series_does_not_cover_the_grid_or_has_the_wrong_dimension_is_refused(
+    decl: Declaration,
+) -> None:
     w = writer(decl)
     species = w.kind("species", {"canonical_key": "s", "label": "s"}, origins=at("s"))
-    p = w.kind("parameterization", {"key": "p", "revision": "1", "title": "p", "coherence": "independent_records"}, origins=at("p"))
+    p = w.kind(
+        "parameterization",
+        {"key": "p", "revision": "1", "title": "p", "coherence": "independent_records"},
+        origins=at("p"),
+    )
 
     def write(function: TabulatedFunction) -> uuid.UUID:
         return w.parameter_set(
@@ -522,18 +648,43 @@ def test_a_profile_whose_series_does_not_cover_the_grid_or_has_the_wrong_dimensi
         )
 
     axis = TabulatedAxis("SurfaceChargeDensity", QuantityArray(list(SIGMA), "e/angstrom**2"))
-    good = [TabulatedSeries(n, "Area", QuantityArray([1.0] * 51, "angstrom**2")) for n in ("nhb", "oh", "ot")]
-    with pytest.raises(ValidationError, match=r"has 50 values, the grid of the axes \(51\) has 51 points"):
-        write(TabulatedFunction("bin_weights", [axis], [TabulatedSeries("nhb", "Area", QuantityArray([1.0] * 50, "angstrom**2")), *good[1:]]))
+    good = [
+        TabulatedSeries(n, "Area", QuantityArray([1.0] * 51, "angstrom**2"))
+        for n in ("nhb", "oh", "ot")
+    ]
+    with pytest.raises(
+        ValidationError, match=r"has 50 values, the grid of the axes \(51\) has 51 points"
+    ):
+        write(
+            TabulatedFunction(
+                "bin_weights",
+                [axis],
+                [
+                    TabulatedSeries("nhb", "Area", QuantityArray([1.0] * 50, "angstrom**2")),
+                    *good[1:],
+                ],
+            )
+        )
     with pytest.raises(ValidationError, match="cannot be converted"):
-        write(TabulatedFunction("bin_weights", [axis], [TabulatedSeries("nhb", "Area", QuantityArray([1.0] * 51, "kg")), *good[1:]]))
+        write(
+            TabulatedFunction(
+                "bin_weights",
+                [axis],
+                [TabulatedSeries("nhb", "Area", QuantityArray([1.0] * 51, "kg")), *good[1:]],
+            )
+        )
     with pytest.raises(ValidationError, match="the series name is repeated"):
         write(TabulatedFunction("bin_weights", [axis], [good[0], good[0], good[2]]))
     with pytest.raises(ValidationError, match="not strictly ascending"):
         write(
             TabulatedFunction(
                 "bin_weights",
-                [TabulatedAxis("SurfaceChargeDensity", QuantityArray([0.0, 0.0] + list(SIGMA[2:]), "e/angstrom**2"))],
+                [
+                    TabulatedAxis(
+                        "SurfaceChargeDensity",
+                        QuantityArray([0.0, 0.0] + list(SIGMA[2:]), "e/angstrom**2"),
+                    )
+                ],
                 good,
             )
         )

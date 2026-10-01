@@ -11,9 +11,9 @@ import math
 import uuid
 from collections import Counter
 from collections.abc import Iterator
-from pathlib import Path
 
 import pytest
+
 from thermochem_support import Run, run_source, staged, staged_directory
 
 pytestmark = pytest.mark.skipif(
@@ -37,7 +37,9 @@ def formulas(run: Run) -> dict[str, str]:
     return {c.local_key: c.value for c in assertions if c.scheme == "formula"}
 
 
-def test_a_record_is_a_species_form_whose_aggregation_the_flag_and_the_suffix_give(run: Run) -> None:
+def test_a_record_is_a_species_form_whose_aggregation_the_flag_and_the_suffix_give(
+    run: Run,
+) -> None:
     found = entities(run)
     records = {r["name"]: r for r in staged("nasa_cea", "species_records")}
     assert found["CH4"].aggregation == "gas" and found["CH4"].polymorph is None  # type: ignore[attr-defined]
@@ -68,10 +70,14 @@ def test_the_formula_is_the_hill_formula_of_the_pairs_without_the_pseudo_element
 
 def test_a_record_that_names_an_element_the_declaration_lacks_is_held_whole(run: Run) -> None:
     by_reason = Counter(
-        (r["source_table"], r["reason"]) for r in run.held() if "is not a declared" in str(r["detail"])
+        (r["source_table"], r["reason"])
+        for r in run.held()
+        if "is not a declared" in str(r["detail"])
     )
     assert by_reason[("species_records", "unknown_subject")] > 0
-    names = {r["locator"] for r in run.held() if "`Ih`" in str(r["detail"]) or "`Io`" in str(r["detail"])}
+    names = {
+        r["locator"] for r in run.held() if "`Ih`" in str(r["detail"]) or "`Io`" in str(r["detail"])
+    }
     assert names
     found = entities(run)
     assert not any(k.startswith("Inert") for k in found)
@@ -84,19 +90,27 @@ def test_a_fitted_record_is_one_nasa9_set_with_the_pieces_as_stated(run: Run) ->
         r for r in staged("nasa_cea", "thermo_intervals") if r["coefficients"] is not None
     ]
     assert len(pieces) <= len(staged_pieces) and len(sets) > 1900
-    methane = [
-        r for r in staged("nasa_cea", "species_records") if r["name"] == "CH4"
-    ][0]
+    methane = [r for r in staged("nasa_cea", "species_records") if r["name"] == "CH4"][0]
     first = [
-        r for r in staged("nasa_cea", "thermo_intervals")
+        r
+        for r in staged("nasa_cea", "thermo_intervals")
         if r["species_locator"] == methane["_locator"] and r["interval_index"] == 0
     ][0]
     coefficients = first["coefficients"]
-    wanted = {"a1": coefficients[0], "a3": coefficients[2], "b1": coefficients[7], "b2": coefficients[8]}
-    found = [p for p in pieces if p["n"] == 1 and math.isclose(p["a1"], wanted["a1"], rel_tol=1e-15)]
+    wanted = {
+        "a1": coefficients[0],
+        "a3": coefficients[2],
+        "b1": coefficients[7],
+        "b2": coefficients[8],
+    }
+    found = [
+        p for p in pieces if p["n"] == 1 and math.isclose(p["a1"], wanted["a1"], rel_tol=1e-15)
+    ]
     assert found, "the first piece of CH4 holds its first coefficient unchanged (unit K^2 to K^2)"
     piece = found[0]
-    assert piece["a3"] == wanted["a3"] and piece["b1"] == wanted["b1"] and piece["b2"] == wanted["b2"]
+    assert (
+        piece["a3"] == wanted["a3"] and piece["b1"] == wanted["b1"] and piece["b2"] == wanted["b2"]
+    )
     assert (piece["T_low"], piece["T_high"]) == (200.0, 1000.0)
 
 
@@ -108,7 +122,9 @@ def test_the_fitted_range_is_the_validity_region_of_each_set(run: Run) -> None:
     assert all(c["lower"] < c["upper"] for c in clauses)
 
 
-def test_a_reactant_only_record_is_an_assigned_enthalpy_at_its_reference_temperature(run: Run) -> None:
+def test_a_reactant_only_record_is_an_assigned_enthalpy_at_its_reference_temperature(
+    run: Run,
+) -> None:
     sets = run.table("param.assigned_enthalpy__pure")
     assert sets
     by_name = {
@@ -123,7 +139,8 @@ def test_a_reactant_only_record_is_an_assigned_enthalpy_at_its_reference_tempera
     assert {round(s["T_ref"], 3) for s in sets} <= set(map(lambda t: round(t, 3), lines.values()))
     assert {round(s["T_ref"], 2) for s in sets} >= {298.15, 20.27}
     stated = {
-        round(r["heat_of_formation"]) for r in staged("nasa_cea", "species_records")
+        round(r["heat_of_formation"])
+        for r in staged("nasa_cea", "species_records")
         if r["interval_count"] == 0
     }
     assert {round(s["h_ref"]) for s in sets} <= stated
@@ -155,7 +172,9 @@ def test_every_row_ends_in_a_state_and_every_held_row_has_a_typed_reason(run: Ru
     assert run.coverage.total("unmapped") == 0
     assert run.coverage.by_reason()
     assert set(run.coverage.by_reason()) <= {
-        "unknown_subject", "missing_convention", "validation_failed"
+        "unknown_subject",
+        "missing_convention",
+        "validation_failed",
     }
     deferred = {t for t, s in run.coverage.counts.items() if s.get("deferred")}
     assert deferred == {"trans_entries", "trans_intervals"}
@@ -170,6 +189,8 @@ def test_a_reversed_interval_of_the_source_is_held_with_its_reason(run: Run) -> 
 def test_identifiers_are_unique_and_resolution_reports_rules(run: Run) -> None:
     resolved = run.report["totals"]  # type: ignore[index]
     assert resolved["source_entities"] > 2000  # type: ignore[index]
-    targets = [uuid.UUID(str(r["target"])) if not isinstance(r["target"], uuid.UUID) else r["target"]
-               for r in run.table("tk.source_entity", resolution=True)]
+    targets = [
+        uuid.UUID(str(r["target"])) if not isinstance(r["target"], uuid.UUID) else r["target"]
+        for r in run.table("tk.source_entity", resolution=True)
+    ]
     assert targets

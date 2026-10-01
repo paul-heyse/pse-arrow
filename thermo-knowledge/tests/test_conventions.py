@@ -20,10 +20,10 @@ from pathlib import Path
 import numpy as np
 import psycopg
 import pytest
+
 from build_support import fingerprint, inputs_of, write_source
 from mapping_support import origin
 from qualify_support import fixture_declaration
-
 from thermo_knowledge import config, db
 from thermo_knowledge.build import build_database
 from thermo_knowledge.canonical.values import Quantity
@@ -246,12 +246,22 @@ def test_nasa7_takes_the_gas_constant_from_the_convention_set(
 
 def test_the_in_memory_source_gives_the_convention_facts_it_is_given() -> None:
     decl = _declaration()
-    rows = {(1,): {
-        "T_low": 200.0, "T_high": 1000.0, "a1": WATER["a1"], "a2": WATER["a2"],
-        "a3": WATER["a3"], "a4": WATER["a4"], "a5": WATER["a5"], "a6": WATER["a6"],
-        "a7": WATER["a7"],
-    }}
-    held = InMemorySource(families={("nasa7.pure", "piece", ("water",)): rows}, conventions={"gas_constant": R})
+    rows = {
+        (1,): {
+            "T_low": 200.0,
+            "T_high": 1000.0,
+            "a1": WATER["a1"],
+            "a2": WATER["a2"],
+            "a3": WATER["a3"],
+            "a4": WATER["a4"],
+            "a5": WATER["a5"],
+            "a6": WATER["a6"],
+            "a7": WATER["a7"],
+        }
+    }
+    held = InMemorySource(
+        families={("nasa7.pure", "piece", ("water",)): rows}, conventions={"gas_constant": R}
+    )
     bound = bind(decl, "nasa7", source=held, roles={"i": "water"})
     got = np.array([bound.evaluate(output, T=T) for output in ("cp", "h", "s")])
     np.testing.assert_allclose(got, nasa7(R, WATER, T), rtol=1e-13, atol=0.0)
@@ -260,18 +270,33 @@ def test_the_in_memory_source_gives_the_convention_facts_it_is_given() -> None:
 
 def test_the_fact_is_one_symbol_passed_as_an_argument() -> None:
     decl = _declaration()
-    rows = {(1,): {
-        "T_low": 200.0, "T_high": 1000.0, "a1": 1.0, "a2": 0.0, "a3": 0.0, "a4": 0.0, "a5": 0.0,
-        "a6": 0.0, "a7": 0.0,
-    }}
+    rows = {
+        (1,): {
+            "T_low": 200.0,
+            "T_high": 1000.0,
+            "a1": 1.0,
+            "a2": 0.0,
+            "a3": 0.0,
+            "a4": 0.0,
+            "a5": 0.0,
+            "a6": 0.0,
+            "a7": 0.0,
+        }
+    }
     first = bind(
-        decl, "nasa7",
-        source=InMemorySource(families={("nasa7.pure", "piece", ("x",)): rows}, conventions={"gas_constant": 8.0}),
+        decl,
+        "nasa7",
+        source=InMemorySource(
+            families={("nasa7.pure", "piece", ("x",)): rows}, conventions={"gas_constant": 8.0}
+        ),
         roles={"i": "x"},
     )
     second = bind(
-        decl, "nasa7",
-        source=InMemorySource(families={("nasa7.pure", "piece", ("x",)): rows}, conventions={"gas_constant": 9.0}),
+        decl,
+        "nasa7",
+        source=InMemorySource(
+            families={("nasa7.pure", "piece", ("x",)): rows}, conventions={"gas_constant": 9.0}
+        ),
         roles={"i": "x"},
         cache=first.cache,
     )
@@ -300,9 +325,7 @@ def test_the_evaluator_refuses_a_parameterization_that_states_no_gas_constant(
 ) -> None:
     for key, reason in (("p4", "has no convention set"), ("p5", "states no `gas_constant`")):
         found = source(world, conn, key)
-        bound = bind(
-            world.decl, "nasa7", source=found, roles={"i": str(world.ids["form_water"])}
-        )
+        bound = bind(world.decl, "nasa7", source=found, roles={"i": str(world.ids["form_water"])})
         with pytest.raises(EvaluationRefusal, match=rf"`{key}@1`.*{reason}.*`gas_constant`"):
             bound.evaluate("cp", T=T)
 
@@ -398,7 +421,9 @@ def test_in_memory_sources_with_different_facts_are_refused_and_with_equal_facts
         bound = bind(decl, "qfix_heat_pair_form", source=held, roles={"i": "water", "j": "oxygen"})
         return bound.evaluate("cp", T=T)
 
-    with pytest.raises(EvaluationRefusal, match=r"`water set` has 8\.314462618.*`oxygen set` has 8\.3145"):
+    with pytest.raises(
+        EvaluationRefusal, match=r"`water set` has 8\.314462618.*`oxygen set` has 8\.3145"
+    ):
         evaluate(R_OTHER)
     np.testing.assert_allclose(
         evaluate(R), nasa7(R, WATER, T)[0] + nasa7(R, OXYGEN, T)[0], rtol=1e-13, atol=0.0

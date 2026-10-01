@@ -13,10 +13,12 @@ from pathlib import Path
 
 import psycopg
 import pytest
-from declaration_support import NO_PHYSICAL, copy_full, empty_declaration, full_declaration
 from psycopg import errors
 
+from declaration_support import NO_PHYSICAL, copy_full, empty_declaration, full_declaration
 from thermo_knowledge import identity
+from thermo_knowledge.build import BuildResult, build_database
+from thermo_knowledge.build.database import DatabaseRefusedError
 from thermo_knowledge.declaration import Declaration, load_declaration
 from thermo_knowledge.generate import (
     SCHEMA_PATH,
@@ -24,11 +26,9 @@ from thermo_knowledge.generate import (
     generate,
     schema_fingerprint,
 )
-from thermo_knowledge.generate.reified import insert_batches, serialise
 from thermo_knowledge.generate.meta_tables import META_TABLES
 from thermo_knowledge.generate.plan import GENERATED_SCHEMAS
-from thermo_knowledge.build import BuildResult, build_database
-from thermo_knowledge.build.database import DatabaseRefusedError
+from thermo_knowledge.generate.reified import insert_batches, serialise
 from thermo_knowledge.schema_build import compare_fingerprint
 from thermo_knowledge.testing import TestDatabase
 
@@ -469,7 +469,9 @@ def test_reciprocal_and_parity_relations_store_one_orientation(conn: psycopg.Con
 
 def test_permutation_group_keeps_the_canonical_representative(conn: psycopg.Connection) -> None:
     a, b, c = sorted([new_id(), new_id(), new_id()])
-    statement = "INSERT INTO tk.triple (id, a, b, c, value, arrangement) VALUES (%s, %s, %s, %s, 1, %s)"
+    statement = (
+        "INSERT INTO tk.triple (id, a, b, c, value, arrangement) VALUES (%s, %s, %s, %s, 1, %s)"
+    )
     accepted(conn, statement, (new_id(), a, b, c, 0))
     for arrangement in ((b, a, c), (a, c, b), (c, b, a), (b, c, a), (c, a, b)):
         rejected(
@@ -664,7 +666,9 @@ def test_domains_refuse_non_finite_and_negative_values_and_accept_zero(
     conn: psycopg.Connection,
 ) -> None:
     accepted(
-        conn, "INSERT INTO tk.species (id, tag, smiles, t_min) VALUES (%s, 'z', 'C', 0)", (new_id(),)
+        conn,
+        "INSERT INTO tk.species (id, tag, smiles, t_min) VALUES (%s, 'z', 'C', 0)",
+        (new_id(),),
     )
     for bad in ("'NaN'", "'Infinity'", "-5"):
         rejected(
@@ -1168,9 +1172,7 @@ def test_a_doc_that_does_not_reach_the_ddl_still_changes_the_fingerprint(
 # -- invariants of relations and the check forms `present_iff` and `within` -----------------------
 
 
-READING = (
-    "INSERT INTO tk.reading (id, record, n, state, value) VALUES (%s, %s, %s, %s::meta.phase_class, %s)"
-)
+READING = "INSERT INTO tk.reading (id, record, n, state, value) VALUES (%s, %s, %s, %s::meta.phase_class, %s)"
 
 
 def test_a_relation_carries_its_declared_checks(conn: psycopg.Connection) -> None:
@@ -1196,33 +1198,51 @@ def test_a_relation_carries_its_declared_checks(conn: psycopg.Connection) -> Non
     )
     # within: a closed interval, and a half-open one with one bound omitted
     rejected(
-        conn, errors.CheckViolation, READING, (new_id(), record, 7, "gas", 1.5),
+        conn,
+        errors.CheckViolation,
+        READING,
+        (new_id(), record, 7, "gas", 1.5),
         "reading__ck__value_in_range",
     )
     rejected(
-        conn, errors.CheckViolation, READING, (new_id(), record, 8, "gas", -1.5),
+        conn,
+        errors.CheckViolation,
+        READING,
+        (new_id(), record, 8, "gas", -1.5),
         "reading__ck__value_in_range",
     )
     rejected(
-        conn, errors.CheckViolation, READING, (new_id(), record, 9, "gas", -0.75),
+        conn,
+        errors.CheckViolation,
+        READING,
+        (new_id(), record, 9, "gas", -0.75),
         "reading__ck__value_not_below",
     )
 
 
 def test_a_kind_carries_the_same_check_forms(conn: psycopg.Connection) -> None:
-    insert = "INSERT INTO tk.instrument (id, name, state, \"offset\") VALUES (%s, %s, %s::meta.calibration, %s)"
+    insert = 'INSERT INTO tk.instrument (id, name, state, "offset") VALUES (%s, %s, %s::meta.calibration, %s)'
     accepted(conn, insert, (new_id(), "a", "calibrated", 0.25))
     accepted(conn, insert, (new_id(), "b", "uncalibrated", None))
     rejected(
-        conn, errors.CheckViolation, insert, (new_id(), "c", "calibrated", None),
+        conn,
+        errors.CheckViolation,
+        insert,
+        (new_id(), "c", "calibrated", None),
         "instrument__ck__offset_when_calibrated",
     )
     rejected(
-        conn, errors.CheckViolation, insert, (new_id(), "d", "uncalibrated", 0.25),
+        conn,
+        errors.CheckViolation,
+        insert,
+        (new_id(), "d", "uncalibrated", 0.25),
         "instrument__ck__offset_when_calibrated",
     )
     rejected(
-        conn, errors.CheckViolation, insert, (new_id(), "e", "calibrated", 2.0),
+        conn,
+        errors.CheckViolation,
+        insert,
+        (new_id(), "e", "calibrated", 2.0),
         "instrument__ck__offset_small",
     )
 
@@ -1236,7 +1256,10 @@ def test_requirements_of_kinds_and_relations_are_reified_alike(
     ).fetchall()
     by_key = {(r[0], r[1], r[2]): r[3:] for r in rows}
     assert by_key[("relation", "reading", "value_only_when_compressible")] == (
-        "ddl", "present_iff", None, None
+        "ddl",
+        "present_iff",
+        None,
+        None,
     )
     assert by_key[("relation", "reading", "value_in_range")] == ("ddl", "within", -1.0, 1.0)
     assert by_key[("relation", "reading", "value_not_below")] == ("ddl", "within", -0.5, None)
@@ -1271,7 +1294,9 @@ def test_a_contract_argument_basis_references_the_declared_entity(
         "SELECT basis FROM meta.contract_argument WHERE contract = 'mixture_heat_capacity' "
         "AND name = 'x'"
     ).fetchone()  # type: ignore[misc]
-    (name,) = conn.execute("SELECT name FROM tk.composition_basis WHERE id = %s", (basis,)).fetchone()  # type: ignore[misc]
+    (name,) = conn.execute(
+        "SELECT name FROM tk.composition_basis WHERE id = %s", (basis,)
+    ).fetchone()  # type: ignore[misc]
     assert name == "mole_fraction"
     constraint = conn.execute(
         "SELECT count(*) FROM pg_constraint WHERE conname = 'contract_argument__fk__basis'"

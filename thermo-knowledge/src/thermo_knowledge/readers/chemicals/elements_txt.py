@@ -37,14 +37,22 @@ _UNKNOWN = "the banner states {default} when unknown; kept as written"
 _ELEMENTS = (
     integer("Num", "Num", note="atomic number"),
     text("Symb", "Symb", note="elemental symbol"),
-    number("ARENeg", "ARENeg", note="Allred and Rochow electronegativity; " + _UNKNOWN.format(default="0.0")),
+    number(
+        "ARENeg",
+        "ARENeg",
+        note="Allred and Rochow electronegativity; " + _UNKNOWN.format(default="0.0"),
+    ),
     number(
         "RCov",
         "RCov",
         unit="Angstrom",
         note="covalent radius; " + _UNKNOWN.format(default="1.6"),
     ),
-    number("RBO", "RBO", note="'bond order' radius; the banner says it is ignored and kept for compatibility"),
+    number(
+        "RBO",
+        "RBO",
+        note="'bond order' radius; the banner says it is ignored and kept for compatibility",
+    ),
     number(
         "RVdW",
         "RVdW",
@@ -54,8 +62,18 @@ _ELEMENTS = (
     integer("MaxBnd", "MaxBnd", note="maximum bond valence; " + _UNKNOWN.format(default="6")),
     number("Mass", "Mass", unit="amu", note="IUPAC recommended atomic mass"),
     number("ElNeg", "ElNeg.", note="Pauling electronegativity; " + _UNKNOWN.format(default="0.0")),
-    number("Ionization", "Ionization", unit="eV", note="ionization potential; " + _UNKNOWN.format(default="0.0")),
-    number("ElAffinity", "ElAffinity", unit="eV", note="electron affinity; " + _UNKNOWN.format(default="0.0")),
+    number(
+        "Ionization",
+        "Ionization",
+        unit="eV",
+        note="ionization potential; " + _UNKNOWN.format(default="0.0"),
+    ),
+    number(
+        "ElAffinity",
+        "ElAffinity",
+        unit="eV",
+        note="electron affinity; " + _UNKNOWN.format(default="0.0"),
+    ),
     number("Red", "Red", note="default visualization colour, red component"),
     number("Green", "Green", note="default visualization colour, green component"),
     number("Blue", "Blue", note="default visualization colour, blue component"),
@@ -82,7 +100,9 @@ def read_elements(tree: Path, artifact: str, writer: Writer) -> None:
         if line.startswith("#") or line.strip() == "":
             if line.startswith("#Num"):
                 if line != _LEGEND:
-                    raise StagingError(f"{place}: the legend {line!r} differs from the declared one")
+                    raise StagingError(
+                        f"{place}: the legend {line!r} differs from the declared one"
+                    )
                 legend_seen = True
             other.append({"_artifact": artifact, "_locator": place, "line": number_, "text": line})
             continue

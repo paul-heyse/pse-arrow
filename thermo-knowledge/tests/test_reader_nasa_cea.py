@@ -61,7 +61,9 @@ def number(value: float) -> str:
 
 def coefficients(values: list[float]) -> tuple[str, str]:
     first = "".join(number(v) for v in values[:5])
-    second = number(values[5]) + number(values[6]) + " " * 16 + number(values[7]) + number(values[8])
+    second = (
+        number(values[5]) + number(values[6]) + " " * 16 + number(values[7]) + number(values[8])
+    )
     return first, second
 
 
@@ -81,7 +83,9 @@ def thermo_text(records: list[list[str]], *, extra_end: bool = True) -> str:
     return "\r\n".join(lines) + "\r\n"
 
 
-def fitted(name: str, notes: str, pairs: list[tuple[str, str]], values: list[list[float]]) -> list[str]:
+def fitted(
+    name: str, notes: str, pairs: list[tuple[str, str]], values: list[list[float]]
+) -> list[str]:
     out = [
         species_1(name, notes),
         species_2(len(values), "g 6/97", pairs, 0, "2.01588", "0.000"),
@@ -120,7 +124,9 @@ def run_reader(tmp_path: Path, files: dict[str, str]) -> tuple[dict[str, pa.Tabl
     writer = Writer(out, nasa_cea.TABLES, sorted(files))
     nasa_cea.read(tree, writer)
     result = writer.finish()
-    return {name: pq.read_table(out / record.file) for name, record in result.tables.items()}, writer
+    return {
+        name: pq.read_table(out / record.file) for name, record in result.tables.items()
+    }, writer
 
 
 def rows(tables: dict[str, pa.Table], name: str) -> list[dict]:
@@ -153,7 +159,9 @@ def test_tables_are_declared_documented_and_located(tmp_path: Path) -> None:
 def test_thermo_frame_records_and_locators(tmp_path: Path) -> None:
     tables, _ = run_reader(tmp_path, {"data/thermo.inp": sample_thermo()})
     frames = rows(tables, "frame_lines")
-    sentinels = [i + 1 for i, line in enumerate(sample_thermo().split("\r\n")) if line.startswith("END")]
+    sentinels = [
+        i + 1 for i, line in enumerate(sample_thermo().split("\r\n")) if line.startswith("END")
+    ]
     assert [(r["kind"], r["_locator"]) for r in frames] == [
         ("comment", "data/thermo.inp#L1"),
         ("comment", "data/thermo.inp#L2"),
@@ -261,9 +269,10 @@ def test_transport_entries_and_intervals(tmp_path: Path) -> None:
         ("Ar", None, "BICH ET AL (1990)"),
         ("C", "O", "CAPITELLI & FICOCELLI (1973)"),
     ]
-    assert [
-        (e["viscosity_interval_count"], e["conductivity_interval_count"]) for e in entries
-    ] == [(2, 1), (1, 0)]
+    assert [(e["viscosity_interval_count"], e["conductivity_interval_count"]) for e in entries] == [
+        (2, 1),
+        (1, 0),
+    ]
     assert entries[0]["_locator"] == "data/trans.inp#L2"
     intervals = rows(tables, "trans_intervals")
     assert [(r["property"], r["interval_index"], r["t_low"], r["t_high"]) for r in intervals] == [
@@ -348,10 +357,19 @@ def test_a_thermo_file_without_the_keyword_is_refused(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     ("mutate", "message"),
     [
-        (lambda t: t.replace("V2C1", "X2C1"), r"trans\.inp, line 2, columns 35-37: an entry header"),
-        (lambda t: t.replace(" C  200.0", " V  200.0"), r"line 5, columns 2-2: expected the property letter C"),
+        (
+            lambda t: t.replace("V2C1", "X2C1"),
+            r"trans\.inp, line 2, columns 35-37: an entry header",
+        ),
+        (
+            lambda t: t.replace(" C  200.0", " V  200.0"),
+            r"line 5, columns 2-2: expected the property letter C",
+        ),
         (lambda t: t.replace("end \r\n", ""), "the file ends without the closing end line"),
-        (lambda t: t.replace("0.61205763E 00", "0.6120x763E 00"), r"line 3, columns 21-35: cannot read"),
+        (
+            lambda t: t.replace("0.61205763E 00", "0.6120x763E 00"),
+            r"line 3, columns 21-35: cannot read",
+        ),
     ],
 )
 def test_malformed_transport_is_refused_with_its_location(
@@ -439,7 +457,9 @@ def test_thermo_counts_against_line_patterns(staged: Path) -> None:
     intervals = sum(1 for line in lines if INTERVAL_LINE.match(line))
     references = sum(1 for line in lines if REFERENCE_LINE.match(line))
     # a second coefficient line that writes the zero in its skipped columns also has five fields
-    assert sum(1 for l in lines if COEFFICIENTS_1.match(l) or COEFFICIENTS_2.match(l)) == 2 * intervals
+    assert (
+        sum(1 for l in lines if COEFFICIENTS_1.match(l) or COEFFICIENTS_2.match(l)) == 2 * intervals
+    )
     assert (len(lines), comments, intervals, references) == (15802, 62, 3820, 54)
     skipped = [lines[i + 2][32:48] for i, line in enumerate(lines) if INTERVAL_LINE.match(line)]
     assert collections.Counter(skipped) == {" " * 16: 3762, " 0.000000000D+00": 58}
@@ -455,7 +475,9 @@ def test_thermo_counts_against_line_patterns(staged: Path) -> None:
     assert records.num_rows == 2111
     assert table(staged, "thermo_intervals").num_rows == intervals + references
     frames = table(staged, "frame_lines")
-    assert frames.filter(pa.compute.equal(frames["_artifact"], "data/thermo.inp")).num_rows == framing
+    assert (
+        frames.filter(pa.compute.equal(frames["_artifact"], "data/thermo.inp")).num_rows == framing
+    )
     assert [line[:15].strip() for line in both[0::2]] == records.column("name").to_pylist()
     assert len(set(records.column("name").to_pylist())) == 2099
     by_section = collections.Counter(records.column("section").to_pylist())
@@ -546,9 +568,7 @@ def test_air_and_the_electron_are_read_as_written(staged: Path) -> None:
         if p["species_locator"] == air["_locator"]
     ]
     assert pairs == [("N", 1.5617), ("O", 0.41959), ("AR", 0.00937), ("C", 0.00032)]
-    butanol = [
-        r for r in table(staged, "species_records").to_pylist() if r["name"] == "n-Butanol"
-    ]
+    butanol = [r for r in table(staged, "species_records").to_pylist() if r["name"] == "n-Butanol"]
     assert [(r["phase_flag"], r["heat_of_formation"]) for r in butanol] == [
         (0, -251140.0),
         (1, -278510.0),
@@ -565,14 +585,17 @@ def test_transport_counts_and_values_against_the_text(staged: Path) -> None:
     entries = table(staged, "trans_entries")
     intervals = table(staged, "trans_intervals")
     assert entries.num_rows == 107 and intervals.num_rows == 379
-    assert sum(
-        a + b
-        for a, b in zip(
-            entries.column("viscosity_interval_count").to_pylist(),
-            entries.column("conductivity_interval_count").to_pylist(),
-            strict=True,
+    assert (
+        sum(
+            a + b
+            for a, b in zip(
+                entries.column("viscosity_interval_count").to_pylist(),
+                entries.column("conductivity_interval_count").to_pylist(),
+                strict=True,
+            )
         )
-    ) == 379
+        == 379
+    )
     assert sum(1 for n in entries.column("name_2").to_pylist() if n is not None) == 41
     assert entries.column("raw_line").to_pylist() == headers
     assert intervals.column("raw_line").to_pylist() == rows_

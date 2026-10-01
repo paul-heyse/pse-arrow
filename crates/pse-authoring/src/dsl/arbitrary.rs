@@ -338,7 +338,10 @@ pub fn cells() -> impl Strategy<Value = crate::language::Cell> {
         scalar_values(),
         prop::collection::vec(cell_path(), 0..3).prop_map(|paths| {
             CellValue::from_references(CellReferences {
-                paths: paths.into_iter().map(|path| CellPath { path }).collect(),
+                paths: paths
+                    .into_iter()
+                    .map(|path| CellPath { path, keys: None })
+                    .collect(),
             })
         }),
         (cell_path(), prop::collection::vec(scalar_values(), 1..4)).prop_map(|(target, keys)| {
@@ -536,6 +539,7 @@ pub fn tables()
                     default_value: (policy == ModelingMissingPolicy::Default).then_some(default),
                     complete_over,
                     symmetry: symmetry.map(|(first, second, diagonal)| Symmetry {
+                        ordered: false,
                         first,
                         second,
                         diagonal,

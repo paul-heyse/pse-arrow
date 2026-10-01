@@ -21,10 +21,10 @@ from dataclasses import dataclass
 import numpy as np
 import psycopg
 import pytest
+
 from build_support import fingerprint, inputs_of, write_source
 from mapping_support import origin
 from mechanisms_support import mechanism_declaration
-
 from thermo_knowledge import db
 from thermo_knowledge.build import build_database
 from thermo_knowledge.canonical.values import Quantity
@@ -51,7 +51,9 @@ def at(tag: str) -> list:  # noqa: ANN401
 
 
 def write_world(w: CanonicalWriter, ids: dict[str, uuid.UUID]) -> None:
-    a, b, c = (w.kind("species", {"canonical_key": n, "label": n}, origins=at(f"s-{n}")) for n in "abc")
+    a, b, c = (
+        w.kind("species", {"canonical_key": n, "label": n}, origins=at(f"s-{n}")) for n in "abc"
+    )
     ids.update(a=a, b=b, c=c)
     p = w.kind(
         "parameterization",
@@ -67,7 +69,9 @@ def write_world(w: CanonicalWriter, ids: dict[str, uuid.UUID]) -> None:
         origins=at("listed"),
     )
 
-    def policy(key: str, unasserted: str, slots: tuple[str, ...], scope: str | None, group: str = NRTL) -> None:
+    def policy(
+        key: str, unasserted: str, slots: tuple[str, ...], scope: str | None, group: str = NRTL
+    ) -> None:
         ids[key] = w.kind(
             "selection_policy",
             {
@@ -99,7 +103,9 @@ def world(tmp_path_factory: pytest.TempPathFactory) -> Iterator[World]:
     decl = mechanism_declaration(tmp_path_factory.mktemp("unasserted-declaration"))
     canonical = tmp_path_factory.mktemp("unasserted-canonical")
     ids: dict[str, uuid.UUID] = {}
-    write_source(canonical, "src", lambda w: write_world(w, ids), decl=decl, declaration=fingerprint(decl))
+    write_source(
+        canonical, "src", lambda w: write_world(w, ids), decl=decl, declaration=fingerprint(decl)
+    )
     with TestDatabase() as database:
         build_database(database.url, decl, inputs_of(canonical))
         yield World(decl, database, ids)
@@ -118,7 +124,10 @@ def conn(world: World) -> Iterator[psycopg.Connection]:
 
 def source(world: World, conn: psycopg.Connection, policy: str | None) -> DatabaseSource:
     return DatabaseSource(
-        conn, world.decl, [world.ids["parameterization"]], policy=None if policy is None else world.ids[policy]
+        conn,
+        world.decl,
+        [world.ids["parameterization"]],
+        policy=None if policy is None else world.ids[policy],
     )
 
 
@@ -142,7 +151,9 @@ def test_a_policy_that_refuses_covers_another_group_or_leaves_a_slot_without_a_d
     assert source(world, conn, policy).default_slot_values(NRTL, unlisted(world)) is None
 
 
-def nrtl(world: World, found: DatabaseSource, first: str, second: str, temperature: np.ndarray) -> np.ndarray:
+def nrtl(
+    world: World, found: DatabaseSource, first: str, second: str, temperature: np.ndarray
+) -> np.ndarray:
     bound = bind(
         world.decl,
         "nrtl_fixture",
@@ -152,13 +163,17 @@ def nrtl(world: World, found: DatabaseSource, first: str, second: str, temperatu
     return bound.evaluate("G", T=temperature)
 
 
-def test_an_expression_over_an_unlisted_pair_takes_the_policys_defaults(world: World, conn: psycopg.Connection) -> None:
+def test_an_expression_over_an_unlisted_pair_takes_the_policys_defaults(
+    world: World, conn: psycopg.Connection
+) -> None:
     temperature = np.array([280.0, 350.0])
     got = nrtl(world, source(world, conn, "scoped"), "a", "c", temperature)
     np.testing.assert_allclose(got, np.exp(-ALPHA * (A + B / temperature)), rtol=1e-14)
 
 
-def test_a_listed_pair_keeps_its_own_values_under_the_same_policy(world: World, conn: psycopg.Connection) -> None:
+def test_a_listed_pair_keeps_its_own_values_under_the_same_policy(
+    world: World, conn: psycopg.Connection
+) -> None:
     temperature = np.array([300.0])
     got = nrtl(world, source(world, conn, "scoped"), "a", "b", temperature)
     np.testing.assert_allclose(got, np.exp(-0.2 * (1.5 + 300.0 / temperature)), rtol=1e-14)

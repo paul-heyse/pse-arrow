@@ -27,7 +27,6 @@ def main() -> None:
     )
     if match is None:
         raise RuntimeError("the NRTL oracle source declaration is absent")
-    source_id = bytes.fromhex(match.group(1))
     model = ConcreteModel()
     model.parameters = BTXParameterBlock(
         valid_phase=("Liq", "Vap"), activity_coeff_model="NRTL"
@@ -42,11 +41,11 @@ def main() -> None:
             # uses zero self-interaction; the upstream constructor initializes all tau to 1.
             if i == j:
                 model.parameters.tau[i, j].set_value(0)
+                continue
             rows.append(
                 {
-                    "s": source_id,
-                    "i": cas[i],
-                    "j": cas[j],
+                    "first": cas[i],
+                    "second": cas[j],
                     "tau": value(model.parameters.tau[i, j]),
                     "alpha": value(model.parameters.alpha[i, j]),
                 }
@@ -82,9 +81,8 @@ def main() -> None:
     }
     parameter_schema = pa.schema(
         [
-            pa.field("s", pa.binary(16)),
-            pa.field("i", pa.string()),
-            pa.field("j", pa.string()),
+            pa.field("first", pa.string()),
+            pa.field("second", pa.string()),
             pa.field("tau", pa.float64()),
             pa.field("alpha", pa.float64()),
         ],

@@ -96,7 +96,9 @@
 @id("d54358a7c02e4db6b5dda9f536c24bb4") expect root.outlet_flow[second]==0.438{mol/s} tolerance 0.001{mol/s};
 }
 @id("ccdc8c193e664abb9a6136999644564c") use reactors @"1.0.0";
+@id("133460d8971b5b5d8ea3e8043414bda7") use reaction_forms @"1.0.0";
 @id("0bf29137ce5b43998bb7ce50c3c19e39") test cstr_saponification oracle references.idaes_test_cstr fixture {dof 0; run steady; fix root.inlet.volume_flow=0.001{m^3/s}; fix root.inlet.T=303.15{K}; fix root.inlet.pressure=101325{Pa}; fix root.inlet.concentration[chem.water]=55388{mol/m^3}; fix root.inlet.concentration[chem.sodium_hydroxide]=100{mol/m^3}; fix root.inlet.concentration[chem.ethyl_acetate]=100{mol/m^3}; fix root.inlet.concentration[chem.sodium_acetate]=1e-8{mol/m^3}; fix root.inlet.concentration[chem.ethanol]=1e-8{mol/m^3}; fix root.volume=0.0015{m^3}; fix root.heat=0{W}; fix root.delta_pressure=0{Pa};} {
+@id("6956733b681a59ecb7a8f104cf513bcd") permission kinetic_use families(reaction_forms.reaction_set) allow_unknown true allow_extrapolation false;
 @id("8604f4007a1b4c8e9b653ba7811c1cd2") child root:reactors.CSTR=reactors.CSTR(inlet_pkg=saponification.Saponification(defined_state=true),outlet_pkg=saponification.Saponification(defined_state=false),reaction_pkg=saponification.SaponificationReactions);
 @id("42e01e5463564e42b50c0f8edde0e8dc") expect root.outlet.T==304.09{K} tolerance 0.01{K};
 @id("794acba40e1d49f2a3502f853d8b14d7") expect root.outlet.pressure==101325{Pa} tolerance 0.01{Pa};
@@ -131,7 +133,6 @@
 @id("77fc3b81f304427f936e67fd285ca1b5") expect root.control.work_fluid==-20{W} tolerance 0.01{W};
 }
 @id("5cedb8e3a37b463ab20d70386e91472f") use control_volumes @"1.0.0";
-@id("662a7c1d9ccb47fdb943dcdf00af1333") fn element_atoms(j:chemistry.species,e:chemistry.element)->Count=chemistry.formula[j,e];
 @id("dd9727cad00941acbac7c618b1789736") def WaterVolume(basis:control_volumes.MaterialBalance):control_volumes.ControlVolume0D {
 @id("6fa71b72e81a4d71a92809b7c672e7e0") override child inlet:aqueous.DiluteLiquid=saponification.Saponification(defined_state=true,selected={chem.water});
 @id("04d8fd6181db4178bab96fa0ea6ee7e7") override child outlet:aqueous.DiluteLiquid=saponification.Saponification(defined_state=false,selected={chem.water});
@@ -139,7 +140,6 @@
 @id("88073401e9a045b1b221b3e27ff27330") override param outlet_package:equilibrium.ThermoPackage=saponification.Saponification(defined_state=false,selected={chem.water});
 @id("e1a2b0f6972a4b0ba96cba5c3e79f80d") override param material_basis:control_volumes.MaterialBalance=basis;
 @id("6f622f45041549e28fc7c480b3667dd2") override param elements:Set<chemistry.element>={ciaaw.O};
-@id("3b1e193103fb4e50ac4b01948cc24af6") override param atoms:Fn(j:chemistry.species,e:chemistry.element)->Count=element_atoms;
 @id("64b6e00d894141abb1b2e772987ac900") eq no_heat:heat==0{W};
 @id("2afda9d04c2b46adb64960ed55a9064b") eq no_work:work==0{W};
 }
@@ -168,12 +168,14 @@
 @id("17df29528cac40caaa91352651982606") expect root.outlet.flow==55.388{mol/s} tolerance 1e-6{mol/s};
 }
 @id("327db061572a4827854e22afbe82a34f") test pfr_backward oracle references.idaes_test_pfr_saponification fixture {dof 0; run steady; fix root.state[0].volume_flow=1{m^3/s}; fix root.state[0].T=303.15{K}; fix root.state[0].pressure=101325{Pa}; fix root.state[0].concentration[chem.water]=55388{mol/m^3}; fix root.state[0].concentration[chem.sodium_hydroxide]=100{mol/m^3}; fix root.state[0].concentration[chem.ethyl_acetate]=100{mol/m^3}; fix root.state[0].concentration[chem.sodium_acetate]=1e-08{mol/m^3}; fix root.state[0].concentration[chem.ethanol]=1e-08{mol/m^3}; fix root.length=0.5{m}; fix root.area=0.1{m^2}; fix root.heat_duty=0{W}; fix root.delta_pressure=0{Pa};} {
+@id("9e3064ce52375b1284af1d377a9c07c4") permission kinetic_use families(reaction_forms.reaction_set) allow_unknown true allow_extrapolation false;
 @id("aaec9a4024024448a4fd008bfbd36c45") child root:reactors.PFR=reactors.PFR(inlet_pkg=saponification.Saponification(defined_state=true),outlet_pkg=saponification.Saponification(defined_state=false),reaction_pkg=saponification.SaponificationReactions,elements=20,use_radau=false);
 @id("514b5525cbf14010bf2a5db044bee378") expect root.outlet_temperature==303.6{K} tolerance 0.01{K};
 @id("aa7ec4caa0f243dcaa555e2320fafb5b") expect root.outlet_pressure==101325{Pa} tolerance 0.01{Pa};
 @id("b1b3260b1b3043eca30716ea842d203a") expect root.outlet_concentration[chem.ethyl_acetate]==62.29{mol/m^3} tolerance 0.01{mol/m^3};
 }
 @id("f69eda83804949e8a35e9381e30c3fb9") test pfr_radau oracle references.pfr_reference fixture {dof 0; run steady; fix root.state[0].volume_flow=1{m^3/s}; fix root.state[0].T=303.15{K}; fix root.state[0].pressure=101325{Pa}; fix root.state[0].concentration[chem.water]=55388{mol/m^3}; fix root.state[0].concentration[chem.sodium_hydroxide]=100{mol/m^3}; fix root.state[0].concentration[chem.ethyl_acetate]=100{mol/m^3}; fix root.state[0].concentration[chem.sodium_acetate]=1e-08{mol/m^3}; fix root.state[0].concentration[chem.ethanol]=1e-08{mol/m^3}; fix root.length=0.5{m}; fix root.area=0.1{m^2}; fix root.heat_duty=0{W}; fix root.delta_pressure=0{Pa};} {
+@id("b0e52dcea443504f9fbce84822292282") permission kinetic_use families(reaction_forms.reaction_set) allow_unknown true allow_extrapolation false;
 @id("150078652361467ba9ddd0ecef349443") child root:reactors.PFR=reactors.PFR(inlet_pkg=saponification.Saponification(defined_state=true),outlet_pkg=saponification.Saponification(defined_state=false),reaction_pkg=saponification.SaponificationReactions,elements=4,use_radau=true);
 @id("466634400fec49858a6472af5013d335") expect root.outlet_temperature==303.599299658173{K} tolerance 0.01{K};
 @id("02d1e3809a67416fb828b811458543cc") expect root.outlet_pressure==101325{Pa} tolerance 0.01{Pa};

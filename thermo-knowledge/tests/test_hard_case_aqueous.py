@@ -28,9 +28,9 @@ from pathlib import Path
 import numpy as np
 import psycopg
 import pytest
+
 from hard_case_support import at, build, entity_id, failing
 from mapping_support import real_declaration, writer
-
 from thermo_knowledge import db
 from thermo_knowledge.canonical.values import Quantity
 from thermo_knowledge.canonical.writer import CanonicalWriter, ValidationError
@@ -71,17 +71,33 @@ SPECIES = {
 REACTIONS = {
     "water": ("H2O = H+ + OH-", {"H2O": -1, "H+": 1, "OH-": 1}, "OH-"),
     "bicarbonate": ("CO3-2 + H+ = HCO3-", {"CO3-2": -1, "H+": -1, "HCO3-": 1}, "HCO3-"),
-    "carbon dioxide": ("CO3-2 + 2H+ = CO2 + H2O", {"CO3-2": -1, "H+": -2, "CO2(aq)": 1, "H2O": 1}, "CO2(aq)"),
+    "carbon dioxide": (
+        "CO3-2 + 2H+ = CO2 + H2O",
+        {"CO3-2": -1, "H+": -2, "CO2(aq)": 1, "H2O": 1},
+        "CO2(aq)",
+    ),
     "carbon dioxide from bicarbonate": (
         "HCO3- + H+ = CO2 + H2O",
         {"HCO3-": -1, "H+": -1, "CO2(aq)": 1, "H2O": 1},
         None,
     ),
-    "calcium carbonate": ("Ca+2 + CO3-2 = CaCO3", {"Ca+2": -1, "CO3-2": -1, "CaCO3(aq)": 1}, "CaCO3(aq)"),
+    "calcium carbonate": (
+        "Ca+2 + CO3-2 = CaCO3",
+        {"Ca+2": -1, "CO3-2": -1, "CaCO3(aq)": 1},
+        "CaCO3(aq)",
+    ),
     "sodium exchange": ("Na+ + X- = NaX", {"Na+": -1, "X-": -1, "NaX": 1}, "NaX"),
     "calcium exchange": ("Ca+2 + 2X- = CaX2", {"Ca+2": -1, "X-": -2, "CaX2": 1}, "CaX2"),
-    "surface protonation": ("Hfo_sOH + H+ = Hfo_sOH2+", {"Hfo_sOH": -1, "H+": -1, "Hfo_sOH2+": 1}, "Hfo_sOH2+"),
-    "surface deprotonation": ("Hfo_sOH = Hfo_sO- + H+", {"Hfo_sOH": -1, "Hfo_sO-": 1, "H+": 1}, "Hfo_sO-"),
+    "surface protonation": (
+        "Hfo_sOH + H+ = Hfo_sOH2+",
+        {"Hfo_sOH": -1, "H+": -1, "Hfo_sOH2+": 1},
+        "Hfo_sOH2+",
+    ),
+    "surface deprotonation": (
+        "Hfo_sOH = Hfo_sO- + H+",
+        {"Hfo_sOH": -1, "Hfo_sO-": 1, "H+": 1},
+        "Hfo_sO-",
+    ),
 }
 ANALYTIC = {  # reaction -> (A1, A2, A3, A4, A5, A6)
     "water": (-180.0, -0.0312, 9100.0, 64.5, -7.4e5, 1.0e-5),
@@ -106,8 +122,16 @@ THETA = {("Na+", "Ca+2"): 0.07}
 PSI = {("Na+", "Ca+2", "Cl-"): -0.012}
 SIT = {("Na+", "Cl-"): 0.04}
 HKF = {  # the parameters of one HKF ion, synthetic
-    "g_f": -261_900.0, "h_f": -240_300.0, "s": 58.4, "a1": 1.8e-6, "a2": -2.0e3,
-    "a3": 1.1e-4, "a4": -2.6e4, "c1": 75.0, "c2": -1.1e4, "omega": 5.3e5,
+    "g_f": -261_900.0,
+    "h_f": -240_300.0,
+    "s": 58.4,
+    "a1": 1.8e-6,
+    "a2": -2.0e3,
+    "a3": 1.1e-4,
+    "a4": -2.6e4,
+    "c1": 75.0,
+    "c2": -1.1e4,
+    "omega": 5.3e5,
 }
 CONSTANT_G = -386_000.0
 
@@ -150,22 +174,43 @@ def write_chemistry(w: CanonicalWriter, decl: Declaration, ids: dict[str, uuid.U
     )
     for site in ("X", "Hfo_s"):
         quantity[site] = w.kind(
-            "conserved_quantity", {"key": f"{SYSTEM}:{site}", "kind": "site_total"}, origins=at(f"site-{site}")
+            "conserved_quantity",
+            {"key": f"{SYSTEM}:{site}", "kind": "site_total"},
+            origins=at(f"site-{site}"),
         )
     ids.update({f"quantity_{name}": value for name, value in quantity.items()})
     system = w.kind("chemical_system", {"key": SYSTEM, "revision": "1"}, origins=at("system"))
     ids["system"] = system
     for value in quantity.values():
-        w.relation("system_conserves", {"system": system, "quantity": value}, {}, at="a.json#/conserves")
+        w.relation(
+            "system_conserves", {"system": system, "quantity": value}, {}, at="a.json#/conserves"
+        )
     forms: dict[str, uuid.UUID] = {}
     for name, (composition, charge, alkalinity, role, member_role, aggregation) in SPECIES.items():
         species = w.kind(
-            "species", {"canonical_key": name, "label": name, "charge": charge}, origins=at(f"s-{name}")
+            "species",
+            {"canonical_key": name, "label": name, "charge": charge},
+            origins=at(f"s-{name}"),
         )
         for key, amount in composition.items():
-            w.relation("composition", {"entity": species, "quantity": quantity[key]}, {"value": amount}, at="a.json#/c")
-        w.relation("composition", {"entity": species, "quantity": quantity["charge"]}, {"value": charge}, at="a.json#/c")
-        w.relation("composition", {"entity": species, "quantity": quantity["alk"]}, {"value": alkalinity}, at="a.json#/c")
+            w.relation(
+                "composition",
+                {"entity": species, "quantity": quantity[key]},
+                {"value": amount},
+                at="a.json#/c",
+            )
+        w.relation(
+            "composition",
+            {"entity": species, "quantity": quantity["charge"]},
+            {"value": charge},
+            at="a.json#/c",
+        )
+        w.relation(
+            "composition",
+            {"entity": species, "quantity": quantity["alk"]},
+            {"value": alkalinity},
+            at="a.json#/c",
+        )
         forms[name] = w.kind(
             "species_form",
             {
@@ -235,7 +280,10 @@ def write_chemistry(w: CanonicalWriter, decl: Declaration, ids: dict[str, uuid.U
     for role, state in states.items():
         w.relation(
             "convention_standard_state",
-            {"convention_set": ids["conventions"], "member_role": entity_id(decl, "member_role", role)},
+            {
+                "convention_set": ids["conventions"],
+                "member_role": entity_id(decl, "member_role", role),
+            },
             {"value": state},
             at="a.json#/standard-state",
         )
@@ -269,7 +317,9 @@ def write_chemistry(w: CanonicalWriter, decl: Declaration, ids: dict[str, uuid.U
             {
                 "system": system,
                 "key": phase,
-                "aggregation": entity_id(decl, "aggregation", "adsorbed" if phase == "EXCHANGER" else "surface"),
+                "aggregation": entity_id(
+                    decl, "aggregation", "adsorbed" if phase == "EXCHANGER" else "surface"
+                ),
                 "structure": "surface",
             },
             origins=at(f"phase-{phase}"),
@@ -277,7 +327,13 @@ def write_chemistry(w: CanonicalWriter, decl: Declaration, ids: dict[str, uuid.U
         ids[f"phase_{phase}"] = definition
         site_class = w.kind(
             "site_class",
-            {"phase": definition, "index": 1, "label": site, "ratio_kind": "constant", "ratio": 1.0},
+            {
+                "phase": definition,
+                "index": 1,
+                "label": site,
+                "ratio_kind": "constant",
+                "ratio": 1.0,
+            },
             origins=at(f"site-class-{site}"),
         )
         ids[f"site_class_{site}"] = site_class
@@ -383,7 +439,12 @@ def write_assemblies(w: CanonicalWriter, ids: dict[str, uuid.UUID]) -> None:
     for name, choices in ASSEMBLY.items():
         assembly = w.kind(
             "model_assembly",
-            {"key": f"aqueous-{name}", "revision": "1", "title": name, "root": "aqueous_standard_state"},
+            {
+                "key": f"aqueous-{name}",
+                "revision": "1",
+                "title": name,
+                "root": "aqueous_standard_state",
+            },
             origins=at(f"assembly-{name}"),
         )
         ids[f"assembly_{name}"] = assembly
@@ -464,8 +525,12 @@ def scalar(conn: psycopg.Connection, query: str, *params: object) -> object:
     return row[0]
 
 
-def source(world: World, conn: psycopg.Connection, **subforms: list[SubformBinding]) -> DatabaseSource:
-    return DatabaseSource(conn, world.decl, [world.ids["parameterization"]], subforms=subforms or None)
+def source(
+    world: World, conn: psycopg.Connection, **subforms: list[SubformBinding]
+) -> DatabaseSource:
+    return DatabaseSource(
+        conn, world.decl, [world.ids["parameterization"]], subforms=subforms or None
+    )
 
 
 def number(value: object) -> np.ndarray:
@@ -562,7 +627,9 @@ def test_a_participant_takes_the_standard_state_of_its_member_role(
         "exchange_species": "site_reference",
         "surface_species": "site_reference",
     }
-    assert scalar(conn, "SELECT count(standard_state) FROM tk.reaction_participant") == 0  # none states its own
+    assert (
+        scalar(conn, "SELECT count(standard_state) FROM tk.reaction_participant") == 0
+    )  # none states its own
 
 
 # -- log K and the interaction terms, against numpy -----------------------------------------------
@@ -598,8 +665,12 @@ def test_the_van_t_hoff_log_k_matches_the_independent_calculation_with_the_conve
     )
     log_k_ref, delta_h = VAN_T_HOFF[label]
     got = number(found.evaluate("log_k", T=TEMPERATURES))
-    np.testing.assert_allclose(got, log_k_van_t_hoff(log_k_ref, delta_h, TEMPERATURES), rtol=1e-12, atol=1e-13)
-    assert got[1] == pytest.approx(log_k_ref, abs=1e-12)  # the constant at 298.15 K is the stored one
+    np.testing.assert_allclose(
+        got, log_k_van_t_hoff(log_k_ref, delta_h, TEMPERATURES), rtol=1e-12, atol=1e-13
+    )
+    assert got[1] == pytest.approx(
+        log_k_ref, abs=1e-12
+    )  # the constant at 298.15 K is the stored one
 
 
 def test_a_reaction_written_on_another_basis_is_another_reaction_with_its_own_constant(
@@ -630,8 +701,12 @@ def test_a_reaction_written_on_another_basis_is_another_reaction_with_its_own_co
     from_carbonate = log_k("log_k_analytic", "carbon dioxide")
     from_bicarbonate = log_k("log_k_van_t_hoff", "carbon dioxide from bicarbonate")
     assert from_carbonate != pytest.approx(from_bicarbonate, abs=0.1), "two constants, not one"
-    assert from_carbonate == pytest.approx(log_k("log_k_analytic", "bicarbonate") + from_bicarbonate, abs=0.001)
-    unwritten = bind(world.decl, "log_k_analytic", source=source(world, conn), roles={"r": str(uuid.uuid4())})
+    assert from_carbonate == pytest.approx(
+        log_k("log_k_analytic", "bicarbonate") + from_bicarbonate, abs=0.001
+    )
+    unwritten = bind(
+        world.decl, "log_k_analytic", source=source(world, conn), roles={"r": str(uuid.uuid4())}
+    )
     with pytest.raises(EvaluationRefusal, match="log_k_analytic.reaction"):
         unwritten.evaluate("log_k", T=at_25)
 
@@ -645,11 +720,16 @@ def test_the_pitzer_osmotic_coefficients_match_the_independent_calculation(
         world.decl,
         "pitzer_ion_pair",
         source=source(world, conn),
-        roles={"cation": str(world.ids[f"species_{cation}"]), "anion": str(world.ids[f"species_{anion}"])},
+        roles={
+            "cation": str(world.ids[f"species_{cation}"]),
+            "anion": str(world.ids[f"species_{anion}"]),
+        },
         cache=CACHE,
     )
     I = np.array([0.01, 0.1, 0.5, 1.0, 3.0, 6.0])
-    np.testing.assert_allclose(number(found.evaluate("B_phi", I=I)), b_phi(PITZER[pair], I), rtol=1e-12)
+    np.testing.assert_allclose(
+        number(found.evaluate("B_phi", I=I)), b_phi(PITZER[pair], I), rtol=1e-12
+    )
     np.testing.assert_allclose(number(found.evaluate("C_phi", I=I)), PITZER[pair][5], rtol=1e-12)
 
 
@@ -669,7 +749,9 @@ def test_theta_and_psi_are_the_same_whichever_of_the_like_ions_is_named_first(
 
     sodium, calcium, chloride = (str(world.ids[f"species_{n}"]) for n in ("Na+", "Ca+2", "Cl-"))
     for i, j in ((sodium, calcium), (calcium, sodium)):
-        assert evaluate("pitzer_theta", "theta", i=i, j=j) == pytest.approx(THETA[("Na+", "Ca+2")], rel=1e-13)
+        assert evaluate("pitzer_theta", "theta", i=i, j=j) == pytest.approx(
+            THETA[("Na+", "Ca+2")], rel=1e-13
+        )
         assert evaluate("pitzer_psi", "psi", i=i, j=j, k=chloride) == pytest.approx(
             PSI[("Na+", "Ca+2", "Cl-")], rel=1e-13
         )
@@ -686,30 +768,38 @@ def test_the_specific_interaction_term_matches_the_independent_calculation(
         cache=CACHE,
     )
     m = np.array([0.05, 0.5, 2.0])
-    np.testing.assert_allclose(number(found.evaluate("log10_gamma_term", m=m)), SIT[("Na+", "Cl-")] * m, rtol=1e-13)
+    np.testing.assert_allclose(
+        number(found.evaluate("log10_gamma_term", m=m)), SIT[("Na+", "Cl-")] * m, rtol=1e-13
+    )
     swapped = bind(
         world.decl,
         "sit_epsilon",
         source=source(world, conn),
         roles={"i": str(world.ids["species_Cl-"]), "j": str(world.ids["species_Na+"])},
     )
-    np.testing.assert_allclose(number(swapped.evaluate("log10_gamma_term", m=m)), SIT[("Na+", "Cl-")] * m, rtol=1e-13)
+    np.testing.assert_allclose(
+        number(swapped.evaluate("log10_gamma_term", m=m)), SIT[("Na+", "Cl-")] * m, rtol=1e-13
+    )
 
 
 # -- the standard state of a species, assembled for the species ----------------------------------
 
 
-def assembly_bindings(world: World, conn: psycopg.Connection, name: str) -> dict[str, list[SubformBinding]]:
+def assembly_bindings(
+    world: World, conn: psycopg.Connection, name: str
+) -> dict[str, list[SubformBinding]]:
     rows = conn.execute(
         "SELECT sl.qualified_name, f.name FROM tk.assembly_choice c "
         "JOIN meta.subform_slot sl ON sl.id = c.slot JOIN meta.form f ON f.id = c.form "
         "WHERE c.assembly = %s ORDER BY c.path, c.ordinal",
-        (scalar(
-            conn,
-            "SELECT value FROM tk.entity_model WHERE parameterization = %s AND entity = %s",
-            world.ids["parameterization"],
-            world.ids[f"form_{name}"],
-        ),),
+        (
+            scalar(
+                conn,
+                "SELECT value FROM tk.entity_model WHERE parameterization = %s AND entity = %s",
+                world.ids["parameterization"],
+                world.ids[f"form_{name}"],
+            ),
+        ),
     ).fetchall()
     found: dict[str, list[SubformBinding]] = {}
     for slot, form in rows:
@@ -760,9 +850,14 @@ def test_the_species_of_constant_energy_evaluates_through_its_assembly(
 def test_the_hkf_ion_is_held_with_its_parameters_but_its_equations_live_in_code(
     world: World, conn: psycopg.Connection
 ) -> None:
-    row = conn.execute('SELECT "g_f", "omega", "a1", "c2" FROM param."hkf_standard_state__pure"').fetchone()
+    row = conn.execute(
+        'SELECT "g_f", "omega", "a1", "c2" FROM param."hkf_standard_state__pure"'
+    ).fetchone()
     assert row == (
-        pytest.approx(HKF["g_f"]), pytest.approx(HKF["omega"]), pytest.approx(HKF["a1"]), pytest.approx(HKF["c2"])
+        pytest.approx(HKF["g_f"]),
+        pytest.approx(HKF["omega"]),
+        pytest.approx(HKF["a1"]),
+        pytest.approx(HKF["c2"]),
     )
     found = bind(
         world.decl,
@@ -774,7 +869,9 @@ def test_the_hkf_ion_is_held_with_its_parameters_but_its_equations_live_in_code(
         found.evaluate("G0", T=np.array([298.15]), P=np.array([1e5]))
 
 
-def test_the_assembly_of_one_species_is_not_applied_to_another(world: World, conn: psycopg.Connection) -> None:
+def test_the_assembly_of_one_species_is_not_applied_to_another(
+    world: World, conn: psycopg.Connection
+) -> None:
     found = bind(
         world.decl,
         "aqueous_standard_state",
@@ -802,14 +899,21 @@ def test_the_checks_of_verify_flag_an_unbalanced_reaction_and_a_participant_with
         write_chemistry(w, decl, ids)
         write_parameters(w, ids)
 
-        def form(name: str, aggregation: str, composition: dict[str, int], charge: int = 0) -> uuid.UUID:
+        def form(
+            name: str, aggregation: str, composition: dict[str, int], charge: int = 0
+        ) -> uuid.UUID:
             species = ids.get(f"species_{name}") or w.kind(
-                "species", {"canonical_key": name, "label": name, "charge": charge}, origins=at(f"s-{name}")
+                "species",
+                {"canonical_key": name, "label": name, "charge": charge},
+                origins=at(f"s-{name}"),
             )
             ids[f"species_{name}"] = species
             for key, amount in composition.items():
                 w.relation(
-                    "composition", {"entity": species, "quantity": ids[f"quantity_{key}"]}, {"value": amount}, at="a.json#/c"
+                    "composition",
+                    {"entity": species, "quantity": ids[f"quantity_{key}"]},
+                    {"value": amount},
+                    at="a.json#/c",
                 )
             return w.kind(
                 "species_form",
@@ -823,7 +927,11 @@ def test_the_checks_of_verify_flag_an_unbalanced_reaction_and_a_participant_with
             )
 
         def reaction(key: str, participants: dict[uuid.UUID, int]) -> uuid.UUID:
-            made = w.kind("reaction", {"canonical_key": key, "extent": "as_written"}, origins=at(f"reaction-{key}"))
+            made = w.kind(
+                "reaction",
+                {"canonical_key": key, "extent": "as_written"},
+                origins=at(f"reaction-{key}"),
+            )
             for participant, coefficient in participants.items():
                 w.relation(
                     "reaction_participant",
@@ -838,7 +946,12 @@ def test_the_checks_of_verify_flag_an_unbalanced_reaction_and_a_participant_with
             "Na+ + X- = NaX-without-site",
             {ids["form_Na+"]: -1, ids["form_X-"]: -1, sodium_no_site: 1},
         )
-        w.relation("system_reaction", {"system": ids["system"], "reaction": unbalanced}, {}, at="a.json#/system-reaction")
+        w.relation(
+            "system_reaction",
+            {"system": ids["system"], "reaction": unbalanced},
+            {},
+            at="a.json#/system-reaction",
+        )
         outside = reaction(
             "Mg+2 (liquid) = Mg+2 (adsorbed)",
             {form("Mg+2", "liquid", {"charge": 2}, 2): -1, form("Mg+2", "adsorbed", {}): 1},
@@ -857,19 +970,28 @@ def test_the_checks_of_verify_flag_an_unbalanced_reaction_and_a_participant_with
         )
         w.kind(
             "assembly_choice",
-            {"assembly": half, "path": "eos", "ordinal": 1, "slot": "aqueous_standard_state.eos", "form": "hkf_standard_state"},
+            {
+                "assembly": half,
+                "path": "eos",
+                "ordinal": 1,
+                "slot": "aqueous_standard_state.eos",
+                "form": "hkf_standard_state",
+            },
             at="a.json#/choice",
         )
 
     database = build(tmp_path, emit, decl)
     try:
         with psycopg.connect(database.url) as connection:
-            assert failing(connection) == {
-                "reaction.conserves_declared_quantities": 1,  # the site total X
-                "system_reaction.conserves_system_quantities": 1,
-                "reaction.standard_states_for_equilibrium_constant": 2,  # both forms of the outside reaction
-                "model_assembly.single_slots_decided": 2,  # the solvent permittivity and density
-            }
+            assert (
+                failing(connection)
+                == {
+                    "reaction.conserves_declared_quantities": 1,  # the site total X
+                    "system_reaction.conserves_system_quantities": 1,
+                    "reaction.standard_states_for_equilibrium_constant": 2,  # both forms of the outside reaction
+                    "model_assembly.single_slots_decided": 2,  # the solvent permittivity and density
+                }
+            )
     finally:
         database.remove()
 

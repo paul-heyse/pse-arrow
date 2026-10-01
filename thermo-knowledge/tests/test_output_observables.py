@@ -11,9 +11,9 @@ import uuid
 from pathlib import Path
 
 import pytest
+
 from declaration_support import NO_PHYSICAL, copy_full, full_declaration
 from mapping_support import extended_declaration, origin, writer
-
 from thermo_knowledge.build import build_database
 from thermo_knowledge.canonical.writer import CanonicalWriter, ValidationError
 from thermo_knowledge.declaration import Declaration, Diagnostic, load_declaration

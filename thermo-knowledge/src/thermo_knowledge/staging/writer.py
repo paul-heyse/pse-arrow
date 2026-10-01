@@ -23,7 +23,7 @@ import pyarrow.parquet as pq
 
 from thermo_knowledge.staging import schema as schema_module
 from thermo_knowledge.staging.errors import StagingError
-from thermo_knowledge.staging.manifest import FileRecord, FileStatus, TableRecord
+from thermo_knowledge.staging.manifest import FileRecord, TableRecord
 from thermo_knowledge.staging.schema import ARTIFACT, LOCATOR
 
 BATCH_ROWS = 50_000

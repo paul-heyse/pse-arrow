@@ -225,6 +225,8 @@ frames! {
         MathTypedDefinitionV6 => "pse.math.typed-definition.v6",
         /// Checked expression occurrences and complete contextual admission products.
         MathTypedDefinitionV7 => "pse.math.typed-definition.v7",
+        /// Scientific applicability effect stages, selected records and named permissions.
+        MathTypedDefinitionV8 => "pse.math.typed-definition.v8",
         /// A prepared view of a compiled modeling structure.
         CompilerModelingViewV2 => "pse.compiler.modeling-view.v2",
         /// The parametric projection of a prepared modeling view over requested parameters.
@@ -253,6 +255,8 @@ frames! {
         ModelingDispatchBodyV3 => "pse.modeling.dispatch-body.v3",
         /// Checked expression occurrences and complete contextual admission products.
         ModelingDispatchBodyV4 => "pse.modeling.dispatch-body.v4",
+        /// Checked scientific record identities and dependency closure products.
+        ModelingDispatchBodyV5 => "pse.modeling.dispatch-body.v5",
         /// A finite function specialization, its validity, data-layer guards with their
         /// envelopes and selected policies, each with the parameter sets and arguments it
         /// reads, and body in canonical spelling, and its static arguments, enumeration
@@ -262,6 +266,12 @@ frames! {
         ModelingFiniteFunctionV6 => "pse.modeling.finite-function.v6",
         /// Checked expression occurrences and complete contextual admission products.
         ModelingFiniteFunctionV7 => "pse.modeling.finite-function.v7",
+        /// Checked scientific record identities and dependency closure products.
+        ModelingFiniteFunctionV8 => "pse.modeling.finite-function.v8",
+        /// Declared claim, form, actual selected identities and numerical arguments.
+        ModelingApplicabilityCallV1 => "pse.modeling.applicability-call.v1",
+        /// Explicit whole-interval coverage of the same declared interval claim.
+        ModelingApplicabilityCoverageV1 => "pse.modeling.applicability-coverage.v1",
         /// A finite reduction rewrite.
         ModelingFiniteReductionV1 => "pse.modeling.finite-reduction.v1",
         /// Checked expression occurrences and complete contextual admission products.

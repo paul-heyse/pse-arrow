@@ -78,9 +78,7 @@ def build_command(
     try:
         inputs = discover(config.canonical_dir(), _ids(sources))
         fingerprint = declaration_fingerprint(decl, read_physical(tree))
-        outputs, skipped = discover_qualification(
-            config.canonical_dir(), inputs, decl, fingerprint
-        )
+        outputs, skipped = discover_qualification(config.canonical_dir(), inputs, decl, fingerprint)
         inputs = [*inputs, *outputs]
         for item in skipped:
             typer.echo(f"skipped qualification output {item.case}: {item.reason}")

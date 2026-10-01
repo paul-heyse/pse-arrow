@@ -102,6 +102,14 @@ pub(crate) enum Stage {
         token: Slot,
         lineage: std::sync::Arc<pse_model::diagnostic::ValidityLineage>,
     },
+    /// Evidence evaluated at value order only on the application's demanded path.
+    Applicability {
+        stages: Vec<Stage>,
+        predicates: Vec<Slot>,
+        inputs: Vec<Slot>,
+        token: Slot,
+        plan: std::sync::Arc<pse_model::applicability::Node>,
+    },
     /// Lazy regions. Both branches write the same declared result slots.
     Branch {
         /// Boundary agreement established by the physically typed builder.
@@ -191,6 +199,26 @@ pub(crate) fn validate_dependencies(
                 validate_dependencies(stages, symbols, &mut local, depth + 1, remaining)?;
                 if !local.contains(argument) {
                     return Err(MathError::Contract("unassigned domain predicate".into()));
+                }
+                Some(std::slice::from_ref(token))
+            }
+            Stage::Applicability {
+                stages,
+                predicates,
+                inputs,
+                token,
+                ..
+            } => {
+                let mut local = assigned.clone();
+                validate_dependencies(stages, symbols, &mut local, depth + 1, remaining)?;
+                if predicates
+                    .iter()
+                    .chain(inputs)
+                    .any(|slot| !local.contains(slot))
+                {
+                    return Err(MathError::Contract(
+                        "unassigned applicability input or predicate".into(),
+                    ));
                 }
                 Some(std::slice::from_ref(token))
             }

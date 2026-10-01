@@ -31,10 +31,10 @@ from pathlib import Path
 
 import pyarrow as pa
 
-from thermo_knowledge.staging.shared_specs import SHARED_TABLES
-from thermo_knowledge.staging.tabular import Delimited, Handler, read_delimited, schemas_of
 from thermo_knowledge.readers.thermo import correlations, interaction, ipd, unifac
 from thermo_knowledge.staging.errors import StagingError
+from thermo_knowledge.staging.shared_specs import SHARED_TABLES
+from thermo_knowledge.staging.tabular import Delimited, Handler, read_delimited, schemas_of
 from thermo_knowledge.staging.writer import Writer
 
 READER_VERSION = "2"
@@ -75,7 +75,9 @@ def _handlers() -> dict[str, Handler]:
                 raise StagingError(f"{artifact}: two rules for one file")
 
             def handler(tree: Path, artifact: str, writer: Writer, spec: Delimited = spec) -> None:
-                read_delimited(tree, DATA_ROOT, spec, artifact.removeprefix(f"{DATA_ROOT}/"), writer)
+                read_delimited(
+                    tree, DATA_ROOT, spec, artifact.removeprefix(f"{DATA_ROOT}/"), writer
+                )
 
             handlers[artifact] = handler
     return handlers

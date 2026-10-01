@@ -46,7 +46,6 @@ import pyarrow as pa
 from thermo_knowledge.staging.errors import StagingError
 from thermo_knowledge.staging.schema import (
     INT64,
-    NOT_STATED,
     STRING,
     column,
     table_schema,
@@ -115,7 +114,9 @@ SCHEMA_ELEMENTS = table_schema(
     _text("ref_prefix", "ref (before the colon)"),
     _text("ref_local", "ref (after the colon)"),
     *_type_columns("type"),
-    _text("min_occurs", "minOccurs", note="as written; null when not written (the XSD default is 1)"),
+    _text(
+        "min_occurs", "minOccurs", note="as written; null when not written (the XSD default is 1)"
+    ),
     _text(
         "max_occurs",
         "maxOccurs",
@@ -125,7 +126,9 @@ SCHEMA_ELEMENTS = table_schema(
     _int("compositor_line", "line of the enclosing sequence or choice"),
     _int("compositor_column", "column of the enclosing sequence or choice"),
     _int("position", "index among the element and compositor children of the enclosing compositor"),
-    _text("inline_type", "kind of the anonymous type the element declares: complexType or simpleType"),
+    _text(
+        "inline_type", "kind of the anonymous type the element declares: complexType or simpleType"
+    ),
     column(
         "is_global",
         pa.bool_(),
@@ -353,7 +356,9 @@ class Walker:
     # -- top level -----------------------------------------------------------------------------
 
     def schema(self, root: Node) -> None:
-        self.check(root, ("targetNamespace", "elementFormDefault", "attributeFormDefault"), "schema")
+        self.check(
+            root, ("targetNamespace", "elementFormDefault", "attributeFormDefault"), "schema"
+        )
         self.emit(
             "schema_document",
             self.row(
@@ -369,18 +374,24 @@ class Walker:
             elif child.tag == "element":
                 name = child.attributes.get("name")
                 if name is None:
-                    raise StagingError(f"{locator(child.line, child.column)}: a global element without name")
+                    raise StagingError(
+                        f"{locator(child.line, child.column)}: a global element without name"
+                    )
                 scope = Scope("element", name)
                 self.element(child, scope, name, None, None, is_global=True)
             elif child.tag == "complexType":
                 name = child.attributes.get("name")
                 if name is None:
-                    raise StagingError(f"{locator(child.line, child.column)}: a global complexType without name")
+                    raise StagingError(
+                        f"{locator(child.line, child.column)}: a global complexType without name"
+                    )
                 self.complex_type(child, Scope("complexType", name), name)
             elif child.tag == "simpleType":
                 name = child.attributes.get("name")
                 if name is None:
-                    raise StagingError(f"{locator(child.line, child.column)}: a global simpleType without name")
+                    raise StagingError(
+                        f"{locator(child.line, child.column)}: a global simpleType without name"
+                    )
                 self.simple_type(child, Scope("simpleType", name), name)
             else:
                 raise self.unexpected(child, "schema")
@@ -472,7 +483,9 @@ class Walker:
             self.check(child, ("value",), "enumeration")
             value = child.attributes.get("value")
             if value is None:
-                raise StagingError(f"{locator(child.line, child.column)}: an enumeration without value")
+                raise StagingError(
+                    f"{locator(child.line, child.column)}: an enumeration without value"
+                )
             element_name = None if name is not None else path.rsplit("/", 1)[-1]
             segments = path.split("/")
             group = None

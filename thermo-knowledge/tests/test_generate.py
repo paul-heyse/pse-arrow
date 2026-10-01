@@ -11,10 +11,10 @@ import socket
 from pathlib import Path
 
 import pytest
-from declaration_support import copy_full, empty_declaration, full_declaration, overlay
-from mapping_support import FORMS, MODEL
 from typer.testing import CliRunner
 
+from declaration_support import copy_full, empty_declaration, full_declaration, overlay
+from mapping_support import FORMS, MODEL
 from thermo_knowledge import config
 from thermo_knowledge.cli import app
 from thermo_knowledge.declaration import DeclarationError, load_declaration
@@ -53,7 +53,8 @@ def test_generation_is_byte_identical_across_runs_and_loads() -> None:
     second = generate(full_declaration())
     assert first == second
     fresh = load_declaration(
-        full_declaration_dir() / "model", full_declaration_dir() / "forms", contract=None).require()
+        full_declaration_dir() / "model", full_declaration_dir() / "forms", contract=None
+    ).require()
     assert generate(fresh) == first
     assert list(first) == [SCHEMA_PATH]
     assert all(isinstance(content, bytes) for content in first.values())

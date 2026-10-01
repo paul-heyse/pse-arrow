@@ -248,6 +248,8 @@ pub struct ModelingConformanceReport {
     pub run_id: RunId,
     /// Recorded checks, in execution order.
     pub checks: Vec<ModelingConformanceCheck>,
+    /// Demanded pure-point evidence retains complete typed authorization and input lineage.
+    pub applicability: BTreeMap<DeclarationId,Vec<pse_model::applicability::Observation>>,
     /// Solve results, by fixture.
     pub results: BTreeMap<DeclarationId, ModelingResult>,
     /// Initialization reports, by fixture.
@@ -304,6 +306,7 @@ impl ModelingConformanceReport {
         Ok(Self {
             run_id: pse_operations::mint_id(),
             checks: Vec::with_capacity(cap),
+            applicability: BTreeMap::new(),
             failures: Vec::with_capacity(cap),
             results: BTreeMap::new(),
             initializations: BTreeMap::new(),
@@ -880,6 +883,15 @@ impl ModelingConformanceReport {
                             if expected == dof { Status::Passed } else { Status::Failed },
                             format!("pure point evaluation; structural DoF {dof}; expected {expected}; no solve attempted"), oracle, cap);
                 self.point_validity(fixture, &checks.validity, oracle, cap);
+                let bytes=checks.applicability.capacity()*size_of::<pse_model::applicability::Observation>()+checks.applicability.iter().map(|o|o.retained_bytes()).sum::<usize>();
+                if self._owner.try_grow(bytes).is_err() {
+                    self.complete=false;
+                    self.record_fixture(fixture,Kind::Check,Status::Failed,"scientific evidence exceeds report memory budget",oracle,cap);
+                    return;
+                }
+                let evidence=super::results::applicability_checks(self.run_id,&checks.applicability);
+                self.model_checks(fixture,&evidence,oracle,cap);
+                self.applicability.insert(fixture,checks.applicability);
                 for check in checks.expectations {
                     let index = self.checks.len();
                     self.record(
@@ -981,6 +993,11 @@ impl ModelingConformanceReport {
                 cap,
             );
         }
+    }
+    /// Pure-point scientific evidence as the registry-owned `modeling_checks` relation.
+    pub fn applicability_table(&self)->Result<pse_relations::columnar::FieldCheckedBatch,WorkflowError> {
+        let rows=self.applicability.values().flat_map(|observations|super::results::applicability_checks(self.run_id,observations)).collect::<Vec<_>>();
+        self.export(&rows)
     }
     /// The recorded checks as a checked `modeling_conformance` relation.
     pub fn table(&self) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {

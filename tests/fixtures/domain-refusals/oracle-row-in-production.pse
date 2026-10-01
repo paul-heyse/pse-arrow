@@ -10,12 +10,16 @@ package refusal {
  use corpus @"1.0.0";
  use properties @"1.0.0";
  use provenance @"1.0.0";
- dataset oracle_sets: corpus.constant_cp bind(source = corpus.oracle_release, property = properties.heat_capacity) provenance(corpus.oracle_release, provenance.Role.oracle_input) {
+ dataset oracle_sets: corpus.constant_cp bind(parameterization=oracle_fit,source=corpus.oracle_release,dependencies={},conventions={},property = properties.heat_capacity) provenance(corpus.oracle_release, provenance.Role.oracle_input) {
   [corpus.ethane, liquidPhase] = [250{K}, 400{K}, 70{J/(mol*K)}];
  }
+ entity properties.parameterization oracle_fit {title="Synthetic independent oracle fit",source=corpus.oracle_release}
+ entity properties.selection_context admitted {roots={properties.phased_parameter[corpus.ethane,properties.heat_capacity,liquidPhase,oracle_fit]},subjects={corpus.ethane},models={properties.heat_capacity},rules={}}
+ entity properties.property_package pkg {admitted=admitted}
+ set packages:Set<properties.property_package>={pkg};
  set components: Set<chemistry.species> = {corpus.ethane};
- dataset choice: properties.selection complete_over(k in corpus.packages, j in components, p in corpus.heat, t in corpus.liquid) provenance(corpus.bank, provenance.Role.published) {
-  [corpus.pkg, corpus.ethane, properties.heat_capacity, liquidPhase] = [properties.parameter_set[corpus.ethane, properties.heat_capacity, liquidPhase, corpus.oracle_release]];
+ dataset choice: properties.selection complete_over(k in packages, j in components, p in corpus.heat, t in corpus.liquid) provenance(corpus.bank, provenance.Role.published) {
+  [pkg, corpus.ethane, properties.heat_capacity, liquidPhase] = [properties.phased_parameter[corpus.ethane, properties.heat_capacity, liquidPhase, oracle_fit]];
  }
- def Root { var c: MolarCp; eq e: c == properties.cp(corpus.pkg, chemistry.liquid, corpus.ethane, 300{K}); }
+ def Root { var c: MolarCp; eq e: c == properties.cp(pkg, chemistry.liquid, corpus.ethane, 300{K}); }
 }

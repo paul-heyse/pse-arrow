@@ -19,6 +19,8 @@ import psycopg
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
+from typer.testing import CliRunner
+
 from build_support import count
 from mapping_support import real_declaration
 from qualify_support import (
@@ -31,18 +33,16 @@ from qualify_support import (
     case_text,
     fixture_declaration,
 )
-from typer.testing import CliRunner
-
 from thermo_knowledge import config, db
 from thermo_knowledge.build import SourceInput, build_database, currency, discover
-from thermo_knowledge.canonical import store
 from thermo_knowledge.build.inputs import QUALIFICATION_DIR, discover_qualification
+from thermo_knowledge.canonical import store
 from thermo_knowledge.cli import app
 from thermo_knowledge.generate.fingerprint import declaration_fingerprint
 from thermo_knowledge.qualify import persist
 from thermo_knowledge.qualify.case import CaseError, load_case, validate
-from thermo_knowledge.schema_build import read_physical
 from thermo_knowledge.qualify.run import Context, grids, run_case, select_subjects, table_lines
+from thermo_knowledge.schema_build import read_physical
 from thermo_knowledge.testing import TestDatabase
 
 runner = CliRunner()
@@ -402,11 +402,7 @@ def test_a_grid_is_spread_within_each_region_with_the_inset_a_fraction_of_its_ra
     env: Env,
 ) -> None:
     with db.connect(env.database.url) as conn:
-        case = env.case(
-            case_text(
-                argument='points = 5\nwithin = "envelope"\ninset = 0.1'
-            )
-        )
+        case = env.case(case_text(argument='points = 5\nwithin = "envelope"\ninset = 0.1'))
         form = env.world.decl.forms[case.spec.form]
         group = next(g for g in form.slot_groups if g.qualified == SATURATION)
         parameterization = conn.execute(
@@ -612,8 +608,10 @@ def test_a_case_refuses_what_it_cannot_ground_in_a_validity_region(env: Env) -> 
     with pytest.raises(CaseError, match="kind"):
         env.case(case_text(validity="[validity]\noutside = 'exclude'"))
     # `qfix_function` has a temperature argument that names no observable
-    hollow = case_text().replace("vapor_pressure_exp_series_tau", "qfix_linear").replace(
-        'output = "p_sat"', 'output = "y"'
+    hollow = (
+        case_text()
+        .replace("vapor_pressure_exp_series_tau", "qfix_linear")
+        .replace('output = "p_sat"', 'output = "y"')
     )
     problems = validate(env.case(hollow), decl)
     assert any(
@@ -698,8 +696,13 @@ def test_a_run_that_cannot_be_carried_out_is_blocked_with_a_typed_reason_and_its
 
 
 def test_a_run_that_compares_nothing_is_blocked_for_that_reason(env: Env) -> None:
-    done = env.run(case_text(call="all_nan", extra_comparison='invalid_points = "exclude"\n'
-                             'invalid_reason = "the library has no answer"'))
+    done = env.run(
+        case_text(
+            call="all_nan",
+            extra_comparison='invalid_points = "exclude"\n'
+            'invalid_reason = "the library has no answer"',
+        )
+    )
     assert done.outcome == "blocked" and done.blocked_reason == "nothing_compared"
 
 
@@ -898,12 +901,16 @@ def test_an_output_that_does_not_match_its_manifest_is_an_error(env: Env) -> Non
 # -- currency: a stored run speaks only for the values it evaluated ---------------------------
 
 
-def mapped_change(env: Env, table: str, column: str, where: str, value: uuid.UUID, factor: float) -> None:
+def mapped_change(
+    env: Env, table: str, column: str, where: str, value: uuid.UUID, factor: float
+) -> None:
     """Change one stored value in the canonical Parquet of the source `src` and refresh its
     manifest, as `tk map` does after a mapping fix: the identifiers stay and a value differs."""
     directory = env.canonical / "src"
     manifest = store.read_manifest(directory)
-    tables = {name: pq.read_table(directory / record.file) for name, record in manifest.tables.items()}
+    tables = {
+        name: pq.read_table(directory / record.file) for name, record in manifest.tables.items()
+    }
     data = tables[table]
     index = data.schema.get_field_index(column)
     targets = {value}

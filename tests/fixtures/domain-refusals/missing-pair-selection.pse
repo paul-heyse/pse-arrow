@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-// A package reads pair data only from the source it selects for the pair property.
+// A package reads only an explicitly selected pair record or prediction rule.
 // root: refusal.Root
-// refusal: lookup pair_selection[pkg, kij] is outside the completeness of pair_selection
-// control: def Root { => dataset chosen: interactions.pair_selection complete_over(k in corpus.packages, p in kijs) provenance(corpus.bank, provenance.Role.published) { [corpus.pkg, kij] = [corpus.bank]; } def Root {
+// refusal: lookup symmetric_selection[pkg, kij,
+// control: def Root { => dataset chosen:interactions.symmetric_selection complete_over(k in packages,family in kijs,i in corpus.aromatics,j in corpus.aromatics) provenance(corpus.bank,provenance.Role.published) {[pkg,kij,corpus.benzene,corpus.toluene]=[interactions.symmetric_scalar[corpus.fit,kij,corpus.benzene,corpus.toluene],missing];} def Root {
 package refusal {
  use corpus @"1.0.0";
  use interactions @"1.0.0";
@@ -11,6 +11,9 @@ package refusal {
  use provenance @"1.0.0";
  entity properties.property kij { quantity = Scalar, shape = properties.IndexShape.pair, applies = {liquidPhase, vaporPhase} }
  set kijs: Set<properties.property> = {kij};
- dataset kij_values: interactions.pair provenance(corpus.bank, provenance.Role.published) { [corpus.bank, kij, corpus.benzene, corpus.toluene] = [0.01]; }
- def Root { var k: Scalar; eq e: k == interactions.pair_parameter(corpus.pkg, kij, corpus.toluene, corpus.benzene); }
+ dataset kij_values:interactions.symmetric_scalar bind(parameterization=corpus.fit,family=kij,source=corpus.bank,dependencies={},conventions={}) provenance(corpus.bank,provenance.Role.published) {[corpus.benzene,corpus.toluene]=[0.01];}
+ entity properties.selection_context admitted {roots={interactions.symmetric_scalar[corpus.fit,kij,corpus.benzene,corpus.toluene]},subjects=corpus.aromatics,models={kij},rules={}}
+ entity properties.property_package pkg {admitted=admitted}
+ set packages:Set<properties.property_package>={pkg};
+ def Root { permission pair_use families(interactions.symmetric_scalar) allow_unknown true allow_extrapolation false; var k: Scalar; eq e: k == interactions.pair_parameter(pkg, kij, corpus.toluene, corpus.benzene); }
 }

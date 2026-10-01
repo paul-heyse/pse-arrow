@@ -535,8 +535,11 @@ def material_key(scheme: str, value: str) -> str:
 
 def _registry_identifiers(entity: SourceEntityRec, schemes: SchemeKinds) -> list[tuple[str, str]]:
     return sorted(
-        {(a.scheme, unicodedata.normalize("NFC", a.value)) for a in entity.assertions
-         if a.scheme in schemes.registry}
+        {
+            (a.scheme, unicodedata.normalize("NFC", a.value))
+            for a in entity.assertions
+            if a.scheme in schemes.registry
+        }
     )
 
 
@@ -671,7 +674,9 @@ def _others(
                 parts.get(canonical, ()),
             )
         elif kind == pc.MATERIAL.declared:
-            registry = sorted({item for e in entities for item in _registry_identifiers(e, schemes)})
+            registry = sorted(
+                {item for e in entities for item in _registry_identifiers(e, schemes)}
+            )
             own = next((item for item in registry if material_key(*item) == canonical), None)
             if own is None and len(registry) == 1:
                 own = registry[0]

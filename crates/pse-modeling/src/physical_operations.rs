@@ -102,6 +102,8 @@ fn function(
     operation: PhysicalOperation,
 ) -> Result<Function> {
     Ok(Function {
+        applicability: Vec::new(),
+        applicability_uses: Vec::new(),
         physical_admissions: BTreeMap::new(),
         physical_operation: Some(operation),
         reduction: None,

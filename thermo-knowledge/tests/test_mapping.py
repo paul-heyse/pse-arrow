@@ -15,6 +15,8 @@ from pathlib import Path
 
 import msgspec
 import pytest
+from typer.testing import CliRunner
+
 from mapping_support import (
     FAKE_MAPPINGS,
     FAKE_TREE,
@@ -23,8 +25,6 @@ from mapping_support import (
     real_declaration,
     rows,
 )
-from typer.testing import CliRunner
-
 from thermo_knowledge import config
 from thermo_knowledge.canonical import store
 from thermo_knowledge.canonical.environment import Environment
@@ -32,8 +32,8 @@ from thermo_knowledge.canonical.writer import CompetingAssertion
 from thermo_knowledge.cli import app
 from thermo_knowledge.declaration.types import registry
 from thermo_knowledge.mapping import claims, runner
-from thermo_knowledge.mapping.spec import MappingSpec, load_spec, validate
 from thermo_knowledge.mapping.runner import MapError
+from thermo_knowledge.mapping.spec import MappingSpec, load_spec, validate
 from thermo_knowledge.resolve.command import resolve_all
 
 cli = CliRunner()
@@ -410,8 +410,10 @@ def test_every_row_ends_in_exactly_one_state_and_the_counts_are_the_report(
     assert unknown["reason"] == "unknown_subject"
     assert "no source entity (species, 'Nobody')" in unknown["detail"]  # type: ignore[operator]
     assert len(held) == 7, "only held and unmapped rows are listed"
-    by_reason = {reason: sum(1 for r in held.values() if r["reason"] == reason) for reason in
-                 {r["reason"] for r in held.values()}}
+    by_reason = {
+        reason: sum(1 for r in held.values() if r["reason"] == reason)
+        for reason in {r["reason"] for r in held.values()}
+    }
     assert outcome.coverage.by_reason() == dict(sorted(by_reason.items()))
     assert "rows not loaded, by reason:" in "\n".join(runner.coverage_lines(outcome.coverage))
 

@@ -104,9 +104,7 @@ def check_width(line: Line) -> None:
         )
 
 
-def read_record(
-    cursor: _Cursor, rows: Rows, first: Line, section: str, record_index: int
-) -> None:
+def read_record(cursor: _Cursor, rows: Rows, first: Line, section: str, record_index: int) -> None:
     second = cursor.take(f"the record of {first.text[:15].strip()!r} (line {first.number})")
     check_width(first)
     check_width(second)

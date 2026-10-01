@@ -83,7 +83,10 @@ def read_claims(directories: dict[str, tuple[Path, CanonicalManifest]]) -> Claim
                         )
             fractions: dict[tuple[str, str, str], str] = {}
             for component in composed.get(key, ()):
-                if fractions.setdefault(component.component, component.fraction) != component.fraction:
+                if (
+                    fractions.setdefault(component.component, component.fraction)
+                    != component.fraction
+                ):
                     raise ResolveError(
                         f"competing claims for the source entity {key}: the fraction of "
                         f"{component.component} is {fractions[component.component]} and "
@@ -301,13 +304,17 @@ def report(read: Claims, resolution: Resolution) -> dict[str, object]:
     provisional = Counter(
         {
             **{pc.SPECIES.declared: sum(1 for s in resolution.species.values() if s.provisional)},
-            **{pc.SPECIES_FORM.declared: sum(1 for f in resolution.forms.values() if f.provisional)},
+            **{
+                pc.SPECIES_FORM.declared: sum(1 for f in resolution.forms.values() if f.provisional)
+            },
             **{
                 pc.DEFINED_MIXTURE.declared: sum(
                     1 for x in resolution.mixtures.values() if x.provisional
                 )
             },
-            **{pc.MATERIAL.declared: sum(1 for x in resolution.materials.values() if x.provisional)},
+            **{
+                pc.MATERIAL.declared: sum(1 for x in resolution.materials.values() if x.provisional)
+            },
             **Counter(x.kind for x in resolution.others.values() if x.provisional),
         }
     )

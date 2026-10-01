@@ -105,7 +105,9 @@ class Layout:
 
     def __init__(self, decl: m.Declaration) -> None:
         self.decl = decl
-        self.columns = {name: tuple(schema.names) for name, schema in canonical_schemas(decl).items()}
+        self.columns = {
+            name: tuple(schema.names) for name, schema in canonical_schemas(decl).items()
+        }
         self.keys = table_keys(decl)
         self.groups = tuple(decl.slot_groups)
 
@@ -215,9 +217,7 @@ def read_records(
         rows = source.rows(pz.table, "id", belonging)
         add(pz.table, rows)
         convention_sets = {
-            _uuid(row[pz.convention_set])
-            for row in rows
-            if row.get(pz.convention_set) is not None
+            _uuid(row[pz.convention_set]) for row in rows if row.get(pz.convention_set) is not None
         }
         choice = pc.SUBJECT_SUBFORM_CHOICE
         add(choice.table, source.rows(choice.table, choice.parameterization, belonging))
@@ -240,7 +240,9 @@ def read_records(
 def differences(recorded: Mapping[str, str], current: Mapping[str, str]) -> str | None:
     """Why `current` is not what a run recorded, or `None` when it is: how many records changed,
     are gone and are new, with the first of each."""
-    changed = sorted(name for name in recorded if name in current and recorded[name] != current[name])
+    changed = sorted(
+        name for name in recorded if name in current and recorded[name] != current[name]
+    )
     gone = sorted(name for name in recorded if name not in current)
     new = sorted(name for name in current if name not in recorded)
     if not (changed or gone or new):

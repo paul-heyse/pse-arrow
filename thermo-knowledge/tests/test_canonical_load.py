@@ -11,9 +11,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import psycopg
+
 from build_support import count, fingerprint, inputs_of, write_source
 from mapping_support import SATURATION, extended_declaration, origin, real_declaration
-
 from thermo_knowledge.build import build_database
 from thermo_knowledge.canonical.values import Quantity, QuantityArray
 from thermo_knowledge.canonical.writer import (
@@ -315,9 +315,7 @@ def test_the_subject_keys_of_top_level_and_nested_sets_verify_and_a_changed_key_
                 "SELECT id FROM tk.parameter_set WHERE parent IS NOT NULL "
                 "ORDER BY subject_key LIMIT 2)"
             )
-            conn.execute(
-                "UPDATE tk.parameter_set SET subject_key = 'top' WHERE parent IS NULL"
-            )
+            conn.execute("UPDATE tk.parameter_set SET subject_key = 'top' WHERE parent IS NULL")
             broken = run_check(conn, check)
             assert broken.error is None and broken.violations == 3
             conn.rollback()

@@ -15,6 +15,8 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 import typer
+from typer.testing import CliRunner
+
 from readers_support import (
     PIN,
     TINY_READER,
@@ -23,8 +25,6 @@ from readers_support import (
     module_resolver,
     tiny_module,
 )
-from typer.testing import CliRunner
-
 from thermo_knowledge import config
 from thermo_knowledge.acquire.lock import write_lock
 from thermo_knowledge.cli import app

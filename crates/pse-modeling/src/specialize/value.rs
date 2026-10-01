@@ -191,6 +191,7 @@ impl Value {
 pub type Environment = BTreeMap<String, Value>;
 
 pub(crate) struct Evaluator<'a, 'b> {
+    pub selections: Option<&'a crate::scientific_selection::Collector>,
     pub package: &'a CheckedPackage,
     pub physical: &'a TypeContext<'b>,
     pub at: DeclarationId,
@@ -287,6 +288,7 @@ impl Evaluator<'_, '_> {
                             limit: self.limit,
                             stack: self.stack.clone(),
                             reader: self.reader,
+                            selections: self.selections,
                         };
                         let Value::Set(values) = evaluator.syntax(source, None, depth + 1)? else {
                             return Err(invalid(
@@ -321,6 +323,7 @@ impl Evaluator<'_, '_> {
                         limit: self.limit,
                         stack: self.stack.clone(),
                         reader: self.reader,
+                        selections: self.selections,
                     };
                     if let Some(filter) = filter
                         && !evaluator.predicate(filter)?
@@ -382,6 +385,7 @@ impl Evaluator<'_, '_> {
             return Err(invalid(self.at, "static reference depth"));
         }
         if let Some(v) = self.env.get(name) {
+            crate::scientific_selection::retain_context(self.package, v, self.selections);
             return Ok(v.clone());
         }
         let Some(id) = self.package.resolve(self.at, name) else {
@@ -482,13 +486,21 @@ impl Evaluator<'_, '_> {
         };
         self.at = saved_at;
         self.stack.pop();
+        if let Ok(value) = &value {
+            crate::scientific_selection::retain_context(self.package, value, self.selections);
+        }
         value
     }
     /// A named member of a static value: a definition's member, a row's column, an
     /// entity's attribute or a reference state's condition. An entity's attributes are
     /// read from its record, typed once at admission (ADR-0123 Outcome 2).
     fn member(&mut self, value: Value, name: &str) -> Result<Value> {
-        Ok(match value {
+        crate::scientific_selection::retain_context(self.package, &value, self.selections);
+        let numeric_owner = match &value {
+            Value::Entity { id, .. } => Some(*id),
+            _ => None,
+        };
+        let result = match value {
             Value::Definition { id, bindings } => self.definition_member(id, &bindings, name)?,
             Value::Row { names, fields, .. } => names
                 .iter()
@@ -527,7 +539,17 @@ impl Evaluator<'_, '_> {
                 return Err(invalid(self.at, "missing optional row must be guarded"));
             }
             _ => return Err(invalid(self.at, "static value has no named member")),
-        })
+        };
+        crate::scientific_selection::retain_context(self.package, &result, self.selections);
+        if matches!(
+            &result,
+            Value::Number { .. } | Value::Integer(_) | Value::Coordinate { .. }
+        ) && let Some(id) = numeric_owner
+            && let Some(collector) = self.selections
+        {
+            collector.record_numeric(id);
+        }
+        Ok(result)
     }
     /// The row of a keyed kind with the given key values: the key-declaring kind's keys in
     /// order, trailing keys with a default omitted (ADR-0123 Outcome 2).
@@ -567,6 +589,7 @@ impl Evaluator<'_, '_> {
             .keyed_row(kind, &values)
             .ok_or_else(|| invalid(self.at, format!("no {} row has these keys", name())))?;
         // ADR-0123 Outcome 5: a root outside a test fixture reads no test-only row.
+        crate::scientific_selection::retain_context(self.package, &row, self.selections);
         if let Value::Entity { id, .. } = &row {
             let origin = self.package.record(*id).map(|r| r.origin);
             self.reader.read(
@@ -651,10 +674,25 @@ impl Evaluator<'_, '_> {
         }
         // The operands are static values: an optional member a guard found present has its
         // present type, as the guard's refinement typed it (Plan 23 D0).
+        let mut presence_paths = BTreeSet::new();
+        e.walk(|node| {
+            if let ExprKind::NamedCall { name, args } = &node.kind
+                && matches!(name.as_str(),"present" | "require_present")
+                && let [
+                    Expr {
+                        kind: ExprKind::Path(path),
+                        ..
+                    },
+                ] = args.as_slice()
+            {
+                presence_paths.insert(dsl::render_path(path));
+            }
+        });
         for path in e.paths() {
             if path.segments.len() > 1 && path.segments.iter().all(|s| s.indices.is_empty()) {
                 let name = dsl::render_path(path);
                 if !env.contains_key(&name)
+                    && !presence_paths.contains(&name)
                     && let Ok(value) = self.expr(
                         &Expr {
                             kind: ExprKind::Path(path.clone()),
@@ -792,6 +830,11 @@ impl Evaluator<'_, '_> {
                                 if !conforms(&v, &key.ty, self.package) {
                                     return Err(invalid(id, "table key type"));
                                 }
+                                crate::scientific_selection::retain_context(
+                                    self.package,
+                                    &v,
+                                    self.selections,
+                                );
                                 Ok(v)
                             })
                             .collect::<Result<Vec<_>>>()?;
@@ -799,6 +842,11 @@ impl Evaluator<'_, '_> {
                         // completeness before reading a row.
                         table.lookup(self.package, id, self.at, keys, self.reader)?
                     };
+                    crate::scientific_selection::retain_context(
+                        self.package,
+                        &value,
+                        self.selections,
+                    );
                     let mut value = value;
                     for segment in &path.segments[position + 1..] {
                         if !segment.indices.is_empty() {
@@ -1137,6 +1185,7 @@ impl Evaluator<'_, '_> {
                         limit: nested_limit,
                         stack: self.stack.clone(),
                         reader: self.reader,
+                        selections: self.selections,
                     };
                     if let Some(filter) = &binder.filter
                         && !evaluator.predicate(filter)?
@@ -1217,6 +1266,7 @@ impl Evaluator<'_, '_> {
                         limit,
                         stack: self.stack.clone(),
                         reader: self.reader,
+                        selections: self.selections,
                     };
                     if let Some(filter) = &binder.filter
                         && !evaluator.predicate(filter)?
@@ -1235,11 +1285,28 @@ impl Evaluator<'_, '_> {
                             limit,
                             stack: self.stack.clone(),
                             reader: self.reader,
+                            selections: self.selections,
                         }
                         .expr(step, Some(&ty), depth + 1)?
                     } else {
                         current
                     });
+                }
+                if result.is_none()
+                    && matches!(ty, Type::Set(_))
+                    && let ExprKind::NamedCall { name, args } = &step.kind
+                {
+                    let plain = |e: &Expr, n: &str| {
+                        matches!(&e.kind,ExprKind::Path(p)
+                        if p.segments.len()==1 && p.segments[0].name==n && p.segments[0].indices.is_empty())
+                    };
+                    if name == "union"
+                        && args.len() == 2
+                        && plain(&args[0], accumulator)
+                        && plain(&args[1], item)
+                    {
+                        return Ok(Value::Set(Vec::new()));
+                    }
                 }
                 result.ok_or_else(|| invalid(self.at, "fold requires at least one selected member"))
             }
@@ -1254,6 +1321,7 @@ impl Evaluator<'_, '_> {
                         limit: self.limit,
                         stack: self.stack.clone(),
                         reader: self.reader,
+                        selections: self.selections,
                     }
                     .expr(value, None, depth + 1)?;
                     env.insert(name.clone(), value);
@@ -1266,6 +1334,7 @@ impl Evaluator<'_, '_> {
                     limit: self.limit,
                     stack: self.stack.clone(),
                     reader: self.reader,
+                    selections: self.selections,
                 }
                 .expr(body, expected, depth + 1)
             }
@@ -1315,6 +1384,133 @@ impl Evaluator<'_, '_> {
                     .is_some_and(|v| v.contains_key(&member))
             };
             return Ok(Value::Boolean(present));
+        }
+        if matches!(name, "tuple" | "set_of") {
+            if args.len() > self.limit {
+                return Err(invalid(self.at, "structural constructor budget"));
+            }
+            let mut values = Vec::new();
+            for arg in args {
+                let value = self.expr(arg, None, depth + 1)?;
+                if name == "tuple" || !values.contains(&value) {
+                    values.push(value);
+                }
+            }
+            return Ok(if name == "tuple" {
+                Value::Tuple(values)
+            } else {
+                Value::Set(values)
+            });
+        }
+        if name == "selection_compatible" {
+            if args.len() != 3 {
+                return Err(invalid(self.at, "selection_compatible arity"));
+            }
+            let Value::Set(records) = self.expr(&args[0], None, depth + 1)? else {
+                return Err(invalid(self.at, "selection records required"));
+            };
+            let context = self.expr(&args[1], None, depth + 1)?;
+            let function = self.expr(&args[2], None, depth + 1)?;
+            let mut slots = BTreeMap::new();
+            for record in records {
+                let slot = self.structural_call(
+                    function.clone(),
+                    &[record.clone(), context.clone()],
+                    depth + 1,
+                )?;
+                if !matches!(slot, Value::Tuple(_)) {
+                    return Err(invalid(self.at, "selection slot tuple required"));
+                }
+                if slots
+                    .insert(slot, record.clone())
+                    .is_some_and(|previous| previous != record)
+                {
+                    return Ok(Value::Boolean(false));
+                }
+            }
+            return Ok(Value::Boolean(true));
+        }
+        if name == "selection_closure" {
+            if args.len() != 3 {
+                return Err(invalid(self.at, "selection_closure arity"));
+            }
+            let Value::Set(roots) = self.expr(&args[0], None, depth + 1)? else {
+                return Err(invalid(self.at, "selection roots are a finite set"));
+            };
+            let context = self.expr(&args[1], None, depth + 1)?;
+            let Value::Function(id) = self.expr(&args[2], None, depth + 1)? else {
+                return Err(invalid(self.at, "selection dependency function required"));
+            };
+            let function = self
+                .package
+                .functions
+                .get(&id)
+                .ok_or_else(|| invalid(self.at, "selection dependency function is admitted"))?;
+            if function.arguments.len() != 2 || function.external.is_some() {
+                return Err(invalid(
+                    id,
+                    "selection dependencies use a two-argument authored function",
+                ));
+            }
+            let body = function
+                .body
+                .as_ref()
+                .ok_or_else(|| invalid(id, "selection dependency function has a body"))?;
+            let closure = crate::scientific_selection::close(
+                roots,
+                context,
+                self.at,
+                self.limit,
+                |record, context| {
+                    let env = BTreeMap::from([
+                        (function.arguments[0].0.clone(), record.clone()),
+                        (function.arguments[1].0.clone(), context.clone()),
+                    ]);
+                    if !conforms(record, &function.arguments[0].1, self.package)
+                        || !conforms(context, &function.arguments[1].1, self.package)
+                    {
+                        return Err(invalid(id, "selection dependency argument type"));
+                    }
+                    let mut evaluator = Evaluator {
+                        package: self.package,
+                        physical: self.physical,
+                        at: id,
+                        env: &env,
+                        limit: self.limit,
+                        stack: self.stack.clone(),
+                        reader: self.reader,
+                        selections: self.selections,
+                    };
+                    if let Some(validity) = &function.validity
+                        && !evaluator.predicate(validity)?
+                    {
+                        return Err(invalid(id, "selection dependency function domain"));
+                    }
+                    let value = evaluator.expr(body, Some(&function.result), depth + 1)?;
+                    if !conforms(&value, &function.result, self.package) {
+                        return Err(invalid(id, "selection dependency result type"));
+                    }
+                    let Value::Set(records) = value else {
+                        return Err(invalid(id, "selection dependencies return a finite set"));
+                    };
+                    Ok(records)
+                },
+            )?;
+            if let Some(selections) = self.selections {
+                let occurrence = crate::scientific_selection::SelectionOccurrence {
+                    declaration: self.at,
+                    dependencies: id,
+                    expression: args
+                        .iter()
+                        .map(dsl::render_expr)
+                        .collect::<Vec<_>>()
+                        .join(","),
+                    roots: closure.roots.clone(),
+                    context: closure.context.clone(),
+                };
+                selections.record(occurrence, closure.clone());
+            }
+            return Ok(Value::Set(closure.records));
         }
         if name == "keys" {
             if args.len() != 1 {
@@ -1369,6 +1565,8 @@ impl Evaluator<'_, '_> {
                 .and_then(|i| values.get(i))
                 .cloned()
                 .ok_or_else(|| invalid(self.at, "tuple coordinate out of bounds")),
+            ("require_present", [Value::Missing]) => Err(invalid(self.at,"required optional value is absent")),
+            ("require_present", [value]) => Ok(value.clone()),
             ("present", [value]) => Ok(Value::Boolean(!matches!(value, Value::Missing))),
             ("size", [Value::Set(values)]) => Ok(Value::Integer(values.len() as i64)),
             ("union", [Value::Set(a), Value::Set(b)]) => {
@@ -1401,6 +1599,15 @@ impl Evaluator<'_, '_> {
                 ))
             }
             _ => {
+                if let Ok(function @ Value::Function(_)) = self.reference(name, depth + 1) {
+                    return self.structural_call(function, &values, depth + 1);
+                }
+                if let Ok(path) = dsl::parse_expr(name)
+                    && matches!(path.kind, ExprKind::Path(_))
+                    && let Ok(function @ Value::Function(_)) = self.expr(&path, None, depth + 1)
+                {
+                    return self.structural_call(function, &values, depth + 1);
+                }
                 let id = self
                     .package
                     .resolve(self.at, name)
@@ -1420,6 +1627,73 @@ impl Evaluator<'_, '_> {
                 }
             }
         }
+    }
+    fn structural_call(
+        &mut self,
+        selected: Value,
+        values: &[Value],
+        depth: usize,
+    ) -> Result<Value> {
+        let Value::Function(id) = selected else {
+            return Err(invalid(self.at, "structural callback function required"));
+        };
+        if depth > 64 || self.stack.contains(&id) {
+            return Err(invalid(id, "recursive structural callback"));
+        }
+        let function = self
+            .package
+            .functions
+            .get(&id)
+            .ok_or_else(|| invalid(id, "admitted callback required"))?;
+        if function.external.is_some()
+            || function.arguments.len() != values.len()
+            || !matches!(
+                function.result,
+                Type::Tuple(_) | Type::Set(_) | Type::Boolean | Type::Integer
+            )
+        {
+            return Err(invalid(
+                id,
+                "structural callbacks return finite structural values",
+            ));
+        }
+        let env = function
+            .arguments
+            .iter()
+            .zip(values)
+            .map(|((name, ty), value)| {
+                if !conforms(value, ty, self.package) {
+                    return Err(invalid(id, "structural callback argument type"));
+                }
+                Ok((name.clone(), value.clone()))
+            })
+            .collect::<Result<BTreeMap<_, _>>>()?;
+        let mut stack = self.stack.clone();
+        stack.push(id);
+        let mut evaluator = Evaluator {
+            package: self.package,
+            physical: self.physical,
+            at: id,
+            env: &env,
+            limit: self.limit,
+            stack,
+            reader: self.reader,
+            selections: self.selections,
+        };
+        if let Some(validity) = &function.validity
+            && !evaluator.predicate(validity)?
+        {
+            return Err(invalid(id, "structural callback domain"));
+        }
+        let body = function
+            .body
+            .as_ref()
+            .ok_or_else(|| invalid(id, "structural callback body required"))?;
+        let value = evaluator.expr(body, Some(&function.result), depth + 1)?;
+        if !conforms(&value, &function.result, self.package) {
+            return Err(invalid(id, "structural callback result type"));
+        }
+        Ok(value)
     }
     pub(crate) fn predicate(&mut self, p: &Predicate) -> Result<bool> {
         match &p.kind {

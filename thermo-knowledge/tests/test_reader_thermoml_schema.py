@@ -11,6 +11,7 @@ from collections import Counter
 from pathlib import Path
 
 import pytest
+
 from r3_reader_support import (
     field_metadata,
     run_reader,
@@ -18,7 +19,6 @@ from r3_reader_support import (
     staged_manifest_of,
     staged_table,
 )
-
 from thermo_knowledge import config
 from thermo_knowledge.acquire import store
 from thermo_knowledge.readers import thermoml_schema
@@ -253,16 +253,41 @@ def expected_elements(root: ET.Element) -> list[tuple]:
                 own = child.get("name") or child.get("ref", "").split(":")[-1]
                 full = f"{path}/{own}"
                 out.append(
-                    (scope_kind, full, child.get("name"), child.get("ref"), child.get("type"), child.get("minOccurs"), child.get("maxOccurs"))
+                    (
+                        scope_kind,
+                        full,
+                        child.get("name"),
+                        child.get("ref"),
+                        child.get("type"),
+                        child.get("minOccurs"),
+                        child.get("maxOccurs"),
+                    )
                 )
                 visit(child, scope_kind, full)
-            elif name in ("complexType", "simpleType", "sequence", "choice", "annotation", "restriction"):
+            elif name in (
+                "complexType",
+                "simpleType",
+                "sequence",
+                "choice",
+                "annotation",
+                "restriction",
+            ):
                 visit(child, scope_kind, path)
 
     for top in root:
         name = tag(top)
         if name == "element":
-            out.append(("element", top.get("name"), top.get("name"), top.get("ref"), top.get("type"), top.get("minOccurs"), top.get("maxOccurs")))
+            out.append(
+                (
+                    "element",
+                    top.get("name"),
+                    top.get("name"),
+                    top.get("ref"),
+                    top.get("type"),
+                    top.get("minOccurs"),
+                    top.get("maxOccurs"),
+                )
+            )
             visit(top, "element", top.get("name"))
         elif name in ("complexType", "simpleType"):
             visit(top, name, top.get("name"))
@@ -303,7 +328,15 @@ def test_elements_round_trip_in_document_order(staged: Path) -> None:
         staged_table(staged, "schema_elements").to_pylist(), key=lambda r: (r["line"], r["column"])
     )
     staged_form = [
-        (r["scope_kind"], r["path"], r["name"], r["ref"], r["type"], r["min_occurs"], r["max_occurs"])
+        (
+            r["scope_kind"],
+            r["path"],
+            r["name"],
+            r["ref"],
+            r["type"],
+            r["min_occurs"],
+            r["max_occurs"],
+        )
         for r in rows
     ]
     assert staged_form == expected_elements(root)
@@ -319,10 +352,7 @@ def test_elements_round_trip_in_document_order(staged: Path) -> None:
 @real
 def test_enumerations_round_trip_with_their_property_groups(staged: Path) -> None:
     root = ET.parse(TREE / "ThermoML.xsd").getroot()
-    expected = [
-        (node.get("value"))
-        for node in root.iter(f"{XSD}enumeration")
-    ]
+    expected = [(node.get("value")) for node in root.iter(f"{XSD}enumeration")]
     rows = sorted(
         staged_table(staged, "schema_enumerations").to_pylist(),
         key=lambda r: (r["line"], r["column"]),
@@ -332,9 +362,7 @@ def test_enumerations_round_trip_with_their_property_groups(staged: Path) -> Non
     for row in rows:
         if row["property_group"]:
             groups.setdefault((row["element_name"], row["property_group"]), []).append(row["value"])
-    by_group = {
-        (element, group): len(values) for (element, group), values in groups.items()
-    }
+    by_group = {(element, group): len(values) for (element, group), values in groups.items()}
     assert by_group[("ePropName", "Criticals")] == 10
     assert by_group[("eMethodName", "Criticals")] == 10
     assert by_group[("ePropName", "VaporPBoilingTAzeotropTandP")] == 5
@@ -357,23 +385,22 @@ def test_types_compositors_attributes_and_annotations_round_trip(staged: Path) -
     expected = [(a.get("name"), a.get("type"), a.get("use")) for a in root.iter(f"{XSD}attribute")]
     assert [(a["name"], a["type"], a["use"]) for a in attributes] == expected
     compositors = sorted(
-        staged_table(staged, "schema_compositors").to_pylist(), key=lambda r: (r["line"], r["column"])
+        staged_table(staged, "schema_compositors").to_pylist(),
+        key=lambda r: (r["line"], r["column"]),
     )
     nodes = [n for n in root.iter() if tag(n) in ("sequence", "choice")]
     assert [(c["kind"], c["min_occurs"], c["max_occurs"]) for c in compositors] == [
         (tag(n), n.get("minOccurs"), n.get("maxOccurs")) for n in nodes
     ]
     annotations = sorted(
-        staged_table(staged, "schema_annotations").to_pylist(), key=lambda r: (r["line"], r["column"])
+        staged_table(staged, "schema_annotations").to_pylist(),
+        key=lambda r: (r["line"], r["column"]),
     )
-    texts = [
-        (tag(n), n.text or "")
-        for n in root.iter()
-        if tag(n) in ("documentation", "appinfo")
-    ]
+    texts = [(tag(n), n.text or "") for n in root.iter() if tag(n) in ("documentation", "appinfo")]
     assert [(a["kind"], a["text"]) for a in annotations] == texts
     simple = sorted(
-        staged_table(staged, "schema_simple_types").to_pylist(), key=lambda r: (r["line"], r["column"])
+        staged_table(staged, "schema_simple_types").to_pylist(),
+        key=lambda r: (r["line"], r["column"]),
     )
     restrictions = [n for n in root.iter(f"{XSD}restriction")]
     assert [(s["base"], s["enumeration_count"]) for s in simple] == [

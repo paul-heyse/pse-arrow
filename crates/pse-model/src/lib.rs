@@ -256,3 +256,9 @@ impl<T: SemanticFrame, const N: usize> SemanticFrame for [T; N] {
         }
     }
 }
+
+/// Typed scientific applicability evidence and scoped data-use permission.
+pub mod applicability;
+
+#[cfg(test)]
+mod applicability_tests;

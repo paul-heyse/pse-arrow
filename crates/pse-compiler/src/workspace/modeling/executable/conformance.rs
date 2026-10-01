@@ -57,6 +57,8 @@ pub struct ModelingPointChecks {
     pub expectations: Vec<ModelingExpectationResult>,
     /// Observed validity ranges, data envelopes and static observations.
     pub validity: Vec<ModelingValidityResult>,
+    /// Demanded scientific evidence, with actual physical inputs and scoped permission lineage.
+    pub applicability: Vec<pse_model::applicability::Observation>,
 }
 impl PreparedModeling {
     /// The member and bound rows of every validity range and data observation.
@@ -94,7 +96,7 @@ impl PreparedModeling {
         &self,
         observations: &BTreeMap<SemanticId, f64>,
     ) -> Result<Vec<ModelingValidityResult>> {
-        use pse_model::generated::enums::{ExtrapolationPolicy, ModelingValidityLayer};
+        use pse_model::generated::enums::ExtrapolationPolicy;
         let observed = |output: ModelingOutput| {
             observations
                 .get(&output.row_id())
@@ -125,20 +127,6 @@ impl PreparedModeling {
                 extrapolation: *policy == ExtrapolationPolicy::Extrapolate,
             });
         }
-        results.extend(
-            self.model
-                .observations
-                .iter()
-                .map(|o| ModelingValidityResult {
-                    target: o.id,
-                    source: o.lineage.declaration,
-                    layer: ModelingValidityLayer::Data,
-                    value: o.value,
-                    lower: o.lower,
-                    upper: o.upper,
-                    extrapolation: true,
-                }),
-        );
         Ok(results)
     }
     /// Select the physical and dimensionless observations for every authored test.
@@ -304,6 +292,7 @@ impl CompilerWorkspace {
         Ok(ModelingPointChecks {
             expectations: model.assess_expectations(&rows)?,
             validity: model.assess_validity(&rows)?,
+            applicability: worker.applicability_observations(),
         })
     }
 }

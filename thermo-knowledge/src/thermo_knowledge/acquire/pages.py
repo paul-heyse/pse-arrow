@@ -203,7 +203,7 @@ def _is_stored(tree: Path, name: str) -> bool:
         return False
     try:
         recorded = msgspec.json.decode(sidecar.read_bytes(), type=Sidecar)
-    except (msgspec.DecodeError, msgspec.ValidationError):
+    except msgspec.DecodeError, msgspec.ValidationError:
         return False
     return store.sha256_file(body) == recorded.sha256
 

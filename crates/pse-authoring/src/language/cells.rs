@@ -199,7 +199,13 @@ pub fn render_cell(cell: &Cell) -> Result<String, AuthoringError> {
             "{{{}}}",
             v.paths
                 .iter()
-                .map(|p| path(&p.path))
+                .map(|p| match &p.keys {
+                    None => path(&p.path),
+                    Some(keys) => render_cell(&self::cell(CellValue::from_row(CellRow {
+                        target: p.path.clone(),
+                        keys: keys.clone()
+                    }))),
+                })
                 .collect::<Result<Vec<_>, _>>()?
                 .join(", ")
         ),
@@ -280,6 +286,7 @@ mod tests {
                 "caloric_set[chem.benzene, 1, \"a\"]",
             ),
             ("element[ \"C\" ]", "element[\"C\"]"),
+            ("{a, bank[fit, a, b, 2]}", "{a, bank[fit, a, b, 2]}"),
             ("missing", "missing"),
             ("true", "true"),
             (
@@ -309,6 +316,8 @@ mod tests {
             "kind[{a}]",
             "kind[a[1]]",
             "kind[1 ± standard(1.0)]",
+            "{bank[fit] ± standard(1.0)}",
+            "{1}",
         ] {
             assert!(parse_cell(invalid).is_err(), "{invalid}");
         }

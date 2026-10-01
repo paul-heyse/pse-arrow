@@ -13,9 +13,9 @@ from collections.abc import Callable
 from pathlib import Path
 
 import psycopg
+
 from build_support import fingerprint, inputs_of, write_source
 from mapping_support import origin, real_declaration
-
 from thermo_knowledge import config
 from thermo_knowledge.build import build_database
 from thermo_knowledge.canonical.provenance import Origin

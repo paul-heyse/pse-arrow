@@ -13,8 +13,7 @@ import tempfile
 from functools import cache
 from pathlib import Path
 
-from declaration_support import FULL, FIXTURES
-
+from declaration_support import FIXTURES, FULL
 from thermo_knowledge.declaration import Declaration, LoadResult, load_declaration
 
 EXPRESSIONS = FIXTURES / "expressions"

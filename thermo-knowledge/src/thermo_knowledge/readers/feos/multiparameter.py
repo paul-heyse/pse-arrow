@@ -67,7 +67,9 @@ ARRAYS = (
 )
 
 _RECORD = position("record_index", "position of the fluid record in the file's JSON array")
-_SECTION = text("section", source_name="ideal_gas or residual (the key of the term list)", nullable=False)
+_SECTION = text(
+    "section", source_name="ideal_gas or residual (the key of the term list)", nullable=False
+)
 _TERM = position("term_index", "position of the term object in its list")
 _TYPE = text("type", source_name="type", nullable=False)
 

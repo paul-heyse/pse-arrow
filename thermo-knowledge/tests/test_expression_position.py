@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-from mapping_support import real_declaration
 
+from mapping_support import real_declaration
 from thermo_knowledge.expression.evaluate import EvaluationRefusal, bind
 from thermo_knowledge.expression.parameters import InMemorySource
 
@@ -45,14 +45,18 @@ def test_the_species_at_position_one_is_the_first_of_the_difference() -> None:
     assert found == pytest.approx(0.3 * 0.7 * (L0 + L1 * (0.3 - 0.7)), rel=1e-13)
 
 
-def test_the_array_that_asserts_the_species_the_other_way_changes_the_sign_of_the_odd_term() -> None:
+def test_the_array_that_asserts_the_species_the_other_way_changes_the_sign_of_the_odd_term() -> (
+    None
+):
     found = energy(source({(ARRAY, CR): (1,), (ARRAY, FE): (2,)}), (FE, CR))
     assert found == pytest.approx(0.3 * 0.7 * (L0 - L1 * (0.3 - 0.7)), rel=1e-13)
 
 
 def test_the_order_the_set_is_given_in_does_not_change_the_position() -> None:
     positions = {(ARRAY, FE): (1,), (ARRAY, CR): (2,)}
-    assert energy(source(positions), (CR, FE)) == pytest.approx(energy(source(positions), (FE, CR)), rel=1e-13)
+    assert energy(source(positions), (CR, FE)) == pytest.approx(
+        energy(source(positions), (FE, CR)), rel=1e-13
+    )
 
 
 @pytest.mark.parametrize(
@@ -66,5 +70,8 @@ def test_the_order_the_set_is_given_in_does_not_change_the_position() -> None:
 def test_a_species_without_a_single_position_is_refused_and_named(
     positions: dict[tuple[str, str], tuple[int, ...]], message: str
 ) -> None:
-    with pytest.raises(EvaluationRefusal, match=rf"position of species {FE} in constituent array {ARRAY} is undefined: the array {message}"):
+    with pytest.raises(
+        EvaluationRefusal,
+        match=rf"position of species {FE} in constituent array {ARRAY} is undefined: the array {message}",
+    ):
         energy(source(positions), (FE, CR))

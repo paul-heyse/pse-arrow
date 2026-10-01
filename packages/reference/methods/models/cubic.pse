@@ -22,21 +22,32 @@
 [pr,2]=[-0.26992];
 }
 @id("0636d020b8434a8ca55084a5925049a7") set pr_families:Set<cubic_family>={pr};
-@id("f37bd9d1ea4b470a914467cb1eb2c6b8") entity properties.property critical_parameters { quantity=Scalar,shape=properties.IndexShape.pure,applies={compatibility.PhaseType.vaporPhase} }
+@id("f37bd9d1ea4b470a914467cb1eb2c6b8") entity properties.property critical_parameters { quantity=Scalar,shape=properties.IndexShape.pure,applies={compatibility.PhaseType.liquidPhase,compatibility.PhaseType.vaporPhase} }
 @id("f45665bc826448539694ddc25a52cbd9") entity properties.property binary_interaction { quantity=Scalar,shape=properties.IndexShape.pair,applies={compatibility.PhaseType.liquidPhase,compatibility.PhaseType.vaporPhase} }
-@id("fbd29039bf374e42ab49e94bf56afcef") entity kind critical_point extends properties.parameter_set {
+@id("3d1710d439d8430783050837bea4dad7") entity kind critical_evidence extends properties.pure_parameter abstract {
+@id("4dbadf22019641d4831b51c7c490c9ef") attribute applicability:Fn(s:critical_point)->Applicability;
+}
+@id("fbd29039bf374e42ab49e94bf56afcef") entity kind critical_point extends critical_evidence {
+@id("15b8e98716884113a5f32930bbf75a75") applicability=critical_unknown;
 @id("b0dca44553e942818eb9b21717bf3338") attribute tc:TemperatureScale storage {K};
 @id("9040273df27d415f9e9bf19fe1e28b32") attribute pc:Pressure storage {Pa};
 @id("4910bc90387c48378f36eee818c861cf") attribute omega:Scalar storage {1};
 @id("84e4790db84a4a6a85507e7dc032cd3b") require property==critical_parameters and tc>0{K} and pc>0{Pa} : "critical parameters have positive temperature and pressure";
 }
-@id("89a16b24937f48ff970efde7438347dd") fn selected_tc(k:properties.property_package,j:chemistry.species)->TemperatureScale=c.tc where s=properties.selection[k,j,critical_parameters,compatibility.PhaseType.vaporPhase],c=critical_point[s.subject,s.property,s.phase_type,s.source,s.variant];
-@id("4bc6664f91c249f08aff033753630b49") fn selected_pc(k:properties.property_package,j:chemistry.species)->Pressure=c.pc where s=properties.selection[k,j,critical_parameters,compatibility.PhaseType.vaporPhase],c=critical_point[s.subject,s.property,s.phase_type,s.source,s.variant];
-@id("556f31a761be4f7e9187332f12195a43") fn selected_omega(k:properties.property_package,j:chemistry.species)->Scalar=c.omega where s=properties.selection[k,j,critical_parameters,compatibility.PhaseType.vaporPhase],c=critical_point[s.subject,s.property,s.phase_type,s.source,s.variant];
-@id("39abcc27e541428f93b28c312dc071f9") table directional_pair[s:provenance.source,p:properties.property,i:chemistry.species,j:chemistry.species]:Scalar missing optional require p.shape==properties.IndexShape.pair;
-@id("756ffe3db8b947339407c67319218f7e") fn directional_parameter(k:properties.property_package,p:properties.property,i:chemistry.species,j:chemistry.species)->Scalar valid(i==j or present(directional_pair[interactions.pair_selection[k,p],p,i,j]) or interactions.absence_policy[k,p]==interactions.PairAbsence.predictiveZero)=if i==j then 0 else if present(directional_pair[interactions.pair_selection[k,p],p,i,j]) then directional_pair[interactions.pair_selection[k,p],p,i,j] else 0;
+@id("89a16b24937f48ff970efde7438347dd") fn selected_tc(k:properties.property_package,j:chemistry.species)->TemperatureScale=tc_value(c) where s=properties.pure_selection[k,j,critical_parameters],c=critical_point[s.subject,s.property,s.parameterization,s.variant];
+@id("4bc6664f91c249f08aff033753630b49") fn selected_pc(k:properties.property_package,j:chemistry.species)->Pressure=pc_value(c) where s=properties.pure_selection[k,j,critical_parameters],c=critical_point[s.subject,s.property,s.parameterization,s.variant];
+@id("556f31a761be4f7e9187332f12195a43") fn selected_omega(k:properties.property_package,j:chemistry.species)->Scalar=omega_value(c) where s=properties.pure_selection[k,j,critical_parameters],c=critical_point[s.subject,s.property,s.parameterization,s.variant];
+@id("b39548d45eee491e9631fc78ab991cc5") entity kind directional_pair extends properties.ordered_pair {
+@id("2557ff5182b548c59eff2dd697f08ab9") attribute value:Scalar;
+}
+@id("e8dcb47ba7244b7e89f807a11b51ef71") table directional_selection[k:properties.property_package,family:properties.property,i:chemistry.species,j:chemistry.species]:directional_pair ordered(i,j) diagonal excluded complete_over(k,family,i,j) require value.family==family and value.first==i and value.second==j require value in k.admitted.records;
+@id("40d5b335278c4bfc89c26fbd41e9e955") fn directional_parameter(k:properties.property_package,p:properties.property,i:chemistry.species,j:chemistry.species)->Scalar=if i==j then interactions.self_rule[k,p](i) else directional_selection[k,p,i,j].value;
 @id("7a59ed817917433591ea6df8cb34a229") entity provenance.publication soave_1972 { title="Equilibrium constants from a modified Redlich-Kwong equation of state (Soave), Chemical Engineering Science 27, 1197–1203",year=1972,doi=Id<provenance.doi>("10.1016/0009-2509(72)80096-4") }
 @id("673d74fcfeba452b8b88c22688f056e2") entity cubic_family srk provenance(soave_1972,provenance.Role.published) { omega_a=0.42748,omega_b=0.08664,u=1,w=0 }
 @id("e80cf711a1ed44f9ad27f491f9708e20") set srk_families:Set<cubic_family>={srk};
 @id("7837a01ae59045dc96d837ba5eafc016") dataset srk_kappa:kappa complete_over(f in srk_families) provenance(soave_1972,provenance.Role.published) { [srk,0]=[0.48]; [srk,1]=[1.574]; [srk,2]=[-0.176]; }
+@id("f2fd0c40d4d047dd95db357594f50d3a") applicability critical_unknown(s:critical_point) owner critical_point scope data evidence s.source unknown("This record supplies no empirical applicability region");
+@id("b7ecd246dedb4f0686060c66ad60ab28") fn tc_value(s:critical_point)->TemperatureScale applicability(s.applicability(s))=s.tc;
+@id("7741a640da734a5f96610472ec451d0f") fn pc_value(s:critical_point)->Pressure applicability(s.applicability(s))=s.pc;
+@id("f763e044bff442b7878d5e4d8b5abf41") fn omega_value(s:critical_point)->Scalar applicability(s.applicability(s))=s.omega;
 }

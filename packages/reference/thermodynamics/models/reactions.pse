@@ -6,20 +6,32 @@
 @id("01a0e1db89d8722baac398f0fcb5c70e") use caloric @"1.0.0";
 @id("01a0e1db89d8722baac398f174bd89ab") use helmholtz @"1.0.0";
 @id("01a0e1db89d8722baac398f231ae9216") use aqueous @"1.0.0";
+@id("3e4b1a20d6265ba782b8fa4ef4c72c61") use reaction_forms @"1.0.0";
+@id("5aacd7c15cf75d04a2be1443cef1a53d") use properties @"1.0.0";
+// A RateLaw selects checked records and their admitted dependency closure.
 @id("01a0e1db89d8722baac398e3f53e64ef") interface RateLaw {
 @id("01a0e1db89d8722baac398e4e335ce0d") param components:Set<chemistry.species>;
-@id("01a0e1db89d8722baac398e5988e7028") param reactions:Set<chemistry.reaction>;
-@id("01a0e1db89d8722baac398e63f4d132c") param method:Fn(T:Temperature,c:MolarDensity[chemistry.species],r:chemistry.reaction)->VolumetricReactionRate;
-@id("01a0e1db89d8722baac398e7ed5792e9") param heat_method:Fn(r:chemistry.reaction)->ReactionHeat;
-@id("01a0e1db89d8722baac398e811f7337c") param stoichiometry:Fn(r:chemistry.reaction,j:chemistry.species)->ReactionStoichiometry;
+@id("0075b193c613502080c8a2f95052e229") param records:Set<reaction_forms.reaction_set>;
+@id("9d9a94972456500fac85c957a66840ff") param admitted:properties.selection_context;
+}
+@id("a073219fa6a955029ff66b68b2985c70") def Projection(material:Set<chemistry.species>,selected:Set<reaction_forms.reaction_set>,selection:properties.selection_context) {
+@id("a4e3eabac57254458e4c75cc4bb991b0") param components:Set<chemistry.species>=material;
+@id("58f3df6f386f5fc2a69c4a319b106e35") param records:Set<reaction_forms.reaction_set>=selected;
+@id("456d9b7194ec5690a27b0a992d49d677") param reactions:Set<chemistry.reaction>={s.reaction for s in records};
+@id("cb33bb9786f15cce8d9b49842311cbd3") require sum(s in records | if s in selection.records then 0 else 1)==0 : "UnadmittedSelection: every selected reaction record belongs to the admitted dependency closure";
+@id("4811d8a7ce0b5b5d9a7f7ab89e414dcd") require sum(s in records | if s.family in selection.models then 0 else 1)==0 : "reaction records belong to the admitted scientific model families";
+@id("ddcc474389e856cab928ccfa45e7c158") require sum(r in reactions | sum(j in r.participants | if j in selection.subjects then 0 else 1))==0 : "MissingScientificParticipant: reaction participants belong to the admitted scientific subject scope";
+@id("76941200d00d5a11b9ed8f76dd85db8b") require sum(r in reactions | if sum(s in records where s.reaction==r | 1)==1 then 0 else 1)==0 : "a reaction projection selects exactly one kinetic and heat record per reaction";
+@id("51aa67a6032b5b67881da0a284179fc2") require sum(r in reactions | sum(j in r.participants | if j in components then 0 else 1))==0 : "MissingParticipant: every nonzero reaction participant belongs to the material projection";
+@id("d9582497418c5869a237798e5667aa48") require sum(s in records | if s.first in components and s.second in components then 0 else 1)==0 : "MissingKineticSpecies: selected kinetic species belong to the material projection";
 @id("01a0e1db89d8722baac398e9bf3e6cde") var T:Temperature;
 @id("01a0e1db89d8722baac398eaea8d4312") var concentration[j in components]:MolarDensity;
 @id("010b2de0f47e4f6599d9f6ca42f5a125") annotation start T(300{K});
 @id("e9193f10a77748f487861127d649502e") annotation nominal T(300{K});
 @id("7cde6cdac75f42b881550ba93316dc85") annotation start concentration(100{mol/m^3});
 @id("a9aa15615f3844d7a006e079b6122ece") annotation nominal concentration(100{mol/m^3});
-@id("01a0e1db89d8722baac398eb336c849d") let rate[r in reactions]:VolumetricReactionRate=method(T,concentration,r);
-@id("01a0e1db89d8722baac398eca7e9fa1b") let heat[r in reactions]:ReactionHeat=heat_method(r);
-@id("01a0e1db89d8722baac398ede4f70358") let stoich[r in reactions,j in components]:ReactionStoichiometry=stoichiometry(r,j);
+@id("01a0e1db89d8722baac398eb336c849d") let rate[r in reactions]:VolumetricReactionRate=sum(s in records where s.reaction==r | s.rate(T,concentration,s));
+@id("01a0e1db89d8722baac398eca7e9fa1b") let heat[r in reactions]:ReactionHeat=sum(s in records where s.reaction==r | s.heat);
+@id("01a0e1db89d8722baac398ede4f70358") let coefficient[r in reactions,j in components]:ReactionStoichiometry=chemistry.stoichiometry[r,j];
 }
 }

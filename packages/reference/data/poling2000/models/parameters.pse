@@ -7,12 +7,12 @@
 @id("01a0f14331d9760dbe4d343921cbbef3") use provenance @"1.0.0";
 @id("01a0f14331d9760dbe4d343a39f84fea") use references @"1.0.0";
 @id("01a0f14331d9760dbe4d343bc41a53de") use chem @"1.0.0";
-@id("01a0e159fa9673b48608c5bd80590841") dataset vessel_caloric:correlations.dippr100 bind(property=properties.heat_capacity, source=references.poling2000) provenance(references.poling2000, provenance.Role.published, lineage(source references.feos_poling2000_json)) from "data/vessel_caloric.parquet";
+@id("01a0e159fa9673b48608c5bd80590841") dataset vessel_caloric:correlations.dippr100 bind(property=properties.heat_capacity, source=references.poling2000 ,parameterization=references.poling2000_caloric_fit,dependencies={},conventions={}) provenance(references.poling2000, provenance.Role.published, lineage(source references.feos_poling2000_json)) from "data/vessel_caloric.parquet";
 // RPP5 Cp/R is normalized with the exact SI gas constant at the data boundary;
 // the form consumes dimensioned coefficients. Antoine's Celsius origin and bar scale
 // are typed attributes, independent of how its output is stored.
-@id("22c975d1e46845a9947a30d00bb09019") dataset water_rpp5:correlations.rpp5_cp bind(property=properties.heat_capacity,source=references.idaes_test_rpp5) provenance(references.idaes_test_rpp5,provenance.Role.oracle_input) from "data/water_rpp5.parquet";
-@id("517026b5740f4165a657d2c2d9f75860") dataset water_antoine:correlations.antoine bind(property=properties.vapor_pressure,source=references.idaes_test_rpp5) provenance(references.idaes_test_rpp5,provenance.Role.oracle_input) from "data/water_antoine.parquet";
+@id("22c975d1e46845a9947a30d00bb09019") dataset water_rpp5:correlations.rpp5_cp bind(property=properties.heat_capacity,source=references.idaes_test_rpp5 ,parameterization=references.idaes_rpp5_caloric_fit,dependencies={},conventions={}) provenance(references.idaes_test_rpp5,provenance.Role.oracle_input) from "data/water_rpp5.parquet";
+@id("517026b5740f4165a657d2c2d9f75860") dataset water_antoine:correlations.antoine bind(property=properties.vapor_pressure,source=references.idaes_test_rpp5 ,parameterization=references.idaes_rpp5_pressure_fit,dependencies={},conventions={}) provenance(references.idaes_test_rpp5,provenance.Role.oracle_input) from "data/water_antoine.parquet";
 @id("56a4ed689bb74c00bba0473d0a4bdeef") use cubic @"1.0.0";
-@id("930de3ca23de4d988b6ae9461ea4a5e3") dataset benzene_critical:cubic.critical_point bind(property=cubic.critical_parameters,phase_type=compatibility.PhaseType.vaporPhase,source=references.poling2000) provenance(references.poling2000,provenance.Role.published) from "data/benzene_critical.parquet";
+@id("930de3ca23de4d988b6ae9461ea4a5e3") dataset benzene_critical:cubic.critical_point bind(property=cubic.critical_parameters,source=references.poling2000 ,parameterization=references.poling2000_critical_fit,dependencies={},conventions={}) provenance(references.poling2000,provenance.Role.published) from "data/benzene_critical.parquet";
 }

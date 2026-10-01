@@ -787,6 +787,26 @@ impl CaseWorker {
             .ok_or_else(|| MathError::Contract("unevaluated demand".into()))?;
         Ok((&result.2, row))
     }
+    /// Read evidence from the exact last demanded programs; this never evaluates an
+    /// inactive branch or an unrelated output just to create observations.
+    pub fn applicability_observations(&self) -> Vec<pse_model::applicability::Observation> {
+        let mut observations = Vec::new();
+        for (instance, groups) in self.groups.iter().enumerate() {
+            for group in groups.values().flatten() {
+                if let Some((_, _, evaluation)) = &group.cache {
+                    for observation in &evaluation.applicability {
+                        let mut observation = observation.clone();
+                        observation.instance =
+                            Some(self.assembly.structure.instances()[instance].instance);
+                        if !observations.contains(&observation) {
+                            observations.push(observation);
+                        }
+                    }
+                }
+            }
+        }
+        observations
+    }
     /// Selected objective only, normalized for a minimization oracle.
     pub fn objective(&mut self, values: &CaseValues) -> Result<f64, MathError> {
         self.evaluate(values, Demand::Objective, DerivativeOrder::Value)?;

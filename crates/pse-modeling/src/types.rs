@@ -26,6 +26,8 @@ pub enum Type {
     /// A named reference state of the physical document, with its typed conditions
     /// (ADR-0123 Outcome 6).
     ReferenceState,
+    /// Typed evidence claim result; no numerical or boolean coercion exists.
+    Applicability,
     /// Declared receiving or emitting physical boundary.
     Boundary(DeclarationId),
     /// Declared physical coordinate map, never a numerical value.
@@ -168,6 +170,7 @@ impl TypeContext<'_> {
             K::Text => Type::Text,
             K::QuantityType => Type::QuantityType,
             K::ReferenceState => Type::ReferenceState,
+            K::Applicability => Type::Applicability,
             K::Coordinate => {
                 let path = node.path().join(".");
                 match names.get(&path) {

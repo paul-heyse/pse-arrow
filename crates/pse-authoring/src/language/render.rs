@@ -466,7 +466,9 @@ fn print_block(
                         }
                         if let Some(failure) = &f.expected_failure {
                             // Plan 23 H5: the class and the typed lineage.
-                            let lineage = match &failure.validity {
+                            let lineage = if let Some(v)=&failure.applicability {
+                                format!("applicability({},{}) claim({}) form({}){}{}",v.layer.as_str(),v.outcome.as_str(),v.claim,v.form,if v.sets.is_empty(){String::new()}else{format!(" set({})",v.sets.join(", "))},if v.variables.is_empty(){String::new()}else{format!(" variable({})",v.variables.join(", "))})
+                            } else {match &failure.validity {
                                 Some(v) => format!(
                                     "validity({}){}{} variable({})",
                                     v.layer.as_str(),
@@ -475,7 +477,7 @@ fn print_block(
                                     v.variables.join(", ")
                                 ),
                                 None => format!("members({})", failure.members.join(", ")),
-                            };
+                            }};
                             statements.push(format!("failure {} {lineage};", failure.class.as_str()));
                         }
                         statements.extend(f.diagnostics.iter().map(|d| format!("diagnose {} at({});", quoted(&d.rule), d.members.join(", "))));
@@ -529,7 +531,7 @@ fn print_block(
                 )
             }
             Selected::Function(v) => format!(
-                "fn {n}{}{} -> {}{}{}{}{}{};",
+                "fn {n}{}{} -> {}{}{}{}{}{}{};",
                 list(&v.type_parameters, "<", ">"),
                 if v.arguments.is_empty() {
                     "()".into()
@@ -544,6 +546,7 @@ fn print_block(
                 },
                 ty(&v.return_type)?,
                 guards(&v.guards)?,
+                if v.applicability.is_empty() { String::new() } else { format!(" applicability({})",v.applicability.join(", ")) },
                 v.validity.as_ref().map_or(String::new(),|p|format!(" valid({p})")),
                 v.continuity
                     .map_or(String::new(), |order| format!(" piecewise {order}")),
@@ -624,9 +627,21 @@ fn print_block(
                 "envelope {};",
                 envelope(&row.name, &v.r#type, &v.lower, &v.upper)?
             ),
-            Selected::Extrapolation(v) => {
-                format!("extrapolation {} {};", v.layer.as_str(), v.policy.as_str())
+            Selected::Applicability(v) => {
+                use pse_model::generated::enums::ModelingApplicabilityKind as Claim;
+                let content = match v.claim_kind {
+                    Claim::Region => format!("region {}({})", v.basis.ok_or_else(|| AuthoringError::Contract { at: None, reason: "a region has a basis".into() })?.as_str(), v.predicate.as_deref().unwrap_or_default()),
+                    Claim::Interval => format!("interval {} {} in {}..{}", v.basis.ok_or_else(|| AuthoringError::Contract { at: None, reason: "an interval has a basis".into() })?.as_str(), v.axis.as_deref().unwrap_or_default(), v.lower.as_deref().unwrap_or_default(),v.upper.as_deref().unwrap_or_default()),
+                    Claim::Unknown => format!("unknown({})", quoted(v.reason.as_deref().unwrap_or_default())),
+                    Claim::Unrestricted => "unrestricted".into(),
+                    Claim::Union => format!("union({})", v.alternatives.join(", ")),
+                };
+                format!("applicability {n}{} owner {} scope {} evidence {} {}{};",
+                    parameters(v.arguments.iter().map(|p| (p.name.as_str(),p.r#type.as_slice(),p.default_value.as_deref())))?,
+                    v.owner, v.scope.as_str(), v.evidence, content,
+                    if v.dependencies.is_empty() { String::new() } else { format!(" dependencies({})", v.dependencies.join(", ")) })
             }
+            Selected::Permission(v) => format!("permission {n} {}({}) allow_unknown {} allow_extrapolation {};",v.target_kind.as_str(),v.targets.join(", "),v.allow_unknown,v.allow_extrapolation),
             Selected::Constant(v) => format!(
                 "constant {n}: {} = {} {};",
                 super::render_type(&v.r#type)?,
@@ -726,7 +741,8 @@ fn print_block(
                 }
                 if let Some(symmetry) = &v.symmetry {
                     clauses.push_str(&format!(
-                        " symmetric({}, {}) diagonal {}",
+                        " {}({}, {}) diagonal {}",
+                        if symmetry.ordered {"ordered"} else {"symmetric"},
                         name(&symmetry.first),
                         name(&symmetry.second),
                         symmetry.diagonal.as_str()

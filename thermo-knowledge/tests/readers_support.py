@@ -14,7 +14,6 @@ from pathlib import Path
 from types import ModuleType
 
 from test_acquire_support import RIGHTS
-
 from thermo_knowledge.acquire import store
 from thermo_knowledge.acquire.lock import LockEntry, read_lock, write_lock
 from thermo_knowledge.acquire.manifest import Manifest, load_sources

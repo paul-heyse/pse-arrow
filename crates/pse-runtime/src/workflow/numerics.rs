@@ -407,6 +407,19 @@ mod tests {
             extrapolation_allowed: None,
             basis: pse_model::generated::enums::ModelingCheckBasis::Point,
             layer: None,
+            claim_id: None,
+            claim_owner: None,
+            coverage_id: None,
+            evidence_id: None,
+            form_id: None,
+            call_id: None,
+            selected_records: Vec::new(),
+            dependencies: Vec::new(),
+            input_values: Vec::new(),
+            applicability_outcome: None,
+            applicability_basis: None,
+            permission_ids: Vec::new(),
+            unknown_allowed: None,
         }
     }
     #[test]

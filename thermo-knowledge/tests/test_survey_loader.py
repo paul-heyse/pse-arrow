@@ -8,8 +8,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from survey_support import CALCULATIONS, codes, edit, make_tree, write_survey
 
+from survey_support import CALCULATIONS, codes, edit, make_tree, write_survey
 from thermo_knowledge.survey_index import Code, load_surveys
 
 
@@ -41,69 +41,136 @@ def test_a_missing_survey_directory_is_an_empty_set(tmp_path: Path) -> None:
 
 # (old text, new text, expected (table, record, key, code)) on alpha.toml
 DEVIATIONS = [
-    ('precision = "close"', 'precision = "nearly"',
-     ("construct", "close record", "precision", Code.BAD_VALUE)),
+    (
+        'precision = "close"',
+        'precision = "nearly"',
+        ("construct", "close record", "precision", Code.BAD_VALUE),
+    ),
     ('unit = "K"', "unit = 3", ("construct", "plain record", "fields[0].unit", Code.WRONG_TYPE)),
-    ('role = "input" },\n]\norigin = "authored', 'role = "sometimes" },\n]\norigin = "authored',
-     ("construct", "plain record", "fields[0].role", Code.BAD_VALUE)),
-    ('shape = "scalar", role = "input" },\n]\norigin = "authored',
-     'shape = "blob", role = "input" },\n]\norigin = "authored',
-     ("construct", "plain record", "fields[0].shape", Code.BAD_VALUE)),
-    ('origin = "other (hand edited)"', 'origin = "digitised"',
-     ("construct", "narrower record", "origin", Code.BAD_VALUE)),
-    ('origin = "not stated"', 'origin = "not statedly"',
-     ("construct", "unmapped record", "origin", Code.BAD_VALUE)),
+    (
+        'role = "input" },\n]\norigin = "authored',
+        'role = "sometimes" },\n]\norigin = "authored',
+        ("construct", "plain record", "fields[0].role", Code.BAD_VALUE),
+    ),
+    (
+        'shape = "scalar", role = "input" },\n]\norigin = "authored',
+        'shape = "blob", role = "input" },\n]\norigin = "authored',
+        ("construct", "plain record", "fields[0].shape", Code.BAD_VALUE),
+    ),
+    (
+        'origin = "other (hand edited)"',
+        'origin = "digitised"',
+        ("construct", "narrower record", "origin", Code.BAD_VALUE),
+    ),
+    (
+        'origin = "not stated"',
+        'origin = "not statedly"',
+        ("construct", "unmapped record", "origin", Code.BAD_VALUE),
+    ),
     ('offered = "yes"', "offered = true", ("capability", "flash_tp", "offered", Code.WRONG_TYPE)),
     ('offered = "yes"', 'offered = "maybe"', ("capability", "flash_tp", "offered", Code.BAD_VALUE)),
-    ('evidence = "documentation"', 'evidence = "hearsay"',
-     ("capability", "virial_sweep (proposed)", "evidence", Code.BAD_VALUE)),
-    ('calculation = "virial_sweep (proposed)"', 'calculation = "virial_sweep"',
-     ("capability", "virial_sweep", "calculation", Code.BAD_VALUE)),
-    ('calculation = "virial_sweep (proposed)"', 'calculation = "proposed:virial_sweep"',
-     ("capability", "proposed:virial_sweep", "calculation", Code.BAD_VALUE)),
-    ('calculation = "virial_sweep (proposed)"',
-     'calculation = "virial_sweep (proposed new key: x)"',
-     ("capability", "virial_sweep (proposed new key: x)", "calculation", Code.BAD_VALUE)),
-    ('class = "wrapper"', 'class = "wrapping"',
-     ("model_family", "Wrapper", "class", Code.BAD_VALUE)),
-    ('class = "wrapper"', 'class = "other:x"',
-     ("model_family", "Wrapper", "class", Code.BAD_VALUE)),
-    ('closed_form = "procedural"', 'closed_form = "sometimes"',
-     ("model_family", "Wrapper", "closed_form", Code.BAD_VALUE)),
-    ('composes = []', 'composes = "none"',
-     ("model_family", "Wrapper", "composes", Code.WRONG_TYPE)),
-    ('composes = []', 'composes = ["a mixing rule"]',
-     ("model_family", "Wrapper", "composes[0]", Code.NOT_A_TABLE)),
-    ('{ slot = "", accepts = "a mixing rule", default = "" }',
-     '{ slot = "", accepts = "a mixing rule" }',
-     ("model_family", "AlphaEOS", "composes[1].default", Code.MISSING_KEY)),
-    ('{ selector = "version=2", selects', '{ flag = "version=2", selects',
-     ("model_family", "AlphaEOS", "variants[0].flag", Code.UNKNOWN_KEY)),
-    ('variants = [\n  { selector = "version=2", selects = "a different default table" },\n]',
-     'variants = "a different default table"',
-     ("model_family", "AlphaEOS", "variants", Code.WRONG_TYPE)),
-    ('read_by_source = "partly"', 'read_by_source = "yes"',
-     ("payload", "data/*.json", "read_by_source", Code.BAD_VALUE)),
+    (
+        'evidence = "documentation"',
+        'evidence = "hearsay"',
+        ("capability", "virial_sweep (proposed)", "evidence", Code.BAD_VALUE),
+    ),
+    (
+        'calculation = "virial_sweep (proposed)"',
+        'calculation = "virial_sweep"',
+        ("capability", "virial_sweep", "calculation", Code.BAD_VALUE),
+    ),
+    (
+        'calculation = "virial_sweep (proposed)"',
+        'calculation = "proposed:virial_sweep"',
+        ("capability", "proposed:virial_sweep", "calculation", Code.BAD_VALUE),
+    ),
+    (
+        'calculation = "virial_sweep (proposed)"',
+        'calculation = "virial_sweep (proposed new key: x)"',
+        ("capability", "virial_sweep (proposed new key: x)", "calculation", Code.BAD_VALUE),
+    ),
+    (
+        'class = "wrapper"',
+        'class = "wrapping"',
+        ("model_family", "Wrapper", "class", Code.BAD_VALUE),
+    ),
+    (
+        'class = "wrapper"',
+        'class = "other:x"',
+        ("model_family", "Wrapper", "class", Code.BAD_VALUE),
+    ),
+    (
+        'closed_form = "procedural"',
+        'closed_form = "sometimes"',
+        ("model_family", "Wrapper", "closed_form", Code.BAD_VALUE),
+    ),
+    (
+        "composes = []",
+        'composes = "none"',
+        ("model_family", "Wrapper", "composes", Code.WRONG_TYPE),
+    ),
+    (
+        "composes = []",
+        'composes = ["a mixing rule"]',
+        ("model_family", "Wrapper", "composes[0]", Code.NOT_A_TABLE),
+    ),
+    (
+        '{ slot = "", accepts = "a mixing rule", default = "" }',
+        '{ slot = "", accepts = "a mixing rule" }',
+        ("model_family", "AlphaEOS", "composes[1].default", Code.MISSING_KEY),
+    ),
+    (
+        '{ selector = "version=2", selects',
+        '{ flag = "version=2", selects',
+        ("model_family", "AlphaEOS", "variants[0].flag", Code.UNKNOWN_KEY),
+    ),
+    (
+        'variants = [\n  { selector = "version=2", selects = "a different default table" },\n]',
+        'variants = "a different default table"',
+        ("model_family", "AlphaEOS", "variants", Code.WRONG_TYPE),
+    ),
+    (
+        'read_by_source = "partly"',
+        'read_by_source = "yes"',
+        ("payload", "data/*.json", "read_by_source", Code.BAD_VALUE),
+    ),
     ("files = 3", 'files = "3"', ("payload", "data/*.json", "files", Code.WRONG_TYPE)),
     ("bytes = 1200", "bytes = 1200.5", ("payload", "data/*.json", "bytes", Code.WRONG_TYPE)),
-    ('records = "14 objects, counted by parsing"', "records = 14",
-     ("payload", "data/*.json", "records", Code.WRONG_TYPE)),
-    ('count = "3 records"\nexample = "data/plain.json#/0"',
-     'count = 3\nexample = "data/plain.json#/0"',
-     ("construct", "plain record", "count", Code.WRONG_TYPE)),
-    ('values = ["a", "b"]', 'values = "a, b"',
-     ("construct", "close record", "values", Code.WRONG_TYPE)),
+    (
+        'records = "14 objects, counted by parsing"',
+        "records = 14",
+        ("payload", "data/*.json", "records", Code.WRONG_TYPE),
+    ),
+    (
+        'count = "3 records"\nexample = "data/plain.json#/0"',
+        'count = 3\nexample = "data/plain.json#/0"',
+        ("construct", "plain record", "count", Code.WRONG_TYPE),
+    ),
+    (
+        'values = ["a", "b"]',
+        'values = "a, b"',
+        ("construct", "close record", "values", Code.WRONG_TYPE),
+    ),
     ('surveyed = "2026-01-02"', 'surveyed = "yesterday"', ("", "", "surveyed", Code.BAD_VALUE)),
     ('source = "alpha"', 'source = "gamma"', ("", "", "source", Code.SOURCE_MISMATCH)),
     ('pin = "0123456789ab"\n', "", ("", "", "pin", Code.MISSING_KEY)),
-    ('additional_pins = { alpha_code = "ba9876543210" }',
-     "additional_pins = { alpha_code = 7 }", ("", "", "additional_pins", Code.WRONG_TYPE)),
-    ('why_it_matters = "The mapping factor depends on it."', 'why = "x"',
-     ("question", "units", "why", Code.UNKNOWN_KEY)),
+    (
+        'additional_pins = { alpha_code = "ba9876543210" }',
+        "additional_pins = { alpha_code = 7 }",
+        ("", "", "additional_pins", Code.WRONG_TYPE),
+    ),
+    (
+        'why_it_matters = "The mapping factor depends on it."',
+        'why = "x"',
+        ("question", "units", "why", Code.UNKNOWN_KEY),
+    ),
     ('name = "units"\n', "", ("convention", "alpha/units.py", "name", Code.MISSING_KEY)),
     ('name = "plain record"', 'name = ""', ("construct", "[0]", "name", Code.BAD_VALUE)),
-    ('name = "exact, loss none"', 'name = "plain record"',
-     ("construct", "plain record", "name", Code.DUPLICATE_NAME)),
+    (
+        'name = "exact, loss none"',
+        'name = "plain record"',
+        ("construct", "plain record", "name", Code.DUPLICATE_NAME),
+    ),
 ]
 
 
@@ -162,9 +229,7 @@ def test_a_record_with_a_deviation_is_left_out_of_the_loaded_survey(tmp_path: Pa
 def test_a_proposed_key_needs_no_vocabulary_but_a_plain_key_does(tmp_path: Path) -> None:
     tree = make_tree(tmp_path)
     edit(tree, "alpha", 'calculation = "flash_tp"', 'calculation = "flash_xy"')
-    assert codes(load(tree)[1]) == [
-        ("capability", "flash_xy", "calculation", Code.BAD_VALUE)
-    ]
+    assert codes(load(tree)[1]) == [("capability", "flash_xy", "calculation", Code.BAD_VALUE)]
     # Without a vocabulary only the form of the key is checked.
     assert load_surveys(tree).diagnostics == ()
 
@@ -180,7 +245,7 @@ def test_a_proposed_key_needs_no_vocabulary_but_a_plain_key_does(tmp_path: Path)
         ('origin = "other (digitised)"', True),
         ('origin = "authorship"', False),
         ('origin = "digitised"', False),
-        ("origin = \"\"", False),
+        ('origin = ""', False),
     ],
 )
 def test_origin_starts_with_a_keyword_as_a_whole_word(

@@ -594,6 +594,7 @@ impl Cursor<'_> {
                 "Text" => Some(K::Text),
                 "QuantityType" => Some(K::QuantityType),
                 "ReferenceState" => Some(K::ReferenceState),
+                "Applicability" => Some(K::Applicability),
                 _ => None,
             };
             if let Some(kind) = leaf {
@@ -675,9 +676,31 @@ impl Cursor<'_> {
                 let mut paths = Vec::new();
                 if !self.eat("}") {
                     loop {
-                        paths.push(CellPath {
-                            path: self.cell_path()?,
-                        });
+                        let member = self.cell()?;
+                        if member.uncertainty.is_some() {
+                            return Err(self.error("a reference set member carries no uncertainty"));
+                        }
+                        paths.push(
+                            match member
+                                .value
+                                .selected()
+                                .map_err(|e| self.error(&e.to_string()))?
+                            {
+                                CellSelected::Reference(reference) => CellPath {
+                                    path: reference.path.clone(),
+                                    keys: None,
+                                },
+                                CellSelected::Row(row) => CellPath {
+                                    path: row.target.clone(),
+                                    keys: Some(row.keys.clone()),
+                                },
+                                _ => {
+                                    return Err(
+                                        self.error("plain or keyed reference in a reference set")
+                                    );
+                                }
+                            },
+                        );
                         if self.eat("}") {
                             break;
                         }
@@ -1322,7 +1345,6 @@ impl Cursor<'_> {
                 | "contribute"
                 | "expect"
                 | "annotation"
-                | "extrapolation"
         );
         let entity_kind = if keyword == "entity" {
             Some(self.path()?)
@@ -2058,6 +2080,7 @@ impl Cursor<'_> {
                                 .word()?
                                 .parse()
                                 .map_err(|_| self.error("failure class"))?;
+                            let mut applicability = None;
                             let (validity, members) = if self.eat("validity") {
                                 self.expect("(")?;
                                 let layer = self.vocabulary::<pse_model::generated::enums::ModelingValidityLayer>("validity layer form or data")?;
@@ -2086,6 +2109,33 @@ impl Cursor<'_> {
                                     }),
                                     Vec::new(),
                                 )
+                            } else if self.eat("applicability") {
+                                self.expect("(")?;
+                                let layer = self.vocabulary("applicability layer")?;
+                                self.expect(",")?;
+                                let outcome = self
+                                    .vocabulary("applicable, outside_region or unknown_evidence")?;
+                                self.expect(")")?;
+                                self.expect("claim")?;
+                                self.expect("(")?;
+                                let claim = self.path()?;
+                                self.expect(")")?;
+                                self.expect("form")?;
+                                self.expect("(")?;
+                                let form = self.path()?;
+                                self.expect(")")?;
+                                let sets = if self.eat("set") {
+                                    self.expressions()?
+                                } else {
+                                    Vec::new()
+                                };
+                                let variables = if self.eat("variable") {
+                                    self.expressions()?
+                                } else {
+                                    Vec::new()
+                                };
+                                applicability=Some(AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureApplicability {layer,outcome,claim,form,sets,variables});
+                                (None, Vec::new())
                             } else if self.eat("members") {
                                 (None, self.expressions()?)
                             } else {
@@ -2098,6 +2148,7 @@ impl Cursor<'_> {
                                 AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailure {
                                     class,
                                     validity,
+                                    applicability,
                                     members,
                                 },
                             );
@@ -2561,6 +2612,11 @@ impl Cursor<'_> {
                 } else {
                     Vec::new()
                 };
+                let applicability = if self.eat("applicability") {
+                    self.expressions()?
+                } else {
+                    Vec::new()
+                };
                 let validity = if self.eat("valid") {
                     self.expect("(")?;
                     let predicate = self.until(&[")"])?;
@@ -2626,6 +2682,7 @@ impl Cursor<'_> {
                     external,
                     validity,
                     guards,
+                    applicability,
                     continuity,
                     type_parameters,
                     arguments,
@@ -2891,7 +2948,8 @@ impl Cursor<'_> {
                         upper,
                     });
                 }
-                let symmetry = if self.eat("symmetric") {
+                let symmetry = if matches!(self.peek(), "symmetric" | "ordered") {
+                    let ordered = self.word()? == "ordered";
                     self.expect("(")?;
                     let first = self.word()?;
                     self.expect(",")?;
@@ -2903,6 +2961,7 @@ impl Cursor<'_> {
                         pse_model::generated::enums::ModelingDiagonalPolicy::Allowed
                     };
                     Some(AuthoredModelingDeclarationsFieldValueTableSymmetry {
+                        ordered,
                         first,
                         second,
                         diagonal,
@@ -2951,6 +3010,107 @@ impl Cursor<'_> {
                     envelopes,
                 })
             }
+            "applicability" => {
+                use pse_model::generated::enums::ModelingApplicabilityKind as Claim;
+                let arguments = self
+                    .parameters()?
+                    .into_iter()
+                    .map(|(name, r#type, default_value)| {
+                        AuthoredModelingDeclarationsFieldValueApplicabilityArgumentsItem {
+                            name,
+                            r#type,
+                            default_value,
+                        }
+                    })
+                    .collect();
+                self.expect("owner")?;
+                let owner = self.path()?;
+                self.expect("scope")?;
+                let scope = self.vocabulary("form, data or closure scope")?;
+                self.expect("evidence")?;
+                let evidence = self.path()?;
+                let claim_kind: Claim =
+                    self.vocabulary("region, interval, unrestricted, unknown or union")?;
+                let mut basis = None;
+                let mut predicate = None;
+                let mut reason = None;
+                let mut axis = None;
+                let mut lower = None;
+                let mut upper = None;
+                let mut alternatives = Vec::new();
+                match claim_kind {
+                    Claim::Region => {
+                        basis = Some(self.vocabulary("fitted, recommended or validated basis")?);
+                        self.expect("(")?;
+                        predicate = Some(self.until(&[")"])?);
+                        self.expect(")")?;
+                    }
+                    Claim::Interval => {
+                        basis = Some(self.vocabulary("fitted, recommended or validated basis")?);
+                        axis = Some(self.until(&["in"])?);
+                        self.expect("in")?;
+                        lower = Some(self.until(&[".."])?);
+                        self.expect("..")?;
+                        upper = Some(self.until(&["dependencies", ";"])?);
+                    }
+                    Claim::Unknown => {
+                        self.expect("(")?;
+                        reason = Some(self.word()?);
+                        self.expect(")")?;
+                    }
+                    Claim::Union => alternatives = self.expressions()?,
+                    Claim::Unrestricted => {}
+                }
+                let dependencies = if self.eat("dependencies") {
+                    self.expressions()?
+                } else {
+                    Vec::new()
+                };
+                self.expect(";")?;
+                Value::from_applicability(AuthoredModelingDeclarationsFieldValueApplicability {
+                    arguments,
+                    owner,
+                    scope,
+                    evidence,
+                    claim_kind,
+                    basis,
+                    predicate,
+                    reason,
+                    axis,
+                    lower,
+                    upper,
+                    alternatives,
+                    dependencies,
+                })
+            }
+            "permission" => {
+                let target_kind = self.vocabulary("records or families")?;
+                let targets = self.expressions()?;
+                let mut allow_unknown = false;
+                let mut allow_extrapolation = false;
+                let mut seen = BTreeSet::new();
+                while matches!(self.peek(), "allow_unknown" | "allow_extrapolation") {
+                    let option = self.word()?;
+                    if !seen.insert(option.clone()) {
+                        return Err(self.error("one permission flag of each kind"));
+                    }
+                    let flag = self
+                        .word()?
+                        .parse::<bool>()
+                        .map_err(|_| self.error("true or false"))?;
+                    match option.as_str() {
+                        "allow_unknown" => allow_unknown = flag,
+                        _ => allow_extrapolation = flag,
+                    }
+                }
+                self.expect(";")?;
+                Value::from_permission(AuthoredModelingDeclarationsFieldValuePermission {
+                    target_kind,
+                    targets,
+                    allow_unknown,
+                    allow_extrapolation,
+                })
+            }
             // ADR-0123 Outcome 4: `envelope axis: Q in lower..upper;` in an entity kind, the
             // axis bounded by two of the kind's attributes.
             "envelope" => {
@@ -2960,19 +3120,6 @@ impl Cursor<'_> {
                     r#type,
                     lower,
                     upper,
-                })
-            }
-            // ADR-0123 Outcome 4: `extrapolation layer policy;` in a definition, test or case
-            // selects the extrapolation policy of one validity layer for its instances.
-            "extrapolation" => {
-                let layer = self.vocabulary::<pse_model::generated::enums::ModelingValidityLayer>(
-                    "validity layer form, data or closure",
-                )?;
-                let policy = self.vocabulary("extrapolation policy reject or extrapolate")?;
-                self.expect(";")?;
-                Value::from_extrapolation(AuthoredModelingDeclarationsFieldValueExtrapolation {
-                    layer,
-                    policy,
                 })
             }
             // `dataset name: target [bind(key = cell, …)] [complete_over(…)]

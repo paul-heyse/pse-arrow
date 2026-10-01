@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("89837d2e9ca3439893c87ae741492475") package vessel_fixtures {
+@id("849cffa3ee804ac38ad277f2c5982b65") use pcsaft_parameters @"1.0.0";
 @id("01a0f1868dd574f8b4c3bf3b4dd8ecca") use pcsaft_data @"1.0.0";
 @id("01a0f14331ea77b2a309bb84b3ae8b00") use poling2000_data @"1.0.0";
 @id("d1e98ec591044e4c96ddf41d44186865") use compatibility @"1.0.0";
@@ -15,11 +16,11 @@
 @id("d9921838db16489fa7d4b21c00ae2a08") use caloric @"1.0.0";
 @id("ea83845b0990496ba5ad63238faddd97") use caloric_data @"1.0.0";
 @id("8e4d49d3158445cba3ca90614cf32535") use pcsaft @"1.0.0";
-@id("a90fb79d99024f04b9956318b9ad1cf5") entity properties.property_package vessel_light_hydrocarbons {}
+@id("a90fb79d99024f04b9956318b9ad1cf5") entity properties.property_package vessel_light_hydrocarbons {admitted=vessel_light_hydrocarbons_admitted}
 @id("c10a486fb2d74ed294b696ca85fbbe93") dataset fits:properties.selection complete_over(k in binding_packages,j in alkanes,p in properties.caloric_properties,t in properties.vapor_types) provenance(references.plan14_thermo_reference, provenance.Role.derived, lineage(dataset poling2000_data.vessel_caloric)) {
-[vessel_light_hydrocarbons,chem.methane,properties.heat_capacity,compatibility.PhaseType.vaporPhase]=[correlations.dippr100[chem.methane, properties.heat_capacity, compatibility.PhaseType.vaporPhase, references.poling2000]];
-[vessel_light_hydrocarbons,chem.ethane,properties.heat_capacity,compatibility.PhaseType.vaporPhase]=[correlations.dippr100[chem.ethane, properties.heat_capacity, compatibility.PhaseType.vaporPhase, references.poling2000]];
-[vessel_light_hydrocarbons,chem.propane,properties.heat_capacity,compatibility.PhaseType.vaporPhase]=[correlations.dippr100[chem.propane, properties.heat_capacity, compatibility.PhaseType.vaporPhase, references.poling2000]];
+[vessel_light_hydrocarbons,chem.methane,properties.heat_capacity,compatibility.PhaseType.vaporPhase]=[correlations.dippr100[chem.methane,properties.heat_capacity,compatibility.PhaseType.vaporPhase,references.poling2000_caloric_fit]];
+[vessel_light_hydrocarbons,chem.ethane,properties.heat_capacity,compatibility.PhaseType.vaporPhase]=[correlations.dippr100[chem.ethane,properties.heat_capacity,compatibility.PhaseType.vaporPhase,references.poling2000_caloric_fit]];
+[vessel_light_hydrocarbons,chem.propane,properties.heat_capacity,compatibility.PhaseType.vaporPhase]=[correlations.dippr100[chem.propane,properties.heat_capacity,compatibility.PhaseType.vaporPhase,references.poling2000_caloric_fit]];
 }
 @id("860da3de40824b0cb95af4c86956cbdb") table fractions[j:chemistry.species]:Scalar complete_over(j in alkanes);
 @id("2f611fe7b34d400b8207691771f41a16") dataset composition:fractions provenance(references.plan14_thermo_reference, provenance.Role.synthetic) {
@@ -31,20 +32,24 @@
 @id("ae65cd6c9bd2468ea1bf700735dd0561") use constants @"1.0.0";
 @id("1c3e6e4cba9a409ab582f6971e1ac4c7") fn ideal_enthalpy(T:Temperature,j:chemistry.species)->DeltaH=properties.enthalpy_increment(vessel_light_hydrocarbons,chemistry.vapor,j, constants.standard_temperature, T);
 @id("29dd6a1a3e444acfbf14992087f9d32c") test closed_integrated oracle references.analytic_vessel_balance fixture {dof 0; run integrated; integrate samples(1{s}) relative(1e-10) normalized_absolute(1e-12) step(1e-5{s}) quadrature_relative(1e-8) quadrature_absolute(root.accumulated_amount=1e-9{mol},root.accumulated_energy=1e-5{J});} {
+@id("acc3e6d3c317400483448efc47174372") permission selected_unknown_fit families(pcsaft_parameters.nonassociating,properties.predictive_rule) allow_unknown true allow_extrapolation false;
 @id("1ea989776648448da69fb9cfb9caa177") child root:vessels.Vessel=vessels.Vessel(selected=alkanes,law=pcsaft_data.potential,ideal_h=ideal_enthalpy,composition=fraction);
 @id("416b2018a4454df484169ed73291fccd") expect root.accumulated_amount==0{mol} tolerance 1e-6{mol};
 @id("d4fbb929ebca42e2b4b30c36bd6b8792") expect root.accumulated_energy==root.heat*1{s} tolerance 0.001{J};
 }
 @id("3bf1cbaf35734fba8b97994a915d8032") test closed_simultaneous oracle references.analytic_vessel_balance fixture {dof 0; run simultaneous; } {
+@id("7f92cf5cef1249f38e70cd15f7b2bcdb") permission selected_unknown_fit families(pcsaft_parameters.nonassociating,properties.predictive_rule) allow_unknown true allow_extrapolation false;
 @id("2b5d98d5872844babc6f04ea3c56b012") child root:vessels.Vessel=vessels.Vessel(selected=alkanes,law=pcsaft_data.potential,ideal_h=ideal_enthalpy,composition=fraction);
 @id("5b0254a0883946e993c3577186c61b9f") expect root.cell[1{s}].amount==3.456556634933607{mol} tolerance 1e-6{mol};
 @id("488692986f484bffb79d9b833c89b207") expect root.cell[1{s}].energy==1212.3168203660216{J} tolerance 0.001{J};
 }
 @id("77bda7a1c3914dc28d4df32a5814d4c3") test valve_forward oracle references.analytic_vessel_balance fixture {dof 0; run integrated; policy { derivatives step(1e-9); } value root.downstream=99000{Pa}; value root.pressure_width=100{Pa}; value root.reference_flow=0.001{mol/s}; value root.heat=0{W}; integrate samples(0{s},1{s},10{s},100{s},1000{s},2000{s}) relative(1e-10) normalized_absolute(1e-12) step(1e-5{s}) quadrature_relative(1e-9) quadrature_absolute(root.accumulated_amount=1e-9{mol},root.accumulated_energy=1e-6{J});} {
+@id("82307b7a804c47f0bf36d955d5bc59d5") permission selected_unknown_fit families(pcsaft_parameters.nonassociating,properties.predictive_rule) allow_unknown true allow_extrapolation false;
 @id("1c7a773d9496400199296bde8f28e74f") child root:vessels.Vessel=vessels.Vessel(selected=alkanes,law=pcsaft_data.potential,ideal_h=ideal_enthalpy,composition=fraction,horizon=2000{s},valve=true);
 @id("4ccf152d940c44f9aef6a98cb176fe84") annotation check root.outflow(root.outflow[i]>=0{mol/s} and root.cell[i].pressure>=98999.999{Pa} and (i!=2000{s} or abs(root.cell[i].pressure-99000{Pa})<2{Pa}));
 }
 @id("d2febc44a4c1458289ee63278e70d396") test valve_reverse oracle references.analytic_vessel_balance fixture {dof 0; run integrated; value root.downstream=101000{Pa}; value root.pressure_width=100{Pa}; value root.reference_flow=0.001{mol/s}; value root.heat=0{W}; integrate samples(0{s},1{s},10{s},100{s},1000{s},2000{s}) relative(1e-10) normalized_absolute(1e-12) step(1e-5{s}) quadrature_relative(1e-9) quadrature_absolute(root.accumulated_amount=1e-9{mol},root.accumulated_energy=1e-6{J});} {
+@id("9f0d1468089441b395b010bd72bcce6e") permission selected_unknown_fit families(pcsaft_parameters.nonassociating,properties.predictive_rule) allow_unknown true allow_extrapolation false;
 @id("398e818742744d7aa34b45a573bc231a") child root:vessels.Vessel=vessels.Vessel(selected=alkanes,law=pcsaft_data.potential,ideal_h=ideal_enthalpy,composition=fraction,horizon=2000{s},valve=true);
 @id("df817872a38d4c8b8bdce7647b65f588") annotation check root.outflow(abs(root.outflow[i])<1e-12{mol/s} and abs(root.cell[i].amount-root.initial_amount)<1e-7{mol} and abs(root.cell[i].energy-root.initial_energy)<1e-5{J});
 }
@@ -54,4 +59,5 @@
 @id("1e6857693c1b53a7a1717dbe2386f17c") expect heat==10{W} tolerance 1e-5{W};
 }
 @id("835f4127313f4b8bbd10772802b32e70") set binding_packages:Set<properties.property_package>={vessel_light_hydrocarbons};
+@id("03688bf32b79481dbbbceaa147506e27") entity properties.selection_context vessel_light_hydrocarbons_admitted {roots={correlations.dippr100[chem.methane,properties.heat_capacity,compatibility.PhaseType.vaporPhase,references.poling2000_caloric_fit],correlations.dippr100[chem.ethane,properties.heat_capacity,compatibility.PhaseType.vaporPhase,references.poling2000_caloric_fit],correlations.dippr100[chem.propane,properties.heat_capacity,compatibility.PhaseType.vaporPhase,references.poling2000_caloric_fit]},subjects={chem.methane,chem.ethane,chem.propane},models={properties.heat_capacity},rules={}}
 }

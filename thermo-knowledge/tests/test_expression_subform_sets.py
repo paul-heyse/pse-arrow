@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-from expression_support import scenario
 
+from expression_support import scenario
 from thermo_knowledge.expression.evaluate import EvaluationRefusal, bind
 from thermo_knowledge.expression.parameters import FormChoice, InMemorySource
 

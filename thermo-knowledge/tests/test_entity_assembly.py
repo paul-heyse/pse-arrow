@@ -23,10 +23,10 @@ from dataclasses import dataclass
 import numpy as np
 import psycopg
 import pytest
+
 from build_support import fingerprint, inputs_of, write_source
 from mapping_support import origin
 from mechanisms_support import entity_id, mechanism_declaration
-
 from thermo_knowledge import config, db
 from thermo_knowledge.build import build_database
 from thermo_knowledge.canonical.values import Quantity
@@ -86,7 +86,12 @@ def write_world(w: CanonicalWriter, decl: Declaration, ids: dict[str, uuid.UUID]
     aqueous = entity_id(decl, "aggregation", "liquid")
     p = w.kind(
         "parameterization",
-        {"key": "thermofun-like", "revision": "1", "title": "t", "coherence": "independent_records"},
+        {
+            "key": "thermofun-like",
+            "revision": "1",
+            "title": "t",
+            "coherence": "independent_records",
+        },
         origins=at("p"),
     )
     ids["parameterization"] = p
@@ -95,7 +100,12 @@ def write_world(w: CanonicalWriter, decl: Declaration, ids: dict[str, uuid.UUID]
         species = w.kind("species", {"canonical_key": name, "label": name}, origins=at(f"s-{name}"))
         forms[name] = w.kind(
             "species_form",
-            {"canonical_key": f"{name} aqueous", "label": name, "species": species, "aggregation": aqueous},
+            {
+                "canonical_key": f"{name} aqueous",
+                "label": name,
+                "species": species,
+                "aggregation": aqueous,
+            },
             origins=at(f"f-{name}"),
         )
         ids[f"form_{name}"] = forms[name]
@@ -190,7 +200,13 @@ def world(tmp_path_factory: pytest.TempPathFactory) -> Iterator[World]:
     decl = mechanism_declaration(tmp_path_factory.mktemp("assembly-declaration"))
     canonical = tmp_path_factory.mktemp("assembly-canonical")
     ids: dict[str, uuid.UUID] = {}
-    write_source(canonical, "src", lambda w: write_world(w, decl, ids), decl=decl, declaration=fingerprint(decl))
+    write_source(
+        canonical,
+        "src",
+        lambda w: write_world(w, decl, ids),
+        decl=decl,
+        declaration=fingerprint(decl),
+    )
     with TestDatabase() as database:
         build_database(database.url, decl, inputs_of(canonical))
         yield World(decl, database, ids)
@@ -254,7 +270,9 @@ def test_two_species_of_one_parameterisation_have_different_assemblies(
     ).fetchall()
     counts = {assembly: n for assembly, n in rows}
     assert len(counts) == 2
-    assert counts[world.ids["assembly_Na+"]] == 5  # eos, both corrections, and the two solvent slots of the eos
+    assert (
+        counts[world.ids["assembly_Na+"]] == 5
+    )  # eos, both corrections, and the two solvent slots of the eos
     assert counts[world.ids["assembly_CO2(aq)"]] == 1  # the equation of state alone
 
 
@@ -276,12 +294,16 @@ def test_a_solvent_slot_of_the_equation_of_state_is_reached_by_its_path(
     ]
 
 
-def test_the_assembled_model_of_the_aqueous_ion_evaluates(world: World, conn: psycopg.Connection) -> None:
+def test_the_assembled_model_of_the_aqueous_ion_evaluates(
+    world: World, conn: psycopg.Connection
+) -> None:
     T, P = 350.0, 2.0e7
     v = VALUES["Na+"]
     eps = SOLVENT["eps0"] * np.exp(-(T - 298.15) / SOLVENT["theta"])
     expected = (
-        v["g_ref"] + v["omega"] * (1 / eps - 1) + v["a1"] * SOLVENT["rho"]  # the equation of state
+        v["g_ref"]
+        + v["omega"] * (1 / eps - 1)
+        + v["a1"] * SOLVENT["rho"]  # the equation of state
         - v["ds"] * (T - 298.15)  # the temperature correction
         + v["dv"] * (P - 1.0e5)  # the pressure correction
     )
@@ -294,7 +316,9 @@ def test_the_second_species_uses_its_own_assembly_with_no_corrections_and_no_sol
     assert gibbs(world, conn, "CO2(aq)", 350.0, 2.0e7) == VALUES["CO2(aq)"]["g"]
 
 
-def test_the_assembly_of_one_species_is_not_applied_to_another(world: World, conn: psycopg.Connection) -> None:
+def test_the_assembly_of_one_species_is_not_applied_to_another(
+    world: World, conn: psycopg.Connection
+) -> None:
     """The ion's assembly binds its corrections, but the second species holds no parameter set
     for them: the evaluation refuses rather than borrowing the ion's values."""
     source = DatabaseSource(
@@ -338,5 +362,8 @@ def test_the_ordinals_of_the_choices_at_one_path_are_checked_like_those_of_a_sub
     conn.execute("UPDATE tk.assembly_choice SET ordinal = 3 WHERE ordinal = 2")
     assert run_check(conn, contiguous).violations == 1
     conn.execute("DELETE FROM tk.assembly_choice WHERE ordinal = 3")
-    conn.execute("UPDATE tk.assembly_choice SET ordinal = 2 WHERE path = 'eos' AND assembly = %s", (world.ids["assembly_Na+"],))
+    conn.execute(
+        "UPDATE tk.assembly_choice SET ordinal = 2 WHERE path = 'eos' AND assembly = %s",
+        (world.ids["assembly_Na+"],),
+    )
     assert run_check(conn, contiguous).violations == 1

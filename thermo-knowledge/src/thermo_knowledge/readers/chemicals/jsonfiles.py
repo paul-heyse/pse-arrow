@@ -29,8 +29,8 @@ from pathlib import Path
 import pyarrow as pa
 
 from thermo_knowledge.staging import tabular
-from thermo_knowledge.staging.tabular import flag, index, number, text
 from thermo_knowledge.staging.errors import StagingError
+from thermo_knowledge.staging.tabular import flag, index, number, text
 from thermo_knowledge.staging.writer import Writer
 
 POSITIONAL_NOTE = (
@@ -49,7 +49,18 @@ _JANAF_POINT = (
     number("temperature", "first array", note=POSITIONAL_NOTE),
     number("cp", "second array", note=POSITIONAL_NOTE),
 )
-_PERRY_KEYS = ("Formula", "Phase", "Subphase", "Const", "Lin", "Quadinv", "Quad", "Tmin", "Tmax", "Error")
+_PERRY_KEYS = (
+    "Formula",
+    "Phase",
+    "Subphase",
+    "Const",
+    "Lin",
+    "Quadinv",
+    "Quad",
+    "Tmin",
+    "Tmax",
+    "Error",
+)
 _PERRY = (
     text("CAS", "object key"),
     text("phase_key", "key of the phase object (c, l, g, gls)"),
@@ -77,7 +88,10 @@ _SHOMATE = (
     text("CAS", "object key"),
     index("slot", "position of the phase slot (chemicals: solid, liquid, gas)"),
     index("piece_index", "position of the piece within its slot"),
-    *(number(name, f"piece item {i}", note=POSITIONAL_NOTE) for i, name in enumerate(_SHOMATE_NAMES)),
+    *(
+        number(name, f"piece item {i}", note=POSITIONAL_NOTE)
+        for i, name in enumerate(_SHOMATE_NAMES)
+    ),
 )
 _VDI_KEYS = (
     "Name", "MW", "Tc", "T", "P", "Density (l)", "Density (g)", "Hvap", "Cp (l)", "Cp (g)",
@@ -199,7 +213,9 @@ def read_janaf(table: str) -> tabular.Handler:
     return read
 
 
-def _number_or_text(body: dict[str, object], keys: tuple[str, ...], place: str) -> dict[str, object]:
+def _number_or_text(
+    body: dict[str, object], keys: tuple[str, ...], place: str
+) -> dict[str, object]:
     """A field that the file writes as a number in most entries and as a string in a few: the
     number goes to the column, the string to `<key>_text`."""
     out: dict[str, object] = {}
@@ -248,7 +264,12 @@ def read_psi4(table: str) -> tabular.Handler:
             values = tabular.json_floats(value, _place(artifact, cas))
             for position, item in enumerate(values):
                 rows.append(
-                    {**_row(artifact, cas, position), "CAS": cas, "item_index": position, "value": item}
+                    {
+                        **_row(artifact, cas, position),
+                        "CAS": cas,
+                        "item_index": position,
+                        "value": item,
+                    }
                 )
         writer.rows(table, rows)
         writer.opened(artifact)
@@ -265,7 +286,9 @@ def read_shomate(tree: Path, artifact: str, writer: Writer) -> None:
         for slot, pieces in enumerate(slots):
             if pieces is None:
                 continue
-            for piece_index, piece in enumerate(tabular.as_list(pieces, _place(artifact, cas, slot))):
+            for piece_index, piece in enumerate(
+                tabular.as_list(pieces, _place(artifact, cas, slot))
+            ):
                 place = _place(artifact, cas, slot, piece_index)
                 items = tabular.json_floats(piece, place)
                 if len(items) != len(_SHOMATE_NAMES):

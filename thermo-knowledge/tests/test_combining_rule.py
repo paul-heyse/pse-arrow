@@ -20,10 +20,10 @@ from dataclasses import dataclass
 import numpy as np
 import psycopg
 import pytest
+
 from build_support import fingerprint, inputs_of, write_source
 from mapping_support import origin
 from mechanisms_support import mechanism_declaration
-
 from thermo_knowledge import config, db
 from thermo_knowledge.build import build_database
 from thermo_knowledge.canonical.values import Quantity
@@ -38,7 +38,11 @@ from thermo_knowledge.verify.run import run_check, run_checks
 CHECKS = {c.target: c for c in load_checks(config.TREE_DIR / VERIFY_DIR)[0]}
 TABLE = "pair_dispersion_table_fixture.pair"
 RULE = "lorentz_berthelot_fixture"
-SPECIES = {"a": (3.5, 120.0), "b": (3.0, 150.0), "c": (4.1, 300.0)}  # sigma in angstrom, epsilon over k in K
+SPECIES = {
+    "a": (3.5, 120.0),
+    "b": (3.0, 150.0),
+    "c": (4.1, 300.0),
+}  # sigma in angstrom, epsilon over k in K
 ASSERTED = {("a", "b"): (3.3, 145.0)}  # a pair the source states, off the rule
 ANGSTROM = 1e-10
 
@@ -110,7 +114,13 @@ def decl(tmp_path_factory: pytest.TempPathFactory) -> Declaration:
 def world(decl: Declaration, tmp_path_factory: pytest.TempPathFactory) -> Iterator[World]:
     canonical = tmp_path_factory.mktemp("combining-canonical")
     ids: dict[str, uuid.UUID] = {}
-    write_source(canonical, "src", lambda w: write_world(w, decl, ids), decl=decl, declaration=fingerprint(decl))
+    write_source(
+        canonical,
+        "src",
+        lambda w: write_world(w, decl, ids),
+        decl=decl,
+        declaration=fingerprint(decl),
+    )
     with TestDatabase() as database:
         build_database(database.url, decl, inputs_of(canonical))
         yield World(decl, database, ids)
@@ -133,7 +143,9 @@ def rule(world: World, conn: psycopg.Connection, first: str, second: str) -> tup
         world.decl,
         RULE,
         source=source,
-        sets={"components": [str(world.ids[f"species_{first}"]), str(world.ids[f"species_{second}"])]},
+        sets={
+            "components": [str(world.ids[f"species_{first}"]), str(world.ids[f"species_{second}"])]
+        },
     )
     return tuple(  # type: ignore[return-value]
         float(np.asarray(bound.evaluate(output)).reshape(-1)[0]) for output in ("sigma", "epsilon")
@@ -163,7 +175,9 @@ def test_the_rule_form_gives_the_lorentz_berthelot_values_of_an_unasserted_pair(
     assert epsilon == pytest.approx(np.sqrt(120.0 * 300.0), rel=1e-12)
 
 
-def test_the_rule_does_not_depend_on_the_order_of_the_pair(world: World, conn: psycopg.Connection) -> None:
+def test_the_rule_does_not_depend_on_the_order_of_the_pair(
+    world: World, conn: psycopg.Connection
+) -> None:
     assert rule(world, conn, "a", "c") == pytest.approx(rule(world, conn, "c", "a"), rel=1e-14)
 
 
@@ -184,7 +198,9 @@ def test_an_unasserted_pair_has_no_set_until_a_selection_applies_the_rule(
     source = DatabaseSource(conn, world.decl, [world.ids["parameterization"]])
     subjects = (str(world.ids["species_a"]), str(world.ids["species_c"]))
     assert source.slot_values(TABLE, subjects) is None
-    assert source.default_slot_values(TABLE, subjects) is None  # the evaluator applies no rule of its own
+    assert (
+        source.default_slot_values(TABLE, subjects) is None
+    )  # the evaluator applies no rule of its own
 
 
 @pytest.fixture(scope="module")

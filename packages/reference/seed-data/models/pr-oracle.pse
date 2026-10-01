@@ -14,12 +14,13 @@
 @id("01a0e17fb4307404bb45617d29331305") entity chemistry.species b {}
 @id("01a0e17fb4307404bb45617e1e6ad9dc") entity chemistry.species c {}
 @id("01a0e17fb4307404bb45617fd533221c") set members:Set<chemistry.species>={a,b,c};
-@id("01a0e17fb4307404bb45618032a2b567") dataset critical:cubic.critical_point bind(property=cubic.critical_parameters,phase_type=compatibility.PhaseType.vaporPhase,source=references.idaes_test_ceos_pr) provenance(references.idaes_test_ceos_pr, provenance.Role.oracle_input) {
+@id("01a0e17fb4307404bb45618032a2b567") dataset critical:cubic.critical_point bind(property=cubic.critical_parameters,source=references.idaes_test_ceos_pr ,parameterization=references.idaes_pr_critical_fit,dependencies={},conventions={}) provenance(references.idaes_test_ceos_pr, provenance.Role.oracle_input) {
 [a]=[100{K},100000{Pa},0.1];
 [b]=[200{K},200000{Pa},0.2];
 [c]=[300{K},300000{Pa},0.3];
 }
 @id("01a0e17fb4307404bb456182e91fdc67") test liquid oracle references.idaes_test_ceos_pr fixture {dof 0; run pure; fix root.T=300{K}; fix root.rho=41.15650806416406{mol/m^3}; fix root.amount[a]=0.6{mol}; fix root.amount[b]=0.3{mol}; fix root.amount[c]=0.1{mol}; } {
+@id("bb8fcc58dda24bcdb21c310e0e51914b") permission selected_unknown_fit families(cubic.critical_point,properties.predictive_rule) allow_unknown true allow_extrapolation false;
 @id("01a0e17fb4307404bb456183c9c3b286") child root:peng_robinson.IdaesDeltaPhase=peng_robinson.IdaesHomogeneousPhase(selected=members,pkg=oracle_parameters,law=potential);
 @id("01a0e17fb4307404bb456184e62d85c0") expect exp(root.ln_phi[a])==1.01213{1} tolerance 1e-6{1} relative 1e-5;
 @id("01a0e17fb4307404bb456185a528275c") expect exp(root.ln_phi[b])==0.95919{1} tolerance 1e-6{1} relative 1e-5;
@@ -27,6 +28,7 @@
 @id("01a0e17fb4307404bb4561872d335b0d") expect root.pressure==101325{Pa} tolerance 0.02{Pa} relative 1e-6;
 }
 @id("01a0e17fb4307404bb456188b73032ca") test vapor oracle references.idaes_test_ceos_pr fixture {dof 0; run pure; fix root.T=300{K}; fix root.rho=44.80008901754609{mol/m^3}; fix root.amount[a]=0.1{mol}; fix root.amount[b]=0.2{mol}; fix root.amount[c]=0.7{mol}; } {
+@id("0ef19f8c50034f819ef5a2f96a27474b") permission selected_unknown_fit families(cubic.critical_point,properties.predictive_rule) allow_unknown true allow_extrapolation false;
 @id("01a0e17fb4307404bb45618912287bb4") child root:peng_robinson.IdaesDeltaPhase=peng_robinson.IdaesHomogeneousPhase(selected=members,pkg=oracle_parameters,law=potential);
 @id("01a0e17fb4307404bb45618a7a1df81a") expect exp(root.ln_phi[a])==1.05952{1} tolerance 1e-6{1} relative 1e-5;
 @id("01a0e17fb4307404bb45618bd486c46a") expect exp(root.ln_phi[b])==0.9607{1} tolerance 1e-6{1} relative 1e-5;
@@ -37,15 +39,16 @@
 @id("01a0e1c189bf70b9a2a6f0aa14b05fc1") entity chemistry.species asym_a {}
 @id("01a0e1c189bf70b9a2a6f0ab9cac816a") entity chemistry.species asym_b {}
 @id("01a0e1c189bf70b9a2a6f0acc8277469") set asym_members:Set<chemistry.species>={asym_a,asym_b};
-@id("01a0e1c189bf70b9a2a6f0ad74541655") dataset asym_critical:cubic.critical_point bind(property=cubic.critical_parameters,phase_type=compatibility.PhaseType.vaporPhase,source=references.analytic_cubic_fugacity) provenance(references.analytic_cubic_fugacity, provenance.Role.synthetic) {
+@id("01a0e1c189bf70b9a2a6f0ad74541655") dataset asym_critical:cubic.critical_point bind(property=cubic.critical_parameters,source=references.analytic_cubic_fugacity ,parameterization=references.analytic_cubic_critical_fit,dependencies={},conventions={}) provenance(references.analytic_cubic_fugacity, provenance.Role.synthetic) {
 [asym_a]=[300{K},5000000{Pa},0.1];
 [asym_b]=[400{K},4000000{Pa},0.2];
 }
-@id("01a0e1c189bf70b9a2a6f0ae9a640e2f") dataset asym_interactions:cubic.directional_pair provenance(references.analytic_cubic_fugacity, provenance.Role.synthetic) {
-[references.analytic_cubic_fugacity,cubic.binary_interaction,asym_a,asym_b]=[0.1];
-[references.analytic_cubic_fugacity,cubic.binary_interaction,asym_b,asym_a]=[0.3];
+@id("01a0e1c189bf70b9a2a6f0ae9a640e2f") dataset asym_interactions:cubic.directional_pair bind(parameterization=references.analytic_cubic_pair_fit,family=cubic.binary_interaction,source=references.analytic_cubic_fugacity,dependencies={},conventions={}) provenance(references.analytic_cubic_fugacity, provenance.Role.synthetic) {
+[asym_a,asym_b]=[0.1];
+[asym_b,asym_a]=[0.3];
 }
 @id("01a0e1c189bf70b9a2a6f0af9074e8c1") test asymmetric_conventions oracle references.analytic_cubic_fugacity fixture {dof 0; run pure; fix ordinary.T=450{K}; fix ordinary.rho=25{mol/m^3}; fix ordinary.amount[asym_a]=0.4{mol}; fix ordinary.amount[asym_b]=0.6{mol}; fix parity.T=450{K}; fix parity.rho=25{mol/m^3}; fix parity.amount[asym_a]=0.4{mol}; fix parity.amount[asym_b]=0.6{mol};} {
+@id("5ea6ef32ca5f4e87b3e11612724b0987") permission selected_unknown_fit families(cubic.critical_point,cubic.directional_pair) allow_unknown true allow_extrapolation false;
 @id("01a0e1c189bf70b9a2a6f0b05e4b70a8") child ordinary:helmholtz.HelmholtzPhase=helmholtz.HomogeneousPhase(selected=asym_members,law=asymmetric_potential);
 @id("01a0e1c189bf70b9a2a6f0b15bab08cf") child parity:peng_robinson.IdaesDeltaPhase=peng_robinson.IdaesHomogeneousPhase(selected=asym_members,pkg=asymmetric_parameters,law=asymmetric_potential);
 @id("01a0e1c189bf70b9a2a6f0b22ac1f7e3") expect ordinary.ln_phi[asym_a]==-0.00087601338686184738{1} tolerance 1e-12{1};
@@ -54,29 +57,42 @@
 @id("01a0e1c189bf70b9a2a6f0b52c106c7a") expect parity.ln_phi[asym_b]==-0.0052640946154753352{1} tolerance 1e-12{1};
 @id("01a0e1c189bf70b9a2a6f0b64b7e0603") expect ordinary.pressure==parity.pressure tolerance 1e-8{Pa};
 }
-@id("adc699a018fa4ab790cbbcc38cc4ecbe") entity properties.property_package oracle_parameters {}
+@id("adc699a018fa4ab790cbbcc38cc4ecbe") entity properties.property_package oracle_parameters {admitted=oracle_parameters_admitted}
 @id("b4753f424cf94203afc0d16d3273effc") set oracle_parameters_set:Set<properties.property_package>={oracle_parameters};
 @id("f530583d5b3948bebf77a79f0c26b504") set oracle_parameters_critical:Set<properties.property>={cubic.critical_parameters};
 @id("6f619f821ad44d9f9f8b758eca090738") set oracle_parameters_pair:Set<properties.property>={cubic.binary_interaction};
-@id("25f7df8e73e84ab59179d5f42eb2c612") dataset oracle_parameters_selection:properties.selection complete_over(k in oracle_parameters_set,j in members,p in oracle_parameters_critical,t in properties.vapor_types) provenance(references.idaes_test_ceos_pr,provenance.Role.oracle_input) {
-[oracle_parameters,a,cubic.critical_parameters,compatibility.PhaseType.vaporPhase]=[cubic.critical_point[a,cubic.critical_parameters,compatibility.PhaseType.vaporPhase,references.idaes_test_ceos_pr]];
-[oracle_parameters,b,cubic.critical_parameters,compatibility.PhaseType.vaporPhase]=[cubic.critical_point[b,cubic.critical_parameters,compatibility.PhaseType.vaporPhase,references.idaes_test_ceos_pr]];
-[oracle_parameters,c,cubic.critical_parameters,compatibility.PhaseType.vaporPhase]=[cubic.critical_point[c,cubic.critical_parameters,compatibility.PhaseType.vaporPhase,references.idaes_test_ceos_pr]];
+@id("25f7df8e73e84ab59179d5f42eb2c612") dataset oracle_parameters_selection:properties.pure_selection complete_over(k in oracle_parameters_set,j in members,p in oracle_parameters_critical) provenance(references.idaes_test_ceos_pr,provenance.Role.oracle_input) {
+[oracle_parameters,a,cubic.critical_parameters]=[cubic.critical_point[a,cubic.critical_parameters,references.idaes_pr_critical_fit]];
+[oracle_parameters,b,cubic.critical_parameters]=[cubic.critical_point[b,cubic.critical_parameters,references.idaes_pr_critical_fit]];
+[oracle_parameters,c,cubic.critical_parameters]=[cubic.critical_point[c,cubic.critical_parameters,references.idaes_pr_critical_fit]];
 }
-@id("83d50e69cd8d479596688ce3e9e497e3") dataset oracle_parameters_source:interactions.pair_selection complete_over(k in oracle_parameters_set,p in oracle_parameters_pair) provenance(references.idaes_test_ceos_pr,provenance.Role.oracle_input) { [oracle_parameters,cubic.binary_interaction]=[references.idaes_test_ceos_pr]; }
-@id("0ebfb7b053464c82ae444e9427044966") dataset oracle_parameters_absence:interactions.absence_policy complete_over(k in oracle_parameters_set,p in oracle_parameters_pair) provenance(references.idaes_test_ceos_pr,provenance.Role.oracle_input) { [oracle_parameters,cubic.binary_interaction]=[interactions.PairAbsence.predictiveZero]; }
-@id("27c7685551f94e31a4af4d83d618645d") dataset oracle_parameters_method:interactions.pair_method complete_over(k in oracle_parameters_set,p in oracle_parameters_pair) provenance(references.idaes_test_ceos_pr,provenance.Role.oracle_input) { [oracle_parameters,cubic.binary_interaction]=[interactions.pair_parameter]; }
-@id("50b8102d4915495898cff3b2f3dd38a2") entity properties.property_package asymmetric_parameters {}
+@id("50b8102d4915495898cff3b2f3dd38a2") entity properties.property_package asymmetric_parameters {admitted=asymmetric_parameters_admitted}
 @id("a87f912fb99b4abab7dd3926c2055d58") set asymmetric_parameters_set:Set<properties.property_package>={asymmetric_parameters};
 @id("76502f2234f3436b879050884d14bc28") set asymmetric_parameters_critical:Set<properties.property>={cubic.critical_parameters};
 @id("30c8fa9a8d2e4e7b9578d3d32fc12182") set asymmetric_parameters_pair:Set<properties.property>={cubic.binary_interaction};
-@id("dadbb64dfccf4cc39612f2d410fbe073") dataset asymmetric_parameters_selection:properties.selection complete_over(k in asymmetric_parameters_set,j in asym_members,p in asymmetric_parameters_critical,t in properties.vapor_types) provenance(references.analytic_cubic_fugacity,provenance.Role.oracle_input) {
-[asymmetric_parameters,asym_a,cubic.critical_parameters,compatibility.PhaseType.vaporPhase]=[cubic.critical_point[asym_a,cubic.critical_parameters,compatibility.PhaseType.vaporPhase,references.analytic_cubic_fugacity]];
-[asymmetric_parameters,asym_b,cubic.critical_parameters,compatibility.PhaseType.vaporPhase]=[cubic.critical_point[asym_b,cubic.critical_parameters,compatibility.PhaseType.vaporPhase,references.analytic_cubic_fugacity]];
+@id("dadbb64dfccf4cc39612f2d410fbe073") dataset asymmetric_parameters_selection:properties.pure_selection complete_over(k in asymmetric_parameters_set,j in asym_members,p in asymmetric_parameters_critical) provenance(references.analytic_cubic_fugacity,provenance.Role.oracle_input) {
+[asymmetric_parameters,asym_a,cubic.critical_parameters]=[cubic.critical_point[asym_a,cubic.critical_parameters,references.analytic_cubic_critical_fit]];
+[asymmetric_parameters,asym_b,cubic.critical_parameters]=[cubic.critical_point[asym_b,cubic.critical_parameters,references.analytic_cubic_critical_fit]];
 }
-@id("2b6ac803ce8d40ffbcdea362944a2376") dataset asymmetric_parameters_source:interactions.pair_selection complete_over(k in asymmetric_parameters_set,p in asymmetric_parameters_pair) provenance(references.analytic_cubic_fugacity,provenance.Role.oracle_input) { [asymmetric_parameters,cubic.binary_interaction]=[references.analytic_cubic_fugacity]; }
-@id("1438069d5f1942e8ad066baaaf47593f") dataset asymmetric_parameters_absence:interactions.absence_policy complete_over(k in asymmetric_parameters_set,p in asymmetric_parameters_pair) provenance(references.analytic_cubic_fugacity,provenance.Role.oracle_input) { [asymmetric_parameters,cubic.binary_interaction]=[interactions.PairAbsence.predictiveZero]; }
-@id("4b3fdca5130a4e8181093368494ad26b") dataset asymmetric_parameters_method:interactions.pair_method complete_over(k in asymmetric_parameters_set,p in asymmetric_parameters_pair) provenance(references.analytic_cubic_fugacity,provenance.Role.oracle_input) { [asymmetric_parameters,cubic.binary_interaction]=[cubic.directional_parameter]; }
 @id("05e157709ff34b008f66286d3c819f8e") fn potential(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy=peng_robinson.potential(T,V,n,members,oracle_parameters,cubic.pr);
 @id("73c3c6a55103442cb346012644d26dc1") fn asymmetric_potential(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy=peng_robinson.potential(T,V,n,members,asymmetric_parameters,cubic.pr);
+
+@id("e2dcf0441fe24102833ce71477764117") entity properties.predictive_rule oracle_parameters_zero_rule {source=references.idaes_test_ceos_pr,family=cubic.binary_interaction,dependencies={},output=interactions.predictive_zero}
+@id("077f0296b2f240d79a1ba8c22fc08875") dataset oracle_parameters_self:interactions.self_rule complete_over(k in oracle_parameters_set,family in oracle_parameters_pair_contracts) provenance(references.idaes_test_ceos_pr,provenance.Role.oracle_input) {[oracle_parameters,cubic.binary_interaction]=[interactions.zero_self];}
+@id("cbaf9a5ddaca4fa49d95bc684bf26db3") set oracle_parameters_pair_contracts:Set<properties.property>={cubic.binary_interaction};
+@id("4b0f035da9b54dd8881ca4944abb12e0") dataset oracle_parameters_predictions:interactions.symmetric_selection complete_over(k in oracle_parameters_set,family in oracle_parameters_pair_contracts,i in oracle_parameters_pair_subjects,j in oracle_parameters_pair_subjects) provenance(references.idaes_test_ceos_pr,provenance.Role.oracle_input) {
+[oracle_parameters,cubic.binary_interaction,a,b]=[missing,oracle_parameters_zero_rule];
+[oracle_parameters,cubic.binary_interaction,a,c]=[missing,oracle_parameters_zero_rule];
+[oracle_parameters,cubic.binary_interaction,b,c]=[missing,oracle_parameters_zero_rule];
+}
+@id("2af36babb49a44ef93bfd45e3804a323") set oracle_parameters_pair_subjects:Set<chemistry.species>={a,b,c};
+@id("fb4d8a3ae1bf4521bb90558a9bc62f99") dataset asym_selected: cubic.directional_selection complete_over(k in asymmetric_parameters_set,family in asymmetric_parameters_pair,i in asym_members,j in asym_members) provenance(references.analytic_cubic_fugacity,provenance.Role.synthetic) {
+[asymmetric_parameters,cubic.binary_interaction,asym_a,asym_b]=[cubic.directional_pair[references.analytic_cubic_pair_fit,cubic.binary_interaction,asym_a,asym_b]];
+[asymmetric_parameters,cubic.binary_interaction,asym_b,asym_a]=[cubic.directional_pair[references.analytic_cubic_pair_fit,cubic.binary_interaction,asym_b,asym_a]];
+}
+@id("b000b6527acc4a50985941d18886e58b") dataset asym_self:interactions.self_rule complete_over(k in asymmetric_parameters_set,family in asymmetric_parameters_pair) provenance(references.analytic_cubic_fugacity,provenance.Role.synthetic) {[asymmetric_parameters,cubic.binary_interaction]=[interactions.zero_self];}
+@id("ebab48b8417141fdb7f2db913c3cb28f") entity properties.selection_context oracle_parameters_admitted {roots={cubic.critical_point[a,cubic.critical_parameters,references.idaes_pr_critical_fit],cubic.critical_point[b,cubic.critical_parameters,references.idaes_pr_critical_fit],cubic.critical_point[c,cubic.critical_parameters,references.idaes_pr_critical_fit]},subjects={a,b,c},models={cubic.critical_parameters,cubic.binary_interaction},rules={oracle_parameters_zero_rule}}
+@id("89c6bf997b7d4fe3a95422b59cb5c1f3") entity properties.selection_context asymmetric_parameters_admitted {roots={cubic.critical_point[asym_a,cubic.critical_parameters,references.analytic_cubic_critical_fit],cubic.critical_point[asym_b,cubic.critical_parameters,references.analytic_cubic_critical_fit],cubic.directional_pair[references.analytic_cubic_pair_fit,cubic.binary_interaction,asym_a,asym_b],cubic.directional_pair[references.analytic_cubic_pair_fit,cubic.binary_interaction,asym_b,asym_a]},subjects={asym_a,asym_b},models={cubic.critical_parameters,cubic.binary_interaction},rules={}}
+@id("59aaf04291b142d487ce639642c87028") dataset oracle_parameters_law:interactions.pair_law complete_over(k in oracle_parameters_set,p in oracle_parameters_pair) provenance(references.idaes_test_ceos_pr,provenance.Role.oracle_input) {[oracle_parameters,cubic.binary_interaction]=[interactions.pair_parameter];}
+@id("a536b1f7d4864b52a5b75ccd2604c641") dataset asymmetric_parameters_law:interactions.pair_law complete_over(k in asymmetric_parameters_set,p in asymmetric_parameters_pair) provenance(references.analytic_cubic_fugacity,provenance.Role.synthetic) {[asymmetric_parameters,cubic.binary_interaction]=[cubic.directional_parameter];}
 }

@@ -22,10 +22,10 @@ from pathlib import Path
 import numpy as np
 import psycopg
 import pytest
+
 from build_support import fingerprint, inputs_of, write_source
 from mapping_support import origin
 from mechanisms_support import broken, mechanism_declaration, replace
-
 from thermo_knowledge import config, db
 from thermo_knowledge.build import build_database
 from thermo_knowledge.canonical.values import Quantity
@@ -104,7 +104,13 @@ def decl(tmp_path_factory: pytest.TempPathFactory) -> Declaration:
 def world(decl: Declaration, tmp_path_factory: pytest.TempPathFactory) -> Iterator[World]:
     canonical = tmp_path_factory.mktemp("component-canonical")
     ids: dict[str, uuid.UUID] = {}
-    write_source(canonical, "src", lambda w: write_world(w, decl, ids), decl=decl, declaration=fingerprint(decl))
+    write_source(
+        canonical,
+        "src",
+        lambda w: write_world(w, decl, ids),
+        decl=decl,
+        declaration=fingerprint(decl),
+    )
     with TestDatabase() as database:
         build_database(database.url, decl, inputs_of(canonical))
         yield World(decl, database, ids)
@@ -140,17 +146,28 @@ def test_the_fixture_loads_and_only_the_silent_parameterisation_fails_the_conven
     world: World, conn: psycopg.Connection
 ) -> None:
     results = run_checks(conn, list(CHECKS.values()))
-    failing = [(r.check.target, r.error) for r in results if not r.passed and r.check.target != "parameterization_has_conventions"]
+    failing = [
+        (r.check.target, r.error)
+        for r in results
+        if not r.passed and r.check.target != "parameterization_has_conventions"
+    ]
     assert failing == []
     flagged = run_check(conn, CHECKS["parameterization_has_conventions"])
     assert {row[0] for row in flagged.rows} == {str(world.ids["p_silent"])}
 
 
-def test_a_fact_read_per_component_is_reified_with_its_group_and_set(world: World, conn: psycopg.Connection) -> None:
+def test_a_fact_read_per_component_is_reified_with_its_group_and_set(
+    world: World, conn: psycopg.Connection
+) -> None:
     rows = conn.execute(
         "SELECT form, name, slot_group, over FROM meta.form_convention ORDER BY form"
     ).fetchall()
-    assert ("averaged_gas_constant_fixture", "gas_constant", "averaged_gas_constant_fixture.pure", "components") in rows
+    assert (
+        "averaged_gas_constant_fixture",
+        "gas_constant",
+        "averaged_gas_constant_fixture.pure",
+        "components",
+    ) in rows
     assert ("single_gas_constant_fixture", "gas_constant", None, None) in rows
 
 
@@ -170,14 +187,20 @@ def test_each_component_takes_its_own_parameterisation_whatever_the_order(
         assert found == pytest.approx(expected, rel=1e-15)
 
 
-def test_components_of_one_edition_give_that_edition(world: World, conn: psycopg.Connection) -> None:
-    assert mixture(world, conn, AVERAGED, ["new"], {"b": 0.5, "d": 0.5}) == pytest.approx(R_NEW, rel=1e-15)
+def test_components_of_one_edition_give_that_edition(
+    world: World, conn: psycopg.Connection
+) -> None:
+    assert mixture(world, conn, AVERAGED, ["new"], {"b": 0.5, "d": 0.5}) == pytest.approx(
+        R_NEW, rel=1e-15
+    )
 
 
 def test_the_form_that_reads_the_fact_of_the_parameterisation_still_refuses_different_editions(
     world: World, conn: psycopg.Connection
 ) -> None:
-    with pytest.raises(EvaluationRefusal, match="`gas_constant` differs between the parameterizations"):
+    with pytest.raises(
+        EvaluationRefusal, match="`gas_constant` differs between the parameterizations"
+    ):
         mixture(world, conn, SINGLE, ["old", "new"], {"a": 0.3, "b": 0.7}, "RT")
     found = mixture(world, conn, SINGLE, ["old"], {"a": 0.3, "c": 0.7}, "RT")
     assert found == pytest.approx(R_OLD * 300.0, rel=1e-14)
@@ -222,7 +245,9 @@ def refused(tmp_path: Path, edit: object) -> list:
     return list(result.diagnostics)
 
 
-def test_a_fact_read_per_component_cannot_be_read_as_a_fact_of_the_parameterisation(tmp_path: Path) -> None:
+def test_a_fact_read_per_component_cannot_be_read_as_a_fact_of_the_parameterisation(
+    tmp_path: Path,
+) -> None:
     found = refused(
         tmp_path,
         replace(
@@ -251,7 +276,7 @@ def test_a_per_component_fact_undeclared_is_refused(tmp_path: Path) -> None:
         tmp_path,
         replace(
             'R = "sum(x[i] * convention.gas_constant[i] for i in components)"',
-            'R = "sum(x[i] * convention.boltzmann_constant[i] * unit(\'mol\') for i in components)"',
+            "R = \"sum(x[i] * convention.boltzmann_constant[i] * unit('mol') for i in components)\"",
         ),
     )
     assert Code.UNKNOWN_NAME in {d.code for d in found}
@@ -281,7 +306,9 @@ def test_the_group_needs_one_subject_bound_to_a_set(tmp_path: Path) -> None:
     assert any("one subject role" in d.message for d in found)
 
 
-def test_a_fact_is_not_both_a_fact_of_the_parameterisation_and_of_its_components(tmp_path: Path) -> None:
+def test_a_fact_is_not_both_a_fact_of_the_parameterisation_and_of_its_components(
+    tmp_path: Path,
+) -> None:
     found = refused(
         tmp_path,
         replace(

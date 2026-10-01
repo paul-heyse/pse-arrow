@@ -4,20 +4,34 @@
 @id("84abf9e94745461d925fabf7be5c24ca") use chemistry @"1.0.0";
 @id("af4f0db8ed794f9393d124f8773704a1") use provenance @"1.0.0";
 @id("32511987de27489a9647ab74127a63fd") use constants @"1.0.0";
-@id("4ff4acf6bb374d99a3d6faa8356a3ad0") entity kind reaction_set abstract {
+@id("ba9d487de130555b9731236b0b9052c2") use properties @"1.0.0";
+@id("92532849340053ea9d4413d9a5afbced") use compatibility @"1.0.0";
+@id("331ed014c84b59d3ae205f7c14b81f4d") entity properties.property kinetic_parameters {quantity=VolumetricReactionRate,shape=properties.IndexShape.group,applies={}}
+@id("4ff4acf6bb374d99a3d6faa8356a3ad0") entity kind reaction_set extends properties.parameter_set abstract {
+@id("f2af978bc94557bf91b3bbf091b09d7d") slot=reaction_slot;
+@id("f88ee2d0540254e39bed3f452c208cf7") key parameterization:properties.parameterization;
+@id("246065c4a5dc56ecabd614cef7f9ae87") key family:properties.property;
 @id("8ac3e195febe4636b458140d74ea4b93") key reaction:chemistry.reaction;
-@id("93a8483ef9ed47f9b684d5773b8cfecb") key source:provenance.source;
 @id("0faba70407fa42b49314a1b5c071ee9e") key variant:Integer = 1;
+@id("645433e93a9f57d0a3663f01357aa3f1") attribute rate_extent:chemistry.extent_convention;
+@id("d51162c840a05a25b534537a0d402c82") attribute heat_extent:chemistry.extent_convention;
+@id("d46a234b98ae51c7addf724e8961f22a") require family==kinetic_parameters : "a reaction record has the declared kinetic and heat contract family";
+@id("3e792d8c4ed857889fd3a922c18faf22") require rate_extent==reaction.extent : "ExtentMismatch: kinetic rate uses the selected reaction as-authored extent";
+@id("e1fb8b726ae15ca097700791c7a7e5f1") require heat_extent==reaction.extent : "ExtentMismatch: reaction heat uses the selected reaction as-authored extent";
 @id("2cf3ef0d25754e93a8ab6c816c4f34c3") attribute k0:SecondOrderRateConstant storage {m^3/(mol*s)};
 @id("da91d7c9f2b04e87a4cdb4742d2848bf") attribute E:ActivationEnergy storage {J/mol};
 @id("ee644305645f483a95ef93b62a9314b1") attribute heat:ReactionHeat storage {J/mol};
 @id("158d4696f6cd4d5a9d353d22f36b8823") attribute first:chemistry.species;
 @id("2769d61d98ff45f7b7baa0053e513661") attribute second:chemistry.species;
 @id("75fa3701baa54bf68248a1b8d159cc29") attribute rate_constant:Fn(T:Temperature,s:reaction_set)->SecondOrderRateConstant;
+@id("fbc0b9631b9c5b5097bbce6acb13e683") attribute rate:Fn(T:Temperature,c:MolarDensity[chemistry.species],s:reaction_set)->VolumetricReactionRate;
+@id("7be201414742566388b45603a72000dc") attribute applicability:Fn(T:Temperature,s:reaction_set)->Applicability;
 @id("bb667303fc5c43dab2820d6f2862b2dd") require k0>=0{m^3/(mol*s)} and E>=0{J/mol}:"Arrhenius prefactor and activation energy are nonnegative";
 }
 @id("2ac7dec2ee3f43a085cb425a69566de7") entity kind arrhenius_second_order extends reaction_set {
+@id("6e10bf72d9aa547e85e91c73bca40709") applicability=kinetic_unknown;
 @id("19001649b1d548d595ad32a13d1e7b89") rate_constant=arrhenius;
+@id("f558c674cbc05390861e8db3b74c4392") rate=second_order_record;
 }
 @id("d1bed15ec6a244798894c11e852dbc58") constant activation_energy_unit:ActivationEnergy=1{J/mol} provenance(constants.codata_2018,provenance.Role.published);
 @id("8f5112417b6d446c9c880acc3ab3dc21") constant rate_constant_unit:SecondOrderRateConstant=1{m^3/(mol*s)} provenance(constants.codata_2018,provenance.Role.published);
@@ -27,6 +41,7 @@
 // Unit-valued constants normalize slots and reconstruct rates only at these declared boundaries.
 @id("2517d5a821844603b650ffbd8e167867") entity provenance.source arrhenius_reference {title="Arrhenius second-order rate constant: selected prefactor times exp(-activation energy/(R*T)); unit constants define only the declared reduced coordinates"}
 @id("cf991a250cac4d8fb80a1649f6e3c6e0") entity provenance.source second_order_reference {title="Second-order reaction rate: selected reaction rate constant times its first and second species concentrations; reconstruction assigns the selected reaction amount-rate convention"}
+@id("8b3ea99549fe5de58dfd5a10ada22cad") applicability kinetic_unknown(T:Temperature,s:reaction_set) owner reaction_set scope data evidence arrhenius_reference unknown("No empirical applicability region is declared for the selected kinetic record");
 @id("21d59f1f81414ee48418aafcbc5876f2") coordinate map arrhenius_coordinates(T:Temperature,s:arrhenius_second_order) valid(T>constants.absolute_zero) {
 @id("816f175e571a4dd1abc06e07de874ea9") slot exponent=-(s.E/activation_energy_unit)/((constants.gas_constant/constants.gas_constant_unit)*(T/constants.temperature_scale));
 }
@@ -39,6 +54,8 @@
 }
 @id("c9464539b4fb4ccf8097ce33a539d9a1") reconstruction second_order_rate for second_order_coordinates(T:Temperature,a:MolarDensity,b:MolarDensity,s:arrhenius_second_order)->VolumetricReactionRate reference second_order_reference=volumetric_rate_unit;
 @id("5e1433f6db4a4a5788f40ca3e93d1b98") fn reduced_second_order(coefficient:Coordinate<second_order_coordinates.coefficient>,first:Coordinate<second_order_coordinates.first>,second:Coordinate<second_order_coordinates.second>,s:arrhenius_second_order)->Reduced<second_order_rate>=coefficient*first*second;
-@id("48b4c403b28d43ada0242571d0e29c12") fn arrhenius(T:Temperature,s:arrhenius_second_order)->SecondOrderRateConstant valid(T>constants.absolute_zero)=reconstruct(arrhenius_rate,reduced_arrhenius,T,s);
+@id("48b4c403b28d43ada0242571d0e29c12") fn arrhenius(T:Temperature,s:arrhenius_second_order)->SecondOrderRateConstant applicability(s.applicability(T,s)) valid(T>constants.absolute_zero)=reconstruct(arrhenius_rate,reduced_arrhenius,T,s);
 @id("6abaf0468a334fbab91a337422c7200b") fn second_order(T:Temperature,a:MolarDensity,b:MolarDensity,s:arrhenius_second_order)->VolumetricReactionRate valid(a>=0{mol/m^3} and b>=0{mol/m^3})=reconstruct(second_order_rate,reduced_second_order,T,a,b,s);
+@id("4e7989f957fc52bf9dd51f803388393c") fn second_order_record(T:Temperature,c:MolarDensity[chemistry.species],s:arrhenius_second_order)->VolumetricReactionRate=second_order(T,c[s.first],c[s.second],s);
+@id("d67df996839756e5a67d2a098cdd6834") fn reaction_slot(r:reaction_set)->Tuple<properties.property,Tuple<chemistry.species?,chemistry.species?>,compatibility.PhaseType?,chemistry.reaction?>=tuple(r.family,tuple(missing,missing),missing,r.reaction);
 }

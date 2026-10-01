@@ -11,9 +11,9 @@ from collections.abc import Iterator
 
 import psycopg
 import pytest
-from mapping_support import SATURATION, origin, real_declaration, writer
 from psycopg import errors
 
+from mapping_support import SATURATION, origin, real_declaration, writer
 from thermo_knowledge.build import build_database
 from thermo_knowledge.canonical.invariants import LOAD_INVARIANTS
 from thermo_knowledge.canonical.values import Quantity
@@ -65,9 +65,7 @@ def test_a_standard_uncertainty_needs_the_slot_that_fixes_its_unit() -> None:
 
 def test_a_parameter_without_an_uncertainty_is_still_a_parameter() -> None:
     w = writer(real_declaration())
-    w.relation(
-        "fit_free_parameter", {"fit": fit(w), "ordinal": 1}, {"record": uuid.uuid4()}
-    )
+    w.relation("fit_free_parameter", {"fit": fit(w), "ordinal": 1}, {"record": uuid.uuid4()})
     (row,) = w.tables()["prov.fit_free_parameter"].to_pylist()
     assert row["standard_uncertainty"] is None and row["slot"] is None
 
@@ -81,7 +79,9 @@ def test_a_correlation_is_stored_once_in_the_canonical_orientation() -> None:
     found = fit(w)
     correlate(w, found, 2, 1, 0.5)
     correlate(w, found, 1, 3, -1.0)
-    rows = {(r["a"], r["b"]): r["coefficient"] for r in w.tables()["prov.fit_correlation"].to_pylist()}
+    rows = {
+        (r["a"], r["b"]): r["coefficient"] for r in w.tables()["prov.fit_correlation"].to_pylist()
+    }
     assert rows == {(1, 2): 0.5, (1, 3): -1.0}
 
 

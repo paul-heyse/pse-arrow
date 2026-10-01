@@ -17,7 +17,6 @@ import pyarrow as pa
 
 from thermo_knowledge.readers.coolprop import transport
 from thermo_knowledge.readers.coolprop.common import (
-    NOT_APPLICABLE,
     Col,
     Fields,
     ObjectSpec,

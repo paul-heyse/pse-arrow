@@ -476,20 +476,22 @@ def validate(
             )
         try:
             item.revision.format(pin="")
-        except (KeyError, IndexError, ValueError):
+        except KeyError, IndexError, ValueError:
             problems.append(
                 f"parameterization {name}: `revision` may use only the placeholder {{pin}}"
             )
         for text, label in ((item.key, "key"), (item.title, "title")):
             try:
                 text.format(artifact="", pin="")
-            except (KeyError, IndexError, ValueError):
+            except KeyError, IndexError, ValueError:
                 problems.append(
                     f"parameterization {name}: `{label}` may use only the placeholders "
                     "{artifact} and {pin}"
                 )
         if item.per_artifact and "{artifact}" not in item.key:
-            problems.append(f"parameterization {name}: `per_artifact` needs `{{artifact}}` in `key`")
+            problems.append(
+                f"parameterization {name}: `per_artifact` needs `{{artifact}}` in `key`"
+            )
         if not item.per_artifact and "{artifact}" in item.key:
             problems.append(f"parameterization {name}: `{{artifact}}` belongs to `per_artifact`")
     return problems
@@ -569,12 +571,16 @@ def _decoding(problems: list[str], name: str, decoding: Decoding) -> None:
         for column, wanted in line.where.items():
             if isinstance(wanted, dict):
                 if set(wanted) != {"pattern"}:
-                    problems.append(f"{label}: `{column}` is a value, a list or `{{ pattern = ... }}`")
+                    problems.append(
+                        f"{label}: `{column}` is a value, a list or `{{ pattern = ... }}`"
+                    )
                     continue
                 try:
                     re.compile(wanted["pattern"])
                 except re.error as error:
-                    problems.append(f"{label}: `{column}` pattern is not a regular expression: {error}")
+                    problems.append(
+                        f"{label}: `{column}` pattern is not a regular expression: {error}"
+                    )
 
 
 def _convention_set(
@@ -602,7 +608,9 @@ def _convention_set(
             continue
         if target.dimensioned:
             if not isinstance(raw, dict) or set(raw) != {"value", "unit"}:
-                problems.append(f"{where}: state `{{ value = ..., unit = \"...\" }}`, a dimensioned fact")
+                problems.append(
+                    f'{where}: state `{{ value = ..., unit = "..." }}`, a dimensioned fact'
+                )
             elif target.unit is not None:
                 try:
                     convert(1.0, str(raw["unit"]), target.unit)
@@ -737,15 +745,25 @@ def _table(
     for label, fields in effective:
         for column in sorted(names - set(PROVENANCE_COLUMNS)):
             if not _covered(column, fields):
-                problems.append(f"{label}: column `{column}` has neither a rule nor a declared skip")
+                problems.append(
+                    f"{label}: column `{column}` has neither a rule nor a declared skip"
+                )
     checked = [(f"{where} column", rule.fields)] + [
         (f"{where} partition {p.name} column", p.fields) for p in rule.partitions
     ]
     for label, fields in checked:
         for key, field_rule in fields.items():
             if key.startswith(DERIVED):
-                _field(problems, decl, spec, f"{label} {key}", rule_table=table, rule=field_rule,
-                       field=None, schemes=schemes)
+                _field(
+                    problems,
+                    decl,
+                    spec,
+                    f"{label} {key}",
+                    rule_table=table,
+                    rule=field_rule,
+                    field=None,
+                    schemes=schemes,
+                )
                 continue
             column, index = element_of(key)
             if column not in names:
@@ -759,8 +777,16 @@ def _table(
                 problems.append(
                     f"{label} {key}: the column is ruled by its elements, so it has no rule of its own"
                 )
-            _field(problems, decl, spec, f"{label} {key}", rule_table=table, rule=field_rule,
-                   field=field, schemes=schemes)
+            _field(
+                problems,
+                decl,
+                spec,
+                f"{label} {key}",
+                rule_table=table,
+                rule=field_rule,
+                field=field,
+                schemes=schemes,
+            )
 
 
 def _covered_by_elements(column: str, fields: Mapping[str, FieldRule]) -> bool:
@@ -845,7 +871,7 @@ def _field(
     if rule.optional and rule.target is None:
         problems.append(f"{where}: `optional` belongs to a value rule (one with a `target`)")
     if rule.equals is not None and rule.role is None:
-        problems.append(f"{where}: `equals` belongs to a structure column (`role = \"structure\"`)")
+        problems.append(f'{where}: `equals` belongs to a structure column (`role = "structure"`)')
     if rule.role is not None or rule.disposition is not None:
         if rule.disposition is not None:
             _disposition(problems, where, rule.disposition, rule.reason, rule.wave)
@@ -886,7 +912,9 @@ def _field(
     _value_options(problems, decl, spec, where, rule_table, rule, target)
     if rule.decode is not None:
         if rule.unit is not None:
-            problems.append(f"{where}: a decoded value has no unit of its own, so the rule states none")
+            problems.append(
+                f"{where}: a decoded value has no unit of its own, so the rule states none"
+            )
         return
     if target.dimensioned:
         if rule.text_unit:
@@ -947,7 +975,9 @@ def _value_options(
     `column`."""
     type_ = target.field.type
     if rule.default is not None and not rule.loss:
-        problems.append(f"{where}: a `default` is an assumption of the mapping, so `loss` states it")
+        problems.append(
+            f"{where}: a `default` is an assumption of the mapping, so `loss` states it"
+        )
     if rule.case is not None and type_.element_kind != "kind":
         problems.append(f"{where}: `case` belongs to a target that names a declared entity")
     if rule.decode is not None:
@@ -1024,7 +1054,7 @@ def _attributes(
                 if message:
                     problems.append(f"{label}: {message}")
         elif found.dimensioned:
-            problems.append(f"{label}: state `{{ value = ..., unit = \"...\" }}`, a dimensioned fact")
+            problems.append(f'{label}: state `{{ value = ..., unit = "..." }}`, a dimensioned fact')
         elif type_.element_kind == "enum":
             members = {member.name for member in decl.enums[type_.element].members}
             if raw not in members:

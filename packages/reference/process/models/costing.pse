@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("b4640cd490084005b748815ff4ce80e4") package costing {
+@id("3ade198354aa51139f073ea1cf8b2c68") use references @"1.0.0";
 @id("feac9e35e86743c4bd949d48ca47c8de") entity kind hx_design {}
 @id("61b47220a38c4466b2669a9bd24c809f") entity kind hx_material {}
 @id("92824211ea824cf9b9707ea17f30ccc3") entity kind tube_length {}
@@ -29,30 +30,31 @@
 @id("97c5376022b34a2d95e9200d0e935fc7") fn atmospheric_pressure()->Pressure=101325{Pa};
 @id("63abf3f232a54b73a4087fc469dfc344") fn hundred_psi()->DeltaPressure=689475.7293168361{Pa};
 @id("3838198bd3b04d2ca0e313b7a6071b42") fn currency_unit()->CapitalCost=1{USD_CE500};
-@id("e65466ca94df46418736981dbf0d735f") fn base_amount(area:Scalar,a:Scalar,b:Scalar,c:Scalar)->Scalar valid(area>0)=exp(a+log(area)*(c*log(area)-b));
+@id("e65466ca94df46418736981dbf0d735f") fn base_amount(area:Scalar,a:Scalar,b:Scalar,c:Scalar)->Scalar applicability(base_area_unknown(area,a,b,c)) valid(area>0)=exp(a+log(area)*(c*log(area)-b));
+// Empirical support is distinct from the mathematical domain of the arithmetic.
+@id("baeeb286c60d5a0486aacfdc2cf94199") applicability base_area_unknown(area:Scalar,a:Scalar,b:Scalar,c:Scalar) owner base_amount scope data evidence references.sslw_3 unknown("No supported base-cost area regression interval is declared");
+@id("41ec0a0739f25f5c88a6a863d352f0c5") applicability material_area_unknown(area:Scalar,m:hx_material) owner material_amount scope data evidence references.sslw_3 unknown("No supported material-factor area regression interval is declared");
+@id("60e57bb7b1cb549b9ef8639a300c2e03") applicability pressure_range(x:Scalar) owner pressure_factor scope data evidence references.sslw_3 interval reported x in 1..20;
+@id("64cfc93460a8525594654776dc5e2ae8") applicability oversize_range(x:Scalar) owner oversize_factor scope data evidence references.sslw_3 interval reported x in 1.1..1.5;
+@id("58b11994b5255027a11b2b689d0be3dd") fn material_amount(area:Scalar,m:hx_material)->Scalar applicability(material_area_unknown(area,m)) valid(area>0)=if m==carbon_carbon then 1 else material_coefficients[m].offset+(area/100)^material_coefficients[m].exponent;
+@id("7fbbf5dd13f65da3a6b5895ddd89f89f") fn pressure_factor(x:Scalar)->Scalar applicability(pressure_range(x))=0.9803+x*(0.0180+0.0017*x);
+@id("be7f8dcbebdb5124a3a496cdf89ce8e8") fn oversize_factor(x:Scalar)->Scalar applicability(oversize_range(x)) valid(x>0)=x;
 @id("cc0da20ecd9b4a6d840c2dfdb93501c4") interface UnitCosting {
 @id("e6e8fd837baa47dd857ef4e946d8315e") let capital_cost:CapitalCost;
 }
-@id("6276490b85754d9f90b9c799c221b4cd") def HeatExchangerCost(design:hx_design=utube,material:hx_material=stainless_stainless,tubes:tube_length=twelve,pressure_extrapolation:Boolean=false):UnitCosting {
+@id("6276490b85754d9f90b9c799c221b4cd") def HeatExchangerCost(design:hx_design=utube,material:hx_material=stainless_stainless,tubes:tube_length=twelve):UnitCosting {
 @id("ca87aee5fa024564bf08647139341442") var area:Area;
 @id("aeaa377854134283b6220bc13cac79f6") var pressure:Pressure;
 @id("a4ff2fca53244c83accd0c89ab672a6c") param oversize:Scalar=1.1;
 @id("9472a2f6918545d79ea54b93933c9cca") annotation bounds area(1e-8{m^2},1000000{m^2});
 @id("db2113ca0bb74391ba5132f7c7c50f28") annotation start area(1000{m^2});
 @id("87f3b2587c2a489d926410e2c8fc09aa") annotation start pressure(202650{Pa});
-@id("f9ba6722c6814f3590f1fc832b060195") annotation valid oversize(1.1,1.5,reject);
 @id("2f5889e48a434688a43e0ea17e2dd707") let area_per_unit:Scalar=area/square_foot();
-@id("09d66a8512294a8d81c53960b8a64799") let base_cost_per_unit:CapitalCost=currency_unit()*base_amount(area_per_unit*oversize,design_coefficients[design].constant,design_coefficients[design].linear,design_coefficients[design].quadratic);
-@id("6ae2f809b1f2455ca84953dbca27e735") let material_factor:Scalar=if material==carbon_carbon then 1 else material_coefficients[material].offset+(area_per_unit/100)^material_coefficients[material].exponent;
+@id("09d66a8512294a8d81c53960b8a64799") let base_cost_per_unit:CapitalCost=currency_unit()*base_amount(area_per_unit*oversize_factor(oversize),design_coefficients[design].constant,design_coefficients[design].linear,design_coefficients[design].quadratic);
+@id("6ae2f809b1f2455ca84953dbca27e735") let material_factor:Scalar=material_amount(area_per_unit,material);
 @id("cba1ee22fa6b4b6894c058ea7cc13201") let normalized_pressure:Scalar=(pressure-atmospheric_pressure())/hundred_psi();
-@id("52817caaba4742d9b71182aacf2a16e9") let pressure_factor:Scalar=0.9803+normalized_pressure*(0.0180+0.0017*normalized_pressure);
+@id("52817caaba4742d9b71182aacf2a16e9") let pressure_factor:Scalar=costing.pressure_factor(normalized_pressure);
 @id("858341fb32b34562a9d067b114830b59") let capital_cost:CapitalCost=base_cost_per_unit*material_factor*pressure_factor*length_factor[tubes];
-@id("c70589f9e1ef44d6b6af04f64eb3da60") when pressure_extrapolation {
-@id("e4de402caf8e47759788c4c0d8606f61") annotation valid pressure(atmospheric_pressure()+hundred_psi(),atmospheric_pressure()+20*hundred_psi(),extrapolate);
-}
-@id("4e587ef2498848c2a70ff11d1fe08c56") when not pressure_extrapolation {
-@id("52f6cd839dc74a9599ba885c54e72618") annotation valid pressure(atmospheric_pressure()+hundred_psi(),atmospheric_pressure()+20*hundred_psi(),reject);
-}
 @id("a2b764f0890043ac882d3c6fc676968d") annotation report capital_cost("capital cost at CEPCI 500");
 @id("3fd7e3a60430421d8078acf48dee48f6") annotation report base_cost_per_unit("base purchase cost");
 @id("6073944898af47fabca6c3d73d6e2a72") annotation report area_per_unit("area in square feet");

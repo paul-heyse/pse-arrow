@@ -121,7 +121,9 @@ class Block:
 _MAX_DEGREE = 16
 
 
-def _polynomial_coefficients(residual: sympy.Expr, unknown: sympy.Symbol) -> list[sympy.Expr] | None:
+def _polynomial_coefficients(
+    residual: sympy.Expr, unknown: sympy.Symbol
+) -> list[sympy.Expr] | None:
     """The coefficients, highest power first, of a residual that is a polynomial of degree one or
     more in `unknown`, or `None`. The other symbols are constants: their expressions are not
     expanded, because the coefficient of a cubic whose mixing rule embeds an activity model is an
@@ -165,7 +167,9 @@ class BlockSolver:
         self.scale = compile_(both, sympy.Tuple(*scales))
         self.lower = [_bound(e, params, compile_, -np.inf) for e in block.lower]
         self.upper = [_bound(e, params, compile_, np.inf) for e in block.upper]
-        self.start = [None if e is None else _expression_bound(e, params, compile_) for e in block.start]
+        self.start = [
+            None if e is None else _expression_bound(e, params, compile_) for e in block.start
+        ]
         self.by = None if block.by is None else compile_(both, block.by)
         self.coefficients: Callable[..., np.ndarray] | None = None
         if self.n == 1:
@@ -314,7 +318,7 @@ class BlockSolver:
             try:
                 values = np.asarray(self.residual(grid, *p)[0], dtype=float)
                 return np.broadcast_to(values, grid.shape).astype(float)
-            except (TypeError, ValueError):
+            except TypeError, ValueError:
                 return np.array([self.g(np.array([y]), p)[0] for y in grid], dtype=float)
 
     def bracket(self, a: float, b: float, p: tuple[float, ...]) -> float | None:
@@ -326,7 +330,7 @@ class BlockSolver:
             return float(
                 scipy.optimize.brentq(scalar, a, b, xtol=1e-300, rtol=4 * _EPS, maxiter=500)
             )
-        except (ValueError, RuntimeError):
+        except ValueError, RuntimeError:
             return None
 
     # several unknowns, or an unbounded one: a Newton-type solve from the start

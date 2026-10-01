@@ -58,9 +58,7 @@ def text(
     nullable: bool = True,
     unit: str = NOT_STATED,
 ) -> pa.Field:
-    return column(
-        name, STRING, source_name=source_name, unit=unit, note=note, nullable=nullable
-    )
+    return column(name, STRING, source_name=source_name, unit=unit, note=note, nullable=nullable)
 
 
 def integer(

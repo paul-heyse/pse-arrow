@@ -21,10 +21,10 @@ from pathlib import Path
 import numpy as np
 import psycopg
 import pytest
+
 from build_support import fingerprint, inputs_of, write_source
 from mapping_support import origin, writer
 from qualify_support import fixture_declaration
-
 from thermo_knowledge import config, db
 from thermo_knowledge.build import build_database
 from thermo_knowledge.canonical.writer import (
@@ -406,9 +406,10 @@ def test_the_slot_shape_is_reified_in_meta(world: World, conn: psycopg.Connectio
         "SELECT shape, references_contract FROM meta.slot "
         "WHERE qualified_name = 'qfix_term_sum_form.param.named.function'"
     ).fetchone() == ("set_reference", "qfix_named_function")
-    assert conn.execute(
-        "SELECT count(*) FROM meta.slot WHERE shape = 'set_reference'"
-    ).fetchone() == (4,)  # the two slots of the fixtures, the departure slot of the committed multifluid pair form and the function slot of the committed endmember form
+    assert (
+        conn.execute("SELECT count(*) FROM meta.slot WHERE shape = 'set_reference'").fetchone()
+        == (4,)
+    )  # the two slots of the fixtures, the departure slot of the committed multifluid pair form and the function slot of the committed endmember form
 
 
 # -- the form of a sub-form slot chosen for each subject ---------------------------------------------
@@ -427,9 +428,7 @@ def test_a_per_subject_choice_is_read_from_the_relation(
     )
     close(via_relation.evaluate("y", T=T), 0.5 * T**2)
     # the choice names the parameterization that holds the chosen form's sets
-    via_source = bind(
-        world.decl, "qfix_pair_choice", source=found, roles=pair_ids(world, "A", "B")
-    )
+    via_source = bind(world.decl, "qfix_pair_choice", source=found, roles=pair_ids(world, "A", "B"))
     close(via_source.evaluate("y", T=T), 3.0 * T)
 
 
@@ -470,8 +469,9 @@ def test_the_writer_refuses_a_choice_the_declaration_does_not_allow(world: World
         {"key": "k", "revision": "r", "title": "t", "coherence": "independent_records"},
         origins=[origin("a.json#/0", "fitted")],
     )
-    a, b = _other(w), w.kind(
-        "species", {"canonical_key": "Z", "label": "Z"}, origins=[origin("a.json#/2")]
+    a, b = (
+        _other(w),
+        w.kind("species", {"canonical_key": "Z", "label": "Z"}, origins=[origin("a.json#/2")]),
     )
 
     def choose(**changes: object) -> None:
@@ -519,7 +519,7 @@ def test_the_checks_flag_a_form_of_another_contract_and_a_gap_in_the_ordinals(
     conn.execute(
         "UPDATE tk.subject_subform_choice SET form = (SELECT id FROM meta.form WHERE name = %s) "
         "WHERE parameterization = %s AND subject_key LIKE %s",
-        ("qfix_departure", world.ids["choices"], f'%{world.ids["species_B"]}%'),
+        ("qfix_departure", world.ids["choices"], f"%{world.ids['species_B']}%"),
     )
     flagged = run_check(conn, implements)
     assert flagged.error is None and flagged.violations == 1

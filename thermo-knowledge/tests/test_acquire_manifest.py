@@ -8,8 +8,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from test_acquire_support import FIXTURES, manifest_text
 
+from test_acquire_support import FIXTURES, manifest_text
 from thermo_knowledge.acquire import enumerators
 from thermo_knowledge.acquire.errors import ManifestError
 from thermo_knowledge.acquire.manifest import (

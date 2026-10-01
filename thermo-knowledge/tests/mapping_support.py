@@ -12,7 +12,6 @@ from pathlib import Path
 import pyarrow.parquet as pq
 
 from readers_support import Workspace
-
 from thermo_knowledge import config
 from thermo_knowledge.acquire.lock import LockEntry
 from thermo_knowledge.canonical.environment import Environment
@@ -144,7 +143,9 @@ def write_identity(
     for entity in entities:
         artifact = f"data/{entity['scope']}.json"
         locator = str(entity.get("locator", f"{artifact}#/{entity['key']}"))
-        klass = str(entity.get("class") or ("species_form" if entity.get("aggregation") else "species"))
+        klass = str(
+            entity.get("class") or ("species_form" if entity.get("aggregation") else "species")
+        )
         mixture = klass == "defined_mixture"
         claim_entities.append(
             claims.EntityClaim(
@@ -244,7 +245,6 @@ def fake_environment(
 
     from readers_support import COMMIT, PIN, module_resolver
     from test_acquire_support import RIGHTS
-
     from thermo_knowledge.acquire import store as raw_store
     from thermo_knowledge.acquire.lock import write_lock
     from thermo_knowledge.staging import stage

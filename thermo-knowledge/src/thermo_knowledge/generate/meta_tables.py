@@ -502,7 +502,7 @@ def _build() -> dict[str, ir.Table]:
                 (
                     "bounds_for_within",
                     '("check_lower" IS NULL AND "check_upper" IS NULL) '
-                    'OR "check_rule" = \'within\'',
+                    "OR \"check_rule\" = 'within'",
                 ),
             ],
         )
@@ -965,7 +965,11 @@ def _build() -> dict[str, ir.Table]:
                 ("form", "text", "The form."),
                 ("name", "text", "The convention-set attribute the form reads."),
                 ("position", "integer", "Position among the form's convention facts, from 1."),
-                ("kind", "text", "The kind that declares the attribute (the kind bound to convention_set or one it extends)."),
+                (
+                    "kind",
+                    "text",
+                    "The kind that declares the attribute (the kind bound to convention_set or one it extends).",
+                ),
                 (
                     "slot_group",
                     "text?",

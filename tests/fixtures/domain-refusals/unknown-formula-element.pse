@@ -8,6 +8,6 @@ package refusal {
  use chemistry @"1.0.0";
  use corpus @"1.0.0";
  use provenance @"1.0.0";
- entity chemistry.species ammonia {}
+ entity chemistry.species ammonia {composition=chemistry.CompositionKnowledge.Complete}
  dataset formulas: chemistry.formula provenance(corpus.bank, provenance.Role.published) { [ammonia, corpus.H] = [3{1}]; [ammonia, nitrogen] = [1{1}]; }
 }

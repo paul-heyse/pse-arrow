@@ -10,9 +10,9 @@ from pathlib import Path
 
 import psycopg
 import pytest
+
 from build_support import inputs_of, write_source
 from mapping_support import real_declaration
-
 from thermo_knowledge.build import build_database
 from thermo_knowledge.canonical.writer import (
     CanonicalWriter,
@@ -84,7 +84,9 @@ def test_differing_year_and_citation_text_between_carriers_do_not_refuse_the_bui
     write_source(canonical, "gamma", cites("gamma", "k", doi=DOI))
     result = build_database(database.url, real_declaration(), inputs_of(canonical))
     assert result.tables["prov.publication"] == 1 and result.tables["prov.citation"] == 3
-    assert rows(database.url, "SELECT year, citation FROM prov.citation ORDER BY year NULLS LAST") == [
+    assert rows(
+        database.url, "SELECT year, citation FROM prov.citation ORDER BY year NULLS LAST"
+    ) == [
         (1999, "one"),
         (2001, "two"),
         (None, None),
@@ -99,13 +101,18 @@ def test_a_publication_without_a_doi_is_keyed_by_the_carrier_and_its_citation_ke
     write_source(canonical, "beta", cites("beta", "handbook", citation="A handbook"))
     result = build_database(database.url, real_declaration(), inputs_of(canonical))
     assert result.tables["prov.publication"] == 2, "no DOI, so no evidence that they are one work"
-    assert rows(database.url, "SELECT s.key FROM prov.publication p JOIN prov.source s USING (id) ORDER BY 1") == [
+    assert rows(
+        database.url,
+        "SELECT s.key FROM prov.publication p JOIN prov.source s USING (id) ORDER BY 1",
+    ) == [
         ("carrier:alpha:handbook",),
         ("carrier:beta:handbook",),
     ]
 
 
-def test_the_identity_bound_attributes_are_the_key_and_the_doi_and_the_rest_is_per_carrier() -> None:
+def test_the_identity_bound_attributes_are_the_key_and_the_doi_and_the_rest_is_per_carrier() -> (
+    None
+):
     decl = real_declaration()
     assert {a.name for a in decl.attributes_of("publication")} == {"key", "title", "doi", "isbn"}
     relation = decl.relations["citation"]

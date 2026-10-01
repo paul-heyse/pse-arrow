@@ -217,9 +217,7 @@ def _sites(
     return len(sites)
 
 
-def _permittivity(
-    fields: Fields, artifact: str, index: int, where: str, sink: Sink
-) -> str | None:
+def _permittivity(fields: Fields, artifact: str, index: int, where: str, sink: Sink) -> str | None:
     block = fields.object("permittivity_record")
     if block is None:
         return None

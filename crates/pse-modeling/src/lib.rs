@@ -20,6 +20,7 @@ pub mod logic;
 pub mod measurement;
 pub mod physical_operations;
 pub mod provenance;
+pub mod scientific_selection;
 pub mod specialize;
 mod temporal;
 pub mod types;
@@ -566,10 +567,16 @@ mod kernel_domain;
 #[cfg(test)]
 mod kernel_entities;
 #[cfg(test)]
-mod kernel_envelopes;
-#[cfg(test)]
 mod kernel_provenance;
 #[cfg(test)]
 mod kernel_relations;
 #[cfg(test)]
 mod kernel_specialization;
+#[cfg(test)]
+mod scientific_composition_tests;
+
+/// Typed scientific applicability evidence and scoped data-use permission.
+pub mod applicability;
+
+#[cfg(test)]
+mod scientific_selection_tests;

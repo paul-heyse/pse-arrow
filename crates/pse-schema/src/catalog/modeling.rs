@@ -132,7 +132,11 @@ fn cell(name: &str) -> T {
     fields.extend(scalar_arms());
     fields.push(
         T::structure(vec![
-            T::list(T::structure(vec![strings("path")])).with_name("paths"),
+            T::list(T::structure(vec![
+                strings("path"),
+                T::list(key_cell()).with_name("keys").optional(),
+            ]))
+            .with_name("paths"),
         ])
         .with_name("references")
         .optional(),
@@ -273,6 +277,7 @@ fn table_constraints() -> Vec<T> {
         T::structure(vec![
             text("first"),
             text("second"),
+            flag("ordered"),
             T::enumeration("ModelingDiagonalPolicy").with_name("diagonal"),
         ])
         .with_name("symmetry")
@@ -462,6 +467,16 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                         ])
                         .with_name("validity")
                         .optional(),
+                        T::structure(vec![
+                            T::enumeration("ModelingValidityLayer").with_name("layer"),
+                            T::enumeration("ModelingApplicabilityOutcome").with_name("outcome"),
+                            text("claim"),
+                            text("form"),
+                            strings("sets"),
+                            strings("variables"),
+                        ])
+                        .with_name("applicability")
+                        .optional(),
                         strings("members"),
                     ])
                     .with_name("expected_failure")
@@ -519,6 +534,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 // The data layer: the envelopes of row or entity arguments this function
                 // guards (ADR-0123 Outcome 4).
                 guards("guards"),
+                strings("applicability"),
                 T::nonnegative(2).with_name("continuity").optional(),
                 T::structure(vec![
                     text("implementation"),
@@ -653,6 +669,39 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             fields.push(storage("storage"));
             fields
         }),
+        // ADR-0141: scientific claims are typed callables; source evidence and use
+        // permission have separate declaration-owned meanings.
+        (
+            "applicability",
+            vec!["applicability"],
+            vec![
+                parameters("arguments"),
+                text("owner"),
+                T::enumeration("ModelingValidityLayer").with_name("scope"),
+                text("evidence"),
+                T::enumeration("ModelingApplicabilityKind").with_name("claim_kind"),
+                T::enumeration("ModelingApplicabilityBasis")
+                    .with_name("basis")
+                    .optional(),
+                text("predicate").optional(),
+                text("reason").optional(),
+                text("axis").optional(),
+                text("lower").optional(),
+                text("upper").optional(),
+                strings("alternatives"),
+                strings("dependencies"),
+            ],
+        ),
+        (
+            "permission",
+            vec!["permission"],
+            vec![
+                T::enumeration("ModelingPermissionTarget").with_name("target_kind"),
+                strings("targets"),
+                flag("allow_unknown"),
+                flag("allow_extrapolation"),
+            ],
+        ),
         // ADR-0123 Outcome 4: an entity kind's validity envelope, declared as data: the
         // declaration names the axis; its quantity type and the two attributes bounding it,
         // declared by the kind or inherited, follow.
@@ -660,16 +709,6 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             "envelope",
             vec!["envelope"],
             vec![type_arena("type"), text("lower"), text("upper")],
-        ),
-        // ADR-0123 Outcome 4: the extrapolation policy a property package (a definition) or
-        // an analysis (a test or a case) selects for one validity layer of its instances.
-        (
-            "extrapolation",
-            vec!["extrapolation"],
-            vec![
-                T::enumeration("ModelingValidityLayer").with_name("layer"),
-                T::enumeration("ExtrapolationPolicy").with_name("policy"),
-            ],
         ),
         // ADR-0123 Outcome 2: an entity kind's attribute. A declaration carries its type, a
         // key flag and an optional default; a binding of an inherited attribute carries no
@@ -951,6 +990,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             // Generic physical references: a named quantity type or reference state of
             // the physical document (ADR-0123 Outcome 6).
             "quantity_type",
+            "applicability",
             "reference_state",
             "coordinate",
             "reduced_law",
@@ -1068,6 +1108,22 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
     );
     // A validity layer either refuses a value outside it or, explicitly selected by its
     // consumer, accepts it as an extrapolation (ADR-0115 Outcome 3, ADR-0123 Outcome 4).
+    enumeration(
+        builder,
+        "ModelingApplicabilityKind",
+        ["region", "interval", "unrestricted", "unknown", "union"],
+    );
+    enumeration(
+        builder,
+        "ModelingApplicabilityBasis",
+        ["fitted", "recommended", "validated", "reported"],
+    );
+    enumeration(
+        builder,
+        "ModelingApplicabilityOutcome",
+        ["applicable", "outside_region", "unknown_evidence"],
+    );
+    enumeration(builder, "ModelingPermissionTarget", ["records", "families"]);
     enumeration(builder, "ExtrapolationPolicy", ["reject", "extrapolate"]);
     // ADR-0123 Outcome 4: validity is the intersection of three layers. The form layer is a
     // function's own domain and never extrapolates; the data layer is the envelopes a
@@ -1130,7 +1186,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         builder,
         N::Authored,
         "modeling_declarations",
-        21,
+        22,
         S::Model,
         &["declaration_id"],
         vec![
@@ -1160,6 +1216,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             "original_equation",
             "closure",
             "validity",
+            "applicability",
         ],
     );
     // ADR-0119 Outcome 5: what a check was established on. An objective-bound check reads
@@ -1170,7 +1227,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         builder,
         N::Runtime,
         "modeling_checks",
-        3,
+        4,
         S::Derived,
         &[
             "run_id",
@@ -1195,6 +1252,37 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             column("extrapolation_allowed", T::native(D::Boolean)).optional(),
             column("basis", T::enumeration("ModelingCheckBasis")),
             column("layer", T::enumeration("ModelingValidityLayer")).optional(),
+            column("claim_id", T::id()).optional(),
+            column("claim_owner", T::id()).optional(),
+            column("coverage_id", T::id()).optional(),
+            column("evidence_id", T::id()).optional(),
+            column("form_id", T::id()).optional(),
+            column("call_id", T::id()).optional(),
+            column("selected_records", T::list(T::id())),
+            column("dependencies", T::list(T::id())),
+            column(
+                "input_values",
+                T::list(
+                    T::structure(vec![
+                        text("name"),
+                        T::native(D::Float64).with_name("value"),
+                        T::id().with_name("quantity_type"),
+                    ])
+                    .with_name("ModelingApplicabilityInput"),
+                ),
+            ),
+            column(
+                "applicability_outcome",
+                T::enumeration("ModelingApplicabilityOutcome"),
+            )
+            .optional(),
+            column(
+                "applicability_basis",
+                T::enumeration("ModelingApplicabilityBasis"),
+            )
+            .optional(),
+            column("permission_ids", T::list(T::id())),
+            column("unknown_allowed", T::native(D::Boolean)).optional(),
         ],
         "Independent model checks supplement native outcomes. Step identifies the requested solve within a finite sequence; standalone analyses use zero. Static checks use sample_index zero without time; trajectory checks identify the requested sample and physical time in seconds. Validity membership and permission to extrapolate remain distinct observations. Version two adds basis: point for a check evaluated at the step's point, global_bound for an objective-bound check evaluated against the step's certified dual bound (ADR-0119); a point result states no global property. Version three adds the validity layer a validity check observes, present exactly on validity checks (ADR-0123 Outcome 4): closure for an annotated range, whose source is the annotation, and data for a declared envelope whose consumer selected extrapolation, whose source is the relation or kind declaring it. The form layer never extrapolates, so a value outside it is a rejected evaluation, not a check.",
     );

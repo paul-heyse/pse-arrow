@@ -15,8 +15,7 @@ import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
-from thermo_knowledge import config
-from thermo_knowledge import pipeline_contract
+from thermo_knowledge import config, pipeline_contract
 from thermo_knowledge.declaration import contract_check
 from thermo_knowledge.declaration import schema as s
 from thermo_knowledge.declaration.diagnostics import Code, DeclarationError, Diagnostic

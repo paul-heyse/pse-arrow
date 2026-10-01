@@ -22,10 +22,10 @@ import yaml
 from thermo_knowledge.readers.cantera import yaml12
 from thermo_knowledge.readers.cantera.common import (
     Fields,
-    as_float,
-    as_floats,
     Sink,
     Value,
+    as_float,
+    as_floats,
     leaf_columns,
     locator,
     pointer,
@@ -48,7 +48,9 @@ _DEFAULT_KINDS = {
 }
 
 
-def load_document(tree: Path, artifact: str) -> tuple[dict[object, Value], list[yaml12.DuplicateKey]]:
+def load_document(
+    tree: Path, artifact: str
+) -> tuple[dict[object, Value], list[yaml12.DuplicateKey]]:
     """The parsed file, which must be a YAML mapping; errors name the file and line."""
     try:
         content = (tree / artifact).read_text(encoding="utf-8")
@@ -322,7 +324,9 @@ class FileReader:
                 self.references(row_locator, where, reference, fields.rest.pop(reference))
         self.parameters("phases", where, fields.rest)
 
-    def references(self, phase_locator: str, phase_pointer: str, reference: str, value: Value) -> None:
+    def references(
+        self, phase_locator: str, phase_pointer: str, reference: str, value: Value
+    ) -> None:
         base = phase_pointer + pointer(reference)
         leftovers: list[tuple[str, Value]] = []
 
@@ -552,7 +556,10 @@ def parse_equation(equation: str) -> tuple[str, list[Term]] | None:
         return None
     arrow = tokens[arrows[0]]
     terms: list[Term] = []
-    for side, side_tokens in (("reactant", tokens[: arrows[0]]), ("product", tokens[arrows[0] + 1 :])):
+    for side, side_tokens in (
+        ("reactant", tokens[: arrows[0]]),
+        ("product", tokens[arrows[0] + 1 :]),
+    ):
         collider: str | None = None
         body = side_tokens
         if body and _COLLIDER.match(body[-1]):

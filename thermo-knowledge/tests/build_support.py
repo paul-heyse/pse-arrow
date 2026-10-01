@@ -12,9 +12,9 @@ from collections.abc import Callable, Sequence
 from pathlib import Path
 
 import psycopg
-from mapping_support import origin, real_declaration, write_identity
-from mapping_support import carrier as make_carrier
 
+from mapping_support import carrier as make_carrier
+from mapping_support import origin, real_declaration, write_identity
 from thermo_knowledge.build import SourceInput, discover
 from thermo_knowledge.canonical import store
 from thermo_knowledge.canonical.store import CanonicalManifest

@@ -45,17 +45,16 @@ from thermo_knowledge import transposition
 from thermo_knowledge.declaration import model as m
 from thermo_knowledge.expression import tree as t
 from thermo_knowledge.expression.compiled import CompileCache
+from thermo_knowledge.expression.implicit import Block, BlockSolver, SolveFailure
+from thermo_knowledge.expression.lowering import lower_relation, substitute
 from thermo_knowledge.expression.parameters import (
     ConventionFact,
-    FamilyRows,
     FormChoice,
     ParameterSource,
     RecordValidity,
     SetRead,
-    SlotValues,
     Subject,
 )
-from thermo_knowledge.expression.implicit import Block, BlockSolver, SolveFailure
 from thermo_knowledge.expression.parser import parse_cached, parse_residual
 from thermo_knowledge.expression.scope import (
     FamilyRef,
@@ -66,7 +65,6 @@ from thermo_knowledge.expression.scope import (
     classify_call,
     classify_slot,
 )
-from thermo_knowledge.expression.lowering import lower_relation, substitute
 from thermo_knowledge.expression.symbolic import add, apply, div, free_symbols, mul, sub
 from thermo_knowledge.expression.units import unit_literal
 from thermo_knowledge.expression.validity import membership
@@ -159,9 +157,7 @@ class _Debye(sympy.Function):
             raise ArgumentIndexError(self, argindex)
         n, x = self.args
         assert isinstance(n, sympy.Expr) and isinstance(x, sympy.Expr)
-        derivative = add(
-            mul(div(-n, x), self), div(n, sub(apply(sympy.exp, x), sympy.Integer(1)))
-        )
+        derivative = add(mul(div(-n, x), self), div(n, sub(apply(sympy.exp, x), sympy.Integer(1))))
         # the stubs infer `Function.fdiff` as returning derivative objects; a subclass returns
         # the expression of the derivative
         return cast(sympy.Derivative | sympy.Subs, derivative)
@@ -1176,7 +1172,9 @@ class _Machine:
             symbol = table[self.subjects(frame, wrt.indices, env)]
         assert isinstance(symbol, sympy.Symbol)
         inlined = self.inline(frame, expr)
-        return _normal(add(sympy.diff(inlined, symbol), self.implicit_terms(frame, inlined, symbol)))
+        return _normal(
+            add(sympy.diff(inlined, symbol), self.implicit_terms(frame, inlined, symbol))
+        )
 
     def implicit_terms(self, frame: _Frame, expr: sympy.Basic, symbol: sympy.Symbol) -> sympy.Expr:
         """The part of the total derivative of `expr` with respect to the argument `symbol` that
@@ -1238,7 +1236,9 @@ class _Machine:
         high_symbols: list[sympy.Symbol] = []
         for low, high, index in pieces:
             where = ("row", ref.group.qualified, ref.family.name, subjects, (index,))
-            low_symbols.append(self.parameter(frame, (*where, lower, False), f"{label}.{lower}", low))
+            low_symbols.append(
+                self.parameter(frame, (*where, lower, False), f"{label}.{lower}", low)
+            )
             high_symbols.append(
                 self.parameter(frame, (*where, upper, False), f"{label}.{upper}", high)
             )
@@ -1266,7 +1266,9 @@ class _Machine:
             if start is not None:
                 first_closed = above or position == 0
                 conditions.append(
-                    sympy.GreaterThan(z, start) if first_closed else sympy.StrictGreaterThan(z, start)
+                    sympy.GreaterThan(z, start)
+                    if first_closed
+                    else sympy.StrictGreaterThan(z, start)
                 )
             if stop is not None:
                 last_closed = (not above) or position == last
@@ -1275,7 +1277,9 @@ class _Machine:
                 )
             branches.append((sympy.Integer(index), sympy.And(*conditions)))
         if not nearest:
-            anywhere = sympy.Or(*(condition for _, condition in branches)) if branches else sympy.false
+            anywhere = (
+                sympy.Or(*(condition for _, condition in branches)) if branches else sympy.false
+            )
             frame.guards.append(
                 (
                     f"{self.describe(z)} is outside every piece of family `{label}` "
@@ -1293,9 +1297,7 @@ class _Machine:
         assert isinstance(array, str) and isinstance(member, str)
         found = frame.source.member_positions(array, member)
         if len(found) != 1:
-            what = (
-                "places it nowhere" if not found else f"places it {len(found)} times ({found})"
-            )
+            what = "places it nowhere" if not found else f"places it {len(found)} times ({found})"
             raise EvaluationRefusal(
                 f"the position of species {member} in constituent array {array} is undefined: "
                 f"the array {what}"
@@ -1550,9 +1552,7 @@ class BoundForm:
         `evaluate`'s business, and what to do outside is the caller's."""
         kinds = [member.name for member in self.decl.enums[pc.ENVELOPE_KIND.declared].members]
         if kind not in kinds:
-            raise EvaluationRefusal(
-                f"`{kind}` is not a validity region kind ({', '.join(kinds)})"
-            )
+            raise EvaluationRefusal(f"`{kind}` is not a validity region kind ({', '.join(kinds)})")
         unknown = set(arguments) - set(self.args)
         if unknown:
             raise EvaluationRefusal(
@@ -1581,7 +1581,9 @@ class BoundForm:
             if reads:
                 records.extend(source.validity(kind, reads))
         known = self._read_observables()
-        known.update({name: np.asarray(value, dtype=float) for name, value in (references or {}).items()})
+        known.update(
+            {name: np.asarray(value, dtype=float) for name, value in (references or {}).items()}
+        )
         return membership(records, observed, shape, known)
 
     def _read_observables(self) -> dict[str, np.ndarray]:
@@ -1599,7 +1601,9 @@ class BoundForm:
                     value = values.get(slot.name)
                     if slot.observable is not None and value is not None:
                         found.setdefault(slot.observable, set()).add(float(value))
-        return {name: np.asarray(next(iter(held))) for name, held in found.items() if len(held) == 1}
+        return {
+            name: np.asarray(next(iter(held))) for name, held in found.items() if len(held) == 1
+        }
 
     def _guard(self, condition: sympy.Basic) -> _Guard:
         symbols = tuple(sorted(free_symbols(condition), key=str))

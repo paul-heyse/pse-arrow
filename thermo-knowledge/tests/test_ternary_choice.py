@@ -22,10 +22,10 @@ from dataclasses import dataclass
 import numpy as np
 import psycopg
 import pytest
+
 from build_support import fingerprint, inputs_of, write_source
 from hard_case_support import entity_id
 from mapping_support import origin, real_declaration
-
 from thermo_knowledge import config, db
 from thermo_knowledge.build import build_database
 from thermo_knowledge.canonical.values import Quantity
@@ -88,7 +88,9 @@ def write_world(w: CanonicalWriter, decl: Declaration, ids: dict[str, uuid.UUID]
         origins=at("site"),
     )
     for name, member in species.items():
-        w.relation("site_occupant", {"site_class": site, "occupant": member}, {}, at="a.json#/occupant")
+        w.relation(
+            "site_occupant", {"site_class": site, "occupant": member}, {}, at="a.json#/occupant"
+        )
     p = w.kind(
         "parameterization",
         {"key": "ternaries", "revision": "1", "title": "t", "coherence": "independent_records"},
@@ -137,7 +139,13 @@ def world(tmp_path_factory: pytest.TempPathFactory) -> Iterator[World]:
     decl = real_declaration()
     canonical = tmp_path_factory.mktemp("ternary-canonical")
     ids: dict[str, uuid.UUID] = {}
-    write_source(canonical, "src", lambda w: write_world(w, decl, ids), decl=decl, declaration=fingerprint(decl))
+    write_source(
+        canonical,
+        "src",
+        lambda w: write_world(w, decl, ids),
+        decl=decl,
+        declaration=fingerprint(decl),
+    )
     with TestDatabase() as database:
         build_database(database.url, decl, inputs_of(canonical))
         yield World(decl, database, ids)
@@ -213,7 +221,9 @@ def ternary(
         sets={"components": [ids[name] for name in order]},
     )
     return float(
-        np.asarray(bound.evaluate("gE", x={ids[name]: np.array([x[name]]) for name in order})).reshape(-1)[0]
+        np.asarray(
+            bound.evaluate("gE", x={ids[name]: np.array([x[name]]) for name in order})
+        ).reshape(-1)[0]
     )
 
 
@@ -225,7 +235,9 @@ def test_every_fixture_satisfies_every_invariant(world: World, conn: psycopg.Con
     assert [(r.check.target, r.violations, r.error) for r in results if not r.passed] == []
 
 
-def test_each_ternary_array_has_its_own_choice_of_form(world: World, conn: psycopg.Connection) -> None:
+def test_each_ternary_array_has_its_own_choice_of_form(
+    world: World, conn: psycopg.Connection
+) -> None:
     rows = conn.execute(
         "SELECT sc.subject_key, f.name FROM tk.subject_subform_choice sc JOIN meta.form f ON f.id = sc.form "
         "ORDER BY f.name"
@@ -234,23 +246,35 @@ def test_each_ternary_array_has_its_own_choice_of_form(world: World, conn: psyco
     by_form: dict[str, set[str]] = {}
     for key, form in rows:
         by_form.setdefault(form, set()).add(key)
-    assert {form: len(keys) for form, keys in by_form.items()} == {"ternary_kohler": 1, "ternary_toop": 2}
+    assert {form: len(keys) for form, keys in by_form.items()} == {
+        "ternary_kohler": 1,
+        "ternary_toop": 2,
+    }
     assert not by_form["ternary_kohler"] & by_form["ternary_toop"]
 
 
-def test_the_subject_of_a_choice_is_the_constituent_array(world: World, conn: psycopg.Connection) -> None:
+def test_the_subject_of_a_choice_is_the_constituent_array(
+    world: World, conn: psycopg.Connection
+) -> None:
     from thermo_knowledge import identity
 
-    keys = {key for (key,) in conn.execute("SELECT subject_key FROM tk.subject_subform_choice").fetchall()}
+    keys = {
+        key
+        for (key,) in conn.execute("SELECT subject_key FROM tk.subject_subform_choice").fetchall()
+    }
     assert keys == {identity.canonical_encoding([world.ids[f"array_{name}"]]) for name in ARRAYS}
 
 
-def test_the_ternary_chosen_to_be_extrapolated_by_kohler_is(world: World, conn: psycopg.Connection) -> None:
+def test_the_ternary_chosen_to_be_extrapolated_by_kohler_is(
+    world: World, conn: psycopg.Connection
+) -> None:
     found = ternary(world, conn, "first", ("a", "b", "c"), COMPOSITION)
     assert found == pytest.approx(kohler(("a", "b", "c"), COMPOSITION), rel=1e-12)
 
 
-def test_the_ternary_chosen_to_be_extrapolated_by_toop_is(world: World, conn: psycopg.Connection) -> None:
+def test_the_ternary_chosen_to_be_extrapolated_by_toop_is(
+    world: World, conn: psycopg.Connection
+) -> None:
     x = {"a": 0.25, "b": 0.45, "d": 0.30}
     found = ternary(world, conn, "second", ("a", "b", "d"), x)
     assert found == pytest.approx(toop(("a", "b", "d"), x, "a"), rel=1e-12)
@@ -260,7 +284,9 @@ def test_the_two_extrapolations_differ_for_the_same_binaries_and_composition(
     world: World, conn: psycopg.Connection
 ) -> None:
     x = {"a": 0.25, "b": 0.45, "d": 0.30}
-    assert abs(kohler(("a", "b", "d"), x) - toop(("a", "b", "d"), x, "a")) > 1.0, "the choice matters"
+    assert abs(kohler(("a", "b", "d"), x) - toop(("a", "b", "d"), x, "a")) > 1.0, (
+        "the choice matters"
+    )
 
 
 def test_kohler_does_not_depend_on_the_order_the_components_are_passed_in(
@@ -268,7 +294,9 @@ def test_kohler_does_not_depend_on_the_order_the_components_are_passed_in(
 ) -> None:
     reference = ternary(world, conn, "first", ("a", "b", "c"), COMPOSITION)
     for order in (("c", "a", "b"), ("b", "c", "a")):
-        assert ternary(world, conn, "first", order, COMPOSITION) == pytest.approx(reference, rel=1e-12)
+        assert ternary(world, conn, "first", order, COMPOSITION) == pytest.approx(
+            reference, rel=1e-12
+        )
 
 
 def test_toop_follows_the_species_the_array_puts_first_without_input_from_the_caller(
@@ -278,8 +306,12 @@ def test_toop_follows_the_species_the_array_puts_first_without_input_from_the_ca
     the array (b, a, d) singles out b, whichever order the caller passes the components in."""
     x = {"a": 0.25, "b": 0.45, "d": 0.30}
     for order in (("a", "b", "d"), ("d", "b", "a")):
-        assert ternary(world, conn, "second", order, x) == pytest.approx(toop(("a", "b", "d"), x, "a"), rel=1e-12)
-        assert ternary(world, conn, "reordered", order, x) == pytest.approx(toop(("a", "b", "d"), x, "b"), rel=1e-12)
+        assert ternary(world, conn, "second", order, x) == pytest.approx(
+            toop(("a", "b", "d"), x, "a"), rel=1e-12
+        )
+        assert ternary(world, conn, "reordered", order, x) == pytest.approx(
+            toop(("a", "b", "d"), x, "b"), rel=1e-12
+        )
     assert abs(toop(("a", "b", "d"), x, "a") - toop(("a", "b", "d"), x, "b")) > 1.0
 
 

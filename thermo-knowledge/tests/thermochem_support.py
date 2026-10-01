@@ -11,8 +11,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pyarrow.parquet as pq
-from mapping_support import real_declaration, rows
 
+from mapping_support import real_declaration, rows
 from thermo_knowledge import config
 from thermo_knowledge.acquire.lock import read_lock
 from thermo_knowledge.acquire.manifest import default_lock_path

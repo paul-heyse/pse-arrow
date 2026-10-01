@@ -27,9 +27,9 @@ from pathlib import Path
 import numpy as np
 import psycopg
 import pytest
-from hard_case_support import at, build, entity_id, failing, observable_id
-from mapping_support import carrier, origin, real_declaration, writer
 
+from hard_case_support import at, build, entity_id, failing, observable_id
+from mapping_support import carrier, real_declaration, writer
 from thermo_knowledge import db, identity
 from thermo_knowledge.canonical.values import Quantity
 from thermo_knowledge.canonical.writer import CanonicalWriter, FamilyRow, ValidationError
@@ -43,7 +43,9 @@ CARRIER = identity.identifier("source", [carrier("src", "a.json").key])
 R = 8.314462618  # the gas constant of the parameterisation's convention set, J/(mol K)
 R_TABLE = 8.314510  # the gas constant the evaluated table assumes
 T_REF = 298.15
-CACHE = CompileCache()  # what one expansion compiles serves every later binding of the same structure
+CACHE = (
+    CompileCache()
+)  # what one expansion compiles serves every later binding of the same structure
 
 # -- the independent calculation ---------------------------------------------------------------
 
@@ -52,28 +54,53 @@ def nasa7_values(c: dict[str, float], T: np.ndarray, gas: float = R) -> tuple[np
     """Cp, H and S of one NASA-7 piece, from the published formulas written out term by term."""
     cp = gas * (c["a1"] + c["a2"] * T + c["a3"] * T**2 + c["a4"] * T**3 + c["a5"] * T**4)
     h = gas * (
-        c["a1"] * T + c["a2"] * T**2 / 2 + c["a3"] * T**3 / 3 + c["a4"] * T**4 / 4
-        + c["a5"] * T**5 / 5 + c["a6"]
+        c["a1"] * T
+        + c["a2"] * T**2 / 2
+        + c["a3"] * T**3 / 3
+        + c["a4"] * T**4 / 4
+        + c["a5"] * T**5 / 5
+        + c["a6"]
     )
     s = gas * (
-        c["a1"] * np.log(T) + c["a2"] * T + c["a3"] * T**2 / 2 + c["a4"] * T**3 / 3
-        + c["a5"] * T**4 / 4 + c["a7"]
+        c["a1"] * np.log(T)
+        + c["a2"] * T
+        + c["a3"] * T**2 / 2
+        + c["a4"] * T**3 / 3
+        + c["a5"] * T**4 / 4
+        + c["a7"]
     )
     return cp, h, s
 
 
 def nasa9_values(c: dict[str, float], T: np.ndarray, gas: float = R) -> tuple[np.ndarray, ...]:
     cp = gas * (
-        c["a1"] / T**2 + c["a2"] / T + c["a3"] + c["a4"] * T + c["a5"] * T**2
-        + c["a6"] * T**3 + c["a7"] * T**4
+        c["a1"] / T**2
+        + c["a2"] / T
+        + c["a3"]
+        + c["a4"] * T
+        + c["a5"] * T**2
+        + c["a6"] * T**3
+        + c["a7"] * T**4
     )
     h = gas * (
-        -c["a1"] / T + c["a2"] * np.log(T) + c["a3"] * T + c["a4"] * T**2 / 2
-        + c["a5"] * T**3 / 3 + c["a6"] * T**4 / 4 + c["a7"] * T**5 / 5 + c["b1"]
+        -c["a1"] / T
+        + c["a2"] * np.log(T)
+        + c["a3"] * T
+        + c["a4"] * T**2 / 2
+        + c["a5"] * T**3 / 3
+        + c["a6"] * T**4 / 4
+        + c["a7"] * T**5 / 5
+        + c["b1"]
     )
     s = gas * (
-        -c["a1"] / (2 * T**2) - c["a2"] / T + c["a3"] * np.log(T) + c["a4"] * T
-        + c["a5"] * T**2 / 2 + c["a6"] * T**3 / 3 + c["a7"] * T**4 / 4 + c["b2"]
+        -c["a1"] / (2 * T**2)
+        - c["a2"] / T
+        + c["a3"] * np.log(T)
+        + c["a4"] * T
+        + c["a5"] * T**2 / 2
+        + c["a6"] * T**3 / 3
+        + c["a7"] * T**4 / 4
+        + c["b2"]
     )
     return cp, h, s
 
@@ -83,17 +110,28 @@ def shomate_values(c: dict[str, float], T: np.ndarray, gas: float = 0.0) -> tupl
     cp = c["A"] + c["B"] * T + c["C"] * T**2 + c["D"] * T**3 + c["E"] / T**2
     h = c["A"] * T + c["B"] * T**2 / 2 + c["C"] * T**3 / 3 + c["D"] * T**4 / 4 - c["E"] / T + c["F"]
     s = (
-        c["A"] * np.log(T / 1000.0) + c["B"] * T + c["C"] * T**2 / 2 + c["D"] * T**3 / 3
-        - c["E"] / (2 * T**2) + c["G"]
+        c["A"] * np.log(T / 1000.0)
+        + c["B"] * T
+        + c["C"] * T**2 / 2
+        + c["D"] * T**3 / 3
+        - c["E"] / (2 * T**2)
+        + c["G"]
     )
     return cp, h, s
 
 
-def join(values, free: dict[str, float], lower: dict[str, float], names: tuple[str, str, str], at_T: float) -> dict[str, float]:  # noqa: ANN001
+def join(
+    values,
+    free: dict[str, float],
+    lower: dict[str, float],
+    names: tuple[str, str, str],
+    at_T: float,
+) -> dict[str, float]:  # noqa: ANN001
     """The piece above `lower` with the coefficients `free` given and the three constants `names`
     (the one that sets Cp, the one that sets H, the one that sets S) chosen so that Cp, H and S are
     continuous at `at_T`. Each constant enters its function linearly and alone, so it is found by
     evaluating the piece with the three at zero."""
+
     def at_boundary(piece: dict[str, float]) -> tuple[float, float, float]:
         cp, h, s = values(piece, np.array([at_T]))
         return float(cp[0]), float(h[0]), float(s[0])
@@ -107,7 +145,17 @@ def join(values, free: dict[str, float], lower: dict[str, float], names: tuple[s
     return piece
 
 
-NASA7_LOW = dict(T_low=200.0, T_high=1000.0, a1=3.6, a2=-1.0e-3, a3=2.0e-6, a4=-1.2e-9, a5=2.8e-13, a6=-30_000.0, a7=2.5)
+NASA7_LOW = dict(
+    T_low=200.0,
+    T_high=1000.0,
+    a1=3.6,
+    a2=-1.0e-3,
+    a3=2.0e-6,
+    a4=-1.2e-9,
+    a5=2.8e-13,
+    a6=-30_000.0,
+    a7=2.5,
+)
 NASA7_HIGH = {
     **join(
         nasa7_values,
@@ -120,20 +168,60 @@ NASA7_HIGH = {
 }
 NASA7 = [NASA7_LOW, NASA7_HIGH]
 
-NASA9_1 = dict(T_low=200.0, T_high=1000.0, a1=1.0e4, a2=-150.0, a3=3.0, a4=2.0e-3, a5=-1.5e-6, a6=4.0e-10, a7=-3.0e-14, b1=-20_000.0, b2=8.0)
+NASA9_1 = dict(
+    T_low=200.0,
+    T_high=1000.0,
+    a1=1.0e4,
+    a2=-150.0,
+    a3=3.0,
+    a4=2.0e-3,
+    a5=-1.5e-6,
+    a6=4.0e-10,
+    a7=-3.0e-14,
+    b1=-20_000.0,
+    b2=8.0,
+)
 NASA9_2 = {
-    **join(nasa9_values, dict(a1=5.0e3, a2=-50.0, a4=-1.0e-4, a5=3.0e-8, a6=-1.0e-11, a7=1.0e-15), NASA9_1, ("a3", "b1", "b2"), 1000.0),
+    **join(
+        nasa9_values,
+        dict(a1=5.0e3, a2=-50.0, a4=-1.0e-4, a5=3.0e-8, a6=-1.0e-11, a7=1.0e-15),
+        NASA9_1,
+        ("a3", "b1", "b2"),
+        1000.0,
+    ),
     "T_high": 6000.0,
 }
 NASA9_3 = {
-    **join(nasa9_values, dict(a1=-2.0e4, a2=200.0, a4=4.0e-4, a5=-2.0e-8, a6=5.0e-13, a7=-4.0e-18), NASA9_2, ("a3", "b1", "b2"), 6000.0),
+    **join(
+        nasa9_values,
+        dict(a1=-2.0e4, a2=200.0, a4=4.0e-4, a5=-2.0e-8, a6=5.0e-13, a7=-4.0e-18),
+        NASA9_2,
+        ("a3", "b1", "b2"),
+        6000.0,
+    ),
     "T_high": 20_000.0,
 }
 NASA9 = [NASA9_1, NASA9_2, NASA9_3]
 
-SHOMATE_1 = dict(T_low=298.0, T_high=1200.0, A=30.0, B=8.0e-3, C=-2.0e-6, D=3.0e-10, E=-1.5e5, F=-250_000.0, G=210.0)
+SHOMATE_1 = dict(
+    T_low=298.0,
+    T_high=1200.0,
+    A=30.0,
+    B=8.0e-3,
+    C=-2.0e-6,
+    D=3.0e-10,
+    E=-1.5e5,
+    F=-250_000.0,
+    G=210.0,
+)
 SHOMATE_2 = {
-    **join(shomate_values, dict(B=2.0e-3, C=-4.0e-7, D=5.0e-11, E=2.0e6), SHOMATE_1, ("A", "F", "G"), 1200.0),
+    **join(
+        shomate_values,
+        dict(B=2.0e-3, C=-4.0e-7, D=5.0e-11, E=2.0e6),
+        SHOMATE_1,
+        ("A", "F", "G"),
+        1200.0,
+    ),
     "T_high": 6000.0,
 }
 SHOMATE = [SHOMATE_1, SHOMATE_2]
@@ -151,7 +239,9 @@ def piece_index(pieces: list[dict[str, float]], T: np.ndarray) -> np.ndarray:
     return np.searchsorted(inner, T, side="right")
 
 
-def expected(name: str, T: np.ndarray, gas: float = R, *, lower: bool = False) -> tuple[np.ndarray, ...]:
+def expected(
+    name: str, T: np.ndarray, gas: float = R, *, lower: bool = False
+) -> tuple[np.ndarray, ...]:
     """Cp, H and S of a form at `T` from its pieces; at a boundary the upper piece, or the lower
     one under the other reading."""
     pieces, values, _, _ = FORMS[name]
@@ -241,9 +331,16 @@ def write_species(w: CanonicalWriter, decl: Declaration, ids: dict[str, uuid.UUI
             origins=at(f"f-{name}"),
         )
         for quantity, amount in composition.items():
-            w.relation("composition", {"entity": species, "quantity": quantity}, {"value": amount}, at="a.json#/c")
+            w.relation(
+                "composition",
+                {"entity": species, "quantity": quantity},
+                {"value": amount},
+                at="a.json#/c",
+            )
     formation = w.kind(
-        "reaction", {"canonical_key": "2 H2 + O2 = 2 H2O", "extent": "as_written"}, origins=at("formation")
+        "reaction",
+        {"canonical_key": "2 H2 + O2 = 2 H2O", "extent": "as_written"},
+        origins=at("formation"),
     )
     for name, coefficient in (("H2", -2), ("O2", -1), ("H2O", 2)):
         w.relation(
@@ -461,12 +558,27 @@ def conn(world: World) -> Iterator[psycopg.Connection]:
 
 def bound(world: World, conn: psycopg.Connection, form: str, policy: PiecePolicy | None = None):  # noqa: ANN201
     source = DatabaseSource(conn, world.decl, [world.ids["parameterization"]])
-    return bind(world.decl, form, source=source, roles={"i": str(world.ids["form_H2O"])}, pieces=policy, cache=CACHE)
+    return bind(
+        world.decl,
+        form,
+        source=source,
+        roles={"i": str(world.ids["form_H2O"])},
+        pieces=policy,
+        cache=CACHE,
+    )
 
 
-def evaluate(world: World, conn: psycopg.Connection, form: str, T: np.ndarray, policy: PiecePolicy | None = None):  # noqa: ANN201
+def evaluate(
+    world: World,
+    conn: psycopg.Connection,
+    form: str,
+    T: np.ndarray,
+    policy: PiecePolicy | None = None,
+):  # noqa: ANN201
     found = bound(world, conn, form, policy)
-    return tuple(np.asarray(found.evaluate(name, T=T), dtype=float).reshape(-1) for name in ("cp", "h", "s"))
+    return tuple(
+        np.asarray(found.evaluate(name, T=T), dtype=float).reshape(-1) for name in ("cp", "h", "s")
+    )
 
 
 def scalar(conn: psycopg.Connection, query: str, *params: object) -> object:
@@ -513,8 +625,18 @@ def test_the_convention_set_states_its_energy_reference_and_gas_constant(
         "WHERE c.id = %s",
         (world.ids["conventions_coefficients"],),
     ).fetchone()
-    assert row == ("formation_from_elements", "third_law", pytest.approx(T_REF), pytest.approx(1e5), pytest.approx(R))
-    assert scalar(conn, "SELECT gas_constant FROM tk.convention_set WHERE id = %s", world.ids["conventions_table"]) == pytest.approx(R_TABLE)
+    assert row == (
+        "formation_from_elements",
+        "third_law",
+        pytest.approx(T_REF),
+        pytest.approx(1e5),
+        pytest.approx(R),
+    )
+    assert scalar(
+        conn,
+        "SELECT gas_constant FROM tk.convention_set WHERE id = %s",
+        world.ids["conventions_table"],
+    ) == pytest.approx(R_TABLE)
 
 
 def test_the_pieces_are_stored_in_kelvin_and_shomate_constants_in_coherent_units(
@@ -565,7 +687,9 @@ def test_the_pieces_join_continuously_at_every_common_boundary(
         want_below = expected(form, boundary, lower=True)
         want_above = expected(form, boundary)
         for quantity in range(3):
-            np.testing.assert_allclose(want_below[quantity], want_above[quantity], rtol=1e-12, atol=1e-7)
+            np.testing.assert_allclose(
+                want_below[quantity], want_above[quantity], rtol=1e-12, atol=1e-7
+            )
             np.testing.assert_allclose(lower[quantity], want_below[quantity], rtol=1e-12, atol=1e-7)
             np.testing.assert_allclose(upper[quantity], want_above[quantity], rtol=1e-12, atol=1e-7)
             np.testing.assert_allclose(lower[quantity], upper[quantity], rtol=1e-11, atol=1e-6)
@@ -579,7 +703,10 @@ def test_the_enthalpy_is_not_continuous_across_a_boundary_the_data_did_not_join(
     """The control of the continuity test: pieces that were not joined differ at the boundary."""
     unjoined = {**NASA7_HIGH, "a6": NASA7_HIGH["a6"] + 500.0}
     at_boundary = np.array([1000.0])
-    assert abs(nasa7_values(unjoined, at_boundary)[1][0] - nasa7_values(NASA7_LOW, at_boundary)[1][0]) > 1000.0
+    assert (
+        abs(nasa7_values(unjoined, at_boundary)[1][0] - nasa7_values(NASA7_LOW, at_boundary)[1][0])
+        > 1000.0
+    )
 
 
 def test_the_gas_constant_is_the_convention_sets_not_the_evaluators(
@@ -589,21 +716,27 @@ def test_the_gas_constant_is_the_convention_sets_not_the_evaluators(
     with: the value the convention set states is what the evaluation multiplies by."""
     cp, _, _ = evaluate(world, conn, "nasa7", np.array([600.0]))
     assert cp[0] == pytest.approx(float(expected("nasa7", np.array([600.0]), R)[0][0]), rel=1e-13)
-    assert cp[0] != pytest.approx(float(expected("nasa7", np.array([600.0]), R_TABLE)[0][0]), rel=1e-7)
+    assert cp[0] != pytest.approx(
+        float(expected("nasa7", np.array([600.0]), R_TABLE)[0][0]), rel=1e-7
+    )
 
 
 # -- the evaluated table ------------------------------------------------------------------------
 
 
-def datum(conn: psycopg.Connection, world: World, index: int, key: str) -> tuple[str, float | None] | None:
+def datum(
+    conn: psycopg.Connection, world: World, index: int, key: str
+) -> tuple[str, float | None] | None:
     row = conn.execute(
-        "SELECT state::text, value FROM ev.datum WHERE point = %s AND \"column\" = %s",
+        'SELECT state::text, value FROM ev.datum WHERE point = %s AND "column" = %s',
         (world.ids[f"point_{index}"], world.ids[f"column_{key}"]),
     ).fetchone()
     return None if row is None else (row[0], row[1])
 
 
-def test_the_table_is_an_evaluated_dataset_with_typed_columns(world: World, conn: psycopg.Connection) -> None:
+def test_the_table_is_an_evaluated_dataset_with_typed_columns(
+    world: World, conn: psycopg.Connection
+) -> None:
     kind, convention = conn.execute(
         "SELECT kind::text, convention_set FROM ev.dataset WHERE id = %s", (world.ids["dataset"],)
     ).fetchone()  # type: ignore[misc]
@@ -613,7 +746,9 @@ def test_the_table_is_an_evaluated_dataset_with_typed_columns(world: World, conn
         "JOIN tk.observable o ON o.id = c.observable WHERE c.dataset = %s ORDER BY c.ordinal",
         (world.ids["dataset"],),
     ).fetchall()
-    assert [(role, key) for role, key, _ in columns] == [(role, observable) for _, role, observable, _ in COLUMNS]
+    assert [(role, key) for role, key, _ in columns] == [
+        (role, observable) for _, role, observable, _ in COLUMNS
+    ]
     assert [presentation for _, _, presentation in columns].count("difference_from_reference") == 1
 
 
@@ -622,7 +757,7 @@ def test_the_enthalpy_increment_is_a_difference_from_the_same_phase_at_the_refer
 ) -> None:
     row = conn.execute(
         "SELECT reference_state_kind::text, reference_temperature, reference_phase, phase, standard_state "
-        'FROM ev.dataset_column WHERE id = %s',
+        "FROM ev.dataset_column WHERE id = %s",
         (world.ids["column_dh"],),
     ).fetchone()
     assert row is not None
@@ -650,10 +785,20 @@ def test_the_row_at_zero_kelvin_has_no_datum_where_the_source_says_infinite(
     rows = scalar(conn, "SELECT count(*) FROM ev.datum")
     assert rows == len(COLUMNS) * len(TABLE_T) - 2
     # the sign of the divergence: the formation Gibbs energy is negative, so log Kf -> +infinity
-    assert scalar(conn, 'SELECT value FROM ev.datum WHERE point = %s AND "column" = %s', world.ids["point_1"], world.ids["column_dfg"]) < 0  # type: ignore[operator]
+    assert (
+        scalar(
+            conn,
+            'SELECT value FROM ev.datum WHERE point = %s AND "column" = %s',
+            world.ids["point_1"],
+            world.ids["column_dfg"],
+        )
+        < 0
+    )  # type: ignore[operator]
 
 
-def test_the_table_values_are_the_printed_ones_in_coherent_units(world: World, conn: psycopg.Connection) -> None:
+def test_the_table_values_are_the_printed_ones_in_coherent_units(
+    world: World, conn: psycopg.Connection
+) -> None:
     index = TABLE_T.index(500.0) + 1
     row = table_row(500.0)
     assert datum(conn, world, index, "cp") == ("known", pytest.approx(row["cp"]))
@@ -678,7 +823,9 @@ def test_the_gibbs_energy_function_follows_from_entropy_and_enthalpy_increment(
     for index, T in enumerate(TABLE_T, 1):
         if T == 0.0:
             continue
-        (_, s), (_, dh), (_, g) = (datum(conn, world, index, key) for key in ("s", "dh", "g_function"))  # type: ignore[misc]
+        (_, s), (_, dh), (_, g) = (
+            datum(conn, world, index, key) for key in ("s", "dh", "g_function")
+        )  # type: ignore[misc]
         # the table prints dh to 1 J/mol after rounding kJ/mol to three places: its share of the function
         assert g == pytest.approx(s - dh / T, abs=0.0011 + 0.5 / T)
 
@@ -696,13 +843,17 @@ def test_the_table_and_the_nasa7_fit_agree_to_the_rounding_of_the_table(
     for position, (index, _) in enumerate(rows):
         assert abs(datum(conn, world, index, "cp")[1] - cp[position]) <= 5.01e-4  # type: ignore[index]
         assert abs(datum(conn, world, index, "s")[1] - s[position]) <= 5.01e-4  # type: ignore[index]
-        assert abs(datum(conn, world, index, "dh")[1] - (h[position] - h_ref)) <= 0.5001  # J/mol, printed in kJ/mol to 3 places
+        assert (
+            abs(datum(conn, world, index, "dh")[1] - (h[position] - h_ref)) <= 0.5001
+        )  # J/mol, printed in kJ/mol to 3 places
 
 
 def test_the_assessment_is_stored_once_in_the_canonical_orientation(
     world: World, conn: psycopg.Connection
 ) -> None:
-    rows = conn.execute("SELECT a, b, level::text, conversion FROM prov.equivalence_assessment").fetchall()
+    rows = conn.execute(
+        "SELECT a, b, level::text, conversion FROM prov.equivalence_assessment"
+    ).fetchall()
     assert len(rows) == 1
     a, b, level, conversion = rows[0]
     assert {a, b} == {world.ids["dataset"], world.ids["set_nasa7"]}
@@ -722,18 +873,27 @@ def test_pieces_that_overlap_on_the_temperature_axis_are_refused(decl: Declarati
     ]
     with pytest.raises(ValidationError, match="pieces overlap"):
         w.parameter_set(
-            parameterization=p, slot_group="nasa7.pure", subjects=[subject], slots={},
-            families={"piece": overlapping}, origins=at("overlap"),
+            parameterization=p,
+            slot_group="nasa7.pure",
+            subjects=[subject],
+            slots={},
+            families={"piece": overlapping},
+            origins=at("overlap"),
         )
     assert w.rows("param.nasa7__pure") == 0
 
 
-def test_a_piece_whose_lower_bound_is_not_below_its_upper_bound_is_refused(decl: Declaration) -> None:
+def test_a_piece_whose_lower_bound_is_not_below_its_upper_bound_is_refused(
+    decl: Declaration,
+) -> None:
     w = writer(decl)
     p, subject = species_and_parameterization(w, decl)
     with pytest.raises(ValidationError, match="is not below"):
         w.parameter_set(
-            parameterization=p, slot_group="nasa7.pure", subjects=[subject], slots={},
+            parameterization=p,
+            slot_group="nasa7.pure",
+            subjects=[subject],
+            slots={},
             families={"piece": [FamilyRow({"n": 1}, nasa7_row({**NASA7_LOW, "T_high": 200.0}))]},
             origins=at("empty-piece"),
         )
@@ -753,20 +913,36 @@ def test_a_datum_states_a_value_exactly_when_it_reports_one(decl: Declaration) -
     )
     column = w.kind(
         "dataset_column",
-        {"dataset": dataset, "ordinal": 1, "role": "property", "observable": observable_id(decl, "log10_equilibrium_constant")},
+        {
+            "dataset": dataset,
+            "ordinal": 1,
+            "role": "property",
+            "observable": observable_id(decl, "log10_equilibrium_constant"),
+        },
         at="a.json#/x",
     )
     point = w.kind("data_point", {"dataset": dataset, "index": 1}, at="a.json#/x")
     for state, value, message in (
         ("known", None, "value is absent but state is `known`"),
-        ("not_measured", Quantity(1.0, "dimensionless"), "value is present but state is `not_measured`"),
+        (
+            "not_measured",
+            Quantity(1.0, "dimensionless"),
+            "value is present but state is `not_measured`",
+        ),
     ):
         with pytest.raises(ValidationError, match=message):
-            w.relation("datum", {"point": point, "column": column}, {"state": state, "value": value}, at="a.json#/x")
+            w.relation(
+                "datum",
+                {"point": point, "column": column},
+                {"state": state, "value": value},
+                at="a.json#/x",
+            )
     assert w.rows("ev.datum") == 0
 
 
-def test_an_assessment_that_names_a_conversion_at_a_level_that_has_none_is_refused(decl: Declaration) -> None:
+def test_an_assessment_that_names_a_conversion_at_a_level_that_has_none_is_refused(
+    decl: Declaration,
+) -> None:
     w = writer(decl)
     with pytest.raises(ValidationError, match="conversion_iff_under_conversion"):
         w.relation(
@@ -777,8 +953,11 @@ def test_an_assessment_that_names_a_conversion_at_a_level_that_has_none_is_refus
 
 
 def with_units(c: dict[str, float], units: dict[str, str]) -> dict[str, object]:
-    return {"T_low": Quantity(c["T_low"], "K"), "T_high": Quantity(c["T_high"], "K"),
-            **{name: Quantity(c[name], unit) for name, unit in units.items()}}
+    return {
+        "T_low": Quantity(c["T_low"], "K"),
+        "T_high": Quantity(c["T_high"], "K"),
+        **{name: Quantity(c[name], unit) for name, unit in units.items()},
+    }
 
 
 def nasa7_row(c: dict[str, float]) -> dict[str, object]:
@@ -786,26 +965,50 @@ def nasa7_row(c: dict[str, float]) -> dict[str, object]:
     in T, so a_k has the unit K^-(k-1)."""
     return with_units(
         c,
-        {"a1": "dimensionless", "a2": "1/K", "a3": "1/K^2", "a4": "1/K^3", "a5": "1/K^4", "a6": "K", "a7": "dimensionless"},
+        {
+            "a1": "dimensionless",
+            "a2": "1/K",
+            "a3": "1/K^2",
+            "a4": "1/K^3",
+            "a5": "1/K^4",
+            "a6": "K",
+            "a7": "dimensionless",
+        },
     )
 
 
 def nasa9_row(c: dict[str, float]) -> dict[str, object]:
     return with_units(
         c,
-        {"a1": "K^2", "a2": "K", "a3": "dimensionless", "a4": "1/K", "a5": "1/K^2", "a6": "1/K^3",
-         "a7": "1/K^4", "b1": "K", "b2": "dimensionless"},
+        {
+            "a1": "K^2",
+            "a2": "K",
+            "a3": "dimensionless",
+            "a4": "1/K",
+            "a5": "1/K^2",
+            "a6": "1/K^3",
+            "a7": "1/K^4",
+            "b1": "K",
+            "b2": "dimensionless",
+        },
     )
 
 
-def species_and_parameterization(w: CanonicalWriter, decl: Declaration) -> tuple[uuid.UUID, uuid.UUID]:
+def species_and_parameterization(
+    w: CanonicalWriter, decl: Declaration
+) -> tuple[uuid.UUID, uuid.UUID]:
     ids: dict[str, uuid.UUID] = {}
     write_species(w, decl, ids)
     write_conventions(w, ids)
     p = w.kind(
         "parameterization",
-        {"key": "p", "revision": "1", "title": "p", "coherence": "independent_records",
-         "convention_set": ids["conventions_coefficients"]},
+        {
+            "key": "p",
+            "revision": "1",
+            "title": "p",
+            "coherence": "independent_records",
+            "convention_set": ids["conventions_coefficients"],
+        },
         origins=at("p"),
     )
     return p, ids["form_H2O"]
@@ -830,16 +1033,27 @@ def test_the_checks_of_verify_flag_a_missing_gas_constant_a_missing_reference_an
         )
         p = w.kind(
             "parameterization",
-            {"key": "bare", "revision": "1", "title": "bare", "coherence": "independent_records",
-             "convention_set": bare},
+            {
+                "key": "bare",
+                "revision": "1",
+                "title": "bare",
+                "coherence": "independent_records",
+                "convention_set": bare,
+            },
             origins=at("bare-p"),
         )
         w.parameter_set(
-            parameterization=p, slot_group="nasa7.pure", subjects=[ids["form_H2O"]], slots={},
-            families={"piece": [FamilyRow({"n": 1}, nasa7_row(NASA7_LOW))]}, origins=at("bare-nasa7"),
+            parameterization=p,
+            slot_group="nasa7.pure",
+            subjects=[ids["form_H2O"]],
+            slots={},
+            families={"piece": [FamilyRow({"n": 1}, nasa7_row(NASA7_LOW))]},
+            origins=at("bare-nasa7"),
         )
         unbalanced = w.kind(
-            "reaction", {"canonical_key": "2 H2 + O2 = H2O", "extent": "as_written"}, origins=at("unbalanced")
+            "reaction",
+            {"canonical_key": "2 H2 + O2 = H2O", "extent": "as_written"},
+            origins=at("unbalanced"),
         )
         for name, coefficient in (("H2", -2), ("O2", -1), ("H2O", 1)):
             w.relation(
@@ -856,7 +1070,9 @@ def test_the_checks_of_verify_flag_a_missing_gas_constant_a_missing_reference_an
         w.kind(
             "dataset_column",
             {
-                "dataset": dataset, "ordinal": 1, "role": "property",
+                "dataset": dataset,
+                "ordinal": 1,
+                "role": "property",
                 "observable": observable_id(decl, "standard_molar_enthalpy"),
                 "presentation": "difference_from_reference",
             },
@@ -871,7 +1087,9 @@ def test_the_checks_of_verify_flag_a_missing_gas_constant_a_missing_reference_an
                 "dataset_column.reference_state_kind_when_relative": 1,
                 "reaction.conserves_declared_quantities": 2,  # hydrogen and oxygen
             }
-            source = DatabaseSource(connection, decl, [scalar(connection, "SELECT id FROM tk.parameterization")])  # type: ignore[list-item]
+            source = DatabaseSource(
+                connection, decl, [scalar(connection, "SELECT id FROM tk.parameterization")]
+            )  # type: ignore[list-item]
             found = bind(decl, "nasa7", source=source, roles={"i": str(ids["form_H2O"])})
             with pytest.raises(EvaluationRefusal, match="gas_constant"):
                 found.evaluate("cp", T=np.array([300.0]))

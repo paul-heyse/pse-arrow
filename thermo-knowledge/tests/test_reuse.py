@@ -13,12 +13,12 @@ import shutil
 from pathlib import Path
 
 import pytest
+
 from mapping_support import fake_environment, real_declaration
 from qualify_support import case_text
 from readers_support import Workspace, build_workspace, module_resolver, tiny_module
 from test_qualify_run import Env, env  # noqa: F401  (the `env` fixture)
 from test_staging_side import copy_envs, side_context
-
 from thermo_knowledge import reuse
 from thermo_knowledge.canonical.environment import Environment
 from thermo_knowledge.mapping import runner
@@ -113,9 +113,9 @@ def test_a_provider_version_changes_the_key_of_the_stages_that_declare_it(
     assert changed == {name for name, d in reuse.STAGES.items() if "pint" in d.libraries}
     assert changed == {"map", "qualify"}
     versions(monkeypatch, rdkit="0.0.0")
-    assert {
-        name for name in reuse.STAGES if reuse.stage_key(name, {}).digest != before[name]
-    } == {"resolve"}
+    assert {name for name in reuse.STAGES if reuse.stage_key(name, {}).digest != before[name]} == {
+        "resolve"
+    }
 
 
 def test_a_framework_file_changes_the_key_of_the_stages_that_execute_it(
@@ -220,7 +220,9 @@ def test_a_change_to_code_the_chemicals_and_thermo_readers_share_marks_both_stal
     """The shared table rules and the shared Law and Bell declarations live in the staging
     package, which the read key covers for every reader, so neither reader's key can miss them."""
     readers = {
-        name: staging_reader.ResolvedReader.from_module(name, importlib.import_module(f"{package}.{name}"))
+        name: staging_reader.ResolvedReader.from_module(
+            name, importlib.import_module(f"{package}.{name}")
+        )
         for name, package in (
             ("chemicals", "thermo_knowledge.readers"),
             ("thermo", "thermo_knowledge.readers"),
@@ -252,7 +254,9 @@ def test_a_change_to_code_the_chemicals_and_thermo_readers_share_marks_both_stal
 def test_a_side_reader_is_stale_when_the_lock_of_its_environment_changes(
     tmp_path: Path,
 ) -> None:
-    workspace: Workspace = build_workspace(tmp_path / "work", reader_name="fake_side", environment="fakeenv")
+    workspace: Workspace = build_workspace(
+        tmp_path / "work", reader_name="fake_side", environment="fakeenv"
+    )
     envs = copy_envs(tmp_path, lambda text: text)
     ctx = side_context(workspace, envs)
     manifest = workspace.manifest()

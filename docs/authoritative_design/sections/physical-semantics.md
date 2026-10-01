@@ -361,6 +361,15 @@ implementation or general IDAES equivalence (§6.14).
 
 ### 9.1 Material declarations
 
+> Proposed amendment: [ADR-0140](../../adr/0140-scientific-knowledge-admission.md),
+> maintainer-authorized Plan 25b; execution status belongs to that plan.
+
+Conservation consumes an explicit complete composition claim, including complete-empty,
+not formula-row presence or molar-mass availability. Missing sparse coefficients are zero
+only within that admitted complete claim. Unknown species remain legal outside claims
+requiring their missing evidence; charge is assessed independently. Atomic weights belong
+to mass derivation rather than formula admission.
+
 > Decision: [ADR-0127](../../adr/0127-chemical-core-in-physical.md) — the chemical core is
 > declared once, in `pse.physical`, beside the physical quantity types that name its kinds
 > as subjects (Plan 23 SM0, implemented).
@@ -393,6 +402,16 @@ rather than supplied by a provider factory. Changing coordinates changes a bindi
 authored equation; every analysis still consumes the same checked definitions.
 
 ### 9.3 Property method data
+
+> Proposed amendment: [ADR-0140](../../adr/0140-scientific-knowledge-admission.md) and
+> [ADR-0141](../../adr/0141-applicability-evidence-and-permissions.md).
+
+Scientific records identify parameterization, declared family/contract, subject tuple and
+variant. Provenance is attached evidence, and phase is a key only for a phase-specific
+record. Required pairs select existing ordered/symmetric records or an explicit predictive
+rule; fitted zero, missing pair and predicted zero remain distinct. Dependencies and
+atomic-fit groups close over the selected model and subjects, with only declared subsystem
+projections. No publication-wide source choice or coefficient copy substitutes for selection.
 
 The `methods` bundle owns typed Shomate, DIPPR100/105, RPP4/Wagner, Antoine and
 constant-property forms. Source-attributed data distributions own coefficients and named
@@ -484,6 +503,14 @@ registered capability references; scientific names never choose a Rust factory.
 
 ### 9.7 Reaction binding
 
+> Proposed amendment: [ADR-0140](../../adr/0140-scientific-knowledge-admission.md).
+
+A concrete checked reaction/material projection derives all source coefficients from the
+authoritative reaction, checks every nonzero participant, and admits inert extra species.
+Selected kinetic and heat records carry the same explicit extent normalization. Reactors
+consume that projection, not an overrideable coefficient callback or inherited output.
+Conserved apparent/lumped transformations carry their own admitted mapping evidence.
+
 Reaction forms, rate functions, stoichiometry and thermal conventions are authored data.
 The saponification seed uses neutral formula units, a sourced Arrhenius form and an explicit
 reaction heat. Generic accumulators consume the selected component and energy contributions;
@@ -553,6 +580,13 @@ qualification remain Plan 25k work.
 
 ### 9.9 Electrolytes and inherent reactions
 
+> Proposed amendment: [ADR-0140](../../adr/0140-scientific-knowledge-admission.md).
+
+An apparent/true-species transformation claiming conservation requires complete elemental
+composition and independent charge evidence for every nonzero participant. Charge balance
+alone does not establish element balance. This adds no universal isotope/site ontology or
+numerical electrolyte qualification.
+
 Electrolyte, true/apparent-species, eNRTL and inherent-reaction packages are outside the
 current seed. Generic entities and tables can describe their data, but declarations alone
 provide no numerical qualification. A future port supplies equations, physical contracts,
@@ -560,6 +594,17 @@ requirements, source provenance and authored fixtures; a missing generic mechani
 kernel gap, not permission for a scientific special case in Rust.
 
 ### 9.10 Scaling defaults and validity
+
+> Proposed amendment: [ADR-0141](../../adr/0141-applicability-evidence-and-permissions.md).
+
+Applicability claims are known regions, explicitly unrestricted evidence or unknown evidence.
+Region observations preserve fitted/recommended/validated meaning, selected record and
+responsible form/model layer. Named record/family permissions for unknown evidence and
+extrapolation default false, are independent, and retain binding authorization; they cannot
+upgrade evidence. B4 enforces the use gate; final result qualification remains a distinct
+consumer. Mathematical and hard model domains always refuse. Required dependencies retain
+all observations; declared alternative regions form unions. Arbitrary predicate regions do
+not gain whole-interval coverage from endpoint tests.
 
 Starts, nominals, validity intervals and scientific checks are annotations on the same
 model that is solved. Numerical policy resolution retains source priority and unit

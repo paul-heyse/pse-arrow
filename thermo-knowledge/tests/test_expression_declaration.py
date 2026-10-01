@@ -12,16 +12,16 @@ from pathlib import Path
 
 import psycopg
 import pytest
-from declaration_support import NO_PHYSICAL, full_declaration
-from expression_support import VALID, load, scenario
 from psycopg import errors
 
+from declaration_support import NO_PHYSICAL, full_declaration
+from expression_support import VALID, load, scenario
+from thermo_knowledge.build import build_database
 from thermo_knowledge.declaration import load_declaration
 from thermo_knowledge.expression.canonical import content_hash, residual_hash, serialise
 from thermo_knowledge.expression.parser import parse
 from thermo_knowledge.generate import declaration_fingerprint
 from thermo_knowledge.generate.meta_rows import meta_rows
-from thermo_knowledge.build import build_database
 from thermo_knowledge.testing import TestDatabase
 
 

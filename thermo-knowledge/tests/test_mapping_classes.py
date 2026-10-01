@@ -14,8 +14,8 @@ from pathlib import Path
 
 import msgspec
 import pytest
-from mapping_support import FAKE_MAPPINGS, fake_environment, real_declaration, rows
 
+from mapping_support import FAKE_MAPPINGS, fake_environment, real_declaration, rows
 from thermo_knowledge.canonical.environment import Environment
 from thermo_knowledge.mapping import claims, runner
 from thermo_knowledge.mapping.spec import MappingSpec, validate
@@ -69,11 +69,13 @@ def test_a_value_to_class_table_gives_each_entity_its_class(tmp_path: Path) -> N
     }
     mystery = found["Mystery"]
     assert (mystery.mixture_definition, mystery.mole_basis) == ("by_definition", True)
-    assert all(c.mixture_definition is None and c.mole_basis is None for k, c in found.items() if k != "Mystery")
+    assert all(
+        c.mixture_definition is None and c.mole_basis is None
+        for k, c in found.items()
+        if k != "Mystery"
+    )
     resolve_all(env, decl=real_declaration())
-    resolution = {
-        r["local_key"]: r for r in rows(env.resolution_dir / "tk.source_entity.parquet")
-    }
+    resolution = {r["local_key"]: r for r in rows(env.resolution_dir / "tk.source_entity.parquet")}
     mixtures = {r["id"] for r in rows(env.resolution_dir / "tk.defined_mixture.parquet")}
     assert resolution["Mystery"]["target"] in mixtures
     assert (resolution["Mystery"]["status"], resolution["Mystery"]["rule"]) == (
@@ -187,7 +189,9 @@ def test_only_an_entity_of_class_species_form_states_an_aggregation(tmp_path: Pa
             'entity = emit.source_entity("species", aggregation="gas")',
         )
     )
-    with pytest.raises(MappingError, match="only an entity of class `species_form` states an aggregation"):
+    with pytest.raises(
+        MappingError, match="only an entity of class `species_form` states an aggregation"
+    ):
         runner.run_identity(env, "fake")
 
     forms, _ = with_classes(

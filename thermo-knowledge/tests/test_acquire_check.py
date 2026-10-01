@@ -13,6 +13,8 @@ from pathlib import Path
 
 import httpx
 import pytest
+from typer.testing import CliRunner
+
 from test_acquire_support import (
     HttpFixture,
     Route,
@@ -23,8 +25,6 @@ from test_acquire_support import (
     unseal,
     write_manifest,
 )
-from typer.testing import CliRunner
-
 from thermo_knowledge import config
 from thermo_knowledge.acquire import store
 from thermo_knowledge.cli import app

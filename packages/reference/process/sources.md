@@ -70,10 +70,11 @@ SSLW heat-exchanger purchase costing represents one exchanger; indexed costing c
 compose multiple purchases through the capital accumulator. The seed's coefficient
 datasets name the correlation's publication as their source. The campaign costs the BT_PR
 co-current exchanger from its solved area and tube-side pressure (`hx_costing_solved_area`);
-the seed keeps the correlation at a stated 1000 m² area (`envelope`). The pressure factor's
-stated envelope is 100–2000 psig. The campaign exchanger at 0 psig lies below it and its
-flowsheet explicitly requests extrapolation, recorded by the validity result. No such
-permission is implied for ordinary use. USD_CE500 and
+the seed evaluates at a stated 1000 m² area. The source supplies no area applicability
+range, so the seed and campaign name permission for that unknown evidence. The pressure
+factor's reported range is 100–2000 psig. The campaign exchanger at 0 psig lies below it and
+its flowsheet names a separate extrapolation permission. Applicability observations retain
+the unknown/outside outcomes and the selected permissions. USD_CE500 and
 USD_2018 use CEPCI 500 and 603.1 in the physical unit registry; year conversion is not a
 second correlation multiplier in the model.
 

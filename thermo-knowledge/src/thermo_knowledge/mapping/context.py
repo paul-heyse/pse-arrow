@@ -67,7 +67,9 @@ class RowHeld(Exception):
 
     def __init__(self, reason: str, detail: str) -> None:
         if reason not in pc.HELD_REASON.members:
-            raise ValueError(f"`{reason}` is not a held reason: {', '.join(pc.HELD_REASON.members)}")
+            raise ValueError(
+                f"`{reason}` is not a held reason: {', '.join(pc.HELD_REASON.members)}"
+            )
         self.reason = reason
         super().__init__(detail)
 
@@ -99,9 +101,7 @@ class _Block:
     count: int = 0
 
 
-def _satisfies(
-    where: Mapping[str, object], values: Mapping[str, object]
-) -> dict[str, str] | None:
+def _satisfies(where: Mapping[str, object], values: Mapping[str, object]) -> dict[str, str] | None:
     """The named groups of the patterns of `where` when `values` satisfy every condition (the
     empty mapping for conditions with no group), else `None`."""
     groups: dict[str, str] = {}
@@ -128,6 +128,8 @@ def _decoding_columns(decoding: Decoding) -> list[str]:
 
 STANDARD_STATE = "standard_state"
 """The key of a rule's `column` table that says the column is of the standard state."""
+
+
 def numbered[T](items: Sequence[T]) -> Iterator[tuple[int, T]]:
     """The items with their numbers, counting from one, as a declaration numbers ordinals, indices
     and pieces."""
@@ -149,6 +151,7 @@ def last[T](items: Sequence[T]) -> T:
     """The last of `items`."""
     return items[-ORIGIN]
 
+
 PLAIN_NUMBER = re.compile(r"[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?")
 NUMBER_WITH_UNIT = re.compile(r"\s*([+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)\s+(\S.*?)\s*")
 
@@ -166,7 +169,7 @@ class Decoded:
     """The named groups of the patterns the row satisfied."""
 
 
-def _structure_held(ctx: "RunContext[object]", rows: Sequence[SourceRow]) -> None:
+def _structure_held(ctx: RunContext[object], rows: Sequence[SourceRow]) -> None:
     """Hold the block when a row's structure is not the one the mapping relies on: a column whose
     rule states the exact value (`equals`) holds another."""
     for row in rows:
@@ -802,7 +805,9 @@ class IdentityEmitter:
             )
         key = self._row[spec.key]
         if not isinstance(key, str) or key == "":
-            raise RowHeld("unusable_key", f"{self._row.table}.{spec.key}: {key!r} is not a usable key")
+            raise RowHeld(
+                "unusable_key", f"{self._row.table}.{spec.key}: {key!r} is not a usable key"
+            )
         key = keyed(key, part)
         entity_class = spec.class_of(
             None if spec.class_by is None else self._row[spec.class_by.column]
@@ -816,7 +821,9 @@ class IdentityEmitter:
             )
         if polymorph is not None and entity_class != form:
             raise MappingError(f"scope `{scope}`: only a species form states a polymorph")
-        mixture = spec.mixture if entity_class == pc.ENTITY_CLASS.member("defined_mixture") else None
+        mixture = (
+            spec.mixture if entity_class == pc.ENTITY_CLASS.member("defined_mixture") else None
+        )
         claim = claims.EntityClaim(
             ctx.source_id,
             scope,
@@ -1098,7 +1105,10 @@ class RecordEmitter:
                 )
             values = [*held.values()]
             values += [
-                value for family_rows in rows.values() for row in family_rows for value in row.values.values()
+                value
+                for family_rows in rows.values()
+                for row in family_rows
+                for value in row.values.values()
             ]
             pending.extend(
                 (value.slot_group, value.slots, value.families or {})
@@ -1162,7 +1172,9 @@ class RecordEmitter:
         self._ready()
         kind = region.get(pc.VALIDITY_REGION.kind)
         if kind is None:
-            raise MappingError("a `not_stated` validity names the `kind` of region the source omits")
+            raise MappingError(
+                "a `not_stated` validity names the `kind` of region the source omits"
+            )
         found = self._ctx.writer.validity_not_stated(record, kind, at=self.locator)
         self._block.count += 1
         return found
@@ -1232,7 +1244,11 @@ class RecordEmitter:
         if spec.per_artifact != (artifact is not None):
             raise MappingError(
                 f"parameterization `{name}` "
-                + ("is per artifact and needs the `artifact`" if spec.per_artifact else "names no artifact")
+                + (
+                    "is per artifact and needs the `artifact`"
+                    if spec.per_artifact
+                    else "names no artifact"
+                )
             )
         origins = tuple(Origin(origin.ref, spec.origin_role) for origin in self._origins)
         convention: uuid.UUID | None = None

@@ -139,8 +139,7 @@ SCHEMAS: dict[str, pa.Schema] = {
         floats(
             "coefficients",
             "data[i]",
-            "the coefficient row as written (7 for NASA-7 and Shomate, 9 for NASA-9); "
-            + UNIT_NOTE,
+            "the coefficient row as written (7 for NASA-7 and Shomate, 9 for NASA-9); " + UNIT_NOTE,
         ),
         integer("coefficient_count", "length of data[i]"),
     ),
@@ -277,4 +276,3 @@ SCHEMAS: dict[str, pa.Schema] = {
         text("text", "line content without its \\n"),
     ),
 }
-

@@ -31,8 +31,8 @@ from pathlib import Path
 import pyarrow as pa
 
 from thermo_knowledge.staging import tabular
-from thermo_knowledge.staging.tabular import index, integer, number, text
 from thermo_knowledge.staging.errors import StagingError
+from thermo_knowledge.staging.tabular import index, integer, number, text
 from thermo_knowledge.staging.writer import Writer
 
 ARTIFACT = "chemicals/Misc/ChemSep8.32.xml"
@@ -53,7 +53,11 @@ _SCALARS = (
     text("name", "@name"),
     text("units", "@units", note="absent on identifiers and names; `_` means dimensionless"),
     text("value", "@value", note="the attribute text exactly as written"),
-    number("value_number", "@value", note="the same text parsed as a decimal number; null if it is not one"),
+    number(
+        "value_number",
+        "@value",
+        note="the same text parsed as a decimal number; null if it is not one",
+    ),
 )
 _EQUATIONS = (
     index("compound_index", "position of the compound element"),

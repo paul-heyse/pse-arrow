@@ -182,6 +182,8 @@ pub struct Column {
 /// A symmetric key pair: each unordered pair is stored once, in canonical orientation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Symmetry {
+    /// Preserve direction instead of answering the transposed orientation.
+    pub ordered: bool,
     /// Position of the first key of the pair.
     pub first: usize,
     /// Position of the second key of the pair.
@@ -234,6 +236,7 @@ impl Table {
     /// The canonical orientation of a key tuple and whether it was swapped.
     fn canonical(&self, mut keys: Vec<Value>) -> (Vec<Value>, bool) {
         if let Some(pair) = self.symmetry
+            && !pair.ordered
             && keys[pair.first] > keys[pair.second]
         {
             keys.swap(pair.first, pair.second);
@@ -263,6 +266,9 @@ impl Table {
         };
         within(keys)
             || self.symmetry.is_some_and(|pair| {
+                if pair.ordered {
+                    return false;
+                }
                 let mut swapped = keys.to_vec();
                 swapped.swap(pair.first, pair.second);
                 within(&swapped)
@@ -1011,6 +1017,7 @@ fn schema(
                 ));
             }
             Ok(Symmetry {
+                ordered: pair.ordered,
                 first,
                 second,
                 diagonal: pair.diagonal,
@@ -1830,6 +1837,7 @@ fn domain(
                     limit: CLAIM_LIMIT,
                     stack: Vec::new(),
                     reader: Reader::Admission(None),
+                    selections: None,
                 };
                 let Value::Set(members) = evaluator.text(&name, None)? else {
                     return Err(invalid(at, format!("{name} is not a finite set")));
@@ -2281,6 +2289,7 @@ fn derive(
             limit: EVALUATION_LIMIT,
             stack: Vec::new(),
             reader: Reader::Admission(Some(&tainted)),
+            selections: None,
         }
         .expr(expression, Some(&column.ty), 0)?;
         if !conforms(&value, &column.ty, p) {
@@ -2333,6 +2342,7 @@ fn requirements(
                 limit: EVALUATION_LIMIT,
                 stack: Vec::new(),
                 reader: Reader::Admission(None),
+                selections: None,
             }
             .predicate(predicate)?;
             if !holds {

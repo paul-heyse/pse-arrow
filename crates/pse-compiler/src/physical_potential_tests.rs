@@ -159,31 +159,32 @@ entity chemistry.species a {}
 entity chemistry.species b {}
 set members:Set<chemistry.species>={a,b};
 entity provenance.source data_source {title="Focused two-component potential control"}
-entity properties.property_package parameters {}
+entity properties.parameterization fit {title="Named synthetic potential-control fit",source=data_source}
+entity properties.predictive_rule zero_prediction {source=data_source,family=pcsaft_parameters.binary_interaction,output=interactions.predictive_zero}
+entity properties.property_package parameters {admitted=selected}
 set packages:Set<properties.property_package>={parameters};
-set sources:Set<provenance.source>={data_source};
-set pair_properties:Set<properties.property>={nrtl.interaction_parameters,pcsaft_parameters.binary_interaction};
 set saft_pairs:Set<properties.property>={pcsaft_parameters.binary_interaction};
 set saft_properties:Set<properties.property>={pcsaft_parameters.segments};
-dataset nrtl_parameters:nrtl.parameters complete_over(s in sources,i in members,j in members) provenance(data_source,provenance.Role.synthetic) {
-[data_source,a,a]=[0,0]; [data_source,a,b]=[1,0.3];
-[data_source,b,a]=[1,0.3]; [data_source,b,b]=[0,0];
+dataset nrtl_parameters:nrtl.parameters bind(parameterization=fit,family=nrtl.interaction_parameters,source=data_source,dependencies={},conventions={}) provenance(data_source,provenance.Role.synthetic) {
+[a,b]=[1,0.3]; [b,a]=[1,0.3];
 }
-dataset selected_pairs:interactions.pair_selection complete_over(k in packages,p in pair_properties) provenance(data_source,provenance.Role.synthetic) {
-[parameters,nrtl.interaction_parameters]=[data_source];
-[parameters,pcsaft_parameters.binary_interaction]=[data_source];
+dataset selected_nrtl:nrtl.selection complete_over(k in packages,i in members,j in members) provenance(data_source,provenance.Role.synthetic) {
+[parameters,a,b]=[nrtl.parameters[fit,nrtl.interaction_parameters,a,b]];
+[parameters,b,a]=[nrtl.parameters[fit,nrtl.interaction_parameters,b,a]];
 }
-dataset pair_policy:interactions.absence_policy complete_over(k in packages,p in saft_pairs) provenance(data_source,provenance.Role.synthetic) {
-[parameters,pcsaft_parameters.binary_interaction]=[interactions.PairAbsence.predictiveZero];
+dataset predicted_pairs:interactions.symmetric_selection complete_over(k in packages,family in saft_pairs,i in members,j in members) provenance(data_source,provenance.Role.synthetic) {
+[parameters,pcsaft_parameters.binary_interaction,a,b]=[missing,zero_prediction];
 }
+dataset saft_self:interactions.self_rule complete_over(k in packages,family in saft_pairs) provenance(data_source,provenance.Role.synthetic) {[parameters,pcsaft_parameters.binary_interaction]=[interactions.zero_self];}
 // Published Gross-Sadowski methane and ethane parameters; no Arrow/storage journey is needed.
-dataset segments:pcsaft_parameters.nonassociating bind(property=pcsaft_parameters.segments,phase_type=compatibility.PhaseType.vaporPhase,source=data_source) provenance(data_source,provenance.Role.synthetic) {
+dataset segments:pcsaft_parameters.nonassociating bind(parameterization=fit,property=pcsaft_parameters.segments,source=data_source,dependencies={},conventions={}) provenance(data_source,provenance.Role.synthetic) {
 [a]=[1,3.7039e-10{m},150.03{K}]; [b]=[1.6069,3.5206e-10{m},191.42{K}];
 }
-dataset selection:properties.selection complete_over(k in packages,j in members,p in saft_properties,t in properties.vapor_types) provenance(data_source,provenance.Role.synthetic) {
-[parameters,a,pcsaft_parameters.segments,compatibility.PhaseType.vaporPhase]=[pcsaft_parameters.nonassociating[a,pcsaft_parameters.segments,compatibility.PhaseType.vaporPhase,data_source]];
-[parameters,b,pcsaft_parameters.segments,compatibility.PhaseType.vaporPhase]=[pcsaft_parameters.nonassociating[b,pcsaft_parameters.segments,compatibility.PhaseType.vaporPhase,data_source]];
+dataset selection:properties.pure_selection complete_over(k in packages,j in members,p in saft_properties) provenance(data_source,provenance.Role.synthetic) {
+[parameters,a,pcsaft_parameters.segments]=[pcsaft_parameters.nonassociating[a,pcsaft_parameters.segments,fit]];
+[parameters,b,pcsaft_parameters.segments]=[pcsaft_parameters.nonassociating[b,pcsaft_parameters.segments,fit]];
 }
+entity properties.selection_context selected {roots={nrtl.parameters[fit,nrtl.interaction_parameters,a,b],nrtl.parameters[fit,nrtl.interaction_parameters,b,a],pcsaft_parameters.nonassociating[a,pcsaft_parameters.segments,fit],pcsaft_parameters.nonassociating[b,pcsaft_parameters.segments,fit]},subjects=members,models={nrtl.interaction_parameters,pcsaft_parameters.segments,pcsaft_parameters.binary_interaction},rules={zero_prediction}}
 fn saft(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy=pcsaft.potential(T,V,n,members,parameters);
 response pressure_difference from law(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>,dv:Volume,law:Fn(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy)->Pressure=sum(j in members | n[j])*constants.gas_constant*(T-constants.absolute_zero)/V-(law(T,V+dv,n,members)-law(T,V-dv,n,members))/(2*dv);
 response cv_difference from law(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>,dt:DeltaTemperature,law:Fn(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy)->MolarCp=-(T-constants.absolute_zero)*(law(T+dt,V,n,members)-2*law(T,V,n,members)+law(T-dt,V,n,members))/(dt^2*sum(j in members | n[j]));
@@ -225,6 +226,7 @@ expect helmholtz.isobaric_heat_capacity(300{K},0.025{m^3},n,members,helmholtz.id
 expect helmholtz.fugacity_response(300{K},0.025{m^3},n,members,a,helmholtz.ideal)==0{1} tolerance 1e-12{1};
 }
 test nrtl_physical_homogeneity {
+permission fit_use families(nrtl.parameters) allow_unknown true allow_extrapolation false;
 let n[j in members]:Amount=if j==a then 0.3{mol} else 0.7{mol};
 let triple[j in members]:Amount=3*n[j];
 expect nrtl.normalized_excess(300{K},100000{Pa},n,members,parameters,nrtl.potential)==nrtl.binary(0.3,1,1,0.3,0.3) tolerance 1e-12;
@@ -236,6 +238,7 @@ expect nrtl.ln_gamma(300{K},100000{Pa},triple,members,parameters,a)==nrtl.ln_gam
 expect nrtl.gibbs_duhem_response(300{K},100000{Pa},n,members,parameters,a,nrtl.potential)==0{1} tolerance 1e-12{1};
 }
 test pcsaft_physical_partials {
+permission fit_use families(pcsaft_parameters.nonassociating,properties.predictive_rule) allow_unknown true allow_extrapolation false;
 let n[j in members]:Amount=if j==a then 0.3{mol} else 0.7{mol};
 let triple[j in members]:Amount=3*n[j];
 expect saft(300{K},0.3{m^3},triple,members)==3*saft(300{K},0.1{m^3},n,members) tolerance 1e-8{J};
@@ -248,6 +251,7 @@ expect helmholtz.fugacity_response(300{K},0.3{m^3},triple,members,a,saft)==helmh
 // asym_critical/directional_pair data: T=450 K, P=100000 Pa, rho=25 mol/m^3,
 // x=(0.4,0.6), k_ab=0.1, k_ba=0.3. No production helper was evaluated.
 test cubic_polynomial_frontdoors {
+permission fit_use families(cubic.critical_point,cubic.directional_pair) allow_unknown true allow_extrapolation false;
 let n[j in pr_oracle.asym_members]:Amount=if j==pr_oracle.asym_a then 0.4{mol} else 0.6{mol};
 let triple[j in pr_oracle.asym_members]:Amount=3*n[j];
 let x[j in pr_oracle.asym_members]:MoleFraction=if j==pr_oracle.asym_a then 0.4{1} else 0.6{1};

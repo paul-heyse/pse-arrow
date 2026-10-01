@@ -12,10 +12,10 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+
 from declaration_support import copy_full, full_declaration
 from expression_support import scenario
 from mapping_support import extended_declaration, origin, writer
-
 from thermo_knowledge import transposition
 from thermo_knowledge.canonical.writer import CanonicalWriter, CompetingAssertion, ValidationError
 from thermo_knowledge.declaration import Declaration, Diagnostic, load_declaration
@@ -350,7 +350,8 @@ def test_the_swap_is_an_operation_on_the_values_and_not_on_the_structure() -> No
     cache = CompileCache()
     declaration = scenario("transposition")
     source = InMemorySource(
-        slots={("margules_form.pair", ("a", "b")): {"h0": 1.25, "h1": -0.5}}, declaration=declaration
+        slots={("margules_form.pair", ("a", "b")): {"h0": 1.25, "h1": -0.5}},
+        declaration=declaration,
     )
     held = bind(
         declaration, "margules_form", source=source, roles={"i": "a", "j": "b"}, cache=cache

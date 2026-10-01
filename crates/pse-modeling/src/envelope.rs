@@ -1,34 +1,14 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Typed validity envelopes (ADR-0123 Outcome 4, Plan 23 KR7).
-//!
-//! Validity is the intersection of three layers:
-//!
-//! - the **form** layer is a function's own domain, its `valid` predicate. It never
-//!   extrapolates: a value outside it rejects the evaluation;
-//! - the **data** layer is the envelopes a relation or an entity kind declares as data: an
-//!   axis, its quantity type and the two typed columns or attributes bounding it. Data
-//!   declares no extrapolation policy;
-//! - the **closure** layer is an `annotation valid` range, whose consumer states its policy.
-//!
-//! A function declares which of its arguments, or which integration interval, each
-//! envelope of a row or entity argument guards: `dh(T0, T)` integrates over `[T0, T]`, so
-//! both endpoints lie inside. The kernel generates each guard as a domain predicate over the
-//! function's arguments, checked on the path the form layer's predicate takes. A property
-//! package (a definition) or an analysis (a test or a case) selects the data layer's
-//! extrapolation policy for its instances; the nearest instance that selects one decides,
-//! none selects reject, and the selection is recorded with the guard. A rejecting guard is
-//! a domain predicate. An extrapolating guard is not: its arguments are observed instead, and
-//! each observation names the data layer, so extrapolation is never silent. Extrapolation is
-//! allowed only where every violated layer's policy allows it.
+//! Explicit typed hard-domain guards. Evidence regions and permissions belong to applicability.
 use crate::{CheckedPackage, DeclarationId, Function, Result, Type, TypeContext, invalid};
 use pse_authoring::dsl::{
     CompareOp, Expr, ExprKind, Path, PathSegment, Predicate, PredicateKind, Span,
 };
 use pse_authoring::language::ModelingEnvelopeGuard;
 use pse_ids::SemanticId;
-use pse_model::generated::enums::{ExtrapolationPolicy, ModelingEnvelopeExtent as Extent};
+use pse_model::generated::enums::ModelingEnvelopeExtent as Extent;
 use std::collections::{BTreeMap, BTreeSet};
 
 /// A validity envelope a relation or an entity kind declares as data.
@@ -113,36 +93,8 @@ pub struct Guard {
     /// Every guarded argument lies within the carrier's bounds: for an interval, both of its
     /// endpoints, which bounds the whole interval because an envelope is an interval.
     pub predicate: Predicate,
-    /// The consumer's policy; reject until specialization selects the consumer's.
-    pub policy: ExtrapolationPolicy,
-    /// The declaration that selected the policy; none selects reject.
-    pub selection: Option<DeclarationId>,
     /// The carrier's row or entity and the guarded arguments, once specialized.
     pub reads: Reads,
-}
-
-/// An extrapolating data-layer guard observed at a static argument: its membership is
-/// known at specialization and recorded with its layer.
-#[derive(Clone, Debug, PartialEq)]
-pub struct StaticObservation {
-    /// Identity of the observation: the envelope and the static value.
-    pub id: SemanticId,
-    /// The argument's value in the axis's canonical unit.
-    pub value: f64,
-    /// The intersected lower bound of every row guarding the value.
-    pub lower: f64,
-    /// The intersected upper bound of every row guarding the value.
-    pub upper: f64,
-    /// The declaration that selected extrapolation.
-    pub selection: Option<DeclarationId>,
-    /// The envelope's declaring table or envelope declaration, and the guarding call.
-    pub lineage: crate::specialize::Lineage,
-}
-impl StaticObservation {
-    /// Whether the value lies within the envelope.
-    pub fn within(&self) -> bool {
-        self.lower <= self.value && self.value <= self.upper
-    }
 }
 
 /// A quantity type as a refusal names it: its physical-document name when it has one.
@@ -395,8 +347,6 @@ fn guard(
         extent: declared.extent,
         arguments: declared.arguments.clone(),
         predicate,
-        policy: ExtrapolationPolicy::Reject,
-        selection: None,
         reads: Reads::default(),
     })
 }

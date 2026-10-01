@@ -209,7 +209,8 @@ fn shape(nodes: &[TypeNode], index: usize) -> Result<(), TypeArenaViolation> {
         | K::Coordinate
         | K::ReducedLaw
         | K::QuantityType
-        | K::ReferenceState => children == 0,
+        | K::ReferenceState
+        | K::Applicability => children == 0,
         K::Optional | K::Set | K::Row | K::Table | K::Delta | K::Argument | K::Power => {
             children == 1
         }
@@ -349,6 +350,7 @@ fn write(node: TypeRef<'_>, out: &mut String) {
         K::Text => out.push_str("Text"),
         K::QuantityType => out.push_str("QuantityType"),
         K::ReferenceState => out.push_str("ReferenceState"),
+        K::Applicability => out.push_str("Applicability"),
         K::Named => out.push_str(&path(node.path())),
         K::Variable | K::Argument => out.push_str(&crate::grammar::render_name(node.name())),
         K::Identifier | K::Coordinate | K::ReducedLaw => {

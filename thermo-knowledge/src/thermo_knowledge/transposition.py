@@ -32,6 +32,7 @@ from typing import Protocol, Self
 
 from thermo_knowledge.declaration import model as m
 
+
 class Orderable(Protocol):
     """A subject compared for orientation: an identifier as text, a UUID, an integer or bytes."""
 

@@ -8,6 +8,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from typer.testing import CliRunner
+
 from declaration_support import full_declaration
 from survey_support import (
     complete_dispositions,
@@ -16,8 +18,6 @@ from survey_support import (
     make_tree,
     write_dispositions,
 )
-from typer.testing import CliRunner
-
 from thermo_knowledge.cli import app
 from thermo_knowledge.declaration import LoadResult
 from thermo_knowledge.survey_index import command
@@ -114,6 +114,7 @@ def test_regeneration_is_byte_identical(tmp_path: Path) -> None:
     second_tree = make_tree(tmp_path / "two")
     for tree in (first_tree, second_tree):
         partial_dispositions(tree)
+
     def generate(tree: Path) -> Path:
         return write_report(tree, report_text(tree, evaluate(tree, full_declaration())))
 
@@ -229,9 +230,7 @@ def test_a_declaration_that_is_refused_is_a_diagnostic(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     tree = make_tree(tmp_path)
-    monkeypatch.setattr(
-        command, "load_declaration", lambda *args, **kwargs: LoadResult(None, ())
-    )
+    monkeypatch.setattr(command, "load_declaration", lambda *args, **kwargs: LoadResult(None, ()))
     declaration, diagnostics = load_tree_declaration(tree)
     assert declaration is None
     assert [d.code.value for d in diagnostics] == ["declaration-unavailable"]

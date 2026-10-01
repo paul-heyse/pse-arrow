@@ -26,11 +26,10 @@ import numpy as np
 import psycopg
 from psycopg import sql
 
-from thermo_knowledge import config
+from thermo_knowledge import config, reuse
 from thermo_knowledge import pipeline_contract as pc
-from thermo_knowledge import reuse
-from thermo_knowledge.canonical import store
 from thermo_knowledge.build import currency
+from thermo_knowledge.canonical import store
 from thermo_knowledge.canonical.store import ReadRecords
 from thermo_knowledge.canonical.values import convert, storage_unit
 from thermo_knowledge.declaration import model as m
@@ -382,7 +381,9 @@ def _regions(conn: psycopg.Connection, sets: Sequence[uuid.UUID]) -> dict[uuid.U
             )
         )
     return {
-        record: [_Region(kind, ordinal, tuple(clauses)) for kind, ordinal, clauses in by_id.values()]
+        record: [
+            _Region(kind, ordinal, tuple(clauses)) for kind, ordinal, clauses in by_id.values()
+        ]
         for record, by_id in held.items()
     }
 
@@ -749,7 +750,9 @@ def _validity_report(
         "excluded": (
             None
             if totals is None
-            else totals[Membership.OUTSIDE] if validity.outside == "exclude" else 0
+            else totals[Membership.OUTSIDE]
+            if validity.outside == "exclude"
+            else 0
         ),
     }
 
@@ -948,7 +951,9 @@ def run_case(ctx: Context, conn: psycopg.Connection, case: Case) -> CaseOutcome:
         note=note,
         sets=state.sets if outcomes else (),
         validity_kind=None if spec.validity is None else spec.validity.kind,
-        inside_points=None if totals is None or spec.validity is None else totals[Membership.INSIDE],
+        inside_points=None
+        if totals is None or spec.validity is None
+        else totals[Membership.INSIDE],
         outside_points=None
         if totals is None or spec.validity is None
         else totals[Membership.OUTSIDE],

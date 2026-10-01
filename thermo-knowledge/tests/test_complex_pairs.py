@@ -21,10 +21,10 @@ from dataclasses import dataclass
 import numpy as np
 import psycopg
 import pytest
+
 from build_support import fingerprint, inputs_of, write_source
 from mapping_support import origin
 from mechanisms_support import mechanism_declaration
-
 from thermo_knowledge import config, db
 from thermo_knowledge.build import build_database
 from thermo_knowledge.canonical.values import Quantity
@@ -92,7 +92,13 @@ def world(tmp_path_factory: pytest.TempPathFactory) -> Iterator[World]:
     decl = mechanism_declaration(tmp_path_factory.mktemp("complex-declaration"))
     canonical = tmp_path_factory.mktemp("complex-canonical")
     ids: dict[str, uuid.UUID] = {}
-    write_source(canonical, "src", lambda w: write_world(w, decl, ids), decl=decl, declaration=fingerprint(decl))
+    write_source(
+        canonical,
+        "src",
+        lambda w: write_world(w, decl, ids),
+        decl=decl,
+        declaration=fingerprint(decl),
+    )
     with TestDatabase() as database:
         build_database(database.url, decl, inputs_of(canonical))
         yield World(decl, database, ids)
@@ -143,11 +149,15 @@ def test_every_fixture_satisfies_every_invariant(world: World, conn: psycopg.Con
 def test_the_real_arithmetic_equals_cmath_with_the_principal_logarithm(
     world: World, conn: psycopg.Connection, temperature: float
 ) -> None:
-    found = float(np.asarray(bound(world, conn).evaluate("g", T=np.array([temperature]))).reshape(-1)[0])
+    found = float(
+        np.asarray(bound(world, conn).evaluate("g", T=np.array([temperature]))).reshape(-1)[0]
+    )
     assert found == pytest.approx(reference(temperature), rel=1e-11, abs=1e-9)
 
 
-def test_an_array_of_temperatures_is_evaluated_together(world: World, conn: psycopg.Connection) -> None:
+def test_an_array_of_temperatures_is_evaluated_together(
+    world: World, conn: psycopg.Connection
+) -> None:
     temperatures = np.array([20.0, 100.0, 200.0, 260.0])
     found = np.asarray(bound(world, conn).evaluate("g", T=temperatures))
     np.testing.assert_allclose(found, [reference(float(T)) for T in temperatures], rtol=1e-11)
@@ -165,8 +175,12 @@ def test_the_temperature_where_the_real_part_of_t_k_minus_tau_changes_sign_is_cr
     np.testing.assert_allclose(found, [reference(below), reference(above)], rtol=1e-11)
 
 
-def test_the_complex_constants_are_held_as_pairs_of_real_numbers(world: World, conn: psycopg.Connection) -> None:
+def test_the_complex_constants_are_held_as_pairs_of_real_numbers(
+    world: World, conn: psycopg.Connection
+) -> None:
     rows = conn.execute(
         'SELECT k, t_re, t_im, r_re, r_im FROM param."ice_complex_fixture__pure__term" ORDER BY k'
     ).fetchall()
-    assert rows == [(k, t.real, t.imag, r.real, r.imag) for k, (t, r) in enumerate(zip(T_K, R_K), start=1)]
+    assert rows == [
+        (k, t.real, t.imag, r.real, r.imag) for k, (t, r) in enumerate(zip(T_K, R_K), start=1)
+    ]

@@ -177,7 +177,8 @@ class InMemorySource:
         default_factory=dict
     )
     nested: Mapping[
-        tuple[str, str, tuple[Subject, ...]] | tuple[str, str, tuple[Subject, ...], tuple[int, ...]],
+        tuple[str, str, tuple[Subject, ...]]
+        | tuple[str, str, tuple[Subject, ...], tuple[int, ...]],
         FormChoice,
     ] = field(default_factory=dict)
     subforms: Mapping[tuple[str, tuple[Subject, ...]], tuple[FormChoice, ...]] = field(
@@ -212,8 +213,10 @@ class InMemorySource:
             held = self.slots.get((group, asserted))
             if held is not None:
                 owner = self._group(group)
-                return held if owner is None else transposition.read_slots(
-                    owner, held, asserted, subjects
+                return (
+                    held
+                    if owner is None
+                    else transposition.read_slots(owner, held, asserted, subjects)
                 )
         return None
 
@@ -227,8 +230,10 @@ class InMemorySource:
             held = self.families.get((group, family, asserted))
             if held is not None:
                 owner = self._group(group)
-                declared = None if owner is None else next(
-                    (f for f in owner.families if f.name == family), None
+                declared = (
+                    None
+                    if owner is None
+                    else next((f for f in owner.families if f.name == family), None)
                 )
                 if owner is None or declared is None:
                     return held
@@ -239,7 +244,9 @@ class InMemorySource:
         self, group: str, slot: str, subjects: tuple[Subject, ...], index: tuple[int, ...] = ()
     ) -> FormChoice | None:
         for asserted in self._orders(group, subjects):
-            found = self.nested.get((group, slot, asserted, index) if index else (group, slot, asserted))
+            found = self.nested.get(
+                (group, slot, asserted, index) if index else (group, slot, asserted)
+            )
             if found is not None:
                 return found
         return None
@@ -251,9 +258,7 @@ class InMemorySource:
         value = self.conventions.get(name)
         if value is None:
             return (
-                ConventionFact(
-                    self.parameterization, None, f"states no convention fact `{name}`"
-                ),
+                ConventionFact(self.parameterization, None, f"states no convention fact `{name}`"),
             )
         return (ConventionFact(self.parameterization, float(value)),)
 

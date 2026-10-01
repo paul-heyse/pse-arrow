@@ -7,5 +7,5 @@
 @id("01a0f14331d9760dbe4d3429c410e97e") use provenance @"1.0.0";
 @id("01a0f14331d9760dbe4d342a2eecb60d") use references @"1.0.0";
 @id("01a0f14331d9760dbe4d342b88cd86b5") use chem @"1.0.0";
-@id("01a0e1484fb87705b3f22bd4297dde3d") dataset nitrogen_shomate:correlations.shomate bind(property=properties.heat_capacity, source=references.nist_chase_1998) provenance(references.nist_chase_1998, provenance.Role.published) from "data/nitrogen_shomate.parquet";
+@id("01a0e1484fb87705b3f22bd4297dde3d") dataset nitrogen_shomate:correlations.shomate bind(property=properties.heat_capacity, source=references.nist_chase_1998 ,parameterization=references.nist_chase_1998_shomate_fit,dependencies={},conventions={}) provenance(references.nist_chase_1998, provenance.Role.published) from "data/nitrogen_shomate.parquet";
 }

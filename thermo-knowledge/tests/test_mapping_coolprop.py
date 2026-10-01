@@ -16,17 +16,17 @@ from pathlib import Path
 
 import pyarrow.parquet as pq
 import pytest
-from mapping_support import real_declaration, rows
 from rdkit import Chem
 from rdkit.Chem import inchi as rd_inchi
 
+from mapping_support import real_declaration, rows
 from thermo_knowledge import config
 from thermo_knowledge.acquire.lock import read_lock
 from thermo_knowledge.acquire.manifest import default_lock_path
+from thermo_knowledge.build import build_database, discover
 from thermo_knowledge.canonical.environment import Environment
 from thermo_knowledge.mapping import claims, runner
 from thermo_knowledge.resolve.command import resolve_all
-from thermo_knowledge.build import build_database, discover
 from thermo_knowledge.testing import TestDatabase
 
 SATURATION = "vapor_pressure_exp_series_tau__pure"
@@ -201,11 +201,12 @@ def test_the_pseudo_pure_fluids_are_defined_mixtures_of_resolved_species(run: Ru
     # no provisional species stands for a pseudo-pure fluid, and no pure fluid is a mixture
     for name in pseudo:
         assert entities[name]["target"] in mixtures and entities[name]["target"] not in species
-    assert not any(
-        e["target"] in mixtures for n, e in entities.items() if n not in set(pseudo)
-    )
+    assert not any(e["target"] in mixtures for n, e in entities.items() if n not in set(pseudo))
     # the compositions the predefined-mixture table gives: the resolved species of its components
-    table = {(str(r["name"]), int(r["component_index"])): r for r in staged("predefined_mixture_components")}  # type: ignore[call-overload]
+    table = {
+        (str(r["name"]), int(r["component_index"])): r
+        for r in staged("predefined_mixture_components")
+    }  # type: ignore[call-overload]
     lookup = component_names()
     links: dict[object, dict[object, float]] = {}
     for row in run.table("tk.mixture_component", resolution=True):
@@ -230,7 +231,10 @@ def test_the_pseudo_pure_fluids_are_defined_mixtures_of_resolved_species(run: Ru
             expected[component["target"]] = part["mole_fractions"]
         assert links[entity["target"]] == pytest.approx(expected, abs=0, rel=1e-15)
         assert sum(expected.values()) == pytest.approx(1.0, abs=1e-6)
-        assert (mixtures[entity["target"]]["definition"], mixtures[entity["target"]]["mole_basis"]) == (
+        assert (
+            mixtures[entity["target"]]["definition"],
+            mixtures[entity["target"]]["mole_basis"],
+        ) == (
             "by_definition",
             True,
         )
@@ -247,7 +251,11 @@ def test_the_compositions_of_the_pseudo_pure_fluids_are_claimed_in_phase_one(run
     pseudo = {"Air", "R404A", "R407C", "R410A", "R507A"}
     lookup = component_names()
     expected = {
-        (str(r["name"]), lookup[str(r["fluids"]).casefold()], claims.decimal_text(r["mole_fractions"]))  # type: ignore[arg-type]
+        (
+            str(r["name"]),
+            lookup[str(r["fluids"]).casefold()],
+            claims.decimal_text(r["mole_fractions"]),
+        )  # type: ignore[arg-type]
         for r in staged("predefined_mixture_components")
         if r["name"] in pseudo
     }
@@ -257,11 +265,20 @@ def test_the_compositions_of_the_pseudo_pure_fluids_are_claimed_in_phase_one(run
     assert {(c.scope, c.component_scope, c.origin_role) for c in found} == {
         ("fluids", "fluids", "published")
     }
-    assert ("Air", "Nitrogen", "0.7812") in expected and ("R410A", "R32", "0.697614699375863") in expected
+    assert ("Air", "Nitrogen", "0.7812") in expected and (
+        "R410A",
+        "R32",
+        "0.697614699375863",
+    ) in expected
     ledger = {
-        (r["table"], r["state"]) for r in claims.read_ledger(directory) if r["table"].startswith("predefined")
+        (r["table"], r["state"])
+        for r in claims.read_ledger(directory)
+        if r["table"].startswith("predefined")
     }
-    assert ledger == {("predefined_mixtures", "emitted"), ("predefined_mixture_components", "emitted")}
+    assert ledger == {
+        ("predefined_mixtures", "emitted"),
+        ("predefined_mixture_components", "emitted"),
+    }
     manifest = run.table("qual.mapping_coverage")
     states = {
         (r["source_table"], r["state"]): r["rows"]
@@ -278,7 +295,9 @@ def test_the_compositions_of_the_pseudo_pure_fluids_are_claimed_in_phase_one(run
 
 def test_air_resolves_to_a_defined_mixture_of_nitrogen_argon_and_oxygen(run: Run) -> None:
     entities = {r["local_key"]: r for r in run.table("tk.source_entity", resolution=True)}
-    material = {r["id"]: r["canonical_key"] for r in run.table("tk.material_entity", resolution=True)}
+    material = {
+        r["id"]: r["canonical_key"] for r in run.table("tk.material_entity", resolution=True)
+    }
     air = entities["Air"]
     assert (air["status"], air["rule"], air["entity_class"]) == (
         "unique",

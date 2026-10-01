@@ -18,16 +18,16 @@ from pathlib import Path
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
-from tabular_reader_support import Staged, lines, stage
 
+from tabular_reader_support import Staged, lines, stage
 from thermo_knowledge import config
 from thermo_knowledge.acquire import store
 from thermo_knowledge.acquire.lock import read_lock
 from thermo_knowledge.acquire.manifest import default_lock_path, default_sources_dir, load_sources
 from thermo_knowledge.readers import chemicals
-from thermo_knowledge.staging import load, stage as staging
+from thermo_knowledge.staging import load, payload, schema
 from thermo_knowledge.staging import manifest as staged_manifest
-from thermo_knowledge.staging import payload, schema
+from thermo_knowledge.staging import stage as staging
 from thermo_knowledge.staging.errors import StagingError
 from thermo_knowledge.staging.stage import StageContext
 from thermo_knowledge.testing import TestDatabase
@@ -182,10 +182,14 @@ def test_gzip_and_zip_files_are_read_and_locators_count_decompressed_lines(tmp_p
 def test_boolean_columns_take_only_the_two_literals(tmp_path: Path) -> None:
     flags = "UV|E|F|N|P|S|R|T|XU|SP|TP|Y1|Y2"
     path = "chemicals/Law/TSCA Inventory 2016-01.csv.gz"
-    good = gzip.compress(lines(f"CASRN|{flags}", "51456|" + "|".join(["True"] + ["False"] * 12)).encode())
+    good = gzip.compress(
+        lines(f"CASRN|{flags}", "51456|" + "|".join(["True"] + ["False"] * 12)).encode()
+    )
     row = run(tmp_path, {path: good}).rows("law_tsca")[0]
     assert row["UV"] is True and row["Y2"] is False
-    bad = gzip.compress(lines(f"CASRN|{flags}", "51456|" + "|".join(["yes"] + ["False"] * 12)).encode())
+    bad = gzip.compress(
+        lines(f"CASRN|{flags}", "51456|" + "|".join(["yes"] + ["False"] * 12)).encode()
+    )
     with pytest.raises(StagingError, match=r"TSCA Inventory 2016-01\.csv\.gz#L2, column UV"):
         run(tmp_path / "bad", {path: bad})
 
@@ -194,7 +198,9 @@ def test_boolean_columns_take_only_the_two_literals(tmp_path: Path) -> None:
 
 
 def test_a_bad_number_is_refused_with_file_line_and_column(tmp_path: Path) -> None:
-    content = lines("CAS|Chemical|Tc|Pc|Vc|omega", "1-01-1|A|500|4600000||0.25", "2-02-2|B|abc|1||1")
+    content = lines(
+        "CAS|Chemical|Tc|Pc|Vc|omega", "1-01-1|A|500|4600000||0.25", "2-02-2|B|abc|1||1"
+    )
     with pytest.raises(StagingError, match=rf"{re.escape(PSRK)}#L3, column Tc: 'abc'"):
         run(tmp_path, {PSRK: content})
 
@@ -246,7 +252,9 @@ def test_preferences_fake_cas_and_dippr_lists(tmp_path: Path) -> None:
             {"preferred_cas": [], "unpreferred_cas": []}
         ),
         "chemicals/Identifiers/Fake CAS Registry.tsv": lines(
-            "2099995000-00-0|smiles|[OH-]||", "2099979000-00-0|formula|P4|name|white", "2099000000-00-0||||"
+            "2099995000-00-0|smiles|[OH-]||",
+            "2099979000-00-0|formula|P4|name|white",
+            "2099000000-00-0||||",
         ),
         "chemicals/Identifiers/dippr_2014.csv": "74-82-8\n74-82-8\n",
     }
@@ -273,7 +281,9 @@ def test_mixture_compositions_split_the_per_component_blocks(tmp_path: Path) -> 
     assert mixture["primary_name"] == "Mix " and mixture["n_components"] == 2
     assert mixture["synonyms"] == ["blend"]  # the blank padding is dropped
     components = rows.rows("identifiers_mixture_components")
-    assert [(c["CASRN"], c["name"], c["mass_fraction"], c["mole_fraction"]) for c in components] == [
+    assert [
+        (c["CASRN"], c["name"], c["mass_fraction"], c["mole_fraction"]) for c in components
+    ] == [
         ("1-1-1", "One", 0.6, 0.5),
         ("2-2-2", "Two", 0.4, 0.5),
     ]
@@ -405,7 +415,10 @@ def test_chemsep_scalars_equations_and_groups(tmp_path: Path) -> None:
     assert equation["C"] is None  # the element has no C child
     assert equation["Tmin"] == 59.15 and equation["Tmin_units"] == "K"
     groups = staged.rows("chemsep_groups")
-    assert [(g["group_position"], g["group_id"], g["count"]) for g in groups] == [(0, 30, 2), (1, 31, 1)]
+    assert [(g["group_position"], g["group_id"], g["count"]) for g in groups] == [
+        (0, 30, 2),
+        (1, 31, 1),
+    ]
 
 
 def test_chemsep_refuses_constructs_no_table_declares(tmp_path: Path) -> None:
@@ -427,9 +440,7 @@ _ELEMENT_TXT = (
     "##########\n"
     "#  Columns represent:\n"
     "#   - covalent radii (in Angstrom)         1.6 if unknown\n"
-    "\n"
-    + _LEGEND
-    + "\n"
+    "\n" + _LEGEND + "\n"
     "#0\tXx\t0.00\t0.00\t0.00\t0.00\t0\t0\t0.00\t0\t0\t0.07\t0.50\t0.70\tDummy\n"
     "1\tH\t2.20\t0.31\t0.31\t1.10\t1\t1.00794\t2.20\t13.5984\t0.75420375\t0.75\t0.75\t0.75\tHydrogen\n"
     "7\tN\t3.07\t0.71\t0.71\t1.55\t4\t14.0067\t3.04\t14.5341\t-0.07\t0.05\t0.05\t1.00\tNitrogen\n"
@@ -516,7 +527,9 @@ def test_every_table_is_staged_and_every_payload_file_accounted(
     manifest: staged_manifest.StagedManifest,
 ) -> None:
     assert set(manifest.tables) == set(chemicals.TABLES)
-    assert manifest.reader.name == "chemicals" and manifest.reader.version == chemicals.READER_VERSION
+    assert (
+        manifest.reader.name == "chemicals" and manifest.reader.version == chemicals.READER_VERSION
+    )
     assert manifest.pin == PIN
     source = load_sources(default_sources_dir())["chemicals"]
     expected = payload.payload_files(TREE, source.payload.include, source.payload.exclude)
@@ -552,13 +565,14 @@ def test_delimited_row_counts_match_the_line_counts_of_the_raw_files(
 def test_identifier_and_list_counts_match_the_survey_and_the_files(
     manifest: staged_manifest.StagedManifest,
 ) -> None:
-    lines_of = {
-        path: physical_lines(path) for path in chemicals.identifiers.IDENTIFIER_FILES
-    }
+    lines_of = {path: physical_lines(path) for path in chemicals.identifiers.IDENTIFIER_FILES}
     assert manifest.tables["identifiers_chemical"].rows == sum(lines_of.values()) == 76500
     assert manifest.tables["identifiers_fake_cas"].rows == 999
     assert manifest.tables["identifiers_dippr_2014"].rows == 2278
-    assert manifest.tables["identifiers_mixtures"].rows == physical_lines(chemicals.identifiers.MIXTURE_FILE) - 1
+    assert (
+        manifest.tables["identifiers_mixtures"].rows
+        == physical_lines(chemicals.identifiers.MIXTURE_FILE) - 1
+    )
     preferences = sum(
         len(json.loads(raw_text(path))[key])
         for path in chemicals.identifiers.PREFERENCE_FILES
@@ -573,23 +587,33 @@ def test_json_row_counts_match_the_parsed_files(manifest: staged_manifest.Staged
         document = json.loads(raw_text(artifact))
         assert manifest.tables[name].rows == sum(len(v[0]) for v in document.values())
     perry = json.loads(raw_text(chemicals.jsonfiles.PERRY_FILE))
-    assert manifest.tables["heat_capacity_perry_2_151_json"].rows == sum(len(v) for v in perry.values()) == 370
+    assert (
+        manifest.tables["heat_capacity_perry_2_151_json"].rows
+        == sum(len(v) for v in perry.values())
+        == 370
+    )
     for artifact, name in chemicals.jsonfiles.PSI4.items():
         document = json.loads(raw_text(artifact))
         assert manifest.tables[name].rows == sum(len(v) for v in document.values())
     shomate = json.loads(raw_text(chemicals.jsonfiles.SHOMATE_FILE))
-    assert manifest.tables["heat_capacity_webbook_shomate"].rows == sum(
-        len(slot) for slots in shomate.values() for slot in slots if slot
-    ) == 1800
+    assert (
+        manifest.tables["heat_capacity_webbook_shomate"].rows
+        == sum(len(slot) for slots in shomate.values() for slot in slots if slot)
+        == 1800
+    )
     vdi = json.loads(raw_text(chemicals.jsonfiles.VDI_FILE))
     assert manifest.tables["misc_vdi_saturation_compounds"].rows == len(vdi) == 58
-    assert manifest.tables["misc_vdi_saturation_points"].rows == sum(len(v["T"]) for v in vdi.values())
+    assert manifest.tables["misc_vdi_saturation_points"].rows == sum(
+        len(v["T"]) for v in vdi.values()
+    )
     ontario = json.loads(raw_text(chemicals.jsonfiles.ONTARIO_FILE))
     assert manifest.tables["safety_ontario_exposure_limits_json"].rows == len(ontario) == 765
 
 
 @needs_store
-def test_chemsep_counts_match_a_line_scan_of_the_file(manifest: staged_manifest.StagedManifest) -> None:
+def test_chemsep_counts_match_a_line_scan_of_the_file(
+    manifest: staged_manifest.StagedManifest,
+) -> None:
     text = raw_text(chemicals.chemsep_xml.ARTIFACT)
     assert text.count("<compound>") == 431
     scalar = re.findall(r"^<(\w+)\s+name=\"[^\"]*\"\s+(?:units=\"[^\"]*\"\s+)?value=\"", text, re.M)
@@ -599,7 +623,9 @@ def test_chemsep_counts_match_a_line_scan_of_the_file(manifest: staged_manifest.
     assert manifest.tables["chemsep_scalars"].rows == len(scalar) == 19071
     assert manifest.tables["chemsep_equations"].rows == equations == 6955
     assert manifest.tables["chemsep_groups"].rows == groups == 5809
-    assert len(opened) == equations + len(re.findall(r"^<(?:GCmethod|Umr|UnifacVLE|UnifacLLE|ModifiedUnifac|Asog) ", text, re.M))
+    assert len(opened) == equations + len(
+        re.findall(r"^<(?:GCmethod|Umr|UnifacVLE|UnifacLLE|ModifiedUnifac|Asog) ", text, re.M)
+    )
 
 
 # -- round trips ---------------------------------------------------------------------------------------
@@ -701,7 +727,8 @@ def test_json_tables_rebuild_the_source_documents(staged: Path) -> None:
     rebuilt_perry: dict[str, dict[str, dict]] = {}
     for row in table(staged, "heat_capacity_perry_2_151_json").to_pylist():
         entry = {
-            key: row[key] for key in ("Formula", "Phase", "Subphase", "Const", "Lin", "Quadinv", "Quad")
+            key: row[key]
+            for key in ("Formula", "Phase", "Subphase", "Const", "Lin", "Quadinv", "Quad")
         }
         for key in ("Tmin", "Tmax", "Error"):
             entry[key] = row[f"{key}_text"] if row[f"{key}_text"] is not None else row[key]
@@ -718,10 +745,16 @@ def test_json_tables_rebuild_the_source_documents(staged: Path) -> None:
 
     vdi = json.loads(raw_text(chemicals.jsonfiles.VDI_FILE))
     points = table(staged, "misc_vdi_saturation_points").to_pylist()
-    hydrogen = sorted((p for p in points if p["CAS"] == "1333-74-0"), key=lambda p: p["point_index"])
+    hydrogen = sorted(
+        (p for p in points if p["CAS"] == "1333-74-0"), key=lambda p: p["point_index"]
+    )
     assert [p["T"] for p in hydrogen] == vdi["1333-74-0"]["T"]
     assert [p["Density_g"] for p in hydrogen] == vdi["1333-74-0"]["Density (g)"]
-    nulls = sum(v is None for d in vdi.values() for k, v in ((k, x) for k, xs in d.items() if isinstance(xs, list) for x in xs))
+    nulls = sum(
+        v is None
+        for d in vdi.values()
+        for k, v in ((k, x) for k, xs in d.items() if isinstance(xs, list) for x in xs)
+    )
     staged_nulls = sum(
         value is None
         for p in points
@@ -794,18 +827,27 @@ def test_element_txt_counts_match_a_line_scan_of_the_file(
     element_rows = [line for line in all_lines if line and not line.startswith("#")]
     assert len(element_rows) == 118 and len(all_lines) == physical_lines(ELEMENTS) == 153
     assert manifest.tables["misc_element_txt"].rows == len(element_rows)
-    assert manifest.tables["misc_element_txt_lines"].rows == len(all_lines) - len(element_rows) == 35
+    assert (
+        manifest.tables["misc_element_txt_lines"].rows == len(all_lines) - len(element_rows) == 35
+    )
     rows = table(staged, "misc_element_txt").to_pylist()
     assert [row["Num"] for row in rows] == list(range(1, 119))
     assert [row["Symb"] for row in rows] == [line.split("\t")[1] for line in element_rows]
     assert [row["Name"] for row in rows] == [line.split("\t")[14] for line in element_rows]
     assert [row["Mass"] for row in rows] == [float(line.split("\t")[7]) for line in element_rows]
     og = rows[-1]
-    assert (og["Symb"], og["Name"], og["Mass"], og["_locator"]) == ("Og", "Oganesson", 294.0, f"{ELEMENTS}#L153")
+    assert (og["Symb"], og["Name"], og["Mass"], og["_locator"]) == (
+        "Og",
+        "Oganesson",
+        294.0,
+        f"{ELEMENTS}#L153",
+    )
     commented = table(staged, "misc_element_txt_lines").to_pylist()
     assert any(line["text"].startswith("#0\tXx\t") for line in commented)
-    assert next(line for line in commented if line["text"].startswith("#Num"))["line"] == 34 == 1 + next(
-        i for i, line in enumerate(all_lines) if line.startswith("#Num")
+    assert (
+        next(line for line in commented if line["text"].startswith("#Num"))["line"]
+        == 34
+        == 1 + next(i for i, line in enumerate(all_lines) if line.startswith("#Num"))
     )
 
 
@@ -830,4 +872,7 @@ def test_element_txt_rows_and_lines_rebuild_the_source_file(staged: Path) -> Non
         assert len(cells) == len(names)
         for name, kind, cell in zip(names, kinds, cells, strict=True):
             value = rows[number][name]
-            assert value == (cell if kind == "s" else int(cell) if kind == "i" else float(cell)), (number, name)
+            assert value == (cell if kind == "s" else int(cell) if kind == "i" else float(cell)), (
+                number,
+                name,
+            )

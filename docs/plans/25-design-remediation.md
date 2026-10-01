@@ -11,11 +11,13 @@ scenario_sources: [docs/design_review/reviews/design_review_codebase-domain-alig
 
 ## State, purpose and reading order
 
-**25a implementation is complete; the other lettered plans remain proposed.**
+**25a implementation is complete; 25b is authorized and in progress. Other lettered plans remain proposed.**
 The [25a Outcome](25a-physical-values-and-contextual-contracts.md#outcome-recorded-after-implementation)
 records its implementation, focused verification and limits. It resolves the physical findings
 identified below; compound findings retain their remaining owners. Integrated qualification
 remains 25k work, and ADR-0135/0136 remain proposed pending their decision-PR route.
+The [25b checkpoint](25b-scientific-knowledge-and-applicability.md#execution-checkpoint)
+owns its implementation sequence and current state; ADR-0140/0141 remain proposed.
 The series integrates the [original review](../design_review/reviews/design_review_codebase-domain-alignment_2026-09-30.md) and [follow-up](../design_review/reviews/design_review_codebase-domain-alignment-follow-up_2026-09-30.md):
 35 original findings, 12 additional findings and 10 remedy qualifications.
 

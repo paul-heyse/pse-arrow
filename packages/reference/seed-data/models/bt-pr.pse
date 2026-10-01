@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("01a0e1b4f611717da49a9268ae84b41b") package bt_pr {
+@id("5a9d7f50661c46ab8ec5d26502e39b57") use cubic @"1.0.0";
 @id("2e7eb81f56ba439bb9b2a8a82e825e87") use eos_data @"1.0.0";
 
 @id("01a0f14ead4d7118a57e3664098407de") use constants @"1.0.0";
@@ -85,6 +86,7 @@
 }
 }
 @id("01a0e1b4f611717da49a928ba89fe8d7") test ftpx_368 oracle references.idaes_test_bt_pr_368 fixture {dof 0; run steady; fix root.flow=100{mol/s}; fix root.T=368{K}; fix root.pressure=100000{Pa}; fix root.z[chem.benzene]=0.5{1}; fix root.z[chem.toluene]=0.5{1};} {
+@id("624edaf474e24a85987dfd0365308aad") permission selected_unknown_fit families(cubic.critical_point,properties.predictive_rule) allow_unknown true allow_extrapolation false;
 @id("01a0e1b4f611717da49a928c23791ee5") child root:BT_PR=BT_PR;
 @id("01a0e1b4f611717da49a928d8bf28e89") expect root.x[chem.benzene]==0.4012128{1} tolerance 0.000005{1};
 @id("01a0e1b4f611717da49a928e1252d268") expect root.y[chem.benzene]==0.6141738{1} tolerance 0.000007{1};
@@ -100,24 +102,26 @@
 @id("01a0e1b4f611717da49a9298e6ab23f4") expect root.oracle_s_vapor==-262.348{J/(mol*K)} tolerance 0.003{J/(mol*K)};
 }
 @id("01a0e1c6a64b7167adfc3a95a9afa0d6") test initialized_ftpx oracle references.idaes_test_bt_pr_368 fixture {dof 0; run initialized; stages("ideal-K"); initialize homotopy(false) step(0.5) minimum(1e-6) growth(2) attempts(4) seconds(600); fix root.flow=100{mol/s}; fix root.T=368{K}; fix root.pressure=100000{Pa}; fix root.z[chem.benzene]=0.5{1}; fix root.z[chem.toluene]=0.5{1};} {
+@id("8b35dc90c40145d4a1f78a23fa8a9d85") permission selected_unknown_fit families(cubic.critical_point,properties.predictive_rule) allow_unknown true allow_extrapolation false;
 @id("01a0e1c6a64b7167adfc3a96dacbd442") child root:BT_PR=BT_PR;
 @id("01a0e1c6a64b7167adfc3a97e41fc4c3") expect root.x[chem.benzene]==0.4012128{1} tolerance 0.000005{1};
 @id("01a0e1c6a64b7167adfc3a98d2872c2e") expect root.y[chem.benzene]==0.6141738{1} tolerance 0.000007{1};
 @id("01a0e1c6a64b7167adfc3a996e99da70") expect root.oracle_h_liquid==38235.1{J/mol} tolerance 0.4{J/mol};
 }
-@id("14a11319a3fd43ddadf8b835a0055305") entity properties.property_package bt_pr_idaes {}
+@id("14a11319a3fd43ddadf8b835a0055305") entity properties.property_package bt_pr_idaes {admitted=bt_pr_idaes_admitted}
 @id("e572ffcd08d140748d2aed097703e4bb") fn psat(T:Temperature,j:chemistry.species)->Pressure=properties.psat(bt_pr_idaes,chemistry.liquid,j,T);
 @id("ed3260cfafc0494d83bc2552ca026af8") dataset property_selection:properties.selection complete_over(k in binding_packages,j in bt_ideal.aromatics,p in properties.caloric_properties,t in properties.vapor_types) provenance(references.idaes_bt_pr,provenance.Role.oracle_input) {
-[bt_pr_idaes,chem.benzene,properties.heat_capacity,compatibility.PhaseType.vaporPhase]=[correlations.rpp4_cp[chem.benzene, properties.heat_capacity, compatibility.PhaseType.vaporPhase, references.idaes_bt_ideal]];
-[bt_pr_idaes,chem.toluene,properties.heat_capacity,compatibility.PhaseType.vaporPhase]=[correlations.rpp4_cp[chem.toluene, properties.heat_capacity, compatibility.PhaseType.vaporPhase, references.idaes_bt_ideal]];
+[bt_pr_idaes,chem.benzene,properties.heat_capacity,compatibility.PhaseType.vaporPhase]=[correlations.rpp4_cp[chem.benzene,properties.heat_capacity,compatibility.PhaseType.vaporPhase,references.idaes_bt_ideal_vapor_fit]];
+[bt_pr_idaes,chem.toluene,properties.heat_capacity,compatibility.PhaseType.vaporPhase]=[correlations.rpp4_cp[chem.toluene,properties.heat_capacity,compatibility.PhaseType.vaporPhase,references.idaes_bt_ideal_vapor_fit]];
 }
 @id("7489d5a422a5419b96cff76e461fe3ab") dataset property_selection_liquid_vapor_pressure:properties.selection complete_over(k in binding_packages,j in bt_ideal.aromatics,p in properties.vapor_pressure_properties,t in properties.liquid_types) provenance(references.idaes_bt_pr,provenance.Role.oracle_input) {
-[bt_pr_idaes,chem.benzene,properties.vapor_pressure,compatibility.PhaseType.liquidPhase]=[correlations.rpp4_wagner[chem.benzene,properties.vapor_pressure,compatibility.PhaseType.liquidPhase,references.idaes_test_rpp4]];
-[bt_pr_idaes,chem.toluene,properties.vapor_pressure,compatibility.PhaseType.liquidPhase]=[correlations.rpp4_wagner[chem.toluene,properties.vapor_pressure,compatibility.PhaseType.liquidPhase,references.idaes_test_rpp4]];
+[bt_pr_idaes,chem.benzene,properties.vapor_pressure,compatibility.PhaseType.liquidPhase]=[correlations.rpp4_wagner[chem.benzene,properties.vapor_pressure,compatibility.PhaseType.liquidPhase,references.idaes_rpp4_pressure_fit]];
+[bt_pr_idaes,chem.toluene,properties.vapor_pressure,compatibility.PhaseType.liquidPhase]=[correlations.rpp4_wagner[chem.toluene,properties.vapor_pressure,compatibility.PhaseType.liquidPhase,references.idaes_rpp4_pressure_fit]];
 }
 @id("6ac9cf79cfd54b3c8356589e19419f7f") set binding_packages:Set<properties.property_package>={bt_pr_idaes};
 @id("5b16541585814ba7b21bd4c1e1eb9fa4") dataset datum_selection:properties.caloric_basis complete_over(k in binding_packages,t in properties.vapor_types,j in bt_ideal.aromatics) provenance(references.idaes_bt_pr,provenance.Role.oracle_input) {
 [bt_pr_idaes,compatibility.PhaseType.vaporPhase,chem.benzene]=[stock,chemistry.vapor,0{J/mol},0{J/(mol*K)}];
 [bt_pr_idaes,compatibility.PhaseType.vaporPhase,chem.toluene]=[stock,chemistry.vapor,0{J/mol},0{J/(mol*K)}];
 }
+@id("198f974645664877a5edc85fbcd61552") entity properties.selection_context bt_pr_idaes_admitted {roots={correlations.rpp4_cp[chem.benzene,properties.heat_capacity,compatibility.PhaseType.vaporPhase,references.idaes_bt_ideal_vapor_fit],correlations.rpp4_cp[chem.toluene,properties.heat_capacity,compatibility.PhaseType.vaporPhase,references.idaes_bt_ideal_vapor_fit],correlations.rpp4_wagner[chem.benzene,properties.vapor_pressure,compatibility.PhaseType.liquidPhase,references.idaes_rpp4_pressure_fit],correlations.rpp4_wagner[chem.toluene,properties.vapor_pressure,compatibility.PhaseType.liquidPhase,references.idaes_rpp4_pressure_fit]},subjects={chem.benzene,chem.toluene},models={properties.heat_capacity,properties.vapor_pressure},rules={}}
 }

@@ -4,12 +4,11 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
-
 from pathlib import Path
 
 import pytest
-from test_acquire_support import unseal
 
+from test_acquire_support import unseal
 from thermo_knowledge.testing import TestDatabase
 
 _FAILED: pytest.StashKey[bool] = pytest.StashKey()

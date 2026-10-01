@@ -13,10 +13,10 @@ from pathlib import Path
 
 import psycopg
 import pytest
-from build_support import fingerprint, inputs_of, write_source
-from mapping_support import extended_declaration, origin, real_declaration
 from psycopg import sql
 
+from build_support import fingerprint, inputs_of, write_source
+from mapping_support import extended_declaration, origin, real_declaration
 from thermo_knowledge import config
 from thermo_knowledge.build import build_database
 from thermo_knowledge.canonical.values import Quantity
@@ -71,7 +71,9 @@ class Water:
         self.decl = extended_declaration(tmp_path / "decl")
         self.ids: dict[str, uuid.UUID] = {}
         self.canonical = tmp_path / "canonical"
-        write_source(self.canonical, "src", self.fill, decl=self.decl, declaration=fingerprint(self.decl))
+        write_source(
+            self.canonical, "src", self.fill, decl=self.decl, declaration=fingerprint(self.decl)
+        )
 
     def fill(self, w: CanonicalWriter) -> None:
         decl, ids = self.decl, self.ids
@@ -96,7 +98,12 @@ class Water:
         ids.update({f"form_{name}": found for name, found in forms.items()})
         ids["water_state"] = w.kind(
             "standard_state",
-            {"key": "water", "kind": "pure_real", "pressure_rule": "fixed", "pressure": Quantity(1.0, "bar")},
+            {
+                "key": "water",
+                "kind": "pure_real",
+                "pressure_rule": "fixed",
+                "pressure": Quantity(1.0, "bar"),
+            },
             origins=[origin("a.json#/3")],
         )
         ids["solute_state"] = w.kind(
@@ -119,7 +126,10 @@ class Water:
         for role, state in (("solvent", "water_state"), ("solute", "solute_state")):
             w.relation(
                 "convention_standard_state",
-                {"convention_set": ids["convention"], "member_role": entity(decl, "member_role", role)},
+                {
+                    "convention_set": ids["convention"],
+                    "member_role": entity(decl, "member_role", role),
+                },
                 {"value": ids[state]},
             )
         ids["system"] = w.kind(
@@ -193,9 +203,7 @@ def test_solvent_and_solute_take_their_states_from_one_convention_set(
 ) -> None:
     made, _ = water
     # no participant states a standard state of its own
-    (states,) = conn.execute(
-        "SELECT count(standard_state) FROM tk.reaction_participant"
-    ).fetchone()  # type: ignore[misc]
+    (states,) = conn.execute("SELECT count(standard_state) FROM tk.reaction_participant").fetchone()  # type: ignore[misc]
     assert states == 0
     # both roles are read, through the roles the system gives the members
     rows = conn.execute(
@@ -223,7 +231,9 @@ def test_a_convention_set_without_the_solute_entry_fails_the_check(
     }
     assert {row["id"] for row in found} == {str(made.ids["reaction"])}
     assert {row["locator"] for row in found} == {"a.json#/7"}
-    assert {row["member_role"] for row in found} == {str(entity(made.decl, "member_role", "solute"))}
+    assert {row["member_role"] for row in found} == {
+        str(entity(made.decl, "member_role", "solute"))
+    }
 
 
 def test_a_participant_may_state_its_own_standard_state(

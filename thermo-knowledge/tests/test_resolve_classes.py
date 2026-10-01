@@ -12,6 +12,7 @@ import random
 from pathlib import Path
 
 import pytest
+
 from mapping_support import (
     ETHANOL,
     METHANE,
@@ -21,7 +22,6 @@ from mapping_support import (
     write_identity,
 )
 from test_resolve import by_entity, entity, env, resolved, species_of
-
 from thermo_knowledge.build import build_database, discover
 from thermo_knowledge.canonical.environment import Environment
 from thermo_knowledge.mapping import claims
@@ -401,7 +401,12 @@ def test_a_source_entity_records_the_class_its_source_states(tmp_path: Path) -> 
     pure("alpha", canonical, blend("air", ("eth", "0.5"), ("wat", "0.5")))
     tables = resolved(tmp_path)
     classes = {key[1]: row["entity_class"] for key, row in by_entity(tables).items()}
-    assert classes == {"eth": "species", "wat": "species", "met": "species", "air": "defined_mixture"}
+    assert classes == {
+        "eth": "species",
+        "wat": "species",
+        "met": "species",
+        "air": "defined_mixture",
+    }
     report = json.loads((env(tmp_path).resolution_dir / "report.json").read_text())
     assert report["totals"]["class"] == {"defined_mixture": 1, "species": 3}
     assert report["totals"]["class_status_rule"] == {
@@ -497,12 +502,16 @@ def test_every_order_of_the_entities_gives_one_resolution(tmp_path: Path) -> Non
         assert got.others == expected.others
     # the two carriers' air is one mixture; beta's blend has an unidentified component
     found = expected.entities
-    assert found[("alpha", "blends", "air")].target_key == found[("gamma", "blends", "same_air")].target_key
+    assert (
+        found[("alpha", "blends", "air")].target_key
+        == found[("gamma", "blends", "same_air")].target_key
+    )
     assert found[("beta", "blends", "mix")].status == "unresolved"
     # no provisional species except for entities of class species
     species_classes = {
-        key: outcome.entity_class for key, outcome in found.items() if outcome.target_key in
-        {k for k, s in expected.species.items() if s.provisional}
+        key: outcome.entity_class
+        for key, outcome in found.items()
+        if outcome.target_key in {k for k, s in expected.species.items() if s.provisional}
     }
     assert set(species_classes.values()) <= {"species", "species_form"}
 

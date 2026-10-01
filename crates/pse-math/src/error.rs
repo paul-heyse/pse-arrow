@@ -42,6 +42,9 @@ pub enum MathError {
         .0.source
     )]
     Validity(Box<pse_model::diagnostic::ValidityLineage>),
+    /// Required evidence was outside or unknown without a matching named permission.
+    #[error("scientific applicability refused {} required claims", .0.refused.len())]
+    Applicability(Box<pse_model::applicability::Assessment>),
     /// A required authored domain condition failed.
     #[error("expression {source_id}: {requirement}")]
     Domain {
@@ -133,6 +136,7 @@ impl MathError {
             Self::Quantity(e) => e.retained_bytes(),
             Self::Provider { cause, .. } => cause.retained_bytes(),
             Self::Native { retained, .. } => *retained,
+            Self::Applicability(assessment) => assessment.retained_bytes(),
             Self::Validity(lineage) => size_of_val(lineage.as_ref()) + lineage.heap_bytes(),
             Self::Domain { .. }
             | Self::OutsideRange { .. }
@@ -167,7 +171,7 @@ mod tests {
 pse_diagnostics::impl_diagnostic! {
     MathError,
     code(this) { match this {
-        Self::Validity(_) | Self::Domain {..} | Self::OutsideRange {..} => Some(pse_diagnostics::DiagnosticCode::SolveEvaluationError),
+        Self::Applicability(_) | Self::Validity(_) | Self::Domain {..} | Self::OutsideRange {..} => Some(pse_diagnostics::DiagnosticCode::SolveEvaluationError),
         Self::Cancelled => Some(pse_diagnostics::DiagnosticCode::RuntimeCancelled),
         Self::Limit(_) | Self::SlotLimit {..} | Self::WorkLimit {..} => Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit),
         Self::Quantity(_) | Self::Provider {..} | Self::Instance {..} => None,

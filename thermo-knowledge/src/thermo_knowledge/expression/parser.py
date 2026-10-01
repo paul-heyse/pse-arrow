@@ -32,7 +32,13 @@ _ARITY: dict[str, tuple[int, int | None]] = {
     "chebyshev_t": (2, 2),
     "debye": (2, 2),
 }
-_BINARY: dict[type[ast.operator], str] = {ast.Add: "+", ast.Sub: "-", ast.Mult: "*", ast.Div: "/", ast.Pow: "**"}
+_BINARY: dict[type[ast.operator], str] = {
+    ast.Add: "+",
+    ast.Sub: "-",
+    ast.Mult: "*",
+    ast.Div: "/",
+    ast.Pow: "**",
+}
 _COMPARE: dict[type[ast.cmpop], str] = {
     ast.Lt: "<",
     ast.LtE: "<=",

@@ -12,6 +12,7 @@ import random
 from pathlib import Path
 
 import pytest
+
 from mapping_support import (
     ETHANOL,
     ETHANOL_INCHI,
@@ -23,7 +24,7 @@ from mapping_support import (
     rows,
     write_identity,
 )
-
+from thermo_knowledge.build import build_database, discover
 from thermo_knowledge.canonical import store
 from thermo_knowledge.canonical.environment import Environment
 from thermo_knowledge.canonical.store import CanonicalError
@@ -32,7 +33,6 @@ from thermo_knowledge.resolve import engine, output, structure
 from thermo_knowledge.resolve.command import phase1_sources, resolve_all
 from thermo_knowledge.resolve.decisions import DecisionError
 from thermo_knowledge.resolve.engine import ResolveError
-from thermo_knowledge.build import build_database, discover
 from thermo_knowledge.testing import TestDatabase
 
 

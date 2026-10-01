@@ -36,7 +36,9 @@ class HarnessUnavailable(Exception):
     it blocks (`harness_missing` for a script that does not exist, `harness_failed` for every
     other failure) and the message is its detail."""
 
-    def __init__(self, detail: str, reason: str = pc.BLOCKED_REASON.member("harness_failed")) -> None:
+    def __init__(
+        self, detail: str, reason: str = pc.BLOCKED_REASON.member("harness_failed")
+    ) -> None:
         self.reason = reason
         super().__init__(detail)
 

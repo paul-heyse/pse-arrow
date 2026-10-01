@@ -73,6 +73,21 @@ pub struct ExpectedFailure {
 /// What an expected failure concerns.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ExpectedLineage {
+    /// A refused evidence claim; mathematical domains keep their separate lineage.
+    Applicability {
+        /// Declared form, data or closure evidence scope.
+        layer: pse_model::generated::enums::ModelingValidityLayer,
+        /// Outside a region or unknown evidence, independent of policy.
+        outcome: pse_model::generated::enums::ModelingApplicabilityOutcome,
+        /// Named evidence declaration.
+        claim: DeclarationId,
+        /// Scientific form that demanded it.
+        form: DeclarationId,
+        /// Exact selected records.
+        sets: Vec<SemanticId>,
+        /// Claim input names, matched as an exact set.
+        variables: Vec<String>,
+    },
     /// A rejected validity predicate (ADR-0123 Outcome 4): its layer; of a form or data
     /// layer predicate, the form, the parameter sets whose values bound it and the positions
     /// of the form's arguments it constrains; of a closure range, the members it bounds.
@@ -99,6 +114,27 @@ impl ExpectedFailure {
     pub fn matches(&self, observed: &pse_model::diagnostic::BoundaryDiagnostic) -> bool {
         observed.class == self.class
             && match &self.lineage {
+                ExpectedLineage::Applicability {
+                    layer,
+                    outcome,
+                    claim,
+                    form,
+                    sets,
+                    variables,
+                } => observed.applicability.iter().any(|o| {
+                    let mut records = o.claim.records.clone();
+                    records.sort_unstable();
+                    let mut inputs = o.inputs.iter().map(|i| i.name.clone()).collect::<Vec<_>>();
+                    inputs.sort();
+                    !o.admitted
+                        && o.required
+                        && o.claim.id == Some(claim.as_id())
+                        && o.claim.form == form.as_id()
+                        && o.claim.layer == *layer
+                        && o.outcome == *outcome
+                        && records == *sets
+                        && inputs == *variables
+                }),
                 ExpectedLineage::Validity {
                     layer,
                     form,
@@ -649,7 +685,50 @@ impl Engine<'_, '_> {
         expected: &pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailure,
         env: &Environment,
     ) -> Result<ExpectedFailure> {
-        let lineage = if let Some(validity) = &expected.validity {
+        let lineage = if let Some(applicability) = &expected.applicability {
+            let claim = self
+                .p
+                .resolve(at, &applicability.claim)
+                .filter(|id| self.p.declarations[id].value.applicability.is_some())
+                .ok_or_else(|| invalid(at, "expected applicability claim is not a declaration"))?;
+            let form = self
+                .p
+                .resolve(at, &applicability.form)
+                .filter(|id| self.p.functions.contains_key(id))
+                .ok_or_else(|| invalid(at, "expected applicability form is not a function"))?;
+            let mut sets = applicability
+                .sets
+                .iter()
+                .map(|text| {
+                    let value = self.eval(at, env, text, None)?;
+                    self.p
+                        .set_identity(&value)
+                        .ok_or_else(|| invalid(at, "expected applicability set is not a record"))
+                })
+                .collect::<Result<Vec<_>>>()?;
+            sets.sort_unstable();
+            let mut variables = applicability.variables.clone();
+            variables.sort();
+            if variables.iter().any(|name| {
+                !self.p.functions[&claim]
+                    .arguments
+                    .iter()
+                    .any(|(formal, ty)| formal == name && ty.quantity_scheme().is_some())
+            }) {
+                return Err(invalid(
+                    at,
+                    "expected applicability variable is not a numerical claim argument",
+                ));
+            }
+            ExpectedLineage::Applicability {
+                layer: applicability.layer,
+                outcome: applicability.outcome,
+                claim,
+                form,
+                sets,
+                variables,
+            }
+        } else if let Some(validity) = &expected.validity {
             // A closure range names the members it bounds (Plan 23 H5).
             let Some(named) = &validity.form else {
                 let mut members = Vec::new();

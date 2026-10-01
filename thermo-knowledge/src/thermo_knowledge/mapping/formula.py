@@ -48,7 +48,9 @@ def _term(symbol: str, count: float) -> str:
     return symbol if count == 1 else f"{symbol}{decimal_text(count)}"
 
 
-def composition(ctx: RunContext[object], rows: Sequence[SourceRow], *, symbol: str) -> tuple[dict[str, float], int]:
+def composition(
+    ctx: RunContext[object], rows: Sequence[SourceRow], *, symbol: str
+) -> tuple[dict[str, float], int]:
     """The composition the rows of one species state, as `(atoms of each element by symbol,
     charge number)`: the rows are pairs whose rules target `composition.quantity` (the element
     `symbol` names, through the rule's `case`) and `composition.value`; a pair whose quantity

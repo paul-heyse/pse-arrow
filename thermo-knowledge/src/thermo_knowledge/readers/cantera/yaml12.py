@@ -124,6 +124,8 @@ Yaml12Loader.add_constructor("tag:yaml.org,2002:bool", _construct_bool)
 Yaml12Loader.add_constructor("tag:yaml.org,2002:int", _construct_int)
 Yaml12Loader.add_constructor("tag:yaml.org,2002:float", _construct_float)
 Yaml12Loader.add_constructor("tag:yaml.org,2002:map", _construct_mapping)
+
+
 def load(text: str) -> tuple[Any, list[DuplicateKey]]:
     """The YAML document `text` with YAML 1.2 core-schema scalars, and the discarded earlier
     occurrences of any duplicated keys (the later occurrence wins, as in every YAML loader)."""

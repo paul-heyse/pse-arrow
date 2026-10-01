@@ -102,7 +102,6 @@ fn roundtrip_all_declarations_and_explicit_identity() {
  fn square<Q>(x: Q) -> Q^2 = x*x;
  interface I { fn f(x: Mass) -> Mass; let doubled: Mass = x+x; }
  def D(enabled: Boolean = true) : I {
- extrapolation data extrapolate;
  param p: Mass = 2{kg};
  var x: Mass defined by x == p;
  override let doubled: Mass = 2*x;
@@ -132,7 +131,7 @@ fn roundtrip_all_declarations_and_explicit_identity() {
  preset Small = D(enabled=true);
  case run { child root = Small(); }
  test check { expect square(2) == 4 tolerance 1e-9; }
- test compared oracle synthetic.upstream fixture { dof 0; run pure; } { extrapolation data reject; expect square(2) == 4 tolerance 1e-9; }
+ test compared oracle synthetic.upstream fixture { dof 0; run pure; } { expect square(2) == 4 tolerance 1e-9; }
  }"#;
     let rows = parse_named(source);
     // Plan 23 D0: uniqueness and derivations are typed attributes, not conventions.
@@ -247,21 +246,7 @@ fn roundtrip_all_declarations_and_explicit_identity() {
                 .as_ref()
                 .is_some_and(|e| (e.lower.as_str(), e.upper.as_str()) == ("low", "high"))
     }));
-    let selections = rows
-        .iter()
-        .filter_map(|r| r.value.extrapolation.as_ref())
-        .map(|e| (e.layer, e.policy))
-        .collect::<Vec<_>>();
-    assert_eq!(
-        selections,
-        [
-            (
-                ModelingValidityLayer::Data,
-                ExtrapolationPolicy::Extrapolate
-            ),
-            (ModelingValidityLayer::Data, ExtrapolationPolicy::Reject),
-        ]
-    );
+
     for malformed in [
         "package p { dataset d: t provenance(s, R.p) from data; }",
         "package p { dataset d: t provenance(s, R.p) from \"data/d.parquet\" { [a] = [1]; } }",

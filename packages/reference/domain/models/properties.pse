@@ -20,59 +20,128 @@
 @id("01a0f00c1fbb76f19ac7c81198741731") entity property heat_capacity { quantity = MolarCp, shape = IndexShape.pure, applies = {liquidPhase, vaporPhase, solidPhase} }
 @id("01a0f00c1fbb76f19ac7c81214d2507e") entity property vapor_pressure { quantity = Pressure, shape = IndexShape.pure, applies = {liquidPhase} }
 @id("01a0f00c1fbb76f19ac7c8130b8eb83a") entity property liquid_molar_density { quantity = MolarDensity, shape = IndexShape.pure, applies = {liquidPhase} }
-// One source's parameterization of one pure-component property of one species in one phase
-// type. Its identity is its keys, whatever form refines it; a form adds dimensioned
-// coefficients and binds its functions.
-@id("01a0f00c1fbb76f19ac7c8147dcefbfa") entity kind parameter_set abstract {
-@id("01a0f00c1fbb76f19ac7c815f8471b7e") key subject: chemistry.species by chemistry.cas;
-@id("01a0f00c1fbb76f19ac7c8163a1c40e3") key property: property;
-@id("01a0f00c1fbb76f19ac7c8179ab8e717") key phase_type: compatibility.PhaseType;
-@id("01a0f00c1fbb76f19ac7c8189d4d8448") key source: provenance.source;
-@id("01a0f00c1fbb76f19ac7c819fd23b069") key variant: Integer = 1;
-@id("01a0f00c1fbb76f19ac7c81a172ab97f") require phase_type in property.applies : "a parameter set's phase type is one its property applies to";
-@id("01a0f00c1fbb76f19ac7c81b10aa675d") require property.shape == IndexShape.pure : "a parameter set parameterizes a pure-component property";
+// Fit identity, evidence and scientific contract are distinct. A carrier has no keys.
+@id("3e9f5b03c4744218a9fa997894f9dbf5") entity kind parameterization {
+@id("e21769dc7ad34f1c8919208357621813") attribute title:Text;
+@id("3784b6a8e67b48b58543304abfb4736a") attribute source:provenance.source;
 }
+@id("013d285d01ef41b9a254c6038c5ad973") entity kind predictive_rule {
+@id("cb675eb8327e49ff90ec687cc0c98605") attribute applicability:Fn(i:chemistry.species,j:chemistry.species,inputs:Set<parameter_set>,r:predictive_rule)->Applicability=prediction_evidence;
+@id("017eab6c90154ba0a9810f987723c963") attribute source:provenance.source;
+@id("5231cd14872f429a98c6172ae244fd10") attribute dependencies:Set<parameter_set>={};
+@id("8736c266f08c42059aa0af70155939ad") attribute family:property;
+@id("af3ab72427da4df8bcb1089666f73311") attribute output:Fn(i:chemistry.species,j:chemistry.species,inputs:Set<parameter_set>)->Scalar;
+@id("a16973dd17d9464f85c360636c3c3570") require family.shape==IndexShape.pair : "a predictive rule supplies its declared pair contract";
+}
+@id("bf5fa752373a4d71ae8b0f1a7a0e3322") applicability prediction_evidence(i:chemistry.species,j:chemistry.species,inputs:Set<parameter_set>,r:predictive_rule) owner predictive_rule scope data evidence r.source unknown("The selected predictive rule supplies no empirical applicability region");
+@id("085e8c2a907f4d8a8c1df92d5c5a5bba") entity kind fit_group {
+@id("2ff3ca71537a4f0ebb1fe397d83115c1") attribute members:Set<parameter_set>;
+}
+@id("b526883ab5d641e4a024b10d535569e7") entity kind parameter_set abstract {
+@id("65e048ce9d244a91ab65558f91917882") attribute slot:Fn(r:parameter_set)->Tuple<property,Tuple<chemistry.species?,chemistry.species?>,compatibility.PhaseType?,chemistry.reaction?>;
+@id("ec1c452f7e06480599776ed06dff93db") attribute source:provenance.source;
+@id("ad1e4195258542e1a116f454fee9c8e0") attribute dependencies:Set<parameter_set>={};
+@id("3aa70232fa974ef0b1dc7e7934cfa882") attribute conventions:Set<provenance.source>={};
+@id("4542a624e8424da493f89abbd52be2e9") derived fit_groups:Set<fit_group>=fold(acc,value; g in fit_group | if self in g.members then set_of(g) else {};union(acc,value));
+}
+@id("de5011656be14f8c94ac223816155f08") entity kind pure_parameter extends parameter_set abstract {
+@id("2fef32bf6bf14354853fabb4f24f8e11") slot=pure_slot;
+@id("92cbe17390994e25a7e9b2320c52a9a2") key subject:chemistry.species by chemistry.cas;
+@id("85e67c09fa3b4cdaaaf6c057fd1b014f") key property:property;
+@id("073f5dc8bfcf41818ddd69cd42f93d70") key parameterization:parameterization;
+@id("fd25bf7a940b4c52aaf2560ef664ab4b") key variant:Integer=1;
+@id("537b730951d649e2ac288f1dd7d8f904") require property.shape==IndexShape.pure : "a pure record has a species contract";
+}
+@id("61a751f71b114946809befa54484f5c0") entity kind phased_parameter extends parameter_set abstract {
+@id("32a5cd144006479499fc611b7940286a") slot=phased_slot;
+@id("42bf5168f80b4d11bc44b528553e9316") key subject:chemistry.species by chemistry.cas;
+@id("24f43b49447c45499b66c0767d3de28e") key property:property;
+@id("ad2d24b59fdb4007b46e98a415d901ae") key phase_type:compatibility.PhaseType;
+@id("248ea3e2640c4b5a87bbaa546231ca55") key parameterization:parameterization;
+@id("b4c91cf7bcdf429d95588a44b9599905") key variant:Integer=1;
+@id("a1bd6feff2954a038d47ec0e566a48a5") require property.shape==IndexShape.pure and phase_type in property.applies : "a phased record has a relevant phase and species contract";
+}
+@id("14b73d4ef7a74177888399934a7a79e3") entity kind ordered_pair extends parameter_set abstract {
+@id("a4d8fbc4cbe04f11b1f306ddadd77f49") slot=ordered_slot;
+@id("ecd7a9fcbedc4bb28847f750ba3428d1") key parameterization:parameterization;
+@id("0a96e8f7f7f449a4acec0fcd21b911a8") key family:property;
+@id("d523e306337f43a8a31aee8d6c52a675") key first:chemistry.species by chemistry.cas;
+@id("5c38a4d0da5746089232923f790f4ffd") key second:chemistry.species by chemistry.cas;
+@id("dd0ef3a3358a477486cec749f2ca08cc") key variant:Integer=1;
+@id("1d90e5abba394994ae38ada42c0f4109") require family.shape==IndexShape.pair : "an ordered pair has a pair contract";
+}
+@id("b24bbfdf7de74ac08dc5a53ab9bd6d30") fn pure_slot(r:pure_parameter)->Tuple<property,Tuple<chemistry.species?,chemistry.species?>,compatibility.PhaseType?,chemistry.reaction?>=tuple(r.property,tuple(r.subject,missing),missing,missing);
+@id("1bc85e24aeea47cea72d3c97f9112257") fn phased_slot(r:phased_parameter)->Tuple<property,Tuple<chemistry.species?,chemistry.species?>,compatibility.PhaseType?,chemistry.reaction?>=tuple(r.property,tuple(r.subject,missing),r.phase_type,missing);
+@id("c60cb937b27946018121b1cfc08135cc") fn ordered_slot(r:ordered_pair)->Tuple<property,Tuple<chemistry.species?,chemistry.species?>,compatibility.PhaseType?,chemistry.reaction?>=tuple(r.family,tuple(r.first,r.second),missing,missing);
+@id("922bc650dd3c4091a05b8512242c36c1") fn projected_slot(r:parameter_set,c:selection_context)->Tuple<property,Tuple<chemistry.species?,chemistry.species?>,compatibility.PhaseType?,chemistry.reaction?>=r.slot(r);
 // A correlation in temperature, valid over the range its data states.
-@id("01a0f00c1fbb76f19ac7c81c28af9f08") entity kind temperature_correlation extends parameter_set abstract {
+@id("01a0f00c1fbb76f19ac7c81c28af9f08") entity kind temperature_correlation extends phased_parameter abstract {
+@id("5ae5ed85cd7741b0a518c2e6029adf8f") attribute applicability:Fn(T:Temperature,s:temperature_correlation)->Applicability=correlation_range;
 @id("01a0f00c1fbb76f19ac7c81db95a5cd5") attribute minimum_temperature: Temperature storage {K};
 @id("01a0f00c1fbb76f19ac7c81ee8549c4f") attribute maximum_temperature: Temperature storage {K};
-@id("01a0f00c1fbb76f19ac7c81f71157cbd") envelope T: Temperature in minimum_temperature..maximum_temperature;
 }
+@id("77482196a35641cab64053a248bb9288") applicability correlation_range(T:Temperature,s:temperature_correlation) owner temperature_correlation scope data evidence s.source interval reported T in s.minimum_temperature..s.maximum_temperature;
 // Heat capacity, and the enthalpy and entropy increments between two temperatures.
 @id("01a0f00c1fbb76f19ac7c820944fcc27") entity kind caloric_set extends temperature_correlation abstract {
+@id("184da4e9b634408fb0e9635150475421") applicability=correlation_range;
 @id("01a0f00c1fbb76f19ac7c821f44ae9b3") attribute cp: Fn(T: Temperature, s: caloric_set) -> MolarCp;
 @id("01a0f00c1fbb76f19ac7c8225bd62227") attribute dh: Fn(T0: Temperature, T: Temperature, s: caloric_set) -> DeltaH;
 @id("01a0f00c1fbb76f19ac7c823d352e7f2") attribute ds: Fn(T0: Temperature, T: Temperature, s: caloric_set) -> DeltaS;
 @id("01a0f00c1fbb76f19ac7c8249667f4bc") require property == heat_capacity : "a caloric set parameterizes heat capacity";
 }
 @id("01a0f00c1fbb76f19ac7c825d3fd2b42") entity kind vapor_pressure_set extends temperature_correlation abstract {
+@id("4599cbecebc34c30bde790adf2507c96") applicability=correlation_range;
 @id("01a0f00c1fbb76f19ac7c8268ab9eaaa") attribute psat: Fn(T: Temperature, s: vapor_pressure_set) -> Pressure;
 @id("01a0f00c1fbb76f19ac7c827d8234d79") require property == vapor_pressure : "a vapor pressure set parameterizes vapor pressure";
 }
 @id("01a0f00c1fbb76f19ac7c828f06a78ce") entity kind liquid_density_set extends temperature_correlation abstract {
+@id("fec8b98a38834b459e0101a030adfafb") applicability=correlation_range;
 @id("01a0f00c1fbb76f19ac7c829c1b4f5e5") attribute density: Fn(T: Temperature, s: liquid_density_set) -> MolarDensity;
 @id("01a0f00c1fbb76f19ac7c82a55d5bffe") require property == liquid_molar_density : "a liquid density set parameterizes liquid molar density";
 }
-// A property package: the parameter sets, pair sources and component roles it uses. Its
+@id("96f3cbd18cf748bb938eae5c703125e0") entity kind selection_context {
+@id("6391fbfc34544652b14d6dd911f3f266") attribute roots:Set<parameter_set>;
+@id("1549774ad5d2456d8c25336a390d3811") attribute subjects:Set<chemistry.species>;
+@id("776ac88b12f84e698562d8c88bacf195") attribute models:Set<property>;
+@id("9156837df38a43e39d745a0959c02def") attribute rules:Set<predictive_rule>={};
+@id("7f10006ed33b4ae3917dd99448962fd4") require sum(r in records | if root_in_scope(r,self) then 0 else 1)==0 : "selection closure belongs to the consuming subjects and contracts; out-of-scope joint fits need a declared projection";
+@id("b157db2845574f518bfea20c3dbb8713") require selection_compatible(records,self,projected_slot) : "one record supplies each demanded scientific slot; conflicting fits or variants refuse";
+@id("64ec1f12af1f4f4498a6eb8ef6f5efee") derived records:Set<parameter_set>=selection_closure(selection_roots(self),self,required_records);
+}
+@id("82cdc42cc603447181cbd1b6f9b1b52a") entity kind permitted_projection {
+@id("5d42fbdb363441f5932ce88c7a6f6ee1") attribute group:fit_group;
+@id("723b4478dac34c3cac6ca2a15636e254") attribute subjects:Set<chemistry.species>;
+@id("b505e8cc786a431c83ce2148dfc99e45") attribute records:Set<parameter_set>;
+@id("e6ee042245504d6a9b504deb195a5127") require sum(r in records | if r in group.members then 0 else 1)==0 : "a projection contains only its joint-fit members";
+}
+@id("087b88ab56234bdcab834909781f82cf") table selected_projection[c:selection_context,g:fit_group]:permitted_projection missing optional require value.group==g and value.subjects==c.subjects;
+@id("f4fec791db5b4c5188cec273748b30ad") fn required_records(r:parameter_set,c:selection_context)->Set<parameter_set>=group_records(r,c,r.fit_groups);
+@id("ebffb4f3d96848739c7a50dcb26c6e67") fn group_records(r:parameter_set,c:selection_context,groups:Set<fit_group>)->Set<parameter_set> valid(sum(g in groups | if present(selected_projection[c,g]) then if r in selected_projection[c,g].records then 0 else 1 else 0)==0)=if size(groups)==0 then r.dependencies else union(r.dependencies,fold(acc,value; g in groups | if present(selected_projection[c,g]) then selected_projection[c,g].records else g.members;union(acc,value)));
+@id("d79cf0a4c7d744798588a183adaeca52") fn root_in_scope(r:parameter_set,c:selection_context)->Boolean=if family in c.models then if present(first) then if first in c.subjects then if present(second) then if second in c.subjects then true else false else true else false else true else false where slot=r.slot(r),family=at(slot,0),pair=at(slot,1),first=at(pair,0),second=at(pair,1);
+// A property package selects individual records and explicit predictive rules. Its
 // phase formulation is a definition binding of its model.
-@id("01a0f00c1fbb76f19ac7c82b8f313387") entity kind property_package {}
+@id("34fc04050f4447a2a80899682393ab0a") fn selection_roots(c:selection_context)->Set<parameter_set>=if size(rules)==0 then c.roots else union(c.roots,fold(acc,value; rule in rules | rule.dependencies;union(acc,value))) where rules=c.rules;
+@id("01a0f00c1fbb76f19ac7c82b8f313387") entity kind property_package {
+@id("6ee51dc290e044c0b9f7c90762ca6214") attribute admitted:selection_context;
+}
 // The parameter set a package uses for a species, a property and a phase type. A lookup
 // without a row is refused, naming the package, species, property and phase type.
-@id("01a0f00c1fbb76f19ac7c82c941a0271") table selection[k: property_package, j: chemistry.species, p: property, t: compatibility.PhaseType]: parameter_set complete_over(k, j, p, t) require value.subject == j and value.property == p and value.phase_type == t;
+@id("01a0f00c1fbb76f19ac7c82c941a0271") table selection[k: property_package, j: chemistry.species, p: property, t: compatibility.PhaseType]: phased_parameter complete_over(k, j, p, t) require value.subject == j and value.property == p and value.phase_type == t require value in k.admitted.records;
+@id("4b6679e8184046249d77b63333b93686") table pure_selection[k:property_package,j:chemistry.species,p:property]:pure_parameter complete_over(k,j,p) require value.subject==j and value.property==p require value in k.admitted.records;
 // The role a package gives a species; a species it gives none is a plain component.
-@id("01a0f00c1fbb76f19ac7c82dcb710095") table component_role[k: property_package, j: chemistry.species]: compatibility.ComponentType missing default compatibility.ComponentType.Component require value != compatibility.ComponentType.Cation or j.charge > 0{1} require value != compatibility.ComponentType.Anion or j.charge < 0{1} require value != compatibility.ComponentType.Ion or j.charge != 0{1};
+@id("01a0f00c1fbb76f19ac7c82dcb710095") table component_role[k: property_package, j: chemistry.species]: compatibility.ComponentType missing default compatibility.ComponentType.Component require value != compatibility.ComponentType.Cation or (present(j.charge) and (if present(j.charge) then j.charge else 0{1}) > 0{1}) require value != compatibility.ComponentType.Anion or (present(j.charge) and (if present(j.charge) then j.charge else 0{1}) < 0{1}) require value != compatibility.ComponentType.Ion or (present(j.charge) and (if present(j.charge) then j.charge else 0{1}) != 0{1});
 // The generic operations: each resolves the package's selection, narrows the selected set to
-// its family by its keys, and evaluates the form's bound function inside the set's envelope.
-@id("01a0f00c1fbb76f19ac7c82e8a7d2375") fn caloric_cp(s: caloric_set, T: Temperature) -> MolarCp guards(s.T: T) = s.cp(T, s);
-@id("01a0f00c1fbb76f19ac7c82fb411b473") fn caloric_dh(s: caloric_set, T0: Temperature, T: Temperature) -> DeltaH guards(s.T: [T0, T]) = s.dh(T0, T, s);
-@id("01a0f00c1fbb76f19ac7c83033f168c8") fn caloric_ds(s: caloric_set, T0: Temperature, T: Temperature) -> DeltaS guards(s.T: [T0, T]) = s.ds(T0, T, s);
-@id("01a0f00c1fbb76f19ac7c8314bc6071f") fn saturation_pressure(s: vapor_pressure_set, T: Temperature) -> Pressure guards(s.T: T) = s.psat(T, s);
-@id("01a0f00c1fbb76f19ac7c83283cc61bf") fn saturated_density(s: liquid_density_set, T: Temperature) -> MolarDensity guards(s.T: T) = s.density(T, s);
-@id("01a0f00c1fbb76f19ac7c833a24040ff") fn cp(k: property_package, p: chemistry.phase, j: chemistry.species, T: Temperature) -> MolarCp = caloric_cp(c, T) where s = selection[k, j, heat_capacity, p.type], c = caloric_set[s.subject, s.property, s.phase_type, s.source, s.variant];
-@id("01a0f00c1fbb76f19ac7c834fad7a814") fn enthalpy_increment(k: property_package, p: chemistry.phase, j: chemistry.species, T0: Temperature, T: Temperature) -> DeltaH = caloric_dh(c, T0, T) where s = selection[k, j, heat_capacity, p.type], c = caloric_set[s.subject, s.property, s.phase_type, s.source, s.variant];
-@id("01a0f00c1fbb76f19ac7c835016ba69f") fn entropy_increment(k: property_package, p: chemistry.phase, j: chemistry.species, T0: Temperature, T: Temperature) -> DeltaS = caloric_ds(c, T0, T) where s = selection[k, j, heat_capacity, p.type], c = caloric_set[s.subject, s.property, s.phase_type, s.source, s.variant];
-@id("01a0f00c1fbb76f19ac7c83687be5644") fn psat(k: property_package, p: chemistry.phase, j: chemistry.species, T: Temperature) -> Pressure = saturation_pressure(v, T) where s = selection[k, j, vapor_pressure, p.type], v = vapor_pressure_set[s.subject, s.property, s.phase_type, s.source, s.variant];
-@id("01a0f00c1fbb76f19ac7c8377ca6f8bd") fn liquid_density(k: property_package, p: chemistry.phase, j: chemistry.species, T: Temperature) -> MolarDensity = saturated_density(d, T) where s = selection[k, j, liquid_molar_density, p.type], d = liquid_density_set[s.subject, s.property, s.phase_type, s.source, s.variant];
+// its family by its keys, and evaluates the form's bound function under its declared applicability claim.
+@id("01a0f00c1fbb76f19ac7c82e8a7d2375") fn caloric_cp(s: caloric_set, T: Temperature) -> MolarCp applicability(s.applicability(T,s)) = s.cp(T, s);
+@id("01a0f00c1fbb76f19ac7c82fb411b473") fn caloric_dh(s: caloric_set, T0: Temperature, T: Temperature) -> DeltaH applicability(applicability_interval(s.applicability(T0,s),s.applicability(T,s))) = s.dh(T0, T, s);
+@id("01a0f00c1fbb76f19ac7c83033f168c8") fn caloric_ds(s: caloric_set, T0: Temperature, T: Temperature) -> DeltaS applicability(applicability_interval(s.applicability(T0,s),s.applicability(T,s))) = s.ds(T0, T, s);
+@id("01a0f00c1fbb76f19ac7c8314bc6071f") fn saturation_pressure(s: vapor_pressure_set, T: Temperature) -> Pressure applicability(s.applicability(T,s)) = s.psat(T, s);
+@id("01a0f00c1fbb76f19ac7c83283cc61bf") fn saturated_density(s: liquid_density_set, T: Temperature) -> MolarDensity applicability(s.applicability(T,s)) = s.density(T, s);
+@id("01a0f00c1fbb76f19ac7c833a24040ff") fn cp(k: property_package, p: chemistry.phase, j: chemistry.species, T: Temperature) -> MolarCp = caloric_cp(c, T) where s = selection[k, j, heat_capacity, p.type], c = caloric_set[s.subject, s.property, s.phase_type, s.parameterization, s.variant];
+@id("01a0f00c1fbb76f19ac7c834fad7a814") fn enthalpy_increment(k: property_package, p: chemistry.phase, j: chemistry.species, T0: Temperature, T: Temperature) -> DeltaH = caloric_dh(c, T0, T) where s = selection[k, j, heat_capacity, p.type], c = caloric_set[s.subject, s.property, s.phase_type, s.parameterization, s.variant];
+@id("01a0f00c1fbb76f19ac7c835016ba69f") fn entropy_increment(k: property_package, p: chemistry.phase, j: chemistry.species, T0: Temperature, T: Temperature) -> DeltaS = caloric_ds(c, T0, T) where s = selection[k, j, heat_capacity, p.type], c = caloric_set[s.subject, s.property, s.phase_type, s.parameterization, s.variant];
+@id("01a0f00c1fbb76f19ac7c83687be5644") fn psat(k: property_package, p: chemistry.phase, j: chemistry.species, T: Temperature) -> Pressure = saturation_pressure(v, T) where s = selection[k, j, vapor_pressure, p.type], v = vapor_pressure_set[s.subject, s.property, s.phase_type, s.parameterization, s.variant];
+@id("01a0f00c1fbb76f19ac7c8377ca6f8bd") fn liquid_density(k: property_package, p: chemistry.phase, j: chemistry.species, T: Temperature) -> MolarDensity = saturated_density(d, T) where s = selection[k, j, liquid_molar_density, p.type], d = liquid_density_set[s.subject, s.property, s.phase_type, s.parameterization, s.variant];
 @id("d948914d1ede40c8935a70c21ec3d79d") set caloric_properties:Set<property>={heat_capacity};
 @id("e48401c23f0d4f18b251bfccaaf52dfc") set vapor_pressure_properties:Set<property>={vapor_pressure};
 @id("ea7d0447ce204e898f2ff64ef7f9eb35") set liquid_types:Set<compatibility.PhaseType>={compatibility.PhaseType.liquidPhase};

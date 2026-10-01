@@ -56,6 +56,7 @@ impl Engine<'_, '_> {
                         limit: self.limits.members,
                         stack: Vec::new(),
                         reader: self.reader,
+                        selections: Some(&self.selection_collector),
                     })
                     .predicate(filter)?
                 {

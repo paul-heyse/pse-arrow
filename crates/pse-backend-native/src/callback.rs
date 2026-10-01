@@ -33,7 +33,9 @@ pub fn classify(error: &ProblemError) -> Failure {
         use pse_math::MathError as E;
         match error {
             E::Instance { cause, .. } => math(cause),
-            E::Validity(_) | E::Domain { .. } | E::OutsideRange { .. } => Failure::Trial,
+            E::Applicability(_) | E::Validity(_) | E::Domain { .. } | E::OutsideRange { .. } => {
+                Failure::Trial
+            }
             E::Cancelled => Failure::Stopped(Termination::Cancelled),
             E::Provider { cause, .. } => provider(cause),
             E::Native { cause, .. } => cause

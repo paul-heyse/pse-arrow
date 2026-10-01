@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 
 import pytest
+
 from test_acquire_support import (
     GitFixture,
     independent_tree_hash,
@@ -18,7 +19,6 @@ from test_acquire_support import (
     tree_files,
     write_manifest,
 )
-
 from thermo_knowledge.acquire import git as git_kind
 from thermo_knowledge.acquire.store import ACQUISITION_NAME
 

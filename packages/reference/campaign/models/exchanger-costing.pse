@@ -10,9 +10,9 @@
 // exchanger by its heat-transfer area at its tube-side pressure; like IDAES 2.13 the
 // higher-pressure hot side is taken as the tube side. The costing reads the exchanger's
 // area and hot inlet pressure; the flowsheet aggregates its capital cost.
-@id("01a0f037426c718f919d21345bc55dd7") def CostedExchanger(pressure_extrapolation:Boolean=false) {
+@id("01a0f037426c718f919d21345bc55dd7") def CostedExchanger {
 @id("01a0f037426c718f919d2135618abd83") child exchanger:heat_exchange.HeatExchanger=heat_exchange.HeatExchanger(hot_inlet_pkg=bt_pr.BT_PR(defined_state=true),hot_outlet_pkg=bt_pr.BT_PR(defined_state=false),cold_inlet_pkg=bt_pr.BT_PR(defined_state=true,minimum=300{K}),cold_outlet_pkg=bt_pr.BT_PR(defined_state=false,minimum=300{K}),cocurrent=true);
-@id("01a0f037426c718f919d21368cbe5864") child cost:costing.HeatExchangerCost=costing.HeatExchangerCost(pressure_extrapolation=pressure_extrapolation);
+@id("01a0f037426c718f919d21368cbe5864") child cost:costing.HeatExchangerCost=costing.HeatExchangerCost;
 @id("01a0f037426c718f919d213746716515") eq costed_area:cost.area==exchanger.area;
 @id("01a0f037426c718f919d21389b38c7e9") eq tube_pressure:cost.pressure==exchanger.hot.inlet.pressure;
 @id("01a0f037426c718f919d2139a378952b") accumulate capital:CapitalCost accounting tolerance 0.01{USD_CE500};
@@ -23,14 +23,16 @@
 // outlet is held at the test's 596.9 degR, so the solve recovers the test's 1 m2 area
 // (the test's 0.1 degR outlet tolerance is 0.003 m2 of area). The exchanger runs at
 // 0 psig, below the SSLW pressure factor's 100 to 2000 psig range, so the flowsheet
-// selects its recorded pressure extrapolation, as IDAES evaluates it. The expected costs
+// permits the recorded pressure extrapolation by its exact scientific function, as IDAES evaluates it. The expected costs
 // are the SSLW correlation by hand at 1 m2, with tolerances for 0.003 m2 of area
 // (0.13 % of the capital cost). 1 m2 (10.76 ft2) is far below the exchanger sizes the
-// correlation is published for, and the costing declares no area envelope, so this
+// correlation is published for, and the consuming test explicitly permits the unknown area support, so this
 // checks the costing's reading and arithmetic at the solved area, not a qualified
 // purchase price.
 @id("01a0f037426c718f919d213c29dd62fd") test hx_costing_solved_area oracle campaign_references.sslw_cost_of_idaes_bt_exchanger fixture {dof 0; run steady; fix root.exchanger.hot.inlet.flow=5{mol/s}; fix root.exchanger.hot.inlet.T=365{K}; value root.exchanger.hot.inlet.bubble=364{K}; fix root.exchanger.hot.inlet.pressure=101325{Pa}; fix root.exchanger.hot.inlet.z[chem.benzene]=0.5{1}; fix root.exchanger.hot.inlet.z[chem.toluene]=0.5{1}; fix root.exchanger.hot.delta_pressure=0{Pa}; value root.exchanger.hot.inlet.epsilon_bubble=0.0001{K}; value root.exchanger.hot.inlet.epsilon_dew=0.0001{K}; value root.exchanger.hot.outlet.epsilon_bubble=0.0001{K}; value root.exchanger.hot.outlet.epsilon_dew=0.0001{K}; fix root.exchanger.cold.inlet.flow=1{mol/s}; fix root.exchanger.cold.inlet.T=300{K}; fix root.exchanger.cold.inlet.pressure=101325{Pa}; fix root.exchanger.cold.inlet.z[chem.benzene]=0.5{1}; fix root.exchanger.cold.inlet.z[chem.toluene]=0.5{1}; fix root.exchanger.cold.delta_pressure=0{Pa}; value root.exchanger.cold.inlet.epsilon_bubble=0.0001{K}; value root.exchanger.cold.inlet.epsilon_dew=0.0001{K}; value root.exchanger.cold.outlet.epsilon_bubble=0.0001{K}; value root.exchanger.cold.outlet.epsilon_dew=0.0001{K}; fix root.exchanger.cold.outlet.T=331.6111111111111{K}; fix root.exchanger.coefficient=100{W/(m^2*K)};} {
-@id("01a0f037426c718f919d213d423e28dc") child root:CostedExchanger=CostedExchanger(pressure_extrapolation=true);
+@id("2b865843aed55a61bf55cbb448265d38") permission area_use families(costing.base_amount,costing.material_amount) allow_unknown true allow_extrapolation false;
+@id("299efa0208c359a8870b8981fb181a1b") permission pressure_use families(costing.pressure_factor) allow_unknown false allow_extrapolation true;
+@id("01a0f037426c718f919d213d423e28dc") child root:CostedExchanger=CostedExchanger;
 @id("01a0f037426c718f919d213e75b7f2f0") expect root.exchanger.area==1{m^2} tolerance 0.003{m^2};
 @id("01a0f037426c718f919d213f96bce1c4") expect root.exchanger.hot.outlet.T==359.4{K} tolerance 0.1{K};
 @id("01a0f037426c718f919d21403dc416a4") expect root.cost.area_per_unit==10.763910416709722 tolerance 0.033;

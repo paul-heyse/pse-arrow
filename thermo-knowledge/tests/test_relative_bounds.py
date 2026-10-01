@@ -19,10 +19,10 @@ from dataclasses import dataclass
 import numpy as np
 import psycopg
 import pytest
+
 from build_support import fingerprint, inputs_of, write_source
 from mapping_support import origin, writer
 from mechanisms_support import entity_id, mechanism_declaration
-
 from thermo_knowledge import config, db
 from thermo_knowledge.build import build_database
 from thermo_knowledge.canonical.values import Quantity
@@ -82,7 +82,10 @@ def write_world(w: CanonicalWriter, decl: Declaration, ids: dict[str, uuid.UUID]
         origins=at("p"),
     )
     ids["parameterization"] = p
-    ids["species_with_reference"], ids["species_plain"] = species["with_reference"], species["plain"]
+    ids["species_with_reference"], ids["species_plain"] = (
+        species["with_reference"],
+        species["plain"],
+    )
     ids["set_with_reference"] = w.parameter_set(
         parameterization=p,
         slot_group=RELATIVE,
@@ -120,7 +123,13 @@ def decl(tmp_path_factory: pytest.TempPathFactory) -> Declaration:
 def world(decl: Declaration, tmp_path_factory: pytest.TempPathFactory) -> Iterator[World]:
     canonical = tmp_path_factory.mktemp("relative-canonical")
     ids: dict[str, uuid.UUID] = {}
-    write_source(canonical, "src", lambda w: write_world(w, decl, ids), decl=decl, declaration=fingerprint(decl))
+    write_source(
+        canonical,
+        "src",
+        lambda w: write_world(w, decl, ids),
+        decl=decl,
+        declaration=fingerprint(decl),
+    )
     with TestDatabase() as database:
         build_database(database.url, decl, inputs_of(canonical))
         yield World(decl, database, ids)
@@ -179,7 +188,9 @@ def test_a_point_is_inside_or_outside_when_the_selected_set_holds_the_reference_
     assert codes.tolist() == [OUTSIDE, INSIDE, INSIDE, INSIDE, OUTSIDE]
 
 
-def test_a_value_passed_in_decides_a_set_that_holds_none(world: World, conn: psycopg.Connection) -> None:
+def test_a_value_passed_in_decides_a_set_that_holds_none(
+    world: World, conn: psycopg.Connection
+) -> None:
     form = bound(world, conn, "plain_bounds_fixture", "plain")
     codes = form.validity(
         "p_sat",
@@ -219,7 +230,13 @@ def test_a_passed_value_is_used_in_place_of_the_value_the_selected_set_holds(
         T=TEMPERATURES,
         references={"normal_boiling_temperature": 360.0, "critical_temperature": 510.0},
     )
-    assert codes.tolist() == [OUTSIDE, OUTSIDE, INSIDE, INSIDE, INSIDE]  # the region is [310 K, 410 K]
+    assert codes.tolist() == [
+        OUTSIDE,
+        OUTSIDE,
+        INSIDE,
+        INSIDE,
+        INSIDE,
+    ]  # the region is [310 K, 410 K]
 
 
 def test_a_kind_of_region_no_record_states_is_still_reported_not_stated(
@@ -227,13 +244,17 @@ def test_a_kind_of_region_no_record_states_is_still_reported_not_stated(
 ) -> None:
     """Relative bounds change how a clause is decided, not what a missing kind means."""
     form = bound(world, conn, "plain_bounds_fixture", "plain")
-    assert form.validity("p_sat", "validated_range", T=TEMPERATURES).tolist() == [3] * 5  # not stated
+    assert (
+        form.validity("p_sat", "validated_range", T=TEMPERATURES).tolist() == [3] * 5
+    )  # not stated
 
 
 # -- the requirements ---------------------------------------------------------------------------
 
 
-def region_for(w: CanonicalWriter, decl: Declaration, clauses: list[dict[str, object]], key: str) -> uuid.UUID:
+def region_for(
+    w: CanonicalWriter, decl: Declaration, clauses: list[dict[str, object]], key: str
+) -> uuid.UUID:
     species = w.kind("species", {"canonical_key": key, "label": key}, origins=at(f"s-{key}"))
     p = w.kind(
         "parameterization",
@@ -265,8 +286,15 @@ def test_bounds_against_one_reference_must_be_ordered_and_bounds_against_two_are
         region_for(
             w,
             decl,
-            [clause(decl, lower=Quantity(-50.0, "K"), lower_relative_to=tb,
-                    upper=Quantity(-100.0, "K"), upper_relative_to=tb)],
+            [
+                clause(
+                    decl,
+                    lower=Quantity(-50.0, "K"),
+                    lower_relative_to=tb,
+                    upper=Quantity(-100.0, "K"),
+                    upper_relative_to=tb,
+                )
+            ],
             "same-reference",
         )
     region_for(  # both absolute: ordered as before
@@ -274,10 +302,20 @@ def test_bounds_against_one_reference_must_be_ordered_and_bounds_against_two_are
     )
     with pytest.raises(ValidationError, match="exceeds"):
         region_for(
-            w, decl, [clause(decl, lower=Quantity(400.0, "K"), upper=Quantity(300.0, "K"))], "reversed"
+            w,
+            decl,
+            [clause(decl, lower=Quantity(400.0, "K"), upper=Quantity(300.0, "K"))],
+            "reversed",
         )
     region_for(  # one relative and one absolute are not compared either
-        w, decl, [clause(decl, lower=Quantity(-50.0, "K"), lower_relative_to=tc, upper=Quantity(400.0, "K"))], "mixed"
+        w,
+        decl,
+        [
+            clause(
+                decl, lower=Quantity(-50.0, "K"), lower_relative_to=tc, upper=Quantity(400.0, "K")
+            )
+        ],
+        "mixed",
     )
 
 

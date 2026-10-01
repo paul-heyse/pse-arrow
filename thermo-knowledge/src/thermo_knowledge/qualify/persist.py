@@ -35,11 +35,11 @@ import pyarrow.parquet as pq
 from psycopg import sql
 
 from thermo_knowledge import config, reuse
+from thermo_knowledge import pipeline_contract as pc
 from thermo_knowledge.build.database import DatabaseRefusedError, ingest_file
 from thermo_knowledge.build.inputs import QUALIFICATION_DIR, QUALIFICATION_PHASE
 from thermo_knowledge.canonical import store
 from thermo_knowledge.canonical.store import CanonicalError, CanonicalManifest, ReadRecords
-from thermo_knowledge import pipeline_contract as pc
 from thermo_knowledge.canonical.values import Quantity
 from thermo_knowledge.canonical.writer import CanonicalWriter
 from thermo_knowledge.declaration import model as m
@@ -131,9 +131,7 @@ def tables(decl: m.Declaration, run: RunRecord) -> dict[str, pa.Table]:
         values[record.absolute_tolerance] = Quantity(value, unit)
     identifier = writer.kind(record.declared, values)
     for parameter_set in run.sets:
-        writer.relation(
-            link.declared, {link.run: identifier, link.parameter_set: parameter_set}
-        )
+        writer.relation(link.declared, {link.run: identifier, link.parameter_set: parameter_set})
     return writer.tables()
 
 

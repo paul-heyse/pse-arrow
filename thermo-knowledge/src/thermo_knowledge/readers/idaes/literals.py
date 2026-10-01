@@ -68,7 +68,11 @@ LITERAL_ENTRIES = table_schema(
     _int("assignment_line", "line of the assignment statement"),
     _int("assignment_column", "column of the assignment statement (0-based)"),
     _text("scope_kind", "module, class or function", nullable=False),
-    _text("scope", "dotted names of the enclosing classes and functions (empty at module level)", nullable=False),
+    _text(
+        "scope",
+        "dotted names of the enclosing classes and functions (empty at module level)",
+        nullable=False,
+    ),
     _text("target", "the assignment target", nullable=False, note="rendered from the syntax tree"),
     column(
         "path",
@@ -134,7 +138,7 @@ def fold(node: ast.expr) -> float | None:
             return None
         try:
             result = _BINARY[type(node.op)](left, right)
-        except (ArithmeticError, ValueError):
+        except ArithmeticError, ValueError:
             return None
         return float(result) if isinstance(result, int | float) else None
     return None

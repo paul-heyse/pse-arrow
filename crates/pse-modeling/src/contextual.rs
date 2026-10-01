@@ -213,6 +213,8 @@ pub(crate) fn admit_translations(
         package.functions.insert(
             at,
             crate::Function {
+                applicability: Vec::new(),
+                applicability_uses: Vec::new(),
                 physical_admissions: BTreeMap::new(),
                 physical_operation: Some(PhysicalOperation::ReferenceTranslation(descriptor)),
                 reduction: None,

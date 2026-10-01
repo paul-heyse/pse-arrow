@@ -12,6 +12,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+
 from r3_reader_support import (
     field_metadata,
     run_reader,
@@ -19,7 +20,6 @@ from r3_reader_support import (
     staged_manifest_of,
     staged_table,
 )
-
 from thermo_knowledge import config
 from thermo_knowledge.acquire import store
 from thermo_knowledge.acquire.lock import read_lock
@@ -83,7 +83,9 @@ def test_title_header_and_counts(tmp_path: Path) -> None:
 
 
 def test_nested_parentheses_in_a_title(tmp_path: Path) -> None:
-    content = table("0\t0.\t0.\tINFINITE\t0.\t0.\t0.\t0.", title="Aluminum Bromide ((AlBr3)2)\tAl2Br6(g)")
+    content = table(
+        "0\t0.\t0.\tINFINITE\t0.\t0.\t0.\t0.", title="Aluminum Bromide ((AlBr3)2)\tAl2Br6(g)"
+    )
     (head,) = run_reader(janaf, tmp_path, {"Al-084.txt": content}).rows("tables")
     assert (head["substance_name"], head["name_formula"]) == ("Aluminum Bromide", "(AlBr3)2")
     assert (head["janaf_formula"], head["phase_designator"]) == ("Al2Br6", "g")
@@ -149,7 +151,10 @@ def test_files_without_final_newline_and_the_payload_accounting(tmp_path: Path) 
     run = run_reader(janaf, tmp_path, {"Al-001.txt": content, "B-002.txt": SYNTHETIC})
     heads = {h["code"]: h for h in run.rows("tables")}
     assert heads["Al-001"]["ends_with_newline"] is False and heads["Al-001"]["line_count"] == 3
-    assert {r.path: r.status for r in run.result.payload} == {"Al-001.txt": "read", "B-002.txt": "read"}
+    assert {r.path: r.status for r in run.result.payload} == {
+        "Al-001.txt": "read",
+        "B-002.txt": "read",
+    }
 
 
 @pytest.mark.parametrize(
@@ -157,7 +162,10 @@ def test_files_without_final_newline_and_the_payload_accounting(tmp_path: Path) 
     [
         ({"Al-001.txt": "only a title\n"}, r"Al-001\.txt#L1: a table file needs a title line"),
         ({"Al-001.txt": "a\tb\tc\n" + HEADER + "\n"}, r"Al-001\.txt#L1: the title line has 3"),
-        ({"Al-001.txt": "a\tb\nT(K)\tCp\n"}, r"Al-001\.txt#L2: the header line is not the standard"),
+        (
+            {"Al-001.txt": "a\tb\nT(K)\tCp\n"},
+            r"Al-001\.txt#L2: the header line is not the standard",
+        ),
         ({"notes.txt": table("0\t0.")}, r"notes\.txt: not a JANAF table file name"),
         (
             {"Al-001.txt": table("0\t0.\t0.\t0.\t0.\t0.\t0.\t0.\tstray")},
@@ -230,10 +238,14 @@ def test_counts_match_wc_and_grep(staged: Path) -> None:
 @real
 def test_markers_fusions_and_infinite_against_grep(staged: Path) -> None:
     rows = staged_table(staged, "rows").to_pylist()
-    marked = int(shell("cat *.txt | grep -c -P '^[^\\t]*(\\t[^\\t]*){4}\\t[A-Za-z][^\\t]*(\\t|$)' || true"))
+    marked = int(
+        shell("cat *.txt | grep -c -P '^[^\\t]*(\\t[^\\t]*){4}\\t[A-Za-z][^\\t]*(\\t|$)' || true")
+    )
     markers = [r for r in rows if r["marker"]]
     fused_digits = [r for r in rows if r["parse_note"]]
-    assert len(markers) == marked - len(staged_table(staged, "tables").to_pylist())  # less the headers
+    assert len(markers) == marked - len(
+        staged_table(staged, "tables").to_pylist()
+    )  # less the headers
     assert {r["_locator"] for r in fused_digits} >= {"C-083.txt#L8", "C-083.txt#L9"}
     assert {r["marker"] for r in markers} >= {"TRANSITION", "CRYSTAL <--> LIQUID"}
     infinite_cells = int(shell("cat *.txt | grep -o 'INFINITE' | wc -l"))
@@ -243,7 +255,9 @@ def test_markers_fusions_and_infinite_against_grep(staged: Path) -> None:
     assert staged_infinite == infinite_cells
     assert all(r["g_function"] is None for r in rows if r["g_function_text"] == "INFINITE")
     fused = [r for r in rows if r["fused_cells"]]
-    assert len(fused) == int(shell("cat *.txt | grep -c -P '\\t[-0-9.]+ +[-0-9.]+ +[-0-9.]+( |$)' || true"))
+    assert len(fused) == int(
+        shell("cat *.txt | grep -c -P '\\t[-0-9.]+ +[-0-9.]+ +[-0-9.]+( |$)' || true")
+    )
     assert all(r["delta_f_g"] is not None and r["log_kf"] is not None for r in fused)
 
 
@@ -256,7 +270,9 @@ def test_round_trip_reproduces_every_file_exactly(staged: Path) -> None:
     assert set(lines) <= set(tables)
     for artifact, head in tables.items():
         ordered = [text for _, text in sorted(lines.get(artifact, []))]
-        rebuilt = "\n".join([head["title_field_1"] + "\t" + head["title_field_2"], head["header_line"], *ordered])
+        rebuilt = "\n".join(
+            [head["title_field_1"] + "\t" + head["title_field_2"], head["header_line"], *ordered]
+        )
         if head["ends_with_newline"]:
             rebuilt += "\n"
         with (TREE / artifact).open(encoding="utf-8", newline="") as handle:  # type: ignore[operator]

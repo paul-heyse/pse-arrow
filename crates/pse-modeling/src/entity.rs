@@ -371,7 +371,27 @@ pub(crate) fn typed(
         (CellSelected::References(v), Type::Set(element)) => {
             let mut values = Vec::new();
             for path in &v.paths {
-                let value = reference(p, c, at, &path.path, element)?;
+                let value = match &path.keys {
+                    None => reference(p, c, at, &path.path, element)?,
+                    Some(keys) => {
+                        typed(
+                            p,
+                            c,
+                            at,
+                            &pse_authoring::language::cell(
+                                pse_authoring::language::CellValue::from_row(
+                                    pse_authoring::language::CellRow {
+                                        target: path.path.clone(),
+                                        keys: keys.clone(),
+                                    },
+                                ),
+                            ),
+                            element,
+                            rows,
+                        )?
+                        .value
+                    }
+                };
                 if values.contains(&value) {
                     return Err(invalid(at, "duplicate member of a set cell"));
                 }
@@ -547,6 +567,23 @@ fn reference(
 ) -> Result<Value> {
     let name = path.join(".");
     match ty {
+        Type::Set(_) => {
+            let value = value::Evaluator {
+                package: p,
+                physical: c,
+                at,
+                env: &BTreeMap::new(),
+                limit: crate::data::EVALUATION_LIMIT,
+                stack: Vec::new(),
+                reader: crate::provenance::Reader::Admission(None),
+                selections: None,
+            }
+            .text(&name, Some(ty))?;
+            if !conforms(&value, ty, p) {
+                return Err(invalid(at, format!("{name} is not a {ty:?}")));
+            }
+            Ok(value)
+        }
         Type::Quantity(_) => {
             let (attribute, owner) = path
                 .split_last()
@@ -567,6 +604,7 @@ fn reference(
                 limit: crate::data::EVALUATION_LIMIT,
                 stack: Vec::new(),
                 reader: crate::provenance::Reader::Admission(None),
+                selections: None,
             }
             .reference_condition(state, attribute)
         }
@@ -1636,7 +1674,7 @@ fn document_records(
         .zip(&document.values)
         .map(|(keys, values)| {
             let keys = complete_document_keys(&layout, keys)?;
-            let supplied = layout
+            let mut supplied: BTreeMap<String, Typed> = layout
                 .keys
                 .iter()
                 .map(|(name, _, _)| name)
@@ -1652,6 +1690,12 @@ fn document_records(
                     )
                 })
                 .collect();
+            supplied.extend(
+                layout
+                    .bound
+                    .iter()
+                    .map(|(name, value)| (name.clone(), value.clone())),
+            );
             Ok((
                 keyed_identity(layout.key_kind, &keys),
                 record(p, kind, dataset, supplied)?,
@@ -1694,14 +1738,34 @@ fn layout<'a>(
     }
     let mut bound = BTreeMap::new();
     for binding in &data.bindings {
-        let Some((_, ty, _)) = keys.iter().find(|(name, _, _)| *name == binding.name) else {
-            return Err(invalid(
-                dataset,
-                format!(
-                    "binding {} names no key of kind {}",
-                    binding.name, p.declarations[&key_kind].name
-                ),
-            ));
+        let ty = if let Some((_, ty, _)) = keys.iter().find(|(name, _, _)| *name == binding.name) {
+            ty
+        } else {
+            let Some((_, declaring)) = schema
+                .attributes
+                .iter()
+                .find(|(name, _)| *name == binding.name)
+            else {
+                return Err(invalid(
+                    dataset,
+                    format!(
+                        "binding {} names no attribute of kind {}",
+                        binding.name, p.declarations[&kind].name
+                    ),
+                ));
+            };
+            if schema.derived.iter().any(|(name, _)| *name == binding.name)
+                || schema.bound.contains_key(&binding.name)
+            {
+                return Err(invalid(
+                    dataset,
+                    format!(
+                        "binding {} cannot replace a derived or kind-bound attribute",
+                        binding.name
+                    ),
+                ));
+            }
+            &p.types[declaring]
         };
         if bound
             .insert(
@@ -1721,6 +1785,7 @@ fn layout<'a>(
         .iter()
         .filter(|(name, _)| {
             !schema.keys.contains(name)
+                && !bound.contains_key(name)
                 && !schema.bound.contains_key(name)
                 && !schema.derived.iter().any(|(derived, _)| derived == name)
         })
@@ -1861,6 +1926,12 @@ fn rows(
                 )
             })
             .collect::<BTreeMap<_, _>>();
+        supplied.extend(
+            layout
+                .bound
+                .iter()
+                .map(|(name, value)| (name.clone(), value.clone())),
+        );
         for (cell, (name, declaring)) in row.values.iter().zip(&layout.values) {
             let value = typed(p, c, dataset, cell, &p.types[declaring], rows).map_err(|e| {
                 crate::data::context(
@@ -1977,6 +2048,7 @@ struct Derivation {
 /// through others, is refused with the attributes named. An entity whose derivation reads
 /// test-only data is test-only, and so is whatever references it.
 pub(crate) fn derive(p: &mut CheckedPackage, c: &TypeContext<'_>) -> Result<()> {
+    let selections = crate::scientific_selection::Collector::default();
     let mut derivations = Vec::new();
     for row in p.declarations.values() {
         let at = row.declaration_id;
@@ -2050,6 +2122,7 @@ pub(crate) fn derive(p: &mut CheckedPackage, c: &TypeContext<'_>) -> Result<()> 
                 limit: crate::data::EVALUATION_LIMIT,
                 stack: Vec::new(),
                 reader: crate::provenance::Reader::Admission(Some(&read)),
+                selections: Some(&selections),
             }
             .expr(&derivation.expression, Some(&derivation.ty), 0)
             .map_err(|e| {
@@ -2096,6 +2169,7 @@ pub(crate) fn derive(p: &mut CheckedPackage, c: &TypeContext<'_>) -> Result<()> 
             }
         }
     }
+    p.selection_closures.extend(selections.into_inner());
     crate::provenance::taint_derived(p, tainted);
     Ok(())
 }
@@ -2174,6 +2248,7 @@ pub(crate) fn verify(p: &CheckedPackage) -> Result<()> {
                     limit: crate::data::EVALUATION_LIMIT,
                     stack: Vec::new(),
                     reader: crate::provenance::Reader::Admission(None),
+                    selections: None,
                 }
                 .predicate(&predicate)?;
                 if !holds {

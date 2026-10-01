@@ -27,9 +27,9 @@ from pathlib import Path
 import numpy as np
 import psycopg
 import pytest
+
 from hard_case_support import at, build, failing
 from mapping_support import real_declaration, writer
-
 from thermo_knowledge import db
 from thermo_knowledge.canonical.values import Quantity, StatedDefault
 from thermo_knowledge.canonical.writer import CanonicalWriter, ValidationError
@@ -99,7 +99,9 @@ def excess_gibbs(T: float, x: dict[str, float], alpha: float) -> float:
     return R * T * total
 
 
-def reference(T: float, P: float, x: dict[str, float], alpha: float = ALPHA_DEFAULT) -> dict[str, float]:
+def reference(
+    T: float, P: float, x: dict[str, float], alpha: float = ALPHA_DEFAULT
+) -> dict[str, float]:
     """a, b, the largest and smallest roots above the covolume and their translated volumes."""
     a_pure = {n: 0.45724 * R**2 * CRITICAL[n][0] ** 2 / CRITICAL[n][1] * twu_alpha(n, T) for n in x}
     b_pure = {n: 0.07780 * R * CRITICAL[n][0] / CRITICAL[n][1] for n in x}
@@ -108,7 +110,9 @@ def reference(T: float, P: float, x: dict[str, float], alpha: float = ALPHA_DEFA
     a = b * (sum(x[n] * a_pure[n] / b_pure[n] for n in x) - excess_gibbs(T, x, alpha) / C)
     A, B = a * P / (R * T) ** 2, b * P / (R * T)
     roots = np.roots([1.0, -(1 - B), A - 3 * B**2 - 2 * B, -(A * B - B**2 - B**3)])
-    real = sorted(float(r.real) for r in roots if abs(r.imag) < 1e-9 * max(1.0, abs(r.real)) and r.real > B)
+    real = sorted(
+        float(r.real) for r in roots if abs(r.imag) < 1e-9 * max(1.0, abs(r.real)) and r.real > B
+    )
     c = sum(x[n] * TRANSLATION[n] for n in x)
     z_vapor, z_liquid = real[-1], real[0]
     return {
@@ -130,7 +134,12 @@ class World:
 def parameterization(w: CanonicalWriter, key: str, **attributes: object) -> uuid.UUID:
     conventions = w.kind(
         "convention_set",
-        {"key": key, "revision": "1", "temperature_scale": "its_90", "gas_constant": Quantity(R, "J/(mol*K)")},
+        {
+            "key": key,
+            "revision": "1",
+            "temperature_scale": "its_90",
+            "gas_constant": Quantity(R, "J/(mol*K)"),
+        },
         origins=at(f"conventions-{key}"),
     )
     return w.kind(
@@ -149,9 +158,16 @@ def parameterization(w: CanonicalWriter, key: str, **attributes: object) -> uuid
 
 def write_policy(w: CanonicalWriter, key: str, over: uuid.UUID, alpha: float | None) -> uuid.UUID:
     policy = w.kind(
-        "selection_policy", {"key": key, "revision": "1", "unasserted": "refuse"}, origins=at(f"policy-{key}")
+        "selection_policy",
+        {"key": key, "revision": "1", "unasserted": "refuse"},
+        origins=at(f"policy-{key}"),
     )
-    w.relation("policy_precedence", {"policy": policy, "parameterization": over}, {"value": 1}, at="a.json#/rank")
+    w.relation(
+        "policy_precedence",
+        {"policy": policy, "parameterization": over},
+        {"value": 1},
+        at="a.json#/rank",
+    )
     if alpha is not None:
         w.relation(
             "policy_default",
@@ -162,7 +178,9 @@ def write_policy(w: CanonicalWriter, key: str, over: uuid.UUID, alpha: float | N
     return policy
 
 
-def write_nrtl_pair(w: CanonicalWriter, p: uuid.UUID, species: dict[str, uuid.UUID], tag: str) -> uuid.UUID:
+def write_nrtl_pair(
+    w: CanonicalWriter, p: uuid.UUID, species: dict[str, uuid.UUID], tag: str
+) -> uuid.UUID:
     first, second = NRTL_ORDER
     return w.parameter_set(
         parameterization=p,
@@ -180,7 +198,10 @@ def write_nrtl_pair(w: CanonicalWriter, p: uuid.UUID, species: dict[str, uuid.UU
 
 
 def write_world(w: CanonicalWriter, ids: dict[str, uuid.UUID]) -> None:
-    species = {n: w.kind("species", {"canonical_key": n, "label": n}, origins=at(f"s-{n}")) for n in CRITICAL}
+    species = {
+        n: w.kind("species", {"canonical_key": n, "label": n}, origins=at(f"s-{n}"))
+        for n in CRITICAL
+    }
     ids.update({f"species_{n}": s for n, s in species.items()})
     core = parameterization(w, "pr-core")
     twu = parameterization(w, "twu-alpha")
@@ -212,13 +233,23 @@ def write_world(w: CanonicalWriter, ids: dict[str, uuid.UUID]) -> None:
         )
     ids["pair"] = write_nrtl_pair(w, nrtl, species, "pair")
     # the pair was fitted with the Twu parameterisation in place: it is valid only with it
-    w.relation("dependency", {"dependent": ids["pair"], "prerequisite": twu}, {"kind": "fitted_given"}, at="a.json#/dependency")
+    w.relation(
+        "dependency",
+        {"dependent": ids["pair"], "prerequisite": twu},
+        {"kind": "fitted_given"},
+        at="a.json#/dependency",
+    )
     ids["policy"] = write_policy(w, "nrtl-default-alpha", nrtl, ALPHA_DEFAULT)
     ids["policy_other"] = write_policy(w, "nrtl-other-alpha", nrtl, ALPHA_OTHER)
     ids["policy_silent"] = write_policy(w, "core-only", core, None)  # ranks no set at its default
     assembly = w.kind(
         "model_assembly",
-        {"key": "pr-twu-hv-nrtl-peneloux", "revision": "1", "title": "PR, Twu, Huron-Vidal with NRTL, Peneloux", "root": ROOT},
+        {
+            "key": "pr-twu-hv-nrtl-peneloux",
+            "revision": "1",
+            "title": "PR, Twu, Huron-Vidal with NRTL, Peneloux",
+            "root": ROOT,
+        },
         origins=at("assembly"),
     )
     ids["assembly"] = assembly
@@ -279,7 +310,9 @@ def bindings(world: World, conn: psycopg.Connection) -> dict[str, list[SubformBi
     return found
 
 
-def cubic(world: World, conn: psycopg.Connection, order: tuple[str, ...], policy: str | None = "policy"):  # noqa: ANN201
+def cubic(
+    world: World, conn: psycopg.Connection, order: tuple[str, ...], policy: str | None = "policy"
+):  # noqa: ANN201
     source = DatabaseSource(
         conn,
         world.decl,
@@ -292,7 +325,11 @@ def cubic(world: World, conn: psycopg.Connection, order: tuple[str, ...], policy
 
 
 def evaluate(
-    world: World, conn: psycopg.Connection, order: tuple[str, ...], composition: dict[str, float], output: str,
+    world: World,
+    conn: psycopg.Connection,
+    order: tuple[str, ...],
+    composition: dict[str, float],
+    output: str,
     policy: str | None = "policy",
 ) -> np.ndarray:
     found = cubic(world, conn, order, policy)
@@ -308,7 +345,9 @@ def test_the_fixture_satisfies_every_invariant(conn: psycopg.Connection) -> None
     assert failing(conn) == {}
 
 
-def test_the_core_has_three_sub_form_slots_and_the_mixing_rule_has_one_below_it(decl: Declaration) -> None:
+def test_the_core_has_three_sub_form_slots_and_the_mixing_rule_has_one_below_it(
+    decl: Declaration,
+) -> None:
     core = decl.forms[ROOT]
     assert {(s.name, s.accepts, s.multiplicity, s.per) for s in core.subforms} == {
         ("alpha", "cubic_alpha_function", "one", "model"),
@@ -317,7 +356,10 @@ def test_the_core_has_three_sub_form_slots_and_the_mixing_rule_has_one_below_it(
     }
     (excess,) = decl.forms["huron_vidal_pr_mixing"].subforms
     assert (excess.name, excess.accepts) == ("excess", "molar_excess_gibbs_mixture")
-    assert all(decl.forms[f].status == "expressed" for f in ("twu_alpha", "nrtl_excess_gibbs", "peneloux_translation", ROOT))
+    assert all(
+        decl.forms[f].status == "expressed"
+        for f in ("twu_alpha", "nrtl_excess_gibbs", "peneloux_translation", ROOT)
+    )
 
 
 def test_the_assembly_names_each_slot_by_its_path_and_the_nested_one_below_the_mixing_rule(
@@ -330,7 +372,14 @@ def test_the_assembly_names_each_slot_by_its_path_and_the_nested_one_below_the_m
         (world.ids["assembly"],),
     ).fetchall()
     assert rows == sorted((path, slot, form) for path, (slot, form) in CHOICES.items())
-    assert scalar(conn, "SELECT f.name FROM tk.model_assembly a JOIN meta.form f ON f.id = a.root WHERE a.id = %s", world.ids["assembly"]) == ROOT
+    assert (
+        scalar(
+            conn,
+            "SELECT f.name FROM tk.model_assembly a JOIN meta.form f ON f.id = a.root WHERE a.id = %s",
+            world.ids["assembly"],
+        )
+        == ROOT
+    )
 
 
 def test_the_nrtl_pair_is_one_record_stored_as_asserted_with_its_alpha_at_the_default(
@@ -343,7 +392,12 @@ def test_the_nrtl_pair_is_one_record_stored_as_asserted_with_its_alpha_at_the_de
     first, second = (world.ids[f"species_{n}"] for n in NRTL_ORDER)
     assert (i, j) == tuple(sorted((first, second), key=str))
     assert arrangement == (0 if first < second else 1)
-    assert (a12, a21, b12, b21) == (NRTL["a12"], NRTL["a21"], NRTL["b12"], NRTL["b21"])  # never rewritten
+    assert (a12, a21, b12, b21) == (
+        NRTL["a12"],
+        NRTL["a21"],
+        NRTL["b12"],
+        NRTL["b21"],
+    )  # never rewritten
     assert (alpha, state) == (None, "stated_default")
     assert scalar(conn, 'SELECT count(*) FROM param."nrtl_excess_gibbs__pair"') == 1
 
@@ -352,10 +406,16 @@ def test_the_pair_depends_on_the_alpha_function_parameterisation_it_was_fitted_w
     world: World, conn: psycopg.Connection
 ) -> None:
     row = conn.execute(
-        "SELECT prerequisite, kind::text FROM tk.dependency WHERE dependent = %s", (world.ids["pair"],)
+        "SELECT prerequisite, kind::text FROM tk.dependency WHERE dependent = %s",
+        (world.ids["pair"],),
     ).fetchone()
     assert row == (world.ids["twu"], "fitted_given")
-    assert scalar(conn, "SELECT coherence::text FROM tk.parameterization WHERE id = %s", world.ids["nrtl"]) == "conditional"
+    assert (
+        scalar(
+            conn, "SELECT coherence::text FROM tk.parameterization WHERE id = %s", world.ids["nrtl"]
+        )
+        == "conditional"
+    )
 
 
 # -- the assembled model against numpy ----------------------------------------------------------
@@ -366,22 +426,33 @@ def test_the_attractive_parameter_with_the_twu_alpha_and_the_excess_gibbs_rule_m
     world: World, conn: psycopg.Connection, composition: dict[str, float]
 ) -> None:
     want = np.array([reference(T, P, composition)["a"] for T, P in POINTS])
-    np.testing.assert_allclose(evaluate(world, conn, ("A", "B"), composition, "a"), want, rtol=1e-12)
+    np.testing.assert_allclose(
+        evaluate(world, conn, ("A", "B"), composition, "a"), want, rtol=1e-12
+    )
     want_b = np.array([reference(T, P, composition)["b"] for T, P in POINTS])
-    np.testing.assert_allclose(evaluate(world, conn, ("A", "B"), composition, "b"), want_b, rtol=1e-13)
+    np.testing.assert_allclose(
+        evaluate(world, conn, ("A", "B"), composition, "b"), want_b, rtol=1e-13
+    )
 
 
 @pytest.mark.parametrize("composition", COMPOSITIONS)
 def test_the_compressibility_roots_and_translated_volumes_match_the_roots_of_the_cubic(
     world: World, conn: psycopg.Connection, composition: dict[str, float]
 ) -> None:
-    found = {o: evaluate(world, conn, ("A", "B"), composition, o) for o in ("Z_vapor", "Z_liquid", "v_vapor", "v_liquid")}
+    found = {
+        o: evaluate(world, conn, ("A", "B"), composition, o)
+        for o in ("Z_vapor", "Z_liquid", "v_vapor", "v_liquid")
+    }
     want = [reference(T, P, composition) for T, P in POINTS]
     for output in found:
-        np.testing.assert_allclose(found[output], [w[output] for w in want], rtol=1e-9, err_msg=output)
+        np.testing.assert_allclose(
+            found[output], [w[output] for w in want], rtol=1e-9, err_msg=output
+        )
 
 
-def test_the_points_include_states_with_one_root_and_with_three(world: World, conn: psycopg.Connection) -> None:
+def test_the_points_include_states_with_one_root_and_with_three(
+    world: World, conn: psycopg.Connection
+) -> None:
     """The fixture exercises both cases of the block: where the cubic has one real root the two
     selections meet, where it has three they differ."""
     vapor = evaluate(world, conn, ("A", "B"), COMPOSITIONS[0], "Z_vapor")
@@ -391,7 +462,9 @@ def test_the_points_include_states_with_one_root_and_with_three(world: World, co
     assert np.all(liquid <= vapor)
 
 
-def test_the_translation_moves_the_volume_and_not_the_roots(world: World, conn: psycopg.Connection) -> None:
+def test_the_translation_moves_the_volume_and_not_the_roots(
+    world: World, conn: psycopg.Connection
+) -> None:
     composition = COMPOSITIONS[0]
     z = evaluate(world, conn, ("A", "B"), composition, "Z_vapor")
     v = evaluate(world, conn, ("A", "B"), composition, "v_vapor")
@@ -401,7 +474,9 @@ def test_the_translation_moves_the_volume_and_not_the_roots(world: World, conn: 
     assert abs(c) > 1e-7  # the translation is not negligible against the volumes
 
 
-def test_the_components_in_either_order_give_the_same_mixture(world: World, conn: psycopg.Connection) -> None:
+def test_the_components_in_either_order_give_the_same_mixture(
+    world: World, conn: psycopg.Connection
+) -> None:
     """The pair was asserted as (B, A): components as [A, B] read it in the other order, where the
     directed taus change places, and as [B, A] in the order asserted."""
     composition = COMPOSITIONS[0]
@@ -431,7 +506,9 @@ def test_without_the_exchange_of_the_directed_taus_the_attractive_parameter_diff
 # -- the stated default of the interaction exponent ---------------------------------------------
 
 
-def test_alpha_takes_the_default_the_selecting_policy_states(world: World, conn: psycopg.Connection) -> None:
+def test_alpha_takes_the_default_the_selecting_policy_states(
+    world: World, conn: psycopg.Connection
+) -> None:
     composition = COMPOSITIONS[0]
     default = evaluate(world, conn, ("A", "B"), composition, "a", "policy")
     other = evaluate(world, conn, ("A", "B"), composition, "a", "policy_other")
@@ -455,7 +532,10 @@ def test_a_policy_that_ranks_a_parameterisation_with_a_set_at_its_default_and_st
     decl: Declaration, tmp_path: Path
 ) -> None:
     def emit(w: CanonicalWriter) -> None:
-        species = {n: w.kind("species", {"canonical_key": n, "label": n}, origins=at(f"s-{n}")) for n in "AB"}
+        species = {
+            n: w.kind("species", {"canonical_key": n, "label": n}, origins=at(f"s-{n}"))
+            for n in "AB"
+        }
         nrtl = parameterization(w, "nrtl")
         write_nrtl_pair(w, nrtl, species, "pair")
         write_policy(w, "silent", nrtl, None)
@@ -470,7 +550,9 @@ def test_a_policy_that_ranks_a_parameterisation_with_a_set_at_its_default_and_st
 
 def fresh(decl: Declaration) -> tuple[CanonicalWriter, dict[str, uuid.UUID], uuid.UUID]:
     w = writer(decl)
-    species = {n: w.kind("species", {"canonical_key": n, "label": n}, origins=at(f"s-{n}")) for n in "AB"}
+    species = {
+        n: w.kind("species", {"canonical_key": n, "label": n}, origins=at(f"s-{n}")) for n in "AB"
+    }
     p = w.kind(
         "parameterization",
         {"key": "p", "revision": "1", "title": "p", "coherence": "independent_records"},
@@ -486,7 +568,13 @@ def test_an_nrtl_pair_of_a_component_with_itself_is_refused(decl: Declaration) -
             parameterization=p,
             slot_group="nrtl_excess_gibbs.pair",
             subjects=[species["A"], species["A"]],
-            slots={"a12": 0.0, "a21": 0.0, "b12": Quantity(0.0, "K"), "b21": Quantity(0.0, "K"), "alpha": 0.3},
+            slots={
+                "a12": 0.0,
+                "a21": 0.0,
+                "b12": Quantity(0.0, "K"),
+                "b21": Quantity(0.0, "K"),
+                "alpha": 0.3,
+            },
             origins=at("diagonal"),
         )
 
@@ -498,17 +586,31 @@ def test_a_temperature_coefficient_in_the_wrong_dimension_is_refused(decl: Decla
             parameterization=p,
             slot_group="nrtl_excess_gibbs.pair",
             subjects=[species["A"], species["B"]],
-            slots={"a12": 0.0, "a21": 0.0, "b12": Quantity(1.0, "Pa"), "b21": Quantity(0.0, "K"), "alpha": 0.3},
+            slots={
+                "a12": 0.0,
+                "a21": 0.0,
+                "b12": Quantity(1.0, "Pa"),
+                "b21": Quantity(0.0, "K"),
+                "alpha": 0.3,
+            },
             origins=at("dimension"),
         )
 
 
-def test_a_component_with_no_translation_is_refused_naming_the_slot_group(world: World, conn: psycopg.Connection) -> None:
+def test_a_component_with_no_translation_is_refused_naming_the_slot_group(
+    world: World, conn: psycopg.Connection
+) -> None:
     """A missing set is not a zero: a mixture with a component the translation parameterisation
     has no set for is refused, although the core and the other parts have one."""
     stranger = uuid.uuid4()
     members = [str(world.ids["species_A"]), str(stranger)]
-    source = DatabaseSource(conn, world.decl, [world.ids["core"]], subforms=bindings(world, conn), policy=world.ids["policy"])
+    source = DatabaseSource(
+        conn,
+        world.decl,
+        [world.ids["core"]],
+        subforms=bindings(world, conn),
+        policy=world.ids["policy"],
+    )
     found = bind(world.decl, ROOT, source=source, sets={"components": members}, cache=CACHE)
     x = {m: np.array([0.5]) for m in members}
     with pytest.raises(EvaluationRefusal, match="peng_robinson_core.pure"):

@@ -109,7 +109,8 @@ impl PreparedBody {
                         Stage::Branch {
                             then, otherwise, ..
                         } => stages(then) + stages(otherwise),
-                        Stage::Domain { stages: local, .. } => stages(local),
+                        Stage::Domain { stages: local, .. }
+                        | Stage::Applicability { stages: local, .. } => stages(local),
                         Stage::Provider {
                             inputs,
                             outputs,
@@ -543,6 +544,15 @@ impl PreparedBody {
     reason = "Evaluator stages stay inline to avoid an allocation for each compiled stage"
 )]
 enum CompiledStage {
+    Applicability {
+        stages: Vec<Self>,
+        frame: Vec<f64>,
+        layout: JetLayout,
+        predicates: Vec<usize>,
+        inputs: Vec<usize>,
+        token: usize,
+        plan: Arc<pse_model::applicability::Node>,
+    },
     Domain {
         stages: Vec<Self>,
         frame: Vec<f64>,
@@ -653,6 +663,8 @@ impl CompiledBody {
 /// Atomic result, with raw derivatives in output-major row-major order.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Evaluation {
+    /// Evidence observed only on active demanded numerical paths.
+    pub applicability: Vec<pse_model::applicability::Observation>,
     /// Requested values.
     pub values: Vec<f64>,
     /// Output × coordinate first partials.
@@ -712,13 +724,22 @@ impl Worker {
             cancelled,
             max_result_bytes: self.body.limits.scratch_bytes,
         };
-        evaluate_stages(program, &mut self.frame, layout, providers, &context)?;
+        let mut applicability = Vec::new();
+        evaluate_stages(
+            program,
+            &mut self.frame,
+            layout,
+            providers,
+            &context,
+            &mut applicability,
+        )?;
         context.check().map_err(|cause| MathError::Provider {
             source_id: SemanticId::NIL,
             provider: SemanticId::NIL,
             cause,
         })?;
         let mut result = Evaluation {
+            applicability,
             values: Vec::with_capacity(self.body.outputs.len()),
             jacobian: vec![],
             hessians: vec![],
@@ -789,7 +810,7 @@ fn coordinate_reachability(
                 coordinate_reachability(otherwise, symbols, support)?;
             }
             // Predicate bodies only request values; they cannot contribute derivatives.
-            Stage::Domain { .. } | Stage::Require { .. } => {}
+            Stage::Domain { .. } | Stage::Applicability { .. } | Stage::Require { .. } => {}
         }
     }
     Ok(())
@@ -825,6 +846,39 @@ fn compile_stages(
             return Err(MathError::Cancelled);
         }
         result.push(match stage {
+            Stage::Applicability {
+                stages,
+                predicates,
+                inputs,
+                token,
+                plan,
+            } => {
+                let value_layout = JetLayout::new(vec![], DerivativeOrder::Value, limits)?;
+                allowance.entries = allowance
+                    .entries
+                    .checked_add(parameters.len())
+                    .ok_or(MathError::Limit("applicability scratch"))?;
+                limits.allocation(allowance.entries)?;
+                CompiledStage::Applicability {
+                    stages: compile_stages(
+                        stages,
+                        parameters,
+                        symbols,
+                        coordinate_support,
+                        &value_layout,
+                        options,
+                        limits,
+                        cancelled,
+                        allowance,
+                    )?,
+                    frame: vec![f64::NAN; parameters.len()],
+                    layout: value_layout,
+                    predicates: predicates.clone(),
+                    inputs: inputs.clone(),
+                    token: *token,
+                    plan: plan.clone(),
+                }
+            }
             Stage::Domain {
                 stages,
                 argument,
@@ -1083,6 +1137,7 @@ fn evaluate_stages(
     layout: &JetLayout,
     providers: &mut BTreeMap<ProviderKey, Box<dyn Provider>>,
     context: &EvaluationContext<'_>,
+    observations: &mut Vec<pse_model::applicability::Observation>,
 ) -> Result<(), MathError> {
     let width = layout.width();
     for stage in stages {
@@ -1090,6 +1145,43 @@ fn evaluate_stages(
             return Err(MathError::Cancelled);
         }
         match stage {
+            CompiledStage::Applicability {
+                stages,
+                frame: local,
+                layout: value_layout,
+                predicates,
+                inputs,
+                token,
+                plan,
+            } => {
+                for (slot, value) in local.iter_mut().enumerate() {
+                    *value = frame[slot * width];
+                }
+                evaluate_stages(
+                    stages,
+                    local,
+                    value_layout,
+                    providers,
+                    context,
+                    observations,
+                )?;
+                let predicates = predicates
+                    .iter()
+                    .map(|slot| local[*slot] > 0.)
+                    .collect::<Vec<_>>();
+                let inputs = inputs.iter().map(|slot| local[*slot]).collect::<Vec<_>>();
+                let mut assessment = plan.assess(&predicates, &inputs);
+                let offset = observations.len();
+                observations.append(&mut assessment.observations);
+                if !assessment.refused.is_empty() {
+                    assessment.observations = observations.clone();
+                    for index in &mut assessment.refused {
+                        *index += offset;
+                    }
+                    return Err(MathError::Applicability(Box::new(assessment)));
+                }
+                frame[*token * width..(*token + 1) * width].fill(0.);
+            }
             CompiledStage::Domain {
                 stages,
                 frame: local,
@@ -1101,7 +1193,14 @@ fn evaluate_stages(
                 for (slot, value) in local.iter_mut().enumerate() {
                     *value = frame[slot * width];
                 }
-                evaluate_stages(stages, local, value_layout, providers, context)?;
+                evaluate_stages(
+                    stages,
+                    local,
+                    value_layout,
+                    providers,
+                    context,
+                    observations,
+                )?;
                 if !Condition::Positive.permits(local[*argument]) {
                     return Err(MathError::Validity(Box::new(lineage.as_ref().clone())));
                 }
@@ -1189,6 +1288,7 @@ fn evaluate_stages(
                     layout,
                     providers,
                     context,
+                    observations,
                 )?;
             }
             CompiledStage::Provider {
@@ -1301,6 +1401,7 @@ fn has_obligations(stages: &[Stage]) -> bool {
                 | Stage::Branch { .. }
                 | Stage::Provider { .. }
                 | Stage::Domain { .. }
+                | Stage::Applicability { .. }
         )
     })
 }
@@ -1314,6 +1415,31 @@ fn prune(
     let mut result = vec![];
     for stage in stages.iter().rev() {
         match stage {
+            Stage::Applicability {
+                stages,
+                predicates,
+                inputs,
+                token,
+                plan,
+            } => {
+                if !needed.remove(token) && !all_effects {
+                    continue;
+                }
+                let mut local = predicates
+                    .iter()
+                    .chain(inputs)
+                    .copied()
+                    .collect::<BTreeSet<_>>();
+                let stages = prune(stages, &mut local, symbols, true);
+                needed.extend(local);
+                result.push(Stage::Applicability {
+                    stages,
+                    predicates: predicates.clone(),
+                    inputs: inputs.clone(),
+                    token: *token,
+                    plan: plan.clone(),
+                });
+            }
             Stage::Domain {
                 stages,
                 argument,
@@ -1460,6 +1586,32 @@ fn analyze(
 ) -> Result<(), MathError> {
     for stage in stages {
         match stage {
+            Stage::Applicability {
+                stages,
+                predicates,
+                inputs,
+                token,
+                ..
+            } => {
+                let mut local = facts.to_vec();
+                analyze(
+                    stages,
+                    parameters,
+                    symbols,
+                    &mut local,
+                    controls,
+                    &mut BTreeSet::new(),
+                    providers,
+                    obligations,
+                )?;
+                for slot in predicates.iter().chain(inputs) {
+                    controls.extend(&local[*slot].first);
+                }
+                facts[*token] = Fact {
+                    expression: Some(Atom::num(0)),
+                    ..Fact::default()
+                };
+            }
             Stage::Domain {
                 stages,
                 argument,

@@ -6,10 +6,13 @@
 @id("8cd3584c42a14e219cda86cdb19b9878") use provenance @"1.0.0";
 @id("e131b5cf18aa46208e09c3d1932ff4d9") use references @"1.0.0";
 @id("9b9c6ee81faf4e0e944e3501f4c0e0ee") use nrtl @"1.0.0";
+@id("789bd172d0904aada666b0ce10a08f38") use properties @"1.0.0";
+
 @id("f872c5a7ef514e3eaa961947b60c9363") entity provenance.release_artifact defaults {title="IDAES NRTL default off-diagonal tau=1 and alpha=0.3; pure-component diagonal tau=0",release=references.idaes_2_13,locator="idaes/models/properties/activity_coeff_models/tests/test_ideal_NRTL.py"}
-@id("19f8e5a44fff43b6b812bdef645cce75") set sources:Set<provenance.source>={defaults};
 @id("57c93a5c4be94120a64e82382a43aa32") set members:Set<chemistry.species>={chem.benzene,chem.toluene};
-@id("dd9a474a42de437b9b9e868ed5084693") dataset parameters:nrtl.parameters complete_over(s in sources,i in members,j in members) provenance(defaults,provenance.Role.oracle_input) from "data/nrtl_parameters.parquet";
+@id("94eab8b236ca415896ca2af398d4363f") entity properties.parameterization default_fit {title="IDAES NRTL default ordered tau/alpha bundles",source=defaults}
+@id("7e6d992023ce4c22b802f969f760ea17") dataset parameters:nrtl.parameters bind(parameterization=default_fit,family=nrtl.interaction_parameters,source=defaults,dependencies={},conventions={}) provenance(defaults,provenance.Role.oracle_input) from "data/nrtl_parameters.parquet";
+
 @id("1f07a7560f1442f7aefb1140d34b83e5") table observations[x:Scalar storage {1},j:chemistry.species by chemistry.cas]:LogActivityCoefficient storage {1} complete_over(x,j);
 @id("3f4301ed53a848c4b316a0b914474563") set compositions:Set<Scalar>={0.2,0.5,0.8};
 @id("6f1072ae1c3349cebc409753f8637c01") dataset activities:observations complete_over(x in compositions,j in members) provenance(defaults,provenance.Role.oracle_input) from "data/nrtl_activities.parquet";

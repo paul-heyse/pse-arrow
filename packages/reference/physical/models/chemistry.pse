@@ -14,25 +14,48 @@
 @id("01a0f00baca572638a494b03c02f0737") attribute atomic_number: Integer? unique;
 @id("01a0f00baca572638a494b04eaa8ca32") attribute standard_atomic_weight: MolarMass?;
 }
-// A species: its identifiers and charge are data; its molar mass is derived from its formula
-// and the standard atomic weights of its elements, and is absent without a formula.
+// Composition completeness is an authored claim, independent of charge and atomic weights.
+@id("19cd2fec49e253e4b3761cc1b2e314ee") enum CompositionKnowledge {@id("6d2ca616dab95ff4add51aec35a0bf1a") Unknown, @id("41d39567e88854dc9d60f89f1e2f1fb0") Complete}
+// Unknown catalog species remain legal. A Complete claim may contain no nonzero elements.
 @id("1c998211e5d74955863f377662f56526") entity kind species {
 @id("01a0f00baca572638a494b058360aedf") attribute cas: Id<cas>? unique;
 @id("01a0f00baca572638a494b06a4b56f4f") attribute inchikey: Id<inchikey>? unique;
-@id("01a0f00baca572638a494b079c5cc336") attribute charge: ChargeNumber = 0{1};
-@id("01a0f00baca572638a494b0850df2605") derived molar_mass: MolarMass? = if sum(e in element | formula[self, e]) > 0{1} then sum(e in element | if present(e.standard_atomic_weight) then formula[self, e] * e.standard_atomic_weight else 0{kg/mol}) else missing;
+@id("01a0f00baca572638a494b079c5cc336") attribute charge: ChargeNumber?;
+@id("c7ce3ef324de55fb9cd4f8c1b6be0824") attribute composition: CompositionKnowledge = CompositionKnowledge.Unknown;
+@id("01a0f00baca572638a494b0850df2605") derived molar_mass: MolarMass? = if composition == CompositionKnowledge.Complete and sum(e in element | if formula[self,e] != 0{1} and not present(e.standard_atomic_weight) then 1 else 0) == 0 then sum(e in element | if present(e.standard_atomic_weight) then formula[self,e] * e.standard_atomic_weight else 0{kg/mol}) else missing;
 }
-// The element counts of a species; each element a formula cites has a standard atomic weight.
-@id("01a0f00baca572638a494b09890ccbf4") table formula[j: species, e: element]: Count missing default 0{1} require present(e.standard_atomic_weight);
-// An apparent species dissociates into true species whose charges sum to its own.
+// Sparse supplied counts become conserved zeros only under the species Complete claim.
+@id("01a0f00baca572638a494b09890ccbf4") table formula[j: species, e: element]: Count missing default 0{1} require value >= 0{1};
+@id("c5559cf4e6045ac7b31cce89c72a2589") fn element_count(j:species,e:element)->Count valid(j.composition == CompositionKnowledge.Complete)=formula[j,e];
+@id("374ce7d657c0599eba0d9d70f3f7399b") fn charge_of(j:species)->ChargeNumber valid(present(j.charge))=if present(j.charge) then j.charge else 0{1};
+// Apparent and lumped descriptions explicitly claim the conserved true-species mapping.
 @id("01a0f00baca572638a494b0a43b4cfc4") entity kind apparent extends species {
-@id("01a0f00baca572638a494b0bc8fbc911") require sum(j in species | dissociation[self, j] * j.charge) == charge : "an apparent species is electroneutral: its dissociation products' charges sum to its own charge";
+@id("01a0f00baca572638a494b0bc8fbc911") require composition == CompositionKnowledge.Complete and sum(j in species where dissociation[self,j] != 0{1} | if j.composition == CompositionKnowledge.Complete then 0 else 1) == 0 : "IncompleteComposition: an apparent mapping requires complete participant composition";
+@id("7d5a0f505d3c5f20b96f3f0816c46751") require present(charge) and sum(j in species where dissociation[self,j] != 0{1} | if present(j.charge) then 0 else 1)==0 : "IncompleteCharge: a conserved mapping requires explicit participant charge evidence";
+@id("0204550929b6584382a39bc4a00239a4") require sum(e in element | abs(sum(j in species | dissociation[self,j]*formula[j,e])-formula[self,e])) == 0{1} : "an apparent mapping conserves every element";
+@id("19cd88666553588cbaeb24d00d7484ce") require sum(j in species | dissociation[self,j]*(if present(j.charge) then j.charge else 0{1})) == (if present(charge) then charge else 0{1}) : "an apparent species is electroneutral: its dissociation products' charges sum to its own charge";
 }
-@id("01a0f00baca572638a494b0c5a84b230") table dissociation[a: apparent, j: species]: Count missing default 0{1};
-// A reaction conserves every element and charge over its stoichiometry.
+@id("01a0f00baca572638a494b0c5a84b230") table dissociation[a: apparent, j: species]: Count missing default 0{1} require value >= 0{1};
+@id("3a0e77c48e5b563a880dc2ab96a310e0") entity kind lumped extends species {
+@id("e97f0933fcbc520b8c8af8d89a5ae9ee") require composition == CompositionKnowledge.Complete and sum(j in species where lumping[self,j] != 0{1} | if j.composition == CompositionKnowledge.Complete then 0 else 1) == 0 : "IncompleteComposition: a lumped mapping requires complete participant composition";
+@id("51322b24581758c786043c5c1e237c29") require present(charge) and sum(j in species where lumping[self,j] != 0{1} | if present(j.charge) then 0 else 1)==0 : "IncompleteCharge: a conserved mapping requires explicit participant charge evidence";
+@id("68c39c7af73252a5b29a8e967d6e151e") require sum(e in element | abs(sum(j in species | lumping[self,j]*formula[j,e])-formula[self,e])) == 0{1} : "a lumped mapping conserves every element";
+@id("949d8510a4f8551cb7b829a3e9591fac") require sum(j in species | lumping[self,j]*(if present(j.charge) then j.charge else 0{1})) == (if present(charge) then charge else 0{1}) : "a lumped mapping conserves charge";
+}
+@id("60119be0d2a850119e99fd7fa426c4e8") table lumping[l:lumped,j:species]:Count missing default 0{1} require value >= 0{1};
+// Coefficients are used exactly as authored; their scaling defines one extent.
+@id("0a07349067d25cf7bd9522aa3b2bf999") enum ExtentNormalization {@id("f0e3232bafaa5097bdfef5b7d2d3a325") AsAuthored}
+@id("fd56ee3f76115cd5927250c13d2aea5f") entity kind extent_convention {
+@id("02e9aefe08b4551191d2ef46f6fcf0e7") attribute normalization:ExtentNormalization;
+}
+// A reaction obtains complete evidence for every nonzero participant before conserving.
 @id("0d15cb60062d4ee79e10ae2aea8c397e") entity kind reaction {
+@id("3bb2ff8c44ce5b508d19f094e7c2c09f") attribute extent:extent_convention unique;
+@id("8f510f0543a45ce98fc347f2876a4e29") derived participants:Set<species>=fold(acc,value; j in species | if stoichiometry[self,j]!=0{1} then set_of(j) else set_of();union(acc,value));
+@id("9066ffbd8c2e5021985af0f6c35e1b2b") require sum(j in species where stoichiometry[self,j] != 0{1} | if j.composition == CompositionKnowledge.Complete then 0 else 1) == 0 : "IncompleteComposition: a reaction requires complete participant composition";
+@id("b28738e2629058a78763c9ea9596624b") require sum(j in species where stoichiometry[self,j] != 0{1} | if present(j.charge) then 0 else 1)==0 : "IncompleteCharge: a reaction requires explicit participant charge evidence";
 @id("01a0f00baca572638a494b0dad768f4e") require sum(e in element | abs(sum(j in species | stoichiometry[self, j] * formula[j, e]))) == 0{1} : "a reaction conserves every element";
-@id("01a0f00baca572638a494b0eec9e5b89") require sum(j in species | stoichiometry[self, j] * j.charge) == 0{1} : "a reaction conserves charge";
+@id("01a0f00baca572638a494b0eec9e5b89") require sum(j in species | stoichiometry[self,j]*(if present(j.charge) then j.charge else 0{1})) == 0{1} : "a reaction conserves charge";
 }
 @id("01a0f00baca572638a494b0f90fda40f") table stoichiometry[r: reaction, j: species]: ReactionStoichiometry missing default 0{1};
 // A phase and its type; a phase's behaviour is read from its type, never from its identity.

@@ -13,8 +13,8 @@ from pathlib import Path
 
 import msgspec
 import pytest
-from mapping_support import FAKE_MAPPINGS, fake_environment, real_declaration, rows
 
+from mapping_support import FAKE_MAPPINGS, fake_environment, real_declaration, rows
 from thermo_knowledge.canonical.environment import Environment
 from thermo_knowledge.mapping import coverage, runner
 from thermo_knowledge.mapping.runner import MapError
@@ -68,8 +68,8 @@ def test_a_mapping_that_stops_emitting_a_declared_target_is_refused_naming_the_r
     directory = mapping_copy(tmp_path)
     source = (directory / "mapping.py").read_text()
     stopped = source.replace(
-        "            for alias in row[\"aliases\"] or []:  # type: ignore[attr-defined]\n"
-        "                emit.assertion(entity, \"aliases\", alias)\n",
+        '            for alias in row["aliases"] or []:  # type: ignore[attr-defined]\n'
+        '                emit.assertion(entity, "aliases", alias)\n',
         "",
     )
     assert stopped != source

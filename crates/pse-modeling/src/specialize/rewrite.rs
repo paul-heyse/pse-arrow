@@ -158,6 +158,7 @@ impl Engine<'_, '_> {
                     limit: self.limits.members,
                     stack: Vec::new(),
                     reader: self.reader,
+                    selections: Some(&self.selection_collector),
                 }
                 .expr(e, None, 0)
             })
@@ -391,6 +392,7 @@ impl Engine<'_, '_> {
                             limit: self.limits.members,
                             stack: Vec::new(),
                             reader: self.reader,
+                            selections: Some(&self.selection_collector),
                         })
                         .predicate(filter)?
                     {
@@ -425,6 +427,8 @@ impl Engine<'_, '_> {
                         .functions
                         .entry(name.clone())
                         .or_insert(crate::Function {
+                            applicability: Vec::new(),
+                            applicability_uses: Vec::new(),
                             physical_admissions: BTreeMap::new(),
                             physical_operation: None,
                             reduction: Some(crate::FiniteReduction {
@@ -559,6 +563,7 @@ impl Engine<'_, '_> {
                     limit: self.limits.members,
                     stack: Vec::new(),
                     reader: self.reader,
+                    selections: Some(&self.selection_collector),
                 }
                 .predicate(guard);
                 if let Ok(selected) = static_guard {
@@ -665,6 +670,7 @@ impl Engine<'_, '_> {
                     limit: self.limits.members,
                     stack: Vec::new(),
                     reader: self.reader,
+                    selections: Some(&self.selection_collector),
                 }
                 .predicate(guard)?;
                 return self.rewrite_equation(
@@ -702,6 +708,7 @@ impl Engine<'_, '_> {
             limit: self.limits.members,
             stack: Vec::new(),
             reader: self.reader,
+            selections: Some(&self.selection_collector),
         })
         .predicate(p)
         {
@@ -728,6 +735,7 @@ impl Engine<'_, '_> {
                         limit: self.limits.members,
                         stack: Vec::new(),
                         reader: self.reader,
+                        selections: Some(&self.selection_collector),
                     })
                     .predicate(p)
                     .map(|value| Predicate {

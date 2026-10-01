@@ -58,7 +58,9 @@ def entries(canonical: Path, carriers: tuple[str, ...]) -> list[Entry]:
     found: list[Entry] = []
     for carrier in carriers:
         directory = canonical / carrier / claims.IDENTITY_DIR
-        assertions: dict[tuple[str, str], dict[str, list[str]]] = defaultdict(lambda: defaultdict(list))
+        assertions: dict[tuple[str, str], dict[str, list[str]]] = defaultdict(
+            lambda: defaultdict(list)
+        )
         for claim in claims.read_assertion_claims(directory):
             assertions[(claim.scope, claim.local_key)][claim.column].append(claim.value)
             if claim.scheme == "formula":

@@ -20,10 +20,9 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 from thermo_knowledge.mapping import claims
-from thermo_knowledge.mapping.spec import Partition, Scalar, TableRule
+from thermo_knowledge.mapping.spec import Partition, TableRule
 from thermo_knowledge.staging.manifest import StagedManifest
 from thermo_knowledge.staging.schema import ARTIFACT, LOCATOR
-
 
 ELEMENT = re.compile(r"(.+)\[(\d+)\]")
 
@@ -175,7 +174,9 @@ class Classifier:
             columns = sorted(column for column in wanted if "." not in column)
             joins = sorted({column.partition(".")[0] for column in wanted if "." in column})
             related = {name: self._joined(table, rule, name) for name in joins}
-            for row in self._tables.rows(table, columns + [c for n in joins for c in rule.joins[n].on]):
+            for row in self._tables.rows(
+                table, columns + [c for n in joins for c in rule.joins[n].on]
+            ):
                 values = dict(row.values)
                 for name in joins:
                     values.update(related[name](row))

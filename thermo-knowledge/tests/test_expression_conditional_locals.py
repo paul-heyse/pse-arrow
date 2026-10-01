@@ -14,8 +14,8 @@ import time
 import numpy as np
 import pytest
 import sympy
-from expression_support import scenario
 
+from expression_support import scenario
 from thermo_knowledge.expression.evaluate import bind
 from thermo_knowledge.expression.lowering import lower_relation, substitute
 from thermo_knowledge.expression.parameters import InMemorySource
@@ -33,7 +33,13 @@ def small_grid() -> tuple[np.ndarray, np.ndarray]:
     either side of the temperature limits, and the boundary pressure itself."""
     temperatures = [300.0, 499.9, 500.0, float(np.nextafter(500.0, 1e9)), 700.0]
     temperatures += [899.9, 900.0, float(np.nextafter(900.0, 1e9)), 1200.0]
-    pressures = [1.0e6, float(np.nextafter(2.0e6, 0.0)), 2.0e6, float(np.nextafter(2.0e6, 1e9)), 3.0e6]
+    pressures = [
+        1.0e6,
+        float(np.nextafter(2.0e6, 0.0)),
+        2.0e6,
+        float(np.nextafter(2.0e6, 1e9)),
+        3.0e6,
+    ]
     T, p = np.meshgrid(temperatures, pressures)
     return T.ravel(), p.ravel()
 
@@ -65,7 +71,9 @@ def test_a_conditional_local_tested_by_another_conditional_gives_the_flattened_v
 
 
 def test_the_branches_are_chosen_on_both_sides_of_every_boundary() -> None:
-    T = np.array([499.9, 500.0, float(np.nextafter(500.0, 1e9)), 900.0, float(np.nextafter(900.0, 1e9))])
+    T = np.array(
+        [499.9, 500.0, float(np.nextafter(500.0, 1e9)), 900.0, float(np.nextafter(900.0, 1e9))]
+    )
     p = np.full(T.shape, 1.0e6)
     assert small("nested_local").evaluate("region", T=T, p=p).tolist() == [1.0, 1.0, 2.0, 2.0, 5.0]
     T = np.full(3, 700.0)
@@ -88,7 +96,18 @@ REGIONAL = dict(T_13=623.15, T_23=863.15, T_25=1073.15, p_b=1.0e6)
 SATURATION = {
     f"n{k}": n
     for k, n in enumerate(
-        [1096.63, 188677.0, 10.736, -9157.73, -4623823.0, 18.782, -2022.39, 577807.0, -0.27024, 732.31],
+        [
+            1096.63,
+            188677.0,
+            10.736,
+            -9157.73,
+            -4623823.0,
+            18.782,
+            -2022.39,
+            577807.0,
+            -0.27024,
+            732.31,
+        ],
         start=1,
     )
 }

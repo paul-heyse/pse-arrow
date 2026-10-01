@@ -201,7 +201,9 @@ def validate(case: Case, decl: m.Declaration) -> list[str]:
             f"`{spec.output}` is not an output of contract `{contract.name}` "
             f"({', '.join(o.name for o in contract.outputs)})"
         )
-    if spec.basis not in {member.name for member in decl.enums[pc.COMPARISON_BASIS.declared].members}:
+    if spec.basis not in {
+        member.name for member in decl.enums[pc.COMPARISON_BASIS.declared].members
+    }:
         problems.append(f"`{spec.basis}` is not a comparison basis")
     if contract.sets:
         problems.append(

@@ -16,8 +16,8 @@ from pathlib import Path
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
-from tabular_reader_support import Staged, lines, stage
 
+from tabular_reader_support import Staged, lines, stage
 from thermo_knowledge import config
 from thermo_knowledge.acquire import store
 from thermo_knowledge.acquire.lock import read_lock
@@ -68,7 +68,9 @@ def test_every_table_is_declared_with_documented_typed_columns() -> None:
     assert thermo.TABLES["ddbst_unifac_assignments"].field("PSRK_flag").type == pa.int64()
     assert thermo.TABLES["unifac_subgroups"].field("hydrogen_from_smarts").type == pa.bool_()
     assert meta("correlation_leaves", "A")["source_name"] == "A"
-    assert meta("correlation_leaves", "a")["source_name"] == "a"  # the two spellings are two columns
+    assert (
+        meta("correlation_leaves", "a")["source_name"] == "a"
+    )  # the two spellings are two columns
     assert "law_echa_tonnage_bands" not in thermo.TABLES  # the manifest includes no .zip
 
 
@@ -92,13 +94,23 @@ def test_pair_files_keep_the_key_the_metadata_and_the_parameters(tmp_path: Path)
     assert pair["name"] == "Gas/Liquid" and pair["F"] == 5.0
     assert pair["_locator"] == f"{HENRY}#/data/1-1-1 2-2-2"
     (files,) = staged.rows("parameter_files")
-    assert files["type"] == "henry" and files["T_dependent"] is True and files["P_dependent"] is False
+    assert (
+        files["type"] == "henry" and files["T_dependent"] is True and files["P_dependent"] is False
+    )
     assert files["necessary_keys"] == list("ABCDEF") and files["symmetric"] is False
     assert json.loads(files["missing"]) == {k: 0.0 for k in "ABCDEF"}
 
 
 def test_null_parameters_stay_null_and_lists_stay_lists(tmp_path: Path) -> None:
-    body = {"Tmin": None, "P": None, "Pmin": 1.0, "kij": -0.5, "T": None, "page": ["p242"], "Pmax": 2}
+    body = {
+        "Tmin": None,
+        "P": None,
+        "Pmin": 1.0,
+        "kij": -0.5,
+        "T": None,
+        "page": ["p242"],
+        "Pmax": 2,
+    }
     metadata = {"symmetric": True, "source": "s", "components": 2, "necessary keys": ["kij"]}
     document = json.dumps({"metadata": metadata, "data": {"1-1-1 2-2-2": body}})
     (row,) = run(tmp_path, {PR: document}).rows("pr_kij_pairs")
@@ -212,12 +224,20 @@ def test_flat_arrays_nested_arrays_and_tabular_leaves(tmp_path: Path) -> None:
         "1-1-1 2-2-2": {"SurfaceTensionMixture": {"redlick_kister_parameters": {"fit 2023": {
             "coeffs": [[1.0, 2.0], [3.0, 4.0]], "N_T": 2, "N_terms": 2}}}}
     }  # fmt: skip
-    ho = {"7440-37-1": {"ThermalConductivitySolid": {"tabular_data": {"Ho (1972)": [[8.0, 9.0], [6.0, 4.6]]}}}}
+    ho = {
+        "7440-37-1": {
+            "ThermalConductivitySolid": {"tabular_data": {"Ho (1972)": [[8.0, 9.0], [6.0, 4.6]]}}
+        }
+    }
     flat = {"1-1-1": {"HeatCapacityGas": {"stable_polynomial_parameters": {"HEOS_FIT": {
         "Tmax": 6000.0, "Tmin": 0.0, "coeffs": [1.0, 2.0, 3.0], "int_T_coeffs": [4.0], "int_T_log_coeff": 5.0}}}}}  # fmt: skip
     staged = run(
         tmp_path,
-        {MIXTURE: json.dumps(mixture), HO: json.dumps(ho), "thermo/Misc/janaf_correlations.json": json.dumps(flat)},
+        {
+            MIXTURE: json.dumps(mixture),
+            HO: json.dumps(ho),
+            "thermo/Misc/janaf_correlations.json": json.dumps(flat),
+        },
     )
     series = staged.rows("correlation_series")
     assert [(r["key"], r["field"], r["series_index"], r["values"]) for r in series] == [
@@ -283,7 +303,9 @@ def test_ddbst_assignments_keep_cells_and_split_pairs(tmp_path: Path) -> None:
     staged = run(tmp_path, {path: content})
     first, second = staged.rows("ddbst_unifac_assignments")
     assert (first["UNIFAC_flag"], first["modified_flag"], first["PSRK_flag"]) == (0, 1, 1)
-    assert first["UNIFAC_cell"] == "2 3 3 1 " and first["PSRK_cell"] == "-1 1 "  # verbatim, trailing space
+    assert (
+        first["UNIFAC_cell"] == "2 3 3 1 " and first["PSRK_cell"] == "-1 1 "
+    )  # verbatim, trailing space
     pairs = [
         (p["InChIKey"][:1], p["scheme"], p["pair_index"], p["subgroup_id"], p["count"])
         for p in staged.rows("ddbst_unifac_assignment_pairs")
@@ -327,7 +349,9 @@ def test_unifac_source_constructs_are_read_without_being_evaluated(tmp_path: Pat
     assert (first["R"], first["Q"]) == (0.9, 0.85)
     assert first["smarts"] == ["[CX4;H3]"] and first["smarts_expr"] == '"[CX4;H3]"'
     assert json.loads(first["atoms_json"]) == {"C": 1, "H": 3} and first["bonds_expr"] is None
-    assert second["Q"] == 0.0 and second["priority"] == 1000 and second["hydrogen_from_smarts"] is True
+    assert (
+        second["Q"] == 0.0 and second["priority"] == 1000 and second["hydrogen_from_smarts"] is True
+    )
     assert second["atoms_expr"] == "UFSG[1].atoms" and second["atoms_json"] is None  # a reference
     assert second["bonds_expr"] == "{DOUBLE_BOND: 1}" and second["smarts"] == ["[a]", "[b]"]
     assert second["_locator"] == "thermo/unifac.py#L6"
@@ -347,7 +371,7 @@ def test_unifac_source_refuses_what_it_cannot_declare(tmp_path: Path) -> None:
     bad_key = _UNIFAC_PY.replace("UFSG[2] = UNIFAC", "UFSG[3] = UNIFAC")
     with pytest.raises(StagingError, match=r"the key of UFSG\[\.\.\] differs from group_id"):
         run(tmp_path / "a", {path: bad_key})
-    unknown = _UNIFAC_PY + 'NEWSG = {}\nNEWSG[1] = 1\n'
+    unknown = _UNIFAC_PY + "NEWSG = {}\nNEWSG[1] = 1\n"
     with pytest.raises(StagingError, match=r"NEWSG\[\.\.\] looks like a group table"):
         run(tmp_path / "b", {path: unknown})
     extra = _UNIFAC_PY.replace("priority=1000", "priority=1000, colour=3")
@@ -450,9 +474,15 @@ def test_row_counts_match_independent_counts(manifest: staged_manifest.StagedMan
     for family in thermo.interaction.FAMILIES:
         expected = sum(len(raw_json(path)["data"]) for path in family.files)
         assert tables[family.table].rows == expected, family.table
-    assert tables["parameter_files"].rows == sum(
-        "metadata" in raw_json(path) for family in thermo.interaction.FAMILIES for path in family.files
-    ) == 16
+    assert (
+        tables["parameter_files"].rows
+        == sum(
+            "metadata" in raw_json(path)
+            for family in thermo.interaction.FAMILIES
+            for path in family.files
+        )
+        == 16
+    )
     # the survey's counts
     assert tables["henry_pairs"].rows == 41 + 4407 + 953 + 20138
     assert tables["eppr78_kij_pairs"].rows == 87990
@@ -460,14 +490,24 @@ def test_row_counts_match_independent_counts(manifest: staged_manifest.StagedMan
     cas = re.compile(r"^\d+-\d\d-\d\s")
     for path in thermo.ipd.FILES:
         assert sum(bool(cas.match(line)) for line in raw_text(path).split("\r\n")) > 0
-    assert tables["ipd_rows"].rows == sum(
-        bool(cas.match(line)) for path in thermo.ipd.FILES for line in raw_text(path).split("\r\n")
-    ) == 530
+    assert (
+        tables["ipd_rows"].rows
+        == sum(
+            bool(cas.match(line))
+            for path in thermo.ipd.FILES
+            for line in raw_text(path).split("\r\n")
+        )
+        == 530
+    )
     # the UNIFAC tables
-    assert tables["unifac_interaction_parameters"].rows == sum(
-        physical_lines(path) for path in thermo.unifac.INTERACTION_FILES
-    ) == 17689
-    assert tables["ddbst_unifac_assignments"].rows == physical_lines(thermo.unifac.DDBST_FILE) == 31778
+    assert (
+        tables["unifac_interaction_parameters"].rows
+        == sum(physical_lines(path) for path in thermo.unifac.INTERACTION_FILES)
+        == 17689
+    )
+    assert (
+        tables["ddbst_unifac_assignments"].rows == physical_lines(thermo.unifac.DDBST_FILE) == 31778
+    )
     # law and Bell
     for spec in thermo.DELIMITED:
         expected = sum(
@@ -478,7 +518,9 @@ def test_row_counts_match_independent_counts(manifest: staged_manifest.StagedMan
 
 
 @needs_store
-def test_correlation_counts_match_a_nested_traversal(manifest: staged_manifest.StagedManifest) -> None:
+def test_correlation_counts_match_a_nested_traversal(
+    manifest: staged_manifest.StagedManifest,
+) -> None:
     leaves = 0
     series = 0
     for name in thermo.correlations.FILES:
@@ -489,8 +531,10 @@ def test_correlation_counts_match_a_nested_traversal(manifest: staged_manifest.S
                         leaves += 1
                         if isinstance(leaf, list):
                             series += len(leaf)
-                        elif isinstance(leaf.get("coeffs"), list) and leaf["coeffs"] and isinstance(
-                            leaf["coeffs"][0], list
+                        elif (
+                            isinstance(leaf.get("coeffs"), list)
+                            and leaf["coeffs"]
+                            and isinstance(leaf["coeffs"][0], list)
                         ):
                             series += len(leaf["coeffs"])
     assert manifest.tables["correlation_leaves"].rows == leaves == 4764  # 4018 + 745 + 1
@@ -527,7 +571,10 @@ def test_unifac_source_counts_match_a_regex_scan(manifest: staged_manifest.Stage
         ("pr_kij_pairs", "thermo/Interaction Parameters/ChemSep/pr.json"),
         ("eppr78_kij_pairs", "thermo/Interaction Parameters/eppr78_common.json"),
         ("scalar_pr_twu_ibell_2018", "thermo/Scalar Parameters/PRTwu_ibell_2018.json"),
-        ("scalar_chemsep_regular_solution", "thermo/Scalar Parameters/chemsep_regular_solution.json"),
+        (
+            "scalar_chemsep_regular_solution",
+            "thermo/Scalar Parameters/chemsep_regular_solution.json",
+        ),
     ],
 )
 def test_parameter_tables_rebuild_the_data_objects(staged: Path, family: str, file: str) -> None:
@@ -570,7 +617,11 @@ def test_correlations_rebuild_every_source_document(staged: Path) -> None:
     rebuilt: dict[str, dict] = {}
     for row in leaves:
         leaf: dict = {}
-        for name in (*thermo.correlations._SCALARS, *thermo.correlations._INTEGERS, *thermo.correlations._ARRAYS):
+        for name in (
+            *thermo.correlations._SCALARS,
+            *thermo.correlations._INTEGERS,
+            *thermo.correlations._ARRAYS,
+        ):
             if row[name] is not None:
                 leaf[name] = row[name]
         rebuilt.setdefault(row["_artifact"], {}).setdefault(row["key"], {}).setdefault(
@@ -601,7 +652,9 @@ def test_ipd_rows_reproduce_the_file_lines(staged: Path) -> None:
             assert (row["ID1"], row["ID2"]) == (tokens[0], tokens[1])
             assert row["values"] == [float(t) for t in tokens[2 : 2 + len(row["values"])]]
             tail = source[number - 1].split(None, 2 + len(row["values"]))
-            assert row["remainder"] == (tail[2 + len(row["values"])] if len(tail) > 2 + len(row["values"]) else None)
+            assert row["remainder"] == (
+                tail[2 + len(row["values"])] if len(tail) > 2 + len(row["values"]) else None
+            )
     files = {r["_artifact"]: r for r in table(staged, "ipd_files").to_pylist()}
     nrtl = files["thermo/Interaction Parameters/ChemSep/nrtl.ipd"]
     assert nrtl["Units"] == "cal/mol" and nrtl["value_names"] == ["A12", "A21", "alpha12"]
@@ -613,7 +666,9 @@ def test_ipd_rows_reproduce_the_file_lines(staged: Path) -> None:
 def test_interaction_tables_reproduce_the_source_cells(staged: Path) -> None:
     rows = table(staged, "unifac_interaction_parameters").to_pylist()
     for artifact in thermo.unifac.INTERACTION_FILES:
-        reader = csv.reader(io.StringIO(raw_text(artifact), newline=""), delimiter="\t", quoting=csv.QUOTE_NONE)
+        reader = csv.reader(
+            io.StringIO(raw_text(artifact), newline=""), delimiter="\t", quoting=csv.QUOTE_NONE
+        )
         expected = list(reader)
         mine = [r for r in rows if r["_artifact"] == artifact]
         assert len(mine) == len(expected)
@@ -661,9 +716,15 @@ def test_unifac_source_rows_match_the_constructor_lines(staged: Path) -> None:
     referring = by_id[("DOUFSG", 1)]
     assert referring["atoms_expr"] == "UFSG[1].atoms" and referring["atoms_json"] is None
     groups = {
-        (r["set_name"], r["main_group_id"]): r for r in table(staged, "unifac_main_groups").to_pylist()
+        (r["set_name"], r["main_group_id"]): r
+        for r in table(staged, "unifac_main_groups").to_pylist()
     }
-    assert groups[("UFMG", 1)]["name"] == "CH2" and groups[("UFMG", 1)]["subgroup_ids"] == [1, 2, 3, 4]
+    assert groups[("UFMG", 1)]["name"] == "CH2" and groups[("UFMG", 1)]["subgroup_ids"] == [
+        1,
+        2,
+        3,
+        4,
+    ]
     assert groups[("NISTUFMG", 1)]["description"] == "Alkyl chains"
 
 

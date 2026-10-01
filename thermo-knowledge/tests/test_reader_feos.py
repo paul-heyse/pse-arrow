@@ -14,6 +14,7 @@ from pathlib import Path
 
 import pyarrow as pa
 import pytest
+
 from r3_reader_support import (
     field_metadata,
     run_reader,
@@ -21,7 +22,6 @@ from r3_reader_support import (
     staged_manifest_of,
     staged_table,
 )
-
 from thermo_knowledge import config
 from thermo_knowledge.acquire import store
 from thermo_knowledge.readers import feos
@@ -72,7 +72,13 @@ def test_pure_records_keep_identifier_blocks_sites_and_missing_fields(tmp_path: 
             {"nb": 2.0, "rc_ab": 0.5},
         ],
     }
-    methane = {"identifier": IDENT, "molarweight": 16.043, "m": 1.0, "sigma": 3.7, "epsilon_k": 150.0}
+    methane = {
+        "identifier": IDENT,
+        "molarweight": 16.043,
+        "m": 1.0,
+        "sigma": 3.7,
+        "epsilon_k": 150.0,
+    }
     run = run_reader(
         feos,
         tmp_path,
@@ -106,7 +112,13 @@ def test_pure_records_keep_identifier_blocks_sites_and_missing_fields(tmp_path: 
 
 
 def test_segment_and_binary_records_including_empty_ones(tmp_path: Path) -> None:
-    segment = {"identifier": "CH3", "molarweight": 15.0345, "m": 0.6, "sigma": 3.7, "epsilon_k": 229.9}
+    segment = {
+        "identifier": "CH3",
+        "molarweight": 15.0345,
+        "m": 0.6,
+        "sigma": 3.7,
+        "epsilon_k": 229.9,
+    }
     other = {"id1": dict(IDENT), "id2": {**IDENT, "name": "ethane"}}
     binary = [
         {**other, "k_ij": -0.02, "l_ij": 0.0},
@@ -197,17 +209,34 @@ def test_ideal_gas_group_and_smarts_files(tmp_path: Path) -> None:
                 [{"identifier": IDENT, "DIPPR107": [1, 2, 3, 4, 5]}]
             ),
             "parameters/ideal_gas/joback1987.json": dump(
-                [{"identifier": "CH3", "molarweight": 15.0, "a": 19.5, "b": -0.008, "c": 1e-4, "d": -1e-7, "e": 0.0}]
+                [
+                    {
+                        "identifier": "CH3",
+                        "molarweight": 15.0,
+                        "a": 19.5,
+                        "b": -0.008,
+                        "c": 1e-4,
+                        "d": -1e-7,
+                        "e": 0.0,
+                    }
+                ]
             ),
             "parameters/pcsaft/gc_substances.json": dump(
                 [
                     {"identifier": IDENT, "segments": ["CH3", "CH2", "CH3"]},
-                    {"identifier": {"cas": "3", "name": "ring"}, "segments": ["a", "b"], "bonds": [[0, 1], [1, 0]]},
+                    {
+                        "identifier": {"cas": "3", "name": "ring"},
+                        "segments": ["a", "b"],
+                        "bonds": [[0, 1], [1, 0]],
+                    },
                     {"identifier": {"cas": "4", "name": "chain"}, "segments": ["a"], "bonds": []},
                 ]
             ),
             "parameters/pcsaft/sauer2014_smarts.json": dump(
-                [{"group": "CH3", "smarts": "[CH3]"}, {"group": "CH2", "smarts": "[CX4H2]", "max": 3}]
+                [
+                    {"group": "CH3", "smarts": "[CH3]"},
+                    {"group": "CH2", "smarts": "[CX4H2]", "max": 3},
+                ]
             ),
         },
     )
@@ -240,17 +269,37 @@ def test_multiparameter_terms_keep_scalars_arrays_and_their_lengths(tmp_path: Pa
             {"a1": 1, "a2": 2.5, "type": "IdealGasHelmholtzLead"},
             {"a": 3, "type": "IdealGasHelmholtzLogTau"},
             {"n": [1.0, 2.0], "t": [0.5, 1], "type": "IdealGasHelmholtzPlanckEinstein"},
-            {"a1": 1.0, "a2": 2.0, "reference": "NBP", "_note": "free text", "type": "IdealGasHelmholtzEnthalpyEntropyOffset"},
+            {
+                "a1": 1.0,
+                "a2": 2.0,
+                "reference": "NBP",
+                "_note": "free text",
+                "type": "IdealGasHelmholtzEnthalpyEntropyOffset",
+            },
         ],
         "residual": [
-            {"d": [1, 2, 3], "l": [0, 0, 1], "n": [0.1, 0.2, 0.3], "t": [1, 2, 3.5], "type": "ResidualHelmholtzPower"},
-            {"A": [1.0], "B": [2.0], "C": [3], "D": [4], "a": [5.0], "b": [6.0], "beta": [7.0], "n": [8.0], "type": "ResidualHelmholtzNonAnalytic"},
+            {
+                "d": [1, 2, 3],
+                "l": [0, 0, 1],
+                "n": [0.1, 0.2, 0.3],
+                "t": [1, 2, 3.5],
+                "type": "ResidualHelmholtzPower",
+            },
+            {
+                "A": [1.0],
+                "B": [2.0],
+                "C": [3],
+                "D": [4],
+                "a": [5.0],
+                "b": [6.0],
+                "beta": [7.0],
+                "n": [8.0],
+                "type": "ResidualHelmholtzNonAnalytic",
+            },
             {"n": [], "t": [], "type": "ResidualHelmholtzPower"},
         ],
     }
-    run = run_reader(
-        feos, tmp_path, {"parameters/multiparameter/coolprop.json": dump([fluid])}
-    )
+    run = run_reader(feos, tmp_path, {"parameters/multiparameter/coolprop.json": dump([fluid])})
     (head,) = run.rows("multiparameter_fluids")
     assert head["identifier_name"] == "Demo" and head["identifier_cas"] is None
     assert (head["ideal_gas_term_count"], head["residual_term_count"]) == (4, 3)
@@ -269,7 +318,11 @@ def test_multiparameter_terms_keep_scalars_arrays_and_their_lengths(tmp_path: Pa
     assert json.loads(terms[6]["array_lengths"]) == {"n": 0, "t": 0}  # present and empty
     rows = run.rows("multiparameter_term_rows")
     power = [r for r in rows if r["section"] == "residual" and r["term_index"] == 0]
-    assert [(r["row_index"], r["d"], r["t"]) for r in power] == [(0, 1.0, 1.0), (1, 2.0, 2.0), (2, 3.0, 3.5)]
+    assert [(r["row_index"], r["d"], r["t"]) for r in power] == [
+        (0, 1.0, 1.0),
+        (1, 2.0, 2.0),
+        (2, 3.0, 3.5),
+    ]
     arrays_a = [r for r in rows if r["term_index"] == 1 and r["section"] == "residual"]
     assert arrays_a[0]["A"] == 1.0 and arrays_a[0]["a"] == 5.0  # A and a stay distinct columns
     assert not [r for r in rows if r["section"] == "residual" and r["term_index"] == 2]
@@ -279,16 +332,28 @@ def test_multiparameter_terms_keep_scalars_arrays_and_their_lengths(tmp_path: Pa
 @pytest.mark.parametrize(
     ("content", "message"),
     [
-        (dump([{"identifier": IDENT, "molarweight": 1.0, "model_record": {"m": 1}}]), r"demo\.json#/0: fields no column declares: model_record"),
+        (
+            dump([{"identifier": IDENT, "molarweight": 1.0, "model_record": {"m": 1}}]),
+            r"demo\.json#/0: fields no column declares: model_record",
+        ),
         (dump([{"identifier": IDENT, "m": None}]), r"demo\.json#/0/m: explicit null"),
         (dump([{"identifier": IDENT, "m": "one"}]), r"demo\.json#/0/m: expected a number"),
-        (dump([{"identifier": {**IDENT, "cpi": "x"}}]), r"demo\.json#/0/identifier: fields no column declares: cpi"),
+        (
+            dump([{"identifier": {**IDENT, "cpi": "x"}}]),
+            r"demo\.json#/0/identifier: fields no column declares: cpi",
+        ),
         (dump([{"molarweight": 1.0}]), r"demo\.json#/0: a record with neither identifier"),
         (dump([{"id1": IDENT, "id2": "CH3"}]), r"demo\.json#/0: id1 and id2 must both be"),
         (dump({"identifier": IDENT}), r"expected a JSON array at the top level"),
         ("[{", r"demo\.json: cannot be read as JSON"),
-        (dump([{"identifier": IDENT, "association_sites": [{"na": 1, "id": "A"}]}]), r"demo\.json#/0/association_sites/0: fields no column declares: id"),
-        (dump([{"identifier": IDENT, "permittivity_record": {"Unknown": {}}}]), r"unknown permittivity variant 'Unknown'"),
+        (
+            dump([{"identifier": IDENT, "association_sites": [{"na": 1, "id": "A"}]}]),
+            r"demo\.json#/0/association_sites/0: fields no column declares: id",
+        ),
+        (
+            dump([{"identifier": IDENT, "permittivity_record": {"Unknown": {}}}]),
+            r"unknown permittivity variant 'Unknown'",
+        ),
     ],
 )
 def test_malformed_records_are_refused_with_a_located_error(
@@ -305,7 +370,10 @@ def test_malformed_special_files_are_refused(tmp_path: Path) -> None:
             tmp_path,
             {"parameters/ideal_gas/poling2000.json": dump([{"identifier": IDENT, "other": [1.0]}])},
         )
-    with pytest.raises(StagingError, match=r"multiparameter/coolprop\.json#/0/residual/0: parallel arrays of different lengths"):
+    with pytest.raises(
+        StagingError,
+        match=r"multiparameter/coolprop\.json#/0/residual/0: parallel arrays of different lengths",
+    ):
         run_reader(
             feos,
             tmp_path / "second",
@@ -318,7 +386,9 @@ def test_malformed_special_files_are_refused(tmp_path: Path) -> None:
                             "tc": 1.0,
                             "rhoc": 1.0,
                             "ideal_gas": [],
-                            "residual": [{"n": [1.0, 2.0], "t": [1.0], "type": "ResidualHelmholtzPower"}],
+                            "residual": [
+                                {"n": [1.0, 2.0], "t": [1.0], "type": "ResidualHelmholtzPower"}
+                            ],
                         }
                     ]
                 )
@@ -398,7 +468,9 @@ def count_dicts_under(records: list, key: str) -> int:
 @real
 def test_payload_is_the_32_parameter_json_files(staged: Path) -> None:
     manifest = staged_manifest_of(staged)
-    assert {r.path for r in manifest.payload} == {p.relative_to(TREE).as_posix() for p in json_files()}
+    assert {r.path for r in manifest.payload} == {
+        p.relative_to(TREE).as_posix() for p in json_files()
+    }
     assert len(manifest.payload) == 32
     assert all(r.status == "read" for r in manifest.payload)
     assert set(manifest.tables) == set(feos.TABLES)
@@ -433,18 +505,26 @@ def test_record_counts_match_the_files(staged: Path) -> None:
     assert staged_table(staged, "segment_records").num_rows == segment
     assert staged_table(staged, "binary_records").num_rows == binary
     assert staged_table(staged, "binary_segment_records").num_rows == binary_segment
-    by_directory = Counter(staged_table(staged, "pure_records").column("model_directory").to_pylist())
+    by_directory = Counter(
+        staged_table(staged, "pure_records").column("model_directory").to_pylist()
+    )
     assert by_directory == {"pcsaft": 2146, "epcsaft": 17, "saftvrmie": 27, "saftvrqmie": 18}
 
 
 @real
 def test_other_counts_match_the_survey_and_the_files(staged: Path) -> None:
-    dippr = sum(len(load(TREE / f"parameters/ideal_gas/{n}.json")) for n in ("poling2000", "burkhardt2025"))
+    dippr = sum(
+        len(load(TREE / f"parameters/ideal_gas/{n}.json")) for n in ("poling2000", "burkhardt2025")
+    )
     assert dippr == 1470 == staged_table(staged, "dippr_records").num_rows
     assert staged_table(staged, "joback_groups").num_rows == 22
     chemicals = load(TREE / "parameters/pcsaft/gc_substances.json")
     assert staged_table(staged, "chemical_records").num_rows == len(chemicals) == 88
-    assert staged_table(staged, "chemical_record_bonds").num_rows == sum(len(c.get("bonds", [])) for c in chemicals) == 191
+    assert (
+        staged_table(staged, "chemical_record_bonds").num_rows
+        == sum(len(c.get("bonds", [])) for c in chemicals)
+        == 191
+    )
     smarts = load(TREE / "parameters/pcsaft/sauer2014_smarts.json")
     assert staged_table(staged, "smarts_records").num_rows == len(smarts) == 22
     assert sum("max" in s for s in smarts) == 13
@@ -462,9 +542,12 @@ def test_other_counts_match_the_survey_and_the_files(staged: Path) -> None:
     assert residual_types["ResidualHelmholtzPower"] == 122
     assert residual_types["ResidualHelmholtzGaussian"] == 66
     staged_types = Counter(
-        staged_table(staged, "multiparameter_terms").filter(
+        staged_table(staged, "multiparameter_terms")
+        .filter(
             pa.compute.equal(staged_table(staged, "multiparameter_terms")["section"], "residual")
-        ).column("type").to_pylist()
+        )
+        .column("type")
+        .to_pylist()
     )
     assert staged_types == residual_types
 
@@ -485,7 +568,12 @@ def test_site_and_permittivity_counts(staged: Path) -> None:
         (t.column("association_site_count").drop_null().length())
         for t in (
             staged_table(staged, name)
-            for name in ("pure_records", "segment_records", "binary_records", "binary_segment_records")
+            for name in (
+                "pure_records",
+                "segment_records",
+                "binary_records",
+                "binary_segment_records",
+            )
         )
     )
     held = load(TREE / "parameters/epcsaft/held2014_w_permittivity_added.json")
@@ -510,7 +598,9 @@ def test_round_trip_reproduces_every_record(staged: Path) -> None:
     sites: dict[tuple[str, str, int], list[dict]] = {}
     for site in staged_table(staged, "association_sites").to_pylist():
         key = (site["_artifact"], site["owner_table"], site["record_index"])
-        sites.setdefault(key, []).append(cells(site, ("na", "nb", "kappa_ab", "epsilon_k_ab", "rc_ab")))
+        sites.setdefault(key, []).append(
+            cells(site, ("na", "nb", "kappa_ab", "epsilon_k_ab", "rc_ab"))
+        )
     permit: dict[tuple[str, int], dict] = {}
     for row in staged_table(staged, "permittivity_records").to_pylist():
         permit[(row["_artifact"], row["record_index"])] = {"ExperimentalData": {"data": []}}
@@ -519,7 +609,19 @@ def test_round_trip_reproduces_every_record(staged: Path) -> None:
             [point["temperature"], point["permittivity"]]
         )
     ident = ("cas", "name", "iupac_name", "smiles", "inchi", "formula")
-    numbers = ("molarweight", "m", "sigma", "epsilon_k", "mu", "q", "z", "viscosity", "lr", "la", "fh")
+    numbers = (
+        "molarweight",
+        "m",
+        "sigma",
+        "epsilon_k",
+        "mu",
+        "q",
+        "z",
+        "viscosity",
+        "lr",
+        "la",
+        "fh",
+    )
 
     def block(row: dict, prefix: str) -> dict:
         return {k: row[f"{prefix}_{k}"] for k in ident if row[f"{prefix}_{k}"] is not None}
@@ -576,7 +678,9 @@ def test_round_trip_of_multiparameter_dippr_and_group_files(staged: Path) -> Non
     term_rows = staged_table(staged, "multiparameter_term_rows").to_pylist()
     array_rows: dict[tuple[int, str, int], list[dict]] = {}
     for row in term_rows:
-        array_rows.setdefault((row["record_index"], row["section"], row["term_index"]), []).append(row)
+        array_rows.setdefault((row["record_index"], row["section"], row["term_index"]), []).append(
+            row
+        )
     scalar_names = ("a", "a1", "a2", "T0", "Tc", "Tcrit", "R", "cp_over_R")
     for term in terms:
         source = fluids[term["record_index"]][term["section"]][term["term_index"]]
@@ -595,7 +699,7 @@ def test_round_trip_of_multiparameter_dippr_and_group_files(staged: Path) -> Non
         for name, length in lengths.items():
             rebuilt[name] = [r[name] for r in rows][:length]
             assert len(rebuilt[name]) == length
-        assert rebuilt == source, (term["_locator"])
+        assert rebuilt == source, term["_locator"]
         assert list(lengths) == [k for k, v in source.items() if isinstance(v, list)]
     heads = staged_table(staged, "multiparameter_fluids").to_pylist()
     for head, source in zip(heads, fluids, strict=True):
@@ -613,7 +717,9 @@ def test_round_trip_of_multiparameter_dippr_and_group_files(staged: Path) -> Non
     chemicals = load(TREE / "parameters/pcsaft/gc_substances.json")
     bonds: dict[int, list[list[int]]] = {}
     for bond in staged_table(staged, "chemical_record_bonds").to_pylist():
-        bonds.setdefault(bond["record_index"], []).append([bond["segment_index_1"], bond["segment_index_2"]])
+        bonds.setdefault(bond["record_index"], []).append(
+            [bond["segment_index_1"], bond["segment_index_2"]]
+        )
     for row in staged_table(staged, "chemical_records").to_pylist():
         source = chemicals[row["record_index"]]
         assert row["segments"] == source["segments"]
@@ -629,4 +735,8 @@ def test_round_trip_of_multiparameter_dippr_and_group_files(staged: Path) -> Non
     smarts = load(TREE / "parameters/pcsaft/sauer2014_smarts.json")
     for row in staged_table(staged, "smarts_records").to_pylist():
         source = smarts[row["record_index"]]
-        assert (row["group"], row["smarts"], row["max"]) == (source["group"], source["smarts"], source.get("max"))
+        assert (row["group"], row["smarts"], row["max"]) == (
+            source["group"],
+            source["smarts"],
+            source.get("max"),
+        )

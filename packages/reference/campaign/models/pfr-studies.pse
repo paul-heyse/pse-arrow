@@ -5,6 +5,7 @@
 @id("01a0ee447c1375339658c583d74cee22") use chemistry @"1.0.0";
 @id("01a0ee447c1375339658c584df29a97d") use chem @"1.0.0";
 @id("01a0ee447c1375339658c58548afbfa8") use reactors @"1.0.0";
+@id("d34f369b5f62509c88d8cc4168a7f1b8") use reaction_forms @"1.0.0";
 @id("01a0ee447c1375339658c5861091527d") use saponification @"1.0.0";
 @id("01a0ee447c1375339658c58736424d00") def SaponificationPFR(elements:Integer=20,radau:Boolean=false) {
 @id("01a0ee447c1375339658c588d969e920") child reactor:reactors.PFR=reactors.PFR(inlet_pkg=saponification.Saponification(defined_state=true),outlet_pkg=saponification.Saponification(defined_state=false),reaction_pkg=saponification.SaponificationReactions,elements=elements,use_radau=radau);
@@ -40,18 +41,21 @@
 // Refinement of the IDAES 2.13 test_pfr TestInitializers specification over 5, 10, 20
 // and 40 backward finite-difference elements.
 @id("01a0ee447c1375339658c5a4e1c11aa5") test pfr_order_backward oracle campaign_references.analytic_backward_difference_order fixture {dof 0; run steady; policy { derivatives cells(20000000); }} {
+@id("c43dcd2ae1c656eb9d974f20c90cd2de") permission kinetic_use families(reaction_forms.reaction_set) allow_unknown true allow_extrapolation false;
 @id("01a0ee447c1375339658c5a5868e2cdc") child root:OrderStudy=OrderStudy(radau=false,base=5,lower=0.85,upper=1.15);
 }
 // Refinement of the same specification over 1, 2, 4 and 8 three-point Radau elements.
 // Finer meshes reach the solver tolerance at 8 elements (6e-9 mol/m3 from the seed
 // pfr_radau SciPy reference) and exceed the opaque derivative-support bound at 20.
 @id("01a0ee447c1375339658c5a6de76089b") test pfr_order_radau oracle campaign_references.analytic_radau_order fixture {dof 0; run steady; policy { derivatives cells(20000000); }} {
+@id("3a3bb76099ba546f8d798492c2454e5f") permission kinetic_use families(reaction_forms.reaction_set) allow_unknown true allow_extrapolation false;
 @id("01a0ee447c1375339658c5a762738491") child root:OrderStudy=OrderStudy(radau=true,base=1,lower=4.4,upper=5.3);
 }
 // Conservation and heat of reaction follow TestSaponification.test_conservation; its
 // 1e-6 absolute molar and energy balances add a 1e-9 relative allowance on the
 // 5.6e4 mol/s and 2e7 W streams for this solve's original-space tolerance.
 @id("01a0eeb74d7e726e81ad8d65fb5e4d34") test pfr_initializers_oracle oracle campaign_references.idaes_test_pfr_initializers fixture {dof 0; run steady;} {
+@id("ea085e1c54a4551e92c5b8773bd278fc") permission kinetic_use families(reaction_forms.reaction_set) allow_unknown true allow_extrapolation false;
 @id("01a0eeb74d7e726e81ad8d66c516ac6e") child root:SaponificationPFR=SaponificationPFR(elements=20,radau=false);
 @id("01a0eeb74d7e726e81ad8d67ed1fa771") expect root.reactor.outlet_pressure==101325{Pa} tolerance 0.000000000001{Pa} relative 0.00001;
 @id("01a0eeb74d7e726e81ad8d6863ce208c") expect root.reactor.outlet_temperature==303.593{K} tolerance 0.000000000001{K} relative 0.00001;

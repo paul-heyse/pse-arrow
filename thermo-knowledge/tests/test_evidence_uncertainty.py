@@ -13,9 +13,9 @@ from pathlib import Path
 
 import psycopg
 import pytest
+
 from build_support import fingerprint, inputs_of, write_source
 from mapping_support import carrier, origin, real_declaration, writer
-
 from thermo_knowledge import config, identity
 from thermo_knowledge.build import build_database
 from thermo_knowledge.canonical.values import Quantity
@@ -69,9 +69,7 @@ class Evidence:
             at="a.json#/0",
         )
 
-    def assessment(
-        self, column: uuid.UUID, ordinal: int, kind: str, **extra: object
-    ) -> uuid.UUID:
+    def assessment(self, column: uuid.UUID, ordinal: int, kind: str, **extra: object) -> uuid.UUID:
         return self.w.kind(
             "uncertainty_assessment",
             {"column": column, "ordinal": ordinal, "kind": kind, **extra},
@@ -169,7 +167,12 @@ def test_a_value_with_a_standard_an_expanded_and_a_repeatability_uncertainty_loa
             (pytest.approx(2e3), pytest.approx(2e3)),
             (pytest.approx(500.0), pytest.approx(500.0)),
         ], "each magnitude takes the unit of the column's observable"
-        assert rows[1][2:6] == (2.0, 0.95, "the experimenters", "propagation of the standard uncertainties")
+        assert rows[1][2:6] == (
+            2.0,
+            0.95,
+            "the experimenters",
+            "propagation of the standard uncertainties",
+        )
         assert rows[0][2:4] == (None, None) and rows[2][4:6] == (None, None)
         assert all(r[8] is None and r[9] is None for r in rows)
         assert violations(database) == {}
@@ -196,7 +199,9 @@ def test_an_uncertainty_may_be_asymmetric(tmp_path: Path) -> None:
 def test_a_relative_uncertainty_states_relative_sides(tmp_path: Path) -> None:
     def fill(e: Evidence) -> None:
         e.datum(e.property, value=Quantity(1.5, "bar"))
-        e.uncertainty(e.assessment(e.property, 1, "relative"), relative_minus=0.01, relative_plus=0.02)
+        e.uncertainty(
+            e.assessment(e.property, 1, "relative"), relative_minus=0.01, relative_plus=0.02
+        )
 
     database = loaded(tmp_path, fill)
     try:
@@ -307,9 +312,15 @@ def test_a_column_presented_against_a_reference_state_carries_it(tmp_path: Path)
     def fill(e: Evidence) -> None:
         liquid = e.w.kind(
             "dataset_phase",
-            {"dataset": e.dataset, "ordinal": 1, "aggregation": next(
-                x.id for x in real_declaration().entities if x.kind == "aggregation" and x.name == "liquid"
-            )},
+            {
+                "dataset": e.dataset,
+                "ordinal": 1,
+                "aggregation": next(
+                    x.id
+                    for x in real_declaration().entities
+                    if x.kind == "aggregation" and x.name == "liquid"
+                ),
+            },
             at="a.json#/0",
         )
         e.column(

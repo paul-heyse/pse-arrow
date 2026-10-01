@@ -7,7 +7,7 @@ deciders: [paul-heyse]
 level: decision
 principles: [AP-02, AP-03, AP-04, AP-06, DP-01, DP-03, PS-01, PS-02, PS-03]
 blueprint: [§9.1, §9.3, §9.7, §9.9, §14.3]
-review: docs/design_review/reviews/design_review_plan25b-contracts_2026-09-30.md
+review: docs/design_review/reviews/design_review_codebase-domain-alignment-follow-up_2026-09-30.md#fu01
 evidence: Proposed
 supersedes: []
 superseded-by: null
@@ -41,9 +41,19 @@ Complete/unknown composition is declared explicitly; complete-empty is a complet
 
 Concrete reaction/material admission derives coefficients from the authoritative reaction, verifies every nonzero participant, permits inert extras and retains the explicit extent normalization. Selected kinetic and heat records carry that convention; independent bare callbacks cannot assert it or redefine the source matrix. Explicit conserved transformations may change species bases.
 
-Parameterization, scientific family, subjects, variant and provenance are distinct. A keyless common parameter carrier has separate complete keyed pure/phase-specific and ordered/symmetric pair shapes; no optional or tuple key extension is needed. Family means the declared parameter contract, not automatically the numerical form or publication. Existing symmetric relation canonicalization remains authoritative.
+Parameterization, scientific family, subjects, variant and provenance are distinct. A keyless common parameter carrier has separate complete keyed pure/phase-specific and ordered/symmetric pair shapes; no optional or tuple key extension is needed. Family means the declared parameter contract, not automatically the numerical form or publication. Existing symmetric relation canonicalization remains authoritative. Ordered key pairs preserve both orientations and independently declare whether self-pairs are excluded; diagonal exclusion does not imply transposition.
 
 Selection references records or an explicitly selected predictive rule per required pair. Stored zero, missing pair and predictive zero are different products. Dependencies close over the selected model/subjects; conflicting variants refuse. Atomic-fit membership is separate from derivation lineage and allows only declared subsystem projections. No unrelated publication-wide closure is required. Reaction parameter records join this identity convention.
+
+A bounded generic `selection_closure(roots, context, dependencies)` follows authored dependency
+callables once per reached identity. Admission retains roots, consuming context, reached record
+identities and edges as immutable products; specialization retains consumed products. Typed
+structural tuple/set construction and slot projection permit generic conflict checking without
+scientific-name dispatch. Dataset bindings may supply declared nonderived attributes as well as
+keys, preserving attached evidence without turning it into an identity key. Bindings cannot replace
+derived or kind-bound attributes. Reference-set cells carry plain and keyed references in one typed member list, and named set references resolve against their declared element type. Atomic-fit backlinks derive from the sole authored group membership. A finite structural `require_present` operation obtains a typed optional reference or refuses absence; no missing scientific record becomes a numeric default. Changed finite-function and dispatch-body frames retain selection
+products in preparation identity.
+
 
 ### Consequences
 

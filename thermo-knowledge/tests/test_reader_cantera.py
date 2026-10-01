@@ -228,7 +228,9 @@ def test_missing_markers_stay_distinct_from_zero_and_null(tmp_path: Path) -> Non
     composition = [
         r for r in rows(tables, "entry_parameters") if r["entry_locator"].endswith("/species/2")
     ]
-    assert [(r["block"], r["value_kind"]) for r in composition] == [("composition", "empty_mapping")]
+    assert [(r["block"], r["value_kind"]) for r in composition] == [
+        ("composition", "empty_mapping")
+    ]
 
 
 def test_phases_and_references(tmp_path: Path) -> None:
@@ -238,7 +240,15 @@ def test_phases_and_references(tmp_path: Path) -> None:
     assert surf["site_density"] is None and surf["site_density_text"] == "2.7e-09 mol/cm^2"
     assert surf["adjacent_phases"] == ["gas"]
     refs = [
-        (r["reference"], r["form"], r["position"], r["name"], r["section"], r["selection"], r["names"])
+        (
+            r["reference"],
+            r["form"],
+            r["position"],
+            r["name"],
+            r["section"],
+            r["selection"],
+            r["names"],
+        )
         for r in rows(tables, "phase_references")
     ]
     assert ("elements", "name", 1, "O", None, None, None) in refs
@@ -542,7 +552,12 @@ def test_reaction_and_phase_counts_against_line_patterns(staged: Path) -> None:
         if r["_artifact"].startswith(("data/example_data/", "test/"))
         and "reaction" not in r["section"]
     )
-    assert sections == {"collisions": 37, "surface": 8, "chebyshev-deprecated-rxns": 1, "plog-invalid-rxns": 1}
+    assert sections == {
+        "collisions": 37,
+        "surface": 8,
+        "chebyshev-deprecated-rxns": 1,
+        "plog-invalid-rxns": 1,
+    }
 
 
 @real
@@ -566,7 +581,9 @@ def test_species_thermo_counts_against_line_patterns(staged: Path) -> None:
     assert table(staged, "elements").num_rows == symbols == 90
     assert table(staged, "species_transport").num_rows == transports == 241
     # 3142 composition lines: 3140 species and 2 phases; ten species write an empty mapping
-    with_atoms = len(set(table(staged, "species_composition").column("species_locator").to_pylist()))
+    with_atoms = len(
+        set(table(staged, "species_composition").column("species_locator").to_pylist())
+    )
     assert compositions == 3142 and with_atoms == 3130
 
 
@@ -690,7 +707,11 @@ def test_coefficients_equal_the_numbers_written_in_the_file(staged: Path) -> Non
     (species,) = rows
     thermo_locator = species["_locator"] + "/thermo"
     pieces = sorted(
-        (p for p in table(staged, "thermo_pieces").to_pylist() if p["thermo_locator"] == thermo_locator),
+        (
+            p
+            for p in table(staged, "thermo_pieces").to_pylist()
+            if p["thermo_locator"] == thermo_locator
+        ),
         key=lambda p: p["piece_index"],
     )
     staged_numbers = [x for p in pieces for x in p["coefficients"]]
@@ -742,9 +763,7 @@ def rebuild(parameters: list[dict]) -> dict:
 )
 def test_reactions_round_trip_to_the_parsed_yaml(staged: Path, artifact: str) -> None:
     document, _ = yaml12.load(raw(TREE / artifact))
-    reactions = [
-        r for r in table(staged, "reactions").to_pylist() if r["_artifact"] == artifact
-    ]
+    reactions = [r for r in table(staged, "reactions").to_pylist() if r["_artifact"] == artifact]
     terms = collections.defaultdict(list)
     for term in table(staged, "reaction_terms").to_pylist():
         if term["_artifact"] == artifact:
@@ -760,10 +779,10 @@ def test_reactions_round_trip_to_the_parsed_yaml(staged: Path, artifact: str) ->
         assert row["equation"] == source["equation"]
         assert row["type"] == source.get("type")
         assert row["duplicate"] == source.get("duplicate")
-        mine = sorted(terms[row["_locator"]], key=lambda t: (t["side"] != "reactant", t["position"]))
-        staged_terms = [
-            (t["side"], t["role"], t["coefficient"], t["species"]) for t in mine
-        ]
+        mine = sorted(
+            terms[row["_locator"]], key=lambda t: (t["side"] != "reactant", t["position"])
+        )
+        staged_terms = [(t["side"], t["role"], t["coefficient"], t["species"]) for t in mine]
         assert staged_terms == written_terms(source["equation"])
         rebuilt = rebuild(params[row["_locator"]])
         expected = {

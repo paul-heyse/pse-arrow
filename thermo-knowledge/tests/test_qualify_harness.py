@@ -11,8 +11,8 @@ import math
 from pathlib import Path
 
 import pytest
-from qualify_support import FIXTURES
 
+from qualify_support import FIXTURES
 from thermo_knowledge import config
 from thermo_knowledge.qualify import harness
 from thermo_knowledge.qualify.harness import HarnessUnavailable, Request, SubjectRequest

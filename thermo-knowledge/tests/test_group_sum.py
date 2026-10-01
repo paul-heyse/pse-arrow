@@ -19,10 +19,10 @@ from dataclasses import dataclass
 import numpy as np
 import psycopg
 import pytest
+
 from build_support import fingerprint, inputs_of, write_source
 from mapping_support import carrier, origin
 from mechanisms_support import mechanism_declaration
-
 from thermo_knowledge import config, db, identity
 from thermo_knowledge.build import build_database
 from thermo_knowledge.canonical.writer import CanonicalWriter
@@ -113,7 +113,13 @@ def world(tmp_path_factory: pytest.TempPathFactory) -> Iterator[World]:
     decl = mechanism_declaration(tmp_path_factory.mktemp("group-declaration"))
     canonical = tmp_path_factory.mktemp("group-canonical")
     ids: dict[str, uuid.UUID] = {}
-    write_source(canonical, "src", lambda w: write_world(w, decl, ids), decl=decl, declaration=fingerprint(decl))
+    write_source(
+        canonical,
+        "src",
+        lambda w: write_world(w, decl, ids),
+        decl=decl,
+        declaration=fingerprint(decl),
+    )
     with TestDatabase() as database:
         build_database(database.url, decl, inputs_of(canonical))
         yield World(decl, database, ids)
@@ -130,7 +136,9 @@ def conn(world: World) -> Iterator[psycopg.Connection]:
         connection.close()
 
 
-def evaluate(world: World, conn: psycopg.Connection, molecule: str, order: list[str], output: str) -> float:
+def evaluate(
+    world: World, conn: psycopg.Connection, molecule: str, order: list[str], output: str
+) -> float:
     """r or q of `molecule`, the counts read from its assignment's `group_count` rows for the
     groups of the scheme taken in `order`."""
     counts = dict(
@@ -170,22 +178,30 @@ def test_r_and_q_are_the_sums_of_the_group_counts_times_the_group_parameters(
     assert evaluate(world, conn, molecule, order, "q") == pytest.approx(q, rel=1e-13)
 
 
-def test_ethanol_has_the_published_unifac_size_and_surface(world: World, conn: psycopg.Connection) -> None:
+def test_ethanol_has_the_published_unifac_size_and_surface(
+    world: World, conn: psycopg.Connection
+) -> None:
     assert evaluate(world, conn, "ethanol", list(GROUPS), "r") == pytest.approx(2.5755, abs=1e-12)
     assert evaluate(world, conn, "ethanol", list(GROUPS), "q") == pytest.approx(2.588, abs=1e-12)
 
 
-def test_the_sum_does_not_depend_on_the_order_of_the_groups(world: World, conn: psycopg.Connection) -> None:
+def test_the_sum_does_not_depend_on_the_order_of_the_groups(
+    world: World, conn: psycopg.Connection
+) -> None:
     reference = evaluate(world, conn, "propan-1-ol", list(GROUPS), "r")
     for order in (["14", "18", "2", "1"], ["2", "1", "14", "18"]):
-        assert evaluate(world, conn, "propan-1-ol", order, "r") == pytest.approx(reference, rel=1e-13)
+        assert evaluate(world, conn, "propan-1-ol", order, "r") == pytest.approx(
+            reference, rel=1e-13
+        )
 
 
-def test_a_group_that_is_absent_from_the_assignment_counts_zero(world: World, conn: psycopg.Connection) -> None:
+def test_a_group_that_is_absent_from_the_assignment_counts_zero(
+    world: World, conn: psycopg.Connection
+) -> None:
     """The counts of the assignment are a relation whose absence means zero: the group `CH3CO`
     has no row for ethanol and contributes nothing, although it is in the scheme's list."""
     rows = conn.execute(
-        "SELECT count(*) FROM tk.group_count WHERE assignment = %s AND \"group\" = %s",
+        'SELECT count(*) FROM tk.group_count WHERE assignment = %s AND "group" = %s',
         (world.ids["assignment_ethanol"], world.ids["group_18"]),
     ).fetchone()
     assert rows == (0,)

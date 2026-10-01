@@ -21,11 +21,11 @@ from pathlib import Path
 import numpy as np
 import psycopg
 import pytest
-from build_support import fingerprint, inputs_of, write_source
-from mapping_support import carrier, origin, writer
-from mechanisms_support import broken, entity_id, mechanism_declaration, replace
 
-from thermo_knowledge import db
+from build_support import fingerprint, inputs_of, write_source
+from mapping_support import origin, writer
+from mechanisms_support import broken, entity_id, mechanism_declaration, replace
+from thermo_knowledge import config, db
 from thermo_knowledge.build import build_database
 from thermo_knowledge.canonical.values import Quantity
 from thermo_knowledge.canonical.writer import CanonicalWriter, FamilyRow, ValidationError
@@ -36,7 +36,6 @@ from thermo_knowledge.qualify.source import DatabaseSource
 from thermo_knowledge.testing import TestDatabase
 from thermo_knowledge.verify.checks import VERIFY_DIR, load_checks
 from thermo_knowledge.verify.run import run_checks
-from thermo_knowledge import config
 
 PUBLISHED = [origin("a.json#/rate", "published")]
 CHECKS = {c.target: c for c in load_checks(config.TREE_DIR / VERIFY_DIR)[0]}
@@ -75,9 +74,7 @@ def species_form(w: CanonicalWriter, decl: Declaration, name: str, aggregation: 
     )
 
 
-def reaction(
-    w: CanonicalWriter, key: str, participants: dict[uuid.UUID, int]
-) -> uuid.UUID:
+def reaction(w: CanonicalWriter, key: str, participants: dict[uuid.UUID, int]) -> uuid.UUID:
     written = w.kind(
         "reaction", {"canonical_key": key, "extent": "as_written"}, origins=at(f"r-{key}")
     )
@@ -129,7 +126,9 @@ def write_reactions(w: CanonicalWriter, decl: Declaration, ids: dict[str, uuid.U
         # A + site* = bound*
         "adsorption": reaction(w, "A + * = A*", {gas["A"]: -1, site: -1, bound: 1}),
         # A + B = C with fractional orders stated
-        "fractional": reaction(w, "A + B => C, orders 1.5 and 1", {gas["A"]: -1, gas["B"]: -1, gas["C"]: 1}),
+        "fractional": reaction(
+            w, "A + B => C, orders 1.5 and 1", {gas["A"]: -1, gas["B"]: -1, gas["C"]: 1}
+        ),
         # A = B with a non-reactant in the rate law
         "inhibited": reaction(w, "A = B, inhibited by C", {gas["A"]: -1, gas["B"]: 1}),
     }
@@ -192,8 +191,12 @@ def write_reactions(w: CanonicalWriter, decl: Declaration, ids: dict[str, uuid.U
         slots={},
         families={
             "row": [
-                FamilyRow({"n": 1}, {"P": Quantity(1.0, "atm"), "k": Quantity(1.0e9, "cm^3/(mol*s)")}),
-                FamilyRow({"n": 2}, {"P": Quantity(10.0, "atm"), "k": Quantity(2.0e9, "cm^3/(mol*s)")}),
+                FamilyRow(
+                    {"n": 1}, {"P": Quantity(1.0, "atm"), "k": Quantity(1.0e9, "cm^3/(mol*s)")}
+                ),
+                FamilyRow(
+                    {"n": 2}, {"P": Quantity(10.0, "atm"), "k": Quantity(2.0e9, "cm^3/(mol*s)")}
+                ),
             ]
         },
         origins=at("table"),
@@ -204,7 +207,13 @@ def write_reactions(w: CanonicalWriter, decl: Declaration, ids: dict[str, uuid.U
 def world(decl: Declaration, tmp_path_factory: pytest.TempPathFactory) -> Iterator[World]:
     canonical = tmp_path_factory.mktemp("rate-canonical")
     ids: dict[str, uuid.UUID] = {}
-    write_source(canonical, "src", lambda w: write_reactions(w, decl, ids), decl=decl, declaration=fingerprint(decl))
+    write_source(
+        canonical,
+        "src",
+        lambda w: write_reactions(w, decl, ids),
+        decl=decl,
+        declaration=fingerprint(decl),
+    )
     with TestDatabase() as database:
         build_database(database.url, decl, inputs_of(canonical))
         yield World(decl, database, ids)
@@ -263,7 +272,9 @@ def decl_concentration(decl: Declaration):  # noqa: ANN201
     return from_info(decl.units[rule.concentration])
 
 
-def test_the_aggregation_vocabulary_says_which_states_are_counted_per_area(decl: Declaration) -> None:
+def test_the_aggregation_vocabulary_says_which_states_are_counted_per_area(
+    decl: Declaration,
+) -> None:
     surface = next(e for e in decl.entities if e.kind == "aggregation" and e.name == "surface")
     gas = next(e for e in decl.entities if e.kind == "aggregation" and e.name == "gas")
     per_area = decl.enum_members_with("concentration_domain", "per_area")
@@ -284,7 +295,9 @@ def test_a_bimolecular_gas_reaction_takes_a_rate_constant_in_cubic_metres_per_mo
 def test_a_unimolecular_reaction_takes_a_rate_constant_in_reciprocal_seconds(
     world: World, conn: psycopg.Connection
 ) -> None:
-    assert stored(conn, "arrhenius_fixture__rate", "A", world.ids["set_unimolecular"]) == pytest.approx(2.0e13)
+    assert stored(
+        conn, "arrhenius_fixture__rate", "A", world.ids["set_unimolecular"]
+    ) == pytest.approx(2.0e13)
 
 
 def test_a_falloff_low_pressure_limit_has_one_more_concentration_power(
@@ -295,8 +308,12 @@ def test_a_falloff_low_pressure_limit_has_one_more_concentration_power(
     table = "lindemann_fixture__limits"
     assert stored(conn, table, "k_inf", world.ids["set_falloff"]) == pytest.approx(1.0e13 * 1e-6)
     assert stored(conn, table, "k_0", world.ids["set_falloff"]) == pytest.approx(5.0e19 * 1e-12)
-    assert stored(conn, table, "k_inf", world.ids["set_falloff_unimolecular"]) == pytest.approx(1.0e6)
-    assert stored(conn, table, "k_0", world.ids["set_falloff_unimolecular"]) == pytest.approx(2.0e12 * 1e-6)
+    assert stored(conn, table, "k_inf", world.ids["set_falloff_unimolecular"]) == pytest.approx(
+        1.0e6
+    )
+    assert stored(conn, table, "k_0", world.ids["set_falloff_unimolecular"]) == pytest.approx(
+        2.0e12 * 1e-6
+    )
 
 
 def test_a_surface_reaction_with_a_bulk_and_a_surface_reactant_is_a_rate_per_area(
@@ -304,7 +321,9 @@ def test_a_surface_reaction_with_a_bulk_and_a_surface_reactant_is_a_rate_per_are
 ) -> None:
     """mol m^-2 s^-1 over (mol m^-3)(mol m^-2) is m^3 mol^-1 s^-1 (the same as a bimolecular gas
     reaction, reached through the per-area rate and the per-area concentration)."""
-    assert stored(conn, "arrhenius_fixture__rate", "A", world.ids["set_adsorption"]) == pytest.approx(4.0e9 * 1e-6)
+    assert stored(
+        conn, "arrhenius_fixture__rate", "A", world.ids["set_adsorption"]
+    ) == pytest.approx(4.0e9 * 1e-6)
 
 
 def test_an_explicit_fractional_order_fixes_the_dimension(
@@ -312,7 +331,9 @@ def test_an_explicit_fractional_order_fixes_the_dimension(
 ) -> None:
     """Orders 1.5 and 1 give m^4.5 mol^-1.5 s^-1: a value in (cm^3/mol)^1.5 per second converts
     by a factor of 1e-9."""
-    assert stored(conn, "arrhenius_fixture__rate", "A", world.ids["set_fractional"]) == pytest.approx(1.0e9 * 1e-9)
+    assert stored(
+        conn, "arrhenius_fixture__rate", "A", world.ids["set_fractional"]
+    ) == pytest.approx(1.0e9 * 1e-9)
 
 
 def test_explicit_orders_replace_the_stoichiometric_default_and_may_name_a_non_reactant(
@@ -321,7 +342,9 @@ def test_explicit_orders_replace_the_stoichiometric_default_and_may_name_a_non_r
     """A = B with the order of A stated as zero and of the product C as minus one: the rate
     constant is a rate per volume times one concentration, mol^2 m^-6 s^-1. The stoichiometric
     order of A (one) is replaced by the stated zero, and C, which is no reactant, takes part."""
-    assert stored(conn, "arrhenius_fixture__rate", "A", world.ids["set_inhibited"]) == pytest.approx(7.0e2)
+    assert stored(
+        conn, "arrhenius_fixture__rate", "A", world.ids["set_inhibited"]
+    ) == pytest.approx(7.0e2)
 
 
 def test_a_family_slot_of_a_dependent_type_takes_the_dimension_of_the_reaction(
@@ -349,8 +372,12 @@ def fresh_reaction(decl: Declaration) -> tuple[CanonicalWriter, uuid.UUID, uuid.
     written = reaction(w, "A + B = C", {a: -1, b: -1, c: 1})
     conventions = w.kind(
         "convention_set",
-        {"key": "rates", "revision": "1", "temperature_scale": "its_90",
-         "gas_constant": Quantity(8.314462618, "J/(mol*K)")},
+        {
+            "key": "rates",
+            "revision": "1",
+            "temperature_scale": "its_90",
+            "gas_constant": Quantity(8.314462618, "J/(mol*K)"),
+        },
         origins=at("conventions"),
     )
     return w, written, parameterization(w, "rates", convention_set=conventions)
@@ -370,8 +397,12 @@ def write_arrhenius(
 
 def test_a_set_whose_stated_unit_does_not_match_its_reaction_is_refused(decl: Declaration) -> None:
     w, written, p = fresh_reaction(decl)
-    with pytest.raises(ValidationError, match=r"A:.*cannot be converted to `meter \*\* 3 / mole / second`"):
-        write_arrhenius(w, p, written, Quantity(1.0e6, "1/s"))  # a first-order unit for a second-order reaction
+    with pytest.raises(
+        ValidationError, match=r"A:.*cannot be converted to `meter \*\* 3 / mole / second`"
+    ):
+        write_arrhenius(
+            w, p, written, Quantity(1.0e6, "1/s")
+        )  # a first-order unit for a second-order reaction
     with pytest.raises(ValidationError, match="cannot be converted"):
         write_arrhenius(w, p, written, Quantity(1.0, "cm^6/(mol^2*s)"))
     assert w.rows("param.arrhenius_fixture__rate") == 0
@@ -398,8 +429,12 @@ def test_a_stated_order_changes_what_unit_is_accepted(decl: Declaration) -> None
     w.relation("reaction_order", {"reaction": written, "form": a}, {"value": 2.0}, at="a.json#/o")
     conventions = w.kind(
         "convention_set",
-        {"key": "rates", "revision": "1", "temperature_scale": "its_90",
-         "gas_constant": Quantity(8.314462618, "J/(mol*K)")},
+        {
+            "key": "rates",
+            "revision": "1",
+            "temperature_scale": "its_90",
+            "gas_constant": Quantity(8.314462618, "J/(mol*K)"),
+        },
         origins=at("conventions"),
     )
     p = parameterization(w, "rates", convention_set=conventions)
@@ -408,7 +443,9 @@ def test_a_stated_order_changes_what_unit_is_accepted(decl: Declaration) -> None
     write_arrhenius(w, p, written, Quantity(1.0, "m^6/(mol^2*s)"))
 
 
-def test_a_reaction_with_no_participant_written_yet_is_refused_not_guessed(decl: Declaration) -> None:
+def test_a_reaction_with_no_participant_written_yet_is_refused_not_guessed(
+    decl: Declaration,
+) -> None:
     w, _, p = fresh_reaction(decl)
     bare = w.kind("reaction", {"canonical_key": "bare", "extent": "as_written"}, origins=at("bare"))
     with pytest.raises(ValidationError, match="has no participant written before this set"):
@@ -506,7 +543,10 @@ def test_a_slot_of_a_dependent_type_in_a_group_about_no_reaction_is_refused(tmp_
         },
     )
     assert Code.BAD_DEPENDENT in codes(found)
-    assert any("from the subject of kind `reaction`" in d.message and "(it has 0)" in d.message for d in found)
+    assert any(
+        "from the subject of kind `reaction`" in d.message and "(it has 0)" in d.message
+        for d in found
+    )
 
 
 def test_an_extra_order_belongs_to_a_dependent_type_and_is_not_negative(tmp_path: Path) -> None:
@@ -561,10 +601,16 @@ def test_an_expression_whose_extra_order_differs_from_the_output_is_refused(tmp_
     assert codes(found) == {Code.OUTPUT_DIMENSION}
 
 
-def test_a_per_area_unit_that_is_not_the_per_volume_unit_per_length_is_refused(tmp_path: Path) -> None:
+def test_a_per_area_unit_that_is_not_the_per_volume_unit_per_length_is_refused(
+    tmp_path: Path,
+) -> None:
     found = diagnostics(
         tmp_path,
-        {"model/reactions.toml": replace('surface_unit = "mol/(m^2*s)"', 'surface_unit = "mol/(m^3*s)"')},
+        {
+            "model/reactions.toml": replace(
+                'surface_unit = "mol/(m^2*s)"', 'surface_unit = "mol/(m^3*s)"'
+            )
+        },
     )
     assert codes(found) == {Code.BAD_DEPENDENT}
     assert "per-area form" in found[0].message
@@ -573,7 +619,11 @@ def test_a_per_area_unit_that_is_not_the_per_volume_unit_per_length_is_refused(t
 def test_a_dependent_type_names_a_declared_kind(tmp_path: Path) -> None:
     found = diagnostics(
         tmp_path,
-        {"model/reactions.toml": replace('dependent = { on = "reaction"', 'dependent = { on = "no_such_kind"')},
+        {
+            "model/reactions.toml": replace(
+                'dependent = { on = "reaction"', 'dependent = { on = "no_such_kind"'
+            )
+        },
     )
     assert codes(found) == {Code.UNKNOWN_NAME}
 
@@ -599,10 +649,15 @@ def test_the_arrhenius_form_evaluates_in_the_stored_coherent_units(
 ) -> None:
     source = DatabaseSource(conn, world.decl, [world.ids["parameterization"]])
     bound = bind(
-        world.decl, "arrhenius_fixture", source=source, roles={"r": str(world.ids["reaction_bimolecular"])}
+        world.decl,
+        "arrhenius_fixture",
+        source=source,
+        roles={"r": str(world.ids["reaction_bimolecular"])},
     )
     temperature = np.array([300.0, 600.0, 1200.0])
-    expected = 3.0e12 * 1e-6 * (temperature) ** 0.5 * np.exp(-40_000.0 / (8.314462618 * temperature))
+    expected = (
+        3.0e12 * 1e-6 * (temperature) ** 0.5 * np.exp(-40_000.0 / (8.314462618 * temperature))
+    )
     np.testing.assert_allclose(bound.evaluate("k", T=temperature), expected, rtol=1e-12)
 
 
@@ -620,4 +675,6 @@ def test_the_lindemann_form_reaches_its_limits(world: World, conn: psycopg.Conne
     np.testing.assert_allclose(
         bound.evaluate("k", T=np.full(3, 300.0), M=concentration), k_inf * pr / (1 + pr), rtol=1e-12
     )
-    assert bound.evaluate("k", T=np.array([300.0]), M=np.array([1e9]))[0] == pytest.approx(k_inf, rel=1e-3)
+    assert bound.evaluate("k", T=np.array([300.0]), M=np.array([1e9]))[0] == pytest.approx(
+        k_inf, rel=1e-3
+    )

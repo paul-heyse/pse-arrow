@@ -273,7 +273,7 @@ impl Request<'_> {
             self.limits,
         )?;
         let mut paths = BTreeMap::new();
-        let mut hash = FramedHasher::new(pse_ids::Frame::MathTypedDefinitionV7);
+        let mut hash = FramedHasher::new(pse_ids::Frame::MathTypedDefinitionV8);
         hash.u64(self.formals.len() as u64);
         for (slot, formal) in self.formals.iter().enumerate() {
             if paths.insert(formal.path.clone(), slot).is_some() {
@@ -932,6 +932,16 @@ impl Lower<'_, '_> {
         {
             predicate_occurrences(predicate, &mut occurrences);
         }
+        for usage in &f.applicability_uses {
+            for predicate in &usage.predicates {
+                predicate_occurrences(predicate, &mut occurrences);
+            }
+            for input in &usage.inputs {
+                occurrences.extend(
+                    pse_modeling::expression::admission::ExpressionOccurrence::in_body(input),
+                );
+            }
+        }
         let prior_operations = self.operation_scope.replace(OperationScope {
             obligations: f.physical_admissions.clone(),
             admissions: concrete_admissions,
@@ -991,9 +1001,6 @@ impl Lower<'_, '_> {
             .chain(
                 f.envelopes
                     .iter()
-                    .filter(|guard| {
-                        guard.policy == pse_model::generated::enums::ExtrapolationPolicy::Reject
-                    })
                     .map(|guard| {
                         (
                             "envelope-guard",
@@ -1036,6 +1043,38 @@ impl Lower<'_, '_> {
             self.calls.pop();
             self.locals = saved;
             assumptions.push(predicate?);
+        }
+        for usage in &f.applicability_uses {
+            usage.frame(&mut self.hash);
+            let saved = std::mem::replace(
+                &mut self.locals,
+                f.arguments
+                    .iter()
+                    .zip(&arguments)
+                    .map(|((name, _), value)| (name.clone(), value.clone()))
+                    .collect(),
+            );
+            self.calls.push(f.id);
+            let source = usage.node.claim.form;
+            let plan = Arc::new(usage.node.clone());
+            let yes = dsl::parse_expr("1").map_err(|e| MathError::Contract(e.to_string()))?;
+            let no = dsl::parse_expr("0").map_err(|e| MathError::Contract(e.to_string()))?;
+            let assumption = builder.applicability(plan, |builder| {
+                let predicates = usage
+                    .predicates
+                    .iter()
+                    .map(|p| self.conditional(p, &yes, &no, builder, depth + 1, source))
+                    .collect::<Result<Vec<_>, _>>()?;
+                let inputs = usage
+                    .inputs
+                    .iter()
+                    .map(|e| self.expression(e, builder, depth + 1))
+                    .collect::<Result<Vec<_>, _>>()?;
+                Ok((predicates, inputs))
+            });
+            self.calls.pop();
+            self.locals = saved;
+            assumptions.push(assumption?);
         }
         if let Some(external) = &f.external {
             let call = self
@@ -1863,6 +1902,8 @@ mod tests {
             .remove(&(std::ptr::from_ref(&body) as usize))
             .unwrap();
         pse_modeling::Function {
+            applicability: Vec::new(),
+            applicability_uses: Vec::new(),
             physical_admissions: BTreeMap::from([(
                 occurrence,
                 PhysicalAdmission::checked(

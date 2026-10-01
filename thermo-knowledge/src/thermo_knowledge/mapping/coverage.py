@@ -183,7 +183,9 @@ def _rules_of(rule: TableRule) -> list[tuple[str, FieldRule]]:
     found = list(rule.fields.items())
     for partition in rule.partitions:
         if partition.disposition == claims.MAPPED:
-            found.extend((f"partition:{partition.name}:{c}", f) for c, f in partition.fields.items())
+            found.extend(
+                (f"partition:{partition.name}:{c}", f) for c, f in partition.fields.items()
+            )
     return found
 
 
@@ -262,7 +264,9 @@ def _field_row(
         if field_rule.default is not None:
             notes.append(f"an absent value is {field_rule.default!r}")
         if field_rule.decode:
-            notes.append(f"decoded by `{field_rule.decode}`: {spec.decodings[field_rule.decode].doc}")
+            notes.append(
+                f"decoded by `{field_rule.decode}`: {spec.decodings[field_rule.decode].doc}"
+            )
         if field_rule.absent:
             notes.append("declared absent: " + ", ".join(repr(a) for a in field_rule.absent))
         if field_rule.otherwise_scheme:

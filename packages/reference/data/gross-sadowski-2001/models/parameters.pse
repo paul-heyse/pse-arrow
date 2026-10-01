@@ -9,5 +9,5 @@
 @id("01a0f1868dd372eeb1f0f3ad54b50c5f") use compatibility @"1.0.0";
 @id("01a0f1868dd372eeb1f0f3ae067c9768") use properties @"1.0.0";
 @id("01a0f1868dd372eeb1f0f3af4e42f26a") set normal_alkanes:Set<chemistry.species>={chem.methane,chem.ethane,chem.propane,chem.butane,chem.pentane,chem.hexane,chem.heptane,chem.octane,chem.nonane,chem.decane,chem.undecane,chem.dodecane,chem.tridecane,chem.tetradecane,chem.pentadecane,chem.hexadecane,chem.heptadecane,chem.octadecane,chem.nonadecane,chem.eicosane};
-@id("01a0f1868dd372eeb1f0f3b07954559a") dataset parameters:pcsaft_parameters.nonassociating bind(property=pcsaft_parameters.segments, phase_type=compatibility.PhaseType.vaporPhase, source=references.gross_sadowski_2001) provenance(references.gross_sadowski_2001, provenance.Role.published, lineage(source references.feos_gross2001_json)) from "data/parameters.parquet";
+@id("01a0f1868dd372eeb1f0f3b07954559a") dataset parameters:pcsaft_parameters.nonassociating bind(property=pcsaft_parameters.segments, source=references.gross_sadowski_2001 ,parameterization=references.gross2001_segments_fit,dependencies={},conventions={}) provenance(references.gross_sadowski_2001, provenance.Role.published, lineage(source references.feos_gross2001_json)) from "data/parameters.parquet";
 }

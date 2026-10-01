@@ -24,10 +24,10 @@ from collections import Counter
 
 from thermo_knowledge.canonical.writer import FamilyRow
 from thermo_knowledge.mapping.context import (
+    SINGLE,
     IdentityContext,
     RecordContext,
     RowHeld,
-    SINGLE,
     first,
     last,
     numbered,
@@ -91,7 +91,9 @@ def _including(ctx: IdentityContext) -> dict[str, list[SourceRow]]:
             if fields.form == "name":
                 keys, wanted = [(artifact, "species")], {str(fields.name)}
             elif fields.form == "string":
-                keys, wanted = ([(artifact, "species")], None) if fields.selection != "none" else ([], set())
+                keys, wanted = (
+                    ([(artifact, "species")], None) if fields.selection != "none" else ([], set())
+                )
             else:
                 target = _target(artifact, str(fields.section), sections)
                 keys = [] if target is None else [target]

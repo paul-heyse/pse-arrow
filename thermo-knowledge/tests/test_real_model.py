@@ -12,12 +12,12 @@ import pytest
 from typer.testing import CliRunner
 
 from thermo_knowledge import config
+from thermo_knowledge.build import build_database
 from thermo_knowledge.cli import app
 from thermo_knowledge.declaration import Declaration, load_declaration
 from thermo_knowledge.generate import compare_tree, generate
 from thermo_knowledge.generate.plan import GENERATED_SCHEMAS, build_plan
 from thermo_knowledge.generate.reified import insert_batches
-from thermo_knowledge.build import build_database
 from thermo_knowledge.schema_build import compare_fingerprint
 from thermo_knowledge.testing import TestDatabase
 

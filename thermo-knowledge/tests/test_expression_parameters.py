@@ -11,8 +11,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 import sympy
-from expression_support import scenario
 
+from expression_support import scenario
 from thermo_knowledge.expression.compiled import CompileCache
 from thermo_knowledge.expression.evaluate import bind
 from thermo_knowledge.expression.parameters import FormChoice, InMemorySource

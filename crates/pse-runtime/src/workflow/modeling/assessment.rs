@@ -164,6 +164,7 @@ impl Assessment {
         flag: &Arc<AtomicBool>,
         budget: &Arc<WorkerBudget>,
     ) -> Result<(Vec<ModelingCheck>, Vec<ModelingReport>), WorkflowError> {
+        let mut applicability = Vec::new();
         let observed = if let Some(program) = &self.program {
             let mut evaluator = prepared.source.runtime.native().worker(
                 program.clone(),
@@ -175,6 +176,7 @@ impl Assessment {
                 .worker()
                 .constraints(values)
                 .map_err(crate::math::MathRuntimeError::from)?;
+            applicability = evaluator.worker().applicability_observations();
             self.rows.iter().copied().zip(observed).collect()
         } else {
             BTreeMap::new()
@@ -184,6 +186,7 @@ impl Assessment {
             prepared.model.model.compiled(),
             values,
             &observed,
+            &applicability,
             prepared.solve.numerics(),
             &prepared.source.quantities,
             true,

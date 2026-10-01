@@ -70,7 +70,7 @@ fn boundary_values(
                     values.insert(*s, expand(e, &values, limit)?);
                 }
             }
-            Stage::Require { .. } | Stage::Domain { .. } => {}
+            Stage::Require { .. } | Stage::Domain { .. } | Stage::Applicability { .. } => {}
             Stage::Provider { .. } => {
                 return Err(MathError::Contract("opaque piecewise boundary".into()));
             }
@@ -139,7 +139,7 @@ fn prove(
                     values.insert(*slot, expand(expression, values, limit)?);
                 }
             }
-            Stage::Require { .. } | Stage::Domain { .. } => {}
+            Stage::Require { .. } | Stage::Domain { .. } | Stage::Applicability { .. } => {}
             Stage::Provider { .. } => {
                 return Err(MathError::Contract(
                     "opaque functions cannot establish symbolic boundary agreement".into(),
@@ -323,7 +323,7 @@ pub(super) fn partial_paths(
                     values.insert(*s, expand(e, &values, limit)?);
                 }
             }
-            Stage::Require { .. } | Stage::Domain { .. } => {}
+            Stage::Require { .. } | Stage::Domain { .. } | Stage::Applicability { .. } => {}
             Stage::Provider { .. } => {
                 return Err(MathError::Contract(
                     "explicit partial requires external derivative output capability".into(),

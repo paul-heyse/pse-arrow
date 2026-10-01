@@ -22,6 +22,7 @@ pub(super) fn observed(
     result
         .observations
         .insert("detail".into(), Observation::Text(error.to_string()));
+    let mut actual_instance = None;
     let mut current = Some(error);
     while let Some(error) = current {
         if let Some(boundary) = error.downcast_ref::<BoundaryDiagnostic>() {
@@ -74,6 +75,7 @@ pub(super) fn observed(
             result.rule = match error {
                 E::Instance { .. } => result.rule.as_str(),
                 E::Validity(_) => "math.validity",
+                E::Applicability(_) => "math.applicability",
                 E::Domain { .. } => "math.domain",
                 E::OutsideRange { .. } => "math.range",
                 E::Evaluation { .. } => "math.evaluation",
@@ -88,7 +90,13 @@ pub(super) fn observed(
             }
             .into();
             match error {
-                E::Instance { instance, .. } => result.sources.push(*instance),
+                E::Instance { instance, .. } => {
+                    actual_instance = Some(*instance);
+                    result.sources.push(*instance);
+                    for observation in &mut result.applicability {
+                        observation.instance = Some(*instance);
+                    }
+                }
                 // Plan 23 H5: a rejected validity predicate carries its typed lineage.
                 E::Validity(lineage) => {
                     result.sources.push(lineage.source);
@@ -97,6 +105,18 @@ pub(super) fn observed(
                     result.sources.extend(&lineage.members);
                     result.validity = Some(lineage.as_ref().clone());
                     result.class = Class::TrialRejected;
+                }
+                E::Applicability(assessment) => {
+                    result.class = Class::TrialRejected;
+                    result.applicability = assessment.observations.clone();
+                    for observation in &mut result.applicability {
+                        observation.instance = actual_instance;
+                    }
+                    for observation in &assessment.observations {
+                        result.sources.extend(observation.claim.id);
+                        result.sources.push(observation.claim.form);
+                        result.sources.extend(&observation.claim.records);
+                    }
                 }
                 E::Domain { source_id, .. }
                 | E::OutsideRange { source_id, .. }

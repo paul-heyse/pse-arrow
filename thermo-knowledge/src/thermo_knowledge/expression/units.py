@@ -72,7 +72,9 @@ def is_even(dim: Dim) -> bool:
 
 def sqrt_dim(dim: Dim) -> Dim:
     """The square root of a dimension whose exponents are all even."""
-    return UnitsContainer({name: int(real_exponent(exponent)) // 2 for name, exponent in dim.items()})
+    return UnitsContainer(
+        {name: int(real_exponent(exponent)) // 2 for name, exponent in dim.items()}
+    )
 
 
 class UnitLiteralError(ValueError):

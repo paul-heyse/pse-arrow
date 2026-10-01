@@ -643,6 +643,8 @@ impl Engine<'_, '_> {
             .functions
             .entry(name.clone())
             .or_insert(crate::Function {
+                applicability: Vec::new(),
+                applicability_uses: Vec::new(),
                 physical_admissions: BTreeMap::new(),
                 physical_operation: Some(operation),
                 reduction: None,
@@ -708,6 +710,8 @@ impl Engine<'_, '_> {
             .functions
             .entry(name.clone())
             .or_insert(crate::Function {
+                applicability: Vec::new(),
+                applicability_uses: Vec::new(),
                 physical_admissions: BTreeMap::new(),
                 physical_operation: Some(operation),
                 reduction: None,

@@ -1,8 +1,8 @@
 ---
 title: "25b: Scientific knowledge and applicability"
-status: draft
+status: in-progress
 date: 2026-09-30
-adrs: []
+adrs: [ADR-0140, ADR-0141]
 review_sources: [docs/design_review/reviews/design_review_codebase-domain-alignment_2026-09-30.md, docs/design_review/reviews/design_review_codebase-domain-alignment-follow-up_2026-09-30.md]
 scenario_sources: [docs/design_review/reviews/design_review_codebase-domain-alignment_2026-09-30.md#s01]
 ---
@@ -54,7 +54,8 @@ kernel-gap/schema-delta reports were not available at authoring time.
   One evaluation operation returns applicable, outside-region or unknown-evidence observations.
   Mathematical-domain failure always refuses. Default data-use policy requires established
   applicability; an explicit recorded permission may allow unknown evidence or extrapolation,
-  separately, without relabelling it validated. Universal constants need no invented regression
+  separately, without relabelling it validated. Permissions name selected records or declared
+  families; both permissions default false. Universal constants need no invented regression
   interval. 25e consumes the observations and selected policy in result qualification.
 - **Ownership:** packages own chemistry, forms, data and selection. Extend generic relational
   or expression mechanisms only when the chosen declarations require it; add no scientific
@@ -68,10 +69,10 @@ legitimate knowledge. The selected target makes completeness local to the operat
 
 | Packet | Prerequisites | Responsibility | Status |
 |---|---|---|---|
-| <a id="b1"></a>B1 Composition completeness | Existing authored relations | Distinguish complete, complete-empty and unknown composition; enforce conserved claims | planned |
-| <a id="b2"></a>B2 Reaction/material projection | B1; A2/A4 | Derive reaction sources and bind kinetics/heat to one extent convention | planned |
-| <a id="b3"></a>B3 Parameterization and pair selection | A1/A2 for affected physical declarations | Separate phase scope, parameter identity, provenance and coherence; migrate selections/data | planned |
-| <a id="b4"></a>B4 Applicability and data-use policy | B3; A3 for mapped family contracts | Compose evidence, consuming-model domains and explicit permission; export observations to E3 | planned |
+| <a id="b1"></a>B1 Composition completeness | Existing authored relations | Distinguish complete, complete-empty and unknown composition; enforce conserved claims | in-progress |
+| <a id="b2"></a>B2 Reaction/material projection | B1; A2/A4 | Derive reaction sources and bind kinetics/heat to one extent convention | in-progress |
+| <a id="b3"></a>B3 Parameterization and pair selection | A1/A2 for affected physical declarations | Separate phase scope, parameter identity, provenance and coherence; migrate selections/data | in-progress |
+| <a id="b4"></a>B4 Applicability and data-use policy | B3; A3 for mapped family contracts | Compose evidence, consuming-model domains and explicit permission; export observations to E3 | in-progress |
 
 ### B1 — Complete composition and conserved claims
 
@@ -149,7 +150,8 @@ fitted, recommended or validated; being inside a fit range is not experimental v
 State evaluation follows the admitted selection/dependencies and emits observations naming the
 responsible form/set and outcome: inside, outside, unknown or mathematical-domain failure.
 Alternative regions form a declared union; dependencies compose their required conditions.
-25e separately applies the chosen permissions. Allowed extrapolation remains visibly outside
+B4 applies the low-level data-use gate; 25e separately qualifies results using the unchanged
+observations and selected permissions. Allowed extrapolation remains visibly outside
 its source range; permission neither edits the evidence nor removes its qualification from results.
 
 Migrate all currently represented parameter/form families, not just temperature correlations.
@@ -177,8 +179,8 @@ The plans propose the required authority changes and do not reopen Plan 23's his
 
 ## Execution and evidence
 
-All changes and expected benefits here are **Proposed**. Packet status is planning state;
-no implementation or new product qualification is claimed. The [series coordinator](25-design-remediation.md)
+Implementation is authorized by the maintainer on 2026-09-30. Unimplemented contracts remain
+**Proposed**; no new product qualification is claimed. The [series coordinator](25-design-remediation.md)
 owns finding dispositions and decision dependencies. Packets compile affected owners, run focused
 behavioral checks with explicit force-validation, regenerate changed declarations, and immediately
 delete replaced code, callers, obsolete tests and fixtures. No shims or parallel production paths remain.
@@ -191,6 +193,31 @@ a unit label. The acceptance scenarios above define what those tests must establ
 that tests with particular names already exist. Cross-owner scientific/storage journeys are authored
 with the functional work and executed in 25k. Record state, decisions and next steps during work;
 record actual commands, conditions and failures against zero in the final qualification evidence.
+
+### Execution checkpoint
+
+Work starts from the current checkout at `ef5bd2ec`, including the completed 25a dirty baseline.
+Concurrent Plan 24 and governance changes are preserved. ADR-0140/0141 precede the new
+contracts; their scoped target review accepted the proposal and their status remains proposed.
+
+The selected approach uses authored complete/unknown composition and guarded sparse lookups,
+a concrete nonoverrideable reaction/material projection, and record-mediated kinetic/heat
+methods bound to explicit extent conventions. Parameterization/family/subjects/variant are
+distinct from provenance. Existing separate keyed shapes avoid optional/tuple-key extensions;
+joint-fit membership is separate from derivation lineage.
+
+Applicability observations remain per claim. Required dependencies can be both outside and
+unknown; their independent named permissions are both required. Declared alternatives use a
+known applicable region when available, otherwise unknown evidence remains unknown. Mathematical
+and hard model-domain requirements always refuse. Whole-interval coverage is explicit; arbitrary
+predicate regions do not inherit an endpoint-only shortcut.
+
+The [selection implementation review](../design_review/reviews/design_review_plan25b-selection-implementation_2026-10-01.md) found three material gaps. IR25B-01/02 are being corrected with consumed-owner/table retention and function/instance-scoped selection framing after consumption. IR25B-03 is corrected in source by deriving record backlinks from the sole authored group membership; focused execution remains pending. Authored selection controls are also exposing source syntax/layout defects during integration. The next steps are admission controls, actual numerical consumers, applicability refusal/export controls and independent review of the stable corrections.
+
+Chemistry/reaction and parameter-selection implementation have disjoint worktree ownership.
+The root integrates changes, owns shared declarations/generation and runs serialized compile
+and focused functional checks. Generic applicability follows the selected identities. Immediate
+deletion accompanies each replaced consumer; comprehensive qualification remains Plan 25k.
 
 ## Outcome (recorded after implementation)
 

@@ -121,19 +121,22 @@ impl ModelingSimulation {
                 } else {
                     (&mode.check_program, worker)
                 };
+                let mut applicability = Vec::new();
                 let observed = match (program, active_worker) {
-                    (Some(program), Some(worker)) => program
-                        .assembly
-                        .structure()
-                        .rows()
-                        .iter()
-                        .map(|r| r.id)
-                        .zip(
-                            worker
-                                .constraints(point)
-                                .map_err(super::super::super::math)?,
-                        )
-                        .collect::<BTreeMap<_, _>>(),
+                    (Some(program), Some(worker)) => {
+                        let evaluated = worker
+                            .constraints(point)
+                            .map_err(super::super::super::math)?;
+                        applicability = worker.applicability_observations();
+                        program
+                            .assembly
+                            .structure()
+                            .rows()
+                            .iter()
+                            .map(|r| r.id)
+                            .zip(evaluated)
+                            .collect::<BTreeMap<_, _>>()
+                    }
                     _ => BTreeMap::new(),
                 };
                 let (mut sample_checks, reports) = results::assess_observations(
@@ -141,6 +144,7 @@ impl ModelingSimulation {
                     product,
                     point,
                     &observed,
+                    &applicability,
                     &mode.numerics,
                     &self.quantities,
                     terminal,
@@ -184,6 +188,19 @@ impl ModelingSimulation {
                         extrapolation_allowed: None,
                         basis: pse_model::generated::enums::ModelingCheckBasis::Point,
                         layer: None,
+                        claim_id: None,
+                        claim_owner: None,
+                        coverage_id: None,
+                        evidence_id: None,
+                        form_id: None,
+                        call_id: None,
+                        selected_records: Vec::new(),
+                        dependencies: Vec::new(),
+                        input_values: Vec::new(),
+                        applicability_outcome: None,
+                        applicability_basis: None,
+                        permission_ids: Vec::new(),
+                        unknown_allowed: None,
                     });
                 }
                 for check in &mut sample_checks {

@@ -29,12 +29,17 @@ from pathlib import Path
 import numpy as np
 import psycopg
 import pytest
+
 from hard_case_support import at, build, failing
 from mapping_support import real_declaration, writer
-
 from thermo_knowledge import db
 from thermo_knowledge.canonical.values import Quantity
-from thermo_knowledge.canonical.writer import CanonicalWriter, FamilyRow, SetReference, ValidationError
+from thermo_knowledge.canonical.writer import (
+    CanonicalWriter,
+    FamilyRow,
+    SetReference,
+    ValidationError,
+)
 from thermo_knowledge.declaration import Declaration
 from thermo_knowledge.expression.compiled import CompileCache
 from thermo_knowledge.expression.evaluate import EvaluationRefusal, bind
@@ -51,16 +56,29 @@ FLUID = dict(T_r=190.0, rho_r=10_000.0, a1=-4.2, a2=3.1, c=2.5)
 PLANCK_EINSTEIN = [(1.5, 3.2), (-0.8, 10.0)]  # (n, theta)
 POWER = [(0.9, 1.0, 0.25), (-1.6, 1.0, 1.1), (0.04, 4.0, 0.6)]  # (n, d, t)
 EXPONENTIAL = [(-0.3, 1.0, 1.5, 1.0), (0.25, 3.0, 1.1, 2.0), (-0.04, 2.0, 4.0, 3.0)]  # (n, d, t, l)
-GAUSSIAN = [(0.12, 2.0, 1.0, 0.9, 0.5, 1.2, 1.1), (-0.05, 1.0, 3.0, 1.4, 0.8, 0.9, 0.7)]  # (n, d, t, eta, epsilon, beta, gamma)
-NONANALYTIC = [(-0.6, 0.3, 0.85, 0.3, 0.3, 0.25, 10.0, 30.0), (0.2, 0.4, 0.9, 0.35, 0.2, 0.3, 12.0, 40.0)]  # (n, a, b, beta, A, B, C, D)
+GAUSSIAN = [
+    (0.12, 2.0, 1.0, 0.9, 0.5, 1.2, 1.1),
+    (-0.05, 1.0, 3.0, 1.4, 0.8, 0.9, 0.7),
+]  # (n, d, t, eta, epsilon, beta, gamma)
+NONANALYTIC = [
+    (-0.6, 0.3, 0.85, 0.3, 0.3, 0.25, 10.0, 30.0),
+    (0.2, 0.4, 0.9, 0.35, 0.2, 0.3, 12.0, 40.0),
+]  # (n, a, b, beta, A, B, C, D)
 
-POINTS = [(T, rho) for T in (150.0, 190.0, 250.0, 400.0) for rho in (1_500.0, 4_000.0, 9_000.0, 12_000.0, 20_000.0)]
+POINTS = [
+    (T, rho)
+    for T in (150.0, 190.0, 250.0, 400.0)
+    for rho in (1_500.0, 4_000.0, 9_000.0, 12_000.0, 20_000.0)
+]
 
 
 def alpha_ideal(delta, tau):  # noqa: ANN001, ANN201
     f = FLUID
     return (
-        np.log(delta) + f["a1"] + f["a2"] * tau + f["c"] * np.log(tau)
+        np.log(delta)
+        + f["a1"]
+        + f["a2"] * tau
+        + f["c"] * np.log(tau)
         + sum(n * np.log(1 - np.exp(-theta * tau)) for n, theta in PLANCK_EINSTEIN)
     )
 
@@ -73,12 +91,16 @@ def alpha_residual(delta, tau):  # noqa: ANN001, ANN201
     for n, d, t, l in EXPONENTIAL:
         total = total + n * delta**d * tau**t * np.exp(-(delta**l))
     for n, d, t, eta, epsilon, beta, gamma in GAUSSIAN:
-        total = total + n * delta**d * tau**t * np.exp(-eta * (delta - epsilon) ** 2 - beta * (tau - gamma) ** 2)
+        total = total + n * delta**d * tau**t * np.exp(
+            -eta * (delta - epsilon) ** 2 - beta * (tau - gamma) ** 2
+        )
     for n, a, b, beta, A, B, C, D in NONANALYTIC:
         square = (delta - 1) ** 2
         theta = (1 - tau) + A * square ** (1 / (2 * beta))
         big_delta = theta**2 + B * square**a
-        total = total + n * big_delta**b * delta * np.exp(-C * (delta - 1) ** 2 - D * (tau - 1) ** 2)
+        total = total + n * big_delta**b * delta * np.exp(
+            -C * (delta - 1) ** 2 - D * (tau - 1) ** 2
+        )
     return total
 
 
@@ -101,10 +123,20 @@ def pure_fluid(T, rho, gas):  # noqa: ANN001, ANN201
 
 CRITICAL = {"A": (190.0, 10_100.0), "B": (305.0, 6_900.0), "C": (126.0, 11_200.0)}  # (T_c, rho_c)
 # the pairs as the source asserts them: the first component first; (beta_T, gamma_T, beta_v, gamma_v)
-PAIRS = {("A", "B"): (1.02, 1.05, 1.10, 1.04), ("C", "A"): (0.97, 0.99, 0.93, 1.01), ("B", "C"): (1.00, 1.02, 1.05, 0.98)}
+PAIRS = {
+    ("A", "B"): (1.02, 1.05, 1.10, 1.04),
+    ("C", "A"): (0.97, 0.99, 0.93, 1.01),
+    ("B", "C"): (1.00, 1.02, 1.05, 0.98),
+}
 DEPARTURE_POWER = [(0.30, 1.0, 0.8), (-0.12, 2.0, 1.5), (0.05, 3.0, 3.0)]
-DEPARTURE_GAUSSIAN = [(0.02, 1.0, 2.0, 0.9, 0.6, 1.1, 0.8), (-0.01, 2.0, 3.0, 1.3, 0.7, 0.9, 0.5)]  # (n, d, t, eta, epsilon, beta, gamma)
-SCALES = {("A", "B"): 0.92, ("A", "C"): 1.07}  # F_ij of the two pairs that have a departure function
+DEPARTURE_GAUSSIAN = [
+    (0.02, 1.0, 2.0, 0.9, 0.6, 1.1, 0.8),
+    (-0.01, 2.0, 3.0, 1.3, 0.7, 0.9, 0.5),
+]  # (n, d, t, eta, epsilon, beta, gamma)
+SCALES = {
+    ("A", "B"): 0.92,
+    ("A", "C"): 1.07,
+}  # F_ij of the two pairs that have a departure function
 COMPOSITIONS = [
     {"A": 0.6, "B": 0.3, "C": 0.1},
     {"A": 0.2, "B": 0.5, "C": 0.3},
@@ -119,10 +151,26 @@ def reduced(composition: dict[str, float]) -> tuple[float, float]:
     t_r = sum(x[i] ** 2 * CRITICAL[i][0] for i in x)
     v_r = sum(x[i] ** 2 / CRITICAL[i][1] for i in x)
     for (i, j), (beta_t, gamma_t, beta_v, gamma_v) in PAIRS.items():
-        t_r += 2 * beta_t * gamma_t * (x[i] + x[j]) / (beta_t**2 * x[i] + x[j]) * x[i] * x[j] * np.sqrt(CRITICAL[i][0] * CRITICAL[j][0])
+        t_r += (
+            2
+            * beta_t
+            * gamma_t
+            * (x[i] + x[j])
+            / (beta_t**2 * x[i] + x[j])
+            * x[i]
+            * x[j]
+            * np.sqrt(CRITICAL[i][0] * CRITICAL[j][0])
+        )
         v_r += (
-            2 * beta_v * gamma_v * (x[i] + x[j]) / (beta_v**2 * x[i] + x[j]) * x[i] * x[j]
-            * 0.125 * (CRITICAL[i][1] ** (-1 / 3) + CRITICAL[j][1] ** (-1 / 3)) ** 3
+            2
+            * beta_v
+            * gamma_v
+            * (x[i] + x[j])
+            / (beta_v**2 * x[i] + x[j])
+            * x[i]
+            * x[j]
+            * 0.125
+            * (CRITICAL[i][1] ** (-1 / 3) + CRITICAL[j][1] ** (-1 / 3)) ** 3
         )
     return float(t_r), float(1 / v_r)
 
@@ -135,10 +183,26 @@ def reduced_with_the_pair_swapped(composition: dict[str, float]) -> tuple[float,
     t_r = sum(x[i] ** 2 * CRITICAL[i][0] for i in x)
     v_r = sum(x[i] ** 2 / CRITICAL[i][1] for i in x)
     for (i, j), (beta_t, gamma_t, beta_v, gamma_v) in swapped.items():
-        t_r += 2 * beta_t * gamma_t * (x[i] + x[j]) / (beta_t**2 * x[i] + x[j]) * x[i] * x[j] * np.sqrt(CRITICAL[i][0] * CRITICAL[j][0])
+        t_r += (
+            2
+            * beta_t
+            * gamma_t
+            * (x[i] + x[j])
+            / (beta_t**2 * x[i] + x[j])
+            * x[i]
+            * x[j]
+            * np.sqrt(CRITICAL[i][0] * CRITICAL[j][0])
+        )
         v_r += (
-            2 * beta_v * gamma_v * (x[i] + x[j]) / (beta_v**2 * x[i] + x[j]) * x[i] * x[j]
-            * 0.125 * (CRITICAL[i][1] ** (-1 / 3) + CRITICAL[j][1] ** (-1 / 3)) ** 3
+            2
+            * beta_v
+            * gamma_v
+            * (x[i] + x[j])
+            / (beta_v**2 * x[i] + x[j])
+            * x[i]
+            * x[j]
+            * 0.125
+            * (CRITICAL[i][1] ** (-1 / 3) + CRITICAL[j][1] ** (-1 / 3)) ** 3
         )
     return float(t_r), float(1 / v_r)
 
@@ -146,7 +210,9 @@ def reduced_with_the_pair_swapped(composition: dict[str, float]) -> tuple[float,
 def departure(delta, tau):  # noqa: ANN001, ANN201
     total = sum(n * delta**d * tau**t for n, d, t in DEPARTURE_POWER)
     for n, d, t, eta, epsilon, beta, gamma in DEPARTURE_GAUSSIAN:
-        total = total + n * delta**d * tau**t * np.exp(-eta * (delta - epsilon) ** 2 - beta * (delta - gamma))
+        total = total + n * delta**d * tau**t * np.exp(
+            -eta * (delta - epsilon) ** 2 - beta * (delta - gamma)
+        )
     return total
 
 
@@ -161,18 +227,33 @@ class World:
 
 
 def family(rows: list[tuple[float, ...]], names: tuple[str, ...]) -> list[FamilyRow]:
-    return [FamilyRow({"k": k}, dict(zip(names, row, strict=True))) for k, row in enumerate(rows, 1)]
+    return [
+        FamilyRow({"k": k}, dict(zip(names, row, strict=True))) for k, row in enumerate(rows, 1)
+    ]
 
 
-def write_fluid(w: CanonicalWriter, ids: dict[str, uuid.UUID], species: uuid.UUID, gas: float, key: str) -> None:
+def write_fluid(
+    w: CanonicalWriter, ids: dict[str, uuid.UUID], species: uuid.UUID, gas: float, key: str
+) -> None:
     conventions = w.kind(
         "convention_set",
-        {"key": key, "revision": "1", "temperature_scale": "its_90", "gas_constant": Quantity(gas, "J/(mol*K)")},
+        {
+            "key": key,
+            "revision": "1",
+            "temperature_scale": "its_90",
+            "gas_constant": Quantity(gas, "J/(mol*K)"),
+        },
         origins=at(f"conventions-{key}"),
     )
     p = w.kind(
         "parameterization",
-        {"key": key, "revision": "1", "title": key, "coherence": "independent_records", "convention_set": conventions},
+        {
+            "key": key,
+            "revision": "1",
+            "title": key,
+            "coherence": "independent_records",
+            "convention_set": conventions,
+        },
         origins=at(f"parameterization-{key}"),
     )
     ids[f"pure_{key}"] = p
@@ -200,13 +281,21 @@ def write_fluid(w: CanonicalWriter, ids: dict[str, uuid.UUID], species: uuid.UUI
 
 
 def write_world(w: CanonicalWriter, ids: dict[str, uuid.UUID]) -> None:
-    species = {name: w.kind("species", {"canonical_key": name, "label": name}, origins=at(f"s-{name}")) for name in CRITICAL}
+    species = {
+        name: w.kind("species", {"canonical_key": name, "label": name}, origins=at(f"s-{name}"))
+        for name in CRITICAL
+    }
     ids.update({f"species_{name}": found for name, found in species.items()})
     write_fluid(w, ids, species["A"], R_PURE, "gerg-gas-constant")
     write_fluid(w, ids, species["A"], R_OTHER, "codata-gas-constant")
     mixture = w.kind(
         "parameterization",
-        {"key": "gerg-fixture", "revision": "1", "title": "A multifluid mixture", "coherence": "jointly_fitted"},
+        {
+            "key": "gerg-fixture",
+            "revision": "1",
+            "title": "A multifluid mixture",
+            "coherence": "jointly_fitted",
+        },
         origins=at("mixture"),
     )
     ids["mixture"] = mixture
@@ -227,7 +316,9 @@ def write_world(w: CanonicalWriter, ids: dict[str, uuid.UUID]) -> None:
             origins=at(f"reducing-{first}{second}"),
         )
     function = w.kind(
-        "model_component", {"parameterization": mixture, "name": "departure-10"}, origins=at("departure-10")
+        "model_component",
+        {"parameterization": mixture, "name": "departure-10"},
+        origins=at("departure-10"),
     )
     ids["departure"] = w.parameter_set(
         parameterization=mixture,
@@ -236,7 +327,9 @@ def write_world(w: CanonicalWriter, ids: dict[str, uuid.UUID]) -> None:
         slots={},
         families={
             "power": family(DEPARTURE_POWER, ("n", "d", "t")),
-            "gaussian": family(DEPARTURE_GAUSSIAN, ("n", "d", "t", "eta", "epsilon", "beta", "gamma")),
+            "gaussian": family(
+                DEPARTURE_GAUSSIAN, ("n", "d", "t", "eta", "epsilon", "beta", "gamma")
+            ),
         },
         origins=at("departure-10-terms"),
     )
@@ -287,16 +380,26 @@ def scalar(conn: psycopg.Connection, query: str, *params: object) -> object:
 
 def fluid(world: World, conn: psycopg.Connection, key: str):  # noqa: ANN201
     source = DatabaseSource(conn, world.decl, [world.ids[f"pure_{key}"]])
-    return bind(world.decl, "helmholtz_pure_fluid", source=source, roles={"i": str(world.ids["species_A"])}, cache=CACHE)
+    return bind(
+        world.decl,
+        "helmholtz_pure_fluid",
+        source=source,
+        roles={"i": str(world.ids["species_A"])},
+        cache=CACHE,
+    )
 
 
 def mixture(world: World, conn: psycopg.Connection, order: tuple[str, ...]):  # noqa: ANN201
     source = DatabaseSource(conn, world.decl, [world.ids["mixture"]])
     members = [str(world.ids[f"species_{name}"]) for name in order]
-    return bind(world.decl, "multifluid_reducing", source=source, sets={"components": members}, cache=CACHE)
+    return bind(
+        world.decl, "multifluid_reducing", source=source, sets={"components": members}, cache=CACHE
+    )
 
 
-def reducing(world: World, conn: psycopg.Connection, order: tuple[str, ...], composition: dict[str, float]) -> tuple[float, float]:
+def reducing(
+    world: World, conn: psycopg.Connection, order: tuple[str, ...], composition: dict[str, float]
+) -> tuple[float, float]:
     found = mixture(world, conn, order)
     x = {str(world.ids[f"species_{name}"]): np.array([composition[name]]) for name in order}
     t_r = float(np.asarray(found.evaluate("T_r", x=x)).reshape(-1)[0])
@@ -311,12 +414,24 @@ def test_the_fixture_satisfies_every_invariant(conn: psycopg.Connection) -> None
     assert failing(conn) == {}
 
 
-def test_the_term_kinds_of_the_fluid_are_families_of_one_slot_group(world: World, conn: psycopg.Connection) -> None:
+def test_the_term_kinds_of_the_fluid_are_families_of_one_slot_group(
+    world: World, conn: psycopg.Connection
+) -> None:
     counts = {
-        name: scalar(conn, f'SELECT count(*) FROM param."helmholtz_pure_fluid__pure__{name}" WHERE set_id = %s', world.ids["fluid_gerg-gas-constant"])
+        name: scalar(
+            conn,
+            f'SELECT count(*) FROM param."helmholtz_pure_fluid__pure__{name}" WHERE set_id = %s',
+            world.ids["fluid_gerg-gas-constant"],
+        )
         for name in ("planck_einstein", "power", "exponential", "gaussian", "nonanalytic")
     }
-    assert counts == {"planck_einstein": 2, "power": 3, "exponential": 3, "gaussian": 2, "nonanalytic": 2}
+    assert counts == {
+        "planck_einstein": 2,
+        "power": 3,
+        "exponential": 3,
+        "gaussian": 2,
+        "nonanalytic": 2,
+    }
 
 
 def test_the_gas_constant_is_a_fact_of_the_convention_set_and_not_a_slot(decl: Declaration) -> None:
@@ -341,43 +456,67 @@ def test_the_betas_are_stored_as_the_source_asserted_them_and_the_arrangement_is
         assert arrangement == (0 if ids[0] < ids[1] else 1)
         assert (bt, gt, bv, gv) == (beta_t, gamma_t, beta_v, gamma_v)  # never rewritten
     arrangements = {
-        scalar(conn, 'SELECT arrangement FROM param."multifluid_reducing__pair" WHERE id = %s', world.ids[f"reducing_{a}{b}"])
+        scalar(
+            conn,
+            'SELECT arrangement FROM param."multifluid_reducing__pair" WHERE id = %s',
+            world.ids[f"reducing_{a}{b}"],
+        )
         for a, b in PAIRS
     }
     assert arrangements == {0, 1}  # the fixture has a pair in each arrangement
 
 
-def test_one_departure_set_is_referenced_by_two_different_pair_sets(world: World, conn: psycopg.Connection) -> None:
-    targets = conn.execute('SELECT id, "departure" FROM param."multifluid_pair_departure_scaled__pair"').fetchall()
+def test_one_departure_set_is_referenced_by_two_different_pair_sets(
+    world: World, conn: psycopg.Connection
+) -> None:
+    targets = conn.execute(
+        'SELECT id, "departure" FROM param."multifluid_pair_departure_scaled__pair"'
+    ).fetchall()
     assert len(targets) == 2
     assert {target for _, target in targets} == {world.ids["departure"]}
     assert scalar(conn, 'SELECT count(*) FROM param."multifluid_departure_terms__core"') == 1
-    scales = sorted(row[0] for row in conn.execute('SELECT "F" FROM param."multifluid_pair_departure_scaled__pair"'))
+    scales = sorted(
+        row[0]
+        for row in conn.execute('SELECT "F" FROM param."multifluid_pair_departure_scaled__pair"')
+    )
     assert scales == sorted(SCALES.values())  # each pair keeps its own scale factor
 
 
 # -- the pure fluid against numpy ---------------------------------------------------------------
 
 
-@pytest.mark.parametrize("key, gas", [("gerg-gas-constant", R_PURE), ("codata-gas-constant", R_OTHER)])
-def test_the_pure_fluid_matches_the_independent_calculation(world: World, conn: psycopg.Connection, key: str, gas: float) -> None:
+@pytest.mark.parametrize(
+    "key, gas", [("gerg-gas-constant", R_PURE), ("codata-gas-constant", R_OTHER)]
+)
+def test_the_pure_fluid_matches_the_independent_calculation(
+    world: World, conn: psycopg.Connection, key: str, gas: float
+) -> None:
     T, rho = (np.array(x) for x in zip(*POINTS, strict=True))
     found = fluid(world, conn, key)
     want_ideal, want_residual, want_energy, want_pressure = pure_fluid(T, rho, gas)
-    out = {name: np.asarray(found.evaluate(name, T=T, rho=rho), dtype=float).reshape(-1) for name in ("alpha_0", "alpha_r", "a_r", "p")}
+    out = {
+        name: np.asarray(found.evaluate(name, T=T, rho=rho), dtype=float).reshape(-1)
+        for name in ("alpha_0", "alpha_r", "a_r", "p")
+    }
     np.testing.assert_allclose(out["alpha_0"], want_ideal, rtol=1e-12)
     np.testing.assert_allclose(out["alpha_r"], want_residual, rtol=1e-12)
     np.testing.assert_allclose(out["a_r"], want_energy, rtol=1e-12)
     np.testing.assert_allclose(out["p"], want_pressure, rtol=1e-9, atol=1e-6)
 
 
-def test_the_gas_constant_enters_through_the_convention_set(world: World, conn: psycopg.Connection) -> None:
+def test_the_gas_constant_enters_through_the_convention_set(
+    world: World, conn: psycopg.Connection
+) -> None:
     """The same coefficients under the two editions differ in exactly the terms that carry R."""
     T, rho = np.array([250.0]), np.array([4_000.0])
     gerg = fluid(world, conn, "gerg-gas-constant")
     codata = fluid(world, conn, "codata-gas-constant")
-    assert float(gerg.evaluate("alpha_r", T=T, rho=rho)[0]) == float(codata.evaluate("alpha_r", T=T, rho=rho)[0])
-    ratio = float(gerg.evaluate("a_r", T=T, rho=rho)[0]) / float(codata.evaluate("a_r", T=T, rho=rho)[0])
+    assert float(gerg.evaluate("alpha_r", T=T, rho=rho)[0]) == float(
+        codata.evaluate("alpha_r", T=T, rho=rho)[0]
+    )
+    ratio = float(gerg.evaluate("a_r", T=T, rho=rho)[0]) / float(
+        codata.evaluate("a_r", T=T, rho=rho)[0]
+    )
     assert ratio == pytest.approx(R_PURE / R_OTHER, rel=1e-13)
 
 
@@ -392,7 +531,9 @@ def test_the_reducing_functions_match_the_independent_calculation_in_every_order
     one; the reciprocal transposition makes every order give the published sums."""
     want_t, want_rho = reduced(composition)
     swapped_t, swapped_rho = reduced_with_the_pair_swapped(composition)
-    assert swapped_t == pytest.approx(want_t, rel=1e-13) and swapped_rho == pytest.approx(want_rho, rel=1e-13)
+    assert swapped_t == pytest.approx(want_t, rel=1e-13) and swapped_rho == pytest.approx(
+        want_rho, rel=1e-13
+    )
     for order in itertools.permutations("ABC"):
         t_r, rho_r = reducing(world, conn, order, composition)
         assert t_r == pytest.approx(want_t, rel=1e-12), order
@@ -408,14 +549,28 @@ def test_the_binary_reducing_temperature_is_the_same_in_both_orientations_of_its
     first, second = ("C", "A"), ("A", "C")
     (beta_t, gamma_t, *_), (i, j) = PAIRS[first], first
     asserted = (
-        binary[i] ** 2 * CRITICAL[i][0] + binary[j] ** 2 * CRITICAL[j][0]
-        + 2 * beta_t * gamma_t * (binary[i] + binary[j]) / (beta_t**2 * binary[i] + binary[j]) * binary[i] * binary[j]
+        binary[i] ** 2 * CRITICAL[i][0]
+        + binary[j] ** 2 * CRITICAL[j][0]
+        + 2
+        * beta_t
+        * gamma_t
+        * (binary[i] + binary[j])
+        / (beta_t**2 * binary[i] + binary[j])
+        * binary[i]
+        * binary[j]
         * np.sqrt(CRITICAL[i][0] * CRITICAL[j][0])
     )
     inverted = 1 / beta_t
     reversed_ = (
-        binary[j] ** 2 * CRITICAL[j][0] + binary[i] ** 2 * CRITICAL[i][0]
-        + 2 * inverted * gamma_t * (binary[j] + binary[i]) / (inverted**2 * binary[j] + binary[i]) * binary[j] * binary[i]
+        binary[j] ** 2 * CRITICAL[j][0]
+        + binary[i] ** 2 * CRITICAL[i][0]
+        + 2
+        * inverted
+        * gamma_t
+        * (binary[j] + binary[i])
+        / (inverted**2 * binary[j] + binary[i])
+        * binary[j]
+        * binary[i]
         * np.sqrt(CRITICAL[j][0] * CRITICAL[i][0])
     )
     assert reversed_ == pytest.approx(asserted, rel=1e-13)
@@ -425,15 +580,24 @@ def test_the_binary_reducing_temperature_is_the_same_in_both_orientations_of_its
         assert float(found.evaluate("T_r", x=x)[0]) == pytest.approx(float(asserted), rel=1e-12)
 
 
-def test_without_the_inversion_of_the_betas_the_reducing_temperature_differs(world: World, conn: psycopg.Connection) -> None:
+def test_without_the_inversion_of_the_betas_the_reducing_temperature_differs(
+    world: World, conn: psycopg.Connection
+) -> None:
     """The control: with the betas used as stored in both orders (no inversion) the sum differs,
     so the agreement above is the transposition at work."""
     composition = COMPOSITIONS[0]
     x = composition
     plain = sum(x[i] ** 2 * CRITICAL[i][0] for i in x)
     for (i, j), (bt, gt, *_) in PAIRS.items():
-        plain += x[i] * x[j] * gt * np.sqrt(CRITICAL[i][0] * CRITICAL[j][0]) * (
-            bt * (x[i] + x[j]) / (bt**2 * x[i] + x[j]) + bt * (x[i] + x[j]) / (bt**2 * x[j] + x[i])
+        plain += (
+            x[i]
+            * x[j]
+            * gt
+            * np.sqrt(CRITICAL[i][0] * CRITICAL[j][0])
+            * (
+                bt * (x[i] + x[j]) / (bt**2 * x[i] + x[j])
+                + bt * (x[i] + x[j]) / (bt**2 * x[j] + x[i])
+            )
         )
     assert abs(plain - reduced(composition)[0]) > 1e-6
 
@@ -464,7 +628,10 @@ def test_a_pair_with_a_shared_departure_function_gives_its_scaled_contribution_i
 
 def fresh(decl: Declaration) -> tuple[CanonicalWriter, dict[str, uuid.UUID], uuid.UUID]:
     w = writer(decl)
-    species = {name: w.kind("species", {"canonical_key": name, "label": name}, origins=at(f"s-{name}")) for name in "AB"}
+    species = {
+        name: w.kind("species", {"canonical_key": name, "label": name}, origins=at(f"s-{name}"))
+        for name in "AB"
+    }
     p = w.kind(
         "parameterization",
         {"key": "p", "revision": "1", "title": "p", "coherence": "independent_records"},
@@ -500,14 +667,19 @@ def test_a_departure_reference_to_a_set_of_another_contract_is_refused(decl: Dec
             parameterization=p,
             slot_group="multifluid_pair_departure_scaled.pair",
             subjects=[species["A"], species["B"]],
-            slots={"F": 1.0, "departure": SetReference(p, "multifluid_reducing.pure", [species["A"]])},
+            slots={
+                "F": 1.0,
+                "departure": SetReference(p, "multifluid_reducing.pure", [species["A"]]),
+            },
             origins=at("pair"),
         )
     assert w.rows("param.multifluid_pair_departure_scaled__pair") == 0
     assert function is not None
 
 
-def test_a_reducing_function_read_for_a_pair_that_is_not_held_is_refused(world: World, conn: psycopg.Connection) -> None:
+def test_a_reducing_function_read_for_a_pair_that_is_not_held_is_refused(
+    world: World, conn: psycopg.Connection
+) -> None:
     """A missing pair is not a zero: a mixture of a component the parameterisation has no pair
     for is refused, naming the slot group."""
     source = DatabaseSource(conn, world.decl, [world.ids["mixture"]])
@@ -540,7 +712,13 @@ def test_a_fluid_whose_convention_set_states_no_gas_constant_is_flagged_and_refu
         )
         p = w.kind(
             "parameterization",
-            {"key": "bare", "revision": "1", "title": "bare", "coherence": "independent_records", "convention_set": conventions},
+            {
+                "key": "bare",
+                "revision": "1",
+                "title": "bare",
+                "coherence": "independent_records",
+                "convention_set": conventions,
+            },
             origins=at("p"),
         )
         ids["parameterization"] = p
@@ -548,7 +726,13 @@ def test_a_fluid_whose_convention_set_states_no_gas_constant_is_flagged_and_refu
             parameterization=p,
             slot_group="helmholtz_pure_fluid.pure",
             subjects=[species],
-            slots={"T_r": Quantity(190.0, "K"), "rho_r": Quantity(10_000.0, "mol/m^3"), "a1": 0.0, "a2": 0.0, "c": 0.0},
+            slots={
+                "T_r": Quantity(190.0, "K"),
+                "rho_r": Quantity(10_000.0, "mol/m^3"),
+                "a1": 0.0,
+                "a2": 0.0,
+                "c": 0.0,
+            },
             families={"power": family(POWER, ("n", "d", "t"))},
             origins=at("fluid"),
         )
@@ -558,7 +742,9 @@ def test_a_fluid_whose_convention_set_states_no_gas_constant_is_flagged_and_refu
         with psycopg.connect(database.url) as connection:
             assert failing(connection) == {"parameterization_has_conventions": 1}
             source = DatabaseSource(connection, decl, [ids["parameterization"]])
-            found = bind(decl, "helmholtz_pure_fluid", source=source, roles={"i": str(ids["species"])})
+            found = bind(
+                decl, "helmholtz_pure_fluid", source=source, roles={"i": str(ids["species"])}
+            )
             with pytest.raises(EvaluationRefusal, match="gas_constant"):
                 found.evaluate("p", T=np.array([250.0]), rho=np.array([4_000.0]))
     finally:

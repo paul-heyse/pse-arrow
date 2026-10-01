@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Bounded finite specialization. No solver, store, query runtime or native library startup.
+mod applicability;
 mod contextual;
 mod continuous;
 mod envelopes;
@@ -257,6 +258,8 @@ pub struct Expectation {
 /// Finite specialization product and its independent inspection/closure views.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct SpecializedModel {
+    /// Immutable selected records and authored closure edges in this model scope.
+    pub selection_closures: crate::scientific_selection::Selections,
     /// Alternative residual sets over one implicit block's shared unknowns, keyed by
     /// the block's instance.
     pub regimes: BTreeMap<InstanceId, RegimeSelection>,
@@ -307,9 +310,6 @@ pub struct SpecializedModel {
     /// Typed authored annotations and their instantiated owner, and the data envelopes
     /// whose consumer selected extrapolation, observed at the members they guard.
     pub annotations: Vec<crate::annotation::Annotation>,
-    /// Data envelopes whose consumer selected extrapolation, observed at static arguments
-    /// (ADR-0123 Outcome 4).
-    pub observations: Vec<crate::envelope::StaticObservation>,
     /// Named lowerings of constraint forms and disjunctions, inner-first (ADR-0104).
     pub lowerings: Vec<Lowering>,
     /// Constraints left to a backend's native handlers; routing refuses them elsewhere.
@@ -350,6 +350,8 @@ pub struct Connection {
 }
 #[derive(Clone)]
 struct State {
+    /// Only selections consumed while constructing or demanding this instance's members.
+    selections: crate::scientific_selection::Selections,
     presets: Vec<DeclarationId>,
     definition: DeclarationId,
     parent: Option<InstanceId>,
@@ -360,12 +362,6 @@ struct State {
     children: BTreeMap<(String, Vec<SemanticId>), InstanceId>,
     symbols: BTreeMap<(DeclarationId, Vec<SemanticId>), SemanticId>,
     stack: Vec<DeclarationId>,
-    /// The data layer's extrapolation policy for this instance and the declaration that
-    /// selected it: the nearest instance that selects one decides (ADR-0123 Outcome 4).
-    extrapolation: Option<(
-        pse_model::generated::enums::ExtrapolationPolicy,
-        DeclarationId,
-    )>,
 }
 /// One deferred equation occurrence: its instance, declaration, coordinates and scope.
 #[derive(Clone)]
@@ -376,6 +372,7 @@ struct ReplicatedEquation {
     env: Environment,
 }
 pub(crate) struct Engine<'a, 'b> {
+    selection_collector: crate::scientific_selection::Collector,
     pub(crate) p: &'a CheckedPackage,
     pub(crate) c: &'a TypeContext<'b>,
     limits: Limits,
@@ -408,15 +405,8 @@ pub(crate) struct Engine<'a, 'b> {
     /// The root's reader: a test fixture reads any admitted data; any other root reads no
     /// test-only data (ADR-0123 Outcome 5).
     reader: crate::provenance::Reader<'static>,
-    /// Data-layer observations the enclosing function bodies pass on to their call sites,
-    /// innermost last (ADR-0123 Outcome 4).
-    lifted: Vec<Vec<envelopes::Lift>>,
     /// Dynamic conditional branches enclosing the expression being rewritten.
     branches: usize,
-    /// Extrapolating data envelopes observed at members, keyed by member and envelope.
-    observed: BTreeMap<(SemanticId, DeclarationId), envelopes::Resolved>,
-    /// Extrapolating data envelopes observed at static arguments, keyed by envelope and value.
-    observed_static: BTreeMap<(DeclarationId, u64), envelopes::Resolved>,
 }
 
 /// The identity a declared analysis gives its root instance: the root declaration's own.
@@ -506,6 +496,7 @@ pub fn specialize_with_discretizer(
     let ambient = crate::analysis::facts(&bindings.facts)?;
     let context = package.context();
     let mut engine = Engine {
+        selection_collector: crate::scientific_selection::Collector::default(),
         p: package,
         c: &context,
         limits,
@@ -530,10 +521,7 @@ pub fn specialize_with_discretizer(
         discretizer,
         cancel,
         reader: crate::provenance::Reader::of(package, root),
-        lifted: Vec::new(),
         branches: 0,
-        observed: BTreeMap::new(),
-        observed_static: BTreeMap::new(),
     };
     engine.checkpoint()?;
     let mut args = bindings.arguments.clone();
@@ -554,7 +542,9 @@ pub fn specialize_with_discretizer(
     engine.replicated_equations()?;
     for name in &bindings.demand {
         let expr = dsl::parse_expr(name).map_err(|e| invalid(root, e.to_string()))?;
-        let resolved = engine.rewrite(instance, &expr, &Environment::new(), &[root])?;
+        let resolved = engine.with_instance_selections(instance, |engine| {
+            engine.rewrite(instance, &expr, &Environment::new(), &[root])
+        })?;
         if let Some(id) = symbol_reference(&resolved) {
             engine.model.paths.insert(name.clone(), id);
         }
@@ -573,11 +563,24 @@ pub fn specialize_with_discretizer(
         }
     }
     engine.check_connectivity()?;
-    engine.publish_observations()?;
     engine.finish(&bindings.formulation)?;
+    engine.model.selection_closures = engine.selection_collector.into_inner();
     Ok(engine.model)
 }
 impl Engine<'_, '_> {
+    fn with_instance_selections<T>(
+        &mut self,
+        instance: InstanceId,
+        action: impl FnOnce(&mut Self) -> Result<T>,
+    ) -> Result<T> {
+        let capture = self.selection_collector.instance_scope();
+        let result = action(self);
+        let selections = capture.finish();
+        if let Some(state) = self.states.get_mut(&instance) {
+            state.selections.extend(selections);
+        }
+        result
+    }
     /// The owner and declaration of an equation member reached through child segments, or
     /// `None` when the path names no equation member.
     fn equation_member(
@@ -777,6 +780,7 @@ impl Engine<'_, '_> {
             limit: self.limits.members,
             stack: Vec::new(),
             reader: self.reader,
+            selections: Some(&self.selection_collector),
         }
         .text(text, expected)
     }
@@ -790,6 +794,7 @@ impl Engine<'_, '_> {
             limit: self.limits.members,
             stack: Vec::new(),
             reader: self.reader,
+            selections: Some(&self.selection_collector),
         }
         .predicate(&p)
     }
@@ -812,6 +817,19 @@ impl Engine<'_, '_> {
         }
     }
     fn instantiate(
+        &mut self,
+        definition: DeclarationId,
+        id: InstanceId,
+        parent: Option<InstanceId>,
+        path: String,
+        arguments: Environment,
+        scope: Environment,
+    ) -> Result<()> {
+        self.with_instance_selections(id, |engine| {
+            engine.instantiate_body(definition, id, parent, path, arguments, scope)
+        })
+    }
+    fn instantiate_body(
         &mut self,
         definition: DeclarationId,
         id: InstanceId,
@@ -904,6 +922,7 @@ impl Engine<'_, '_> {
             limit: self.limits.members,
             stack: Vec::new(),
             reader: self.reader,
+            selections: Some(&self.selection_collector),
         }
         .definition_environment(definition, &arguments, env.clone())?;
         let mut members = self.p.members.get(&definition).cloned().unwrap_or_default();
@@ -960,26 +979,10 @@ impl Engine<'_, '_> {
                 );
             }
         }
-        // ADR-0123 Outcome 4: the data layer's policy is the one this definition, test or case
-        // selects, else its parent instance's; none selects reject.
-        let extrapolation = members
-            .values()
-            .find_map(|member| {
-                self.p.declarations[member]
-                    .value
-                    .extrapolation
-                    .as_ref()
-                    .filter(|s| s.layer == pse_model::generated::enums::ModelingValidityLayer::Data)
-                    .map(|s| (s.policy, *member))
-            })
-            .or_else(|| {
-                parent
-                    .and_then(|owner| self.states.get(&owner))
-                    .and_then(|state| state.extrapolation)
-            });
         self.states.insert(
             id,
             State {
+                selections: BTreeMap::new(),
                 presets: self.preset_stack.clone(),
                 definition,
                 parent,
@@ -990,7 +993,6 @@ impl Engine<'_, '_> {
                 children: BTreeMap::new(),
                 symbols: BTreeMap::new(),
                 stack: Vec::new(),
-                extrapolation,
             },
         );
         self.model.instances.insert(
@@ -1531,6 +1533,18 @@ impl Engine<'_, '_> {
         coordinates: &[(String, Value)],
         env: &Environment,
     ) -> Result<()> {
+        self.with_instance_selections(id, |engine| {
+            engine.equation_body(id, member, equation, coordinates, env)
+        })
+    }
+    fn equation_body(
+        &mut self,
+        id: InstanceId,
+        member: DeclarationId,
+        equation: &Equation,
+        coordinates: &[(String, Value)],
+        env: &Environment,
+    ) -> Result<()> {
         let r = self.p.declarations[&member].clone();
         let Selected::Equation(e) = r
             .value
@@ -1659,7 +1673,9 @@ impl Engine<'_, '_> {
         let saved = std::mem::take(&mut self.lexical);
         let indexed = std::mem::take(&mut self.indexed_arguments);
         let types = std::mem::take(&mut self.function_types);
-        let result = self.symbol_member(instance, member, coordinates, chain);
+        let result = self.with_instance_selections(instance, |engine| {
+            engine.symbol_member(instance, member, coordinates, chain)
+        });
         self.lexical = saved;
         self.indexed_arguments = indexed;
         self.function_types = types;

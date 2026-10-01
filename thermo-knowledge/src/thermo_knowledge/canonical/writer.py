@@ -50,7 +50,7 @@ from thermo_knowledge import identity, transposition
 from thermo_knowledge import pipeline_contract as pc
 from thermo_knowledge.canonical import dependent, invariants, tied_keys
 from thermo_knowledge.canonical import values as v
-from thermo_knowledge.canonical.provenance import Carriers, CarrierInfo, Origin, SourceRef
+from thermo_knowledge.canonical.provenance import CarrierInfo, Carriers, Origin, SourceRef
 from thermo_knowledge.canonical.schemas import UUID, canonical_schemas, table_name
 from thermo_knowledge.canonical.values import (
     Converted,
@@ -844,7 +844,7 @@ class CanonicalWriter:
         given = dict(values or {})
         problems = Problems()
         fields = {f.name: f for f in (*relation.keys, *relation.values)}
-        for extra in sorted((set(keys) - {k.name for k in relation.keys})):
+        for extra in sorted(set(keys) - {k.name for k in relation.keys}):
             problems.add(extra, f"is not a key of relation `{name}`")
         for extra in sorted(set(given) - {c.name for c in relation.values}):
             problems.add(extra, f"is not a value column of relation `{name}`")
@@ -984,7 +984,9 @@ class CanonicalWriter:
             if stored.row[order.reaction] == reaction:
                 stated[stored.row[order.form]] = stored.row[order.value]  # type: ignore[index]
         orders: dict[uuid.UUID, float] = {
-            form: -float(coefficient) for form, coefficient in coefficients.items() if coefficient < 0
+            form: -float(coefficient)
+            for form, coefficient in coefficients.items()
+            if coefficient < 0
         }
         orders.update(stated)
         per_area = {form: self._per_area(form) for form in {*coefficients, *orders}}
@@ -1007,7 +1009,9 @@ class CanonicalWriter:
         species = pc.SPECIES_FORM
         stored = self._tables.get(species.table, {}).get((form,))
         aggregation = (
-            stored.row[species.aggregation] if stored is not None else self._form_aggregations.get(form)
+            stored.row[species.aggregation]
+            if stored is not None
+            else self._form_aggregations.get(form)
         )
         entity = self._entities.get(aggregation)  # type: ignore[arg-type]
         if entity is None:
@@ -1105,7 +1109,10 @@ class CanonicalWriter:
                 f"implements `{chosen.implements}`",
             )
         if declared.per != "subject":
-            problems.add(slot, "is chosen per model: a choice for a subject belongs to a slot chosen per subject")
+            problems.add(
+                slot,
+                "is chosen per model: a choice for a subject belongs to a slot chosen per subject",
+            )
         roles = self.decl.contracts[declared.accepts].roles
         if len(subjects) != len(roles):
             problems.add(
@@ -1117,7 +1124,8 @@ class CanonicalWriter:
             problems.add(sc.ordinal, f"{ordinal!r} is not a whole number from one")
         elif ordinal > 1 and declared.multiplicity != "many":
             problems.add(
-                sc.ordinal, f"`{slot}` has multiplicity `{declared.multiplicity}`: it takes one choice"
+                sc.ordinal,
+                f"`{slot}` has multiplicity `{declared.multiplicity}`: it takes one choice",
             )
         if problems:
             raise ValidationError(locator, problems.items)
@@ -1183,7 +1191,9 @@ class CanonicalWriter:
                     {**clause, rc.region: found, rc.ordinal: position},
                     at=locator,
                 )
-            self._coverage(record, region[vr.kind], pc.VALIDITY_COVERAGE_STATE.member("stated"), locator)
+            self._coverage(
+                record, region[vr.kind], pc.VALIDITY_COVERAGE_STATE.member("stated"), locator
+            )
             return found
 
     def validity_not_stated(
@@ -1455,7 +1465,9 @@ class CanonicalWriter:
         if isinstance(value.occurrence, bool) or value.occurrence < 1:
             raise ValidationError(
                 locator,
-                [f"{slot_qualified}: occurrence {value.occurrence!r} is not a whole number from one"],
+                [
+                    f"{slot_qualified}: occurrence {value.occurrence!r} is not a whole number from one"
+                ],
             )
         ordered = tuple(value.subjects)
         if transposition.is_diagonal(group, ordered):

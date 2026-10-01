@@ -11,10 +11,11 @@ import uuid
 from pathlib import Path
 
 import pytest
+
 from declaration_support import copy_full, full_declaration
 from mapping_support import carrier, origin, real_declaration, writer
-
 from thermo_knowledge.canonical.invariants import ddl_violation
+from thermo_knowledge.canonical.provenance import Carriers
 from thermo_knowledge.canonical.values import Quantity, ValueRefused, scalar
 from thermo_knowledge.canonical.writer import (
     CanonicalWriter,
@@ -22,7 +23,6 @@ from thermo_knowledge.canonical.writer import (
     ValidationError,
     WriteError,
 )
-from thermo_knowledge.canonical.provenance import Carriers
 from thermo_knowledge.declaration import Declaration, Diagnostic, load_declaration
 from thermo_knowledge.declaration.types import TypeRef
 
@@ -249,11 +249,17 @@ def test_the_writer_names_a_conversion_exactly_when_the_level_is_equal_under_con
     for level, named, message in (
         ("exact", conversion, "conversion is present but level is `exact`"),
         ("conflicting", conversion, "conversion is present but level is `conflicting`"),
-        ("equal_under_conversion", None, "conversion is absent but level is `equal_under_conversion`"),
+        (
+            "equal_under_conversion",
+            None,
+            "conversion is absent but level is `equal_under_conversion`",
+        ),
     ):
         with pytest.raises(ValidationError) as raised:
             assess(level, named)
-        assert "conversion_iff_under_conversion" in str(raised.value) and message in str(raised.value)
+        assert "conversion_iff_under_conversion" in str(raised.value) and message in str(
+            raised.value
+        )
     assert w.rows("prov.equivalence_assessment") == 2
 
 
@@ -387,9 +393,7 @@ def test_a_temperature_piece_may_start_at_zero_kelvin_and_a_negative_bound_is_re
         {"key": "k", "revision": "r", "title": "t", "coherence": "independent_records"},
         origins=[origin("a.json#/0", "published")],
     )
-    species = w.kind(
-        "species", {"canonical_key": "K", "label": "K"}, origins=[origin("a.json#/1")]
-    )
+    species = w.kind("species", {"canonical_key": "K", "label": "K"}, origins=[origin("a.json#/1")])
     gas = next(e.id for e in decl.entities if e.kind == "aggregation" and e.name == "gas")
     form = w.kind(
         "species_form",

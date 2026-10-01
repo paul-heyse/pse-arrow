@@ -14,8 +14,8 @@ from collections import defaultdict
 from pathlib import Path
 
 import pytest
-from r3_reader_support import stage_real, staged_table
 
+from r3_reader_support import stage_real, staged_table
 from thermo_knowledge import config
 from thermo_knowledge.acquire import store
 from thermo_knowledge.declaration import Declaration, load_declaration

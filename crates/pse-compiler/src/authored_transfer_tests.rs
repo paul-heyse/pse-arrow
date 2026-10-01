@@ -28,7 +28,7 @@ use std::{
 /// External data transport occurrences are outside this selected declaration control; numerical
 /// cases supply small synthetic keyed parameter rows for the selected declarations. Full package/data transport is
 /// qualified in Plan 25k. No source function or process equation is copied into this test.
-fn reference_sources() -> String {
+pub(crate) fn reference_sources() -> String {
     format!("{}\n{SYNTHETIC_PARAMETERS}", SOURCES.join("\n"))
 }
 
@@ -80,7 +80,7 @@ const SOURCES: &[&str] = &[
     include_str!("../../../packages/reference/process/models/vessels.pse"),
 ];
 
-fn inputs() -> Inputs {
+pub(crate) fn inputs() -> Inputs {
     Inputs {
         quantities: Arc::new(pse_quantity::standard::standard_registry().unwrap()),
         preconditions: Arc::new(
@@ -99,7 +99,7 @@ fn inputs() -> Inputs {
     }
 }
 
-fn rows(text: &str) -> Vec<Declaration> {
+pub(crate) fn rows(text: &str) -> Vec<Declaration> {
     let parsed = parse(
         text,
         SemanticId::from_bytes([194; 16]),
@@ -153,7 +153,7 @@ fn rows(text: &str) -> Vec<Declaration> {
         .collect()
 }
 
-fn root(rows: &[Declaration], package: &str, name: &str) -> DeclarationId {
+pub(crate) fn root(rows: &[Declaration], package: &str, name: &str) -> DeclarationId {
     let parent = rows
         .iter()
         .find(|row| row.name == package && row.parent_id.is_none())
@@ -534,21 +534,21 @@ use references @"1.0.0"; use correlations @"1.0.0"; use properties @"1.0.0";
 use compatibility @"1.0.0"; use cubic @"1.0.0"; use idaes_thermo @"1.0.0";
 // Simple independent caloric data exercise the actual BTIdeal property-selection and anchor
 // functions. These synthetic coefficients are not an IDAES or database qualification.
-dataset cp:correlations.rpp4_cp bind(property=properties.heat_capacity,phase_type=compatibility.PhaseType.vaporPhase,source=references.idaes_bt_ideal) provenance(references.analytic_identities,provenance.Role.synthetic) {
+dataset cp:correlations.rpp4_cp bind(property=properties.heat_capacity,phase_type=compatibility.PhaseType.vaporPhase,source=references.idaes_bt_ideal,parameterization=references.idaes_bt_ideal_vapor_fit,dependencies={},conventions={}) provenance(references.analytic_identities,provenance.Role.synthetic) {
 [chem.benzene]=[200{K},500{K},10{J/(mol*K)},0{J/(mol*K^2)},0{J/(mol*K^3)},0{J/(mol*K^4)}];
 [chem.toluene]=[200{K},500{K},20{J/(mol*K)},0{J/(mol*K^2)},0{J/(mol*K^3)},0{J/(mol*K^4)}];
 }
 // These unused liquid, pressure and critical parameter rows satisfy the actual seed's
 // selection declarations. They retain those keys without importing the data transport journey.
-dataset liquid_cp:correlations.dippr100 bind(property=properties.heat_capacity,phase_type=compatibility.PhaseType.liquidPhase,source=references.idaes_bt_ideal) provenance(references.analytic_identities,provenance.Role.synthetic) {
+dataset liquid_cp:correlations.dippr100 bind(property=properties.heat_capacity,phase_type=compatibility.PhaseType.liquidPhase,source=references.idaes_bt_ideal,parameterization=references.idaes_bt_ideal_liquid_fit,dependencies={},conventions={}) provenance(references.analytic_identities,provenance.Role.synthetic) {
 [chem.benzene]=[200{K},500{K},10{J/(mol*K)},0{J/(mol*K^2)},0{J/(mol*K^3)},0{J/(mol*K^4)},0{J/(mol*K^5)}];
 [chem.toluene]=[200{K},500{K},20{J/(mol*K)},0{J/(mol*K^2)},0{J/(mol*K^3)},0{J/(mol*K^4)},0{J/(mol*K^5)}];
 }
-dataset pressure:correlations.rpp4_wagner bind(property=properties.vapor_pressure,phase_type=compatibility.PhaseType.liquidPhase,source=references.idaes_test_rpp4) provenance(references.analytic_identities,provenance.Role.synthetic) {
+dataset pressure:correlations.rpp4_wagner bind(property=properties.vapor_pressure,phase_type=compatibility.PhaseType.liquidPhase,source=references.idaes_test_rpp4,parameterization=references.idaes_rpp4_pressure_fit,dependencies={},conventions={}) provenance(references.analytic_identities,provenance.Role.synthetic) {
 [chem.benzene]=[200{K},500{K},0{1},0{1},0{1},0{1},600{K},5000000{Pa}];
 [chem.toluene]=[200{K},500{K},0{1},0{1},0{1},0{1},600{K},5000000{Pa}];
 }
-dataset critical:cubic.critical_point bind(property=cubic.critical_parameters,phase_type=compatibility.PhaseType.vaporPhase,source=references.idaes_bt_pr) provenance(references.analytic_identities,provenance.Role.synthetic) {
+dataset critical:cubic.critical_point bind(property=cubic.critical_parameters,source=references.idaes_bt_pr,parameterization=references.idaes_bt_pr_critical_fit,dependencies={},conventions={}) provenance(references.analytic_identities,provenance.Role.synthetic) {
 [chem.benzene]=[600{K},5000000{Pa},0.1{1}];
 [chem.toluene]=[600{K},5000000{Pa},0.1{1}];
 }
@@ -621,9 +621,10 @@ expect reactors.stored_energy(0.1{m^3},10{mol/m^3},2000{J/mol},101325{Pa})==1867
 expect reactors.stored_energy(0.1{m^3},10{mol/m^3},0{J/mol},101325{Pa})==-132.5{J} tolerance 1e-9{J};
 }
 test reaction_rates fixture {dof 0;run pure;fix root.T=303.15{K};fix root.concentration[chem.water]=55388{mol/m^3};fix root.concentration[chem.sodium_hydroxide]=100{mol/m^3};fix root.concentration[chem.ethyl_acetate]=100{mol/m^3};fix root.concentration[chem.sodium_acetate]=0{mol/m^3};fix root.concentration[chem.ethanol]=0{mol/m^3};} {
-child root:reactions.RateLaw=saponification.SaponificationReactions;
+permission kinetic_use families(reaction_forms.reaction_set) allow_unknown true allow_extrapolation false;
+child root:reactions.Projection=reactions.Projection(material=saponification.SaponificationReactions.components,selected=saponification.SaponificationReactions.records,selection=saponification.SaponificationReactions.admitted);
 let extent[r in saponification.reaction_set]:ReactionExtentRate=0.001{m^3}*root.rate[r];
-let source[r in saponification.reaction_set,j in saponification.saponification_species]:ComponentFlow=extent[r]*root.stoich[r,j];
+let source[r in saponification.reaction_set,j in saponification.saponification_species]:ComponentFlow=extent[r]*root.coefficient[r,j];
 expect extent[saponification.hydrolysis]==1.221230445517785{mol/s} tolerance 1e-11{mol/s};
 expect source[saponification.hydrolysis,chem.ethyl_acetate]==-1.221230445517785{mol/s} tolerance 1e-11{mol/s};
 expect source[saponification.hydrolysis,chem.ethanol]==1.221230445517785{mol/s} tolerance 1e-11{mol/s};
@@ -635,12 +636,14 @@ def InventoryPoint {
 child root:vessels.HomogeneousInventory=vessels.HomogeneousInventory(selected=bt_ideal.aromatics,law=helmholtz.ideal,ideal_h=ideal_h,composition=composition,V=0.1{m^3});
 }
 test CstrPoint {
+permission kinetic_use families(reaction_forms.reaction_set) allow_unknown true allow_extrapolation false;
 child root:reactors.CSTR=reactors.CSTR(inlet_pkg=saponification.Saponification(defined_state=true),outlet_pkg=saponification.Saponification(defined_state=false),reaction_pkg=saponification.SaponificationReactions);
 }
 test ExchangerPoint {
 child root:heat_exchange.HeatExchanger=heat_exchange.HeatExchanger(hot_inlet_pkg=saponification.Saponification(defined_state=true),hot_outlet_pkg=saponification.Saponification(defined_state=false),cold_inlet_pkg=saponification.Saponification(defined_state=true),cold_outlet_pkg=saponification.Saponification(defined_state=false));
 }
 test DistributedPoint {
+permission kinetic_use families(reaction_forms.reaction_set) allow_unknown true allow_extrapolation false;
 child root:reactors.PFR=reactors.PFR(inlet_pkg=saponification.Saponification(defined_state=true),outlet_pkg=saponification.Saponification(defined_state=false),reaction_pkg=saponification.SaponificationReactions,elements=1,use_radau=false);
 annotation report root.heat("distributed heat");
 }

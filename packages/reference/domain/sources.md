@@ -21,25 +21,25 @@ certify them.
 
 `models/properties.pse` declares what a property is (its quantity type, index shape and the
 phase types it applies to) and the pure-component properties the generic operations read:
-heat capacity, vapor pressure and liquid molar density. A `parameter_set` is one source's
-parameterization of one property of one species in one phase type; its keys are its
-identity, whatever form refines it, and it has no reference attribute, because the datum of
-what it computes is its form's result type. `caloric_set`, `vapor_pressure_set` and
-`liquid_density_set` are the families a form refines; each is a `temperature_correlation`
-whose envelope guards every read. A `property_package` selects one parameter set per
-species, property and phase type (`selection`) and gives species roles (`component_role`,
-with the charge a role requires). The generic operations `cp`, `enthalpy_increment`,
-`entropy_increment`, `psat` and `liquid_density` resolve the selection, narrow the selected
-set to its family by its keys and evaluate the form's bound function inside the set's
-envelope; a missing selection is a refusal naming the package, species, property and phase
-type.
+heat capacity, vapor pressure and liquid molar density. Parameter records identify their
+parameterization, family, subjects and variant independently of source provenance.
+Phase-specific correlations use an explicit phase key; critical and segment parameters
+use phase-independent records. A property package names its admitted selection context
+and selects existing individual records. Dependencies and atomic fits close under the
+consuming subject/model scope; coefficients remain in their original records.
 
-`models/interactions.pse` declares symmetric pair data from one source (`pair`), the source a
-package selects for each pair property (`pair_selection`, read by `pair_parameter`), and
-group-contribution structure: main groups, subgroups with volume and surface parameters,
-and species' subgroup counts. Sources are selected per package and property, so one
-property's pairs come from one source. A method library declares its own typed pair and
-group-interaction relations keyed by source.
+`caloric_set`, `vapor_pressure_set` and `liquid_density_set` bind their forms and evidence
+claims. Their generic operations evaluate declared applicability without turning an
+unknown range into unrestricted use. Caloric increments request whole-interval coverage.
+Named analysis permissions allow unknown evidence or extrapolation independently, and
+observations retain the source claim and actual outcome.
+
+`models/interactions.pse` declares canonical symmetric records and per-pair choices of a
+stored record or an explicit predictive rule with inputs. Required missing pairs refuse;
+stored zero and predicted zero preserve different identities. Directional method records
+retain both orientations. Atomic fit membership has one authored direction, with derived
+backlinks. Group-contribution structure declares main groups, subgroups with volume and
+surface parameters, and species' subgroup counts.
 
 `models/constants.pse` declares the molar gas constant, typed by its own quantity kind and
 exact since the 2019 SI redefinition, citing the CODATA 2018 recommended values.

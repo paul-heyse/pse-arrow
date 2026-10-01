@@ -93,9 +93,15 @@ def _int(name: str, source_name: str, *, nullable: bool = False) -> pa.Field:
 
 
 TABLES_SCHEMA = table_schema(
-    _text("code", "file name without .txt (element symbol, hyphen, sequence number)", nullable=False),
-    _text("title_field_1", "title line, first tab-separated field", nullable=False, note="verbatim"),
-    _text("title_field_2", "title line, second tab-separated field", nullable=False, note="verbatim"),
+    _text(
+        "code", "file name without .txt (element symbol, hyphen, sequence number)", nullable=False
+    ),
+    _text(
+        "title_field_1", "title line, first tab-separated field", nullable=False, note="verbatim"
+    ),
+    _text(
+        "title_field_2", "title line, second tab-separated field", nullable=False, note="verbatim"
+    ),
     _text(
         "substance_name",
         "title field 1 before its last parenthesised group",
@@ -116,7 +122,12 @@ TABLES_SCHEMA = table_schema(
         "the last parenthesised group of title field 2",
         note="for example g, cr, l, cr,l, ref, l,g, fl; null as above",
     ),
-    _text("header_line", "line 2", nullable=False, note="verbatim; the reader requires the standard header"),
+    _text(
+        "header_line",
+        "line 2",
+        nullable=False,
+        note="verbatim; the reader requires the standard header",
+    ),
     _int("line_count", "number of lines in the file"),
     _int("data_row_count", "lines after the header of kind data"),
     _int("plus_count", "lines after the header of kind plus"),
@@ -225,7 +236,9 @@ def _row(artifact: str, line_number: int, row_index: int, line: str) -> dict[str
         "raw_line": line,
     }
     if "\r" in line:
-        raise _located(artifact, line_number, "a carriage return; the files end lines with a line feed only")
+        raise _located(
+            artifact, line_number, "a carriage return; the files end lines with a line feed only"
+        )
     if line.strip() == "" and "\t" not in line:
         row["row_kind"] = "blank"
         return row
@@ -282,7 +295,9 @@ def read_table_file(tree: Path, artifact: str) -> tuple[dict[str, object], list[
         raise _located(artifact, 1, "a table file needs a title line and a header line")
     title = lines[0].split("\t")
     if len(title) != 2:
-        raise _located(artifact, 1, f"the title line has {len(title)} tab-separated fields, not two")
+        raise _located(
+            artifact, 1, f"the title line has {len(title)} tab-separated fields, not two"
+        )
     if lines[1] != HEADER:
         raise _located(artifact, 2, f"the header line is not the standard header: {lines[1]!r}")
     rows = [_row(artifact, number, number - 3, line) for number, line in enumerate(lines[2:], 3)]

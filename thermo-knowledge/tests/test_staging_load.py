@@ -13,8 +13,8 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 import typer
-from readers_support import PIN, Workspace, build_workspace, module_resolver, tiny_module
 
+from readers_support import PIN, Workspace, build_workspace, module_resolver, tiny_module
 from thermo_knowledge import config, db
 from thermo_knowledge.staging import load, stage
 from thermo_knowledge.staging import manifest as staged_manifest

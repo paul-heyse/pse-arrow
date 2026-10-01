@@ -77,7 +77,7 @@ fn domain_schema_admits_without_data_rows() {
             .iter()
             .map(|(n, _)| n.as_str())
             .collect::<Vec<_>>(),
-        ["cas", "inchikey", "charge", "molar_mass"]
+        ["cas", "inchikey", "charge", "composition", "molar_mass"]
     );
     assert_eq!(
         kind.derived
@@ -97,7 +97,7 @@ fn domain_schema_admits_without_data_rows() {
     );
     assert_eq!(
         p.kinds[&p.names["chemistry.apparent"]].requirements.len(),
-        1
+        4
     );
     assert!(p.refines(p.names["chemistry.apparent"], species));
     // The canonical phases carry their types.
@@ -121,12 +121,23 @@ fn domain_schema_admits_without_data_rows() {
         p.provenance(r).unwrap().source,
         p.names["constants.codata_2018"]
     );
-    // The parameter set is keyed and abstract; its families refine it.
+    // The carrier is keyless; phased families own their scientific identity keys.
     let (key_kind, keys) = p.keys(p.names["properties.caloric_set"]).unwrap();
-    assert_eq!(key_kind, p.names["properties.parameter_set"]);
+    assert_eq!(key_kind, p.names["properties.phased_parameter"]);
+    assert!(
+        p.kinds[&p.names["properties.parameter_set"]]
+            .keys
+            .is_empty()
+    );
     assert_eq!(
         keys.iter().map(|k| k.0.as_str()).collect::<Vec<_>>(),
-        ["subject", "property", "phase_type", "source", "variant"]
+        [
+            "subject",
+            "property",
+            "phase_type",
+            "parameterization",
+            "variant"
+        ]
     );
 }
 
@@ -273,27 +284,31 @@ const OPERATIONS: &str = r#"package operations {
  fn constant_pressure(T: Temperature, s: constant_psat) -> Pressure = s.p0;
  entity kind constant_density extends properties.liquid_density_set { attribute rho: MolarDensity; density = constant_rho; }
  fn constant_rho(T: Temperature, s: constant_density) -> MolarDensity = s.rho;
- dataset vapor: constant_psat bind(source = corpus.bank, property = properties.vapor_pressure) provenance(corpus.bank, provenance.Role.published) { [corpus.benzene, liquidPhase] = [250{K}, 400{K}, 10000{Pa}]; }
- dataset density: constant_density bind(source = corpus.bank, property = properties.liquid_molar_density) provenance(corpus.bank, provenance.Role.published) { [corpus.benzene, liquidPhase] = [250{K}, 400{K}, 11000{mol/m^3}]; }
+ dataset vapor: constant_psat bind(parameterization=corpus.fit,source=corpus.bank,dependencies={},conventions={},property = properties.vapor_pressure) provenance(corpus.bank, provenance.Role.published) { [corpus.benzene, liquidPhase] = [250{K}, 400{K}, 10000{Pa}]; }
+ dataset density: constant_density bind(parameterization=corpus.fit,source=corpus.bank,dependencies={},conventions={},property = properties.liquid_molar_density) provenance(corpus.bank, provenance.Role.published) { [corpus.benzene, liquidPhase] = [250{K}, 400{K}, 11000{mol/m^3}]; }
  set components: Set<chemistry.species> = {corpus.benzene};
  set pure: Set<properties.property> = {properties.heat_capacity, properties.vapor_pressure, properties.liquid_molar_density};
- dataset choice: properties.selection complete_over(k in corpus.packages, j in components, p in pure, t in corpus.liquid) provenance(corpus.bank, provenance.Role.published) {
-  [corpus.pkg, corpus.benzene, properties.heat_capacity, liquidPhase] = [properties.parameter_set[corpus.benzene, properties.heat_capacity, liquidPhase, corpus.bank]];
-  [corpus.pkg, corpus.benzene, properties.vapor_pressure, liquidPhase] = [properties.parameter_set[corpus.benzene, properties.vapor_pressure, liquidPhase, corpus.bank]];
-  [corpus.pkg, corpus.benzene, properties.liquid_molar_density, liquidPhase] = [properties.parameter_set[corpus.benzene, properties.liquid_molar_density, liquidPhase, corpus.bank]];
+ dataset choice: properties.selection complete_over(k in packages, j in components, p in pure, t in corpus.liquid) provenance(corpus.bank, provenance.Role.published) {
+  [pkg, corpus.benzene, properties.heat_capacity, liquidPhase] = [properties.phased_parameter[corpus.benzene, properties.heat_capacity, liquidPhase, corpus.fit]];
+  [pkg, corpus.benzene, properties.vapor_pressure, liquidPhase] = [properties.phased_parameter[corpus.benzene, properties.vapor_pressure, liquidPhase, corpus.fit]];
+  [pkg, corpus.benzene, properties.liquid_molar_density, liquidPhase] = [properties.phased_parameter[corpus.benzene, properties.liquid_molar_density, liquidPhase, corpus.fit]];
  }
  entity properties.property kij { quantity = Scalar, shape = properties.IndexShape.pair, applies = {liquidPhase, vaporPhase} }
  set kijs: Set<properties.property> = {kij};
- dataset kij_values: interactions.pair provenance(corpus.bank, provenance.Role.published) { [corpus.bank, kij, corpus.benzene, corpus.toluene] = [0.01]; }
- dataset kij_source: interactions.pair_selection complete_over(k in corpus.packages, p in kijs) provenance(corpus.bank, provenance.Role.published) { [corpus.pkg, kij] = [corpus.bank]; }
+ dataset kij_values:interactions.symmetric_scalar bind(parameterization=corpus.fit,family=kij,source=corpus.bank,dependencies={},conventions={}) provenance(corpus.bank,provenance.Role.published) {[corpus.benzene,corpus.toluene]=[0.01];}
+ entity properties.selection_context admitted {roots={properties.phased_parameter[corpus.benzene,properties.heat_capacity,liquidPhase,corpus.fit],properties.phased_parameter[corpus.benzene,properties.vapor_pressure,liquidPhase,corpus.fit],properties.phased_parameter[corpus.benzene,properties.liquid_molar_density,liquidPhase,corpus.fit],interactions.symmetric_scalar[corpus.fit,kij,corpus.benzene,corpus.toluene]},subjects=corpus.aromatics,models={properties.heat_capacity,properties.vapor_pressure,properties.liquid_molar_density,kij},rules={}}
+ entity properties.property_package pkg {admitted=admitted}
+ set packages:Set<properties.property_package>={pkg};
+ dataset kij_source:interactions.symmetric_selection complete_over(k in packages,family in kijs,i in corpus.aromatics,j in corpus.aromatics) provenance(corpus.bank,provenance.Role.published) {[pkg,kij,corpus.benzene,corpus.toluene]=[interactions.symmetric_scalar[corpus.fit,kij,corpus.benzene,corpus.toluene],missing];}
  def Root {
+  permission pair_use families(interactions.symmetric_scalar) allow_unknown true allow_extrapolation false;
   var c: MolarCp; var h: DeltaH; var s: DeltaS; var p: Pressure; var d: MolarDensity; var k: Scalar;
-  eq heat: c == properties.cp(corpus.pkg, chemistry.liquid, corpus.benzene, 300{K});
-  eq enthalpy: h == properties.enthalpy_increment(corpus.pkg, chemistry.liquid, corpus.benzene, 298.15{K}, 300{K});
-  eq entropy: s == properties.entropy_increment(corpus.pkg, chemistry.liquid, corpus.benzene, 298.15{K}, 300{K});
-  eq saturation: p == properties.psat(corpus.pkg, chemistry.liquid, corpus.benzene, 300{K});
-  eq molar_density: d == properties.liquid_density(corpus.pkg, chemistry.liquid, corpus.benzene, 300{K});
-  eq pair: k == interactions.pair_parameter(corpus.pkg, kij, corpus.toluene, corpus.benzene);
+  eq heat: c == properties.cp(pkg, chemistry.liquid, corpus.benzene, 300{K});
+  eq enthalpy: h == properties.enthalpy_increment(pkg, chemistry.liquid, corpus.benzene, 298.15{K}, 300{K});
+  eq entropy: s == properties.entropy_increment(pkg, chemistry.liquid, corpus.benzene, 298.15{K}, 300{K});
+  eq saturation: p == properties.psat(pkg, chemistry.liquid, corpus.benzene, 300{K});
+  eq molar_density: d == properties.liquid_density(pkg, chemistry.liquid, corpus.benzene, 300{K});
+  eq pair: k == interactions.pair_parameter(pkg, kij, corpus.toluene, corpus.benzene);
  }
 }"#;
 

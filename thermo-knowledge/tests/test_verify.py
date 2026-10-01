@@ -16,10 +16,10 @@ from pathlib import Path
 
 import psycopg
 import pytest
-from mapping_support import extended_directories, real_declaration
 from psycopg import sql
 from typer.testing import CliRunner
 
+from mapping_support import extended_directories, real_declaration
 from thermo_knowledge import config
 from thermo_knowledge.build import build_database
 from thermo_knowledge.cli import app
@@ -1003,7 +1003,11 @@ def test_a_datums_column_belongs_to_the_dataset_of_its_point(conn: psycopg.Conne
 
 
 def evidence_column(
-    conn: psycopg.Connection, dataset: uuid.UUID, ordinal: int, role: str = "property", **extra: object
+    conn: psycopg.Connection,
+    dataset: uuid.UUID,
+    ordinal: int,
+    role: str = "property",
+    **extra: object,
 ) -> uuid.UUID:
     identifier = new()
     observable = lookup(conn, "SELECT id FROM tk.observable LIMIT 1")
@@ -1025,17 +1029,15 @@ def test_a_datums_column_is_a_variable_or_a_property(conn: psycopg.Connection) -
     point = new()
     insert(conn, "ev.data_point", id=point, dataset=dataset, index=1)
     columns = {
-        role: evidence_column(conn, dataset, ordinal, role, **(
-            {"constant": 1.0} if role == "constraint" else {}
-        ))
+        role: evidence_column(
+            conn, dataset, ordinal, role, **({"constant": 1.0} if role == "constraint" else {})
+        )
         for ordinal, role in enumerate(("variable", "property", "constraint"), 1)
     }
     made = {}
     for role, column in columns.items():
         made[role] = new()
-        insert(
-            conn, "ev.datum", id=made[role], point=point, column=column, state="not_measured"
-        )
+        insert(conn, "ev.datum", id=made[role], point=point, column=column, state="not_measured")
     provenance(conn, dataset, "a.json#/8")
     result = run(conn, "datum.column_is_variable_or_property")
     assert violating(result) == ids(made["constraint"])
@@ -1293,7 +1295,12 @@ def test_a_coverage_row_says_stated_exactly_when_the_record_has_a_region_of_the_
         kind="recommended_range",
         value="not_stated",
     )
-    for name in ("stated_with_region", "not_stated_with_region", "region_without_row", "other_kind"):
+    for name in (
+        "stated_with_region",
+        "not_stated_with_region",
+        "region_without_row",
+        "other_kind",
+    ):
         insert(
             conn,
             "tk.validity_region",
@@ -1333,18 +1340,32 @@ def test_a_derivation_of_kind_estimation_states_its_method(conn: psycopg.Connect
 def test_a_snapshot_selects_no_set_made_by_a_failed_fit(conn: psycopg.Connection) -> None:
     snapshot = new()
     selected = {name: new() for name in ("failed", "converged", "not_stated", "estimated", "bare")}
-    for name, outcome in (("failed", "failed"), ("converged", "converged"), ("not_stated", "not_stated")):
+    for name, outcome in (
+        ("failed", "failed"),
+        ("converged", "converged"),
+        ("not_stated", "not_stated"),
+    ):
         derivation = new()
         insert(conn, "prov.derivation", id=derivation, key=name, kind="fit")
         insert(conn, "prov.fit", id=derivation, outcome=outcome)
-        insert(conn, "prov.derivation_output", id=new(), derivation=derivation, record=selected[name])
+        insert(
+            conn, "prov.derivation_output", id=new(), derivation=derivation, record=selected[name]
+        )
     estimation = new()
     insert(conn, "prov.derivation", id=estimation, key="e", kind="estimation", method="m")
-    insert(conn, "prov.derivation_output", id=new(), derivation=estimation, record=selected["estimated"])
+    insert(
+        conn,
+        "prov.derivation_output",
+        id=new(),
+        derivation=estimation,
+        record=selected["estimated"],
+    )
     chosen = {}
     for name, record in selected.items():
         chosen[name] = new()
-        insert(conn, "tk.snapshot_selection", id=chosen[name], snapshot=snapshot, parameter_set=record)
+        insert(
+            conn, "tk.snapshot_selection", id=chosen[name], snapshot=snapshot, parameter_set=record
+        )
     provenance(conn, selected["failed"], "a.json#/15")
     result = run(conn, "snapshot_selection.no_failed_fit")
     assert violating(result) == ids(chosen["failed"])
@@ -1455,7 +1476,13 @@ def test_a_reaction_of_a_system_conserves_the_quantities_the_system_declares(
     # declared oxygen makes `unbalanced` a violation of the system that declares it
     insert(conn, "tk.system_conserves", id=new(), system=other, quantity=oxygen)
     conserving["unbalanced_in_oxygen"] = new()
-    insert(conn, "tk.system_reaction", id=conserving["unbalanced_in_oxygen"], system=other, reaction=unbalanced)
+    insert(
+        conn,
+        "tk.system_reaction",
+        id=conserving["unbalanced_in_oxygen"],
+        system=other,
+        reaction=unbalanced,
+    )
     provenance(conn, unbalanced, "a.json#/16")
     result = run(conn, "system_reaction.conserves_system_quantities")
     assert violating(result) == ids(conserving["unbalanced_in_oxygen"])
@@ -1520,7 +1547,15 @@ def test_the_database_enforces_that_a_conversion_is_named_exactly_for_the_level_
     kinds = {"exact": None, "equal_under_conversion": conversion}
     for level, named in kinds.items():
         first, second = sorted((new(), new()), key=str)
-        insert(conn, "prov.equivalence_assessment", id=new(), a=first, b=second, level=level, conversion=named)
+        insert(
+            conn,
+            "prov.equivalence_assessment",
+            id=new(),
+            a=first,
+            b=second,
+            level=level,
+            conversion=named,
+        )
     for level, named in (("exact", conversion), ("equal_under_conversion", None)):
         first, second = sorted((new(), new()), key=str)
         with pytest.raises(psycopg.errors.CheckViolation, match="conversion_iff_under_conversion"):
@@ -1542,7 +1577,12 @@ def test_a_validity_region_has_a_clause(conn: psycopg.Connection) -> None:
     record = new()
     for ordinal, identifier in enumerate((with_clause, empty), 1):
         insert(
-            conn, "tk.validity_region", id=identifier, record=record, kind="fitted_range", ordinal=ordinal
+            conn,
+            "tk.validity_region",
+            id=identifier,
+            record=record,
+            kind="fitted_range",
+            ordinal=ordinal,
         )
     insert(
         conn,
@@ -1654,7 +1694,9 @@ def test_a_position_of_zero_is_refused_by_the_database(conn: psycopg.Connection)
 
 
 def test_the_subject_key_of_a_set_encodes_its_subjects(conn: psycopg.Connection) -> None:
-    slot_group = lookup(conn, "SELECT id FROM meta.slot_group WHERE qualified_name = %s", SATURATION)
+    slot_group = lookup(
+        conn, "SELECT id FROM meta.slot_group WHERE qualified_name = %s", SATURATION
+    )
     parameterization, good, wrong_subject, unsorted_key = new(), new(), new(), new()
     subjects = {good: new(), wrong_subject: new(), unsorted_key: new()}
     keys = {
@@ -1718,7 +1760,9 @@ def test_the_producing_derivation_of_a_fitted_record_is_a_fit(conn: psycopg.Conn
         insert(conn, "prov.derivation_output", id=new(), derivation=producer, record=record)
     provenance(conn, by_fit, "a.json#/1", role="fitted")
     provenance(conn, by_estimation, "a.json#/2", role="fitted")
-    provenance(conn, unproduced, "a.json#/3", role="fitted")  # the finding of `producing_derivation`
+    provenance(
+        conn, unproduced, "a.json#/3", role="fitted"
+    )  # the finding of `producing_derivation`
     provenance(conn, published_by_estimation, "a.json#/4", role="published")
     result = run(conn, "producing_derivation_is_fit")
     assert violating(result) == ids(by_estimation)
@@ -1755,7 +1799,11 @@ def test_a_member_with_a_facet_is_covered_by_the_checks_without_editing_them(
             estimation = new()
             insert(connection, "prov.derivation", id=estimation, key="e", kind="estimation")
             insert(
-                connection, "prov.derivation_output", id=new(), derivation=estimation, record=by_estimation
+                connection,
+                "prov.derivation_output",
+                id=new(),
+                derivation=estimation,
+                record=by_estimation,
             )
             provenance(connection, bare, "a.json#/0", role="simulated")
             provenance(connection, by_estimation, "a.json#/1", role="simulated")
@@ -2115,12 +2163,15 @@ def test_an_isotope_is_a_quantity_of_the_kind_isotope(conn: psycopg.Connection) 
 
 def test_one_element_and_mass_number_name_one_isotope(conn: psycopg.Connection) -> None:
     hydrogen, oxygen = (
-        lookup(conn, "SELECT id FROM tk.conserved_quantity WHERE key = %s", symbol) for symbol in "HO"
+        lookup(conn, "SELECT id FROM tk.conserved_quantity WHERE key = %s", symbol)
+        for symbol in "HO"
     )
     deuterium = quantity(conn, "2H", "isotope", of_element=hydrogen, mass_number=2, symbol="D")
     again = quantity(conn, "D", "isotope", of_element=hydrogen, mass_number=2)
     quantity(conn, "3H", "isotope", of_element=hydrogen, mass_number=3, symbol="T")
-    quantity(conn, "2O", "isotope", of_element=oxygen, mass_number=2)  # the same number of another element
+    quantity(
+        conn, "2O", "isotope", of_element=oxygen, mass_number=2
+    )  # the same number of another element
     result = run(conn, "isotope.nuclide_unique")
     assert violating(result) == ids(deuterium, again)
 
@@ -2136,7 +2187,8 @@ def heavy_water_world(conn: psycopg.Connection) -> dict[str, uuid.UUID]:
     """H2O, D2O and HDO as species forms, with deuterium an isotope of hydrogen, and the elements
     and the isotope by key."""
     hydrogen, oxygen = (
-        lookup(conn, "SELECT id FROM tk.conserved_quantity WHERE key = %s", symbol) for symbol in "HO"
+        lookup(conn, "SELECT id FROM tk.conserved_quantity WHERE key = %s", symbol)
+        for symbol in "HO"
     )
     deuterium = quantity(conn, "2H", "isotope", of_element=hydrogen, mass_number=2, symbol="D")
     gas = lookup(conn, "SELECT id FROM tk.aggregation WHERE name = 'gas'")
@@ -2181,9 +2233,10 @@ def test_an_isotope_exchange_reaction_conserves_the_element_and_the_isotope(
     lost = reaction_of(conn, world, "lost_deuterium", {"HDO": -1.0, "H2O": 1.0})
     result = run(conn, "reaction.conserves_declared_quantities")
     assert violating(result) == ids(lost) and str(balanced) not in result.ids
-    assert [(row[result.columns.index("quantity")], float(row[result.columns.index("net")])) for row in result.rows] == [
-        ("2H", -1.0)
-    ]
+    assert [
+        (row[result.columns.index("quantity")], float(row[result.columns.index("net")]))
+        for row in result.rows
+    ] == [("2H", -1.0)]
 
 
 def test_the_balance_of_an_element_a_system_declares_counts_its_isotopes(
@@ -2226,7 +2279,9 @@ def test_an_energy_reference_states_an_energy_value_exactly_when_its_enthalpy_da
         ),
     ]
     bad = {
-        "no_energy": energy_reference(conn, "no_energy", enthalpy="at_state", datum_energy="enthalpy"),
+        "no_energy": energy_reference(
+            conn, "no_energy", enthalpy="at_state", datum_energy="enthalpy"
+        ),
         "both_values": energy_reference(
             conn,
             "both",
@@ -2264,7 +2319,9 @@ def test_an_energy_reference_states_an_entropy_value_exactly_when_its_entropy_da
             conn, "both", entropy="at_state", entropy_value=1.0, specific_entropy_value=1.0
         ),
         energy_reference(conn, "unwanted", entropy="third_law", entropy_value=1.0),
-        energy_reference(conn, "unwanted_specific", entropy="not_stated", specific_entropy_value=0.0),
+        energy_reference(
+            conn, "unwanted_specific", entropy="not_stated", specific_entropy_value=0.0
+        ),
     ]
     result = run(conn, "energy_reference.stated_entropy_matches_datum")
     assert violating(result) == ids(*bad) and not set(ids(*good)) & set(violating(result))
@@ -2292,7 +2349,11 @@ def test_a_new_datum_with_the_facet_stated_value_is_held_to_state_a_value_withou
         with psycopg.connect(database.url) as connection:
             connection.execute("SELECT 1")
             good = energy_reference(
-                connection, "good", enthalpy="fixed_at_state", datum_energy="enthalpy", energy_value=0.0
+                connection,
+                "good",
+                enthalpy="fixed_at_state",
+                datum_energy="enthalpy",
+                energy_value=0.0,
             )
             bad = energy_reference(connection, "bad", enthalpy="fixed_at_state")
             found = run_check(connection, CHECKS["energy_reference.stated_energy_matches_datum"])
@@ -2341,7 +2402,9 @@ def test_a_group_bond_joins_groups_of_the_assignments_scheme_that_the_assignment
 
     good = [new(), new()]
     bond(good[0], counted, also_counted, 1.0)
-    bond(good[1], counted, counted, 2.0)  # a bond between two groups of one kind names one group twice
+    bond(
+        good[1], counted, counted, 2.0
+    )  # a bond between two groups of one kind names one group twice
     not_counted, other_scheme = new(), new()
     bond(not_counted, counted, uncounted, 1.0)
     bond(other_scheme, counted, foreign, 1.0)
@@ -2357,12 +2420,34 @@ def test_a_group_bond_joins_groups_of_the_assignments_scheme_that_the_assignment
 def test_the_database_orders_a_group_bond_and_allows_the_diagonal(conn: psycopg.Connection) -> None:
     first, second = sorted((new(), new()), key=str)
     assignment = new()
-    insert(conn, "tk.group_bond_count", id=new(), assignment=assignment, first=first, second=second, value=1.0)
-    insert(conn, "tk.group_bond_count", id=new(), assignment=assignment, first=first, second=first, value=1.0)
+    insert(
+        conn,
+        "tk.group_bond_count",
+        id=new(),
+        assignment=assignment,
+        first=first,
+        second=second,
+        value=1.0,
+    )
+    insert(
+        conn,
+        "tk.group_bond_count",
+        id=new(),
+        assignment=assignment,
+        first=first,
+        second=first,
+        value=1.0,
+    )
     with pytest.raises(psycopg.errors.CheckViolation):
         with conn.transaction():
             insert(
-                conn, "tk.group_bond_count", id=new(), assignment=assignment, first=second, second=first, value=1.0
+                conn,
+                "tk.group_bond_count",
+                id=new(),
+                assignment=assignment,
+                first=second,
+                second=first,
+                value=1.0,
             )
 
 
@@ -2456,9 +2541,15 @@ def test_a_column_with_a_site_class_names_a_phase_whose_definition_owns_the_clas
     plain = evidence_column(conn, dataset, 2, phase=phase(2, None))
     bad = {
         "no_phase": evidence_column(conn, dataset, 3, site_class=owned),
-        "undefined_phase": evidence_column(conn, dataset, 4, phase=phase(3, None), site_class=owned),
-        "other_definition": evidence_column(conn, dataset, 5, phase=phase(4, other), site_class=owned),
-        "on_a_material": evidence_column(conn, dataset, 6, phase=phase(5, owner), site_class=hosted),
+        "undefined_phase": evidence_column(
+            conn, dataset, 4, phase=phase(3, None), site_class=owned
+        ),
+        "other_definition": evidence_column(
+            conn, dataset, 5, phase=phase(4, other), site_class=owned
+        ),
+        "on_a_material": evidence_column(
+            conn, dataset, 6, phase=phase(5, owner), site_class=hosted
+        ),
     }
     provenance(conn, dataset, "a.json#/25")
     result = run(conn, "dataset_column.site_class_of_the_phase")
@@ -2476,7 +2567,12 @@ def test_a_disordered_partner_belongs_to_the_system_of_the_ordered_phase(
     system, other = new(), new()
     crystalline = lookup(conn, "SELECT id FROM tk.aggregation WHERE name = 'crystalline'")
     phases = {}
-    for key, owner in (("BCC_B2", system), ("BCC_A2", system), ("FCC_L12", system), ("foreign", other)):
+    for key, owner in (
+        ("BCC_B2", system),
+        ("BCC_A2", system),
+        ("FCC_L12", system),
+        ("foreign", other),
+    ):
         phases[key] = new()
         insert(
             conn,
@@ -2488,8 +2584,22 @@ def test_a_disordered_partner_belongs_to_the_system_of_the_ordered_phase(
             structure="sublattice",
         )
     good, bad = new(), new()
-    insert(conn, "tk.disordered_partner", id=good, ordered=phases["BCC_B2"], disordered=phases["BCC_A2"], never_disorder=False)
-    insert(conn, "tk.disordered_partner", id=bad, ordered=phases["FCC_L12"], disordered=phases["foreign"], never_disorder=True)
+    insert(
+        conn,
+        "tk.disordered_partner",
+        id=good,
+        ordered=phases["BCC_B2"],
+        disordered=phases["BCC_A2"],
+        never_disorder=False,
+    )
+    insert(
+        conn,
+        "tk.disordered_partner",
+        id=bad,
+        ordered=phases["FCC_L12"],
+        disordered=phases["foreign"],
+        never_disorder=True,
+    )
     provenance(conn, phases["FCC_L12"], "a.json#/26")
     result = run(conn, "disordered_partner.same_system")
     assert violating(result) == ids(bad)
@@ -2500,11 +2610,32 @@ def test_the_database_refuses_a_phase_as_its_own_disordered_partner_and_keeps_bo
     conn: psycopg.Connection,
 ) -> None:
     first, second = new(), new()
-    insert(conn, "tk.disordered_partner", id=new(), ordered=first, disordered=second, never_disorder=False)
-    insert(conn, "tk.disordered_partner", id=new(), ordered=second, disordered=first, never_disorder=False)
+    insert(
+        conn,
+        "tk.disordered_partner",
+        id=new(),
+        ordered=first,
+        disordered=second,
+        never_disorder=False,
+    )
+    insert(
+        conn,
+        "tk.disordered_partner",
+        id=new(),
+        ordered=second,
+        disordered=first,
+        never_disorder=False,
+    )
     with pytest.raises(psycopg.errors.CheckViolation, match="diagonal"):
         with conn.transaction():
-            insert(conn, "tk.disordered_partner", id=new(), ordered=first, disordered=first, never_disorder=False)
+            insert(
+                conn,
+                "tk.disordered_partner",
+                id=new(),
+                ordered=first,
+                disordered=first,
+                never_disorder=False,
+            )
 
 
 def test_an_accuracy_statement_states_the_magnitude_its_kind_calls_for(
@@ -2552,7 +2683,10 @@ def test_the_database_refuses_an_accuracy_statement_with_no_position_or_no_sampl
     observable = lookup(conn, "SELECT id FROM tk.observable LIMIT 1")
     common = {"record": new(), "observable": observable, "kind": "exact", "statistic": "bound"}
     insert(conn, "tk.accuracy_statement", id=new(), ordinal=1, sample_size=10, **common)
-    for name, extra in (("ordinal_from_one", {"ordinal": 0}), ("sample_size_positive", {"ordinal": 2, "sample_size": 0})):
+    for name, extra in (
+        ("ordinal_from_one", {"ordinal": 0}),
+        ("sample_size_positive", {"ordinal": 2, "sample_size": 0}),
+    ):
         with pytest.raises(psycopg.errors.CheckViolation, match=name):
             with conn.transaction():
                 insert(conn, "tk.accuracy_statement", id=new(), **common, **extra)
@@ -2565,14 +2699,38 @@ def test_a_level_of_theory_states_its_frequency_and_energy_levels_together(
     for identifier, key in ((frequency, "b3lyp"), (energy, "ccsd(t)")):
         insert(conn, "prov.level_of_theory", id=identifier, key=key, method=key)
     composite, only_frequency, only_energy, plain = new(), new(), new(), new()
-    insert(conn, "prov.level_of_theory", id=composite, key="both", method="composite", frequency_level=frequency, energy_level=energy)
-    insert(conn, "prov.level_of_theory", id=only_frequency, key="f", method="composite", frequency_level=frequency)
-    insert(conn, "prov.level_of_theory", id=only_energy, key="e", method="composite", energy_level=energy)
+    insert(
+        conn,
+        "prov.level_of_theory",
+        id=composite,
+        key="both",
+        method="composite",
+        frequency_level=frequency,
+        energy_level=energy,
+    )
+    insert(
+        conn,
+        "prov.level_of_theory",
+        id=only_frequency,
+        key="f",
+        method="composite",
+        frequency_level=frequency,
+    )
+    insert(
+        conn,
+        "prov.level_of_theory",
+        id=only_energy,
+        key="e",
+        method="composite",
+        energy_level=energy,
+    )
     insert(conn, "prov.level_of_theory", id=plain, key="plain", method="m")
     provenance(conn, only_energy, "a.json#/28")
     result = run(conn, "level_of_theory.composite_levels_together")
     assert violating(result) == ids(only_frequency, only_energy)
-    assert {dict(zip(result.columns, r))["locator"] for r in result.rows if r[0] == str(only_energy)} == {"a.json#/28"}
+    assert {
+        dict(zip(result.columns, r))["locator"] for r in result.rows if r[0] == str(only_energy)
+    } == {"a.json#/28"}
 
 
 def test_the_database_refuses_a_level_of_theory_with_no_key(conn: psycopg.Connection) -> None:

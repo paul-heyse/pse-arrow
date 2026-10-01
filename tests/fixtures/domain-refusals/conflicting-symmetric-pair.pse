@@ -2,16 +2,17 @@
 // Copyright (c) 2026 Paul Heyse
 // A symmetric pair is written once; its two orders are one row.
 // refusal: is written in both orientations, by row 0 of dataset kij_values and row 1 of dataset kij_values
-// refusal: symmetric pair pair[bank, kij,
-// control: [corpus.bank, kij, corpus.toluene, corpus.benzene] = [0.02]; =>
+// refusal: symmetric pair symmetric_records[fit, kij,
+// control: [corpus.fit,kij,corpus.toluene,corpus.benzene,1]=[interactions.symmetric_scalar[corpus.fit,kij,corpus.benzene,corpus.toluene]]; =>
 package refusal {
  use corpus @"1.0.0";
  use interactions @"1.0.0";
  use properties @"1.0.0";
  use provenance @"1.0.0";
  entity properties.property kij { quantity = Scalar, shape = properties.IndexShape.pair, applies = {liquidPhase, vaporPhase} }
- dataset kij_values: interactions.pair provenance(corpus.bank, provenance.Role.published) {
-  [corpus.bank, kij, corpus.benzene, corpus.toluene] = [0.01];
-  [corpus.bank, kij, corpus.toluene, corpus.benzene] = [0.02];
+ dataset fitted:interactions.symmetric_scalar bind(parameterization=corpus.fit,family=kij,source=corpus.bank,dependencies={},conventions={}) provenance(corpus.bank,provenance.Role.published) {[corpus.benzene,corpus.toluene]=[0.01];}
+ dataset kij_values: interactions.symmetric_records provenance(corpus.bank, provenance.Role.published) {
+  [corpus.fit,kij,corpus.benzene,corpus.toluene,1]=[interactions.symmetric_scalar[corpus.fit,kij,corpus.benzene,corpus.toluene]];
+  [corpus.fit,kij,corpus.toluene,corpus.benzene,1]=[interactions.symmetric_scalar[corpus.fit,kij,corpus.benzene,corpus.toluene]];
  }
 }

@@ -75,6 +75,12 @@ impl Engine<'_, '_> {
                 .validity
                 .iter()
                 .chain(function.envelopes.iter().map(|guard| &guard.predicate))
+                .chain(
+                    function
+                        .applicability_uses
+                        .iter()
+                        .flat_map(|usage| usage.predicates.iter()),
+                )
             {
                 crate::expression::predicate(
                     predicate,
@@ -83,6 +89,18 @@ impl Engine<'_, '_> {
                     &context,
                     function.id,
                 )?;
+            }
+            for usage in &function.applicability_uses {
+                for input in &usage.inputs {
+                    crate::expression::infer(
+                        input,
+                        &arguments,
+                        contracts,
+                        &context,
+                        function.id,
+                        None,
+                    )?;
+                }
             }
             let formula_authority = context.formula_authority.clone();
             let mut admissions = recorder
@@ -270,6 +288,8 @@ impl Engine<'_, '_> {
             .functions
             .entry(name.clone())
             .or_insert(crate::Function {
+                applicability: Vec::new(),
+                applicability_uses: Vec::new(),
                 physical_admissions: BTreeMap::new(),
                 reduction: None,
                 physical_operation: None,
@@ -484,17 +504,14 @@ impl Engine<'_, '_> {
         let mut indexed = BTreeMap::new();
         let mut statics = Environment::new();
         let mut selectors = BTreeMap::new();
-        // The scalar formal of each physical argument and its source, which data-layer
-        // observations resolve against (ADR-0123 Outcome 4).
-        let mut scalar_formals = BTreeMap::new();
-        let mut scalar_sources = BTreeMap::new();
-        let mut identity = FramedHasher::new(pse_ids::Frame::ModelingFiniteFunctionV7);
+        let mut identity = FramedHasher::new(pse_ids::Frame::ModelingFiniteFunctionV8);
         identity.id(&function.as_id());
+        let selection_scope = self.selection_collector.scope();
         for quantity in substitution.values() {
             quantity.frame(&mut identity);
         }
         for ((name, ty), expr) in contract.arguments.iter().zip(args) {
-            let start = formals.len();
+            let start = actual.len();
             let mut bind = |coordinates: Vec<Value>, expr: Expr, ty: Type| {
                 let formal = format!("arg_{}", formals.len());
                 let path = Path {
@@ -514,8 +531,6 @@ impl Engine<'_, '_> {
             };
             match ty {
                 Type::Quantity(_) | Type::RefinedQuantity { .. } => {
-                    scalar_formals.insert(name.clone(), start);
-                    scalar_sources.insert(start, (expr, ty.clone()));
                     let expr = self.rewrite(instance, expr, env, chain)?;
                     lexical.insert(name.clone(), bind(vec![], expr, ty.clone()).1);
                 }
@@ -654,7 +669,6 @@ impl Engine<'_, '_> {
                 .collect(),
         );
         self.function_stack.push(function);
-        self.open_lifts();
         let body = if let Some(external) = &mut contract.external {
             let output = Evaluator {
                 package: self.p,
@@ -664,6 +678,7 @@ impl Engine<'_, '_> {
                 limit: self.limits.members,
                 stack: vec![],
                 reader: self.reader,
+                selections: Some(&self.selection_collector),
             }
             .text(&dsl::render_expr(&external.output), Some(&Type::Integer))?;
             let Value::Integer(output) = output else {
@@ -717,17 +732,17 @@ impl Engine<'_, '_> {
         // The data layer: guards specialized in the frame under the consumer's policy
         // (ADR-0123 Outcome 4).
         let guards =
-            self.specialize_guards(instance, function, &contract, &statics, &scalar_formals);
-        let nested = self.close_lifts();
+            self.specialize_guards(instance, function, &contract, &statics);
+        let applicability_uses = self.specialize_applicability(instance, &contract, &statics);
         self.function_stack.pop();
         self.lexical = saved_lexical;
         self.indexed_arguments = saved_indexed;
         self.local_serial = saved_serial;
         self.function_types = saved_types;
+        let applicability_uses = applicability_uses?;
         let mut body = body?;
         let mut validity = validity?;
-        let (guards, mut lifts) = guards?;
-        lifts.extend(nested);
+        let guards = guards?;
         if let Some(p) = &mut validity {
             p.strip_spans();
             identity.str("validity").str(&dsl::render_predicate(p));
@@ -738,9 +753,12 @@ impl Engine<'_, '_> {
             identity
                 .str("envelope")
                 .id(&guard.envelope.owner.as_id())
-                .str(guard.policy.as_str())
                 .str(&dsl::render_predicate(&guard.predicate));
             guard.reads.frame(&mut identity);
+        }
+        identity.u64(applicability_uses.len() as u64);
+        for usage in &applicability_uses {
+            usage.frame(&mut identity);
         }
         if let Some(body) = &mut body {
             body.strip_spans();
@@ -772,9 +790,13 @@ impl Engine<'_, '_> {
         if let Some(refinement) = contract.result.physical_refinement() {
             refinement.frame(&mut identity);
         }
+        let consumed_selections = selection_scope.finish();
+        crate::scientific_selection::frame(&consumed_selections, &mut identity);
         let id = identity.finish_id();
         let name = format!("f_{}", id.to_hex());
         let function = crate::Function {
+            applicability: Vec::new(),
+            applicability_uses,
             physical_admissions: BTreeMap::new(),
             reduction: None,
             physical_operation: contract.physical_operation,
@@ -795,10 +817,6 @@ impl Engine<'_, '_> {
             return Err(invalid(id, "function specialization identity collision"));
         }
         self.model.functions.insert(name.clone(), function);
-        let sources = (0..actual.len())
-            .map(|formal| scalar_sources.remove(&formal))
-            .collect::<Vec<_>>();
-        self.resolve_lifts(instance, contract.id, lifts, &actual, &sources, env, chain)?;
         Ok(if selected.is_empty() {
             ExprKind::NamedCall { name, args: actual }
         } else {

@@ -21,10 +21,10 @@ from pathlib import Path
 import numpy as np
 import psycopg
 import pytest
+
 from build_support import fingerprint, inputs_of, write_source
 from mapping_support import origin, writer
 from qualify_support import fixture_declaration
-
 from thermo_knowledge import db, transposition
 from thermo_knowledge.build import build_database
 from thermo_knowledge.canonical.writer import CanonicalWriter, FamilyRow

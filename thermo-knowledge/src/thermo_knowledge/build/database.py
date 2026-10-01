@@ -38,8 +38,8 @@ from thermo_knowledge.build import record
 from thermo_knowledge.build.plan import BuildPlan
 from thermo_knowledge.canonical.store import CanonicalError
 from thermo_knowledge.generate.entity_rows import TableRows
-from thermo_knowledge.generate.plan import GENERATED_SCHEMAS, SCHEMA_DOCS
 from thermo_knowledge.generate.fingerprint import fingerprint_comment
+from thermo_knowledge.generate.plan import GENERATED_SCHEMAS, SCHEMA_DOCS
 
 BATCH_ROWS = 50_000
 _SCRIPT_TAG = "$tk_build$"

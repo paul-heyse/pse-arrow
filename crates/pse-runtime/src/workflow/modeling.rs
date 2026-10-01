@@ -1191,3 +1191,6 @@ mod import_tests {
         }
     }
 }
+
+#[cfg(test)]
+mod applicability_tests;

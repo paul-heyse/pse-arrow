@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pyarrow.parquet as pq
 import pytest
+
 from readers_support import (
     FAKE_ENVS,
     PIN,
@@ -19,7 +20,6 @@ from readers_support import (
     fake_side_command,
     side_resolver,
 )
-
 from thermo_knowledge import config
 from thermo_knowledge.staging import manifest as staged_manifest
 from thermo_knowledge.staging import reader, side, stage

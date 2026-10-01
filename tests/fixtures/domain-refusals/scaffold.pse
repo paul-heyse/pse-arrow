@@ -17,22 +17,24 @@ package corpus {
  entity chemistry.element O { symbol = "O", atomic_number = 8, standard_atomic_weight = 0.015999{kg/mol} }
  entity chemistry.element Na { symbol = "Na", atomic_number = 11, standard_atomic_weight = 0.02299{kg/mol} }
  entity chemistry.element Cl { symbol = "Cl", atomic_number = 17, standard_atomic_weight = 0.03545{kg/mol} }
- entity chemistry.species benzene { cas = Id<chemistry.cas>("71-43-2") }
- entity chemistry.species toluene { cas = Id<chemistry.cas>("108-88-3") }
- entity chemistry.species ethane {}
- entity chemistry.species methane {}
- entity chemistry.species oxygen {}
- entity chemistry.species carbon_dioxide {}
- entity chemistry.species water {}
- entity chemistry.species sodium_ion { charge = 1{1} }
- entity chemistry.species chloride_ion { charge = -1{1} }
+ @id("20000000000000000000000000000001") entity chemistry.species benzene { composition=chemistry.CompositionKnowledge.Complete, charge=0{1}, cas = Id<chemistry.cas>("71-43-2") }
+ @id("20000000000000000000000000000002") entity chemistry.species toluene { composition=chemistry.CompositionKnowledge.Complete, charge=0{1}, cas = Id<chemistry.cas>("108-88-3") }
+ entity chemistry.species ethane { composition=chemistry.CompositionKnowledge.Complete, charge=0{1}}
+ entity chemistry.species methane { composition=chemistry.CompositionKnowledge.Complete, charge=0{1}}
+ entity chemistry.species oxygen { composition=chemistry.CompositionKnowledge.Complete, charge=0{1}}
+ entity chemistry.species carbon_dioxide { composition=chemistry.CompositionKnowledge.Complete, charge=0{1}}
+ entity chemistry.species water { composition=chemistry.CompositionKnowledge.Complete, charge=0{1}}
+ entity chemistry.species sodium_ion { composition=chemistry.CompositionKnowledge.Complete, charge=1{1} }
+ entity chemistry.species chloride_ion { composition=chemistry.CompositionKnowledge.Complete, charge=-1{1} }
  dataset formulas: chemistry.formula provenance(bank, provenance.Role.published) {
   [benzene, C] = [6{1}]; [benzene, H] = [6{1}]; [toluene, C] = [7{1}]; [toluene, H] = [8{1}];
   [ethane, C] = [2{1}]; [ethane, H] = [6{1}]; [methane, C] = [1{1}]; [methane, H] = [4{1}];
   [oxygen, O] = [2{1}]; [carbon_dioxide, C] = [1{1}]; [carbon_dioxide, O] = [2{1}];
   [water, H] = [2{1}]; [water, O] = [1{1}]; [sodium_ion, Na] = [1{1}]; [chloride_ion, Cl] = [1{1}];
  }
- entity properties.property_package pkg {}
+ entity properties.parameterization fit {title="Synthetic corpus parameterization",source=bank}
+ entity properties.property_package pkg {admitted=selected}
+ entity properties.selection_context selected {roots={properties.phased_parameter[benzene,properties.heat_capacity,liquidPhase,fit],properties.phased_parameter[toluene,properties.heat_capacity,liquidPhase,fit]},subjects={benzene,toluene},models={properties.heat_capacity},rules={}}
  set packages: Set<properties.property_package> = {pkg};
  set heat: Set<properties.property> = {properties.heat_capacity};
  set liquid: Set<compatibility.PhaseType> = {compatibility.PhaseType.liquidPhase};
@@ -43,7 +45,7 @@ package corpus {
  fn constant_value(T: Temperature, s: constant_cp) -> MolarCp = s.c0;
  fn constant_dh(T0: Temperature, T: Temperature, s: constant_cp) -> DeltaH = s.c0 * (T - T0);
  fn constant_ds(T0: Temperature, T: Temperature, s: constant_cp) -> DeltaS = s.c0 * log(T / T0);
- dataset sets: constant_cp bind(source = bank, property = properties.heat_capacity) provenance(bank, provenance.Role.published) {
+ dataset sets: constant_cp bind(parameterization=fit,source=bank,dependencies={},conventions={},property = properties.heat_capacity) provenance(bank, provenance.Role.published) {
   [benzene, liquidPhase] = [250{K}, 400{K}, 136{J/(mol*K)}];
   [toluene, liquidPhase] = [250{K}, 400{K}, 157{J/(mol*K)}];
  }

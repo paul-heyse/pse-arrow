@@ -1527,6 +1527,28 @@ impl<'a> Builder<'a> {
                         )?;
                     }
                 }
+                Stage::Applicability {
+                    stages,
+                    predicates,
+                    token,
+                    plan,
+                    ..
+                } => {
+                    let mut local = env.clone();
+                    self.stages(stages, &mut local, cx)?;
+                    if cx.record {
+                        let truth = self.applicability_truth(plan, predicates, &local)?;
+                        self.obligation(
+                            cx,
+                            plan.claim.id.unwrap_or(plan.claim.form),
+                            ObligationKind::Domain,
+                            None,
+                            truth,
+                        )?;
+                    }
+                    let zero = self.constant(Constant::integer(0))?;
+                    env.assign(*token, Value::Node(zero), Some(Arc::new(Atom::num(0))))?;
+                }
                 Stage::Domain {
                     stages,
                     argument,
@@ -1569,6 +1591,48 @@ impl<'a> Builder<'a> {
             }
         }
         Ok(())
+    }
+    fn applicability_truth(
+        &mut self,
+        plan: &pse_model::applicability::Node,
+        predicates: &[usize],
+        env: &Env,
+    ) -> Result<Truth, FactorableError> {
+        use pse_model::applicability::Region;
+        let permissions = plan
+            .permissions
+            .iter()
+            .filter(|p| p.covers(&plan.claim))
+            .collect::<Vec<_>>();
+        let unknown = permissions.iter().any(|p| p.allow_unknown);
+        let extrapolation = permissions.iter().any(|p| p.allow_extrapolation);
+        let mut truth = match &plan.region {
+            Region::Unrestricted => Truth::ALWAYS,
+            Region::Unknown => {
+                if unknown {
+                    Truth::ALWAYS
+                } else {
+                    Truth::Never
+                }
+            }
+            Region::Predicate(index) => {
+                if extrapolation {
+                    Truth::ALWAYS
+                } else {
+                    let slot = predicates
+                        .get(*index)
+                        .ok_or_else(|| MathError::Contract("claim predicate index".into()))?;
+                    self.holds(&env.read(*slot)?, Test::Positive)?
+                }
+            }
+            // Existing factorable exports represent conjunctions exactly and report
+            // disjunctive obligations as incomplete. Never invent a global union proof.
+            Region::Union(_) => Truth::UNKNOWN,
+        };
+        for dependency in &plan.dependencies {
+            truth = truth.and(self.applicability_truth(dependency, predicates, env)?);
+        }
+        Ok(truth)
     }
     fn obligation(
         &mut self,

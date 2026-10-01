@@ -9,10 +9,13 @@
 @id("aeb7ca94a3af4c8f894d00fe0a649200") use interactions @"1.0.0";
 @id("2ece870331d049a5bfb298a0de60a0b4") use nrtl @"1.0.0";
 @id("0bf5a3fe11f14228818b58a57dcc5c86") use nrtl_reference @"1.0.0";
-@id("2debda0072f847cea311cd4f35cce7d0") entity properties.property_package package_selection {}
+@id("2debda0072f847cea311cd4f35cce7d0") entity properties.property_package package_selection {admitted=package_selection_admitted}
 @id("4a44d9f9d6b24ffe8de94b04577b0936") set packages:Set<properties.property_package>={package_selection};
-@id("fa52db4f2b5e4a24aa5ba2ec70a6f3d6") set pair_properties:Set<properties.property>={nrtl.interaction_parameters};
-@id("0470eec0da324f8cab34cb968eec9f30") dataset pair_source:interactions.pair_selection complete_over(k in packages,p in pair_properties) provenance(nrtl_reference.defaults,provenance.Role.oracle_input) {[package_selection,nrtl.interaction_parameters]=[nrtl_reference.defaults];}
+@id("54c93d10e66d4ca3a4a81df28b56dd75") dataset pairs:nrtl.selection complete_over(k in packages,i in members,j in members) provenance(nrtl_reference.defaults,provenance.Role.oracle_input) {
+[package_selection,chem.benzene,chem.toluene]=[nrtl.parameters[nrtl_reference.default_fit,nrtl.interaction_parameters,chem.benzene,chem.toluene]];
+[package_selection,chem.toluene,chem.benzene]=[nrtl.parameters[nrtl_reference.default_fit,nrtl.interaction_parameters,chem.toluene,chem.benzene]];
+}
+
 @id("b496bdc8e9d04b288b7a478c4e169105") set members:Set<chemistry.species>={chem.benzene,chem.toluene};
 @id("86e84e07a9094a6eaa6a11ae440067e2") def Binary(composition:Scalar,total:Amount=constants.amount_unit) {
 @id("4f2e80415b8941ecb83e13024befabab") let n[j in members]:Amount=total*(if j==chem.benzene then composition else 1-composition);
@@ -21,6 +24,7 @@
 @id("6a8808622dc0470c9e0e2c4ff8a77c48") let gibbs_duhem[j in members]:GibbsDuhemResidual=nrtl.gibbs_duhem_response(constants.standard_temperature,constants.standard_pressure,n,members,package_selection,j,nrtl.potential);
 }
 @id("ee8c7df5633b4a6a86b9f747da770636") test default_nrtl_closed_form_derivatives_and_idaes oracle nrtl_reference.defaults fixture {dof 0;run pure;} {
+@id("82e5d6709acb4bafabb72abb6edf1c2f") permission selected_unknown_fit families(nrtl.parameters) allow_unknown true allow_extrapolation false;
 @id("ef0b0e4f1a214085918a7857dbf27b8e") set compositions:Set<Scalar>={0.2,0.5,0.8};
 @id("d9ccffdaaf204644989be4739ac9a6b9") child point[x in compositions]:Binary=Binary(composition=x);
 @id("51fb362de8b043d19c02d3d9e53083e8") expect sum(x in compositions | abs(point[x].excess-nrtl.binary(x,1,1,0.3,0.3)))==0{1} tolerance 1e-12{1};
@@ -28,10 +32,12 @@
 @id("f927845fa2bf494d90b879250c999895") expect sum(x in compositions | sum(j in members | abs(point[x].gibbs_duhem[j])))==0{1} tolerance 1e-12{1};
 }
 @id("04ece38aec494e4da773690b00b809a9") test degree_one_excess_and_amount_invariant_activity oracle nrtl_reference.defaults fixture {dof 0;run pure;} {
+@id("8cb39535530f446aa6cf5cc3b93707e5") permission selected_unknown_fit families(nrtl.parameters) allow_unknown true allow_extrapolation false;
 @id("42e3b97590a24c019754fdcab147f7a0") child one:Binary=Binary(composition=0.3,total=1{mol});
 @id("c772e7721e53411a9de17f6a821215b4") child three:Binary=Binary(composition=0.3,total=3{mol});
 @id("b9a5b3bdaebc4e5ca60bb8d06f6afd8e") expect three.excess==3*one.excess tolerance 1e-12;
 @id("0a3674785fbe47e987aa061cc68e34b4") expect sum(j in members | abs(three.gamma[j]-one.gamma[j]))==0{1} tolerance 1e-12{1};
 @id("13411678c48c40e6b90956d345139636") expect sum(j in members | abs(three.gibbs_duhem[j]))==0{1} tolerance 1e-12{1};
 }
+@id("b2955ef3b6b4467c89f71a126257709d") entity properties.selection_context package_selection_admitted {roots={nrtl.parameters[nrtl_reference.default_fit,nrtl.interaction_parameters,chem.benzene,chem.toluene],nrtl.parameters[nrtl_reference.default_fit,nrtl.interaction_parameters,chem.toluene,chem.benzene]},subjects={chem.benzene,chem.toluene},models={nrtl.interaction_parameters},rules={}}
 }

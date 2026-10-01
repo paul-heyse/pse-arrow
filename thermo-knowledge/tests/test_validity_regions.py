@@ -14,11 +14,11 @@ from pathlib import Path
 import numpy as np
 import psycopg
 import pytest
+
 from build_support import fingerprint, inputs_of, write_source
 from declaration_support import copy_full
 from mapping_support import SATURATION, origin, real_declaration, writer
 from qualify_support import fixture_declaration
-
 from thermo_knowledge import config
 from thermo_knowledge.build import build_database
 from thermo_knowledge.canonical.values import Quantity
@@ -74,7 +74,9 @@ def test_an_argument_observable_is_reified_as_the_entity_it_names() -> None:
                 "SELECT count(*) FROM pg_constraint WHERE conname = 'contract_argument__fk__observable'"
             ).fetchone()
     assert row == (temperature.id,)
-    assert unnamed is not None and unnamed[0] == 0, "every committed argument named T is the temperature"
+    assert unnamed is not None and unnamed[0] == 0, (
+        "every committed argument named T is the temperature"
+    )
     assert target == (1,), "the column references the observable kind"
 
 
@@ -92,7 +94,9 @@ outputs.p = {{ type = "Pressure", observable = "vapor_pressure", doc = "d" }}
 
 def load_argument(tmp_path: Path, observable: str, *, role: bool = True) -> list[str]:
     tree = copy_full(tmp_path)
-    (tree / "forms" / "zz_av.toml").write_text(MODULE.format(observable=observable), encoding="utf-8")
+    (tree / "forms" / "zz_av.toml").write_text(
+        MODULE.format(observable=observable), encoding="utf-8"
+    )
     if not role:
         manifest = tree / "model" / "manifest.toml"
         manifest.write_text(manifest.read_text().replace('observable = "observable"\n', ""))
@@ -169,7 +173,9 @@ def test_both_a_wrong_argument_and_a_wrong_output_are_reported(tmp_path: Path) -
 # -- a region, its clauses and its coverage load and verify -----------------------------------
 
 
-def species_and_set(w: CanonicalWriter, decl: Declaration) -> tuple[uuid.UUID, uuid.UUID, uuid.UUID]:
+def species_and_set(
+    w: CanonicalWriter, decl: Declaration
+) -> tuple[uuid.UUID, uuid.UUID, uuid.UUID]:
     """A species, a parameterization and one saturation set for it, all published."""
     published = origin("a.json#/0", "published")
     species = w.kind("species", {"canonical_key": "K", "label": "K"}, origins=[published])
@@ -235,7 +241,11 @@ def test_a_region_of_two_clauses_a_clause_about_a_component_and_alternatives_loa
                     "lower": Quantity(0.0, "mol/m^3"),
                     "upper": Quantity(5000.0, "mol/m^3"),
                 },
-                {"observable": seen["temperature"], "aggregation": gas, "lower": Quantity(300.0, "K")},
+                {
+                    "observable": seen["temperature"],
+                    "aggregation": gas,
+                    "lower": Quantity(300.0, "K"),
+                },
             ],
             origins=[published],
             ordinal=2,
@@ -402,11 +412,18 @@ def saturation(validities: list[RecordValidity]) -> tuple[Declaration, InMemoryS
     )
 
 
-def clause(observable: str = "temperature", lower: float | None = 250.0, upper: float | None = 399.0, **extra: object) -> RegionClause:
+def clause(
+    observable: str = "temperature",
+    lower: float | None = 250.0,
+    upper: float | None = 399.0,
+    **extra: object,
+) -> RegionClause:
     return RegionClause(observable, lower, upper, **extra)  # type: ignore[arg-type]
 
 
-def stated(*regions: tuple[RegionClause, ...], kind: str = "fitted_range", record: str = "set") -> RecordValidity:
+def stated(
+    *regions: tuple[RegionClause, ...], kind: str = "fitted_range", record: str = "set"
+) -> RecordValidity:
     return RecordValidity(record, kind, "stated", tuple(ValidityRegion(r) for r in regions))
 
 
@@ -445,11 +462,19 @@ def test_the_clauses_of_a_region_all_hold() -> None:
     assert membership([stated(both)]) == [OUTSIDE, INSIDE, INSIDE, OUTSIDE, OUTSIDE]
 
 
-def test_a_clause_no_argument_names_leaves_a_point_undetermined_unless_a_decidable_clause_fails() -> None:
+def test_a_clause_no_argument_names_leaves_a_point_undetermined_unless_a_decidable_clause_fails() -> (
+    None
+):
     # the pressure is no argument of the contract: inside the temperature clause the region cannot be
     # decided, and outside it the region is false whatever the pressure is
     coupled = (clause(), clause("pressure", 1e5, 4e6))
-    assert membership([stated(coupled)]) == [OUTSIDE, UNDETERMINED, UNDETERMINED, UNDETERMINED, OUTSIDE]
+    assert membership([stated(coupled)]) == [
+        OUTSIDE,
+        UNDETERMINED,
+        UNDETERMINED,
+        UNDETERMINED,
+        OUTSIDE,
+    ]
     assert membership([stated((clause(component=SP), clause()))]) == [
         OUTSIDE,
         UNDETERMINED,
@@ -481,7 +506,13 @@ def test_a_point_is_outside_when_outside_any_record_that_states_regions() -> Non
     narrower = stated((clause(lower=280.0, upper=320.0),), record="parameterization")
     assert membership([whole, narrower]) == [OUTSIDE, OUTSIDE, INSIDE, OUTSIDE, OUTSIDE]
     undecided = stated((clause(component=SP),), record="parameterization")
-    assert membership([whole, undecided]) == [OUTSIDE, UNDETERMINED, UNDETERMINED, UNDETERMINED, OUTSIDE]
+    assert membership([whole, undecided]) == [
+        OUTSIDE,
+        UNDETERMINED,
+        UNDETERMINED,
+        UNDETERMINED,
+        OUTSIDE,
+    ]
 
 
 def test_no_region_stated_for_the_kind_is_reported_as_such() -> None:
@@ -492,7 +523,13 @@ def test_no_region_stated_for_the_kind_is_reported_as_such() -> None:
         "regions of another kind say nothing about this one"
     )
     # a record that states none does not hide another that does
-    assert membership([not_stated, stated((clause(),))]) == [OUTSIDE, INSIDE, INSIDE, INSIDE, OUTSIDE]
+    assert membership([not_stated, stated((clause(),))]) == [
+        OUTSIDE,
+        INSIDE,
+        INSIDE,
+        INSIDE,
+        OUTSIDE,
+    ]
 
 
 def test_the_counts_add_up_and_a_scalar_argument_gives_one_membership() -> None:
@@ -533,7 +570,9 @@ def state_source(validities: list[RecordValidity]) -> InMemorySource:
     )
 
 
-def test_two_arguments_that_name_observables_each_decide_their_clause(fixtures: Declaration) -> None:
+def test_two_arguments_that_name_observables_each_decide_their_clause(
+    fixtures: Declaration,
+) -> None:
     both = stated((clause("temperature", 300.0, 400.0), clause("pressure", 1e5, 2e5)))
     bound = bind(fixtures, "qval_state_linear", source=state_source([both]), roles={"i": SP})
     temperature = np.array([290.0, 350.0, 350.0, 350.0, 410.0])
@@ -542,9 +581,13 @@ def test_two_arguments_that_name_observables_each_decide_their_clause(fixtures: 
     assert [int(code) for code in codes] == [OUTSIDE, INSIDE, OUTSIDE, OUTSIDE, OUTSIDE]
     # one argument is enough for the clauses on its observable, and the others are undetermined
     only = bound.validity("y", "fitted_range", T=temperature)
-    assert [int(code) for code in only] == [OUTSIDE, UNDETERMINED, UNDETERMINED, UNDETERMINED, OUTSIDE], (
-        "the pressure clause has no value: undetermined inside the temperature range, outside it"
-    )
+    assert [int(code) for code in only] == [
+        OUTSIDE,
+        UNDETERMINED,
+        UNDETERMINED,
+        UNDETERMINED,
+        OUTSIDE,
+    ], "the pressure clause has no value: undetermined inside the temperature range, outside it"
 
 
 def test_an_observable_that_two_arguments_name_binds_to_neither(fixtures: Declaration) -> None:

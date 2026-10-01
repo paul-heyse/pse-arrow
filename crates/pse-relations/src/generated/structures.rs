@@ -393,6 +393,7 @@ impl crate::columnar::ArrowValue for ModelingCellValueReferencesPathsItem {
         >(output)?;
         let children = output.field_builders_mut();
         crate::columnar::ArrowValue::append(&self.r#path, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#keys, children[1usize].as_mut())?;
         output.append(true);
         Ok(())
     }
@@ -406,6 +407,9 @@ impl crate::columnar::ArrowValue for ModelingCellValueReferencesPathsItem {
         <Vec<
             String,
         > as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
+        <Option<
+            Vec<ModelingKeyCell>,
+        > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -420,6 +424,12 @@ impl crate::columnar::ArrowValue for ModelingCellValueReferencesPathsItem {
                 String,
             > as crate::columnar::ArrowValue>::read(
                 input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#keys: <Option<
+                Vec<ModelingKeyCell>,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
                 index,
             )?,
         })

@@ -132,3 +132,6 @@ fn linked_environment() -> Result<MathEnvironment, String> {
             .to_owned(),
     })
 }
+
+#[cfg(test)]
+mod applicability_tests;

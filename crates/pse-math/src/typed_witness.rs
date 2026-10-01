@@ -253,7 +253,7 @@ fn witness_bindings(
                     .collect::<Result<Vec<_>, _>>()?;
                 bindings.extend(outputs.iter().copied().zip(values));
             }
-            Stage::Require { .. } | Stage::Domain { .. } => {}
+            Stage::Require { .. } | Stage::Domain { .. } | Stage::Applicability { .. } => {}
             Stage::Branch {
                 left,
                 right,

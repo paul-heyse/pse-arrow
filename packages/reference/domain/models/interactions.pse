@@ -1,20 +1,35 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-// Pair and group data (ADR-0127, review F06): a symmetric binary parameter from one source,
-// the source a property package selects for each pair property, and group-contribution
-// structure. A method library declares its own typed pair and group-interaction relations
-// keyed by source and reads them through the selected source.
+// Individually selected symmetric records and explicit prediction rules; group structure.
 @id("01a0f00c1fbc7251b799a7a9b0731015") package interactions {
 @id("01a0f00c1fbc7251b799a7aae789884c") use chemistry @"1.0.0";
 @id("01a0f00c1fbc7251b799a7ab51f43bfb") use properties @"1.0.0";
 @id("01a0f00c1fbc7251b799a7aca85d29ea") use provenance @"1.0.0";
-// One source's value of a symmetric pair property for two distinct species, written once per
-// unordered pair; either order reads it.
-@id("01a0f00c1fbc7251b799a7adb78eefe6") table pair[s: provenance.source, p: properties.property, i: chemistry.species, j: chemistry.species]: Scalar symmetric(i, j) diagonal excluded missing optional require p.shape == properties.IndexShape.pair;
-// The source of a package's pair or group data for one property. A lookup without a row is
-// refused, naming the package and the property.
-@id("01a0f00c1fbc7251b799a7aee600e53a") table pair_selection[k: properties.property_package, p: properties.property]: provenance.source complete_over(k, p) require p.shape != properties.IndexShape.pure;
-@id("01a0f00c1fbc7251b799a7aff055a612") fn pair_parameter(k: properties.property_package, p: properties.property, i: chemistry.species, j: chemistry.species) -> Scalar valid(i==j or present(pair[pair_selection[k,p],p,i,j]) or absence_policy[k,p]==PairAbsence.predictiveZero) = if i==j then 0 else if present(pair[pair_selection[k,p],p,i,j]) then pair[pair_selection[k,p],p,i,j] else 0;
+// Symmetric identity is indexed once by the declared canonical relation.
+@id("e5af1f18a0484f9eaf3ebbe17f7a66a5") use compatibility @"1.0.0";
+@id("09f20dee98784180aad69140b5370c00") entity kind symmetric_scalar extends properties.parameter_set {
+@id("41dc85caea51425ab2772ece27bbe630") key parameterization:properties.parameterization;
+@id("47f5691be76c4bbb887dd0c9d5fc6378") key family:properties.property;
+@id("bfa2bfa9e3304e31b50671369dbd07dd") key first:chemistry.species by chemistry.cas;
+@id("49212537a66c4c02a1616359a952ed52") key second:chemistry.species by chemistry.cas;
+@id("f4538fb20e304ebe902e19843340d757") key variant:Integer=1;
+@id("238d3699ff5f45e895befd255b5485b2") attribute value:Scalar;
+@id("486fb9daf72443249edac85dbdefe6d8") slot=symmetric_slot;
+@id("34dfa56b577c4281bb52d06efcc4e371") require family.shape==properties.IndexShape.pair and first<second : "symmetric records use the relation canonical orientation exactly once";
+}
+@id("8e2d4a30613e4f03ac97b07c9ba19a55") fn symmetric_slot(r:symmetric_scalar)->Tuple<properties.property,Tuple<chemistry.species?,chemistry.species?>,compatibility.PhaseType?,chemistry.reaction?>=tuple(r.family,tuple(r.first,r.second),missing,missing);
+@id("3cfbbeb3e62c423cb42a8e68f88773a9") table symmetric_records[fit:properties.parameterization,family:properties.property,i:chemistry.species,j:chemistry.species,variant:Integer]:symmetric_scalar symmetric(i,j) diagonal excluded missing optional require value.parameterization==fit and value.family==family and value.first==i and value.second==j and value.variant==variant;
+@id("e64a4809a7f34dffbdc19fb0cd320b6a") table symmetric_selection[k:properties.property_package,family:properties.property,i:chemistry.species,j:chemistry.species]:{record:symmetric_scalar?,rule:properties.predictive_rule?} symmetric(i,j) diagonal excluded complete_over(k,family,i,j) require present(record)!=present(rule) require (if present(record) then record.family else family)==family require (if present(rule) then rule.family else family)==family require (if present(record) then if record.first==i and record.second==j then 0 else 1 else 0)==0 require (if present(record) then if record in k.admitted.records then 0 else 1 else 0)==0 require (if present(rule) then if rule in k.admitted.rules then 0 else 1 else 0)==0;
+@id("31d439ed501e4ab3b44ded64dedd81ae") table self_rule[k:properties.property_package,family:properties.property]:Fn(j:chemistry.species)->Scalar complete_over(k,family);
+@id("63c2c6baf5d147f7a8e3fe4a5d9ab878") fn zero_self(j:chemistry.species)->Scalar applicability(exact_self(j))=0;
+@id("b29f391e5565400cb7b1d36fa3e85ca6") fn predictive_zero(i:chemistry.species,j:chemistry.species,inputs:Set<properties.parameter_set>)->Scalar valid(i!=j)=0;
+@id("a3346249f04c4fe2b6f8ae747789a9a9") fn pair_parameter(k:properties.property_package,p:properties.property,i:chemistry.species,j:chemistry.species)->Scalar=if i==j then self_rule[k,p](i) else selected_off_diagonal(k,p,i,j);
+@id("f35060a60c4c4decb47e58a4e83b67e5") fn selected_pair(k:properties.property_package,p:properties.property,i:chemistry.species,j:chemistry.species)->Scalar=pair_law[k,p](k,p,i,j);
+@id("c13d5444f47d4dceb2ee39e0abea615c") fn selected_off_diagonal(k:properties.property_package,p:properties.property,i:chemistry.species,j:chemistry.species)->Scalar valid(i!=j)=if present(choice.record) then choice.record.value else predicted_pair_value(i,j,require_present(choice.rule)) where choice=symmetric_selection[k,p,i,j];
+@id("d47f9acc862d4db9add25330ba6807ec") table pair_law[k:properties.property_package,p:properties.property]:Fn(k:properties.property_package,p:properties.property,i:chemistry.species,j:chemistry.species)->Scalar complete_over(k,p);
+@id("050232117d8a4426a3284d434e0de4f9") fn predicted_pair_value(i:chemistry.species,j:chemistry.species,r:properties.predictive_rule)->Scalar applicability(r.applicability(i,j,r.dependencies,r)) valid(i!=j)=r.output(i,j,r.dependencies);
+@id("561fa91d48bc4c29ba103e97efde93bc") entity provenance.source self_identity {title="The declared component self-interaction is exactly zero, an identity rather than a missing fitted pair"}
+@id("7d2b0c4a1ac04399ad09e16f83bc0620") applicability exact_self(j:chemistry.species) owner chemistry.species scope form evidence self_identity unrestricted;
 // Group contribution: main groups, their subgroups with volume and surface parameters, and the
 // subgroup counts of each species.
 @id("01a0f00c1fbc7251b799a7b0f3d2041b") entity kind main_group {}
@@ -24,8 +39,4 @@
 @id("01a0f00c1fbc7251b799a7b45def587b") attribute q: Scalar;
 }
 @id("01a0f00c1fbc7251b799a7b53a61c973") table group_count[j: chemistry.species, g: subgroup]: Count missing default 0{1};
-@id("3379d9c4dd2646aebb059936d089defa") enum PairAbsence { @id("1ae66c31e688467fb6284a0bee239953") required, @id("31a8d2c1fda4475d8bea4ed1351efd66") predictiveZero }
-@id("a523ca0ee21d46509b92c25536f13711") table absence_policy[k:properties.property_package,p:properties.property]:PairAbsence complete_over(k,p) require p.shape==properties.IndexShape.pair;
-@id("5216f78e204c433d8c48cdec53212541") table pair_method[k:properties.property_package,p:properties.property]:Fn(k:properties.property_package,p:properties.property,i:chemistry.species,j:chemistry.species)->Scalar complete_over(k,p);
-@id("d8692641f7e043738db32c3a75677a2e") fn selected_pair(k:properties.property_package,p:properties.property,i:chemistry.species,j:chemistry.species)->Scalar=pair_method[k,p](k,p,i,j);
 }

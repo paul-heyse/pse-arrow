@@ -14,6 +14,7 @@ from collections import Counter
 from collections.abc import Iterator
 
 import pytest
+
 from thermochem_support import Run, run_source, staged, staged_directory
 
 pytestmark = pytest.mark.skipif(
@@ -55,7 +56,8 @@ def test_an_entry_is_a_species_form_keyed_by_its_locator_with_the_aggregation_of
 
 def test_the_charge_is_the_pseudo_element_e_with_its_sign_converted(run: Run) -> None:
     ions = [
-        r for r in staged("cantera", "species")
+        r
+        for r in staged("cantera", "species")
         if r["_artifact"] == "data/gri30_ion.yaml" and r["name"] in ("H3O+", "HCO+")
     ]
     assert ions
@@ -69,9 +71,12 @@ def test_an_entry_no_phase_includes_and_one_of_an_undecodable_model_are_held_wit
 ) -> None:
     held = [r for r in run.held() if r["source_table"] == "species"]
     reasons = Counter(
-        "no phase" if "no phase of the tree includes" in str(r["detail"])
-        else "undecoded" if "has no rule for thermo" in str(r["detail"])
-        else "different" if "phases of different" in str(r["detail"])
+        "no phase"
+        if "no phase of the tree includes" in str(r["detail"])
+        else "undecoded"
+        if "has no rule for thermo" in str(r["detail"])
+        else "different"
+        if "phases of different" in str(r["detail"])
         else "other"
         for r in held
     )
@@ -90,9 +95,12 @@ def test_a_nasa7_block_is_a_set_with_its_pieces_under_the_parameterization_of_it
         (r for r in staged("cantera", "thermo_pieces") if r["thermo_locator"] == block["_locator"]),
         key=lambda r: r["piece_index"],
     )
-    stored = [p for p in run.table("param.nasa7__pure__piece")
-              if math.isclose(p["a1"], pieces[0]["coefficients"][0], rel_tol=1e-15)
-              and math.isclose(p["T_low"], pieces[0]["temperature_low"])]
+    stored = [
+        p
+        for p in run.table("param.nasa7__pure__piece")
+        if math.isclose(p["a1"], pieces[0]["coefficients"][0], rel_tol=1e-15)
+        and math.isclose(p["T_low"], pieces[0]["temperature_low"])
+    ]
     assert stored
     piece = stored[0]
     assert [piece[f"a{k}"] for k in range(1, 8)] == pieces[0]["coefficients"]
@@ -103,7 +111,8 @@ def test_a_nasa7_block_is_a_set_with_its_pieces_under_the_parameterization_of_it
 
 def test_a_shomate_block_is_converted_from_t_over_a_kilokelvin_to_kelvin_slots(run: Run) -> None:
     piece = next(
-        r for r in staged("cantera", "thermo_pieces")
+        r
+        for r in staged("cantera", "thermo_pieces")
         if r["coefficient_count"] == 7
         and any(
             t["_locator"] == r["thermo_locator"] and t["model"] == "Shomate"
@@ -112,8 +121,10 @@ def test_a_shomate_block_is_converted_from_t_over_a_kilokelvin_to_kelvin_slots(r
     )
     a, b, c, d, e, f, g = piece["coefficients"]
     stored = [
-        p for p in run.table("param.shomate__pure__piece")
-        if math.isclose(p["A"], a, rel_tol=1e-14) and math.isclose(p["T_low"], piece["temperature_low"])
+        p
+        for p in run.table("param.shomate__pure__piece")
+        if math.isclose(p["A"], a, rel_tol=1e-14)
+        and math.isclose(p["T_low"], piece["temperature_low"])
     ]
     assert stored
     found = stored[0]
@@ -125,7 +136,9 @@ def test_a_shomate_block_is_converted_from_t_over_a_kilokelvin_to_kelvin_slots(r
     assert math.isclose(found["G"], g, rel_tol=1e-14)
 
 
-def test_a_constant_cp_block_takes_the_documented_defaults_and_states_its_own_units(run: Run) -> None:
+def test_a_constant_cp_block_takes_the_documented_defaults_and_states_its_own_units(
+    run: Run,
+) -> None:
     sets = run.table("param.constant_cp__pure")
     assert sets
     assert {s["T0"] for s in sets} <= {298.15, 200.0, 1000.0}

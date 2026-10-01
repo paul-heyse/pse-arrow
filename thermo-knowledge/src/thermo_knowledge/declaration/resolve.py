@@ -27,7 +27,6 @@ from thermo_knowledge import transposition as transposition_module
 from thermo_knowledge.declaration import model as m
 from thermo_knowledge.declaration import schema as s
 from thermo_knowledge.declaration.diagnostics import Code, Diagnostic
-from thermo_knowledge.expression.units import describe, from_info, type_dimension
 from thermo_knowledge.declaration.types import (
     META_CONSTRUCTS,
     PRIMITIVES,
@@ -41,6 +40,7 @@ from thermo_knowledge.declaration.types import (
     parse_storage_unit,
     split_type,
 )
+from thermo_knowledge.expression.units import describe, from_info, type_dimension
 
 MANIFEST_DOCUMENT = "model/manifest.toml"
 
@@ -426,7 +426,10 @@ class Resolver:
     ) -> None:
         """A field of a dependent quantity type has exactly one subject of the kind its dimension
         follows; a field of any other type declares no extra order."""
-        if field_.type.element_kind == "quantity" and field_.type.element not in self.quantity_types:
+        if (
+            field_.type.element_kind == "quantity"
+            and field_.type.element not in self.quantity_types
+        ):
             return  # the type's own declaration was refused and reported
         dependent = self.dependent_of(field_.type)
         if dependent is None:
@@ -484,7 +487,10 @@ class Resolver:
                     where = f"{construct}.facets.{facet_name}"
                     if not SNAKE.match(facet_name):
                         self.err(
-                            module, where, Code.BAD_NAME, f"`{facet_name}` is not lowercase snake_case"
+                            module,
+                            where,
+                            Code.BAD_NAME,
+                            f"`{facet_name}` is not lowercase snake_case",
                         )
                     facets.append(
                         m.Facet(
@@ -645,9 +651,7 @@ class Resolver:
             "SourceText": "source_text",
         }
         if text in simple:
-            return TypeRef(
-                container="scalar", element_kind=simple[text], element=text, text=text
-            )
+            return TypeRef(container="scalar", element_kind=simple[text], element=text, text=text)
         if is_bare_name(text):
             category = self.lookup(
                 text, ("quantity_type", "enum", "kind"), module, construct, "type"
@@ -663,7 +667,9 @@ class Resolver:
                 "enum": "enum",
                 "kind": "kind",
             }
-            return TypeRef(container="scalar", element_kind=kinds[category], element=text, text=text)
+            return TypeRef(
+                container="scalar", element_kind=kinds[category], element=text, text=text
+            )
         try:
             normalised, unit = evaluate_expression(
                 text, lambda name: self._unit_of(name, module, construct)
@@ -1127,9 +1133,7 @@ class Resolver:
                 "an invariant enforced by `ddl` declares a `check`",
             )
             return None
-        given = {
-            key: getattr(check, key) for key in CHECK_FORMS if getattr(check, key) is not None
-        }
+        given = {key: getattr(check, key) for key in CHECK_FORMS if getattr(check, key) is not None}
         if len(given) != 1:
             self.err(
                 module,
@@ -2336,9 +2340,14 @@ class Resolver:
             return None
         parameter_set = self.framework["parameter_set"]
         if raw.accepts is not None or raw.references is not None:
-            label, named = ("accepts", raw.accepts) if raw.accepts else ("references", raw.references)
+            label, named = (
+                ("accepts", raw.accepts) if raw.accepts else ("references", raw.references)
+            )
             assert named is not None
-            if self.lookup(named, ("contract",), module, f"{construct}.{label}", "contract") is None:
+            if (
+                self.lookup(named, ("contract",), module, f"{construct}.{label}", "contract")
+                is None
+            ):
                 return None
             type_ = TypeRef(
                 container="scalar", element_kind="kind", element=parameter_set, text=parameter_set
@@ -2637,7 +2646,9 @@ class Resolver:
                     "an interval names two different slots of the family",
                 )
                 ok = False
-            elif not (lower.type.element_kind == "quantity" and upper.type.element_kind == "quantity"):
+            elif not (
+                lower.type.element_kind == "quantity" and upper.type.element_kind == "quantity"
+            ):
                 self.err(
                     module,
                     f"{construct}.interval",
@@ -3187,9 +3198,7 @@ class _EntityBuilder:
                     continue
                 try:
                     values.append(
-                        attribute.default
-                        if given is None
-                        else self._coerce(raw, attribute, given)
+                        attribute.default if given is None else self._coerce(raw, attribute, given)
                     )
                 except _Refused as refused:
                     self._err(raw, f".{attr_name}", refused.code, str(refused))

@@ -11,13 +11,13 @@ import psycopg
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
+
 from declaration_support import NO_PHYSICAL, full_declaration
 from mapping_support import real_declaration
-
+from thermo_knowledge.build import build_database
 from thermo_knowledge.canonical.schemas import INTERVAL, UUID, canonical_schemas, table_name
 from thermo_knowledge.declaration import Declaration
 from thermo_knowledge.generate.plan import build_plan
-from thermo_knowledge.build import build_database
 from thermo_knowledge.testing import TestDatabase
 
 BASE_TYPES = {

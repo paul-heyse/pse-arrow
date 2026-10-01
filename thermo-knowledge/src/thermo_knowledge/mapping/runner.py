@@ -330,9 +330,7 @@ def load_form_aggregations(resolution_dir: Path) -> dict[uuid.UUID, uuid.UUID]:
     path = resolution_dir / store.file_name(form.table)
     if not path.is_file():  # a resolution of no species forms writes no table
         return {}
-    return {
-        row["id"]: row[form.aggregation] for row in pq.read_table(path).to_pylist()
-    }
+    return {row["id"]: row[form.aggregation] for row in pq.read_table(path).to_pylist()}
 
 
 def _check_identity(env: Environment, prepared: Prepared) -> tuple[Path, CanonicalManifest]:
@@ -439,9 +437,7 @@ def run_records(
     except BaseException:
         shutil.rmtree(work, ignore_errors=True)
         raise
-    return MapOutcome(
-        source_id, "records", "mapped", _counts(manifest), result, tuple(reported)
-    )
+    return MapOutcome(source_id, "records", "mapped", _counts(manifest), result, tuple(reported))
 
 
 def coverage_lines(result: coverage.Coverage) -> list[str]:

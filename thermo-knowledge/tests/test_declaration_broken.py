@@ -9,8 +9,8 @@ import tomllib
 from pathlib import Path
 
 import pytest
-from declaration_support import BROKEN, FULL, copy_full, overlay
 
+from declaration_support import BROKEN, FULL, copy_full, overlay
 from thermo_knowledge.declaration import Code, Diagnostic, load_declaration
 
 CASES: dict[str, list[dict[str, str]]] = {

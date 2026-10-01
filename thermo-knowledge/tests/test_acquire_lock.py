@@ -12,8 +12,8 @@ import threading
 from pathlib import Path
 
 import pytest
-from test_acquire_support import make_context, write_manifest
 
+from test_acquire_support import make_context, write_manifest
 from thermo_knowledge.acquire import lock as lock_module
 from thermo_knowledge.acquire.lock import (
     LockEntry,

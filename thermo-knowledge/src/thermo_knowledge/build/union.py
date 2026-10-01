@@ -141,9 +141,7 @@ def equal(left: pa.Array, right: pa.Array) -> pa.Array:
 def _equal_lists(left: pa.Array, right: pa.Array) -> pa.Array:
     both_null = _and(pc.is_null(left), pc.is_null(right))
     both_valid = _and(pc.is_valid(left), pc.is_valid(right))
-    same_length = _null_as_false(
-        pc.equal(pc.list_value_length(left), pc.list_value_length(right))
-    )
+    same_length = _null_as_false(pc.equal(pc.list_value_length(left), pc.list_value_length(right)))
     candidates = _and(both_valid, same_length)
     result = pa.array(np.zeros(len(left), dtype=bool))
     chosen_left, chosen_right = pc.filter(left, candidates), pc.filter(right, candidates)

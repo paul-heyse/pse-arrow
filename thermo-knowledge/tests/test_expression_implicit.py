@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-from expression_support import scenario
 
+from expression_support import scenario
 from thermo_knowledge.expression.evaluate import EvaluationRefusal, bind
 from thermo_knowledge.expression.parameters import FormChoice, InMemorySource
 
@@ -462,4 +462,6 @@ def test_a_coefficient_with_a_huge_expansion_is_not_expanded() -> None:
     found = _polynomial_coefficients(z**2 - big * z + 2, z)
     assert found is not None and len(found) == 3
     values = {p: 0.1 * (n + 1) for n, p in enumerate(parameters)}
-    assert float(found[1].xreplace(values)) == pytest.approx(-float(big.xreplace(values)), rel=1e-13)
+    assert float(found[1].xreplace(values)) == pytest.approx(
+        -float(big.xreplace(values)), rel=1e-13
+    )

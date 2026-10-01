@@ -18,6 +18,8 @@ use std::collections::BTreeSet;
 /// Selected values retain their allocation owner until the last reader drops them.
 #[derive(Clone, Debug)]
 pub struct ModelingObservations {
+    /// Typed evidence retained on demanded paths at this exact bound point.
+    pub applicability: Vec<pse_model::applicability::Observation>,
     values: BTreeMap<SemanticId, f64>,
     _owner: std::sync::Arc<pse_columnar::AllocationLease>,
 }
@@ -139,6 +141,7 @@ impl ModelingPackage {
         if rows.is_empty() {
             return Ok(ModelingObservations {
                 values: BTreeMap::new(),
+                applicability: Vec::new(),
                 _owner: owner,
             });
         }
@@ -154,14 +157,29 @@ impl ModelingPackage {
             .map(|r| r.id)
             .collect::<Vec<_>>();
         let retained = owner.clone();
-        let (values, owner) = service
+        let (values, applicability, _previous_owner) = service
             .with_worker(assembly, providers, cancel, move |worker| {
                 let observed = worker.constraints(&values)?;
-                Ok((ids.into_iter().zip(observed).collect(), retained))
+                Ok((
+                    ids.into_iter().zip(observed).collect(),
+                    worker.applicability_observations(),
+                    retained,
+                ))
             })
             .await?;
+        let evidence_bytes = applicability.capacity()
+            * size_of::<pse_model::applicability::Observation>()
+            + applicability
+                .iter()
+                .map(pse_model::applicability::Observation::retained_bytes)
+                .sum::<usize>();
+        let owner = service.reserve(
+            "modeling:observations",
+            bytes.saturating_add(evidence_bytes),
+        )?;
         Ok(ModelingObservations {
             values,
+            applicability,
             _owner: owner,
         })
     }

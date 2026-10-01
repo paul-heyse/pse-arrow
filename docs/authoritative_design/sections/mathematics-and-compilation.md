@@ -449,6 +449,15 @@ recursive-inference consumer needs its own reviewed contract.
 
 ### 14.3 The preparation engine and ownership
 
+> Proposed amendment: [ADR-0140](../../adr/0140-scientific-knowledge-admission.md) and
+> [ADR-0141](../../adr/0141-applicability-evidence-and-permissions.md), Plan 25b.
+
+Scientific selection retains roots, dependency closure, conventions and applicability
+references in admitted preparation. Claim and named permission identities are framed with
+their actual scope. Applicability observations follow the demanded call/branch and survive
+rewriting, derived arguments and differentiation; numerical-body reuse cannot erase their
+attribution or use gate. Changed preimages and generated transports receive new versions.
+
 `CompilerWorkspace` is a single-writer owner of one Salsa database. Callers serialize
 access; no database clone, Salsa handle or partial input batch escapes. Tracked queries are
 pure: they may read inputs, parse, admit and plan, but never construct native evaluators,

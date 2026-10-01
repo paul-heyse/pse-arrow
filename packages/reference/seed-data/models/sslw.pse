@@ -32,7 +32,8 @@
 [costing.twenty]=[1];
 }
 @id("be00dca04cd4497a8b78f7e5d7877279") test envelope oracle references.sslw_3 fixture {dof 0; run pure; fix root.area=1000{m^2}; fix root.pressure=3548703.6465841806{Pa};} {
-@id("0721f71c07ab4f76a298b5a94d3a1ab4") child root:costing.HeatExchangerCost=costing.HeatExchangerCost(pressure_extrapolation=false);
+@id("30c5e288ef605c9e8d5df960c044bba1") permission area_use families(costing.base_amount,costing.material_amount) allow_unknown true allow_extrapolation false;
+@id("0721f71c07ab4f76a298b5a94d3a1ab4") child root:costing.HeatExchangerCost=costing.HeatExchangerCost;
 @id("dc8261a0ac4a434c95368559f25918ad") expect costing.currency_unit()==1{USD_CE500} tolerance 1e-12{USD_CE500};
 @id("e25ce7df55d14f92bddf2f0b2de3c359") expect costing.base_amount(11840.3014583805,11.3852,0.9186,0.0979)==87704.5883652126 tolerance 1;
 @id("bafd8d1597734d2cb4ebbcfafdbb5fe9") expect root.base_cost_per_unit==87704.6{USD_CE500} tolerance 1{USD_CE500};

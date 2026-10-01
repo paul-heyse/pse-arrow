@@ -13,6 +13,7 @@ from collections.abc import Callable, Iterator
 from pathlib import Path
 
 import pytest
+
 from test_acquire_support import (
     FIXED_NOW,
     FIXTURES,
@@ -24,7 +25,6 @@ from test_acquire_support import (
     tree_files,
     write_manifest,
 )
-
 from thermo_knowledge.acquire.enumerators import ENUMERATORS, PageTarget
 from thermo_knowledge.acquire.errors import AcquireError
 from thermo_knowledge.acquire.manifest import PagesSpec
@@ -189,7 +189,8 @@ def test_iapws_yields_the_index_and_every_document_pdf_in_page_order() -> None:
     assert targets[0] == PageTarget(IAPWS_INDEX, "release.html")
     assert [t.name for t in targets[1:]] == [f"{slug}.pdf" for slug in IAPWS_SLUGS]
     assert [t.url for t in targets[1:]] == [
-        f"https://documents.example/technical-guidance/release/{slug}.download" for slug in IAPWS_SLUGS
+        f"https://documents.example/technical-guidance/release/{slug}.download"
+        for slug in IAPWS_SLUGS
     ]
 
 
@@ -202,7 +203,9 @@ def test_iapws_names_and_urls_are_unique_and_stable() -> None:
     assert all("/" not in t.name and not t.name.startswith(".") for t in first)
 
 
-@pytest.mark.parametrize("urls", [(), (IAPWS_INDEX, "https://documents.example/technical-guidance")])
+@pytest.mark.parametrize(
+    "urls", [(), (IAPWS_INDEX, "https://documents.example/technical-guidance")]
+)
 def test_iapws_needs_exactly_one_index_url(urls: tuple[str, ...]) -> None:
     with pytest.raises(AcquireError, match="exactly one URL"):
         enumerate_pages("iapws", {IAPWS_INDEX: IAPWS_HTML}, *urls)

@@ -48,7 +48,9 @@ KEY = "key"
 INDEX = "index"
 
 
-def _text(name: str, source_name: str, *, nullable: bool = True, note: str | None = None) -> pa.Field:
+def _text(
+    name: str, source_name: str, *, nullable: bool = True, note: str | None = None
+) -> pa.Field:
     return column(
         name, STRING, source_name=source_name, unit=NOT_APPLICABLE, note=note, nullable=nullable
     )

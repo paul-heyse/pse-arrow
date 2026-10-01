@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 
 import pytest
+
 from test_acquire_support import (
     commit_all,
     git,
@@ -17,7 +18,6 @@ from test_acquire_support import (
     write,
     write_manifest,
 )
-
 from thermo_knowledge.acquire.manifest import load_sources
 from thermo_knowledge.acquire.runner import check_sources
 

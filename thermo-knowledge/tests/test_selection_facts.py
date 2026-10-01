@@ -18,10 +18,10 @@ from dataclasses import dataclass
 
 import psycopg
 import pytest
+
 from build_support import fingerprint, inputs_of, write_source
 from mapping_support import carrier, origin, writer
 from mechanisms_support import entity_id, mechanism_declaration
-
 from thermo_knowledge import config, db, identity
 from thermo_knowledge.build import build_database
 from thermo_knowledge.canonical.values import Quantity
@@ -52,9 +52,7 @@ def asserted(locator: str) -> list:  # noqa: ANN401
     return [origin(locator, "published")]
 
 
-def carrier_policy(
-    w: CanonicalWriter, key: str, locator: str, **attributes: object
-) -> uuid.UUID:
+def carrier_policy(w: CanonicalWriter, key: str, locator: str, **attributes: object) -> uuid.UUID:
     return w.kind(
         "selection_policy",
         {"key": key, "revision": "1", "unasserted": "refuse", "asserted_by": CARRIER, **attributes},
@@ -73,7 +71,9 @@ def parameterization(w: CanonicalWriter, key: str) -> uuid.UUID:
 def write_world(w: CanonicalWriter, decl: Declaration, ids: dict[str, uuid.UUID]) -> None:
     critical = entity_id(decl, "observable", "critical_temperature")
     a, b = (
-        w.kind("species", {"canonical_key": key, "label": key}, origins=asserted(f"a.json#/s-{key}"))
+        w.kind(
+            "species", {"canonical_key": key, "label": key}, origins=asserted(f"a.json#/s-{key}")
+        )
         for key in ("a", "b")
     )
     ids.update(a=a, b=b)
@@ -155,7 +155,13 @@ def decl(tmp_path_factory: pytest.TempPathFactory) -> Declaration:
 def world(decl: Declaration, tmp_path_factory: pytest.TempPathFactory) -> Iterator[World]:
     canonical = tmp_path_factory.mktemp("selection-canonical")
     ids: dict[str, uuid.UUID] = {}
-    write_source(canonical, "src", lambda w: write_world(w, decl, ids), decl=decl, declaration=fingerprint(decl))
+    write_source(
+        canonical,
+        "src",
+        lambda w: write_world(w, decl, ids),
+        decl=decl,
+        declaration=fingerprint(decl),
+    )
     with TestDatabase() as database:
         build_database(database.url, decl, inputs_of(canonical))
         yield World(decl, database, ids)
@@ -211,7 +217,9 @@ def test_a_source_that_holds_repeated_rows_is_never_read_without_naming_the_one_
         DatabaseSource(conn, world.decl, [world.ids["kij_table"]]).slot_values(KIJ, subjects)
 
 
-def test_the_carriers_rule_decides_which_occurrence_to_read(world: World, conn: psycopg.Connection) -> None:
+def test_the_carriers_rule_decides_which_occurrence_to_read(
+    world: World, conn: psycopg.Connection
+) -> None:
     """The recorded rule is `last_wins`: the occurrence it names is the highest one, and reading
     it gives the row the carrier's own code would use."""
     rule = policy_row(conn, world.ids["policy_last_wins"])["repeated_rows"]
@@ -289,7 +297,10 @@ def test_a_policy_may_state_both_facts_for_a_scope_of_a_slot_group_and_an_observ
 ) -> None:
     found = policy_row(conn, world.ids["policy_both"])
     assert (found["repeated_rows"], found["table_choice"]) == ("first_wins", "listing_order")
-    assert found["scope_observable"] == "critical_temperature" and found["scope_slot_group"] is not None
+    assert (
+        found["scope_observable"] == "critical_temperature"
+        and found["scope_slot_group"] is not None
+    )
 
 
 # -- the requirement ----------------------------------------------------------------------------
@@ -304,7 +315,12 @@ def violations(
     def fill(w: CanonicalWriter) -> None:
         critical = entity_id(decl, "observable", "critical_temperature")
         ids["sound"] = carrier_policy(
-            w, "sound", "a.json#/c/1", scope_observable=critical, table_choice="ranked", as_documented=True
+            w,
+            "sound",
+            "a.json#/c/1",
+            scope_observable=critical,
+            table_choice="ranked",
+            as_documented=True,
         )
         ids["unscoped"] = carrier_policy(
             w, "unscoped", "a.json#/c/2", table_choice="ranked", as_documented=True
@@ -317,7 +333,12 @@ def violations(
         )
         ids["authored"] = w.kind(
             "selection_policy",
-            {"key": "authored", "revision": "1", "unasserted": "refuse", "repeated_rows": "last_wins"},
+            {
+                "key": "authored",
+                "revision": "1",
+                "unasserted": "refuse",
+                "repeated_rows": "last_wins",
+            },
             origins=asserted("a.json#/c/5"),
         )
         ids["authored_sound"] = w.kind(
@@ -351,4 +372,11 @@ def test_a_carriers_policy_needs_a_scope_a_rule_and_an_assessment_and_an_authore
 def test_a_repeated_row_rule_is_one_of_the_declared_members(decl: Declaration) -> None:
     w = writer(decl)
     with pytest.raises(ValidationError, match="not a member of enum `repeated_row_rule`"):
-        carrier_policy(w, "bad", "a.json#/x", scope_slot_group=KIJ, repeated_rows="newest_wins", as_documented=True)
+        carrier_policy(
+            w,
+            "bad",
+            "a.json#/x",
+            scope_slot_group=KIJ,
+            repeated_rows="newest_wins",
+            as_documented=True,
+        )

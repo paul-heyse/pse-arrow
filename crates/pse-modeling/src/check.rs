@@ -30,6 +30,19 @@ fn expected_failure_shape(
             .map(|_| ())
             .map_err(|e| invalid(at, e.to_string()))
     };
+    if let Some(applicability) = &expected.applicability {
+        if expected.validity.is_some() || !expected.members.is_empty() {
+            return Err(invalid(
+                at,
+                "an expected failure names exactly one typed lineage",
+            ));
+        }
+        return applicability
+            .sets
+            .iter()
+            .chain(&applicability.variables)
+            .try_for_each(parses);
+    }
     match (&expected.validity, expected.members.is_empty()) {
         (Some(validity), true) => {
             if validity.variables.is_empty() {
@@ -76,6 +89,10 @@ fn expected_failure_shape(
 /// Resolved function contract and its declaration-owned body.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Function {
+    /// Checked typed claim applications authored on this form.
+    pub applicability: Vec<dsl::Expr>,
+    /// Actual selected claims retained through numerical lowering.
+    pub applicability_uses: Vec<crate::applicability::Use>,
     /// Occurrence-owned concrete admissions and unresolved generic obligations.
     pub physical_admissions: crate::expression::admission::ExpressionAdmissions,
     /// Declaration-owned authorization retained through specialization and lowering.
@@ -120,6 +137,7 @@ pub struct FiniteReduction {
 /// Checked package inventory. Every map is keyed by semantic identity, never backend handles.
 #[derive(Clone, Debug, PartialEq)]
 pub struct CheckedPackage {
+    pub(crate) selection_closures: crate::scientific_selection::Selections,
     pub(crate) physical_admissions:
         BTreeMap<DeclarationId, crate::expression::admission::ExpressionAdmissions>,
     pub(crate) quantities: Arc<pse_quantity::QuantityRegistry>,
@@ -167,6 +185,10 @@ pub struct CheckedPackage {
     pub(crate) test_only_data: BTreeSet<DeclarationId>,
 }
 impl CheckedPackage {
+    /// Immutable context-dependent scientific selection products admitted with this package.
+    pub fn selection_closures(&self) -> &crate::scientific_selection::Selections {
+        &self.selection_closures
+    }
     /// The immutable physical environment used to admit this package.
     pub fn context(&self) -> TypeContext<'_> {
         TypeContext {
@@ -533,6 +555,7 @@ fn check_declarations(
     documents: &dyn crate::document::Documents,
 ) -> Result<CheckedPackage> {
     let mut p = CheckedPackage {
+        selection_closures: BTreeMap::new(),
         physical_admissions: BTreeMap::new(),
         quantities: Arc::new(context.quantities.clone()),
         preconditions: Arc::new(context.preconditions.clone()),
@@ -578,7 +601,6 @@ fn check_declarations(
         .map(|id| (*id, graph.add_node(*id)))
         .collect::<BTreeMap<_, _>>();
     let mut siblings = BTreeSet::new();
-    let mut selections = BTreeSet::new();
     for row in rows {
         {
             // ADR-0104: constraint forms belong to a definition's own rows (possibly guarded),
@@ -906,45 +928,11 @@ fn check_declarations(
             // layer never extrapolates; the closure layer's consumer states its policy on its
             // validity annotation. An entity kind declares its envelopes as declarations; a
             // table declares its own inline.
-            use pse_model::generated::enums::{
-                ModelingDeclarationKind as Kind, ModelingValidityLayer as Layer,
-            };
+            use pse_model::generated::enums::ModelingDeclarationKind as Kind;
             let parent = row
                 .parent_id
                 .and_then(|id| p.declarations.get(&id))
                 .map(|r| r.value.kind);
-            if let Some(selection) = &row.value.extrapolation {
-                if !matches!(parent, Some(Kind::Definition | Kind::Test | Kind::Case)) {
-                    return Err(invalid(
-                        row.declaration_id,
-                        "a property package's definition, a test or a case selects an extrapolation policy",
-                    ));
-                }
-                match selection.layer {
-                    Layer::Form => {
-                        return Err(invalid(
-                            row.declaration_id,
-                            "the form layer never extrapolates: a function's own domain has no selectable policy",
-                        ));
-                    }
-                    Layer::Closure => {
-                        return Err(invalid(
-                            row.declaration_id,
-                            "the closure layer's policy is stated by its validity annotation",
-                        ));
-                    }
-                    Layer::Data => {}
-                }
-                if !selections.insert((row.parent_id, selection.layer)) {
-                    return Err(invalid(
-                        row.declaration_id,
-                        format!(
-                            "one extrapolation policy per scope selects the {} layer",
-                            selection.layer.as_str()
-                        ),
-                    ));
-                }
-            }
             if row.value.envelope.is_some() && parent != Some(Kind::EntityKind) {
                 return Err(invalid(
                     row.declaration_id,
@@ -1336,6 +1324,9 @@ fn check_declarations(
             }
             p.types.insert(id, Type::Entity(kind));
         }
+        if row.value.applicability.is_some() {
+            crate::applicability::signature(&mut p, context, row, &names)?;
+        }
         if let Some(v) = &row.value.function {
             variables.extend(v.type_parameters.iter().cloned());
             let mut argument_names = BTreeSet::new();
@@ -1368,6 +1359,12 @@ fn check_declarations(
             p.functions.insert(
                 id,
                 Function {
+                    applicability: v
+                        .applicability
+                        .iter()
+                        .map(|e| dsl::parse_expr(e).map_err(|e| invalid(id, e.to_string())))
+                        .collect::<Result<_>>()?,
+                    applicability_uses: Vec::new(),
                     physical_admissions: BTreeMap::new(),
                     physical_operation: None,
                     reduction: None,
@@ -1690,6 +1687,7 @@ fn check_declarations(
     crate::data::verify_rows(&p, &requirements)?;
     crate::entity::verify(&p)?;
     crate::envelope::admit(&mut p, context)?;
+    crate::applicability::admit(&p, context)?;
     crate::expression::check_all(&mut p, context)?;
     Ok(p)
 }
@@ -2109,7 +2107,19 @@ fn cell_paths(cell: &pse_authoring::language::Cell) -> Vec<String> {
     use pse_authoring::language::CellSelected;
     match cell.value.selected() {
         Ok(CellSelected::Reference(v)) => vec![v.path.join(".")],
-        Ok(CellSelected::References(v)) => v.paths.iter().map(|p| p.path.join(".")).collect(),
+        Ok(CellSelected::References(v)) => v
+            .paths
+            .iter()
+            .flat_map(|p| {
+                std::iter::once(p.path.join(".")).chain(
+                    p.keys
+                        .iter()
+                        .flatten()
+                        .filter_map(|key| pse_authoring::language::key_cell_value(key).ok())
+                        .flat_map(|cell| cell_paths(&cell)),
+                )
+            })
+            .collect(),
         Ok(CellSelected::Identifier(v)) => vec![v.scheme.join(".")],
         Ok(CellSelected::Row(v)) => std::iter::once(v.target.join("."))
             .chain(

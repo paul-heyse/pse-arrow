@@ -44,7 +44,6 @@
 @id("4fee7b020ea94caaae04d6d470202852") param material_basis:MaterialBalance=MaterialBalance.componentTotal;
 @id("9b5e8a73656444e1b1db2b41a049c162") param phases:Set<chemistry.phase>=outlet_package.phases;
 @id("0fecf4a5ef1b476e9d7e154dc118c3bb") param elements:Set<chemistry.element>={};
-@id("eb6a112a2c7c426b99ce4d5f023bf714") param atoms:Fn(j:chemistry.species,e:chemistry.element)->Count;
 
 @id("106bd81f5f93497884ab1374afebc60e") param inlet_package:equilibrium.ThermoPackage;
 @id("c3d86eece83048a186ad684765daed71") param outlet_package:equilibrium.ThermoPackage;
@@ -76,13 +75,14 @@
 @id("df84432c1f08410db8a856ce8853f6a0") contribute [p in phases,j in components] phase_material[p,j] role outflow=outlet.phase_component_flow[p,j];
 }
 @id("f00f8b3f267147afbba4b8064dc033d9") when material_basis==MaterialBalance.elementTotal {
+@id("855584ef85d25c61bc7b6d17510fa431") require sum(j in components | if j.composition==chemistry.CompositionKnowledge.Complete then 0 else 1)==0 : "IncompleteComposition: elemental balances require complete component composition";
 @id("9cf52e89c00b46468ef56cb552928ac7") require sum(e in elements | 1)>0 : "element balances require a nonempty declared element set";
 @id("010c7966596a403990e537cea3824add") accumulate element_material[e in elements]:ElementFlow conservation tolerance 1e-7{mol/s};
 @id("35e42d8004514da8856f71ac8f204e38") when has_holdup {
-@id("b92985adc24e41a897333e19d95d6fe5") contribute [e in elements] element_material[e] role outflow=sum(p in phases | sum(j in components | phase_material_accumulation[p,j]*element_coefficient(atoms(j,e),j,e)));
+@id("b92985adc24e41a897333e19d95d6fe5") contribute [e in elements] element_material[e] role outflow=sum(p in phases | sum(j in components | phase_material_accumulation[p,j]*element_coefficient(chemistry.element_count(j,e),j,e)));
 }
-@id("7d548e7975f8416ba6fa490f86cddc2a") contribute [e in elements] element_material[e] role inflow=sum(j in components | inlet.component_flow[j]*element_coefficient(atoms(j,e),j,e));
-@id("fb18326eb2f140129c630d2b613b88da") contribute [e in elements] element_material[e] role outflow=sum(j in components | outlet.component_flow[j]*element_coefficient(atoms(j,e),j,e));
+@id("7d548e7975f8416ba6fa490f86cddc2a") contribute [e in elements] element_material[e] role inflow=sum(j in components | inlet.component_flow[j]*element_coefficient(chemistry.element_count(j,e),j,e));
+@id("fb18326eb2f140129c630d2b613b88da") contribute [e in elements] element_material[e] role outflow=sum(j in components | outlet.component_flow[j]*element_coefficient(chemistry.element_count(j,e),j,e));
 }
 @id("af4445fa336943a8985c14f63543c81d") when material_basis==MaterialBalance.total {
 @id("b93058539ead4b52a85d7e5ec3d0c884") accumulate total_material:Flow conservation tolerance 1e-7{mol/s};

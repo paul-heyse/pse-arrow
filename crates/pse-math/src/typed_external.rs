@@ -58,7 +58,7 @@ impl BodyBuilder<'_> {
                         );
                     }
                 }
-                Stage::Require { .. } | Stage::Domain { .. } => {}
+                Stage::Require { .. } | Stage::Domain { .. } | Stage::Applicability { .. } => {}
                 Stage::Branch { .. } => {
                     return Err(MathError::Contract(
                         "external partial across a branch requires a proved derivative path".into(),

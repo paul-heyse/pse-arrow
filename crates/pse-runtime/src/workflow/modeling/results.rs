@@ -11,7 +11,7 @@ use pse_modeling::annotation::AnnotationValue;
 use std::{collections::BTreeSet, sync::Arc};
 
 use pse_model::generated::enums::{
-    ExtrapolationPolicy, ModelingCheckBasis as Basis, ModelingCheckKind as CheckKind,
+    ModelingCheckBasis as Basis, ModelingCheckKind as CheckKind,
 };
 /// Registry-owned check and report rows are also the public Rust values.
 pub use pse_model::generated::runtime::modeling_checks::Row as ModelingCheck;
@@ -415,9 +415,33 @@ pub(in crate::workflow) fn assessment_units(
                 .insert(ModelingOutput::Member(a.target).row_id());
         }
     }
-    // A data envelope observed at a static argument reads no output (ADR-0123 Outcome 4).
-    for o in &product.model.observations {
-        units.entry((o.id, o.lineage.declaration)).or_default();
+    // The original numerical demand carries scientific evidence even when it has no
+    // separate expectation or range annotation. Observe its active execution paths.
+    if product
+        .model
+        .functions
+        .values()
+        .any(|f| !f.applicability_uses.is_empty())
+    {
+        for output in &product.admitted.outputs {
+            let key = match output {
+                ModelingOutput::Equation { id, .. } => product
+                    .model
+                    .equations
+                    .iter()
+                    .find(|row| row.id == *id)
+                    .map(|row| (*id, row.lineage.declaration)),
+                ModelingOutput::Member(id) => product
+                    .model
+                    .symbols
+                    .get(id)
+                    .map(|symbol| (*id, symbol.lineage.declaration)),
+                _ => None,
+            };
+            if let Some(key) = key {
+                units.entry(key).or_default().insert(output.row_id());
+            }
+        }
     }
     units
 }
@@ -438,6 +462,7 @@ pub(in crate::workflow) fn assess_observations(
     product: &pse_compiler::workspace::PreparedModeling,
     values: &CaseValues,
     observed: &BTreeMap<SemanticId, f64>,
+    applicability: &[pse_model::applicability::Observation],
     numerics: &pse_model::numerics::ResolvedNumericalPolicy,
     quantities: &pse_quantity::QuantityRegistry,
     include_reports: bool,
@@ -471,6 +496,19 @@ pub(in crate::workflow) fn assess_observations(
             extrapolation_allowed: None,
             basis: Basis::Point,
             layer: None,
+            claim_id: None,
+            claim_owner: None,
+            coverage_id: None,
+            evidence_id: None,
+            form_id: None,
+            call_id: None,
+            selected_records: Vec::new(),
+            dependencies: Vec::new(),
+            input_values: Vec::new(),
+            applicability_outcome: None,
+            applicability_basis: None,
+            permission_ids: Vec::new(),
+            unknown_allowed: None,
         })
         .collect::<Vec<_>>();
     // The compiler's typed classification of objective-bound checks, with the compared
@@ -521,6 +559,19 @@ pub(in crate::workflow) fn assess_observations(
                     extrapolation_allowed: None,
                     basis,
                     layer: None,
+                    claim_id: None,
+                    claim_owner: None,
+                    coverage_id: None,
+                    evidence_id: None,
+                    form_id: None,
+                    call_id: None,
+                    selected_records: Vec::new(),
+                    dependencies: Vec::new(),
+                    input_values: Vec::new(),
+                    applicability_outcome: None,
+                    applicability_basis: None,
+                    permission_ids: Vec::new(),
+                    unknown_allowed: None,
                 });
             }
             ModelingOutput::Contribution {
@@ -571,6 +622,19 @@ pub(in crate::workflow) fn assess_observations(
                     extrapolation_allowed: None,
                     basis: Basis::Point,
                     layer: None,
+                    claim_id: None,
+                    claim_owner: None,
+                    coverage_id: None,
+                    evidence_id: None,
+                    form_id: None,
+                    call_id: None,
+                    selected_records: Vec::new(),
+                    dependencies: Vec::new(),
+                    input_values: Vec::new(),
+                    applicability_outcome: None,
+                    applicability_basis: None,
+                    permission_ids: Vec::new(),
+                    unknown_allowed: None,
                 });
             }
             _ => {}
@@ -606,6 +670,19 @@ pub(in crate::workflow) fn assess_observations(
                 extrapolation_allowed: None,
                 basis: Basis::Point,
                 layer: None,
+                claim_id: None,
+                claim_owner: None,
+                coverage_id: None,
+                evidence_id: None,
+                form_id: None,
+                call_id: None,
+                selected_records: Vec::new(),
+                dependencies: Vec::new(),
+                input_values: Vec::new(),
+                applicability_outcome: None,
+                applicability_basis: None,
+                permission_ids: Vec::new(),
+                unknown_allowed: None,
             });
         }
     }
@@ -624,6 +701,7 @@ pub(in crate::workflow) fn assess_observations(
             })
             .ok_or_else(|| contract("model check/report target absent"))
     };
+    checks.extend(applicability_checks(run_id,applicability));
     let mut reports = Vec::new();
     let mut reported = BTreeSet::new();
     for a in &product.model.annotations {
@@ -668,7 +746,7 @@ pub(in crate::workflow) fn assess_observations(
             // Every validity check names its layer (ADR-0123 Outcome 4): an annotated
             // closure range, or a data envelope whose consumer selected extrapolation, with
             // the envelope's relation or kind as its source.
-            AnnotationValue::Valid { policy, layer, .. } => {
+            AnnotationValue::Valid { layer, .. } => {
                 let endpoint = |kind| -> Result<f64, WorkflowError> {
                     product.admitted.outputs.iter().find(|o|matches!(o,ModelingOutput::Hint{target,declaration,kind:k} if *target==a.target && *declaration==a.lineage.declaration && *k==kind)).and_then(|o|observed.get(&o.row_id()).copied()).ok_or_else(||contract("validity endpoint absent"))
                 };
@@ -679,7 +757,7 @@ pub(in crate::workflow) fn assess_observations(
                     return Err(contract("reversed validity interval"));
                 }
                 let inside = v >= lo && v <= hi;
-                let extrapolate = *policy == ExtrapolationPolicy::Extrapolate;
+                let extrapolate = false;
                 checks.push(ModelingCheck {
                     step: 0,
                     run_id,
@@ -695,33 +773,23 @@ pub(in crate::workflow) fn assess_observations(
                     extrapolation_allowed: Some(extrapolate),
                     basis: Basis::Point,
                     layer: Some(*layer),
+                    claim_id: None,
+                    claim_owner: None,
+                    coverage_id: None,
+                    evidence_id: None,
+                    form_id: None,
+                    call_id: None,
+                    selected_records: Vec::new(),
+                    dependencies: Vec::new(),
+                    input_values: Vec::new(),
+                    applicability_outcome: None,
+                    applicability_basis: None,
+                    permission_ids: Vec::new(),
+                    unknown_allowed: None,
                 });
             }
             _ => {}
         }
-    }
-    // A data envelope observed at a static argument: its membership was decided at
-    // specialization, and its consumer selected extrapolation.
-    for o in &product.model.observations {
-        if !selected(o.id, o.lineage.declaration) {
-            continue;
-        }
-        checks.push(ModelingCheck {
-            step: 0,
-            run_id,
-            sample_index: 0,
-            time: None,
-            target_id: o.id,
-            source_id: o.lineage.declaration,
-            kind: CheckKind::Validity,
-            value: o.value,
-            tolerance: None,
-            satisfied: true,
-            within_validity: Some(o.within()),
-            extrapolation_allowed: Some(true),
-            basis: Basis::Point,
-            layer: Some(pse_model::generated::enums::ModelingValidityLayer::Data),
-        });
     }
     Ok((checks, reports))
 }
@@ -849,233 +917,6 @@ mod tests {
         let rows = ModelingReport::finish(builder).unwrap();
         assert_eq!(ModelingReport::rows(&rows).unwrap(), vec![report]);
     }
-    /// ADR-0123 Outcome 4: every validity check names its layer. A closure range is checked
-    /// under its annotation's policy; a data envelope whose consumer selected extrapolation
-    /// is observed at the member it guards and at a static argument, and names the relation
-    /// declaring it. Other checks name no layer. The layer survives the columnar transport.
-    #[tokio::test]
-    async fn validity_checks_name_their_layer() {
-        use pse_model::generated::enums::ModelingValidityLayer as Layer;
-        let runtime = super::super::super::tests::runtime();
-        let physical = super::super::super::tests::physical();
-        let source = r#"package p { entity kind source provenance { attribute title: Text; } enum role { given } entity source s { title = "synthetic test data" }
- entity kind item {} entity item a {} set items: Set<item> = {a};
- table bank[j: item]: {c: Scalar, low: Scalar, high: Scalar} envelope x: Scalar in low..high complete_over(j in items);
- dataset rows: bank provenance(s, role.given) { [a] = [3, 0, 1]; }
- fn f(x: Scalar, p: Row<bank>) -> Scalar guards(p.x: x) = p.c * x;
- def Root { extrapolation data extrapolate; var x: Scalar; var y: Scalar; var z: Scalar;
-   eq ex: x == 2; eq ey: y == f(x, bank[a]); eq ez: z == f(0.5, bank[a]);
-   annotation start x(2); annotation start y(6); annotation start z(1.5); annotation valid x(0, 5, reject); annotation check y(y > 0); }
-}"#;
-        let rows = pse_authoring::language::parse(
-            source,
-            SemanticId::NIL,
-            pse_authoring::language::IdentityPolicy::Named,
-            pse_authoring::ParseBudget::default(),
-        )
-        .unwrap();
-        let id = |name: &str| rows.iter().find(|r| r.name == name).unwrap().declaration_id;
-        let (root, bank) = (id("Root"), id("bank"));
-        let package = runtime.modeling_package(rows.clone(), physical).unwrap();
-        let compiler = super::super::super::tests::compiler_profile();
-        let cancel = crate::CancelSource::new();
-        let prepared = package
-            .prepare_solve(
-                root,
-                pse_modeling::specialize::root_instance(root),
-                Bindings::default(),
-                Limits::default(),
-                // Every member is fixed at its start, so no solver is acquired.
-                ModelingCaseBindings {
-                    values: BTreeMap::new(),
-                    variables: ["x", "y", "z"]
-                        .into_iter()
-                        .map(|p| {
-                            (
-                                p.into(),
-                                ModelingVariableState {
-                                    fixed: Some(true),
-                                    ..Default::default()
-                                },
-                            )
-                        })
-                        .collect(),
-                },
-                pse_kernels::DerivativeOrder::First,
-                compiler,
-                super::super::super::tests::profile(),
-                crate::math::solves::NumericalInputs::default(),
-                &cancel,
-            )
-            .await
-            .unwrap();
-        let result = package
-            .solve_case(prepared, compiler, &cancel)
-            .await
-            .unwrap();
-        assert!(result.accepted, "{result:?}");
-        let validity = |layer: Layer| {
-            result
-                .checks
-                .iter()
-                .filter(|c| c.layer == Some(layer))
-                .map(|c| {
-                    assert_eq!(c.kind, CheckKind::Validity);
-                    (
-                        c.source_id,
-                        c.value,
-                        c.within_validity,
-                        c.extrapolation_allowed,
-                        c.satisfied,
-                    )
-                })
-                .collect::<Vec<_>>()
-        };
-        // The closure range rejects and holds; the data envelope extrapolates at the member
-        // and is within it at the static argument, both sourced by the relation.
-        let range = rows
-            .iter()
-            .find(|r| {
-                r.value
-                    .annotation
-                    .as_ref()
-                    .is_some_and(|a| a.extrapolation.is_some())
-            })
-            .unwrap()
-            .declaration_id;
-        assert_eq!(
-            validity(Layer::Closure),
-            [(range, 2.0, Some(true), Some(false), true)]
-        );
-        let mut data = validity(Layer::Data);
-        data.sort_by(|a, b| a.1.total_cmp(&b.1));
-        assert_eq!(
-            data,
-            [
-                (bank, 0.5, Some(true), Some(true), true),
-                (bank, 2.0, Some(false), Some(true), true),
-            ]
-        );
-        assert!(
-            validity(Layer::Form).is_empty(),
-            "the form layer never extrapolates"
-        );
-        assert!(
-            result
-                .checks
-                .iter()
-                .filter(|c| c.kind != CheckKind::Validity)
-                .all(|c| c.layer.is_none())
-        );
-        let expected = result.checks.clone();
-        let mut tables = result.tables().unwrap();
-        let checks = tables
-            .remove(&pse_relations::generated::runtime::modeling_checks::RELATION_ID)
-            .unwrap();
-        drop(result);
-        drop(package);
-        drop(runtime);
-        assert_eq!(ModelingCheck::rows(&checks).unwrap(), expected);
-    }
-    #[tokio::test]
-    async fn kernel_indexed_reports_and_extrapolation_have_generated_owned_transports() {
-        let runtime = super::super::super::tests::runtime();
-        let physical = super::super::super::tests::physical();
-        let neutral = physical.quantities.neutral_dimensionless().unwrap();
-        let unit = physical
-            .quantities
-            .quantity_type(neutral)
-            .unwrap()
-            .canonical_unit;
-        let source = "package p { entity kind Item {} entity Item a {} entity Item b {} set items: Set<Item> = {a,b}; def Root { var x[j in items]: Scalar; eq e[j in items]: x[j] == 2; annotation start x(2); annotation report x(\"value\"); annotation valid x(0,1,extrapolate); } }";
-        let rows = pse_authoring::language::parse(
-            source,
-            SemanticId::NIL,
-            pse_authoring::language::IdentityPolicy::Named,
-            pse_authoring::ParseBudget::default(),
-        )
-        .unwrap();
-        let root = rows
-            .iter()
-            .find(|r| r.name == "Root")
-            .unwrap()
-            .declaration_id;
-        let package = runtime.modeling_package(rows, physical).unwrap();
-        let compiler = super::super::super::tests::compiler_profile();
-        let cancel = crate::CancelSource::new();
-        let case = ModelingCaseBindings {
-            values: BTreeMap::new(),
-            variables: ["x[a]", "x[b]"]
-                .into_iter()
-                .map(|p| {
-                    (
-                        p.into(),
-                        ModelingVariableState {
-                            fixed: Some(true),
-                            ..Default::default()
-                        },
-                    )
-                })
-                .collect(),
-        };
-        let prepared = package
-            .prepare_solve(
-                root,
-                pse_modeling::specialize::root_instance(root),
-                Bindings::default(),
-                Limits::default(),
-                case,
-                pse_kernels::DerivativeOrder::First,
-                compiler,
-                super::super::super::tests::profile(),
-                crate::math::solves::NumericalInputs::default(),
-                &cancel,
-            )
-            .await
-            .unwrap();
-        let result = package
-            .solve_case(prepared, compiler, &cancel)
-            .await
-            .unwrap();
-        assert!(result.accepted, "{result:?}");
-        let before = runtime.shared.pool().reserved();
-        let retained = result.clone();
-        assert!(std::ptr::eq(&result.values, &retained.values));
-        assert!(std::ptr::eq(&result.outcome, &retained.outcome));
-        assert_eq!(runtime.shared.pool().reserved(), before);
-        drop(retained);
-        assert_eq!(result.reports.len(), 2);
-        assert!(result.reports.iter().all(|r| r.label == "value"
-            && r.value == 2.
-            && r.quantity_id == neutral.as_id()
-            && r.unit_id == unit.as_id()));
-        assert_ne!(result.reports[0].target_id, result.reports[1].target_id);
-        assert_eq!(result.checks.len(), 2);
-        assert!(result.checks.iter().all(|c| c.kind == CheckKind::Validity
-            && c.within_validity == Some(false)
-            && c.extrapolation_allowed == Some(true)
-            && c.satisfied));
-        let mut tables = result.tables().unwrap();
-        let reports = tables
-            .remove(&pse_relations::generated::runtime::modeling_reports::RELATION_ID)
-            .unwrap();
-        let checks = tables
-            .remove(&pse_relations::generated::runtime::modeling_checks::RELATION_ID)
-            .unwrap();
-        let expected = result.reports.clone();
-        drop(result);
-        drop(package);
-        drop(runtime);
-        assert_eq!(ModelingReport::rows(&reports).unwrap(), expected);
-        assert!(
-            ModelingCheck::rows(&checks)
-                .unwrap()
-                .iter()
-                .all(|c| c.within_validity == Some(false))
-        );
-    }
-    /// A native step with the given assurance and, when present, a global dual bound on a
-    /// minimized objective: a synthetic stand-in for a certifying solve.
     fn step(assurance: pse_backend_native::solve::Assurance, dual_bound: Option<f64>) -> Outcome {
         use pse_backend_native::{self as native, solve::*};
         let id = SemanticId::from_bytes([1; 16]);
@@ -1185,6 +1026,7 @@ mod tests {
                 product,
                 &prepared.model.values,
                 &observed,
+                &[],
                 prepared.solve.numerics(),
                 &prepared.source.quantities,
                 false,
@@ -1239,4 +1081,22 @@ mod tests {
         );
         assert_eq!(check_value(1.0, None, Some(minimum)), (1.0, Basis::Point));
     }
+}
+
+/// Project demanded evidence once into the registry-owned numerical check relation.
+pub(super) fn applicability_checks(run_id:RunId,applicability:&[pse_model::applicability::Observation])->Vec<ModelingCheck> {
+    applicability.iter().map(|observation| {
+        let claim = &observation.claim;
+        let source = DeclarationId::from(claim.id.unwrap_or(claim.form));
+        ModelingCheck {
+            run_id,step:0,sample_index:0,time:None,target_id:claim.call,source_id:source,
+            kind:CheckKind::Applicability,value:if observation.admitted {1.} else {0.},tolerance:None,
+            satisfied:observation.admitted,within_validity:None,extrapolation_allowed:Some(observation.extrapolation_allowed),
+            basis:Basis::Point,layer:Some(claim.layer),claim_id:claim.id,claim_owner:Some(claim.owner),coverage_id:claim.coverage,
+            evidence_id:claim.evidence,form_id:Some(claim.form),call_id:Some(claim.call),selected_records:claim.records.clone(),dependencies:claim.dependencies.clone(),
+            input_values:observation.inputs.iter().map(|input|pse_model::generated::runtime::modeling_checks::RuntimeModelingChecksFieldInputValuesItem {name:input.name.clone(),value:input.value,quantity_type:input.quantity_type}).collect(),
+            applicability_outcome:Some(observation.outcome),applicability_basis:claim.basis,
+            permission_ids:observation.permissions.iter().map(|p|p.id).collect(),unknown_allowed:Some(observation.unknown_allowed),
+        }
+    }).collect()
 }

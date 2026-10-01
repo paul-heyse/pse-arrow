@@ -50,9 +50,7 @@ def read_lines(tree: Path, artifact: str) -> list[Line]:
     parts = content.split("\n")
     if parts and parts[-1] == "":
         parts.pop()
-    return [
-        Line(artifact, number, text.removesuffix("\r")) for number, text in enumerate(parts, 1)
-    ]
+    return [Line(artifact, number, text.removesuffix("\r")) for number, text in enumerate(parts, 1)]
 
 
 def read(tree: Path, writer: Writer) -> None:

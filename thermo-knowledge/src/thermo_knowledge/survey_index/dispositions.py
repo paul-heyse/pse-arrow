@@ -191,9 +191,7 @@ def _check_ref(ctx: Context, disposition: Disposition, index: RefIndex) -> bool:
         number = int(alignment.group(1))
         if number in index.alignment_items:
             return True
-        ctx.report(
-            Code.UNKNOWN_REF_TARGET, "ref", f"docs/alignment-notes.md has no item #{number}"
-        )
+        ctx.report(Code.UNKNOWN_REF_TARGET, "ref", f"docs/alignment-notes.md has no item #{number}")
         return False
     review = _REVIEW_REF.fullmatch(ref)
     if review is not None:
@@ -244,9 +242,7 @@ def disposition_files(tree: Path) -> list[Path]:
     return sorted(directory.glob("*.toml")) if directory.is_dir() else []
 
 
-def load_dispositions(
-    tree: Path, surveys: dict[str, st.Survey], index: RefIndex
-) -> DispositionSet:
+def load_dispositions(tree: Path, surveys: dict[str, st.Survey], index: RefIndex) -> DispositionSet:
     """Load and validate every `survey/dispositions/*.toml` of `tree` against `surveys`."""
     diagnostics: list[SurveyDiagnostic] = []
     by_source: dict[str, dict[str, Disposition]] = {}

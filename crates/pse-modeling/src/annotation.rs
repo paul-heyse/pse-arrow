@@ -296,7 +296,9 @@ impl Engine<'_, '_> {
                     AnnotationValue::Scale(a.scheme.ok_or_else(|| invalid(at, "scaling scheme"))?)
                 }
                 AnnotationKind::Report => AnnotationValue::Report(label(&a.arguments[0], at)?),
-                AnnotationKind::Valid => AnnotationValue::Valid {
+                AnnotationKind::Valid => {
+                    if a.extrapolation != Some(pse_model::generated::enums::ExtrapolationPolicy::Reject) {return Err(invalid(at,"hard validity domains cannot extrapolate; use a named applicability claim and permission for empirical evidence"));}
+                    AnnotationValue::Valid {
                     lower: expression(self, 0)?,
                     upper: expression(self, 1)?,
                     policy: a
@@ -304,7 +306,7 @@ impl Engine<'_, '_> {
                         .ok_or_else(|| invalid(at, "validity extrapolation policy"))?,
                     layer: pse_model::generated::enums::ModelingValidityLayer::Closure,
                     selection: None,
-                },
+                }},
                 AnnotationKind::Check => {
                     let predicate = dsl::parse_predicate(&a.arguments[0])
                         .map_err(|e| invalid(at, e.to_string()))?;

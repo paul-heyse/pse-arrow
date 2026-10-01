@@ -18,3 +18,15 @@ mod physical_potential_tests;
 
 #[cfg(test)]
 mod scientific_witness_tests;
+
+#[cfg(test)]
+mod scientific_reaction_tests;
+
+#[cfg(test)]
+mod scientific_parameter_tests;
+
+#[cfg(test)]
+mod applicability_tests;
+
+#[cfg(test)]
+mod selection_identity_tests;

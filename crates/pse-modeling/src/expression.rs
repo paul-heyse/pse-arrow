@@ -406,6 +406,132 @@ fn infer_expression(
                 )),
             }
         }
+        ExprKind::NamedCall { name, args } if name == "applicability_interval" => {
+            if args.len() != 2 {
+                return Err(invalid(
+                    at,
+                    "applicability_interval requires two endpoint claim applications",
+                ));
+            }
+            for arg in args {
+                if infer(arg, env, p, context, at, Some(&Type::Applicability))?
+                    != Type::Applicability
+                {
+                    return Err(invalid(
+                        at,
+                        "interval coverage requires typed applicability claims",
+                    ));
+                }
+            }
+            Ok(Type::Applicability)
+        }
+        ExprKind::NamedCall { name, args } if name == "tuple" => {
+            let expected_items = match expected {
+                Some(Type::Tuple(items)) => Some(items),
+                _ => None,
+            };
+            if expected_items.is_some_and(|items| items.len() != args.len()) {
+                return Err(invalid(at, "tuple constructor arity"));
+            }
+            let mut types = Vec::new();
+            for (i, arg) in args.iter().enumerate() {
+                let formal = expected_items.map(|items| &items[i]);
+                let actual = infer(arg, env, p, context, at, formal)?;
+                if let Some(formal) = formal {
+                    if !crate::scientific_selection::accepts_type(&actual, formal, p) {
+                        return Err(invalid(at, "tuple coordinate type"));
+                    }
+                    types.push(formal.clone());
+                } else {
+                    types.push(actual);
+                }
+            }
+            Ok(Type::Tuple(types))
+        }
+        ExprKind::NamedCall { name, args } if name == "set_of" => {
+            let formal = match expected {
+                Some(Type::Set(element)) => Some(element.as_ref()),
+                _ => None,
+            };
+            let mut element = formal.cloned();
+            for arg in args {
+                let actual = infer(arg, env, p, context, at, element.as_ref())?;
+                if let Some(chosen) = &element {
+                    if !crate::scientific_selection::accepts_type(&actual, chosen, p) {
+                        if crate::scientific_selection::accepts_type(chosen, &actual, p)
+                            && formal.is_none()
+                        {
+                            element = Some(actual);
+                        } else {
+                            return Err(invalid(at, "set constructor member type"));
+                        }
+                    }
+                } else {
+                    element = Some(actual);
+                }
+            }
+            element
+                .map(|element| Type::Set(Box::new(element)))
+                .ok_or_else(|| invalid(at, "empty set_of requires an expected set type"))
+        }
+        ExprKind::NamedCall { name, args } if name == "selection_compatible" => {
+            if args.len() != 3 {
+                return Err(invalid(at, "selection_compatible arity"));
+            }
+            let Type::Set(element) = infer(&args[0], env, p, context, at, None)? else {
+                return Err(invalid(at, "selection records are a finite set"));
+            };
+            let scope = infer(&args[1], env, p, context, at, None)?;
+            let Type::Function { arguments, result } = infer(&args[2], env, p, context, at, None)?
+            else {
+                return Err(invalid(at, "selection slot projection function required"));
+            };
+            if !matches!(element.as_ref(), Type::Entity(_))
+                || arguments.len() != 2
+                || arguments[0].1 != *element
+                || arguments[1].1 != scope
+                || !matches!(*result, Type::Tuple(_))
+            {
+                return Err(invalid(
+                    at,
+                    "selection slot projection takes the record and context and returns a typed tuple",
+                ));
+            }
+            Ok(Type::Boolean)
+        }
+        ExprKind::NamedCall { name, args } if name == "selection_closure" => {
+            if args.len() != 3 {
+                return Err(invalid(
+                    at,
+                    "selection_closure requires roots, context and dependencies",
+                ));
+            }
+            let Type::Set(element) = infer(&args[0], env, p, context, at, None)? else {
+                return Err(invalid(at, "selection roots are a finite set"));
+            };
+            if !matches!(element.as_ref(), Type::Entity(_)) {
+                return Err(invalid(at, "selection records are entity references"));
+            }
+            let scope = infer(&args[1], env, p, context, at, None)?;
+            let Type::Function { arguments, result } = infer(&args[2], env, p, context, at, None)?
+            else {
+                return Err(invalid(
+                    at,
+                    "selection dependencies are an authored function",
+                ));
+            };
+            if arguments.len() != 2
+                || arguments[0].1 != *element
+                || arguments[1].1 != scope
+                || *result != Type::Set(element.clone())
+            {
+                return Err(invalid(
+                    at,
+                    "selection dependency function takes the record and context and returns the same record set",
+                ));
+            }
+            Ok(Type::Set(element))
+        }
         ExprKind::NamedCall { name, args } if name == "keys" => {
             if args.len() != 1 {
                 return Err(invalid(at, "keys arity"));
@@ -463,6 +589,13 @@ fn infer_expression(
             }
             Ok(values[n.value as usize].clone())
         }
+        ExprKind::NamedCall { name, args } if name == "require_present" => {
+            if args.len()!=1 {return Err(invalid(at,"require_present takes one optional value"));}
+            let Type::Optional(inner)=infer(&args[0],env,p,context,at,None)? else {
+                return Err(invalid(at,"require_present requires an optional value"));
+            };
+            Ok(*inner)
+        }
         ExprKind::NamedCall { name, args } if name == "present" => {
             if args.len() != 1
                 || !matches!(
@@ -470,7 +603,16 @@ fn infer_expression(
                     Type::Optional(_)
                 )
             {
-                return Err(invalid(at, "present requires an optional value"));
+                return Err(invalid(
+                    at,
+                    format!(
+                        "present requires an optional value: {} has {:?}",
+                        args.first().map(dsl::render_expr).unwrap_or_default(),
+                        args.first()
+                            .map(|arg| infer(arg, env, p, context, at, None))
+                            .transpose()?
+                    ),
+                ));
             }
             Ok(Type::Boolean)
         }
@@ -611,10 +753,10 @@ fn infer_expression(
                 predicate(filter, &local, p, context, at)?;
             }
             let ty = infer(value, &local, p, context, at, expected)?;
-            if !matches!(ty, Type::Quantity(_) | Type::Integer) {
+            if !matches!(ty, Type::Quantity(_) | Type::Integer | Type::Set(_)) {
                 return Err(invalid(
                     at,
-                    "fold requires scalar physical or integer values",
+                    "fold requires scalar physical, integer or finite set values",
                 ));
             }
             local.insert(accumulator.clone(), ty.clone());
@@ -787,6 +929,8 @@ fn call(
             return Err(invalid(at, "reference is not a function"));
         };
         indirect = crate::Function {
+            applicability: Vec::new(),
+            applicability_uses: Vec::new(),
             physical_admissions: BTreeMap::new(),
             reduction: None,
             physical_operation: None,
@@ -1010,7 +1154,7 @@ pub(crate) fn predicate(
             let Type::Set(element) = path_type(domain, env, p, context, at)? else {
                 return Err(invalid(at, "membership domain must be a set"));
             };
-            if infer(expr, env, p, context, at, Some(&element))? != *element {
+            if !p.subsumes(&element, &infer(expr, env, p, context, at, Some(&element))?) {
                 return Err(invalid(at, "membership element type differs"));
             }
         }

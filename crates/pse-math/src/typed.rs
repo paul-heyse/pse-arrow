@@ -516,6 +516,48 @@ impl<'a> BodyBuilder<'a> {
         });
         Ok(DomainAssumption(Some(token)))
     }
+    /// Bind evidence to library-owned predicate evaluation and actual numeric inputs.
+    /// The effect token survives cancellation, normalization and differentiation.
+    pub fn applicability<T>(
+        &mut self,
+        plan: Arc<pse_model::applicability::Node>,
+        build: T,
+    ) -> Result<DomainAssumption, MathError>
+    where
+        T: FnOnce(&mut Self) -> Result<(Vec<TypedValue>, Vec<TypedValue>), MathError>,
+    {
+        let source = plan.claim.form;
+        let parent = std::mem::take(&mut self.stages);
+        let cache = std::mem::take(&mut self.provider_cache);
+        let order = self.provider_order;
+        let values = build(self).and_then(|(predicates, inputs)| {
+            let predicates = predicates
+                .into_iter()
+                .map(|v| self.materialize(v.atom, source))
+                .collect::<Result<Vec<_>, _>>()?;
+            let inputs = inputs
+                .into_iter()
+                .map(|v| self.materialize(v.atom, source))
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok((predicates, inputs))
+        });
+        let stages = std::mem::replace(&mut self.stages, parent);
+        self.provider_cache = cache;
+        self.provider_order = order;
+        let (predicates, inputs) = values?;
+        if self.physical_only {
+            return Ok(DomainAssumption(None));
+        }
+        let token = self.slot()?;
+        self.stages.push(Stage::Applicability {
+            stages,
+            predicates,
+            inputs,
+            token,
+            plan,
+        });
+        Ok(DomainAssumption(Some(token)))
+    }
     /// Preserve an authored validity interval as original-domain obligations,
     /// independent of symbolic simplification and requested derivative order.
     /// A rejection names `lineage`, the closure layer's (Plan 23 H5).

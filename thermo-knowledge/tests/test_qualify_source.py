@@ -10,14 +10,13 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Iterator
-from pathlib import Path
 
 import numpy as np
 import psycopg
 import pytest
+
 from mapping_support import real_declaration
 from qualify_support import QFIX_A, QFIX_B, World, build_world, fixture_declaration
-
 from thermo_knowledge import db, transposition
 from thermo_knowledge.declaration import Declaration
 from thermo_knowledge.expression.evaluate import EvaluationRefusal, bind

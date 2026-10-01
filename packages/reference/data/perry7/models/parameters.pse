@@ -7,6 +7,6 @@
 @id("01a0f14331d9760dbe4d343116ad69e1") use provenance @"1.0.0";
 @id("01a0f14331d9760dbe4d343294980db0") use references @"1.0.0";
 @id("01a0f14331d9760dbe4d3433f6c76d6b") use chem @"1.0.0";
-@id("01a0e1550b117611b1f5a230f9f88967") dataset perry_liquid:correlations.dippr100 bind(property=properties.heat_capacity, source=references.perry7_table_2_196) provenance(references.perry7_table_2_196, provenance.Role.published) from "data/perry_liquid.parquet";
-@id("01a0e15d9eff71b98e7519fca5226d2f") dataset perry_densities:correlations.dippr105 bind(property=properties.liquid_molar_density,source=references.perry7_table_2_30) provenance(references.perry7_table_2_30, provenance.Role.published) from "data/perry_densities.parquet";
+@id("01a0e1550b117611b1f5a230f9f88967") dataset perry_liquid:correlations.dippr100 bind(property=properties.heat_capacity, source=references.perry7_table_2_196 ,parameterization=references.perry7_caloric_fit,dependencies={},conventions={}) provenance(references.perry7_table_2_196, provenance.Role.published) from "data/perry_liquid.parquet";
+@id("01a0e15d9eff71b98e7519fca5226d2f") dataset perry_densities:correlations.dippr105 bind(property=properties.liquid_molar_density,source=references.perry7_table_2_30 ,parameterization=references.perry7_density_fit,dependencies={},conventions={}) provenance(references.perry7_table_2_30, provenance.Role.published) from "data/perry_densities.parquet";
 }

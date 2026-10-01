@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 
 import pytest
+
 from test_acquire_support import (
     FIXED_NOW,
     FakeClock,
@@ -21,7 +22,6 @@ from test_acquire_support import (
     tree_files,
     write_manifest,
 )
-
 from thermo_knowledge.acquire.enumerators import stable_name
 from thermo_knowledge.acquire.pages import MAX_CONSECUTIVE_ERRORS, SIDECAR_SUFFIX
 from thermo_knowledge.acquire.runtime import USER_AGENT

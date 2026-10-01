@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pyarrow as pa
 import pytest
+
 from mapping_support import (
     SATURATION,
     carrier,
@@ -21,7 +22,6 @@ from mapping_support import (
     real_declaration,
     writer,
 )
-
 from thermo_knowledge.canonical import invariants, store
 from thermo_knowledge.canonical.provenance import Carriers
 from thermo_knowledge.canonical.values import NotApplicable, Quantity, QuantityArray, Redirect
@@ -552,7 +552,9 @@ def test_the_same_pair_asserted_in_both_orders_is_two_assertions_of_one_set(
     low, high = ordered_pair(w)
     param = parameterization(w)
 
-    def assert_pair(subjects: list[uuid.UUID], r: float, locator: str, occurrence: int | None = None):  # noqa: ANN202
+    def assert_pair(
+        subjects: list[uuid.UUID], r: float, locator: str, occurrence: int | None = None
+    ):  # noqa: ANN202
         return w.parameter_set(
             parameterization=param,
             slot_group="fixture_reciprocal.pair",
@@ -1202,7 +1204,6 @@ def test_nested_sets_load_with_every_constraint_satisfied(
     extended: Declaration, tmp_path: Path
 ) -> None:
     from build_support import fingerprint, inputs_of, write_source
-
     from thermo_knowledge.build import build_database
     from thermo_knowledge.canonical.writer import NestedSet
     from thermo_knowledge.testing import TestDatabase

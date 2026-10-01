@@ -28,8 +28,8 @@ from pathlib import Path
 import pyarrow as pa
 
 from thermo_knowledge.staging import tabular
-from thermo_knowledge.staging.tabular import index, integer, number, text, texts
 from thermo_knowledge.staging.errors import StagingError
+from thermo_knowledge.staging.tabular import index, integer, number, text, texts
 from thermo_knowledge.staging.writer import Writer
 
 IDENTIFIER_FILES = (
@@ -94,7 +94,9 @@ _FAKE = (
 _MIXTURES = (
     text("primary_name", "Primary Name"),
     text("source", "Source"),
-    integer("n_components", "N components", note="the count N that sizes the four per-component blocks"),
+    integer(
+        "n_components", "N components", note="the count N that sizes the four per-component blocks"
+    ),
     texts(
         "synonyms",
         "Synonyms",
@@ -183,7 +185,16 @@ def read_fake_cas(tree: Path, artifact: str, writer: Writer) -> None:
     writer.opened(artifact)
 
 
-_MIXTURE_HEAD = ("Primary Name", "Source", "N components", "CASRNs*N", "Names*N", "mass fracs*N", "mole fracs*N", "Synonyms")
+_MIXTURE_HEAD = (
+    "Primary Name",
+    "Source",
+    "N components",
+    "CASRNs*N",
+    "Names*N",
+    "mass fracs*N",
+    "mole fracs*N",
+    "Synonyms",
+)
 
 
 def read_mixtures(tree: Path, artifact: str, writer: Writer) -> None:
@@ -193,7 +204,9 @@ def read_mixtures(tree: Path, artifact: str, writer: Writer) -> None:
     for number_, cells in tabular.cells_of(artifact, lines):
         place = tabular.where(artifact, number_)
         if number_ == 1:
-            if tuple(cells[: len(_MIXTURE_HEAD)]) != _MIXTURE_HEAD or any(cells[len(_MIXTURE_HEAD) :]):
+            if tuple(cells[: len(_MIXTURE_HEAD)]) != _MIXTURE_HEAD or any(
+                cells[len(_MIXTURE_HEAD) :]
+            ):
                 raise StagingError(f"{place}: the headings differ from {_MIXTURE_HEAD!r}")
             continue
         if len(cells) < 3:

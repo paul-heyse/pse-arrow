@@ -85,6 +85,9 @@ pub struct BoundaryDiagnostic {
     pub locations: Vec<SourceLocation>,
     /// The lineage of a rejected authored validity predicate; absent on every other finding.
     pub validity: Option<ValidityLineage>,
+    /// Complete scientific evidence on demanded paths, including refused claims.
+    #[serde(default)]
+    pub applicability: Vec<crate::applicability::Observation>,
 }
 const fn error_severity() -> Severity {
     Severity::Error
@@ -109,6 +112,7 @@ impl BoundaryDiagnostic {
             observations: Default::default(),
             locations: Vec::new(),
             validity: None,
+            applicability: Vec::new(),
         }
     }
     /// The same finding at another severity; the class is unchanged.
@@ -120,7 +124,13 @@ impl BoundaryDiagnostic {
 }
 impl crate::HeapUsage for BoundaryDiagnostic {
     fn heap_bytes(&self) -> usize {
-        self.stage.capacity()
+        self.applicability.capacity() * size_of::<crate::applicability::Observation>()
+            + self
+                .applicability
+                .iter()
+                .map(crate::applicability::Observation::retained_bytes)
+                .sum::<usize>()
+            + self.stage.capacity()
             + self.rule.capacity()
             + self.sources.capacity() * size_of::<SemanticId>()
             + self.locations.capacity() * size_of::<SourceLocation>()

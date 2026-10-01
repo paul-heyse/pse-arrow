@@ -30,9 +30,9 @@ from pathlib import Path
 import numpy as np
 import psycopg
 import pytest
+
 from hard_case_support import CHECKS, at, build, failing
 from mapping_support import carrier, real_declaration, writer
-
 from thermo_knowledge import db, identity
 from thermo_knowledge.canonical.values import Quantity, Redirect
 from thermo_knowledge.canonical.writer import CanonicalWriter, FamilyRow, ValidationError
@@ -51,7 +51,11 @@ CARRIER = identity.identifier("source", [carrier("src", "a.json").key])
 # (code, label, main group code, R, Q); a main group has the code "M<number>" and is its own class
 ORIGINAL = {
     "mains": {"M1": "CH2", "M5": "OH"},
-    "subgroups": [("1", "CH3", "M1", 0.91, 0.86), ("2", "CH2", "M1", 0.66, 0.52), ("14", "OH", "M5", 1.05, 1.15)],
+    "subgroups": [
+        ("1", "CH3", "M1", 0.91, 0.86),
+        ("2", "CH2", "M1", 0.66, 0.52),
+        ("14", "OH", "M5", 1.05, 1.15),
+    ],
     "a": {("M1", "M5"): 986.5, ("M5", "M1"): 156.4},
     "molecules": {"ethanol": {"1": 1, "2": 1, "14": 1}, "propan-1-ol": {"1": 1, "2": 2, "14": 1}},
 }
@@ -111,7 +115,12 @@ RING_TREE = {
     "Cyclobutane": ("Ring", 2, "r4", (110_000.0, 120.0)),
 }
 CP_GRID = (300.0, 500.0, 1000.0)
-CP = {"C": (8.0, 10.0, 12.0), "Cs-HHH": (25.0, 32.0, 43.0), "Cs-CsCsH": (4.0, 6.5, 9.0), "Cd": (20.0, 26.0, 33.0)}
+CP = {
+    "C": (8.0, 10.0, 12.0),
+    "Cs-HHH": (25.0, 32.0, 43.0),
+    "Cs-CsCsH": (4.0, 6.5, 9.0),
+    "Cd": (20.0, 26.0, 33.0),
+}
 # the parameter vector of the fit: (node, slot, standard uncertainty); correlations by position
 FIT_PARAMETERS = [
     ("Cs-HHH", "H298", 400.0),
@@ -131,9 +140,13 @@ class World:
     ids: dict[str, uuid.UUID]
 
 
-def write_unifac(w: CanonicalWriter, ids: dict[str, uuid.UUID], key: str, scheme_data: dict, name: str) -> None:  # type: ignore[type-arg]
+def write_unifac(
+    w: CanonicalWriter, ids: dict[str, uuid.UUID], key: str, scheme_data: dict, name: str
+) -> None:  # type: ignore[type-arg]
     scheme = w.kind(
-        "group_scheme", {"key": name, "revision": "1", "role": "activity"}, origins=at(f"scheme-{name}")
+        "group_scheme",
+        {"key": name, "revision": "1", "role": "activity"},
+        origins=at(f"scheme-{name}"),
     )
     ids[f"scheme_{key}"] = scheme
     mains = {
@@ -147,7 +160,13 @@ def write_unifac(w: CanonicalWriter, ids: dict[str, uuid.UUID], key: str, scheme
     groups = {
         code: w.kind(
             "group",
-            {"scheme": scheme, "code": code, "label": label, "role": "group", "partition_class": mains[main]},
+            {
+                "scheme": scheme,
+                "code": code,
+                "label": label,
+                "role": "group",
+                "partition_class": mains[main],
+            },
             origins=at(f"{key}-sub-{code}"),
         )
         for code, label, main, _, _ in scheme_data["subgroups"]
@@ -207,11 +226,22 @@ def write_unifac(w: CanonicalWriter, ids: dict[str, uuid.UUID], key: str, scheme
         )
         ids[f"{key}_assignment_{molecule}"] = assignment
         for code, count in counts.items():
-            w.relation("group_count", {"assignment": assignment, "group": groups[code]}, {"value": count}, at="a.json#/count")
+            w.relation(
+                "group_count",
+                {"assignment": assignment, "group": groups[code]},
+                {"value": count},
+                at="a.json#/count",
+            )
 
 
 def write_tree(
-    w: CanonicalWriter, ids: dict[str, uuid.UUID], key: str, tree: dict, role: str, rule: str, p: uuid.UUID | None  # type: ignore[type-arg]
+    w: CanonicalWriter,
+    ids: dict[str, uuid.UUID],
+    key: str,
+    tree: dict,
+    role: str,
+    rule: str,
+    p: uuid.UUID | None,  # type: ignore[type-arg]
 ) -> tuple[uuid.UUID, uuid.UUID]:
     scheme = w.kind(
         "group_scheme",
@@ -251,7 +281,12 @@ def write_tree(
 
 
 def write_values(
-    w: CanonicalWriter, ids: dict[str, uuid.UUID], key: str, tree: dict, parameterization: uuid.UUID, fit: uuid.UUID | None  # type: ignore[type-arg]
+    w: CanonicalWriter,
+    ids: dict[str, uuid.UUID],
+    key: str,
+    tree: dict,
+    parameterization: uuid.UUID,
+    fit: uuid.UUID | None,  # type: ignore[type-arg]
 ) -> None:
     sets: dict[str, uuid.UUID] = {}
     data = [c for c, (*_, v) in tree.items() if isinstance(v, tuple)]
@@ -263,7 +298,14 @@ def write_values(
         else:
             slots = {"H298": Quantity(value[0], "J/mol"), "S298": Quantity(value[1], "J/(mol*K)")}
             families = (
-                {"cp": [FamilyRow({"n": n}, {"T": Quantity(T, "K"), "value": Quantity(c, "J/(mol*K)")}) for n, (T, c) in enumerate(zip(CP_GRID, CP[code], strict=True), 1)]}
+                {
+                    "cp": [
+                        FamilyRow(
+                            {"n": n}, {"T": Quantity(T, "K"), "value": Quantity(c, "J/(mol*K)")}
+                        )
+                        for n, (T, c) in enumerate(zip(CP_GRID, CP[code], strict=True), 1)
+                    ]
+                }
                 if code in CP
                 else None
             )
@@ -278,16 +320,26 @@ def write_values(
         )
         if fitted:
             assert fit is not None
-            w.relation("derivation_output", {"derivation": fit, "record": sets[code]}, at="a.json#/output")
+            w.relation(
+                "derivation_output", {"derivation": fit, "record": sets[code]}, at="a.json#/output"
+            )
     ids.update({f"{key}_set_{c}": s for c, s in sets.items()})
 
 
 def write_world(w: CanonicalWriter, ids: dict[str, uuid.UUID]) -> None:
     write_unifac(w, ids, "original", ORIGINAL, "unifac-original")
     write_unifac(w, ids, "dortmund", DORTMUND, "unifac-dortmund")
-    _, group_p = write_tree(w, ids, "group", GROUP_TREE, "additive_increment", "nearest_ancestor", None)
-    _, ring_p = write_tree(w, ids, "ring", RING_TREE, "correction_tree", "average_of_children", None)
-    fit = w.kind("fit", {"key": "benson-fit", "kind": "fit", "outcome": "converged"}, origins=at("fit", "derived"))
+    _, group_p = write_tree(
+        w, ids, "group", GROUP_TREE, "additive_increment", "nearest_ancestor", None
+    )
+    _, ring_p = write_tree(
+        w, ids, "ring", RING_TREE, "correction_tree", "average_of_children", None
+    )
+    fit = w.kind(
+        "fit",
+        {"key": "benson-fit", "kind": "fit", "outcome": "converged"},
+        origins=at("fit", "derived"),
+    )
     ids["fit"] = fit
     write_values(w, ids, "group", GROUP_TREE, group_p, fit)
     write_values(w, ids, "ring", RING_TREE, ring_p, None)
@@ -304,7 +356,9 @@ def write_world(w: CanonicalWriter, ids: dict[str, uuid.UUID]) -> None:
         )
     for (a, b), coefficient in CORRELATIONS.items():
         w.relation("fit_correlation", {"fit": fit, "a": a, "b": b}, {"coefficient": coefficient})
-    species = w.kind("species", {"canonical_key": "benson-molecule", "label": "molecule"}, origins=at("s-benson"))
+    species = w.kind(
+        "species", {"canonical_key": "benson-molecule", "label": "molecule"}, origins=at("s-benson")
+    )
     ids["benson_molecule"] = species
 
 
@@ -360,11 +414,18 @@ def test_subgroups_are_identified_by_code_with_main_groups_as_the_classes_they_p
         ("14", "OH", "M5", "OH"),
         ("2", "CH2", "M1", "CH2"),
     ]
-    roles = dict(conn.execute('SELECT code, role::text FROM tk."group" WHERE scheme = %s', (world.ids["scheme_original"],)).fetchall())
+    roles = dict(
+        conn.execute(
+            'SELECT code, role::text FROM tk."group" WHERE scheme = %s',
+            (world.ids["scheme_original"],),
+        ).fetchall()
+    )
     assert {roles[c] for c in ORIGINAL["mains"]} == {"partition_class"} and roles["1"] == "group"
 
 
-def test_two_subgroups_of_one_scheme_may_share_a_label_and_are_two_groups(world: World, conn: psycopg.Connection) -> None:
+def test_two_subgroups_of_one_scheme_may_share_a_label_and_are_two_groups(
+    world: World, conn: psycopg.Connection
+) -> None:
     rows = conn.execute(
         'SELECT id, code FROM tk."group" WHERE scheme = %s AND label = %s ORDER BY code',
         (world.ids["scheme_dortmund"], "CHO"),
@@ -372,14 +433,24 @@ def test_two_subgroups_of_one_scheme_may_share_a_label_and_are_two_groups(world:
     assert rows == [(world.ids["dortmund_group_40"], "40"), (world.ids["dortmund_group_41"], "41")]
     # the same code in the same scheme is the same group: the identity is (scheme, code)
     w = writer(world.decl)
-    scheme = w.kind("group_scheme", {"key": "s", "revision": "1", "role": "activity"}, origins=at("s"))
-    one = w.kind("group", {"scheme": scheme, "code": "40", "label": "CHO", "role": "group"}, origins=at("a"))
-    again = w.kind("group", {"scheme": scheme, "code": "40", "label": "CHO", "role": "group"}, origins=at("a"))
-    other = w.kind("group", {"scheme": scheme, "code": "41", "label": "CHO", "role": "group"}, origins=at("b"))
+    scheme = w.kind(
+        "group_scheme", {"key": "s", "revision": "1", "role": "activity"}, origins=at("s")
+    )
+    one = w.kind(
+        "group", {"scheme": scheme, "code": "40", "label": "CHO", "role": "group"}, origins=at("a")
+    )
+    again = w.kind(
+        "group", {"scheme": scheme, "code": "40", "label": "CHO", "role": "group"}, origins=at("a")
+    )
+    other = w.kind(
+        "group", {"scheme": scheme, "code": "41", "label": "CHO", "role": "group"}, origins=at("b")
+    )
     assert one == again and one != other
 
 
-def test_the_same_molecule_has_an_assignment_in_each_scheme(world: World, conn: psycopg.Connection) -> None:
+def test_the_same_molecule_has_an_assignment_in_each_scheme(
+    world: World, conn: psycopg.Connection
+) -> None:
     rows = conn.execute(
         "SELECT s.key, count(*) FROM tk.group_assignment a JOIN tk.group_scheme s ON s.id = a.scheme "
         "WHERE a.entity = %s GROUP BY s.key",
@@ -399,7 +470,10 @@ def test_the_ordered_pairs_of_main_groups_are_two_facts_and_the_diagonal_is_held
     assert rows == expected
     assert ("M1", "M1", 0.0, 0.0, 0.0) in rows  # the pair of a main group with itself
     columns = {
-        r[0] for r in conn.execute("SELECT column_name FROM information_schema.columns WHERE table_name = 'unifac_interaction_dortmund__main'")
+        r[0]
+        for r in conn.execute(
+            "SELECT column_name FROM information_schema.columns WHERE table_name = 'unifac_interaction_dortmund__main'"
+        )
     }
     assert "arrangement" not in columns
 
@@ -431,7 +505,12 @@ def size_bound(world: World, conn: psycopg.Connection, key: str, molecule: str, 
 
 @pytest.mark.parametrize(
     "key, molecule",
-    [("original", "ethanol"), ("original", "propan-1-ol"), ("dortmund", "ethanol"), ("dortmund", "acetaldehyde")],
+    [
+        ("original", "ethanol"),
+        ("original", "propan-1-ol"),
+        ("dortmund", "ethanol"),
+        ("dortmund", "acetaldehyde"),
+    ],
 )
 def test_r_and_q_are_the_sums_of_the_group_counts_times_the_subgroup_parameters(
     world: World, conn: psycopg.Connection, key: str, molecule: str
@@ -445,11 +524,16 @@ def test_r_and_q_are_the_sums_of_the_group_counts_times_the_subgroup_parameters(
         assert float(bound.evaluate("q", nu=nu)[0]) == pytest.approx(want_q, rel=1e-13)
 
 
-@pytest.mark.parametrize("form, dortmund", [("unifac_combinatorial_original", False), ("unifac_combinatorial_dortmund", True)])
+@pytest.mark.parametrize(
+    "form, dortmund",
+    [("unifac_combinatorial_original", False), ("unifac_combinatorial_dortmund", True)],
+)
 def test_the_combinatorial_term_matches_the_published_expression(
     world: World, conn: psycopg.Connection, form: str, dortmund: bool
 ) -> None:
-    scheme, key, composition = (DORTMUND, "dortmund", MIXTURE_DORTMUND) if dortmund else (ORIGINAL, "original", MIXTURE)
+    scheme, key, composition = (
+        (DORTMUND, "dortmund", MIXTURE_DORTMUND) if dortmund else (ORIGINAL, "original", MIXTURE)
+    )
     names = list(composition)
     x = np.array([composition[n] for n in names])
     size = [sizes(scheme, n) for n in names]
@@ -476,7 +560,9 @@ def test_the_combinatorial_term_matches_the_published_expression(
 def test_the_two_combinatorial_terms_differ_for_the_same_sizes() -> None:
     x = np.array([0.3, 0.7])
     r, q = np.array([2.6, 4.1]), np.array([2.3, 3.4])
-    assert abs(combinatorial(x, r, q, dortmund=True) - combinatorial(x, r, q, dortmund=False)) > 1e-4
+    assert (
+        abs(combinatorial(x, r, q, dortmund=True) - combinatorial(x, r, q, dortmund=False)) > 1e-4
+    )
 
 
 def test_the_interaction_factors_of_the_ordered_pairs_match_numpy_and_differ_between_the_orders(
@@ -490,7 +576,10 @@ def test_the_interaction_factors_of_the_ordered_pairs_match_numpy_and_differ_bet
             world.decl,
             "unifac_interaction_original",
             source=source,
-            roles={"m": str(world.ids[f"original_main_{m}"]), "n": str(world.ids[f"original_main_{n}"])},
+            roles={
+                "m": str(world.ids[f"original_main_{m}"]),
+                "n": str(world.ids[f"original_main_{n}"]),
+            },
         )
         return np.asarray(bound.evaluate("psi", T=T), dtype=float).reshape(-1)
 
@@ -502,10 +591,15 @@ def test_the_interaction_factors_of_the_ordered_pairs_match_numpy_and_differ_bet
             world.decl,
             "unifac_interaction_dortmund",
             source=source,
-            roles={"m": str(world.ids[f"dortmund_main_{m}"]), "n": str(world.ids[f"dortmund_main_{n}"])},
+            roles={
+                "m": str(world.ids[f"dortmund_main_{m}"]),
+                "n": str(world.ids[f"dortmund_main_{n}"]),
+            },
         )
         np.testing.assert_allclose(
-            np.asarray(bound.evaluate("psi", T=T), dtype=float).reshape(-1), np.exp(-(a0 + a1 * T + a2 * T**2) / T), rtol=1e-13
+            np.asarray(bound.evaluate("psi", T=T), dtype=float).reshape(-1),
+            np.exp(-(a0 + a1 * T + a2 * T**2) / T),
+            rtol=1e-13,
         )
 
 
@@ -531,23 +625,38 @@ def descend(conn: psycopg.Connection, root: uuid.UUID, environment: set[str]) ->
         for child_code, pattern in children(conn, current):
             if set(str(pattern).split()) <= environment:
                 code = child_code
-                current = scalar(conn, 'SELECT id FROM tk."group" WHERE parent = %s AND code = %s', current, child_code)  # type: ignore[assignment]
+                current = scalar(
+                    conn,
+                    'SELECT id FROM tk."group" WHERE parent = %s AND code = %s',
+                    current,
+                    child_code,
+                )  # type: ignore[assignment]
                 break
         else:
             return str(code)
 
 
-def test_the_tree_has_parents_and_sibling_positions_from_one(world: World, conn: psycopg.Connection) -> None:
+def test_the_tree_has_parents_and_sibling_positions_from_one(
+    world: World, conn: psycopg.Connection
+) -> None:
     rows = conn.execute(
         'SELECT c.code, p.code, c."position" FROM tk."group" c LEFT JOIN tk."group" p ON p.id = c.parent '
         "WHERE c.scheme = %s ORDER BY c.code",
         (world.ids["scheme_group"],),
     ).fetchall()
-    assert rows == sorted((code, parent, position) for code, (parent, position, *_rest) in GROUP_TREE.items())
-    assert [c for c, _ in children(conn, world.ids["group_node_Cs"])] == ["Cs-HHH", "Cs-CsHH", "Cs-CsCsH"]
+    assert rows == sorted(
+        (code, parent, position) for code, (parent, position, *_rest) in GROUP_TREE.items()
+    )
+    assert [c for c, _ in children(conn, world.ids["group_node_Cs"])] == [
+        "Cs-HHH",
+        "Cs-CsHH",
+        "Cs-CsCsH",
+    ]
 
 
-def test_sibling_order_decides_which_node_a_fragment_matches(world: World, conn: psycopg.Connection) -> None:
+def test_sibling_order_decides_which_node_a_fragment_matches(
+    world: World, conn: psycopg.Connection
+) -> None:
     """A fragment of a saturated carbon with hydrogens fits every child of `Cs`; it matches the
     first by position. With the positions of the first two children exchanged it matches the
     other: the stored order is part of the scheme."""
@@ -558,14 +667,25 @@ def test_sibling_order_decides_which_node_a_fragment_matches(world: World, conn:
         "WHERE scheme = %s AND parent = %s AND code IN ('Cs-HHH', 'Cs-CsHH')",
         (world.ids["scheme_group"], world.ids["group_node_Cs"]),
     )
-    assert descend(conn, world.ids["group_node_C"], fragment) == "Cs-CsHH"  # the connection rolls the exchange back
+    assert (
+        descend(conn, world.ids["group_node_C"], fragment) == "Cs-CsHH"
+    )  # the connection rolls the exchange back
 
 
-@pytest.mark.parametrize("key, rule", [("group", "nearest_ancestor"), ("ring", "average_of_children")])
+@pytest.mark.parametrize(
+    "key, rule", [("group", "nearest_ancestor"), ("ring", "average_of_children")]
+)
 def test_a_scheme_states_what_an_estimator_does_at_a_node_without_data(
     world: World, conn: psycopg.Connection, key: str, rule: str
 ) -> None:
-    assert scalar(conn, "SELECT dataless_rule::text FROM tk.group_scheme WHERE id = %s", world.ids[f"scheme_{key}"]) == rule
+    assert (
+        scalar(
+            conn,
+            "SELECT dataless_rule::text FROM tk.group_scheme WHERE id = %s",
+            world.ids[f"scheme_{key}"],
+        )
+        == rule
+    )
 
 
 def value_of(conn: psycopg.Connection, world: World, key: str, code: str, rule: str) -> float:
@@ -585,7 +705,11 @@ def value_of(conn: psycopg.Connection, world: World, key: str, code: str, rule: 
     if redirected is not None:
         return float(redirected[0])
     if rule == "nearest_ancestor":
-        parent = scalar(conn, 'SELECT p.code FROM tk."group" c JOIN tk."group" p ON p.id = c.parent WHERE c.id = %s', world.ids[f"{key}_node_{code}"])
+        parent = scalar(
+            conn,
+            'SELECT p.code FROM tk."group" c JOIN tk."group" p ON p.id = c.parent WHERE c.id = %s',
+            world.ids[f"{key}_node_{code}"],
+        )
         return value_of(conn, world, key, str(parent), rule)
     kids = [c for c, _ in children(conn, world.ids[f"{key}_node_{code}"])]
     return float(np.mean([value_of(conn, world, key, c, rule) for c in kids]))
@@ -596,18 +720,33 @@ def test_a_node_without_data_holds_no_set_and_the_rule_of_its_scheme_gives_its_v
 ) -> None:
     for key, node, expected in (
         ("group", "Cs", GROUP_TREE["C"][3][0]),  # the nearest ancestor with data
-        ("ring", "Ring", np.mean([RING_TREE["Cyclopropane"][3][0], RING_TREE["Cyclobutane"][3][0]])),  # the children
+        (
+            "ring",
+            "Ring",
+            np.mean([RING_TREE["Cyclopropane"][3][0], RING_TREE["Cyclobutane"][3][0]]),
+        ),  # the children
     ):
-        assert scalar(
-            conn,
-            'SELECT count(*) FROM param."benson_group_additivity__node" WHERE k = %s',
-            world.ids[f"{key}_node_{node}"],
-        ) == 0
-        rule = str(scalar(conn, "SELECT dataless_rule::text FROM tk.group_scheme WHERE id = %s", world.ids[f"scheme_{key}"]))
+        assert (
+            scalar(
+                conn,
+                'SELECT count(*) FROM param."benson_group_additivity__node" WHERE k = %s',
+                world.ids[f"{key}_node_{node}"],
+            )
+            == 0
+        )
+        rule = str(
+            scalar(
+                conn,
+                "SELECT dataless_rule::text FROM tk.group_scheme WHERE id = %s",
+                world.ids[f"scheme_{key}"],
+            )
+        )
         assert value_of(conn, world, key, node, rule) == pytest.approx(float(expected), rel=1e-14)
 
 
-def test_a_pointer_is_a_redirect_to_the_values_of_another_node(world: World, conn: psycopg.Connection) -> None:
+def test_a_pointer_is_a_redirect_to_the_values_of_another_node(
+    world: World, conn: psycopg.Connection
+) -> None:
     row = conn.execute(
         'SELECT "H298", "H298__state"::text, "H298__redirect" FROM param."benson_group_additivity__node" WHERE id = %s',
         (world.ids["group_set_Cs-CsHH"],),
@@ -615,7 +754,9 @@ def test_a_pointer_is_a_redirect_to_the_values_of_another_node(world: World, con
     assert row == (None, "redirect", world.ids["group_set_Cs-HHH"])
 
 
-def test_the_additivity_sum_follows_a_pointer_and_matches_numpy(world: World, conn: psycopg.Connection) -> None:
+def test_the_additivity_sum_follows_a_pointer_and_matches_numpy(
+    world: World, conn: psycopg.Connection
+) -> None:
     order = list(MOLECULE)
     members = [str(world.ids[f"group_node_{c}"]) for c in order]
     source = DatabaseSource(conn, world.decl, [world.ids["parameterization_group"]])
@@ -635,17 +776,24 @@ def test_the_additivity_sum_follows_a_pointer_and_matches_numpy(world: World, co
     assert float(bound.evaluate("S298", nu=nu)[0]) == pytest.approx(s, rel=1e-13)
 
 
-def test_the_heat_capacity_table_of_a_node_is_a_family_of_temperature_and_value(world: World, conn: psycopg.Connection) -> None:
+def test_the_heat_capacity_table_of_a_node_is_a_family_of_temperature_and_value(
+    world: World, conn: psycopg.Connection
+) -> None:
     rows = conn.execute(
         'SELECT n, "T", value FROM param."benson_group_additivity__node__cp" WHERE set_id = %s ORDER BY n',
         (world.ids["group_set_Cs-HHH"],),
     ).fetchall()
-    assert rows == [(n, T, c) for n, (T, c) in enumerate(zip(CP_GRID, CP["Cs-HHH"], strict=True), 1)]
+    assert rows == [
+        (n, T, c) for n, (T, c) in enumerate(zip(CP_GRID, CP["Cs-HHH"], strict=True), 1)
+    ]
 
 
-def test_one_fit_produced_the_group_values_with_its_uncertainties_and_correlations(world: World, conn: psycopg.Connection) -> None:
+def test_one_fit_produced_the_group_values_with_its_uncertainties_and_correlations(
+    world: World, conn: psycopg.Connection
+) -> None:
     produced = {
-        scalar(conn, 'SELECT k FROM param."benson_group_additivity__node" WHERE id = %s', record) for (record,) in conn.execute(
+        scalar(conn, 'SELECT k FROM param."benson_group_additivity__node" WHERE id = %s', record)
+        for (record,) in conn.execute(
             "SELECT record FROM prov.derivation_output WHERE derivation = %s", (world.ids["fit"],)
         ).fetchall()
     }
@@ -660,12 +808,17 @@ def test_one_fit_produced_the_group_values_with_its_uncertainties_and_correlatio
         for n, (node, slot, u) in enumerate(FIT_PARAMETERS, 1)
     ]
     correlations = {
-        (a, b): c for a, b, c in conn.execute("SELECT a, b, coefficient FROM prov.fit_correlation WHERE fit = %s", (world.ids["fit"],)).fetchall()
+        (a, b): c
+        for a, b, c in conn.execute(
+            "SELECT a, b, coefficient FROM prov.fit_correlation WHERE fit = %s", (world.ids["fit"],)
+        ).fetchall()
     }
     assert correlations == CORRELATIONS
 
 
-def test_the_covariance_of_the_fit_is_recovered_from_uncertainties_and_correlations(world: World, conn: psycopg.Connection) -> None:
+def test_the_covariance_of_the_fit_is_recovered_from_uncertainties_and_correlations(
+    world: World, conn: psycopg.Connection
+) -> None:
     sd = np.array([u for *_, u in FIT_PARAMETERS])
     correlation = np.eye(len(sd))
     for (a, b), coefficient in CORRELATIONS.items():
@@ -677,12 +830,29 @@ def test_the_covariance_of_the_fit_is_recovered_from_uncertainties_and_correlati
 # -- what the model refuses ---------------------------------------------------------------------
 
 
-def test_a_sibling_position_below_one_and_a_rule_outside_the_vocabulary_are_refused(decl: Declaration) -> None:
+def test_a_sibling_position_below_one_and_a_rule_outside_the_vocabulary_are_refused(
+    decl: Declaration,
+) -> None:
     w = writer(decl)
-    scheme = w.kind("group_scheme", {"key": "s", "revision": "1", "role": "correction_tree"}, origins=at("s"))
-    root = w.kind("group", {"scheme": scheme, "code": "r", "label": "r", "role": "group"}, origins=at("r"))
+    scheme = w.kind(
+        "group_scheme", {"key": "s", "revision": "1", "role": "correction_tree"}, origins=at("s")
+    )
+    root = w.kind(
+        "group", {"scheme": scheme, "code": "r", "label": "r", "role": "group"}, origins=at("r")
+    )
     with pytest.raises(ValidationError, match="position_from_one"):
-        w.kind("group", {"scheme": scheme, "code": "c", "label": "c", "role": "group", "parent": root, "position": 0}, origins=at("c"))
+        w.kind(
+            "group",
+            {
+                "scheme": scheme,
+                "code": "c",
+                "label": "c",
+                "role": "group",
+                "parent": root,
+                "position": 0,
+            },
+            origins=at("c"),
+        )
     with pytest.raises(ValidationError, match="not a member of enum `dataless_node_rule`"):
         w.kind(
             "group_scheme",
@@ -697,19 +867,37 @@ def test_the_verify_checks_flag_a_parent_or_class_of_another_scheme_a_cycle_and_
     ids: dict[str, uuid.UUID] = {}
 
     def emit(w: CanonicalWriter) -> None:
-        one = w.kind("group_scheme", {"key": "one", "revision": "1", "role": "activity"}, origins=at("one"))
-        two = w.kind("group_scheme", {"key": "two", "revision": "1", "role": "activity"}, origins=at("two"))
-        own = w.kind("group", {"scheme": one, "code": "a", "label": "a", "role": "group"}, origins=at("a"))
-        foreign = w.kind("group", {"scheme": two, "code": "b", "label": "b", "role": "group"}, origins=at("b"))
+        one = w.kind(
+            "group_scheme", {"key": "one", "revision": "1", "role": "activity"}, origins=at("one")
+        )
+        two = w.kind(
+            "group_scheme", {"key": "two", "revision": "1", "role": "activity"}, origins=at("two")
+        )
+        own = w.kind(
+            "group", {"scheme": one, "code": "a", "label": "a", "role": "group"}, origins=at("a")
+        )
+        foreign = w.kind(
+            "group", {"scheme": two, "code": "b", "label": "b", "role": "group"}, origins=at("b")
+        )
         ids["foreign_parent"] = w.kind(
-            "group", {"scheme": one, "code": "c", "label": "c", "role": "group", "parent": foreign}, origins=at("c")
+            "group",
+            {"scheme": one, "code": "c", "label": "c", "role": "group", "parent": foreign},
+            origins=at("c"),
         )
         ids["foreign_class"] = w.kind(
-            "group", {"scheme": one, "code": "d", "label": "d", "role": "group", "partition_class": foreign}, origins=at("d")
+            "group",
+            {"scheme": one, "code": "d", "label": "d", "role": "group", "partition_class": foreign},
+            origins=at("d"),
         )
-        ids["first"] = w.kind("group", {"scheme": one, "code": "e", "label": "e", "role": "group", "parent": own}, origins=at("e"))
+        ids["first"] = w.kind(
+            "group",
+            {"scheme": one, "code": "e", "label": "e", "role": "group", "parent": own},
+            origins=at("e"),
+        )
         ids["second"] = w.kind(
-            "group", {"scheme": one, "code": "f", "label": "f", "role": "group", "parent": ids["first"]}, origins=at("f")
+            "group",
+            {"scheme": one, "code": "f", "label": "f", "role": "group", "parent": ids["first"]},
+            origins=at("f"),
         )
         species = w.kind("species", {"canonical_key": "s", "label": "s"}, origins=at("s"))
         assignment = w.kind(
@@ -717,7 +905,12 @@ def test_the_verify_checks_flag_a_parent_or_class_of_another_scheme_a_cycle_and_
             {"entity": species, "scheme": one, "asserted_by": CARRIER, "origin": "published"},
             origins=at("assignment"),
         )
-        w.relation("group_count", {"assignment": assignment, "group": foreign}, {"value": 1}, at="a.json#/count")
+        w.relation(
+            "group_count",
+            {"assignment": assignment, "group": foreign},
+            {"value": 1},
+            at="a.json#/count",
+        )
 
     database = build(tmp_path, emit, decl)
     try:
@@ -727,9 +920,13 @@ def test_the_verify_checks_flag_a_parent_or_class_of_another_scheme_a_cycle_and_
                 "group_count.group_in_assignment_scheme": 1,
             }
             flagged = run_check(connection, CHECKS["group.parent_acyclic_same_scheme"], shown=10)
-            assert sorted(flagged.ids) == sorted(str(ids[k]) for k in ("foreign_parent", "foreign_class"))
+            assert sorted(flagged.ids) == sorted(
+                str(ids[k]) for k in ("foreign_parent", "foreign_class")
+            )
             # a cycle among the parents of one scheme, made in the row: the writer cannot point a node at a descendant
-            connection.execute('UPDATE tk."group" SET parent = %s WHERE id = %s', (ids["second"], ids["first"]))
+            connection.execute(
+                'UPDATE tk."group" SET parent = %s WHERE id = %s', (ids["second"], ids["first"])
+            )
             assert failing(connection)["group.parent_acyclic_same_scheme"] > 2
     finally:
         database.remove()

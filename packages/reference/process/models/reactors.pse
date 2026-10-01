@@ -20,9 +20,8 @@
 @id("1790cc6952374574b4bb1b2eb7011b99") override param outlet_package:equilibrium.ThermoPackage=outlet_pkg;
 @id("af4800211ca84b30ac2b2ef22df75993") override child inlet:aqueous.DiluteLiquid=inlet_pkg;
 @id("798186e63641424e83bc1c7b4731b41a") override child outlet:aqueous.DiluteLiquid=outlet_pkg;
-@id("9e9040ca12634b7a9579c1cb5dbdb7d9") child reaction:reactions.RateLaw=reaction_pkg;
-@id("f17710cf241c478b807cd5c237f69084") param reaction_set:Set<chemistry.reaction>=reaction_pkg.reactions;
-@id("0839c88a4a90484ca4ed59bfaaabc446") require reaction_pkg.components==components : "reaction and material state component sets must agree";
+@id("9e9040ca12634b7a9579c1cb5dbdb7d9") child reaction:reactions.Projection=reactions.Projection(material=components,selected=reaction_pkg.records,selection=reaction_pkg.admitted);
+@id("f17710cf241c478b807cd5c237f69084") param reaction_set:Set<chemistry.reaction>={s.reaction for s in reaction_pkg.records};
 @id("24152de1d8284af8b0d1045aa8ee3d47") var volume:Volume;
 @id("2e9d9e6619b9449bb6a32f386e7529fb") annotation bounds volume(1e-12{m^3},1000000{m^3});
 @id("070735ac141e42339543408b766e9506") annotation start volume(0.001{m^3});
@@ -31,7 +30,7 @@
 @id("890eeb5934e44ebfaba2d7dc69323a7a") eq reaction_temperature:reaction.T==outlet.T;
 @id("0e9713dada6a412d90dd6973920bcb77") eq reaction_concentration[j in components]:reaction.concentration[j]==outlet.concentration[j];
 @id("7698bf5614144e809115bbf0344a1b7b") let extent[r in reaction_set]:ReactionExtentRate=volume*reaction.rate[r];
-@id("7e7946177bf341dd8e5bcc6ded1b6913") contribute [r in reaction_set,j in components] material[j] role positive=extent[r]*reaction.stoich[r,j];
+@id("7e7946177bf341dd8e5bcc6ded1b6913") contribute [r in reaction_set,j in components] material[j] role positive=extent[r]*reaction.coefficient[r,j];
 @id("088ad63dc48a420eb0627deb45cd79e5") contribute [r in reaction_set] energy role directed=transfer(-extent[r]*reaction.heat[r],energy_boundary,Into);
 @id("32def9d5a822404089c2e688c67df190") when has_holdup {
 @id("cb09d6e68c514c018da88318bffe15ab") eq material_inventory[p in phases,j in components]:phase_material_holdup[p,j]==volume*outlet.concentration[j];
@@ -48,9 +47,8 @@
 @id("61d143637a1a4b69a2d2fadf211fa139") override param radau_scheme:Boolean=use_radau;
 @id("1deb3fd98bfc4fda978aee8e689ebf36") override param interpolation_order:Integer=order;
 @id("616dcfe48cb14e5191ec871a0654d221") override child state[i in x]:aqueous.DiluteLiquid=if i==0 then inlet_pkg else outlet_pkg;
-@id("05b25f09b3c54a98ade20b8517199cb0") param reaction_set:Set<chemistry.reaction>=reaction_pkg.reactions;
-@id("bffc26989b5044eba0042a62fa6feed0") require reaction_pkg.components==components : "reaction and spatial material components must agree";
-@id("4481793703b344c2a09816dc4f040917") child reaction[i in x]:reactions.RateLaw=reaction_pkg;
+@id("05b25f09b3c54a98ade20b8517199cb0") param reaction_set:Set<chemistry.reaction>={s.reaction for s in reaction_pkg.records};
+@id("4481793703b344c2a09816dc4f040917") child reaction[i in x]:reactions.Projection=reactions.Projection(material=components,selected=reaction_pkg.records,selection=reaction_pkg.admitted);
 @id("125ea57b237d415493e0563d0220ffde") var length:Length;
 @id("2e12c01a725a49b4b29aa1f74ebbf059") var area:Area;
 @id("26c61e74605a488a9bb4de3f5e16a77b") var heat_duty:EnergyTransferRate;
@@ -68,7 +66,7 @@
 @id("c9b34c6f9b3841abbcf00741ddd7914e") eq reaction_temperature[i in x]:reaction[i].T==state[i].T;
 @id("b7e502200a124a15a658f63d6c371954") eq reaction_concentration[i in x,j in components]:reaction[i].concentration[j]==state[i].concentration[j];
 @id("0ebcdd27f1544627aa7572acd5b5b0d4") let reaction_extent[i in x,r in reaction_set]:ReactionExtentRate=volume*reaction[i].rate[r];
-@id("4a54526c0701428b8e50134e16308634") contribute [i in x,r in reaction_set,j in components] material_source[i,j] role positive=reaction_extent[i,r]*reaction[i].stoich[r,j];
+@id("4a54526c0701428b8e50134e16308634") contribute [i in x,r in reaction_set,j in components] material_source[i,j] role positive=reaction_extent[i,r]*reaction[i].coefficient[r,j];
 @id("6c859f627f434a3a86917b0251b4cb93") contribute [i in x,r in reaction_set] energy_source[i] role directed=transfer(-reaction_extent[i,r]*reaction[i].heat[r],energy_boundary[i],Into);
 @id("01a0ee4526767673ae25bd155abea012") let heat_of_reaction:EnergyTransferRate=integral(i in x | -sum(r in reaction_set | reaction_extent[i,r]*reaction[i].heat[r]));
 @id("16913b65237d40508baef2f64ebd3ecd") port outlet_temperature:Temperature=state[1].T;

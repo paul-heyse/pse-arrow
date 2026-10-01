@@ -12,16 +12,16 @@ import shutil
 from pathlib import Path
 
 import pytest
-from mapping_support import FORMS, MODEL, real_declaration
 
+from mapping_support import FORMS, MODEL, real_declaration
 from thermo_knowledge import config, pipeline_contract
 from thermo_knowledge.declaration import contract_check, load_declaration
 from thermo_knowledge.pipeline_contract import (
+    PACKAGED,
+    RESERVED,
     ContractError,
     Entry,
     EnumEntry,
-    PACKAGED,
-    RESERVED,
 )
 
 SRC = config.TREE_DIR / "src" / "thermo_knowledge"
@@ -193,7 +193,9 @@ def test_the_constants_of_the_module_are_exactly_the_entries_of_the_file() -> No
         for name, value in vars(pipeline_contract).items()
         if isinstance(value, Entry | EnumEntry)
     }
-    by_declared = {(type(v).__name__, getattr(v, "category", "enum"), v.declared) for v in constants.values()}
+    by_declared = {
+        (type(v).__name__, getattr(v, "category", "enum"), v.declared) for v in constants.values()
+    }
     listed = (
         {("Entry", "kind", name) for name in PACKAGED.kinds}
         | {("Entry", "relation", name) for name in PACKAGED.relations}

@@ -11,6 +11,8 @@ from pathlib import Path
 
 import psycopg
 import pytest
+from typer.testing import CliRunner
+
 from build_support import (
     count,
     emit_species,
@@ -21,8 +23,6 @@ from build_support import (
     write_source,
 )
 from mapping_support import origin, real_declaration
-from typer.testing import CliRunner
-
 from thermo_knowledge import config
 from thermo_knowledge.build import UnionConflictError, build_database, dry_run, read_state
 from thermo_knowledge.build.database import DatabaseRefusedError, ForeignDependentsError

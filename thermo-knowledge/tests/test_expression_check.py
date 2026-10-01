@@ -9,8 +9,8 @@ from __future__ import annotations
 import tomllib
 
 import pytest
-from expression_support import BROKEN, VALID, load
 
+from expression_support import BROKEN, VALID, load
 from thermo_knowledge.declaration import Diagnostic
 
 CASES: dict[str, list[dict[str, object]]] = {

@@ -231,7 +231,13 @@ def write_claims(
             }
             for c in assertions
         ),
-        key=lambda row: (row["scope"], row["local_key"], row["scheme"], row["value"], row["_locator"]),
+        key=lambda row: (
+            row["scope"],
+            row["local_key"],
+            row["scheme"],
+            row["value"],
+            row["_locator"],
+        ),
     )
     component_rows = sorted(
         (

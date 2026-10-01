@@ -28,8 +28,8 @@ from pathlib import Path
 import pyarrow as pa
 
 from thermo_knowledge.staging import tabular
-from thermo_knowledge.staging.tabular import index, integer, number, numbers, text
 from thermo_knowledge.staging.errors import StagingError
+from thermo_knowledge.staging.tabular import index, integer, number, numbers, text
 from thermo_knowledge.staging.writer import Writer
 
 DIRECTORY = "thermo/Misc"
@@ -53,7 +53,11 @@ _ARRAYS = ("coeffs", "int_T_coeffs")
 _KEYS = (*_SCALARS, *_INTEGERS, *_ARRAYS)
 
 _IDENTITY = (
-    text("key", "top-level key", note="a CAS, or a sorted 'CAS1 CAS2' pair in mixture_correlations.json"),
+    text(
+        "key",
+        "top-level key",
+        note="a CAS, or a sorted 'CAS1 CAS2' pair in mixture_correlations.json",
+    ),
     text("property", "second-level key"),
     text("model_key", "third-level key"),
     text("label", "fourth-level key"),
@@ -62,11 +66,18 @@ _LEAVES = (
     *_IDENTITY,
     *(number(name) for name in _SCALARS),
     *(integer(name) for name in _INTEGERS),
-    *(numbers(name, note="a flat array; a list of lists goes to correlation_series") for name in _ARRAYS),
+    *(
+        numbers(name, note="a flat array; a list of lists goes to correlation_series")
+        for name in _ARRAYS
+    ),
 )
 _SERIES = (
     *_IDENTITY,
-    text("field", "leaf key of the list of lists", note="null when the leaf itself is the list of lists"),
+    text(
+        "field",
+        "leaf key of the list of lists",
+        note="null when the leaf itself is the list of lists",
+    ),
     index("series_index", "position of the inner array"),
     numbers("values", "inner array"),
 )
@@ -86,7 +97,9 @@ def read_correlations(tree: Path, artifact: str, writer: Writer) -> None:
     series: list[dict[str, object]] = []
     document = tabular.as_object(tabular.load_json(tree, artifact), artifact)
     for key, properties in document.items():
-        for prop, models in tabular.as_object(properties, f"{artifact}#{tabular.pointer(key)}").items():
+        for prop, models in tabular.as_object(
+            properties, f"{artifact}#{tabular.pointer(key)}"
+        ).items():
             for model_key, labels in tabular.as_object(
                 models, f"{artifact}#{tabular.pointer(key, prop)}"
             ).items():
@@ -146,6 +159,4 @@ def _series(
         )
 
 
-HANDLERS: dict[str, tabular.Handler] = {
-    f"{DIRECTORY}/{name}": read_correlations for name in FILES
-}
+HANDLERS: dict[str, tabular.Handler] = {f"{DIRECTORY}/{name}": read_correlations for name in FILES}

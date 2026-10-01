@@ -29,9 +29,9 @@ from pathlib import Path
 import numpy as np
 import psycopg
 import pytest
+
 from hard_case_support import at, build, failing
 from mapping_support import carrier, real_declaration, writer
-
 from thermo_knowledge import db, identity
 from thermo_knowledge.canonical.values import NotApplicable, Quantity
 from thermo_knowledge.canonical.writer import CanonicalWriter, ValidationError
@@ -40,7 +40,6 @@ from thermo_knowledge.expression.compiled import CompileCache
 from thermo_knowledge.expression.evaluate import EvaluationRefusal, bind
 from thermo_knowledge.qualify.source import DatabaseSource
 from thermo_knowledge.testing import TestDatabase
-
 
 CACHE = CompileCache()
 N_A = 6.02214076e23
@@ -54,7 +53,9 @@ WATER = {  # scheme: segment parameters, the bond of the scheme's two site types
     "2B": dict(m=1.05, sigma=3.0, eps=280.0, kappa=0.035, eps_ab=2400.0, sites={"H": 1, "e": 1}),
     "4C": dict(m=1.9, sigma=2.6, eps=200.0, kappa=0.04, eps_ab=1800.0, sites={"H": 2, "e": 2}),
 }
-POINTS = [(T, rho) for T in (280.0, 320.0, 400.0) for rho in (2_000.0, 15_000.0, 35_000.0, 48_000.0)]
+POINTS = [
+    (T, rho) for T in (280.0, 320.0, 400.0) for rho in (2_000.0, 15_000.0, 35_000.0, 48_000.0)
+]
 
 # -- SAFT-gamma Mie -----------------------------------------------------------------------------
 
@@ -63,7 +64,9 @@ GROUPS = {  # code: (label, nu*, S, sigma in angstrom, epsilon/k in K, lambda_r,
     "2": ("CH2", 1, 0.45, 4.6, 300.0, 19.0, 6.0),
     "3": ("OH", 1, 0.40, 3.3, 500.0, 24.0, 6.0),
 }
-UNLIKE = {("1", "3"): (3.7, 16.5, 6.0, 420.0)}  # stated: (sigma in angstrom, lambda_r, lambda_a, epsilon/k in K)
+UNLIKE = {
+    ("1", "3"): (3.7, 16.5, 6.0, 420.0)
+}  # stated: (sigma in angstrom, lambda_r, lambda_a, epsilon/k in K)
 MOLECULES = {  # name: (group counts, bonds between groups)
     "ethanol": ({"1": 1, "2": 1, "3": 1}, {("1", "2"): 1, ("2", "3"): 1}),
     "hexane": ({"1": 2, "2": 4}, {("1", "2"): 2, ("2", "2"): 3}),  # a bond of a group with itself
@@ -82,7 +85,11 @@ def association(T: float, rho: float, p: dict[str, object]) -> tuple[float, floa
     rho_n = N_A * rho
     zeta2 = np.pi / 6 * rho_n * m * d**2  # type: ignore[operator]
     zeta3 = np.pi / 6 * rho_n * m * d**3  # type: ignore[operator]
-    g = 1 / (1 - zeta3) + 1.5 * d * zeta2 / (1 - zeta3) ** 2 + 0.5 * (d * zeta2) ** 2 / (1 - zeta3) ** 3
+    g = (
+        1 / (1 - zeta3)
+        + 1.5 * d * zeta2 / (1 - zeta3) ** 2
+        + 0.5 * (d * zeta2) ** 2 / (1 - zeta3) ** 3
+    )
     delta = d**3 * g * p["kappa"] * (np.exp(p["eps_ab"] / T) - 1)  # type: ignore[operator]
     n = p["sites"]  # type: ignore[assignment]
     labels = list(n)  # type: ignore[arg-type]
@@ -136,7 +143,9 @@ def conventions(w: CanonicalWriter, key: str) -> uuid.UUID:
     )
 
 
-def write_water(w: CanonicalWriter, ids: dict[str, uuid.UUID], water: uuid.UUID, scheme_key: str) -> None:
+def write_water(
+    w: CanonicalWriter, ids: dict[str, uuid.UUID], water: uuid.UUID, scheme_key: str
+) -> None:
     p = WATER[scheme_key]
     scheme = w.kind("site_scheme", {"key": scheme_key}, origins=at(f"scheme-{scheme_key}"))
     parameterization = w.kind(
@@ -156,7 +165,11 @@ def write_water(w: CanonicalWriter, ids: dict[str, uuid.UUID], water: uuid.UUID,
         parameterization=parameterization,
         slot_group="pcsaft_association.pure",
         subjects=[water],
-        slots={"m": p["m"], "sigma": Quantity(p["sigma"], "angstrom"), "epsilon_over_k": Quantity(p["eps"], "K")},
+        slots={
+            "m": p["m"],
+            "sigma": Quantity(p["sigma"], "angstrom"),
+            "epsilon_over_k": Quantity(p["eps"], "K"),
+        },
         origins=at(f"pure-{scheme_key}"),
     )
     sites = {
@@ -195,7 +208,10 @@ def write_water(w: CanonicalWriter, ids: dict[str, uuid.UUID], water: uuid.UUID,
 
 
 def write_world(w: CanonicalWriter, ids: dict[str, uuid.UUID]) -> None:
-    water, co2 = (w.kind("species", {"canonical_key": n, "label": n}, origins=at(f"s-{n}")) for n in ("water", "CO2"))
+    water, co2 = (
+        w.kind("species", {"canonical_key": n, "label": n}, origins=at(f"s-{n}"))
+        for n in ("water", "CO2")
+    )
     ids.update(water=water, co2=co2)
     write_water(w, ids, water, "2B")
     write_water(w, ids, water, "4C")
@@ -230,7 +246,11 @@ def write_world(w: CanonicalWriter, ids: dict[str, uuid.UUID]) -> None:
         parameterization=cross,
         slot_group="pcsaft_association.pure",
         subjects=[co2],
-        slots={"m": 2.0, "sigma": Quantity(3.0, "angstrom"), "epsilon_over_k": Quantity(150.0, "K")},
+        slots={
+            "m": 2.0,
+            "sigma": Quantity(3.0, "angstrom"),
+            "epsilon_over_k": Quantity(150.0, "K"),
+        },
         origins=at("pure-co2"),
     )
     ids["parameterless"] = w.parameter_set(
@@ -251,10 +271,16 @@ def write_world(w: CanonicalWriter, ids: dict[str, uuid.UUID]) -> None:
 
 
 def write_saftgamma(w: CanonicalWriter, ids: dict[str, uuid.UUID]) -> None:
-    scheme = w.kind("group_scheme", {"key": "saftgamma-mie", "revision": "1", "role": "equation_of_state"}, origins=at("gscheme"))
+    scheme = w.kind(
+        "group_scheme",
+        {"key": "saftgamma-mie", "revision": "1", "role": "equation_of_state"},
+        origins=at("gscheme"),
+    )
     groups = {
         code: w.kind(
-            "group", {"scheme": scheme, "code": code, "label": label, "role": "group"}, origins=at(f"group-{code}")
+            "group",
+            {"scheme": scheme, "code": code, "label": label, "role": "group"},
+            origins=at(f"group-{code}"),
         )
         for code, (label, *_rest) in GROUPS.items()
     }
@@ -323,7 +349,10 @@ def write_saftgamma(w: CanonicalWriter, ids: dict[str, uuid.UUID]) -> None:
         origins=at("policy-combining"),
     )
     w.relation(
-        "policy_precedence", {"policy": ids["rule_policy"], "parameterization": p}, {"value": 1}, at="a.json#/rank"
+        "policy_precedence",
+        {"policy": ids["rule_policy"], "parameterization": p},
+        {"value": 1},
+        at="a.json#/rank",
     )
     # association on the OH group, bonded between its hydrogen and its two electron-donor sites
     sites_scheme = w.kind("site_scheme", {"key": "saftgamma-oh"}, origins=at("scheme-oh"))
@@ -345,7 +374,10 @@ def write_saftgamma(w: CanonicalWriter, ids: dict[str, uuid.UUID]) -> None:
         parameterization=p,
         slot_group="saftgamma_mie.association",
         subjects=[oh["H"], oh["e"]],
-        slots={"epsilon_hb_over_k": Quantity(1800.0, "K"), "bonding_volume": Quantity(120.0, "angstrom**3")},
+        slots={
+            "epsilon_hb_over_k": Quantity(1800.0, "K"),
+            "bonding_volume": Quantity(120.0, "angstrom**3"),
+        },
         origins=at("oh-bond"),
     )
     for name, (counts, bonds) in MOLECULES.items():
@@ -358,7 +390,12 @@ def write_saftgamma(w: CanonicalWriter, ids: dict[str, uuid.UUID]) -> None:
         )
         ids[f"assignment_{name}"] = assignment
         for code, count in counts.items():
-            w.relation("group_count", {"assignment": assignment, "group": groups[code]}, {"value": count}, at="a.json#/count")
+            w.relation(
+                "group_count",
+                {"assignment": assignment, "group": groups[code]},
+                {"value": count},
+                at="a.json#/count",
+            )
         for (k, l), count in bonds.items():
             w.relation(
                 "group_bond_count",
@@ -406,19 +443,32 @@ def multiplicity(conn: psycopg.Connection, site: uuid.UUID) -> int:
 
 def water_bound(world: World, conn: psycopg.Connection, scheme_key: str, *, policy: bool = True):  # noqa: ANN201
     source = DatabaseSource(
-        conn, world.decl, [world.ids[f"water_{scheme_key}"]], policy=world.ids["policy"] if policy else None
+        conn,
+        world.decl,
+        [world.ids[f"water_{scheme_key}"]],
+        policy=world.ids["policy"] if policy else None,
     )
     sites = [str(world.ids[f"site_{scheme_key}_{label}"]) for label in WATER[scheme_key]["sites"]]  # type: ignore[attr-defined]
     return bind(
-        world.decl, "pcsaft_association", source=source, roles={"i": str(world.ids["water"])}, sets={"sites": sites}, cache=CACHE
+        world.decl,
+        "pcsaft_association",
+        source=source,
+        roles={"i": str(world.ids["water"])},
+        sets={"sites": sites},
+        cache=CACHE,
     ), sites
 
 
-def association_outputs(world: World, conn: psycopg.Connection, scheme_key: str) -> dict[str, np.ndarray]:
+def association_outputs(
+    world: World, conn: psycopg.Connection, scheme_key: str
+) -> dict[str, np.ndarray]:
     found, sites = water_bound(world, conn, scheme_key)
     T, rho = (np.array(v) for v in zip(*POINTS, strict=True))
     n = {s: np.full(T.shape, float(multiplicity(conn, uuid.UUID(s)))) for s in sites}
-    return {o: np.asarray(found.evaluate(o, T=T, rho=rho, n=n), dtype=float).reshape(-1) for o in ("a_assoc", "unbonded")}
+    return {
+        o: np.asarray(found.evaluate(o, T=T, rho=rho, n=n), dtype=float).reshape(-1)
+        for o in ("a_assoc", "unbonded")
+    }
 
 
 # -- the structure ------------------------------------------------------------------------------
@@ -443,7 +493,13 @@ def test_water_has_two_parameterisations_with_different_site_schemes_and_multipl
         ("pcsaft-water-4C", "4C", "e", 2),
     ]
     # the same species and the same labels: a site is told apart by its scheme
-    assert scalar(conn, "SELECT count(DISTINCT on_entity) FROM tk.association_site WHERE scheme IN (SELECT id FROM tk.site_scheme WHERE key IN ('2B', '4C'))") == 1
+    assert (
+        scalar(
+            conn,
+            "SELECT count(DISTINCT on_entity) FROM tk.association_site WHERE scheme IN (SELECT id FROM tk.site_scheme WHERE key IN ('2B', '4C'))",
+        )
+        == 1
+    )
     assert world.ids["site_2B_H"] != world.ids["site_4C_H"]
 
 
@@ -460,17 +516,24 @@ def test_the_bond_of_a_scheme_is_one_set_of_a_pair_of_sites_stored_for_the_order
         assert {a, b} == sites and str(a) <= str(b)
         assert (kappa, eps) == (WATER[scheme_key]["kappa"], WATER[scheme_key]["eps_ab"])
     columns = {
-        r[0] for r in conn.execute("SELECT column_name FROM information_schema.columns WHERE table_name = 'pcsaft_association__pair'")
+        r[0]
+        for r in conn.execute(
+            "SELECT column_name FROM information_schema.columns WHERE table_name = 'pcsaft_association__pair'"
+        )
     }
     assert "arrangement" not in columns
 
 
-def test_a_cross_association_pair_joins_the_sites_of_two_species(world: World, conn: psycopg.Connection) -> None:
+def test_a_cross_association_pair_joins_the_sites_of_two_species(
+    world: World, conn: psycopg.Connection
+) -> None:
     a, b = conn.execute(
-        'SELECT a, b FROM param."pcsaft_association__pair" WHERE id = %s', (world.ids["cross_pair"],)
+        'SELECT a, b FROM param."pcsaft_association__pair" WHERE id = %s',
+        (world.ids["cross_pair"],),
     ).fetchone()  # type: ignore[misc]
     carriers = {
-        scalar(conn, "SELECT on_entity FROM tk.association_site WHERE id = %s", site) for site in (a, b)
+        scalar(conn, "SELECT on_entity FROM tk.association_site WHERE id = %s", site)
+        for site in (a, b)
     }
     assert carriers == {world.ids["water"], world.ids["co2"]}
 
@@ -514,12 +577,16 @@ def test_the_closed_form_of_the_two_site_scheme_agrees() -> None:
     assert unbonded == pytest.approx(closed, rel=1e-12)
 
 
-def test_the_two_schemes_give_different_fractions_for_the_same_species(world: World, conn: psycopg.Connection) -> None:
+def test_the_two_schemes_give_different_fractions_for_the_same_species(
+    world: World, conn: psycopg.Connection
+) -> None:
     two, four = association_outputs(world, conn, "2B"), association_outputs(world, conn, "4C")
     assert np.all(np.abs(two["unbonded"] - four["unbonded"]) > 1e-3)
 
 
-def test_the_pair_is_read_in_either_order_of_its_sites(world: World, conn: psycopg.Connection) -> None:
+def test_the_pair_is_read_in_either_order_of_its_sites(
+    world: World, conn: psycopg.Connection
+) -> None:
     """The scheme 4C bond was asserted as (e, H) and stored once; the sites given as [H, e] or as
     [e, H] read the same set."""
     T, rho = np.array([320.0]), np.array([15_000.0])
@@ -527,16 +594,24 @@ def test_the_pair_is_read_in_either_order_of_its_sites(world: World, conn: psyco
     for scheme_key in ("4C",):
         found, sites = water_bound(world, conn, scheme_key)
         for order in (sites, sites[::-1]):
-            source = DatabaseSource(conn, world.decl, [world.ids[f"water_{scheme_key}"]], policy=world.ids["policy"])
+            source = DatabaseSource(
+                conn, world.decl, [world.ids[f"water_{scheme_key}"]], policy=world.ids["policy"]
+            )
             bound = bind(
-                world.decl, "pcsaft_association", source=source, roles={"i": str(world.ids["water"])}, sets={"sites": order}
+                world.decl,
+                "pcsaft_association",
+                source=source,
+                roles={"i": str(world.ids["water"])},
+                sets={"sites": order},
             )
             n = {s: np.array([float(multiplicity(conn, uuid.UUID(s)))]) for s in order}
             results.append(float(bound.evaluate("a_assoc", T=T, rho=rho, n=n)[0]))
     assert results[0] == pytest.approx(results[1], rel=1e-12)
 
 
-def test_the_unlisted_pairs_take_the_association_volume_the_policy_states(world: World, conn: psycopg.Connection) -> None:
+def test_the_unlisted_pairs_take_the_association_volume_the_policy_states(
+    world: World, conn: psycopg.Connection
+) -> None:
     """A site with itself is listed by no source: under the policy it does not associate, and
     without a policy the evaluation refuses, naming the slot group."""
     found, sites = water_bound(world, conn, "2B", policy=False)
@@ -549,26 +624,39 @@ def test_the_unlisted_pairs_take_the_association_volume_the_policy_states(world:
     assert source.default_slot_values(PAIR, subjects) == {"kappa": 0.0, "epsilon_over_k": 0.0}
 
 
-def test_a_fluid_whose_only_site_has_no_parameters_cannot_be_evaluated_pure(world: World, conn: psycopg.Connection) -> None:
+def test_a_fluid_whose_only_site_has_no_parameters_cannot_be_evaluated_pure(
+    world: World, conn: psycopg.Connection
+) -> None:
     """Induced association needs the other species: the site's own pair holds no value, and the
     policy's defaults are for pairs the source does not list, not for a pair it lists as not applicable."""
     source = DatabaseSource(conn, world.decl, [world.ids["cross"]], policy=world.ids["policy"])
     site = str(world.ids["site_co2"])
-    found = bind(world.decl, "pcsaft_association", source=source, roles={"i": str(world.ids["co2"])}, sets={"sites": [site]})
+    found = bind(
+        world.decl,
+        "pcsaft_association",
+        source=source,
+        roles={"i": str(world.ids["co2"])},
+        sets={"sites": [site]},
+    )
     with pytest.raises(EvaluationRefusal, match="holds no value for slot"):
-        found.evaluate("a_assoc", T=np.array([320.0]), rho=np.array([15_000.0]), n={site: np.array([1.0])})
+        found.evaluate(
+            "a_assoc", T=np.array([320.0]), rho=np.array([15_000.0]), n={site: np.array([1.0])}
+        )
 
 
 # -- SAFT-gamma Mie -----------------------------------------------------------------------------
 
 
-def test_the_groups_carry_segment_counts_shape_factors_and_the_mie_potential(world: World, conn: psycopg.Connection) -> None:
+def test_the_groups_carry_segment_counts_shape_factors_and_the_mie_potential(
+    world: World, conn: psycopg.Connection
+) -> None:
     rows = conn.execute(
         'SELECT g.code, l.nu_star, l."S", l.sigma, l.epsilon_over_k, l.lambda_r, l.lambda_a '
         'FROM param."saftgamma_mie__group" l JOIN tk."group" g ON g.id = l.k ORDER BY g.code'
     ).fetchall()
     assert rows == [
-        (code, nu, S, pytest.approx(sigma * ANGSTROM), eps, r, a) for code, (_, nu, S, sigma, eps, r, a) in GROUPS.items()
+        (code, nu, S, pytest.approx(sigma * ANGSTROM), eps, r, a)
+        for code, (_, nu, S, sigma, eps, r, a) in GROUPS.items()
     ]
 
 
@@ -582,7 +670,7 @@ def test_the_stated_unlike_pair_is_one_symmetric_set_and_the_other_pairs_are_una
     ).fetchone()
     assert row == (pytest.approx(sigma * ANGSTROM), lam_r, lam_a, eps)
     assert scalar(conn, 'SELECT count(*) FROM param."mie_group_pair_table__pair"') == 1
-    assert scalar(conn, "SELECT count(*) FROM param.\"mie_group_combining__group\"") == len(GROUPS)
+    assert scalar(conn, 'SELECT count(*) FROM param."mie_group_combining__group"') == len(GROUPS)
 
 
 def test_a_policy_names_the_combining_rule_for_the_pairs_the_source_leaves_unasserted(
@@ -608,32 +696,42 @@ def test_the_combining_rule_gives_the_published_mean_exponents_and_depth(
         source=source,
         sets={"groups": [str(world.ids[f"group_{k}"]), str(world.ids[f"group_{l}"])]},
     )
-    found = [float(np.asarray(bound.evaluate(o)).reshape(-1)[0]) for o in ("sigma", "lambda_r", "lambda_a", "epsilon")]
+    found = [
+        float(np.asarray(bound.evaluate(o)).reshape(-1)[0])
+        for o in ("sigma", "lambda_r", "lambda_a", "epsilon")
+    ]
     assert found == pytest.approx(mie_combining(k, l), rel=1e-12)
 
 
-def test_the_stated_unlike_pair_differs_from_what_the_rule_would_give(world: World, conn: psycopg.Connection) -> None:
+def test_the_stated_unlike_pair_differs_from_what_the_rule_would_give(
+    world: World, conn: psycopg.Connection
+) -> None:
     sigma, lam_r, lam_a, eps = UNLIKE[("1", "3")]
     ruled = mie_combining("1", "3")
     assert abs(eps - ruled[3]) > 1.0 and abs(lam_r - ruled[1]) > 0.1
     source = DatabaseSource(conn, world.decl, [world.ids["saftgamma"]])
     subjects = (str(world.ids["group_3"]), str(world.ids["group_1"]))  # asked in the other order
     stated = source.slot_values("mie_group_pair_table.pair", subjects)
-    assert stated == pytest.approx({"sigma": sigma * ANGSTROM, "lambda_r": lam_r, "lambda_a": lam_a, "epsilon": eps})
+    assert stated == pytest.approx(
+        {"sigma": sigma * ANGSTROM, "lambda_r": lam_r, "lambda_a": lam_a, "epsilon": eps}
+    )
     unasserted = (str(world.ids["group_1"]), str(world.ids["group_2"]))
     assert source.slot_values("mie_group_pair_table.pair", unasserted) is None
-    assert source.default_slot_values("mie_group_pair_table.pair", unasserted) is None  # the rule is applied by a selection, not the source
+    assert (
+        source.default_slot_values("mie_group_pair_table.pair", unasserted) is None
+    )  # the rule is applied by a selection, not the source
 
 
 def test_association_sites_sit_on_a_group_with_their_multiplicities_and_bond_parameters(
     world: World, conn: psycopg.Connection
 ) -> None:
     rows = conn.execute(
-        "SELECT a.label, a.multiplicity, g.label FROM tk.association_site a JOIN tk.\"group\" g ON g.id = a.on_group "
+        'SELECT a.label, a.multiplicity, g.label FROM tk.association_site a JOIN tk."group" g ON g.id = a.on_group '
     ).fetchall()
     assert sorted(rows) == [("H", 1, "OH"), ("e", 2, "OH")]
     row = conn.execute(
-        'SELECT epsilon_hb_over_k, bonding_volume FROM param."saftgamma_mie__association" WHERE id = %s', (world.ids["oh_bond"],)
+        'SELECT epsilon_hb_over_k, bonding_volume FROM param."saftgamma_mie__association" WHERE id = %s',
+        (world.ids["oh_bond"],),
     ).fetchone()
     assert row == (1800.0, pytest.approx(120.0 * ANGSTROM**3))
 
@@ -664,44 +762,81 @@ def fresh(decl: Declaration) -> CanonicalWriter:
     return writer(decl)
 
 
-def test_a_site_on_an_entity_and_a_group_at_once_or_on_neither_is_refused(decl: Declaration) -> None:
+def test_a_site_on_an_entity_and_a_group_at_once_or_on_neither_is_refused(
+    decl: Declaration,
+) -> None:
     w = fresh(decl)
     species = w.kind("species", {"canonical_key": "s", "label": "s"}, origins=at("s"))
-    scheme = w.kind("group_scheme", {"key": "g", "revision": "1", "role": "equation_of_state"}, origins=at("gs"))
-    group = w.kind("group", {"scheme": scheme, "code": "1", "label": "g", "role": "group"}, origins=at("g"))
+    scheme = w.kind(
+        "group_scheme", {"key": "g", "revision": "1", "role": "equation_of_state"}, origins=at("gs")
+    )
+    group = w.kind(
+        "group", {"scheme": scheme, "code": "1", "label": "g", "role": "group"}, origins=at("g")
+    )
     site_scheme = w.kind("site_scheme", {"key": "k"}, origins=at("k"))
     base = {"scheme": site_scheme, "label": "H", "multiplicity": 1}
-    with pytest.raises(ValidationError, match="the one of on_entity, on_group that is present, and 2 are"):
-        w.kind("association_site", {**base, "on_entity": species, "on_group": group}, origins=at("both"))
-    with pytest.raises(ValidationError, match="the one of on_entity, on_group that is present, and 0 are"):
+    with pytest.raises(
+        ValidationError, match="the one of on_entity, on_group that is present, and 2 are"
+    ):
+        w.kind(
+            "association_site",
+            {**base, "on_entity": species, "on_group": group},
+            origins=at("both"),
+        )
+    with pytest.raises(
+        ValidationError, match="the one of on_entity, on_group that is present, and 0 are"
+    ):
         w.kind("association_site", base, origins=at("neither"))
     with pytest.raises(ValidationError, match="multiplicity"):
-        w.kind("association_site", {**base, "on_entity": species, "multiplicity": -1}, origins=at("negative"))
+        w.kind(
+            "association_site",
+            {**base, "on_entity": species, "multiplicity": -1},
+            origins=at("negative"),
+        )
 
 
 def test_the_verify_checks_flag_a_carrier_key_that_names_another_carrier_and_a_bond_of_an_uncounted_group(
     decl: Declaration, tmp_path: Path
 ) -> None:
     def emit(w: CanonicalWriter) -> None:
-        a, b = (w.kind("species", {"canonical_key": n, "label": n}, origins=at(f"s-{n}")) for n in "ab")
+        a, b = (
+            w.kind("species", {"canonical_key": n, "label": n}, origins=at(f"s-{n}")) for n in "ab"
+        )
         scheme = w.kind("site_scheme", {"key": "k"}, origins=at("k"))
         w.kind(
             "association_site",
             {"scheme": scheme, "label": "H", "on_entity": a, "multiplicity": 1},
             origins=at("site"),
         )
-        gscheme = w.kind("group_scheme", {"key": "g", "revision": "1", "role": "equation_of_state"}, origins=at("gs"))
+        gscheme = w.kind(
+            "group_scheme",
+            {"key": "g", "revision": "1", "role": "equation_of_state"},
+            origins=at("gs"),
+        )
         first, second = (
-            w.kind("group", {"scheme": gscheme, "code": c, "label": c, "role": "group"}, origins=at(f"g-{c}")) for c in "12"
+            w.kind(
+                "group",
+                {"scheme": gscheme, "code": c, "label": c, "role": "group"},
+                origins=at(f"g-{c}"),
+            )
+            for c in "12"
         )
         assignment = w.kind(
             "group_assignment",
             {"entity": a, "scheme": gscheme, "asserted_by": CARRIER, "origin": "published"},
             origins=at("assignment"),
         )
-        w.relation("group_count", {"assignment": assignment, "group": first}, {"value": 1}, at="a.json#/count")
         w.relation(
-            "group_bond_count", {"assignment": assignment, "first": first, "second": second}, {"value": 1}, at="a.json#/bond"
+            "group_count",
+            {"assignment": assignment, "group": first},
+            {"value": 1},
+            at="a.json#/count",
+        )
+        w.relation(
+            "group_bond_count",
+            {"assignment": assignment, "first": first, "second": second},
+            {"value": 1},
+            at="a.json#/bond",
         )
 
     database = build(tmp_path, emit, decl)

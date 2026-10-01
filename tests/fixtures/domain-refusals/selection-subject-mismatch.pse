@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 // A package selects, for a species, a parameter set of that species.
 // refusal: row selection[pkg, benzene, heat_capacity, liquidPhase] of dataset choice violates the requirement `value.subject == j and value.property == p and value.phase_type == t`
-// control: parameter_set[corpus.toluene, => parameter_set[corpus.benzene,
+// control: phased_parameter[corpus.toluene, => phased_parameter[corpus.benzene,
 package refusal {
  use chemistry @"1.0.0";
  use corpus @"1.0.0";
@@ -10,6 +10,6 @@ package refusal {
  use provenance @"1.0.0";
  set components: Set<chemistry.species> = {corpus.benzene};
  dataset choice: properties.selection complete_over(k in corpus.packages, j in components, p in corpus.heat, t in corpus.liquid) provenance(corpus.bank, provenance.Role.published) {
-  [corpus.pkg, corpus.benzene, properties.heat_capacity, liquidPhase] = [properties.parameter_set[corpus.toluene, properties.heat_capacity, liquidPhase, corpus.bank]];
+  [corpus.pkg, corpus.benzene, properties.heat_capacity, liquidPhase] = [properties.phased_parameter[corpus.toluene, properties.heat_capacity, liquidPhase, corpus.fit]];
  }
 }

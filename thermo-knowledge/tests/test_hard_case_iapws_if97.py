@@ -29,9 +29,9 @@ from pathlib import Path
 import numpy as np
 import psycopg
 import pytest
-from hard_case_support import at, build, entity_id, failing, observable_id
-from mapping_support import carrier, origin, real_declaration, writer
 
+from hard_case_support import at, build, entity_id, failing, observable_id
+from mapping_support import carrier, real_declaration, writer
 from thermo_knowledge import db, identity
 from thermo_knowledge.canonical.values import Quantity
 from thermo_knowledge.canonical.writer import CanonicalWriter, FamilyRow, ValidationError
@@ -71,12 +71,28 @@ REGION5_RESIDUAL = [(-1.0e-4, 1, 0), (2.0e-5, 1, 1), (-1.0e-6, 2, 0)]
 SATURATION = dict(
     p_star=1.0e6,
     T_star=1.0,
-    n=[1096.63, 188677.0, 10.736, -9157.73, -4623823.0, 18.782, -2022.39, 577807.0, -0.27024, 732.31],
+    n=[
+        1096.63,
+        188677.0,
+        10.736,
+        -9157.73,
+        -4623823.0,
+        18.782,
+        -2022.39,
+        577807.0,
+        -0.27024,
+        732.31,
+    ],
 )
 BOUNDARY = (-182.859, 0.241390, 1.0e-4)  # megapascal, kelvin
 LIMITS = dict(T_13=623.15, T_23=863.15, T_25=1073.15)
 BACKWARD = dict(p_star=1.0e6, h_star=2.5e6, shift=1.0)
-BACKWARD_TERMS = [(268.6431, 0, 0), (255.8539, 0, 1), (448.4219, 0, 3), (-0.5071, 1, 1)]  # (n, I, J)
+BACKWARD_TERMS = [
+    (268.6431, 0, 0),
+    (255.8539, 0, 1),
+    (448.4219, 0, 3),
+    (-0.5071, 1, 1),
+]  # (n, I, J)
 TOLERANCE = 0.75  # kelvin, the consistency tolerance the backward equation states
 BOX = dict(T=(300.0, 450.0), p=(1.0e6, 20.0e6))  # where the backward equation is stated to hold
 
@@ -86,8 +102,14 @@ BOX = dict(T=(300.0, 450.0), p=(1.0e6, 20.0e6))  # where the backward equation i
 def region1(T, p):  # noqa: ANN001, ANN201
     c = REGION1
     pi, tau = p / c["p_star"], c["T_star"] / T
-    g_pi = sum(-n * I * (c["shift_pi"] - pi) ** (I - 1) * (tau - c["shift_tau"]) ** J for n, I, J in REGION1_TERMS)
-    g_tau = sum(n * J * (c["shift_pi"] - pi) ** I * (tau - c["shift_tau"]) ** (J - 1) for n, I, J in REGION1_TERMS)
+    g_pi = sum(
+        -n * I * (c["shift_pi"] - pi) ** (I - 1) * (tau - c["shift_tau"]) ** J
+        for n, I, J in REGION1_TERMS
+    )
+    g_tau = sum(
+        n * J * (c["shift_pi"] - pi) ** I * (tau - c["shift_tau"]) ** (J - 1)
+        for n, I, J in REGION1_TERMS
+    )
     return RS * T / p * pi * g_pi, RS * T * tau * g_tau
 
 
@@ -130,7 +152,9 @@ def region3_density(T: float, p: float) -> float:
 
 def region3(T, p):  # noqa: ANN001, ANN201
     T, p = np.broadcast_arrays(np.asarray(T, dtype=float), np.asarray(p, dtype=float))
-    rho = np.array([region3_density(t, q) for t, q in zip(T.ravel(), p.ravel(), strict=True)]).reshape(T.shape)
+    rho = np.array(
+        [region3_density(t, q) for t, q in zip(T.ravel(), p.ravel(), strict=True)]
+    ).reshape(T.shape)
     delta, tau = rho / REGION3["rho_star"], REGION3["T_star"] / T
     phi_tau = sum(n * J * delta**I * tau ** (J - 1) for n, I, J in REGION3_TERMS)
     return 1 / rho, RS * T * (tau * phi_tau + z3(delta, tau))
@@ -151,7 +175,10 @@ def boundary(T):  # noqa: ANN001, ANN201
 
 def backward(p, h):  # noqa: ANN001, ANN201
     c = BACKWARD
-    return sum(n * (p / c["p_star"]) ** I * (h / c["h_star"] + c["shift"]) ** J for n, I, J in BACKWARD_TERMS)
+    return sum(
+        n * (p / c["p_star"]) ** I * (h / c["h_star"] + c["shift"]) ** J
+        for n, I, J in BACKWARD_TERMS
+    )
 
 
 def region_of(T: float, p: float) -> int:
@@ -208,7 +235,9 @@ class World:
 
 
 def rows(terms: list[tuple[float, ...]], names: tuple[str, ...]) -> list[FamilyRow]:
-    return [FamilyRow({"k": k}, dict(zip(names, term, strict=True))) for k, term in enumerate(terms, 1)]
+    return [
+        FamilyRow({"k": k}, dict(zip(names, term, strict=True))) for k, term in enumerate(terms, 1)
+    ]
 
 
 def write_model(w: CanonicalWriter, decl: Declaration, ids: dict[str, uuid.UUID]) -> None:
@@ -255,7 +284,9 @@ def write_model(w: CanonicalWriter, decl: Declaration, ids: dict[str, uuid.UUID]
     ids["parameterization"] = p
     molar_mass = Quantity(M, "kg/mol")
 
-    def put(form: str, slots: dict[str, object], families: dict[str, list[FamilyRow]] | None = None) -> uuid.UUID:
+    def put(
+        form: str, slots: dict[str, object], families: dict[str, list[FamilyRow]] | None = None
+    ) -> uuid.UUID:
         found = w.parameter_set(
             parameterization=p,
             slot_group=f"{form}.basic" if form != "if97_regions" else "if97_regions.limits",
@@ -270,41 +301,70 @@ def write_model(w: CanonicalWriter, decl: Declaration, ids: dict[str, uuid.UUID]
     c = REGION1
     put(
         "if97_gibbs_region1",
-        {"p_star": Quantity(c["p_star"], "Pa"), "T_star": Quantity(c["T_star"], "K"),
-         "shift_pi": c["shift_pi"], "shift_tau": c["shift_tau"], "M": molar_mass},
+        {
+            "p_star": Quantity(c["p_star"], "Pa"),
+            "T_star": Quantity(c["T_star"], "K"),
+            "shift_pi": c["shift_pi"],
+            "shift_tau": c["shift_tau"],
+            "M": molar_mass,
+        },
         {"term": rows(REGION1_TERMS, ("n", "I", "J"))},
     )
     c = REGION2
     put(
         "if97_gibbs_region2",
-        {"p_star": Quantity(c["p_star"], "Pa"), "T_star": Quantity(c["T_star"], "K"),
-         "shift_tau": c["shift_tau"], "M": molar_mass},
-        {"ideal": rows(REGION2_IDEAL, ("n", "J")), "residual": rows(REGION2_RESIDUAL, ("n", "I", "J"))},
+        {
+            "p_star": Quantity(c["p_star"], "Pa"),
+            "T_star": Quantity(c["T_star"], "K"),
+            "shift_tau": c["shift_tau"],
+            "M": molar_mass,
+        },
+        {
+            "ideal": rows(REGION2_IDEAL, ("n", "J")),
+            "residual": rows(REGION2_RESIDUAL, ("n", "I", "J")),
+        },
     )
     c = REGION3
     put(
         "if97_helmholtz_region3",
-        {"rho_star": Quantity(c["rho_star"], "kg/m^3"), "T_star": Quantity(c["T_star"], "K"),
-         "n1": c["n1"], "M": molar_mass},
+        {
+            "rho_star": Quantity(c["rho_star"], "kg/m^3"),
+            "T_star": Quantity(c["T_star"], "K"),
+            "n1": c["n1"],
+            "M": molar_mass,
+        },
         {"term": rows(REGION3_TERMS, ("n", "I", "J"))},
     )
     c = REGION5
     put(
         "if97_gibbs_region5",
-        {"p_star": Quantity(c["p_star"], "Pa"), "T_star": Quantity(c["T_star"], "K"), "M": molar_mass},
-        {"ideal": rows(REGION5_IDEAL, ("n", "J")), "residual": rows(REGION5_RESIDUAL, ("n", "I", "J"))},
+        {
+            "p_star": Quantity(c["p_star"], "Pa"),
+            "T_star": Quantity(c["T_star"], "K"),
+            "M": molar_mass,
+        },
+        {
+            "ideal": rows(REGION5_IDEAL, ("n", "J")),
+            "residual": rows(REGION5_RESIDUAL, ("n", "I", "J")),
+        },
     )
     c = SATURATION
     put(
         "if97_saturation",
-        {"p_star": Quantity(c["p_star"], "Pa"), "T_star": Quantity(c["T_star"], "K"),
-         **{f"n{k}": value for k, value in enumerate(c["n"], 1)}},
+        {
+            "p_star": Quantity(c["p_star"], "Pa"),
+            "T_star": Quantity(c["T_star"], "K"),
+            **{f"n{k}": value for k, value in enumerate(c["n"], 1)},
+        },
     )
     put("if97_boundary_23", {f"n{k}": value for k, value in enumerate(BOUNDARY, 1)})
     put(
         "if97_backward_region1_t_ph",
-        {"p_star": Quantity(BACKWARD["p_star"], "Pa"), "h_star": Quantity(BACKWARD["h_star"], "J/kg"),
-         "shift": BACKWARD["shift"]},
+        {
+            "p_star": Quantity(BACKWARD["p_star"], "Pa"),
+            "h_star": Quantity(BACKWARD["h_star"], "J/kg"),
+            "shift": BACKWARD["shift"],
+        },
         {"term": rows(BACKWARD_TERMS, ("n", "I", "J"))},
     )
     put("if97_regions", {key: Quantity(value, "K") for key, value in LIMITS.items()})
@@ -320,7 +380,11 @@ def write_model(w: CanonicalWriter, decl: Declaration, ids: dict[str, uuid.UUID]
             ids[form],
             {"kind": "recommended_range"},
             [
-                {"observable": temperature, "lower": Quantity(low, "K"), "upper": Quantity(high, "K")},
+                {
+                    "observable": temperature,
+                    "lower": Quantity(low, "K"),
+                    "upper": Quantity(high, "K"),
+                },
                 {"observable": pressure, "upper": Quantity(pressure_limit, "MPa")},
             ],
             origins=at(f"range-{form}"),
@@ -330,8 +394,16 @@ def write_model(w: CanonicalWriter, decl: Declaration, ids: dict[str, uuid.UUID]
         ids["if97_backward_region1_t_ph"],
         {"kind": "recommended_range"},
         [
-            {"observable": temperature, "lower": Quantity(BOX["T"][0], "K"), "upper": Quantity(BOX["T"][1], "K")},
-            {"observable": pressure, "lower": Quantity(BOX["p"][0], "Pa"), "upper": Quantity(BOX["p"][1], "Pa")},
+            {
+                "observable": temperature,
+                "lower": Quantity(BOX["T"][0], "K"),
+                "upper": Quantity(BOX["T"][1], "K"),
+            },
+            {
+                "observable": pressure,
+                "lower": Quantity(BOX["p"][0], "Pa"),
+                "upper": Quantity(BOX["p"][1], "Pa"),
+            },
         ],
         origins=at("range-backward"),
     )
@@ -356,14 +428,25 @@ def write_model(w: CanonicalWriter, decl: Declaration, ids: dict[str, uuid.UUID]
     # the assembly of the formulation and its choices, one per sub-form slot of the wrapper
     assembly = w.kind(
         "model_assembly",
-        {"key": "if97-fixture", "revision": "1", "title": "A regional formulation of water", "root": "if97_regions"},
+        {
+            "key": "if97-fixture",
+            "revision": "1",
+            "title": "A regional formulation of water",
+            "root": "if97_regions",
+        },
         origins=at("assembly"),
     )
     ids["assembly"] = assembly
     for slot, form in REGION_CHOICES:
         w.kind(
             "assembly_choice",
-            {"assembly": assembly, "path": slot, "ordinal": 1, "slot": f"if97_regions.{slot}", "form": form},
+            {
+                "assembly": assembly,
+                "path": slot,
+                "ordinal": 1,
+                "slot": f"if97_regions.{slot}",
+                "form": form,
+            },
             at="a.json#/choice",
         )
     # the boundary between regions 2 and 3 bounds the assembly's regions, it does not approximate anything
@@ -375,7 +458,15 @@ def write_model(w: CanonicalWriter, decl: Declaration, ids: dict[str, uuid.UUID]
     )
 
 
-VERIFICATION = [(300.0, 3.0e6), (500.0, 3.0e6), (400.0, 1.0e4), (650.0, 30.0e6), (700.0, 10.0e6), (700.0, 80.0e6), (1500.0, 10.0e6)]
+VERIFICATION = [
+    (300.0, 3.0e6),
+    (500.0, 3.0e6),
+    (400.0, 1.0e4),
+    (650.0, 30.0e6),
+    (700.0, 10.0e6),
+    (700.0, 80.0e6),
+    (1500.0, 10.0e6),
+]
 
 
 def nine_digits(value: float) -> float:
@@ -391,14 +482,30 @@ def write_verification(w: CanonicalWriter, decl: Declaration, ids: dict[str, uui
         origins=at("check-values", "computed"),
     )
     ids["verification"] = dataset
-    w.relation("dataset_verifies", {"dataset": dataset, "target": ids["assembly"]}, {}, at="a.json#/check")
-    w.relation("dataset_verifies", {"dataset": dataset, "target": ids["parameterization"]}, {}, at="a.json#/check")
-    units = (("temperature", "variable", "K"), ("pressure", "variable", "MPa"),
-             ("mass_density", "property", "kg/m^3"), ("specific_enthalpy", "property", "kJ/kg"))
+    w.relation(
+        "dataset_verifies", {"dataset": dataset, "target": ids["assembly"]}, {}, at="a.json#/check"
+    )
+    w.relation(
+        "dataset_verifies",
+        {"dataset": dataset, "target": ids["parameterization"]},
+        {},
+        at="a.json#/check",
+    )
+    units = (
+        ("temperature", "variable", "K"),
+        ("pressure", "variable", "MPa"),
+        ("mass_density", "property", "kg/m^3"),
+        ("specific_enthalpy", "property", "kJ/kg"),
+    )
     columns = {
         name: w.kind(
             "dataset_column",
-            {"dataset": dataset, "ordinal": ordinal, "role": role, "observable": observable_id(decl, name)},
+            {
+                "dataset": dataset,
+                "ordinal": ordinal,
+                "role": role,
+                "observable": observable_id(decl, name),
+            },
             at="a.json#/check",
         )
         for ordinal, (name, role, _) in enumerate(units, 1)
@@ -406,7 +513,9 @@ def write_verification(w: CanonicalWriter, decl: Declaration, ids: dict[str, uui
     for index, (T, p) in enumerate(VERIFICATION, 1):
         point = w.kind("data_point", {"dataset": dataset, "index": index}, at="a.json#/check")
         _, v, h = state(T, p)
-        for (name, _, unit), value in zip(units, (T, p / 1e6, nine_digits(1 / v), nine_digits(h / 1e3)), strict=True):
+        for (name, _, unit), value in zip(
+            units, (T, p / 1e6, nine_digits(1 / v), nine_digits(h / 1e3)), strict=True
+        ):
             w.relation(
                 "datum",
                 {"point": point, "column": columns[name]},
@@ -482,7 +591,9 @@ def test_the_fixture_satisfies_every_invariant(conn: psycopg.Connection) -> None
     assert failing(conn) == {}
 
 
-def test_the_forms_of_the_regions_are_declared_with_their_term_lists_as_families(decl: Declaration) -> None:
+def test_the_forms_of_the_regions_are_declared_with_their_term_lists_as_families(
+    decl: Declaration,
+) -> None:
     for name, families in {
         "if97_gibbs_region1": {"term"},
         "if97_gibbs_region2": {"ideal", "residual"},
@@ -494,11 +605,18 @@ def test_the_forms_of_the_regions_are_declared_with_their_term_lists_as_families
         assert {family.name for family in group.families} == families
         assert decl.forms[name].status == "expressed"
     assert {s.name for s in decl.forms["if97_regions"].subforms} == {
-        "region1", "region2", "region3", "region5", "saturation", "boundary"
+        "region1",
+        "region2",
+        "region3",
+        "region5",
+        "saturation",
+        "boundary",
     }
 
 
-def test_the_assembly_chooses_one_form_for_each_slot_of_the_wrapper(world: World, conn: psycopg.Connection) -> None:
+def test_the_assembly_chooses_one_form_for_each_slot_of_the_wrapper(
+    world: World, conn: psycopg.Connection
+) -> None:
     found = {slot: binding[0].form for slot, binding in assembly_bindings(world, conn).items()}
     assert found == {
         "if97_regions.region1": "if97_gibbs_region1",
@@ -520,7 +638,9 @@ def test_the_convention_set_gives_the_zero_of_internal_energy_and_the_gas_consta
     assert row == ("at_state", "internal_energy", 0.0, 0.0, pytest.approx(R))
 
 
-def test_each_regions_range_is_a_validity_region_of_its_parameter_set(world: World, conn: psycopg.Connection) -> None:
+def test_each_regions_range_is_a_validity_region_of_its_parameter_set(
+    world: World, conn: psycopg.Connection
+) -> None:
     rows = conn.execute(
         "SELECT o.key, c.lower, c.upper FROM tk.validity_region r JOIN tk.region_clause c ON c.region = r.id "
         "JOIN tk.observable o ON o.id = c.observable WHERE r.record = %s ORDER BY c.ordinal",
@@ -537,12 +657,18 @@ POINTS = {
     "if97_helmholtz_region3": ([650.0, 700.0, 800.0, 863.15], [30.0e6, 60.0e6, 90.0e6, 50.0e6]),
     "if97_gibbs_region5": ([1100.0, 1500.0, 2000.0, 2273.15], [1.0e6, 10.0e6, 40.0e6, 5.0e6]),
 }
-FORWARD = {"if97_gibbs_region1": region1, "if97_gibbs_region2": region2,
-           "if97_helmholtz_region3": region3, "if97_gibbs_region5": region5}
+FORWARD = {
+    "if97_gibbs_region1": region1,
+    "if97_gibbs_region2": region2,
+    "if97_helmholtz_region3": region3,
+    "if97_gibbs_region5": region5,
+}
 
 
 @pytest.mark.parametrize("form", sorted(POINTS))
-def test_each_region_matches_the_independent_calculation(world: World, conn: psycopg.Connection, form: str) -> None:
+def test_each_region_matches_the_independent_calculation(
+    world: World, conn: psycopg.Connection, form: str
+) -> None:
     T, p = (np.array(x) for x in POINTS[form])
     found = form_bound(world, conn, form)
     want_v, want_h = FORWARD[form](T, p)
@@ -550,7 +676,9 @@ def test_each_region_matches_the_independent_calculation(world: World, conn: psy
     np.testing.assert_allclose(values(found, "h", T=T, p=p), want_h, rtol=1e-10, atol=1e-4)
 
 
-def test_the_density_of_region_3_solves_the_pressure_equation(world: World, conn: psycopg.Connection) -> None:
+def test_the_density_of_region_3_solves_the_pressure_equation(
+    world: World, conn: psycopg.Connection
+) -> None:
     """The implicit solve: the library's density, put back into the pressure equation written in
     numpy, gives the pressure that was asked for."""
     T, p = (np.array(x) for x in POINTS["if97_helmholtz_region3"])
@@ -564,10 +692,14 @@ def test_the_saturation_equation_and_the_boundary_match_the_independent_calculat
     world: World, conn: psycopg.Connection
 ) -> None:
     T = np.array([273.15, 300.0, 400.0, 500.0, 600.0, 623.15, 640.0])
-    np.testing.assert_allclose(values(form_bound(world, conn, "if97_saturation"), "p_sat", T=T), saturation(T), rtol=1e-11)
+    np.testing.assert_allclose(
+        values(form_bound(world, conn, "if97_saturation"), "p_sat", T=T), saturation(T), rtol=1e-11
+    )
     assert np.all(np.diff(saturation(np.linspace(273.15, 640.0, 300))) > 0)
     T = np.array([623.15, 700.0, 800.0, 863.15])
-    np.testing.assert_allclose(values(form_bound(world, conn, "if97_boundary_23"), "p", T=T), boundary(T), rtol=1e-12)
+    np.testing.assert_allclose(
+        values(form_bound(world, conn, "if97_boundary_23"), "p", T=T), boundary(T), rtol=1e-12
+    )
 
 
 def test_the_boundary_starts_at_the_saturation_pressure_and_ends_at_the_pressure_limit() -> None:
@@ -578,7 +710,9 @@ def test_the_boundary_starts_at_the_saturation_pressure_and_ends_at_the_pressure
 # -- the region selection -----------------------------------------------------------------------
 
 
-def test_the_wrapper_selects_the_region_on_either_side_of_every_boundary(world: World, conn: psycopg.Connection) -> None:
+def test_the_wrapper_selects_the_region_on_either_side_of_every_boundary(
+    world: World, conn: psycopg.Connection
+) -> None:
     points = selection_points()
     T, p = (np.array(x) for x in zip(*points, strict=True))
     found = formulation(world, conn)
@@ -588,17 +722,28 @@ def test_the_wrapper_selects_the_region_on_either_side_of_every_boundary(world: 
     assert set(wanted) == {1, 2, 3, 5}  # every region is reached
     # the pairs of neighbours that differ in region: each boundary has both sides in the list
     assert [(wanted[n], wanted[n + 1]) for n in (0, 2, 4, 6, 8, 10, 11, 13)] == [
-        (1, 2), (1, 2), (1, 3), (2, 3), (2, 3), (2, 3), (3, 2), (2, 5)
+        (1, 2),
+        (1, 2),
+        (1, 3),
+        (2, 3),
+        (2, 3),
+        (2, 3),
+        (3, 2),
+        (2, 5),
     ]
 
 
-def test_the_wrapper_gives_the_volume_and_enthalpy_of_the_region_it_selects(world: World, conn: psycopg.Connection) -> None:
+def test_the_wrapper_gives_the_volume_and_enthalpy_of_the_region_it_selects(
+    world: World, conn: psycopg.Connection
+) -> None:
     points = selection_points()
     T, p = (np.array(x) for x in zip(*points, strict=True))
     found = formulation(world, conn)
     wanted = [state(t, q) for t, q in points]
     np.testing.assert_allclose(values(found, "v", T=T, p=p), [v for _, v, _ in wanted], rtol=1e-9)
-    np.testing.assert_allclose(values(found, "h", T=T, p=p), [h for _, _, h in wanted], rtol=1e-9, atol=1e-3)
+    np.testing.assert_allclose(
+        values(found, "h", T=T, p=p), [h for _, _, h in wanted], rtol=1e-9, atol=1e-3
+    )
 
 
 def test_the_wrapper_reads_more_stored_values_than_numpy_broadcasts_at_once(
@@ -612,10 +757,16 @@ def test_the_wrapper_reads_more_stored_values_than_numpy_broadcasts_at_once(
     assert widest > 64
 
 
-def test_a_point_is_inside_the_range_its_region_states_and_outside_the_others(world: World, conn: psycopg.Connection) -> None:
+def test_a_point_is_inside_the_range_its_region_states_and_outside_the_others(
+    world: World, conn: psycopg.Connection
+) -> None:
     region1_form = form_bound(world, conn, "if97_gibbs_region1")
-    inside = region1_form.validity("v", "recommended_range", T=np.array([300.0, 600.0]), p=np.array([3.0e6, 90.0e6]))
-    outside = region1_form.validity("v", "recommended_range", T=np.array([700.0, 300.0]), p=np.array([3.0e6, 150.0e6]))
+    inside = region1_form.validity(
+        "v", "recommended_range", T=np.array([300.0, 600.0]), p=np.array([3.0e6, 90.0e6])
+    )
+    outside = region1_form.validity(
+        "v", "recommended_range", T=np.array([700.0, 300.0]), p=np.array([3.0e6, 150.0e6])
+    )
     assert inside.tolist() == [int(Membership.INSIDE)] * 2
     assert outside.tolist() == [int(Membership.OUTSIDE)] * 2
 
@@ -623,11 +774,15 @@ def test_a_point_is_inside_the_range_its_region_states_and_outside_the_others(wo
 # -- the backward equation ----------------------------------------------------------------------
 
 
-def test_the_backward_equation_matches_the_independent_calculation(world: World, conn: psycopg.Connection) -> None:
+def test_the_backward_equation_matches_the_independent_calculation(
+    world: World, conn: psycopg.Connection
+) -> None:
     p = np.array([1.0e6, 5.0e6, 20.0e6])
     h = np.array([-1.9e6, -1.5e6, -1.2e6])
     np.testing.assert_allclose(
-        values(form_bound(world, conn, "if97_backward_region1_t_ph"), "T", p=p, h=h), backward(p, h), rtol=1e-12
+        values(form_bound(world, conn, "if97_backward_region1_t_ph"), "T", p=p, h=h),
+        backward(p, h),
+        rtol=1e-12,
     )
 
 
@@ -642,7 +797,9 @@ def test_the_backward_equation_inverts_the_forward_one_within_the_stated_toleran
     error = np.abs(backward(p, h) - T)
     assert 0.1 < error.max() <= TOLERANCE
     h_library = values(form_bound(world, conn, "if97_gibbs_region1"), "h", T=T, p=p)
-    round_trip = values(form_bound(world, conn, "if97_backward_region1_t_ph"), "T", p=p, h=h_library)
+    round_trip = values(
+        form_bound(world, conn, "if97_backward_region1_t_ph"), "T", p=p, h=h_library
+    )
     np.testing.assert_allclose(round_trip, backward(p, h), rtol=1e-9)
     assert np.abs(round_trip - T).max() <= TOLERANCE
 
@@ -654,20 +811,37 @@ def test_the_backward_equation_is_linked_to_its_forward_form_and_states_its_tole
         "SELECT kind::text, target, max_relative_error FROM tk.auxiliary_of WHERE auxiliary = %s",
         (world.ids["if97_backward_region1_t_ph"],),
     ).fetchone()  # type: ignore[misc]
-    assert (kind, target, relative) == ("approximate_inverse", world.ids["if97_gibbs_region1"], 2.0e-3)
+    assert (kind, target, relative) == (
+        "approximate_inverse",
+        world.ids["if97_gibbs_region1"],
+        2.0e-3,
+    )
     statement = conn.execute(
         "SELECT o.key, a.kind::text, a.statistic::text, a.magnitude, a.against FROM tk.accuracy_statement a "
         "JOIN tk.observable o ON o.id = a.observable WHERE a.id = %s",
         (world.ids["accuracy"],),
     ).fetchone()
-    assert statement == ("temperature", "interval", "bound", pytest.approx(TOLERANCE), world.ids["if97_gibbs_region1"])
+    assert statement == (
+        "temperature",
+        "interval",
+        "bound",
+        pytest.approx(TOLERANCE),
+        world.ids["if97_gibbs_region1"],
+    )
     lower, upper = conn.execute(
         "SELECT c.lower, c.upper FROM tk.accuracy_statement a JOIN tk.region_clause c ON c.region = a.region "
         "JOIN tk.observable o ON o.id = c.observable WHERE a.id = %s AND o.key = 'temperature'",
         (world.ids["accuracy"],),
     ).fetchone()  # type: ignore[misc]
     assert (lower, upper) == BOX["T"]
-    assert scalar(conn, "SELECT kind::text FROM tk.auxiliary_of WHERE auxiliary = %s", world.ids["if97_boundary_23"]) == "validity_boundary"
+    assert (
+        scalar(
+            conn,
+            "SELECT kind::text FROM tk.auxiliary_of WHERE auxiliary = %s",
+            world.ids["if97_boundary_23"],
+        )
+        == "validity_boundary"
+    )
 
 
 # -- the verification dataset -------------------------------------------------------------------
@@ -683,15 +857,23 @@ def test_the_verification_dataset_names_the_assembly_and_the_parameterisation_it
             (world.ids["verification"],),
         ).fetchall()
     }
-    assert targets == {world.ids["assembly"]: "model_assembly", world.ids["parameterization"]: "parameterization"}
-    assert scalar(conn, "SELECT kind::text FROM ev.dataset WHERE id = %s", world.ids["verification"]) == "verification"
+    assert targets == {
+        world.ids["assembly"]: "model_assembly",
+        world.ids["parameterization"]: "parameterization",
+    }
+    assert (
+        scalar(conn, "SELECT kind::text FROM ev.dataset WHERE id = %s", world.ids["verification"])
+        == "verification"
+    )
 
 
-def test_the_formulation_reproduces_its_check_values_from_their_inputs(world: World, conn: psycopg.Connection) -> None:
+def test_the_formulation_reproduces_its_check_values_from_their_inputs(
+    world: World, conn: psycopg.Connection
+) -> None:
     """A qualification run of the verified assembly: inputs and outputs as the table gives them."""
     table = conn.execute(
         "SELECT p.index, o.key, d.value FROM ev.data_point p JOIN ev.datum d ON d.point = p.id "
-        "JOIN ev.dataset_column c ON c.id = d.\"column\" JOIN tk.observable o ON o.id = c.observable "
+        'JOIN ev.dataset_column c ON c.id = d."column" JOIN tk.observable o ON o.id = c.observable '
         "WHERE p.dataset = %s ORDER BY p.index",
         (world.ids["verification"],),
     ).fetchall()
@@ -726,7 +908,13 @@ def test_the_verify_checks_flag_a_verification_dataset_without_a_target_a_link_f
         for slot, form in REGION_CHOICES:  # complete, so that only the rules the test is about fail
             w.kind(
                 "assembly_choice",
-                {"assembly": assembly, "path": slot, "ordinal": 1, "slot": f"if97_regions.{slot}", "form": form},
+                {
+                    "assembly": assembly,
+                    "path": slot,
+                    "ordinal": 1,
+                    "slot": f"if97_regions.{slot}",
+                    "form": form,
+                },
                 at="a.json#/choice",
             )
         unlinked = w.kind(
@@ -739,7 +927,9 @@ def test_the_verify_checks_flag_a_verification_dataset_without_a_target_a_link_f
             {"carrier": CARRIER, "local_key": "measured", "kind": "measured"},
             origins=at("measured", "measured"),
         )
-        w.relation("dataset_verifies", {"dataset": measured, "target": assembly}, {}, at="a.json#/measured")
+        w.relation(
+            "dataset_verifies", {"dataset": measured, "target": assembly}, {}, at="a.json#/measured"
+        )
         wrong = w.kind(
             "dataset",
             {"carrier": CARRIER, "local_key": "wrong-target", "kind": "verification"},
@@ -774,7 +964,10 @@ def test_a_coefficient_set_that_leaves_out_its_molar_mass_is_refused(decl: Decla
             slot_group="if97_gibbs_region5.basic",
             subjects=[water],
             slots={"p_star": Quantity(1.0e6, "Pa"), "T_star": Quantity(1000.0, "K")},
-            families={"ideal": rows(REGION5_IDEAL, ("n", "J")), "residual": rows(REGION5_RESIDUAL, ("n", "I", "J"))},
+            families={
+                "ideal": rows(REGION5_IDEAL, ("n", "J")),
+                "residual": rows(REGION5_RESIDUAL, ("n", "I", "J")),
+            },
             origins=at("region5"),
         )
     assert w.rows("param.if97_gibbs_region5__basic") == 0
@@ -799,7 +992,9 @@ def test_a_reducing_enthalpy_in_the_unit_of_a_temperature_is_refused(decl: Decla
         )
 
 
-def test_a_relation_of_an_unknown_kind_between_a_backward_set_and_its_forward_set_is_refused(decl: Declaration) -> None:
+def test_a_relation_of_an_unknown_kind_between_a_backward_set_and_its_forward_set_is_refused(
+    decl: Declaration,
+) -> None:
     w = writer(decl)
     with pytest.raises(ValidationError, match="kind"):
         w.relation(

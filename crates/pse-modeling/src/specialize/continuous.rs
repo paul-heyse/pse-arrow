@@ -345,6 +345,7 @@ impl Engine<'_, '_> {
                     limit: self.limits.members,
                     stack: vec![],
                     reader: self.reader,
+                    selections: Some(&self.selection_collector),
                 }
                 .predicate(guard)?;
                 return self.initial_equation(

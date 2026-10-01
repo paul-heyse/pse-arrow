@@ -4,11 +4,16 @@
 @id("01a0f1868dd372eeb1f0f39da02514f6") use properties @"1.0.0";
 @id("01a0f1868dd372eeb1f0f39e00243afa") use compatibility @"1.0.0";
 @id("01a0f1868dd372eeb1f0f39f50ddb29e") entity properties.property segments { quantity = Scalar, shape = properties.IndexShape.pure, applies = {compatibility.PhaseType.liquidPhase,compatibility.PhaseType.vaporPhase} }
-@id("01a0f1868dd372eeb1f0f3a079cba243") entity kind nonassociating extends properties.parameter_set {
+@id("0525771a025043299a91e5ebe8de4a20") entity kind segment_evidence extends properties.pure_parameter abstract {
+@id("3cc1a695261e4739a5709dcd639fcf50") attribute applicability:Fn(s:nonassociating)->Applicability;
+}
+@id("01a0f1868dd372eeb1f0f3a079cba243") entity kind nonassociating extends segment_evidence {
+@id("8b283445ad4f4fd394a0931fa5e9d8ad") applicability=segments_unknown;
 @id("01a0f1868dd372eeb1f0f3a1f3988565") attribute m:Scalar storage {1};
 @id("01a0f1868dd372eeb1f0f3a26ce2de59") attribute sigma:Length storage {m};
 @id("01a0f1868dd372eeb1f0f3a3bb232226") attribute epsilon:TemperatureScale storage {K};
 @id("01a0f1868dd372eeb1f0f3a47635d56b") require property == segments and m >= 1 and sigma > 0{m} and epsilon > 0{K} : "nonassociating segment parameters are positive and parameterize segments";
 }
 @id("fb9c91dbd093453386ee95376dc0838b") entity properties.property binary_interaction { quantity=Scalar,shape=properties.IndexShape.pair,applies={compatibility.PhaseType.liquidPhase,compatibility.PhaseType.vaporPhase} }
+@id("b1aa730468604c9bbbbd4df26dd1c43c") applicability segments_unknown(s:nonassociating) owner nonassociating scope data evidence s.source unknown("This record supplies no empirical applicability region");
 }

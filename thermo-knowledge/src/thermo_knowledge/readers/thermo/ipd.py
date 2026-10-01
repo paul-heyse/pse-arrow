@@ -25,8 +25,8 @@ from pathlib import Path
 import pyarrow as pa
 
 from thermo_knowledge.staging import tabular
-from thermo_knowledge.staging.tabular import integer, numbers, text, texts
 from thermo_knowledge.staging.errors import StagingError
+from thermo_knowledge.staging.tabular import integer, numbers, text, texts
 from thermo_knowledge.staging.writer import Writer
 
 FILES = (
@@ -89,7 +89,9 @@ def read_ipd(tree: Path, artifact: str, writer: Writer) -> None:
             continue
         tokens = line.split(None, 2 + len(value_names))
         if len(tokens) < 2 + len(value_names):
-            raise StagingError(f"{place}: {len(tokens)} fields, the legend needs {2 + len(value_names)}")
+            raise StagingError(
+                f"{place}: {len(tokens)} fields, the legend needs {2 + len(value_names)}"
+            )
         values = [
             tabular.value_of("f", token, place, name)
             for token, name in zip(tokens[2 : 2 + len(value_names)], value_names, strict=True)

@@ -98,15 +98,21 @@ class Col:
         )
 
 
-def text(name: str, source: str | None = None, *, unit: str = NOT_STATED, note: str | None = None) -> Col:
+def text(
+    name: str, source: str | None = None, *, unit: str = NOT_STATED, note: str | None = None
+) -> Col:
     return Col(name, "s", source or name, unit, note)
 
 
-def number(name: str, source: str | None = None, *, unit: str = NOT_STATED, note: str | None = None) -> Col:
+def number(
+    name: str, source: str | None = None, *, unit: str = NOT_STATED, note: str | None = None
+) -> Col:
     return Col(name, "f", source or name, unit, note)
 
 
-def integer(name: str, source: str | None = None, *, unit: str = NOT_STATED, note: str | None = None) -> Col:
+def integer(
+    name: str, source: str | None = None, *, unit: str = NOT_STATED, note: str | None = None
+) -> Col:
     return Col(name, "i", source or name, unit, note)
 
 
@@ -118,7 +124,9 @@ def texts(name: str, source: str | None = None, *, note: str | None = None) -> C
     return Col(name, "S", source or name, NOT_STATED, note)
 
 
-def numbers(name: str, source: str | None = None, *, unit: str = NOT_STATED, note: str | None = None) -> Col:
+def numbers(
+    name: str, source: str | None = None, *, unit: str = NOT_STATED, note: str | None = None
+) -> Col:
     return Col(name, "F", source or name, unit, note)
 
 
@@ -247,7 +255,9 @@ def where(artifact: str, line: int) -> str:
     return f"{artifact}#L{line}"
 
 
-def cells_of(artifact: str, lines: Sequence[str], *, quoted: bool = False) -> Iterator[tuple[int, list[str]]]:
+def cells_of(
+    artifact: str, lines: Sequence[str], *, quoted: bool = False
+) -> Iterator[tuple[int, list[str]]]:
     """`(line number, cells)` for every line; a blank line is an error."""
     if quoted:
         reader = csv.reader(lines, delimiter="\t", quotechar='"', strict=True)

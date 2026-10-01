@@ -139,9 +139,7 @@ def summary_lines(rows: list[SourceResidue]) -> list[str]:
     ]
 
 
-def render_report(
-    rows: list[SourceResidue], *, survey_files: int, disposition_files: int
-) -> str:
+def render_report(rows: list[SourceResidue], *, survey_files: int, disposition_files: int) -> str:
     """The report text (UTF-8, LF line ends, ending in one newline)."""
     out: list[str] = [_HEADER, "", "# Survey residue report", ""]
     out.append(
@@ -150,7 +148,7 @@ def render_report(
         f"(`{DISPOSITION_DIR}/*.toml`). Regenerate it; never edit it. The format and the rule "
         "for which constructs need a disposition are in `docs/survey.md` (section 4): a "
         "construct needs one when its `precision` is not `exact`, or its `loss` is non-empty "
-        "and not a bare \"none\"."
+        'and not a bare "none".'
     )
     out.append("")
     out += ["## Per source", ""]
@@ -204,7 +202,9 @@ def _model_change_section(rows: list[SourceResidue]) -> list[str]:
         out.append(f"| {_cell(ref)} | {len(items)} | {', '.join(sources)} |")
     out.append("")
     unscheduled = [
-        (ref, item) for ref, items in sorted(grouped.items()) if not is_scheduled(ref)
+        (ref, item)
+        for ref, items in sorted(grouped.items())
+        if not is_scheduled(ref)
         for item in items
     ]
     out += ["### Model changes that name no scheduled change", ""]

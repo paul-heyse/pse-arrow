@@ -8,16 +8,14 @@ the file is regenerated."""
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
-from identity_support import entries, rejections
 
-from thermo_knowledge import config
-from thermo_knowledge.mapping import runner
-from thermo_knowledge.canonical.environment import Environment
-from thermo_knowledge.resolve import decisions
+from identity_support import entries, rejections
 from mapping_support import real_declaration
+from thermo_knowledge import config
+from thermo_knowledge.canonical.environment import Environment
+from thermo_knowledge.mapping import runner
+from thermo_knowledge.resolve import decisions
 
 CARRIERS = ("cantera", "nasa_cea", "janaf")
 
@@ -45,7 +43,9 @@ def test_every_entity_a_formula_does_not_identify_is_rejected_and_no_other(found
     wanted = {key for key in rejections(found)}
     parsed, _ = decisions.load()
     rejected = {
-        key for key in parsed.reject if key[0] in CARRIERS and key in {e for e in wanted} | set(parsed.reject)
+        key
+        for key in parsed.reject
+        if key[0] in CARRIERS and key in {e for e in wanted} | set(parsed.reject)
     }
     assert wanted == rejected, (
         f"{len(wanted - rejected)} entities missing a decision, {len(rejected - wanted)} decisions "

@@ -26,11 +26,11 @@ from collections import defaultdict
 
 from thermo_knowledge import pipeline_contract as pc
 from thermo_knowledge.mapping.context import (
+    ORIGIN,
     IdentityContext,
     RecordContext,
     RowHeld,
     RunContext,
-    ORIGIN,
     first,
     numbered,
 )
@@ -70,7 +70,8 @@ def formula_of(ctx: RunContext[object], table: SourceRow) -> tuple[dict[str, flo
         symbol = term["symbol"]
         if declared_entity(ctx.decl, "conserved_quantity", symbol) is None:
             raise RowHeld(
-                "unknown_subject", f"{table.locator}: `{symbol}` is not a declared conserved quantity"
+                "unknown_subject",
+                f"{table.locator}: `{symbol}` is not a declared conserved quantity",
             )
         counts[symbol] += float(term["count"])
     return counts, charge
@@ -86,8 +87,12 @@ def segments_of(ctx: RunContext[object], table: SourceRow, rows: list[SourceRow]
         change = ctx.decoded(row, "marker", required=False)
         if change is None:
             continue
-        lower = ctx.decoded(table, "derived:phase_name", using={"phase_name": change.groups["lower"]})
-        upper = ctx.decoded(table, "derived:phase_name", using={"phase_name": change.groups["upper"]})
+        lower = ctx.decoded(
+            table, "derived:phase_name", using={"phase_name": change.groups["lower"]}
+        )
+        upper = ctx.decoded(
+            table, "derived:phase_name", using={"phase_name": change.groups["upper"]}
+        )
         assert lower is not None and upper is not None
         if lower.to != upper.to:
             cuts[position] = (lower.to, upper.to)
@@ -167,7 +172,9 @@ def records(ctx: RecordContext) -> None:
             counts, charge = formula_of(ctx, table)
             segments = segments_of(ctx, table, rows)
             convention = emit.convention_set("janaf")
-            forms = [ctx.subject("tables", str(table["code"]), part=str(s.number)) for s in segments]
+            forms = [
+                ctx.subject("tables", str(table["code"]), part=str(s.number)) for s in segments
+            ]
             for form in forms:
                 for symbol, count in sorted(counts.items()):
                     emit.relation(
@@ -196,7 +203,11 @@ def records(ctx: RecordContext) -> None:
                 )
                 component = emit.kind(
                     "dataset_component",
-                    {**ctx.constants(first_row, "dataset_component"), "dataset": dataset, "entity": form},
+                    {
+                        **ctx.constants(first_row, "dataset_component"),
+                        "dataset": dataset,
+                        "entity": form,
+                    },
                 )
                 phase = emit.kind(
                     "dataset_phase",
@@ -224,7 +235,9 @@ def records(ctx: RecordContext) -> None:
                 first_row = first(segment.rows)
                 names = ctx.value_columns(first_row, DATUM_VALUE)
                 temperature = next(
-                    name for name in names if ctx.column_attributes(first_row, name)["role"] == VARIABLE
+                    name
+                    for name in names
+                    if ctx.column_attributes(first_row, name)["role"] == VARIABLE
                 )
                 columns = {}
                 for ordinal, name in numbered(names):

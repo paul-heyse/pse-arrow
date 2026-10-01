@@ -29,10 +29,10 @@ from pathlib import Path
 import numpy as np
 import psycopg
 import pytest
+
 from hard_case_support import CHECKS, at, build, entity_id, failing
 from mapping_support import real_declaration, writer
 from mechanisms_support import broken, replace
-
 from thermo_knowledge import db
 from thermo_knowledge.canonical.values import Quantity
 from thermo_knowledge.canonical.writer import (
@@ -70,24 +70,107 @@ UNITS = {
 def polynomial(c: dict[str, float], T: np.ndarray) -> np.ndarray:
     """The temperature polynomial of one piece, written term by term."""
     return (
-        c["a"] + c["b"] * T + c["c"] * T * np.log(T) + c["d"] * T**2 + c["e"] / T
-        + c["f"] * T**3 + c["g"] * T**7 + c["h"] / T**9
+        c["a"]
+        + c["b"] * T
+        + c["c"] * T * np.log(T)
+        + c["d"] * T**2
+        + c["e"] / T
+        + c["f"] * T**3
+        + c["g"] * T**7
+        + c["h"] / T**9
     )
 
 
 FUNCTIONS = {
     "fe_bcc": [
-        dict(T_low=298.15, T_high=1000.0, a=-8000.0, b=130.0, c=-24.0, d=-4.0e-3, e=2.5e5, f=1.0e-7, g=0.0, h=0.0),
-        dict(T_low=1000.0, T_high=3000.0, a=-12000.0, b=170.0, c=-28.0, d=1.0e-3, e=-1.0e6, f=0.0, g=1.0e-21, h=1.0e29),
+        dict(
+            T_low=298.15,
+            T_high=1000.0,
+            a=-8000.0,
+            b=130.0,
+            c=-24.0,
+            d=-4.0e-3,
+            e=2.5e5,
+            f=1.0e-7,
+            g=0.0,
+            h=0.0,
+        ),
+        dict(
+            T_low=1000.0,
+            T_high=3000.0,
+            a=-12000.0,
+            b=170.0,
+            c=-28.0,
+            d=1.0e-3,
+            e=-1.0e6,
+            f=0.0,
+            g=1.0e-21,
+            h=1.0e29,
+        ),
     ],
     "cr_bcc": [
-        dict(T_low=298.15, T_high=2000.0, a=-9500.0, b=120.0, c=-22.0, d=-3.0e-3, e=2.0e5, f=2.0e-8, g=0.0, h=0.0),
-        dict(T_low=2000.0, T_high=3500.0, a=-30000.0, b=260.0, c=-38.0, d=2.0e-3, e=0.0, f=0.0, g=0.0, h=0.0),
+        dict(
+            T_low=298.15,
+            T_high=2000.0,
+            a=-9500.0,
+            b=120.0,
+            c=-22.0,
+            d=-3.0e-3,
+            e=2.0e5,
+            f=2.0e-8,
+            g=0.0,
+            h=0.0,
+        ),
+        dict(
+            T_low=2000.0,
+            T_high=3500.0,
+            a=-30000.0,
+            b=260.0,
+            c=-38.0,
+            d=2.0e-3,
+            e=0.0,
+            f=0.0,
+            g=0.0,
+            h=0.0,
+        ),
     ],
     "fe_cr_b2": [
-        dict(T_low=298.15, T_high=700.0, a=-4000.0, b=40.0, c=-7.0, d=-1.0e-3, e=0.0, f=0.0, g=0.0, h=0.0),
-        dict(T_low=700.0, T_high=1500.0, a=-4500.0, b=46.0, c=-8.0, d=0.0, e=1.0e5, f=0.0, g=0.0, h=0.0),
-        dict(T_low=1500.0, T_high=3000.0, a=-2000.0, b=30.0, c=-5.5, d=5.0e-4, e=0.0, f=0.0, g=0.0, h=0.0),
+        dict(
+            T_low=298.15,
+            T_high=700.0,
+            a=-4000.0,
+            b=40.0,
+            c=-7.0,
+            d=-1.0e-3,
+            e=0.0,
+            f=0.0,
+            g=0.0,
+            h=0.0,
+        ),
+        dict(
+            T_low=700.0,
+            T_high=1500.0,
+            a=-4500.0,
+            b=46.0,
+            c=-8.0,
+            d=0.0,
+            e=1.0e5,
+            f=0.0,
+            g=0.0,
+            h=0.0,
+        ),
+        dict(
+            T_low=1500.0,
+            T_high=3000.0,
+            a=-2000.0,
+            b=30.0,
+            c=-5.5,
+            d=5.0e-4,
+            e=0.0,
+            f=0.0,
+            g=0.0,
+            h=0.0,
+        ),
     ],
 }
 
@@ -119,9 +202,14 @@ def magnetic(tc: float, beta: float, afm: float, p: float, T: np.ndarray) -> np.
     tau = np.asarray(T, dtype=float) / tc
     big_a = 518.0 / 1125.0 + 11692.0 / 15975.0 * (1.0 / p - 1.0)
     with np.errstate(over="ignore", invalid="ignore"):
-        below = 1.0 - (
-            79.0 / (140.0 * p * tau) + 474.0 / 497.0 * (1.0 / p - 1.0) * (tau**3 / 6 + tau**9 / 135 + tau**15 / 600)
-        ) / big_a
+        below = (
+            1.0
+            - (
+                79.0 / (140.0 * p * tau)
+                + 474.0 / 497.0 * (1.0 / p - 1.0) * (tau**3 / 6 + tau**9 / 135 + tau**15 / 600)
+            )
+            / big_a
+        )
         above = -(tau**-5 / 10 + tau**-15 / 315 + tau**-25 / 1500) / big_a
     return R * T * np.log(beta + 1.0) * np.where(tau < 1.0, below, above)
 
@@ -157,10 +245,9 @@ def kohler(names: tuple[str, ...], x: dict[str, float]) -> float:
 
 def toop(names: tuple[str, ...], x: dict[str, float], special: str) -> float:
     (j, k) = [n for n in names if n != special]
-    return (
-        sum(x[other] / (1 - x[special]) * binary(special, other, x[special]) for other in (j, k))
-        + (x[j] + x[k]) ** 2 * binary(j, k, x[j] / (x[j] + x[k]))
-    )
+    return sum(
+        x[other] / (1 - x[special]) * binary(special, other, x[special]) for other in (j, k)
+    ) + (x[j] + x[k]) ** 2 * binary(j, k, x[j] / (x[j] + x[k]))
 
 
 # -- the fixture -------------------------------------------------------------------------------
@@ -216,7 +303,9 @@ class World:
 def write_system(w: CanonicalWriter, decl: Declaration, ids: dict[str, uuid.UUID]) -> None:
     species = {}
     for name in SPECIES:
-        species[name] = w.kind("species", {"canonical_key": name, "label": name}, origins=at(f"s-{name}"))
+        species[name] = w.kind(
+            "species", {"canonical_key": name, "label": name}, origins=at(f"s-{name}")
+        )
         if name in ELEMENTS:
             w.relation(
                 "composition",
@@ -225,7 +314,9 @@ def write_system(w: CanonicalWriter, decl: Declaration, ids: dict[str, uuid.UUID
                 at="a.json#/composition",
             )
     ids.update({f"species_{name}": value for name, value in species.items()})
-    system = w.kind("chemical_system", {"key": "fe-cr-ni-mo", "revision": "1"}, origins=at("system"))
+    system = w.kind(
+        "chemical_system", {"key": "fe-cr-ni-mo", "revision": "1"}, origins=at("system")
+    )
     ids["system"] = system
     for name in ELEMENTS:
         w.relation(
@@ -260,7 +351,10 @@ def write_system(w: CanonicalWriter, decl: Declaration, ids: dict[str, uuid.UUID
             classes[(phase, index)] = site
             for occupant in occupants:
                 w.relation(
-                    "site_occupant", {"site_class": site, "occupant": species[occupant]}, {}, at="a.json#/occupant"
+                    "site_occupant",
+                    {"site_class": site, "occupant": species[occupant]},
+                    {},
+                    at="a.json#/occupant",
                 )
     ids.update({f"site_{phase}_{index}": value for (phase, index), value in classes.items()})
     # the ordered phase is the ordered form of the disordered one: its model is the disordered
@@ -285,7 +379,11 @@ def write_arrays(w: CanonicalWriter, ids: dict[str, uuid.UUID]) -> None:
             for position, member in enumerate(members, start=1):
                 w.relation(
                     "constituent_array_member",
-                    {"array": array, "site_class": ids[f"site_{phase}_{index}"], "position": position},
+                    {
+                        "array": array,
+                        "site_class": ids[f"site_{phase}_{index}"],
+                        "position": position,
+                    },
                     {"species": ids[f"species_{member}"]},
                     at="a.json#/member",
                 )
@@ -349,7 +447,11 @@ def write_parameters(w: CanonicalWriter, ids: dict[str, uuid.UUID]) -> None:
             slot_group="gibbs_polynomial.function",
             subjects=[component],
             slots={},
-            families={"piece": [FamilyRow({"n": n}, piece_row(piece)) for n, piece in enumerate(pieces, 1)]},
+            families={
+                "piece": [
+                    FamilyRow({"n": n}, piece_row(piece)) for n, piece in enumerate(pieces, 1)
+                ]
+            },
             origins=at(f"function-{name}-pieces"),
         )
     for array, function in ENDMEMBER_FUNCTION.items():
@@ -393,11 +495,15 @@ def write_parameters(w: CanonicalWriter, ids: dict[str, uuid.UUID]) -> None:
         w.parameter_set(
             parameterization=p,
             slot_group="redlich_kister_pair.pair",
-            subjects=[ids[f"species_{first}"], ids[f"species_{second}"]],  # the order the source asserts
+            subjects=[
+                ids[f"species_{first}"],
+                ids[f"species_{second}"],
+            ],  # the order the source asserts
             slots={},
             families={
                 "order": [
-                    FamilyRow({"k": k}, {"L": Quantity(c, "J/mol")}) for k, c in enumerate(coefficients)
+                    FamilyRow({"k": k}, {"L": Quantity(c, "J/mol")})
+                    for k, c in enumerate(coefficients)
                 ]
             },
             origins=at(f"binary-{first}{second}"),
@@ -476,7 +582,9 @@ def test_the_fixture_satisfies_every_invariant(conn: psycopg.Connection) -> None
 def test_the_ordered_phase_names_the_disordered_phase_it_is_the_ordered_form_of(
     world: World, conn: psycopg.Connection
 ) -> None:
-    rows = conn.execute("SELECT ordered, disordered, never_disorder FROM tk.disordered_partner").fetchall()
+    rows = conn.execute(
+        "SELECT ordered, disordered, never_disorder FROM tk.disordered_partner"
+    ).fetchall()
     assert rows == [(world.ids["phase_BCC_B2"], world.ids["phase_BCC_A2"], False)]
     systems = conn.execute(
         "SELECT DISTINCT system FROM tk.phase_definition WHERE id = ANY(%s)",
@@ -540,7 +648,9 @@ def test_the_two_orders_of_one_array_are_two_subjects_not_one(world: World) -> N
     assert world.ids["array_interaction_fecr"] != world.ids["array_interaction_crfe"]
 
 
-def test_the_functions_are_half_open_pieces_in_kelvin(world: World, conn: psycopg.Connection) -> None:
+def test_the_functions_are_half_open_pieces_in_kelvin(
+    world: World, conn: psycopg.Connection
+) -> None:
     rows = conn.execute(
         'SELECT "n", "T_low", "T_high" FROM param."gibbs_polynomial__function__piece" ORDER BY "T_low", "n"'
     ).fetchall()
@@ -617,7 +727,9 @@ def test_the_pieces_are_half_open_a_boundary_point_belongs_to_the_piece_above(
     at_boundary = number(found.evaluate("G", T=np.array([1000.0])))
     lower, upper = FUNCTIONS["fe_bcc"]
     assert at_boundary == pytest.approx(float(polynomial(upper, np.array([1000.0]))[0]), rel=1e-13)
-    assert abs(at_boundary - float(polynomial(lower, np.array([1000.0]))[0])) > 1.0, "the pieces differ there"
+    assert abs(at_boundary - float(polynomial(lower, np.array([1000.0]))[0])) > 1.0, (
+        "the pieces differ there"
+    )
 
 
 def test_a_temperature_outside_every_piece_is_refused_naming_the_function(
@@ -631,14 +743,19 @@ def test_a_temperature_outside_every_piece_is_refused_naming_the_function(
         cache=CACHE,
     )
     for T in (250.0, 3500.0):
-        with pytest.raises(EvaluationRefusal, match=r"outside every piece of family `gibbs_polynomial.function.piece`"):
+        with pytest.raises(
+            EvaluationRefusal,
+            match=r"outside every piece of family `gibbs_polynomial.function.piece`",
+        ):
             found.evaluate("G", T=np.array([T]))
 
 
 # -- the interaction and its sign under a swap --------------------------------------------------
 
 
-def interaction(world: World, conn: psycopg.Connection, array: str, order: tuple[str, str], y: dict[str, float]) -> float:
+def interaction(
+    world: World, conn: psycopg.Connection, array: str, order: tuple[str, str], y: dict[str, float]
+) -> float:
     ids = {name: str(world.ids[f"species_{name}"]) for name in order}
     found = bind(
         world.decl,
@@ -649,7 +766,9 @@ def interaction(world: World, conn: psycopg.Connection, array: str, order: tuple
         cache=CACHE,
     )
     return number(
-        found.evaluate("G", y={ids[name]: np.array([y[name]]) for name in order}, spectator=np.array([1.0]))
+        found.evaluate(
+            "G", y={ids[name]: np.array([y[name]]) for name in order}, spectator=np.array([1.0])
+        )
     )
 
 
@@ -670,7 +789,9 @@ def test_the_interaction_takes_its_sign_from_the_position_the_array_gives_each_s
     l0_swapped, l1_swapped = INTERACTIONS["interaction_crfe"]
     assert l1_swapped == -l1 and l0_swapped == l0
     swapped = interaction(world, conn, "interaction_crfe", ("Cr", "Fe"), Y)
-    assert swapped == pytest.approx(expected_interaction("Cr", "Fe", l0_swapped, l1_swapped), rel=1e-13)
+    assert swapped == pytest.approx(
+        expected_interaction("Cr", "Fe", l0_swapped, l1_swapped), rel=1e-13
+    )
     assert swapped == pytest.approx(found, rel=1e-13)
 
 
@@ -685,7 +806,10 @@ def test_the_order_the_caller_passes_the_mixing_species_in_does_not_matter(
 def test_reading_one_array_with_the_other_arrays_coefficient_would_change_the_energy() -> None:
     """The control: with the asserted sign ignored the two orders would disagree."""
     l0, l1 = INTERACTIONS["interaction_fecr"]
-    assert abs(expected_interaction("Fe", "Cr", l0, l1) - expected_interaction("Fe", "Cr", l0, -l1)) > 100.0
+    assert (
+        abs(expected_interaction("Fe", "Cr", l0, l1) - expected_interaction("Fe", "Cr", l0, -l1))
+        > 100.0
+    )
 
 
 # -- the binary of a pair, held once with parity --------------------------------------------------
@@ -724,7 +848,11 @@ def test_the_odd_orders_of_a_binary_are_stored_as_asserted_with_the_arrangement_
         "JOIN tk.material_entity a ON a.id = p.i JOIN tk.material_entity b ON b.id = p.j "
         "WHERE a.canonical_key || b.canonical_key IN ('FeCr', 'CrFe') ORDER BY o.\"k\""
     ).fetchall()
-    assert [(k, value) for _, k, value in rows] == [(0, 4000.0), (1, 900.0), (2, -350.0)]  # not negated
+    assert [(k, value) for _, k, value in rows] == [
+        (0, 4000.0),
+        (1, 900.0),
+        (2, -350.0),
+    ]  # not negated
     assert {arrangement for arrangement, _, _ in rows} <= {0, 1}
 
 
@@ -792,7 +920,9 @@ KOHLER_X = {"Fe": 0.2, "Cr": 0.5, "Ni": 0.3}
 TOOP_X = {"Fe": 0.25, "Cr": 0.45, "Mo": 0.30}
 
 
-def test_the_ternary_that_chose_kohler_is_extrapolated_by_kohler(world: World, conn: psycopg.Connection) -> None:
+def test_the_ternary_that_chose_kohler_is_extrapolated_by_kohler(
+    world: World, conn: psycopg.Connection
+) -> None:
     found = ternary(world, conn, "kohler", ("Fe", "Cr", "Ni"), KOHLER_X)
     assert found == pytest.approx(kohler(("Fe", "Cr", "Ni"), KOHLER_X), rel=1e-12)
     for order in (("Ni", "Fe", "Cr"), ("Cr", "Ni", "Fe")):
@@ -814,7 +944,9 @@ def test_the_species_singled_out_does_not_depend_on_the_order_the_components_are
 ) -> None:
     reference = ternary(world, conn, "toop_cr_first", ("Fe", "Cr", "Mo"), TOOP_X)
     for order in (("Mo", "Fe", "Cr"), ("Cr", "Mo", "Fe")):
-        assert ternary(world, conn, "toop_cr_first", order, TOOP_X) == pytest.approx(reference, rel=1e-12)
+        assert ternary(world, conn, "toop_cr_first", order, TOOP_X) == pytest.approx(
+            reference, rel=1e-12
+        )
 
 
 def test_the_two_extrapolations_differ_for_the_same_binaries_and_composition() -> None:
@@ -832,11 +964,17 @@ def test_a_species_the_array_does_not_place_is_refused_with_its_position_undefin
         roles={"t": str(world.ids["array_toop_fe_first"])},  # Fe, Cr, Mo: no Ni
         sets={"components": [ids["Fe"], ids["Cr"], ids["Ni"]]},
     )
-    with pytest.raises(EvaluationRefusal, match="position of species .* is undefined: the array places it nowhere"):
-        found.evaluate("gE", x={ids[n]: np.array([v]) for n, v in (("Fe", 0.2), ("Cr", 0.5), ("Ni", 0.3))})
+    with pytest.raises(
+        EvaluationRefusal, match="position of species .* is undefined: the array places it nowhere"
+    ):
+        found.evaluate(
+            "gE", x={ids[n]: np.array([v]) for n, v in (("Fe", 0.2), ("Cr", 0.5), ("Ni", 0.3))}
+        )
 
 
-def test_a_species_the_array_places_twice_has_no_single_position(world: World, conn: psycopg.Connection) -> None:
+def test_a_species_the_array_places_twice_has_no_single_position(
+    world: World, conn: psycopg.Connection
+) -> None:
     """An endmember of the ordered phase with iron on both substitutional site classes."""
     ids = {name: str(world.ids[f"species_{name}"]) for name in ("Fe", "Cr", "Mo")}
     found = bind(
@@ -847,7 +985,9 @@ def test_a_species_the_array_places_twice_has_no_single_position(world: World, c
         sets={"components": [ids["Fe"], ids["Cr"], ids["Mo"]]},
     )
     with pytest.raises(EvaluationRefusal, match=r"places it 2 times \(\(1, 1\)\)"):
-        found.evaluate("gE", x={ids[n]: np.array([v]) for n, v in (("Fe", 0.2), ("Cr", 0.5), ("Mo", 0.3))})
+        found.evaluate(
+            "gE", x={ids[n]: np.array([v]) for n, v in (("Fe", 0.2), ("Cr", 0.5), ("Mo", 0.3))}
+        )
 
 
 def test_a_ternary_with_no_choice_is_refused_naming_the_sub_form_slot(
@@ -868,7 +1008,9 @@ def test_a_ternary_with_no_choice_is_refused_naming_the_sub_form_slot(
 # -- what the model refuses -----------------------------------------------------------------------
 
 
-def system_and_phases(w: CanonicalWriter, decl: Declaration) -> tuple[dict[str, uuid.UUID], dict[str, uuid.UUID]]:
+def system_and_phases(
+    w: CanonicalWriter, decl: Declaration
+) -> tuple[dict[str, uuid.UUID], dict[str, uuid.UUID]]:
     ids: dict[str, uuid.UUID] = {}
     write_system(w, decl, ids)
     return ids, {name: ids[f"species_{name}"] for name in SPECIES}
@@ -929,12 +1071,16 @@ def test_an_endmember_cannot_reference_a_set_of_another_contract(decl: Declarati
             parameterization=p,
             slot_group="cef_endmember.endmember",
             subjects=[ids["array_endmember_fe"]],
-            slots={"function": SetReference(p, "cef_endmember.endmember", [ids["array_endmember_cr"]])},
+            slots={
+                "function": SetReference(p, "cef_endmember.endmember", [ids["array_endmember_cr"]])
+            },
             origins=at("bad-reference"),
         )
 
 
-def test_the_checks_of_verify_flag_each_broken_array_and_partner(decl: Declaration, tmp_path: Path) -> None:
+def test_the_checks_of_verify_flag_each_broken_array_and_partner(
+    decl: Declaration, tmp_path: Path
+) -> None:
     """One violation of each structure the case is about, each found by the check that states
     it: an ordered phase whose partner belongs to another system, an array whose key is not the
     ordering convention applied to its members, positions with a gap, a site class of another
@@ -943,7 +1089,9 @@ def test_the_checks_of_verify_flag_each_broken_array_and_partner(decl: Declarati
     def emit(w: CanonicalWriter) -> None:
         ids: dict[str, uuid.UUID] = {}
         write_system(w, decl, ids)
-        other = w.kind("chemical_system", {"key": "other", "revision": "1"}, origins=at("other-system"))
+        other = w.kind(
+            "chemical_system", {"key": "other", "revision": "1"}, origins=at("other-system")
+        )
         foreign = w.kind(
             "phase_definition",
             {
@@ -963,7 +1111,9 @@ def test_the_checks_of_verify_flag_each_broken_array_and_partner(decl: Declarati
         phase = ids["phase_LIQUID"]
         site = ids["site_LIQUID_1"]
 
-        def member(array: uuid.UUID, position: int, name: str, site_class: uuid.UUID = site) -> None:
+        def member(
+            array: uuid.UUID, position: int, name: str, site_class: uuid.UUID = site
+        ) -> None:
             w.relation(
                 "constituent_array_member",
                 {"array": array, "site_class": site_class, "position": position},
@@ -972,11 +1122,17 @@ def test_the_checks_of_verify_flag_each_broken_array_and_partner(decl: Declarati
             )
 
         wrong_key = w.kind(
-            "constituent_array", {"phase": phase, "canonical_key": "LIQUID:Cr,Fe"}, origins=at("wrong-key")
+            "constituent_array",
+            {"phase": phase, "canonical_key": "LIQUID:Cr,Fe"},
+            origins=at("wrong-key"),
         )
         member(wrong_key, 1, "Fe")
         member(wrong_key, 2, "Cr")
-        gap = w.kind("constituent_array", {"phase": phase, "canonical_key": "LIQUID:Fe,Cr"}, origins=at("gap"))
+        gap = w.kind(
+            "constituent_array",
+            {"phase": phase, "canonical_key": "LIQUID:Fe,Cr"},
+            origins=at("gap"),
+        )
         member(gap, 1, "Fe")
         member(gap, 3, "Cr")
         foreign_class = w.kind(
@@ -985,14 +1141,21 @@ def test_the_checks_of_verify_flag_each_broken_array_and_partner(decl: Declarati
             origins=at("foreign-site"),
         )
         w.relation(
-            "site_occupant", {"site_class": foreign_class, "occupant": ids["species_Fe"]}, {}, at="a.json#/occupant"
+            "site_occupant",
+            {"site_class": foreign_class, "occupant": ids["species_Fe"]},
+            {},
+            at="a.json#/occupant",
         )
         elsewhere = w.kind(
-            "constituent_array", {"phase": phase, "canonical_key": "LIQUID:Fe"}, origins=at("elsewhere")
+            "constituent_array",
+            {"phase": phase, "canonical_key": "LIQUID:Fe"},
+            origins=at("elsewhere"),
         )
         member(elsewhere, 1, "Fe", foreign_class)
         stranger = w.kind(
-            "constituent_array", {"phase": phase, "canonical_key": "LIQUID:Va"}, origins=at("stranger")
+            "constituent_array",
+            {"phase": phase, "canonical_key": "LIQUID:Va"},
+            origins=at("stranger"),
         )
         member(stranger, 1, "Va")
 
@@ -1014,7 +1177,9 @@ def test_the_checks_of_verify_flag_each_broken_array_and_partner(decl: Declarati
         database.remove()
 
 
-def test_a_set_whose_subject_is_not_of_the_kind_its_role_declares_is_refused_at_load(decl: Declaration) -> None:
+def test_a_set_whose_subject_is_not_of_the_kind_its_role_declares_is_refused_at_load(
+    decl: Declaration,
+) -> None:
     """The endmember group's subject is a constituent array: a species written there is refused by
     the writer, not left to the foreign key at build."""
     w = writer(decl)
@@ -1027,7 +1192,10 @@ def test_a_set_whose_subject_is_not_of_the_kind_its_role_declares_is_refused_at_
         origins=at("p"),
     )
     component = w.kind("model_component", {"parameterization": p, "name": "f"}, origins=at("f"))
-    with pytest.raises(ValidationError, match=r"subject `t` is a species, and the role of `cef_endmember.endmember` is of kind `constituent_array`"):
+    with pytest.raises(
+        ValidationError,
+        match=r"subject `t` is a species, and the role of `cef_endmember.endmember` is of kind `constituent_array`",
+    ):
         w.parameter_set(
             parameterization=p,
             slot_group="cef_endmember.endmember",
@@ -1039,13 +1207,18 @@ def test_a_set_whose_subject_is_not_of_the_kind_its_role_declares_is_refused_at_
 
 
 def test_the_position_function_takes_an_array_then_a_species(tmp_path: Path) -> None:
-    result = broken(tmp_path, {"forms/calphad.toml": replace("position(t, s) != 1", "position(s, t) != 1")})
+    result = broken(
+        tmp_path, {"forms/calphad.toml": replace("position(t, s) != 1", "position(s, t) != 1")}
+    )
     assert result.declaration is None
     assert any(
-        d.code is Code.SLOT_SUBJECTS and "constituent_array" in d.message for d in result.diagnostics
+        d.code is Code.SLOT_SUBJECTS and "constituent_array" in d.message
+        for d in result.diagnostics
     )
 
 
 def test_the_position_function_is_refused_for_an_expression_operand(tmp_path: Path) -> None:
-    result = broken(tmp_path, {"forms/calphad.toml": replace("position(t, s) != 1", "position(t, s + 1) != 1")})
+    result = broken(
+        tmp_path, {"forms/calphad.toml": replace("position(t, s) != 1", "position(t, s + 1) != 1")}
+    )
     assert any(d.code is Code.SLOT_SUBJECTS for d in result.diagnostics)
