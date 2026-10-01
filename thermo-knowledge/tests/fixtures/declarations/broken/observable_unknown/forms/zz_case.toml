@@ -1,7 +1,0 @@
-module = "broken"
-uses = ["physical", "identity", "framework", "vocab", "contracts", "forms"]
-doc = "A deliberately broken form module."
-
-[contracts.c_obs]
-doc = "d"
-outputs.x = { type = "Scalar", observable = "no_such_observable", doc = "d" }

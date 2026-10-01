@@ -1,7 +1,0 @@
-module = "broken"
-schema = "tk"
-uses = ["physical", "identity", "framework", "vocab"]
-doc = "A deliberately broken module."
-
-[entities.slot_uncertainty.x]
-doc = "d"

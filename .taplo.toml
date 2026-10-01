@@ -14,13 +14,9 @@ exclude = [
   ".codex/skills/**",
   ".claude/skills/**",
   ".agents/skills/**",
-  # Reference material kept until the thermodynamics work lands; not product source.
-  "thermodynamics_complete_conversation_handoff/**",
   # Authored package sources keep the layout their authors wrote; they are package
   # inputs, not repository configuration.
   "packages/**",
-  # Deliberately malformed authored inputs are parser test data, not configuration.
-  "thermo-knowledge/**",
   "tooling/dfarrow-apiex/target/**",
   "tooling/dfarrow-apiex/verify/target/**",
   # Generated TOML is written by its generator, never reformatted.

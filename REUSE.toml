@@ -88,15 +88,6 @@ precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 Paul Heyse"
 SPDX-License-Identifier = "MIT OR Apache-2.0"
 
-# thermo-knowledge (Plan 24) commits only the project's own files; third-party data is
-# acquired into the gitignored store and never committed, so nothing here needs its own
-# licence annotation.
-[[annotations]]
-path = ["thermo-knowledge/**"]
-precedence = "aggregate"
-SPDX-FileCopyrightText = "2026 Paul Heyse"
-SPDX-License-Identifier = "MIT OR Apache-2.0"
-
 # Selected upstream parameter records; source revisions and hashes accompany the data.
 [[annotations]]
 path = [
@@ -105,15 +96,4 @@ path = [
 ]
 precedence = "override"
 SPDX-FileCopyrightText = "FeOS contributors"
-SPDX-License-Identifier = "MIT OR Apache-2.0"
-
-# Thermodynamics reference handoff: byte-verified reference material kept until the
-# thermodynamics work lands. Its files carry no headers and are never edited.
-[[annotations]]
-path = [
-  "thermodynamics_complete_conversation_handoff/**",
-  "thermodynamics_complete_conversation_handoff.zip",
-]
-precedence = "aggregate"
-SPDX-FileCopyrightText = "2026 Paul Heyse"
 SPDX-License-Identifier = "MIT OR Apache-2.0"

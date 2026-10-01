@@ -1,3 +1,0 @@
-module = "zz_a"
-uses = ["zz_b"]
-doc = "d"

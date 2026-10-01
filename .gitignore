@@ -14,9 +14,6 @@ tooling/dfarrow-apiex/verify/target/
 /.claude/worktrees/
 /idaes-pse/
 
-# thermo-knowledge store: raw sources and Parquet of third-party data; never committed
-/thermo-knowledge/.store/
-
 # Python
 .venv*/
 __pycache__/

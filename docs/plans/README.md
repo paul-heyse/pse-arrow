@@ -20,12 +20,9 @@ integrated kernel campaign) is **done** (2026-09-30). Its
 [Outcome](23-thermodynamic-domain-and-campaign.md#outcome-recorded-after-implementation)
 records the completed functional scope, local production execution results and the scope
 of completed measurements.
-[Plan 24](24-thermodynamic-knowledge-base.md) (the thermodynamic knowledge base) is **in
-progress**, authorized 2026-09-30. It is a standalone workstream in `thermo-knowledge/` that
-changes no production contract: it procures the open thermodynamics sources, derives the
-target-state domain model and consolidates them in a PostgreSQL database generated from it.
-Its companion [24a](24a-knowledge-base-code-remediation.md) designs and sequences the
-remediation of the code review's findings; Plan 24 owns their dispositions.
+Plan 24 (the thermodynamic knowledge base) and its companion 24a moved with the
+`thermo-knowledge/` tree to their own repository,
+[paul-heyse/thermo-knowledge](https://github.com/paul-heyse/thermo-knowledge), on 2026-10-01.
 [Plan 21](https://github.com/paul-heyse/pse-arrow/blob/0e725de269f18dd08331158a07b38a7d92ea0b5e/docs/plans/21-modeling-kernel.md) (the modeling kernel) is **done**: K0–K8 were implemented;
 K9 transferred to Plan 23; ADR-0097–ADR-0101 retain the proposed decision-PR route. Its
 companions `21-modeling-kernel-architecture.md` and `21-knowledge-placement.md` remain

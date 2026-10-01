@@ -1,4 +1,0 @@
-[
-  {"id": "a1", "name": "first", "values": [1, 2.5, 3], "flag": true, "count": 3},
-  {"id": "a2", "name": "second", "values": [], "flag": false}
-]

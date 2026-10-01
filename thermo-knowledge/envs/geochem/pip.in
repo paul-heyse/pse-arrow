@@ -1,6 +1,0 @@
-# SPDX-License-Identifier: MIT OR Apache-2.0
-# Copyright (c) 2026 Paul Heyse
-
-# pip-only libraries of the geochem environment: installed with pip only because conda-forge
-# lacks them; pinned, with hashes, in pip.lock.txt.
-phreeqcrm

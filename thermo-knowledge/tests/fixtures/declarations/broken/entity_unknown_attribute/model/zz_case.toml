@@ -1,8 +1,0 @@
-module = "broken"
-schema = "tk"
-uses = ["physical", "identity", "framework", "vocab"]
-doc = "A deliberately broken module."
-
-[entities.aggregation.z]
-doc = "d"
-bogus = 1

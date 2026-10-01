@@ -193,10 +193,6 @@ extend-exclude = [
   ".codex/skills/**",
   ".claude/skills/**",
   ".agents/skills/**",
-  # Reference material kept until the thermodynamics work lands; not product source.
-  "thermodynamics_complete_conversation_handoff/**",
-  # Standalone tree (Plan 24): own environment and configuration; it lints itself.
-  "thermo-knowledge/**",
   # The end-of-turn pipeline: shared verbatim with project-template, 3.14 syntax (uv-pinned).
   "scripts/after_turn.py",
   "scripts/tests/test_after_turn.py",
@@ -354,9 +350,6 @@ project-excludes = [
   "**/target/**",
   "external/**",
   "build/**",
-  "thermodynamics_complete_conversation_handoff/**",
-  # Standalone tree (Plan 24): own environment and configuration; it checks itself.
-  "thermo-knowledge/**",
   "scripts/library_*.py",
   "scripts/tests/test_library_*.py",
   "scripts/after_turn.py",
