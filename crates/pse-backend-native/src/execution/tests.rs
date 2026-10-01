@@ -20,6 +20,8 @@ use pse_model::generated::enums::ModelingVariableDomain;
 struct Stub;
 static STUB: Stub = Stub;
 static STUB_CAPABILITY: Capability = Capability {
+    structural: crate::structural::Policy::Roots,
+    lexicographic_degradation: crate::routing::DegradationSupport::Max,
     classes: &[ProblemClass::SquareRoot],
     automatic_classes: &[ProblemClass::SquareRoot],
     derivatives: DerivativeCapability::JacobianOrProduct,
@@ -315,6 +317,8 @@ impl BackendExecution for Probe {
 }
 fn from_row(row: &pse_model::generated::runtime::solver_capabilities::Row) -> &'static Capability {
     Box::leak(Box::new(Capability {
+        structural: row.structural_policy,
+        lexicographic_degradation: row.lexicographic_degradation,
         classes: Box::leak(row.classes.clone().into_boxed_slice()),
         automatic_classes: Box::leak(row.automatic_classes.clone().into_boxed_slice()),
         derivatives: row.derivatives,
@@ -763,4 +767,108 @@ fn backend_settings_schema_generated() {
         serde_json::json!({"type": "string", "enum": ["monotone", "adaptive"]})
     );
     assert_eq!(definitions["Tolerance"]["exclusiveMinimum"], 0.0);
+}
+
+/// Routing treats an unknown backend only through its declared capability, including QP priorities.
+#[test]
+fn declared_lexicographic_capability_native_staged_and_no_fallback() {
+    #[derive(Debug)]
+    struct LexProbe {
+        capability: &'static Capability,
+    }
+    impl BackendExecution for LexProbe {
+        fn backend(&self) -> Backend {
+            Backend::Idas
+        }
+        fn capability(&self) -> &'static Capability {
+            self.capability
+        }
+        fn representation(&self) -> Representation {
+            Representation::Factorable
+        }
+        fn linked(&self) -> bool {
+            true
+        }
+        fn automatic(&self) -> Option<u8> {
+            Some(0)
+        }
+        fn execute(&self, _: &mut Retained, _: Input<'_>) -> Result<SolveReport, ProblemError> {
+            Err(ProblemError::Internal("routing-only probe".into()))
+        }
+    }
+    let capability = Box::leak(Box::new(Capability {
+        classes: &[ProblemClass::NonconvexQuadratic],
+        automatic_classes: &[ProblemClass::NonconvexQuadratic],
+        derivatives: DerivativeCapability::Factorable,
+        general_bounds: true,
+        lexicographic: &[ProblemClass::NonconvexQuadratic],
+        structural: crate::structural::Policy::Factorable,
+        ..STUB_CAPABILITY
+    }));
+    let probe: &'static dyn BackendExecution = Box::leak(Box::new(LexProbe { capability }));
+    let entries: &'static [&'static dyn BackendExecution] =
+        Box::leak(vec![probe].into_boxed_slice());
+    let table = Table::new(entries);
+    let mut facts = grid()
+        .into_iter()
+        .find(|f| {
+            f.coefficients
+                && f.quadratic
+                && f.objective
+                && f.domains == [ModelingVariableDomain::Continuous]
+        })
+        .unwrap();
+    facts.objectives = 2;
+    let controls = Controls::default();
+    let requirements = Requirements {
+        table: &table,
+        facts: &facts,
+        intent: SolveIntent::Optimize,
+        numerical_psd: false,
+        least_squares: false,
+        controls: &controls,
+        settings: &BackendSettings::Default,
+        sensitivity: false,
+    };
+    let native = requirements.lexicographic(SolverSelection::Auto, false);
+    assert_eq!(native.route().unwrap(), Route::Native(Backend::Idas));
+    assert_eq!(
+        native.lexicographic,
+        Some(crate::routing::Lexicographic::Native)
+    );
+    let staged_capability = Box::leak(Box::new(Capability {
+        lexicographic: &[],
+        ..*capability
+    }));
+    let staged_probe: &'static dyn BackendExecution = Box::leak(Box::new(LexProbe {
+        capability: staged_capability,
+    }));
+    let entries: &'static [&'static dyn BackendExecution] =
+        Box::leak(vec![staged_probe].into_boxed_slice());
+    let table = Table::new(entries);
+    let requirements = Requirements {
+        table: &table,
+        ..requirements
+    };
+    let staged = requirements.lexicographic(SolverSelection::Explicit(Backend::Idas), false);
+    assert_eq!(staged.route().unwrap(), Route::Native(Backend::Idas));
+    assert_eq!(
+        staged.lexicographic,
+        Some(crate::routing::Lexicographic::Staged)
+    );
+    let refused = requirements.lexicographic(SolverSelection::Explicit(Backend::Highs), true);
+    assert!(refused.selected.is_none());
+    assert!(matches!(
+        refused.refusal,
+        Some(crate::routing::Refusal::Unavailable(Backend::Highs))
+    ));
+    let Err(ProblemError::RouteRefused(retained)) = refused.route() else {
+        panic!("missing retained route refusal");
+    };
+    assert_eq!(
+        retained.selection,
+        SolverSelection::Explicit(Backend::Highs)
+    );
+    assert!(!retained.classes.is_empty());
+    assert_eq!(retained.eligibility.len(), 1);
 }

@@ -402,6 +402,9 @@ fn completed(report: native::dynamics::Report) -> Result<native::dynamics::Repor
     use native::dynamics::Termination;
     match report.termination {
         Termination::Completed => Ok(report),
+        Termination::Event => Err(ProblemError::unsupported(
+            "the trajectory prefix ended before required fixed-domain observations",
+        )),
         Termination::Cancelled => Err(ProblemError::Cancelled),
         Termination::TimeLimit => Err(ProblemError::Limit {
             kind: native::LimitKind::Time,

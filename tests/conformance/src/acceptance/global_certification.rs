@@ -36,7 +36,7 @@ const PHASE_STABILITY_FIXTURES: &str = "881a0e9fb03144108d64f181a79d1e9f";
 fn unstable_case(package: &ModelingPackage, header: &str) -> (ModelingPackage, SemanticId) {
     let name = "tpd_pr_two_phase";
     let source = format!(
-        "@id(\"{PHASE_STABILITY_FIXTURES}\") package phase_stability_fixtures {{ use eos_data @\"1.0.0\"; test {name} fixture {{dof 1; run steady; value root.temperature=368{{K}}; value root.pressure=101325{{Pa}}; value root.reference_upper=200{{mol/m^3}}; value root.trial_upper=10500{{mol/m^3}}; value root.reference.rho=34{{mol/m^3}}; value root.trial.rho=9505.77{{mol/m^3}}; {header}}} {{ child root:phase_stability.TangentPlaneStability=phase_stability.TangentPlaneStability(selected=bt_ideal.aromatics,law=eos_data.potential,feed=bt_feed); }} }}"
+        "@id(\"{PHASE_STABILITY_FIXTURES}\") package phase_stability_fixtures {{ use eos_data @\"1.0.0\"; test {name} fixture {{dof 1; route steady; procedure solve; value root.temperature=368{{K}}; value root.pressure=101325{{Pa}}; value root.reference_upper=200{{mol/m^3}}; value root.trial_upper=10500{{mol/m^3}}; value root.reference.rho=34{{mol/m^3}}; value root.trial.rho=9505.77{{mol/m^3}}; {header}}} {{ child root:phase_stability.TangentPlaneStability=phase_stability.TangentPlaneStability(selected=bt_ideal.aromatics,law=eos_data.potential,feed=bt_feed); }} }}"
     );
     let extra = pse_authoring::language::parse(
         &source,
@@ -389,7 +389,7 @@ async fn pcsaft_tpd(
 ) -> Result<pse_runtime::workflow::ModelingSolvePreparation, pse_runtime::workflow::WorkflowError> {
     let name = "tpd_pcsaft";
     let source = format!(
-        "@id(\"{PHASE_STABILITY_FIXTURES}\") package phase_stability_fixtures {{ use pcsaft_data @\"1.0.0\"; test {name} fixture {{dof 2; run steady;}} {{ child root:phase_stability.TangentPlaneStability=phase_stability.TangentPlaneStability(selected=vessel_fixtures.alkanes,law=pcsaft_data.potential,feed=vessel_fixtures.fraction); }} }}"
+        "@id(\"{PHASE_STABILITY_FIXTURES}\") package phase_stability_fixtures {{ use pcsaft_data @\"1.0.0\"; test {name} fixture {{dof 2; route steady; procedure solve;}} {{ child root:phase_stability.TangentPlaneStability=phase_stability.TangentPlaneStability(selected=vessel_fixtures.alkanes,law=pcsaft_data.potential,feed=vessel_fixtures.fraction); }} }}"
     );
     let extra = pse_authoring::language::parse(
         &source,

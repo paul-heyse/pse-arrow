@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Standalone pure conformance shares admission and compiler semantics, without MathService.
-use super::conformance::{ModelingFixtureSelection, NO_FIXTURE, fixture_limits};
+use super::conformance::{ModelingFixtureSelection, NO_FIXTURE};
+use super::declared::declared_limits;
 use super::*;
 use pse_columnar::{AllocationLease, MemoryConsumer};
 use pse_model::generated::enums::{
     ModelingConformanceKind as Kind, ModelingConformanceStatus as Status,
-    ModelingFixtureExecution as Execution,
+    ModelingProcedure as Procedure,
 };
 use std::{
     collections::BTreeSet,
@@ -159,7 +160,7 @@ pub async fn conform_pure_documents(
             // fixture runs (ADR-0119).
             let fixture_limits = fixtures
                 .iter()
-                .map(|row| fixture_limits(row, limits))
+                .map(|row| declared_limits(row, limits))
                 .collect::<Result<Vec<_>, _>>()?;
             let mut covered = BTreeSet::new();
             for (index, (row, limits)) in fixtures.iter().zip(fixture_limits).enumerate() {
@@ -182,12 +183,12 @@ pub async fn conform_pure_documents(
                     );
                     continue;
                 }
-                if data.and_then(|f| f.execution) != Some(Execution::Pure) {
+                if data.and_then(|f| f.procedure) != Some(Procedure::Check) {
                     report.record_fixture(
                         fixture,
                         Kind::Preparation,
                         Status::Failed,
-                        "standalone pure execution requires an explicit run pure fixture",
+                        "standalone pure execution requires an explicit procedure check fixture",
                         oracle,
                         maximum_checks,
                     );

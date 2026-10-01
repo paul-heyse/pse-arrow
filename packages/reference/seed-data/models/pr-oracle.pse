@@ -19,7 +19,7 @@
 [b]=[200{K},200000{Pa},0.2];
 [c]=[300{K},300000{Pa},0.3];
 }
-@id("01a0e17fb4307404bb456182e91fdc67") test liquid oracle references.idaes_test_ceos_pr fixture {dof 0; run pure; fix root.T=300{K}; fix root.rho=41.15650806416406{mol/m^3}; fix root.amount[a]=0.6{mol}; fix root.amount[b]=0.3{mol}; fix root.amount[c]=0.1{mol}; } {
+@id("01a0e17fb4307404bb456182e91fdc67") test liquid oracle references.idaes_test_ceos_pr fixture {dof 0; route steady; procedure check; fix root.T=300{K}; fix root.rho=41.15650806416406{mol/m^3}; fix root.amount[a]=0.6{mol}; fix root.amount[b]=0.3{mol}; fix root.amount[c]=0.1{mol}; } {
 @id("bb8fcc58dda24bcdb21c310e0e51914b") permission selected_unknown_fit families(cubic.critical_point,properties.predictive_rule) allow_unknown true allow_extrapolation false;
 @id("01a0e17fb4307404bb456183c9c3b286") child root:peng_robinson.IdaesDeltaPhase=peng_robinson.IdaesHomogeneousPhase(selected=members,pkg=oracle_parameters,law=potential);
 @id("01a0e17fb4307404bb456184e62d85c0") expect exp(root.ln_phi[a])==1.01213{1} tolerance 1e-6{1} relative 1e-5;
@@ -27,7 +27,7 @@
 @id("01a0e17fb4307404bb4561864b3bc122") expect exp(root.ln_phi[c])==0.91356{1} tolerance 1e-6{1} relative 1e-5;
 @id("01a0e17fb4307404bb4561872d335b0d") expect root.pressure==101325{Pa} tolerance 0.02{Pa} relative 1e-6;
 }
-@id("01a0e17fb4307404bb456188b73032ca") test vapor oracle references.idaes_test_ceos_pr fixture {dof 0; run pure; fix root.T=300{K}; fix root.rho=44.80008901754609{mol/m^3}; fix root.amount[a]=0.1{mol}; fix root.amount[b]=0.2{mol}; fix root.amount[c]=0.7{mol}; } {
+@id("01a0e17fb4307404bb456188b73032ca") test vapor oracle references.idaes_test_ceos_pr fixture {dof 0; route steady; procedure check; fix root.T=300{K}; fix root.rho=44.80008901754609{mol/m^3}; fix root.amount[a]=0.1{mol}; fix root.amount[b]=0.2{mol}; fix root.amount[c]=0.7{mol}; } {
 @id("0ef19f8c50034f819ef5a2f96a27474b") permission selected_unknown_fit families(cubic.critical_point,properties.predictive_rule) allow_unknown true allow_extrapolation false;
 @id("01a0e17fb4307404bb45618912287bb4") child root:peng_robinson.IdaesDeltaPhase=peng_robinson.IdaesHomogeneousPhase(selected=members,pkg=oracle_parameters,law=potential);
 @id("01a0e17fb4307404bb45618a7a1df81a") expect exp(root.ln_phi[a])==1.05952{1} tolerance 1e-6{1} relative 1e-5;
@@ -47,7 +47,7 @@
 [asym_a,asym_b]=[0.1];
 [asym_b,asym_a]=[0.3];
 }
-@id("01a0e1c189bf70b9a2a6f0af9074e8c1") test asymmetric_conventions oracle references.analytic_cubic_fugacity fixture {dof 0; run pure; fix ordinary.T=450{K}; fix ordinary.rho=25{mol/m^3}; fix ordinary.amount[asym_a]=0.4{mol}; fix ordinary.amount[asym_b]=0.6{mol}; fix parity.T=450{K}; fix parity.rho=25{mol/m^3}; fix parity.amount[asym_a]=0.4{mol}; fix parity.amount[asym_b]=0.6{mol};} {
+@id("01a0e1c189bf70b9a2a6f0af9074e8c1") test asymmetric_conventions oracle references.analytic_cubic_fugacity fixture {dof 0; route steady; procedure check; fix ordinary.T=450{K}; fix ordinary.rho=25{mol/m^3}; fix ordinary.amount[asym_a]=0.4{mol}; fix ordinary.amount[asym_b]=0.6{mol}; fix parity.T=450{K}; fix parity.rho=25{mol/m^3}; fix parity.amount[asym_a]=0.4{mol}; fix parity.amount[asym_b]=0.6{mol};} {
 @id("5ea6ef32ca5f4e87b3e11612724b0987") permission selected_unknown_fit families(cubic.critical_point,cubic.directional_pair) allow_unknown true allow_extrapolation false;
 @id("01a0e1c189bf70b9a2a6f0b05e4b70a8") child ordinary:helmholtz.HelmholtzPhase=helmholtz.HomogeneousPhase(selected=asym_members,law=asymmetric_potential);
 @id("01a0e1c189bf70b9a2a6f0b15bab08cf") child parity:peng_robinson.IdaesDeltaPhase=peng_robinson.IdaesHomogeneousPhase(selected=asym_members,pkg=asymmetric_parameters,law=asymmetric_potential);

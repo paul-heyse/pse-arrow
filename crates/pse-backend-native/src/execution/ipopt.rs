@@ -17,6 +17,8 @@ use pse_ids::ContentHash;
 pub(super) struct Ipopt;
 pub(super) static ADAPTER: Ipopt = Ipopt;
 static CAPABILITY: Capability = Capability {
+    structural: crate::structural::Policy::Equalities,
+    lexicographic_degradation: crate::routing::DegradationSupport::Max,
     classes: &[ProblemClass::SmoothNlp],
     automatic_classes: &[ProblemClass::SmoothNlp],
     derivatives: DerivativeCapability::ExactHessianOrLimitedMemory,

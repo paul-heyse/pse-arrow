@@ -138,7 +138,11 @@ Version: 23. Snapshot class: `model`. Primary key: `declaration_id`.
 | `value.scope.facets.item` | `enum:ModelingKindFacet` | false | `payload` | — | — |
 | `value.scope.fixture` | `Struct` | true | `payload` | — | — |
 | `value.scope.fixture.degrees_of_freedom` | `Int64` | false | `payload` | — | — |
-| `value.scope.fixture.execution` | `enum:ModelingFixtureExecution` | true | `payload` | — | — |
+| `value.scope.fixture.route` | `enum:ModelingAnalysisRoute` | true | `payload` | — | — |
+| `value.scope.fixture.procedure` | `enum:ModelingProcedure` | true | `payload` | — | — |
+| `value.scope.fixture.endpoint` | `Struct` | true | `payload` | — | — |
+| `value.scope.fixture.endpoint.kind` | `enum:EndpointPolicy` | false | `payload` | — | — |
+| `value.scope.fixture.endpoint.event` | `Utf8` | true | `payload` | — | — |
 | `value.scope.fixture.intent` | `enum:NativeSolveIntent` | true | `payload` | — | — |
 | `value.scope.fixture.policy` | `Struct` | true | `payload` | — | — |
 | `value.scope.fixture.policy.backend` | `enum:NativeBackend` | true | `payload` | — | — |

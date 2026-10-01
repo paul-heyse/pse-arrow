@@ -31,8 +31,12 @@ pub struct Fixture {
     pub specifications: BTreeMap<String, FixtureValue>,
     /// The source entity the fixture's expected values come from (ADR-0123 Outcome 5).
     pub oracle: Option<DeclarationId>,
-    /// Analysis route the fixture runs under; steady when unauthored.
-    pub execution: pse_model::generated::enums::ModelingFixtureExecution,
+    /// Admitted temporal route, with its Rust-owned default applied.
+    pub route: pse_model::generated::enums::ModelingAnalysisRoute,
+    /// Independent admitted authored procedure.
+    pub procedure: pse_model::generated::enums::ModelingProcedure,
+    /// Actual endpoint requirement, with an event member resolved before native work.
+    pub endpoint: FixtureEndpoint,
     /// Declared solve intent (ADR-0119 Outcome 1); `None` leaves it to the runtime policy.
     pub intent: Option<pse_model::generated::enums::NativeSolveIntent>,
     /// Initialization stages to run, in order.
@@ -50,6 +54,14 @@ pub struct Fixture {
     pub expected_failure: Option<ExpectedFailure>,
     /// Numerical diagnostic findings the fixture expects at its solved point (Plan 23 CT-S13).
     pub diagnostics: Vec<FixtureDiagnostic>,
+}
+/// Endpoint obligation admitted against this fixture's resolved event inventory.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum FixtureEndpoint {
+    /// Every requested fixed-horizon obligation remains required.
+    FixedHorizon,
+    /// The permitted terminal event, identified by its guard member.
+    DeclaredTerminalEvent(SemanticId),
 }
 /// A numerical diagnostic finding a fixture expects: its rule and the members it names,
 /// each resolved once to the equations or variables of every coordinate of the member.
@@ -662,6 +674,30 @@ impl Engine<'_, '_> {
             .map(|expected| self.expected_failure(instance, at, expected, env))
             .transpose()?;
         self.reserve(specifications.len() + 1)?;
+        let declared = crate::analysis::declared_policy(at, Some(contract))?;
+        let endpoint = match contract.endpoint.as_ref().and_then(|e| e.event.as_ref()) {
+            None => FixtureEndpoint::FixedHorizon,
+            Some(name) => {
+                let selected = modes
+                    .iter()
+                    .flat_map(|m| &m.events)
+                    .filter(|e| &e.name == name)
+                    .collect::<Vec<_>>();
+                let [event] = selected.as_slice() else {
+                    return Err(invalid(
+                        at,
+                        "endpoint names exactly one declared terminal event",
+                    ));
+                };
+                if event.next.is_some() || !event.reset.is_empty() {
+                    return Err(invalid(
+                        at,
+                        "declared terminal endpoint cannot reset or select a successor mode",
+                    ));
+                }
+                FixtureEndpoint::DeclaredTerminalEvent(event.guard)
+            }
+        };
         self.model.fixtures.insert(
             instance,
             Fixture {
@@ -669,9 +705,9 @@ impl Engine<'_, '_> {
                 expected_degrees_of_freedom: contract.degrees_of_freedom,
                 specifications,
                 oracle,
-                execution: contract
-                    .execution
-                    .unwrap_or(pse_model::generated::enums::ModelingFixtureExecution::Steady),
+                route: declared.route,
+                procedure: declared.procedure,
+                endpoint,
                 intent: contract.intent,
                 stages: contract.stages.clone(),
                 initialization: contract.initialization.clone(),

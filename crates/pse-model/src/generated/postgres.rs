@@ -26,7 +26,7 @@ impl ToSql for crate::generated::enums::AttemptKind {
         enum_type(
             ty,
             "attempt_kind",
-            &["modeling", "simulation", "fit", "study", "study_finalization"],
+            &["modeling", "simulation", "shooting", "fit", "study", "study_finalization"],
         )
     }
     postgres_types::to_sql_checked!();
@@ -235,6 +235,7 @@ impl ToSql for crate::generated::enums::NativeTermination {
                 "infeasible_or_unbounded",
                 "limit",
                 "iteration_limit",
+                "node_limit",
                 "resource_exhausted",
                 "inconclusive",
                 "objective_limit",
@@ -1215,6 +1216,28 @@ for crate::generated::r#runtime::r#operational_retention_marks::RuntimeOperation
     }
     fn accepts(ty: &Type) -> bool {
         crate::postgres::composite(ty, "pse_ops", "retention_marks")
+    }
+}
+impl<'a> FromSql<'a>
+for crate::generated::r#runtime::r#operational_schema_support_state::RuntimeOperationalSchemaSupportStateRow {
+    fn from_sql(ty: &Type, raw: &'a [u8]) -> Result<Self, BoxError> {
+        let mut record = crate::postgres::Record::read(
+            ty,
+            raw,
+            &["history", "shared_version", "source", "target", "ready"],
+        )?;
+        let row = Self {
+            r#history: record.value()?,
+            r#shared_version: record.value()?,
+            r#source: record.value()?,
+            r#target: record.value()?,
+            r#ready: record.value()?,
+        };
+        record.finish()?;
+        Ok(row)
+    }
+    fn accepts(ty: &Type) -> bool {
+        crate::postgres::composite(ty, "pse_ops", "schema_support_state")
     }
 }
 impl<'a> FromSql<'a>

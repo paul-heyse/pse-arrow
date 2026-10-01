@@ -113,6 +113,22 @@ impl RunResult {
                 Ok(RunReport::Modeling(r)) => r.get(ordinal),
                 _ => None,
             };
+            // A staged result owns the actual rebound case admitted for this attempt.
+            // Unattempted requests still publish the admission completed at submission.
+            let prepared = result.map_or(request, |result| &result.prepared);
+            let admission = prepared
+                .solve
+                .route_decision()
+                .ok_or_else(|| contract("retained solve admission absent"))?;
+            let identity = prepared.admission_identity()?;
+            collection
+                .push(admission.row(identity, step))
+                .map_err(relation)?;
+            if let Some(assessment) = &admission.structure {
+                collection
+                    .push(assessment.row(identity, step))
+                    .map_err(relation)?;
+            }
             let outcome = result.map(|r| &r.outcome);
             let native = match outcome {
                 Some(Outcome::Native(r)) => Some(r.as_ref()),

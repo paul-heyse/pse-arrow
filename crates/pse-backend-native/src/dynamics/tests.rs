@@ -926,3 +926,51 @@ mod conservation;
 mod extension;
 #[path = "process_tests.rs"]
 mod process;
+
+#[test]
+fn terminal_endpoint_is_off_grid_and_keeps_pre_change_inputs() {
+    for method in [Method::Diffsol, Method::Idas] {
+        if method == Method::Idas && !cfg!(feature = "idas") {
+            continue;
+        }
+        let mut oracle = Toy::new(false, true);
+        oracle.c.events[0][0].terminal = true;
+        let mut profile = profile(false);
+        profile.method = method;
+        profile.samples = vec![0.0, 0.2, 0.4, 1.0];
+        profile.schedule = vec![ScheduledInput {
+            parameter: 0,
+            times: vec![0.25],
+        }];
+        profile.endpoint = EndpointRequirement {
+            kind: pse_model::generated::enums::EndpointPolicy::DeclaredTerminalEvent,
+            event: Some(id(5)),
+        };
+        let report = integrate(&mut oracle, &profile, &[1.0, 3.0], Arc::default()).unwrap();
+        assert_eq!(
+            report.termination,
+            Termination::Event,
+            "{method:?}: {:?}",
+            report.error
+        );
+        let endpoint = report.endpoint.as_ref().unwrap();
+        assert!((endpoint.point.time - 0.25).abs() < 1e-8);
+        assert_eq!(endpoint.point.mode, 0);
+        assert_eq!(endpoint.input_columns, [0]);
+        assert_eq!(endpoint.inputs, [1.0]);
+        assert!((endpoint.point.outputs[0] - endpoint.point.state[0] - 1.0).abs() < 1e-9);
+        assert_eq!(report.samples.len(), 2);
+        assert!(report.events[0].after.is_none());
+        let coverage = report.assess_endpoint(&profile);
+        assert!(coverage.satisfied && coverage.prefix_complete);
+        assert_eq!(coverage.missing_observations, [0.4, 1.0]);
+        profile.endpoint = EndpointRequirement::default();
+        assert!(!report.assess_endpoint(&profile).satisfied);
+        profile.endpoint = EndpointRequirement {
+            kind: pse_model::generated::enums::EndpointPolicy::DeclaredTerminalEvent,
+            event: Some(id(6)),
+        };
+        assert!(!report.assess_endpoint(&profile).satisfied);
+        assert!(profile.validate(oracle.contract(), &[1.0, 3.0]).is_err());
+    }
+}

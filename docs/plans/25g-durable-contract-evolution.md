@@ -1,8 +1,8 @@
 ---
 title: "25g: Durable contract evolution"
-status: draft
+status: in-progress
 date: 2026-09-30
-adrs: []
+adrs: [ADR-0146]
 review_sources: [docs/design_review/reviews/design_review_codebase-domain-alignment_2026-09-30.md, docs/design_review/reviews/design_review_codebase-domain-alignment-follow-up_2026-09-30.md]
 scenario_sources: [docs/design_review/reviews/design_review_codebase-domain-alignment_2026-09-30.md#s05]
 ---
@@ -69,7 +69,7 @@ driver, reset fallback, global loosened equality check and transform-on-open mut
 |---|---|---|---|
 | <a id="g1"></a>G1 Durable operation contracts | A1 facet purposes; I1 identity contract | Separate recorded read, consumer projection, write admission and migration | planned |
 | <a id="g2"></a>G2 Portable predicate interpretation | G1; H4 | Compile recorded semantics and remove version-bound executable predicates | planned |
-| <a id="g3"></a>G3 PostgreSQL identity and migrations | G1/I1; evolution ADR | Independent histories and explicit locked upgrades preserving catalog continuity | planned |
+| <a id="g3"></a>G3 PostgreSQL identity and migrations | G1/I1; evolution ADR | Independent histories and explicit locked upgrades preserving catalog continuity | partial: required 25e operational transition |
 | <a id="g4"></a>G4 Artifact transformation and orphan lifecycle | G2/G3; I1 | Explicit new-version migration, retirement inventory and bounded reconciliation | planned |
 
 G3 precedes F4 and any changed persisted E/J contracts. It does not wait for their entire
@@ -194,9 +194,15 @@ Stored content preservation does not retain old production code, APIs or tests f
 mechanisms. Independent historical fixtures remain only where they establish the supported
 recorded-format contract.
 
+## Consumed 25e prerequisite slice
+
+**Implemented/Tested, 2026-10-01:** The required operational G3 slice splits catalog/control and operations support identities/histories, adds the registry-owned shared readiness declaration and explicit preserving transitions from the exact known 88b653d7 predecessor. Drift/checksum conflicts refuse without mutation; interrupted committed transitions resume; active and closed-but-borrowed generations prevent upgrades. No development database was reset or migrated. Wider G1/G2 directional interpretation, remaining G3 planning/report surfaces and G4 artifact/orphan lifecycle remain open.
+[25e Verification](25e-declared-analyses-and-qualification.md#verification) owns commands,
+conditions, composite results and limits; this does not close the companion plan.
+
 ## Execution and evidence
 
-All changes and expected benefits here are **Proposed**. Packet status is planning state;
+The consumed 25e operational slice above is **Implemented**; the remaining scope and expected benefits are **Proposed**. Packet status is planning state;
 no implementation or new product qualification is claimed. The [series coordinator](25-design-remediation.md)
 owns finding dispositions and decision dependencies. Packets compile affected owners, run focused
 behavioral checks with explicit force-validation, regenerate changed declarations, and immediately
@@ -215,7 +221,7 @@ record actual commands, conditions and failures against zero in the final qualif
 
 ### What was built
 
-Not implemented; record actual behavior and evidence labels at closure.
+Full-plan closure remains outstanding; the required 25e operational transition and its remaining boundaries are recorded above.
 
 ### A mistake made and corrected
 

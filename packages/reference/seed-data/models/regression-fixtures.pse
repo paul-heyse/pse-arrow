@@ -12,7 +12,7 @@
 @id("9032de80f4af446d9e95153318553872") annotation start a(1);
 @id("a7baad1fd4514523a14a678328a64b58") annotation start k(1);
 }
-@id("f767847e54e547d396cf0190032aa9d4") test first_order_decay_certified oracle references.decay_fit_reference fixture {dof 2; run steady; intent certify;} {
+@id("f767847e54e547d396cf0190032aa9d4") test first_order_decay_certified oracle references.decay_fit_reference fixture {dof 2; route steady; procedure solve; intent certify;} {
 @id("2dcf2a69a94b49c1934a51678caa9e30") child root:FirstOrderDecay=FirstOrderDecay();
 @id("ae3e230d6cc44a7887e1f1450a453cb0") expect root.a==2.012342 tolerance 0.00001;
 @id("ad37e3947b1f4744bc7e27a190bba3f1") expect root.k==0.506099 tolerance 0.00001;

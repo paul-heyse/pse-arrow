@@ -37,6 +37,10 @@ pub struct ModelingDiagnosticPreparation {
     pub model: ModelingCasePreparation,
     /// Resolved physical nominals and numerical requirements of the case.
     pub numerics: Arc<ResolvedNumericalPolicy>,
+    /// Retained original route and structural assessment, including admission refusals.
+    pub route_decision: pse_backend_native::routing::Decision,
+    /// Bound request identity, independent of a native numerical attempt.
+    pub admission_identity: pse_ids::ContentHash,
     providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
 }
 impl ModelingDiagnosticPreparation {
@@ -114,6 +118,10 @@ pub struct ModelingDiagnostics {
     pub findings: Vec<BoundaryDiagnostic>,
     /// Structure counts of the case.
     pub statistics: BTreeMap<String, usize>,
+    /// The retained original structural and capability assessment.
+    pub route_decision: pse_backend_native::routing::Decision,
+    /// Bound request identity, independent of a native numerical attempt.
+    pub admission_identity: pse_ids::ContentHash,
     /// Dense analysis of the normalized Jacobian, when its budget allowed one; its rows and
     /// columns index [`Self::rows`] and [`Self::columns`].
     pub matrix: Option<MatrixReport<GlobalRow, GlobalCol>>,
@@ -230,26 +238,33 @@ impl ModelingDiagnostics {
             self.complete = false;
             return;
         }
-        for id in &diagnostic.sources {
-            let lineage = model.model.symbols.get(id).map(|s| &s.lineage).or_else(|| {
-                model
-                    .model
-                    .equations
-                    .iter()
-                    .find(|r| r.id == *id)
-                    .map(|r| &r.lineage)
-            });
-            if let Some(l) = lineage {
-                diagnostic.locations.push(SourceLocation {
-                    source: *id,
-                    path: l.path.clone(),
-                    name: None,
-                    start: None,
-                    end: None,
-                });
-            }
-        }
+        attribute(&mut diagnostic, model);
         self.findings.push(diagnostic);
+    }
+}
+/// Attach only authored lineage supplied by the selected compiler model.
+pub(super) fn attribute(
+    diagnostic: &mut BoundaryDiagnostic,
+    model: &pse_compiler::workspace::PreparedModeling,
+) {
+    for id in &diagnostic.sources {
+        let lineage = model.model.symbols.get(id).map(|s| &s.lineage).or_else(|| {
+            model
+                .model
+                .equations
+                .iter()
+                .find(|r| r.id == *id)
+                .map(|r| &r.lineage)
+        });
+        if let Some(l) = lineage {
+            diagnostic.locations.push(SourceLocation {
+                source: *id,
+                path: l.path.clone(),
+                name: None,
+                start: None,
+                end: None,
+            });
+        }
     }
 }
 impl ModelingPackage {
@@ -275,6 +290,8 @@ impl ModelingPackage {
                 cancel,
             )
             .await?;
+        let route_decision = resolved.route_decision()?;
+        let admission_identity = resolved.admission_identity(&route_decision)?;
         let physical = &resolved.model.case.compiled().quantities;
         let mut targets = resolved
             .model
@@ -296,6 +313,8 @@ impl ModelingPackage {
         Ok(ModelingDiagnosticPreparation {
             model: resolved.model,
             numerics,
+            route_decision,
+            admission_identity,
             providers: resolved.providers,
         })
     }
@@ -314,6 +333,8 @@ impl ModelingPackage {
             model: prepared,
             numerics,
             providers,
+            route_decision,
+            admission_identity,
         } = prepared;
         let product = prepared.model.compiled();
         let plan = &prepared.case.compiled().plan;
@@ -360,6 +381,17 @@ impl ModelingPackage {
                 .map(|t| t.nominal)
                 .ok_or_else(|| contract("diagnostic numerical target absent"))
         };
+        let assessment = route_decision
+            .structure
+            .as_ref()
+            .ok_or_else(|| contract("original diagnostic structural assessment absent"))?;
+        let equality_count = assessment
+            .equations
+            .iter()
+            .filter(|row| row.lower.is_some() && row.lower == row.upper)
+            .count();
+        let inequality_count = assessment.equations.len() - equality_count;
+        let free_count = assessment.variables.len();
         let mut report = ModelingDiagnostics {
             run_id: pse_operations::mint_id(),
             runtime: self.runtime.clone(),
@@ -368,30 +400,18 @@ impl ModelingPackage {
             point: values.clone(),
             profile: policy.profile.clone(),
             findings: vec![],
+            route_decision,
+            admission_identity,
             statistics: BTreeMap::from([
                 ("variables".into(), structure.variables().len()),
                 (
                     "fixed_variables".into(),
                     structure.variables().iter().filter(|v| v.fixed).count(),
                 ),
-                ("free_variables".into(), plan.columns().len()),
+                ("free_variables".into(), free_count),
                 ("parameters".into(), structure.parameters().len()),
-                (
-                    "equalities".into(),
-                    structure
-                        .rows()
-                        .iter()
-                        .filter(|r| r.lower == r.upper)
-                        .count(),
-                ),
-                (
-                    "inequalities".into(),
-                    structure
-                        .rows()
-                        .iter()
-                        .filter(|r| r.lower != r.upper)
-                        .count(),
-                ),
+                ("equalities".into(), equality_count),
+                ("inequalities".into(), inequality_count),
                 ("definitions".into(), product.model.instances.len()),
                 (
                     "equation_terms".into(),
@@ -1323,6 +1343,8 @@ impl ModelingPackage {
             model: prepared,
             numerics,
             providers,
+            route_decision: _,
+            admission_identity: _,
         } = prepared;
         let plan = &prepared.case.compiled().plan;
         let rows = plan

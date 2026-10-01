@@ -381,9 +381,8 @@ async fn stored_seed_reused_across_processes(
 ) {
     let cancel = CancelSource::new();
     let analysis = package
-        .declared_analysis(
+        .declared_execution(
             job.case,
-            job.route,
             Default::default(),
             job.settings.clone().profile().unwrap(),
             Default::default(),
@@ -392,7 +391,8 @@ async fn stored_seed_reused_across_processes(
         )
         .await
         .unwrap();
-    let prepared = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+    assert_eq!(analysis.route, job.route);
+    let prepared = package.prepare_declared(&analysis, &cancel).await.unwrap();
     let seeded = prepared
         .with_stored_start(operations, StoredStart::Latest)
         .await
@@ -434,7 +434,7 @@ async fn stored_seed_reused_across_processes(
     let seed = receipt.seed.as_ref().unwrap();
     assert_eq!(seed.compatibility.layout, stored.compatibility_stamp);
     // Its identity is in the result's lineage: the stored seed changes the request identity.
-    let unseeded = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+    let unseeded = package.prepare_declared(&analysis, &cancel).await.unwrap();
     let plain = unseeded.start().unwrap().wait().await.unwrap();
     let lineage =
         |r: &pse_runtime::workflow::RunResult| r.completion().unwrap().lineage[0].request_identity;
@@ -949,7 +949,6 @@ async fn study_parallel_workers_publish_once() {
                     physical,
                     modeling: vec![modeling],
                 },
-                route: pse_model::generated::enums::ModelingAnalysisRoute::Steady,
                 settings: settings(),
                 points,
                 retry: RetryPolicy::ONCE,

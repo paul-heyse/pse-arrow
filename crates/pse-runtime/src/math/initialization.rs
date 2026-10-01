@@ -555,7 +555,12 @@ impl MathService {
             },
         )?;
         let mut candidate = values;
-        if !commit_block(&mut candidate, &prepared.view.boundary, Some(&report)) {
+        if !commit_block(
+            &mut candidate,
+            &prepared.view.boundary,
+            Some(&report),
+            &prepared.profile.numerics,
+        ) {
             return Err(native::ProblemError::Contract(format!(
                 "conditional unit refused unqualified result: {:?}",
                 report.qualification
@@ -938,7 +943,12 @@ impl Blocks<'_> {
                     .await
                     .map_err(Arc::new);
                 let boundary = &self.prepared.blocks[index].boundary;
-                let committed_block = commit_block(&mut values, boundary, result.as_deref().ok());
+                let committed_block = commit_block(
+                    &mut values,
+                    boundary,
+                    result.as_deref().ok(),
+                    &self.numerics.policy,
+                );
                 self.attempts.push(BlockAttempt {
                     stage,
                     strategy: self.strategies[index],
@@ -1040,6 +1050,7 @@ impl Blocks<'_> {
         let previous = previous
             .map(|attempt| step.primal_seed().map(|seed| Predecessor { attempt, seed }))
             .transpose()?;
+        let numerical_policy = self.numerics.policy.clone();
         let (outcome, ()) = self
             .session
             .step(
@@ -1049,7 +1060,7 @@ impl Blocks<'_> {
                 self.progress.clone(),
                 self.owner.clone(),
                 self.cancel,
-                |outcome, _, _| ((), outcome.candidate_use().permits_use()),
+                move |outcome, _, _| ((), outcome.candidate_use(&numerical_policy).permits_use()),
             )
             .await?;
         match outcome {
@@ -1095,11 +1106,14 @@ pub(crate) fn commit_block(
     values: &mut CaseValues,
     b: &pse_structural::initialization::Block,
     report: Option<&SolveReport>,
+    policy: &pse_model::numerics::NumericalPolicy,
 ) -> bool {
     let Some(r) = report else { return false };
     // The native candidate-use decision is the only acceptance rule; commit adds the
     // block's own coordinate and finiteness checks.
-    if !crate::workflow::numerics::native_use(r).permits_use() || r.variables != b.members.columns {
+    if !crate::workflow::numerics::native_use(r, policy).permits_use()
+        || r.variables != b.members.columns
+    {
         return false;
     }
     let Some(c) = &r.candidate else { return false };
@@ -1167,15 +1181,30 @@ mod tests {
         let accuracy = ResolvedAccuracy::from_policy(&Default::default(), 1e-8).unwrap();
         r.termination.category = Termination::Limit;
         native::quality::qualify(&mut r, &accuracy);
-        assert!(!commit_block(&mut values, &boundary, Some(&r)));
+        assert!(!commit_block(
+            &mut values,
+            &boundary,
+            Some(&r),
+            &Default::default()
+        ));
         assert_eq!(values.scalars[&id(1)], 1.0);
         r.termination.category = Termination::Success;
         native::quality::qualify(&mut r, &accuracy);
         r.candidate.as_mut().unwrap().primal[0] = f64::NAN;
-        assert!(!commit_block(&mut values, &boundary, Some(&r)));
+        assert!(!commit_block(
+            &mut values,
+            &boundary,
+            Some(&r),
+            &Default::default()
+        ));
         assert_eq!(values.scalars[&id(1)], 1.0);
         r.candidate.as_mut().unwrap().primal[0] = 2.0;
-        assert!(commit_block(&mut values, &boundary, Some(&r)));
+        assert!(commit_block(
+            &mut values,
+            &boundary,
+            Some(&r),
+            &Default::default()
+        ));
         assert_eq!(values.scalars[&id(1)], 2.0);
     }
 }

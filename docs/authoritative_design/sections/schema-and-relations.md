@@ -561,19 +561,7 @@ engine binds from the earlier level's optimum and its tolerances.
 
 **The C3 engine** (Plan 22 C3, `pse-runtime::workflow::objectives`) optimizes the levels
 in priority order, each earlier level held within its degradation of its optimum `f*`,
-`max(abs, rel·|f*|)`. The route follows from the class. Linear and mixed-integer linear
-levels go to HiGHS as one native solve over a case structure that carries every level's
-objective (`pse.math.case-structure.v5`; `CoefficientProblem.objectives`,
-`Highs_passLinearObjectives` with blending off); HiGHS's record lists them as its
-`lexicographic` classes, and because HiGHS bounds an earlier level by the tighter of its two
-tolerances, the native route takes only levels with one of the two zero. Every other
-problem runs as a staged sequence of one step per level
-([§19.2](workflows-and-results.md#section-19-2)): the step's `objective.level` fact selects
-the level and `objective_bounds` bounds the earlier ones by β, so K levels prepare at most K
-structures and a repeated solve rebinds values only; each level starts from the previous
-level's accepted step, and a staged level needs a positive degradation, since an exactly
-active objective bound breaks the constraint qualification an interior point needs
-(ADR-0111 item 3). Level values are the observed weighted sums in original coordinates,
+`max(abs, rel·|f*|)`. A declared native lexicographic capability and its degradation convention determine whether the selected backend executes all priorities together; otherwise the same admitted backend executes staged levels. HiGHS declares its single-nonzero-tolerance convention, while a capability supporting the max convention may admit both tolerances. Each staged level selects `objective.level` and uses `objective_bounds` to hold earlier values through β. All stage views are admitted before the first attempt. Earlier priorities must finish optimization at sufficient accuracy; accepting a feasible limited incumbent as a result does not establish the optimum needed to advance. Explicit selection never falls back to another backend. A staged level needs positive degradation (ADR-0111 item 3; [ADR-0145](../../adr/0145-declared-execution-and-composed-qualification.md), proposed; authorized implementation). Level values are the observed weighted sums in original coordinates,
 published in `runtime.objective_levels`. *Tested* by `objective_members_parse_and_render`
 (authoring units), `objective_bounds_rows_generated_per_level`,
 `competing_objectives_without_priority_refused` and `dimensional_weighted_sum_refused`
@@ -591,8 +579,7 @@ and `objective_levels_prepare_once_per_level` (runtime units).
 > policy within the same decision (`authored.modeling_declarations` version 7).
 
 Case and test scopes in the modeling IR carry root bindings, values, fixed/free state,
-bounds and analysis choices. Initialized, steady, integrated and simultaneous fixture routes
-share the same definitions. A fixture retains expected outcomes, oracle provenance and
+bounds and analysis choices. `route steady|simultaneous|integrated;` and `procedure check|solve|initialize|integrate|shooting;` are independent authored choices. Rust defaults omitted clauses to steady Solve, admits valid combinations and procedure inputs, and produces `DeclaredExecution` for direct execution, initialization, inspection, diagnostics and studies. Initialization may retain a simultaneous route. Explicit initialization overrides must agree with authored choices; Python forwards optional choices to the same Rust owner. The removed `run` fixture clause has no compatibility parser. All routes share the same definitions. A fixture retains expected outcomes, oracle provenance and
 physical/relative tolerances. Conformance records derivative sampling as not applicable
 while free discrete variables remain: sampling perturbs a continuous oracle, and
 integrality is never relaxed implicitly. The seed price-taker fixture
@@ -633,7 +620,7 @@ piecewise constant, and `free` with optional `lower(…)`/`upper(…)` makes it 
 control whose authored values are the starting guesses; `mode name;` and
 `event guard direction(…) tolerance(…) reset(…) next(…);` declare its modes and
 directional events; `shoot single;` or `shoot multiple nodes(…);` states the shooting
-problem of a `run shooting` fixture, which needs at least one free schedule. The
+problem of a `procedure shooting` fixture, which needs at least one free schedule. The
 integrators consume them as described in
 [§13.5](workflows-and-results.md#section-13-5)–[§13.6](workflows-and-results.md#section-13-6);
 the runtime- and Python-only mode and event inputs are removed.

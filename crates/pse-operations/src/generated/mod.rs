@@ -12,5 +12,10 @@ pub const SCHEMA_SQL: &str = include_str!("schema.sql");
 /// Cornucopia's type mapping from store types to registry Rust types.
 pub const CORNUCOPIA_TOML: &str = include_str!("cornucopia.toml");
 pub mod copy;
+/// Registry-derived database layout verification, independent of recorded comments.
+pub mod layout;
 mod fingerprint;
-pub use fingerprint::{RECORD_SQL, SCHEMA_FINGERPRINT, SCHEMA_FINGERPRINT_HEX};
+pub use fingerprint::{
+    RECORD_SQL, SCHEMA_FINGERPRINT, SCHEMA_FINGERPRINT_HEX, CATALOG_FINGERPRINT_HEX,
+    OPERATIONS_FINGERPRINT_HEX, SHARED_VERSION,
+};

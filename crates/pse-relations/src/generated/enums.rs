@@ -5,48 +5,52 @@
 /// Registry-generated semantic values; native codecs remain local.
 pub use pse_model::generated::r#enums::{
     ArtifactReconstruction, AssertionStatus, AttemptKind, AttemptState, Authority,
-    BasisKind, BasisRule, BoundKind, BoundStatus, CandidateUse, ChangeKind,
-    ClarabelDirect, ClarabelMergeMethod, ClarabelMode, ClosureAssessment, ClosurePolicy,
-    ColumnRole, CompositionBasis, ComputationKind, ConstraintScalingScheme,
-    ConversionKind, CovarianceApproximation, DerivationGranularity, DerivedQuantity,
-    Determinism, DiagnosticCode, DiagnosticSeverity, DiffsolLinear, DiffsolMethod,
-    DualQualification, DynamicSensitivity, DynamicsMethod, EntityKind, EventDirection,
+    BasisKind, BasisRule, BoundKind, BoundStatus, CandidateBoundOrigin,
+    CandidateQualifier, CandidateRefusal, CandidateUse, ChangeKind, ClarabelDirect,
+    ClarabelMergeMethod, ClarabelMode, ClosureAssessment, ClosurePolicy, ColumnRole,
+    CompositionBasis, ComputationKind, ConstraintScalingScheme, ConversionKind,
+    CovarianceApproximation, DerivationGranularity, DerivedQuantity, Determinism,
+    DiagnosticCode, DiagnosticSeverity, DiffsolLinear, DiffsolMethod, DualQualification,
+    DynamicSensitivity, DynamicsMethod, EndpointPolicy, EntityKind, EventDirection,
     EvidenceUnavailableReason, ExternalDerivativeSource, FailureClass, FeralOrdering,
     FeralScaling, FindingSeverity, FitDerivatives, HessianMode, HighsMethod, IdPolicy,
-    IdasInitialization, InputConsumptionKind, IntervalEnd, IntervalMethod,
-    IntervalOutcome, InvariantKind, IpoptLinearSolver, JobState, KinsolOrthogonalization,
-    KinsolStrategy, MemberSelectionKind, MigrationOp, ModelingAccumulatorMode,
-    ModelingAnalysisRoute, ModelingAnnotationKind, ModelingApplicabilityBasis,
-    ModelingApplicabilityKind, ModelingApplicabilityOutcome, ModelingCellKind,
-    ModelingCheckBasis, ModelingCheckKind, ModelingConformanceKind,
+    IdasInitialization, IncumbentPolicy, InputConsumptionKind, IntervalEnd,
+    IntervalMethod, IntervalOutcome, InvariantKind, IpoptLinearSolver, JobState,
+    KinsolOrthogonalization, KinsolStrategy, MemberSelectionKind, MigrationOp,
+    ModelingAccumulatorMode, ModelingAnalysisRoute, ModelingAnnotationKind,
+    ModelingApplicabilityBasis, ModelingApplicabilityKind, ModelingApplicabilityOutcome,
+    ModelingCellKind, ModelingCheckBasis, ModelingCheckKind, ModelingConformanceKind,
     ModelingConformanceStatus, ModelingContributionRole, ModelingDataFacet,
     ModelingDeclarationKind, ModelingDiagnosticSampleStop, ModelingDiagonalPolicy,
     ModelingDiscreteInitialization, ModelingElasticObservation, ModelingEnvelopeExtent,
-    ModelingFactNamespace, ModelingFixtureBinding, ModelingFixtureExecution,
-    ModelingInitializationStep, ModelingKeyCellKind, ModelingKindFacet,
-    ModelingKnowledgeValueKind, ModelingLineageKind, ModelingMissingPolicy,
-    ModelingObjectiveRoute, ModelingPermissionTarget, ModelingRealValueKind,
+    ModelingFactNamespace, ModelingFixtureBinding, ModelingInitializationStep,
+    ModelingKeyCellKind, ModelingKindFacet, ModelingKnowledgeValueKind,
+    ModelingLineageKind, ModelingMissingPolicy, ModelingObjectiveRoute,
+    ModelingPermissionTarget, ModelingProcedure, ModelingRealValueKind,
     ModelingRealizationPolicy, ModelingStructuralRequirement, ModelingTransferDirection,
     ModelingTypeNode, ModelingUncertaintyKind, ModelingValidityLayer,
     ModelingVariableDomain, ModelingVersionOperator, MuStrategy, MumpsOrdering,
     Namespace, NativeAssurance, NativeBackend, NativeBoundaryClass, NativeCandidateKind,
     NativeCertificateAccuracy, NativeCertificateKind, NativeConstraintForm,
     NativeDependencyEvidenceKind, NativeDependencyKind, NativeDerivativeCapability,
-    NativeIneligibility, NativeInfeasibilityWitness, NativeMetricKind,
-    NativeObjectiveSense, NativeProblemClass, NativeQualification, NativeRayCoordinate,
-    NativeRunState, NativeSolveIntent, NativeStartPolicy, NativeTermination,
-    NativeWarmCapability, NumericalCoordinates, NumericalProvenanceField,
-    NumericalSource, NumericalTarget, ObservationTimeBasis, Opcode, OperationEffect,
-    PackageKind, PardisoMatching, PardisoOrdering, PounceMethod, Preconditioner,
-    PresolvePass, PresolvePolicyKind, PublicationKind, PublicationMemberRole,
-    QuantityAdditionKind, QuantityKindCategory, QuantityPreconditionKind,
-    QuantityScaleRule, QuantityShapeRule, RateBasis, ReductionKind, ReferenceRule,
-    ReferenceStateKind, RetentionPhase, RetentionReason, ReusePolicy, RuntimeTermination,
-    ScaleKind, SensitivityCorrector, SettlementOutcome, Severity, ShootingMethod,
-    SnapshotClass, SpralOrdering, SpralPivot, SpralScaling, Stability, StateSign,
-    StoredSeedKind, StoredSolutionOrigin, StudyPointState, StudyState, SubjectRule,
-    TearMethod, TerminationClass, TimeCoordinateKind, TrajectoryTermination, TrialPolicy,
-    TruthValue, WeightNormalization, WithheldReason,
+    NativeIneligibility, NativeInfeasibilityWitness, NativeLexicographicDegradation,
+    NativeLexicographicRealization, NativeMetricKind, NativeObjectiveSense,
+    NativeProblemClass, NativeQualification, NativeRayCoordinate, NativeRepresentation,
+    NativeRouteKind, NativeRouteRefusal, NativeRouteSelection, NativeRunState,
+    NativeSolveIntent, NativeStartPolicy, NativeStructuralMode, NativeStructuralPolicy,
+    NativeTermination, NativeWarmCapability, NumericalCoordinates,
+    NumericalProvenanceField, NumericalSource, NumericalTarget, ObservationTimeBasis,
+    Opcode, OperationEffect, PackageKind, PardisoMatching, PardisoOrdering, PounceMethod,
+    Preconditioner, PresolvePass, PresolvePolicyKind, PublicationKind,
+    PublicationMemberRole, QuantityAdditionKind, QuantityKindCategory,
+    QuantityPreconditionKind, QuantityScaleRule, QuantityShapeRule, RateBasis,
+    ReductionKind, ReferenceRule, ReferenceStateKind, RetentionPhase, RetentionReason,
+    ReusePolicy, RuntimeTermination, ScaleKind, SensitivityCorrector, SettlementOutcome,
+    Severity, ShootingMethod, SnapshotClass, SpralOrdering, SpralPivot, SpralScaling,
+    Stability, StateSign, StoredSeedKind, StoredSolutionOrigin, StructuralScopeKind,
+    StudyPointState, StudyState, SubjectRule, TearMethod, TerminationClass,
+    TimeCoordinateKind, TrajectoryTermination, TrialPolicy, TruthValue,
+    WeightNormalization, WithheldReason,
 };
 impl crate::columnar::ArrowValue for ArtifactReconstruction {
     fn append(
@@ -219,6 +223,63 @@ impl crate::columnar::ArrowValue for BoundKind {
     }
 }
 impl crate::columnar::ArrowValue for BoundStatus {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for CandidateBoundOrigin {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for CandidateQualifier {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for CandidateRefusal {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,
@@ -710,6 +771,25 @@ impl crate::columnar::ArrowValue for DynamicsMethod {
         crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
     }
 }
+impl crate::columnar::ArrowValue for EndpointPolicy {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
 impl crate::columnar::ArrowValue for EntityKind {
     fn append(
         &self,
@@ -945,6 +1025,25 @@ impl crate::columnar::ArrowValue for IdPolicy {
     }
 }
 impl crate::columnar::ArrowValue for IdasInitialization {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for IncumbentPolicy {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,
@@ -1577,25 +1676,6 @@ impl crate::columnar::ArrowValue for ModelingFixtureBinding {
         crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
     }
 }
-impl crate::columnar::ArrowValue for ModelingFixtureExecution {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, Some(self.as_str()))
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, None)
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
-    }
-}
 impl crate::columnar::ArrowValue for ModelingInitializationStep {
     fn append(
         &self,
@@ -1730,6 +1810,25 @@ impl crate::columnar::ArrowValue for ModelingObjectiveRoute {
     }
 }
 impl crate::columnar::ArrowValue for ModelingPermissionTarget {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for ModelingProcedure {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,
@@ -2210,6 +2309,44 @@ impl crate::columnar::ArrowValue for NativeInfeasibilityWitness {
         crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
     }
 }
+impl crate::columnar::ArrowValue for NativeLexicographicDegradation {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for NativeLexicographicRealization {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
 impl crate::columnar::ArrowValue for NativeMetricKind {
     fn append(
         &self,
@@ -2305,6 +2442,82 @@ impl crate::columnar::ArrowValue for NativeRayCoordinate {
         crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
     }
 }
+impl crate::columnar::ArrowValue for NativeRepresentation {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for NativeRouteKind {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for NativeRouteRefusal {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for NativeRouteSelection {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
 impl crate::columnar::ArrowValue for NativeRunState {
     fn append(
         &self,
@@ -2344,6 +2557,44 @@ impl crate::columnar::ArrowValue for NativeSolveIntent {
     }
 }
 impl crate::columnar::ArrowValue for NativeStartPolicy {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for NativeStructuralMode {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for NativeStructuralPolicy {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,
@@ -3264,6 +3515,25 @@ impl crate::columnar::ArrowValue for StoredSeedKind {
     }
 }
 impl crate::columnar::ArrowValue for StoredSolutionOrigin {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for StructuralScopeKind {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,

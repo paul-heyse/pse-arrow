@@ -33,6 +33,8 @@ enum Command {
     /// Report the server version, the connection target and the schema fingerprint; exits
     /// 1 when the server is unsupported or the schema records another fingerprint.
     Status,
+    /// Apply declared preservation-first transitions after draining workers and closing generations.
+    Migrate,
     /// Drop the `pse_ops` schema with everything in it and create it from this build's
     /// generated DDL. Destructive: the store holds regenerable data only.
     Reset,
@@ -68,7 +70,9 @@ async fn status(store: &Store) -> Result<bool, OperationsError> {
                 "schema:     MISMATCH, recorded {}",
                 recorded.as_deref().unwrap_or("<no fingerprint>")
             );
-            println!("run `just db-reset` to drop and recreate pse_ops (its data is regenerable)");
+            println!(
+                "quiesce workers and close generations, then run `just db-migrate`; unknown sources refuse without reset"
+            );
             false
         }
     };
@@ -79,6 +83,15 @@ async fn run(command: &Command, url: &str) -> Result<bool, OperationsError> {
     let store = Store::connect(url).await?;
     match command {
         Command::Status => status(&store).await,
+        Command::Migrate => {
+            store.migrate().await?;
+            println!(
+                "{}: schema transition verified at {}",
+                store.target(),
+                Store::expected_schema()
+            );
+            Ok(true)
+        }
         Command::Reset => {
             let opened = store.reset().await?;
             println!(

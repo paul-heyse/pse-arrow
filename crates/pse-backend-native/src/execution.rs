@@ -44,29 +44,11 @@ pub use runner::{
 };
 pub use scip::Settings as ScipSettings;
 
-/// The native input an adapter consumes. Runners build exactly this representation, so a
-/// workflow selects a runner by representation, never by backend.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Representation {
-    /// Smooth NLP callbacks through the shared presolve pipeline ([`NlpOracle`]).
-    Nlp,
-    /// Square residual equations in normalized coordinates ([`NleOracle`]).
-    Roots,
-    /// Sparse LP/MILP/QP coefficients in normalized coordinates ([`CoefficientProblem`]).
-    Coefficients,
-    /// Explicit cone data in normalized coordinates ([`ConicProblem`]).
-    Cone,
-    /// A factorable expression program over original case columns ([`FactorableProgram`]),
-    /// re-qualified against the original compiled model.
-    Factorable,
-    /// Trajectories owned by the integrator workflows; never algebraically routed.
-    Trajectory,
-}
-impl Representation {
-    /// Whether the algebraic router assesses adapters of this representation.
-    pub const fn algebraic(self) -> bool {
-        !matches!(self, Self::Trajectory)
-    }
+/// Registry-owned native representation, separately admitted from intent.
+pub use pse_model::generated::enums::NativeRepresentation as Representation;
+/// Whether the algebraic router assesses this registry-owned representation.
+pub const fn algebraic(representation: Representation) -> bool {
+    !matches!(representation, Representation::Trajectory)
 }
 
 /// The one capability record of an adapter (F21). Routing eligibility and the published
@@ -74,6 +56,10 @@ impl Representation {
 /// eligibility. Model-specific admission is a separate, contextual result.
 #[derive(Clone, Copy, Debug)]
 pub struct Capability {
+    /// Original-coordinate structural admission declared by this adapter.
+    pub structural: crate::structural::Policy,
+    /// Native interpretation of authored lexicographic degradation.
+    pub lexicographic_degradation: crate::routing::DegradationSupport,
     /// Representable mathematical classes.
     pub classes: &'static [ProblemClass],
     /// The classes automatic routing may choose this adapter for, a subset of `classes`;
@@ -125,6 +111,8 @@ impl Capability {
     pub fn row(&self, backend: Backend) -> pse_model::generated::runtime::solver_capabilities::Row {
         pse_model::generated::runtime::solver_capabilities::Row {
             backend,
+            structural_policy: self.structural,
+            lexicographic_degradation: self.lexicographic_degradation,
             classes: self.classes.to_vec(),
             automatic_classes: self.automatic_classes.to_vec(),
             derivatives: self.derivatives,

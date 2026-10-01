@@ -118,6 +118,9 @@ pub enum RunReport {
     Simulation(Box<super::ModelingTrajectory>),
     /// Native steady/transient parameter fitting.
     Fit(Box<super::FitReport>),
+    /// Joined shooting NLP plus original physical trajectory and composed acceptance.
+    #[cfg(feature = "solver-diffsol")]
+    Shooting(Box<super::ShootingReport>),
 }
 /// Immutable request representation, with no mutable native objects.
 #[derive(Clone, Debug)]
@@ -128,6 +131,14 @@ pub enum RunRequest {
     Simulation(Box<super::ModelingSimulation>),
     /// Compiled shared-parameter experiments.
     Fit(Box<super::PreparedFit>),
+    /// Admitted shooting problem and the exact requested initial coordinate vector.
+    #[cfg(feature = "solver-diffsol")]
+    Shooting {
+        /// Bound scientific problem admitted before dispatch.
+        problem: Arc<super::ShootingProblem>,
+        /// Caller-provided original coordinates, or the prepared defaults.
+        initial: Option<Vec<f64>>,
+    },
 }
 /// Immutable joined outcome. Table encoding/publication never invokes a solver again.
 #[derive(Debug)]
@@ -181,14 +192,7 @@ impl RunResult {
     /// Every requested candidate is a result under the requested usability policy.
     /// Seed-only and diagnostic-only candidates are never results (ADR-0106).
     pub fn usable(&self) -> bool {
-        use pse_model::generated::enums::CandidateUse;
-        !self.assessments.is_empty()
-            && self.assessments.iter().all(|a| {
-                matches!(
-                    a.usability,
-                    CandidateUse::Usable | CandidateUse::QualifiedUnclosed
-                )
-            })
+        !self.assessments.is_empty() && self.assessments.iter().all(|a| a.permits_result)
     }
     fn completed(mut self) -> Self {
         if let Ok(RunReport::Fit(r)) = &mut self.report
@@ -360,6 +364,96 @@ impl super::ModelingSimulation {
             };
             let cancelled = cancel.flag().load(std::sync::atomic::Ordering::Acquire);
             let result = RunResult::joined(run_id, runtime, request, None, report)
+                .finished(durable, cancelled)
+                .await;
+            sender.send_replace(Some(Arc::new(result)));
+        });
+        Ok(RunHandle {
+            lease,
+            receiver,
+            progress,
+            run_id,
+            attempt_id,
+        })
+    }
+}
+
+#[cfg(feature = "solver-diffsol")]
+impl super::ShootingProblem {
+    /// Start under the runtime's shared resource, cancellation and joined run lifecycle.
+    pub fn start(self: &Arc<Self>) -> Result<RunHandle, WorkflowError> {
+        self.start_requested(None)
+    }
+    /// Admit an explicit original-coordinate initial vector before native dispatch.
+    pub fn start_with_initial(
+        self: &Arc<Self>,
+        initial: Vec<f64>,
+    ) -> Result<RunHandle, WorkflowError> {
+        if initial.len() != self.initial_extent() || initial.iter().any(|v| !v.is_finite()) {
+            return Err(contract(
+                "shooting initial coordinate extent or nonfinite value",
+            ));
+        }
+        self.start_requested(Some(initial))
+    }
+    fn start_requested(
+        self: &Arc<Self>,
+        initial: Option<Vec<f64>>,
+    ) -> Result<RunHandle, WorkflowError> {
+        let runtime = self.runtime.clone();
+        let run_id: RunId = pse_operations::mint_id();
+        let mut durable = attempt_for(&runtime, None)?;
+        let progress = progress_for(256, durable.as_ref());
+        let cancel = FlightCancellation::default();
+        let (submission, signal) = submission(&cancel, &progress, durable.is_some());
+        let prepared = self.clone();
+        let start = initial.clone();
+        let handle = runtime.native().submit_with(
+            self.solver.controls.threads,
+            self.job_bytes()?,
+            submission,
+            move |flag, progress| {
+                let report = prepared.solve(run_id, flag, progress, start.as_deref())?;
+                let retained = report
+                    .numeric_bytes()
+                    .checked_add(prepared.solver.controls.report_allowance()?)
+                    .ok_or(MathRuntimeError::Limit("shooting result extent"))?;
+                Ok((RunReport::Shooting(Box::new(report)), retained))
+            },
+        )?;
+        let lease = Arc::new(Lease(cancel.clone(), None));
+        let attempt_id = durable.as_ref().map(DurableAttempt::attempt_id);
+        let (sender, receiver) = tokio::sync::watch::channel(None);
+        let request = RunRequest::Shooting {
+            problem: self.clone(),
+            initial,
+        };
+        tokio::spawn(async move {
+            let stop = cancel.clone();
+            if let Err(error) = admit(
+                &mut durable,
+                run_id,
+                &request,
+                admitted(signal),
+                Arc::new(move || stop.cancel()),
+            )
+            .await
+            {
+                handle.cancel();
+                let _ = handle.finish().await;
+                let refused =
+                    RunResult::joined(run_id, runtime, request, None, Err(Arc::new(error)))
+                        .refused(durable)
+                        .await;
+                sender.send_replace(Some(Arc::new(refused)));
+                return;
+            }
+            let (report, owner) = match handle.finish().await {
+                Ok((report, owner)) => (Ok(report), Some(owner)),
+                Err(error) => (Err(Arc::new(WorkflowError::Math(error))), None),
+            };
+            let cancelled = cancel.flag().load(std::sync::atomic::Ordering::Acquire);
+            let result = RunResult::joined(run_id, runtime, request, owner, report)
                 .finished(durable, cancelled)
                 .await;
             sender.send_replace(Some(Arc::new(result)));

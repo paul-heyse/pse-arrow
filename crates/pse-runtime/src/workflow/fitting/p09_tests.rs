@@ -29,7 +29,7 @@ fn source_case(
     let integrate =
         "integrate samples(160{s},161{s}) relative(1e-8) normalized_absolute(1e-8) step(1e-5{s});";
     let text = format!(
-        "package p {{ test Dynamic fixture {{dof 0; run integrated; {integrate}}} {body} test DynamicReset fixture {{dof 0; run integrated; {integrate} mode before; event hit[160{{s}}] direction(either) tolerance(1e-8{{s}}) reset(x[160{{s}}] = jump[160{{s}}]) next(after); mode after;}} {body} def Steady {{ param p: Scalar = 2; let y: Scalar = p; annotation check p(p > 0); }} }}"
+        "package p {{ test Dynamic fixture {{dof 0; route integrated; procedure integrate; {integrate}}} {body} test DynamicReset fixture {{dof 0; route integrated; procedure integrate; {integrate} mode before; event hit[160{{s}}] direction(either) tolerance(1e-8{{s}}) reset(x[160{{s}}] = jump[160{{s}}]) next(after); mode after;}} {body} def Steady {{ param p: Scalar = 2; let y: Scalar = p; annotation check p(p > 0); }} }}"
     );
     let mut rows = pse_authoring::language::parse(
         &text,

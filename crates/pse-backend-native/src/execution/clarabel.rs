@@ -16,6 +16,8 @@ use crate::{
 pub(super) struct Clarabel;
 pub(super) static ADAPTER: Clarabel = Clarabel;
 static CAPABILITY: Capability = Capability {
+    structural: crate::structural::Policy::NativeFeasibility,
+    lexicographic_degradation: crate::routing::DegradationSupport::Max,
     classes: &[
         ProblemClass::Linear,
         ProblemClass::ConvexQuadratic,

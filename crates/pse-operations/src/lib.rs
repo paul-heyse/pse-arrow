@@ -49,7 +49,7 @@ mod tables_tests;
 pub use error::{DriverError, InvariantKind, OperationsError, Target};
 pub use ids::mint_id;
 pub use listener::LISTENER_APPLICATION;
-pub use schema::{Opened, PHYSICAL_SQL, SchemaStatus};
+pub use schema::{MIGRATION_SOURCE, MigrationRefusal, Opened, PHYSICAL_SQL, SchemaStatus};
 pub use store::{
     DATABASE_URL_ENV, DEFAULT_DATABASE_URL, MINIMUM_SERVER_VERSION, ServerInfo, Store,
     StoreOptions, database_url_from_env,

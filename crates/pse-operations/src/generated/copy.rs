@@ -208,6 +208,13 @@ pub const RETENTION_MARKS: CopyIn = CopyIn {
     probe: "SELECT \"publication_id\", \"phase\", \"marked_at\", \"deleted_at\" FROM pse_ops.\"retention_marks\" WHERE false",
     columns: &["publication_id", "phase", "marked_at", "deleted_at"],
 };
+/// The binary copy into `schema_support_state` (runtime.operational_schema_support_state).
+pub const SCHEMA_SUPPORT_STATE: CopyIn = CopyIn {
+    table: "schema_support_state",
+    statement: "COPY pse_ops.\"schema_support_state\" (\"history\", \"shared_version\", \"source\", \"target\", \"ready\") FROM STDIN (FORMAT binary)",
+    probe: "SELECT \"history\", \"shared_version\", \"source\", \"target\", \"ready\" FROM pse_ops.\"schema_support_state\" WHERE false",
+    columns: &["history", "shared_version", "source", "target", "ready"],
+};
 /// The binary copy into `settlements` (runtime.operational_settlements).
 pub const SETTLEMENTS: CopyIn = CopyIn {
     table: "settlements",

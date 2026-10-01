@@ -39,6 +39,8 @@ impl RunResult {
             super::RunRequest::Simulation(_) => self.encode_simulation(),
             super::RunRequest::Modeling(_) => self.encode_modeling(),
             super::RunRequest::Fit(_) => self.encode_fit(),
+            #[cfg(feature = "solver-diffsol")]
+            super::RunRequest::Shooting { .. } => self.encode_shooting(),
         }
     }
 }

@@ -127,6 +127,8 @@ declared parts of the prepared profile:
 | Mode switches and state jumps | Authored fixture `mode` and `event guard direction(…) tolerance(…) reset(…) next(…)` clauses: guard row, complete reset rows, crossing direction (`EventDirection`), next mode and guard tolerance, all within one state/parameter layout; a directional event routes to IDAS, and IDAS events run without forward sensitivities |
 | Different initial state | Initial rows evaluated from time and parameters; change the parameters or declaration, not a stored trajectory |
 
+The default `endpoint fixed_horizon;` requires completion at the horizon. `endpoint declared_terminal_event(guard);` admits exactly one declared terminal guard without reset or successor. Both integrators retain an actual endpoint separately from the requested sample grid: state, mode, quadratures and live inputs before a coincident scheduled change. Runtime checks evaluate original endpoint obligations and conserved prefix closure there. Future observations remain missing, and whole-domain integrals keep their authored extent; an admitted prefix cannot supply them. `runtime.trajectory_endpoints` publishes canonical physical coordinates with stable IDs, endpoint satisfaction and prefix coverage ([ADR-0145](../../adr/0145-declared-execution-and-composed-qualification.md), proposed; authorized implementation).
+
 Located roots rewind to the native root time, apply the reset and mode change together
 with coincident input changes, then reinitialize before coincident sampling.
 Simultaneous actionable roots are refused. IDAES time utilities such as copying values
@@ -245,7 +247,7 @@ by continuity rows. A terminal objective takes its gradient from the forward sen
 the rows need anyway, and an integral one from the adjoint. The shooting NLP supplies first
 derivatives only, so it requires the limited-memory Hessian and refuses any other mode. A
 `ShootingReport` returns the solve, controls, node states, objective, continuity residual,
-trajectory and checks. A fixture selects it with `run shooting`, a `shoot single;` or
+trajectory and checks. A fixture selects it with `route integrated; procedure shooting;`, a `shoot single;` or
 `shoot multiple nodes(…);` clause and at least one free schedule
 (`ModelingSimulation::authored_shooting`); an integrated simulation admits the model's
 objective only when its fixture runs shooting. *Tested*
@@ -253,6 +255,8 @@ by `shooting_matches_simultaneous_optimum` (against an analytic optimum),
 `multiple_shooting_continuity_closes`, `shooting_path_bounds_hold_at_samples` and
 `shooting_fixture_needs_authored_controls` (runtime units) and
 `anchored_window_continues_the_horizon` (native backend units).
+
+Shooting's public `start`/`start_with_initial` enter the existing asynchronous run supervisor. The raw solve is internal. Cancellation, capacity, native destruction, completion and publication share the other run owners; optimizer facts and trajectory transport retain the composed permission. No second direct execution path remains.
 
 The integrator computes the consistent initial state from requested values and guesses;
 the report keeps both. Sensitivities cover initial and direct output parameter terms.

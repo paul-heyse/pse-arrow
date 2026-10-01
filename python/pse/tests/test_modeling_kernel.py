@@ -52,7 +52,7 @@ def test_conformance_runs_the_declared_reference_set(
     )
     source = """package pure {
       fn square(x:Scalar)->Scalar=x*x;
-      test positive fixture {dof 0; run pure; policy { limits items(1000); }} {
+      test positive fixture {dof 0; route steady; procedure check; policy { limits items(1000); }} {
         expect square(2)==4 tolerance 1e-12 relative 1e-8;
       }
     }"""
@@ -76,7 +76,14 @@ execution = "pure"
     (line,) = capsys.readouterr().out.splitlines()
     assert line.startswith("tiny: passed=True complete=True coverage=package checks=")
     assert line.endswith("fixtures=1 (passed 1)")
-    for suffix in (".arrow", ".fixtures.arrow", ".findings.arrow", ".parity.arrow"):
+    for suffix in (
+        ".arrow",
+        ".fixtures.arrow",
+        ".findings.arrow",
+        ".parity.arrow",
+        ".routes.arrow",
+        ".structure.arrow",
+    ):
         assert (reports / f"tiny{suffix}").is_file()
     # Plan 23 H6: the parity report is written beside the checks; this fixture names no
     # oracle, so it is not parity evidence.
@@ -125,13 +132,13 @@ def test_conformance_runs_only_selected_fixtures(
     (package / "models/pure.pse").write_text(
         f"""package pure {{
       fn square(x:Scalar)->Scalar=x*x;
-      @id("{first.to_hex()}") test first fixture {{dof 0; run pure;}} {{
+      @id("{first.to_hex()}") test first fixture {{dof 0; route steady; procedure check;}} {{
         expect square(2)==4 tolerance 1e-12;
       }}
-      @id("{second.to_hex()}") test second fixture {{dof 0; run pure;}} {{
+      @id("{second.to_hex()}") test second fixture {{dof 0; route steady; procedure check;}} {{
         expect square(3)==9 tolerance 1e-12;
       }}
-      @id("{wrong.to_hex()}") test wrong fixture {{dof 0; run pure;}} {{
+      @id("{wrong.to_hex()}") test wrong fixture {{dof 0; route steady; procedure check;}} {{
         expect square(1)==2 tolerance 1e-12;
       }}
     }}"""
@@ -291,7 +298,7 @@ def test_binary_documents_admit_keyed_rows_and_reject_integer_sequences(
       enum role {published}
       entity kind form {key subject:item by cas; attribute value:Time storage {s};}
       dataset bank:form provenance(origin,role.published) from "data/bank.parquet";
-      test converted fixture {dof 0; run pure;} {
+      test converted fixture {dof 0; route steady; procedure check;} {
         expect form[a].value==1{s} tolerance 1e-12{s};
       }
     }"""
@@ -334,7 +341,7 @@ def test_modeling_expansion_limits_are_explicit_and_isolated(
             {
                 "package.toml": manifest,
                 "models/limits.pse": """package limits {
-          test bounded fixture {dof 0; run steady;} {
+          test bounded fixture {dof 0; route steady; procedure solve;} {
             var x:Scalar; annotation start x(1); eq solution:x==2;
             expect x==2 tolerance 1e-8;
           }
@@ -408,7 +415,7 @@ def test_modeling_simulation_events_checks_and_terminal_reports(
  }
  case run fixture {
   dof 0;
-  run integrated;
+  route integrated; procedure integrate;
   integrate samples(0{s}, 0.25{s}, 0.75{s}, 2{s}) relative(1e-8)
    normalized_absolute(1e-8) step(1e-4{s}) quadrature_relative(1e-8)
    quadrature_absolute(root.area=1e-9{s});
@@ -786,7 +793,7 @@ def test_modeling_authored_fixture_shared_checks_and_owned_tables(
   @id("{identity(206).to_hex()}") annotation valid x(0,3);
  }}
  @id("{identity(207).to_hex()}") test sample
-  fixture {{ dof -1; policy {{ presolve off;
+  fixture {{ dof -1; route simultaneous; procedure initialize; policy {{ presolve off;
    derivatives step(1e-7) tolerance(1e-4) cells(100); }} fix root.x = 2; }} {{
   @id("{identity(208).to_hex()}") child root:D=D();
   @id("{identity(209).to_hex()}") expect root.x==2 tolerance 1e-6;
@@ -814,6 +821,22 @@ def test_modeling_authored_fixture_shared_checks_and_owned_tables(
     assert conformance.complete, checks.to_pylist()
     assert conformance.fixtures() == (identity(207),)
     extracted = conformance.result(declaration(207))
+    routes = pa.table(conformance.admission("runtime.route_decisions"))
+    structure = pa.table(conformance.admission("runtime.structural_assessments"))
+    assert routes.num_rows == 1
+    assert structure.num_rows == 1
+    with pytest.raises(pse.InspectionError, match="admission table absent"):
+        conformance.admission("runtime.modeling_checks")
+    assert (
+        package.inspect(declaration(207), settings)["execution"]["procedure"]
+        == "initialize"
+    )
+    assert (
+        package.inspect(declaration(207), settings)["execution"]["route"]
+        == "simultaneous"
+    )
+    with pytest.raises(pse.InspectionError, match="authored solve procedure"):
+        package.prepare_solve(declaration(207), settings)
     initialized = package.initialize(declaration(207), settings, maximum_attempts=2)
     assert initialized.completed
     assert initialized.failure is None
@@ -854,7 +877,7 @@ def test_modeling_authored_fixture_shared_checks_and_owned_tables(
     failed_predecessor = isolated.failure(2)
     assert failed_predecessor is not None
     assert failed_predecessor.rule == "modeling.study.predecessor"
-    with pytest.raises(pse.InspectionError, match="integrated time axis"):
+    with pytest.raises(pse.InspectionError, match="authored integration procedure"):
         package.simulate(
             declaration(207),
             pse.SimulationSettings(
@@ -1042,11 +1065,11 @@ def test_pure_conformance_has_no_process_runtime_and_retains_findings(
     source = """package pure {
       fn square(x:Scalar)->Scalar=x*x;
       fn root(x:Scalar)->Scalar valid(x >= 0) = x;
-      test positive fixture {dof 0; run pure;} {
+      test positive fixture {dof 0; route steady; procedure check;} {
         expect square(2)==4 tolerance 1e-12 relative 1e-8;
       }
       test negative fixture {
-        dof 0; run pure; failure trial_rejected validity(form) form(root) variable(x);
+        dof 0; route steady; procedure check; failure trial_rejected validity(form) form(root) variable(x);
       } {expect root(-1)==1 tolerance 0;}
     }"""
     documents = {"package.toml": manifest, "models/pure.pse": source}

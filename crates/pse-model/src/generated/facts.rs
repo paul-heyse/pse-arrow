@@ -229,6 +229,10 @@ pub enum FactBatch {
     r#RuntimeOperationalRetentionMarks(
         Vec<super::r#runtime::r#operational_retention_marks::Row>,
     ),
+    #[doc = stringify!(r#RuntimeOperationalSchemaSupportState)]
+    r#RuntimeOperationalSchemaSupportState(
+        Vec<super::r#runtime::r#operational_schema_support_state::Row>,
+    ),
     #[doc = stringify!(r#RuntimeOperationalSettlements)]
     r#RuntimeOperationalSettlements(
         Vec<super::r#runtime::r#operational_settlements::Row>,
@@ -279,6 +283,8 @@ pub enum FactBatch {
     r#RuntimeResponseSensitivities(Vec<super::r#runtime::r#response_sensitivities::Row>),
     #[doc = stringify!(r#RuntimeRetainedVersions)]
     r#RuntimeRetainedVersions(Vec<super::r#runtime::r#retained_versions::Row>),
+    #[doc = stringify!(r#RuntimeRouteDecisions)]
+    r#RuntimeRouteDecisions(Vec<super::r#runtime::r#route_decisions::Row>),
     #[doc = stringify!(r#RuntimeRunLineage)]
     r#RuntimeRunLineage(Vec<super::r#runtime::r#run_lineage::Row>),
     #[doc = stringify!(r#RuntimeSimulationEvents)]
@@ -297,8 +303,12 @@ pub enum FactBatch {
     r#RuntimeSolveVariables(Vec<super::r#runtime::r#solve_variables::Row>),
     #[doc = stringify!(r#RuntimeSolverCapabilities)]
     r#RuntimeSolverCapabilities(Vec<super::r#runtime::r#solver_capabilities::Row>),
+    #[doc = stringify!(r#RuntimeStructuralAssessments)]
+    r#RuntimeStructuralAssessments(Vec<super::r#runtime::r#structural_assessments::Row>),
     #[doc = stringify!(r#RuntimeStudyOutcomes)]
     r#RuntimeStudyOutcomes(Vec<super::r#runtime::r#study_outcomes::Row>),
+    #[doc = stringify!(r#RuntimeTrajectoryEndpoints)]
+    r#RuntimeTrajectoryEndpoints(Vec<super::r#runtime::r#trajectory_endpoints::Row>),
     #[doc = stringify!(r#RuntimeValidationFindings)]
     r#RuntimeValidationFindings(Vec<super::r#runtime::r#validation_findings::Row>),
 }
@@ -566,8 +576,8 @@ impl FactBatch {
             }
             Self::r#RuntimeCandidateAssessments(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    131u8, 145u8, 51u8, 75u8, 0u8, 71u8, 41u8, 252u8, 240u8, 88u8, 36u8,
-                    236u8, 189u8, 39u8, 122u8, 50u8,
+                    80u8, 155u8, 154u8, 158u8, 146u8, 23u8, 67u8, 159u8, 46u8, 196u8,
+                    223u8, 153u8, 229u8, 52u8, 130u8, 193u8,
                 ])
             }
             Self::r#RuntimeChangeEvents(_) => {
@@ -834,6 +844,12 @@ impl FactBatch {
                     228u8, 231u8, 216u8, 145u8, 29u8, 6u8,
                 ])
             }
+            Self::r#RuntimeOperationalSchemaSupportState(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    101u8, 180u8, 50u8, 9u8, 197u8, 138u8, 227u8, 17u8, 248u8, 110u8,
+                    167u8, 247u8, 249u8, 196u8, 142u8, 80u8,
+                ])
+            }
             Self::r#RuntimeOperationalSettlements(_) => {
                 pse_ids::SemanticId::from_bytes([
                     29u8, 81u8, 183u8, 242u8, 107u8, 122u8, 182u8, 145u8, 17u8, 239u8,
@@ -948,6 +964,12 @@ impl FactBatch {
                     16u8, 114u8, 47u8, 126u8, 132u8, 242u8,
                 ])
             }
+            Self::r#RuntimeRouteDecisions(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    7u8, 206u8, 147u8, 183u8, 38u8, 180u8, 166u8, 147u8, 45u8, 72u8,
+                    29u8, 1u8, 216u8, 180u8, 201u8, 212u8,
+                ])
+            }
             Self::r#RuntimeRunLineage(_) => {
                 pse_ids::SemanticId::from_bytes([
                     166u8, 157u8, 234u8, 196u8, 148u8, 125u8, 22u8, 34u8, 31u8, 4u8,
@@ -998,14 +1020,26 @@ impl FactBatch {
             }
             Self::r#RuntimeSolverCapabilities(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    84u8, 77u8, 24u8, 247u8, 10u8, 33u8, 22u8, 151u8, 224u8, 120u8, 63u8,
-                    0u8, 186u8, 139u8, 212u8, 230u8,
+                    12u8, 143u8, 159u8, 240u8, 101u8, 92u8, 81u8, 211u8, 8u8, 78u8, 5u8,
+                    86u8, 117u8, 30u8, 119u8, 29u8,
+                ])
+            }
+            Self::r#RuntimeStructuralAssessments(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    4u8, 119u8, 105u8, 25u8, 113u8, 197u8, 155u8, 45u8, 91u8, 7u8, 165u8,
+                    103u8, 155u8, 103u8, 65u8, 64u8,
                 ])
             }
             Self::r#RuntimeStudyOutcomes(_) => {
                 pse_ids::SemanticId::from_bytes([
                     38u8, 103u8, 45u8, 120u8, 154u8, 225u8, 38u8, 51u8, 197u8, 241u8,
                     67u8, 7u8, 112u8, 253u8, 20u8, 135u8,
+                ])
+            }
+            Self::r#RuntimeTrajectoryEndpoints(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    130u8, 66u8, 78u8, 156u8, 33u8, 155u8, 176u8, 19u8, 141u8, 96u8,
+                    74u8, 245u8, 39u8, 210u8, 70u8, 180u8,
                 ])
             }
             Self::r#RuntimeValidationFindings(_) => {
@@ -1107,6 +1141,7 @@ impl FactBatch {
             Self::r#RuntimeOperationalPublications(rows) => rows.len(),
             Self::r#RuntimeOperationalReaderLeases(rows) => rows.len(),
             Self::r#RuntimeOperationalRetentionMarks(rows) => rows.len(),
+            Self::r#RuntimeOperationalSchemaSupportState(rows) => rows.len(),
             Self::r#RuntimeOperationalSettlements(rows) => rows.len(),
             Self::r#RuntimeOperationalSolutions(rows) => rows.len(),
             Self::r#RuntimeOperationalSourceBundles(rows) => rows.len(),
@@ -1126,6 +1161,7 @@ impl FactBatch {
             Self::r#RuntimeResponseDirections(rows) => rows.len(),
             Self::r#RuntimeResponseSensitivities(rows) => rows.len(),
             Self::r#RuntimeRetainedVersions(rows) => rows.len(),
+            Self::r#RuntimeRouteDecisions(rows) => rows.len(),
             Self::r#RuntimeRunLineage(rows) => rows.len(),
             Self::r#RuntimeSimulationEvents(rows) => rows.len(),
             Self::r#RuntimeSimulationSamples(rows) => rows.len(),
@@ -1135,7 +1171,9 @@ impl FactBatch {
             Self::r#RuntimeSolveRuns(rows) => rows.len(),
             Self::r#RuntimeSolveVariables(rows) => rows.len(),
             Self::r#RuntimeSolverCapabilities(rows) => rows.len(),
+            Self::r#RuntimeStructuralAssessments(rows) => rows.len(),
             Self::r#RuntimeStudyOutcomes(rows) => rows.len(),
+            Self::r#RuntimeTrajectoryEndpoints(rows) => rows.len(),
             Self::r#RuntimeValidationFindings(rows) => rows.len(),
         }
     }
@@ -1589,6 +1627,11 @@ impl FactBatch {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
             }
+            Self::r#RuntimeOperationalSchemaSupportState(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
             Self::r#RuntimeOperationalSettlements(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
@@ -1684,6 +1727,11 @@ impl FactBatch {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
             }
+            Self::r#RuntimeRouteDecisions(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
             Self::r#RuntimeRunLineage(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
@@ -1729,7 +1777,17 @@ impl FactBatch {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
             }
+            Self::r#RuntimeStructuralAssessments(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
             Self::r#RuntimeStudyOutcomes(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeTrajectoryEndpoints(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -2114,6 +2172,12 @@ impl FactBatch {
                         vec![row.clone()],
                     ))
             }
+            Self::r#RuntimeOperationalSchemaSupportState(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeOperationalSchemaSupportState(
+                        vec![row.clone()],
+                    ))
+            }
             Self::r#RuntimeOperationalSettlements(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeOperationalSettlements(vec![row.clone()]))
@@ -2196,6 +2260,10 @@ impl FactBatch {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeRetainedVersions(vec![row.clone()]))
             }
+            Self::r#RuntimeRouteDecisions(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeRouteDecisions(vec![row.clone()]))
+            }
             Self::r#RuntimeRunLineage(rows) => {
                 rows.get(index).map(|row| Self::r#RuntimeRunLineage(vec![row.clone()]))
             }
@@ -2228,9 +2296,17 @@ impl FactBatch {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeSolverCapabilities(vec![row.clone()]))
             }
+            Self::r#RuntimeStructuralAssessments(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeStructuralAssessments(vec![row.clone()]))
+            }
             Self::r#RuntimeStudyOutcomes(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeStudyOutcomes(vec![row.clone()]))
+            }
+            Self::r#RuntimeTrajectoryEndpoints(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeTrajectoryEndpoints(vec![row.clone()]))
             }
             Self::r#RuntimeValidationFindings(rows) => {
                 rows.get(index)
@@ -3156,6 +3232,17 @@ impl FactBatch {
                 }
             }
             (
+                Self::r#RuntimeOperationalSchemaSupportState(left),
+                Self::r#RuntimeOperationalSchemaSupportState(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
                 Self::r#RuntimeOperationalSettlements(left),
                 Self::r#RuntimeOperationalSettlements(right),
             ) => {
@@ -3361,6 +3448,17 @@ impl FactBatch {
                     _ => false,
                 }
             }
+            (
+                Self::r#RuntimeRouteDecisions(left),
+                Self::r#RuntimeRouteDecisions(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
             (Self::r#RuntimeRunLineage(left), Self::r#RuntimeRunLineage(right)) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -3448,7 +3546,29 @@ impl FactBatch {
                     _ => false,
                 }
             }
+            (
+                Self::r#RuntimeStructuralAssessments(left),
+                Self::r#RuntimeStructuralAssessments(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
             (Self::r#RuntimeStudyOutcomes(left), Self::r#RuntimeStudyOutcomes(right)) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeTrajectoryEndpoints(left),
+                Self::r#RuntimeTrajectoryEndpoints(right),
+            ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
                         crate::SemanticEq::semantic_eq(left, right)
@@ -4089,6 +4209,13 @@ impl FactBatch {
                             .saturating_add(size_of::<Self>())
                     })
             }
+            Self::r#RuntimeOperationalSchemaSupportState(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
             Self::r#RuntimeOperationalSettlements(rows) => {
                 rows.get(index)
                     .map(|row| {
@@ -4222,6 +4349,13 @@ impl FactBatch {
                             .saturating_add(size_of::<Self>())
                     })
             }
+            Self::r#RuntimeRouteDecisions(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
             Self::r#RuntimeRunLineage(rows) => {
                 rows.get(index)
                     .map(|row| {
@@ -4285,7 +4419,21 @@ impl FactBatch {
                             .saturating_add(size_of::<Self>())
                     })
             }
+            Self::r#RuntimeStructuralAssessments(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
             Self::r#RuntimeStudyOutcomes(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeTrajectoryEndpoints(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
@@ -5587,6 +5735,17 @@ impl FactBatch {
                 }
             }
             (
+                Self::r#RuntimeOperationalSchemaSupportState(left),
+                Self::r#RuntimeOperationalSchemaSupportState(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#history, &right.r#history)
+                    }
+                    _ => false,
+                }
+            }
+            (
                 Self::r#RuntimeOperationalSettlements(left),
                 Self::r#RuntimeOperationalSettlements(right),
             ) => {
@@ -5932,6 +6091,20 @@ impl FactBatch {
                     _ => false,
                 }
             }
+            (
+                Self::r#RuntimeRouteDecisions(left),
+                Self::r#RuntimeRouteDecisions(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(
+                            &left.r#request_identity,
+                            &right.r#request_identity,
+                        ) && crate::SemanticEq::semantic_eq(&left.r#step, &right.r#step)
+                    }
+                    _ => false,
+                }
+            }
             (Self::r#RuntimeRunLineage(left), Self::r#RuntimeRunLineage(right)) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -6083,6 +6256,20 @@ impl FactBatch {
                     _ => false,
                 }
             }
+            (
+                Self::r#RuntimeStructuralAssessments(left),
+                Self::r#RuntimeStructuralAssessments(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(
+                            &left.r#request_identity,
+                            &right.r#request_identity,
+                        ) && crate::SemanticEq::semantic_eq(&left.r#step, &right.r#step)
+                    }
+                    _ => false,
+                }
+            }
             (Self::r#RuntimeStudyOutcomes(left), Self::r#RuntimeStudyOutcomes(right)) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -6094,6 +6281,17 @@ impl FactBatch {
                                 &left.r#point_index,
                                 &right.r#point_index,
                             )
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeTrajectoryEndpoints(left),
+                Self::r#RuntimeTrajectoryEndpoints(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#run_id, &right.r#run_id)
                     }
                     _ => false,
                 }
@@ -6538,6 +6736,10 @@ impl FactBatch {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#publication_id, &mut hash);
             }
+            Self::r#RuntimeOperationalSchemaSupportState(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#history, &mut hash);
+            }
             Self::r#RuntimeOperationalSettlements(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#settlement_id, &mut hash);
@@ -6644,6 +6846,11 @@ impl FactBatch {
                 crate::SemanticFrame::frame(&row.r#through_version, &mut hash);
                 crate::SemanticFrame::frame(&row.r#reason, &mut hash);
             }
+            Self::r#RuntimeRouteDecisions(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#request_identity, &mut hash);
+                crate::SemanticFrame::frame(&row.r#step, &mut hash);
+            }
             Self::r#RuntimeRunLineage(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
@@ -6696,10 +6903,19 @@ impl FactBatch {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#backend, &mut hash);
             }
+            Self::r#RuntimeStructuralAssessments(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#request_identity, &mut hash);
+                crate::SemanticFrame::frame(&row.r#step, &mut hash);
+            }
             Self::r#RuntimeStudyOutcomes(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#study_id, &mut hash);
                 crate::SemanticFrame::frame(&row.r#point_index, &mut hash);
+            }
+            Self::r#RuntimeTrajectoryEndpoints(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
             }
             Self::r#RuntimeValidationFindings(rows) => {
                 let row = rows.get(index)?;
@@ -7302,6 +7518,13 @@ impl FactBatch {
                 Ok(())
             }
             (
+                Self::r#RuntimeOperationalSchemaSupportState(left),
+                Self::r#RuntimeOperationalSchemaSupportState(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
                 Self::r#RuntimeOperationalSettlements(left),
                 Self::r#RuntimeOperationalSettlements(mut right),
             ) => {
@@ -7434,6 +7657,13 @@ impl FactBatch {
                 left.append(&mut right);
                 Ok(())
             }
+            (
+                Self::r#RuntimeRouteDecisions(left),
+                Self::r#RuntimeRouteDecisions(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
             (Self::r#RuntimeRunLineage(left), Self::r#RuntimeRunLineage(mut right)) => {
                 left.append(&mut right);
                 Ok(())
@@ -7492,8 +7722,22 @@ impl FactBatch {
                 Ok(())
             }
             (
+                Self::r#RuntimeStructuralAssessments(left),
+                Self::r#RuntimeStructuralAssessments(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
                 Self::r#RuntimeStudyOutcomes(left),
                 Self::r#RuntimeStudyOutcomes(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeTrajectoryEndpoints(left),
+                Self::r#RuntimeTrajectoryEndpoints(mut right),
             ) => {
                 left.append(&mut right);
                 Ok(())
@@ -7678,6 +7922,9 @@ impl crate::HeapUsage for FactBatch {
             Self::r#RuntimeOperationalRetentionMarks(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
+            Self::r#RuntimeOperationalSchemaSupportState(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
             Self::r#RuntimeOperationalSettlements(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
@@ -7721,6 +7968,7 @@ impl crate::HeapUsage for FactBatch {
                 crate::HeapUsage::heap_bytes(rows)
             }
             Self::r#RuntimeRetainedVersions(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#RuntimeRouteDecisions(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeRunLineage(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeSimulationEvents(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeSimulationSamples(rows) => crate::HeapUsage::heap_bytes(rows),
@@ -7730,7 +7978,13 @@ impl crate::HeapUsage for FactBatch {
             Self::r#RuntimeSolveRuns(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeSolveVariables(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeSolverCapabilities(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#RuntimeStructuralAssessments(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
             Self::r#RuntimeStudyOutcomes(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#RuntimeTrajectoryEndpoints(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
             Self::r#RuntimeValidationFindings(rows) => crate::HeapUsage::heap_bytes(rows),
         }
     }

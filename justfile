@@ -127,6 +127,11 @@ db-reset:
     cargo run --quiet --locked -p pse-operations --bin pse-ops -- --url {{ quote(db_url) }} reset
 
 [group('env')]
+[doc('Explicit preservation-first operational schema transitions; drain workers and close store generations first')]
+db-migrate:
+    cargo run --quiet --locked -p pse-operations --bin pse-ops -- --url {{ quote(db_url) }} migrate
+
+[group('env')]
 [doc('Operational store: server version (>= 18), reachability and schema fingerprint; exits 1 when another build created the schema')]
 db-status:
     cargo run --quiet --locked -p pse-operations --bin pse-ops -- --url {{ quote(db_url) }} status

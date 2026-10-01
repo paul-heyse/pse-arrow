@@ -19,14 +19,14 @@
 }
 @id("71747aed2c285d6e89870567c438e0f4") fn liquid_start(j:chemistry.species)->Scalar=guesses[j].liquid;
 @id("cc890829eff55918a0539029d375e2c6") fn vapor_start(j:chemistry.species)->Scalar=guesses[j].vapor;
-@id("68ba8dc2d6b05d9a9fe1b1a3625d8015") test heater_recycle oracle references.plan14_thermo_reference fixture {dof 0; run steady; fix root.duty=16204.445642740735{W};} {
+@id("68ba8dc2d6b05d9a9fe1b1a3625d8015") test heater_recycle oracle references.plan14_thermo_reference fixture {dof 0; route steady; procedure solve; fix root.duty=16204.445642740735{W};} {
 @id("aa9f8235d1d24e0ea675fc5ff104dc0d") permission selected_unknown_fit families(pcsaft_parameters.nonassociating,properties.predictive_rule) allow_unknown true allow_extrapolation false;
 @id("0036670f422252b0b8bba9f4709d0cb3") child root:homogeneous_units.HeaterRecycle=homogeneous_units.HeaterRecycle(selected=vessel_fixtures.alkanes,law=pcsaft_data.potential,ideal_h=vessel_fixtures.ideal_enthalpy,composition=vessel_fixtures.fraction);
 @id("964b1c0ea202559c8488c703872008f2") expect root.phase.T==350{K} tolerance 0.00001{K};
 @id("73792f4040a15d0caf4a3bab8f0e6541") expect root.phase.rho==34.565566349336066{mol/m^3} tolerance 0.00001{mol/m^3};
 @id("23f779ec23815d84b4611b52f9b3d5f0") expect root.recycle==5{mol/s} tolerance 0.000001{mol/s};
 }
-@id("040af20814bc57abb565c3c7f680be05") test pcsaft_flash oracle references.plan14_thermo_reference fixture {dof 0; run steady;} {
+@id("040af20814bc57abb565c3c7f680be05") test pcsaft_flash oracle references.plan14_thermo_reference fixture {dof 0; route steady; procedure solve;} {
 @id("64c9b35f87a0421bb3f42aceb92d9e6e") permission selected_unknown_fit families(pcsaft_parameters.nonassociating,properties.predictive_rule) allow_unknown true allow_extrapolation false;
 @id("316d5055b07151bc9e81cd760e65d0f1") child root:homogeneous_units.HomogeneousFlash=homogeneous_units.HomogeneousFlash(selected=vessel_fixtures.alkanes,law=pcsaft_data.potential,feed=vessel_fixtures.fraction,liquid_initial=liquid_start,vapor_initial=vapor_start);
 @id("ef1ee24f0a72563a99e9c1103539f146") expect root.liquid.rho==12417.555686826916{mol/m^3} tolerance 0.001{mol/m^3};
@@ -39,7 +39,7 @@
 @id("63a3c375922d53fabbef85f059133309") expect root.vapor.amount[chem.propane]==0.26095060565533373{mol} tolerance 0.000001{mol};
 @id("e46c760e47bb5f418e7ecb4fc48f23f4") expect root.beta==0.4097336824998727 tolerance 0.000001;
 }
-@id("079a378ba3ce46728b32c87f4fe6a3df") test heater_optimization oracle references.plan14_thermo_reference fixture {dof 1; run steady; intent optimize; value root.phase.T=363.15{K};} {
+@id("079a378ba3ce46728b32c87f4fe6a3df") test heater_optimization oracle references.plan14_thermo_reference fixture {dof 1; route steady; procedure solve; intent optimize; value root.phase.T=363.15{K};} {
 @id("f7d6d3131ade4435aded7362cdd50b3d") permission selected_unknown_fit families(pcsaft_parameters.nonassociating,properties.predictive_rule) allow_unknown true allow_extrapolation false;
 @id("9c1f72c683de425fba4e1c7bcd48ddfa") child root:homogeneous_units.HeaterRecycle=homogeneous_units.HeaterRecycle(selected=vessel_fixtures.alkanes,law=pcsaft_data.potential,ideal_h=vessel_fixtures.ideal_enthalpy,composition=vessel_fixtures.fraction);
 @id("de201fc5c15d451288ec3cd777e8dbb3") eq minimum_temperature:root.phase.T>=350{K};
@@ -50,7 +50,7 @@
 }
 // SCIP's default presolve cuts off the independently feasible PC-SAFT solution.
 // The isolated run without presolve proves the unchanged global optimum.
-@id("e0d4fbe894134e60bb4e364dddae9c5f") test heater_optimization_certified oracle references.plan14_thermo_reference fixture {dof 1; run steady; intent certify; policy { options { "presolving/maxrounds" = 0; }; limits foreign_bytes(2147483648); } value root.phase.T=363.15{K};} {
+@id("e0d4fbe894134e60bb4e364dddae9c5f") test heater_optimization_certified oracle references.plan14_thermo_reference fixture {dof 1; route steady; procedure solve; intent certify; policy { options { "presolving/maxrounds" = 0; }; limits foreign_bytes(2147483648); } value root.phase.T=363.15{K};} {
 @id("898ceb69247942bdac65ee7d10bdb674") permission selected_unknown_fit families(pcsaft_parameters.nonassociating,properties.predictive_rule) allow_unknown true allow_extrapolation false;
 @id("223664523f9740148df331660748bf88") child root:homogeneous_units.HeaterRecycle=homogeneous_units.HeaterRecycle(selected=vessel_fixtures.alkanes,law=pcsaft_data.potential,ideal_h=vessel_fixtures.ideal_enthalpy,composition=vessel_fixtures.fraction);
 @id("de6c5a0b7b154e0682e178b6af998dd4") eq minimum_temperature:root.phase.T>=350{K};

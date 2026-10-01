@@ -956,6 +956,14 @@
       ],
       "type": "object"
     },
+    "IncumbentPolicy": {
+      "enum": [
+        "refuse",
+        "accept_feasible",
+        "accept_within_gap"
+      ],
+      "type": "string"
+    },
     "IpoptLinear": {
       "description": "One linked symmetric-indefinite factorization with its typed parameters. HSL solvers and\nthe runtime-loaded Pardiso are not representable (ADR-0108 item 9). Each kind is spelled\nas its [`IpoptLinearSolver`], Ipopt's native `linear_solver` name.",
       "oneOf": [
@@ -1353,6 +1361,11 @@
           "description": "Dimensionless relative continuous optimality gap.",
           "format": "double",
           "type": "number"
+        },
+        "incumbent": {
+          "$ref": "#/$defs/IncumbentPolicy",
+          "default": "refuse",
+          "description": "Whether a validated original-feasible limit incumbent may be used as a result."
         },
         "integrality": {
           "default": 1e-8,
@@ -1778,6 +1791,7 @@
             "closure": "require_closed",
             "gap_absolute": 1e-8,
             "gap_relative": 1e-8,
+            "incumbent": "refuse",
             "integrality": 1e-8,
             "kkt": {
               "complementarity": 1e-8,
@@ -1904,9 +1918,14 @@
             "integer",
             "null"
           ]
+        },
+        "route": {
+          "$ref": "#/$defs/ModelingAnalysisRoute",
+          "description": "The authored route admitted when this point was queued."
         }
       },
       "required": [
+        "route",
         "case",
         "binding_hash"
       ],
@@ -1960,7 +1979,7 @@
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "Version 1 of a study's definition: the store's `definition` document and the content of\nthe study's request identity.",
+  "description": "Version 2 of a study's definition: the store's `definition` document and the content of\nthe study's request identity.",
   "properties": {
     "modeling": {
       "description": "The source bundles of the modeling package closure, in load order.",
@@ -1982,17 +2001,13 @@
       },
       "type": "array"
     },
-    "route": {
-      "$ref": "#/$defs/ModelingAnalysisRoute",
-      "description": "The analysis route of every point."
-    },
     "settings": {
       "$ref": "#/$defs/SolveSettings",
       "description": "The solve settings of every point."
     },
     "version": {
-      "const": 1,
-      "default": 1,
+      "const": 2,
+      "default": 2,
       "description": "Document version.",
       "type": "integer"
     }
@@ -2001,7 +2016,6 @@
     "version",
     "physical",
     "modeling",
-    "route",
     "settings",
     "points"
   ],

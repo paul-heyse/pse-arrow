@@ -1375,6 +1375,20 @@ pub enum IisMember {
     /// An auxiliary's upper bound, by auxiliary ordinal.
     AuxiliaryUpper(usize),
 }
+/// An adapter bound transported by the representation owner into original objective units.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct OriginalObjectiveBound {
+    /// Native representation producing the bound.
+    pub origin: pse_model::generated::enums::CandidateBoundOrigin,
+    /// Authored original objective sense.
+    pub sense: pse_math::binding::ObjectiveSense,
+    /// Valid original-objective dual bound.
+    pub value: f64,
+    /// Existing authored absolute bound-gap budget after positive coordinate transport.
+    pub absolute_tolerance: f64,
+    /// Existing dimensionless relative bound-gap budget.
+    pub relative_tolerance: f64,
+}
 /// Typed adapter evidence. Qualification, retry and start receipts read only this;
 /// metrics remain observations and are never an input to a decision.
 #[derive(Clone, Debug, Default)]
@@ -1393,6 +1407,8 @@ pub struct Evidence {
     pub kkt: Option<KktEvidence>,
     /// Coefficient-model evidence.
     pub coefficient: Option<CoefficientEvidence>,
+    /// Read-back-qualified bound transported into the authored objective sense and units.
+    pub original_bound: Option<OriginalObjectiveBound>,
     /// Conic residual evidence.
     pub conic: Option<ConicEvidence>,
     /// The requested KKT-point analysis of an NLP candidate (L-N6, PS-12), or why it

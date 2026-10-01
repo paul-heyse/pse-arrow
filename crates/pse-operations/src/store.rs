@@ -5,7 +5,8 @@
 //! Schema creation is `Store::open` (`schema.rs`).
 
 use std::fmt;
-use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use pse_operations_queries::queries::store as statements;
@@ -95,6 +96,7 @@ pub struct Store {
 
 struct Inner {
     pool: deadpool_postgres::Pool,
+    runtime: tokio::runtime::Handle,
     /// The connection configuration, for connections outside the pool: the listener's
     /// and test sessions.
     config: tokio_postgres::Config,
@@ -104,8 +106,22 @@ struct Inner {
     connect_timeout: Duration,
     /// The one `LISTEN` connection of this store, started by the first watcher (X8).
     listener: tokio::sync::OnceCell<Listener>,
+    /// Shared schema-admission lease for this opened generation.
+    schema_lease: tokio::sync::Mutex<Option<SchemaSession>>,
+    closed: AtomicBool,
+    lease_abort: Mutex<Option<tokio::task::AbortHandle>>,
 }
 
+/// One owned connection: session-level locks end only after its connection is destroyed.
+pub(crate) struct SchemaSession {
+    pub(crate) client: tokio_postgres::Client,
+    connection: tokio::task::JoinHandle<()>,
+}
+impl Drop for SchemaSession {
+    fn drop(&mut self) {
+        self.connection.abort();
+    }
+}
 impl fmt::Debug for Store {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Store")
@@ -210,11 +226,19 @@ impl Store {
         let store = Self {
             inner: Arc::new(Inner {
                 pool,
+                runtime: tokio::runtime::Handle::try_current().map_err(|error| {
+                    OperationsError::Configuration {
+                        reason: format!("store shutdown runtime: {error}"),
+                    }
+                })?,
                 config,
                 tls,
                 target,
                 connect_timeout: options.acquire_timeout,
                 listener: tokio::sync::OnceCell::new(),
+                schema_lease: tokio::sync::Mutex::new(None),
+                closed: AtomicBool::new(false),
+                lease_abort: Mutex::new(None),
             }),
         };
         let server = store.server().await?;
@@ -243,7 +267,71 @@ impl Store {
 
     /// A pooled connection.
     pub(crate) async fn client(&self) -> Result<deadpool_postgres::Object, OperationsError> {
+        let lease = self.inner.schema_lease.lock().await;
+        if self.inner.closed.load(Ordering::Acquire)
+            || !lease.as_ref().is_some_and(|s| !s.client.is_closed())
+        {
+            return Err(OperationsError::MigrationRefused {
+                reason: crate::schema::MigrationRefusal::NotReady,
+                detail: "open a verified store generation before acquiring repository statements"
+                    .into(),
+            });
+        }
+        // Acquire while holding admission ownership; migration waits for the whole generation.
         self.inner.pool.get().await.classify(self.target())
+    }
+    pub(crate) async fn admin_client(&self) -> Result<deadpool_postgres::Object, OperationsError> {
+        self.inner.pool.get().await.classify(self.target())
+    }
+    pub(crate) async fn schema_session(&self) -> Result<SchemaSession, OperationsError> {
+        let (client, connection) = self
+            .inner
+            .config
+            .connect(self.inner.tls.clone())
+            .await
+            .classify(self.target())?;
+        let connection = tokio::spawn(async move {
+            let _ = connection.await;
+        });
+        client
+            .batch_execute("SET search_path=pg_catalog,public")
+            .await
+            .classify(self.target())?;
+        Ok(SchemaSession { client, connection })
+    }
+    pub(crate) async fn retain_schema_lease(&self) -> Result<(), OperationsError> {
+        let mut lease = self.inner.schema_lease.lock().await;
+        if let Some(session) = lease.as_ref().filter(|session| !session.client.is_closed()) {
+            crate::schema::verify_ready(&session.client, self.target()).await?;
+            return Ok(());
+        }
+        let session = self.schema_session().await?;
+        session
+            .client
+            .query_one(
+                "SELECT pg_advisory_lock_shared($1)",
+                &[&crate::schema::SCHEMA_LOCK],
+            )
+            .await
+            .classify(self.target())?;
+        crate::schema::verify_ready(&session.client, self.target()).await?;
+        let mut abort = self
+            .inner
+            .lease_abort
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if self.inner.closed.load(Ordering::Acquire) {
+            return Err(OperationsError::MigrationRefused {
+                reason: crate::schema::MigrationRefusal::NotReady,
+                detail: "store generation closed during admission".into(),
+            });
+        }
+        *abort = Some(session.connection.abort_handle());
+        *lease = Some(session);
+        Ok(())
+    }
+    pub(crate) async fn has_schema_lease(&self) -> bool {
+        self.inner.schema_lease.lock().await.is_some()
     }
 
     /// Every notification from now on, once the store's listener has `LISTEN` in effect
@@ -290,10 +378,35 @@ impl Store {
     /// Close the store: its listener stops, waiting and later acquisitions fail as
     /// unavailable, and connections are closed as they are returned.
     pub fn close(&self) {
+        if self.inner.closed.swap(true, Ordering::AcqRel) {
+            return;
+        }
         if let Some(listener) = self.inner.listener.get() {
             listener.stop();
         }
         self.inner.pool.close();
+        // The closed pool still counts checked-out objects. Keep the generation's
+        // namespace lease until their queries/statements have returned and detached.
+        let inner = self.inner.clone();
+        self.inner.runtime.spawn(async move {
+            let lease = inner.schema_lease.lock().await.take();
+            while inner.pool.status().size > 0 {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+            drop(lease);
+            if let Some(connection) = inner
+                .lease_abort
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .take()
+            {
+                connection.abort();
+            }
+        });
+    }
+
+    pub(crate) fn acquire_timeout(&self) -> Duration {
+        self.inner.connect_timeout
     }
 
     /// The connection target, without credentials.
@@ -307,7 +420,7 @@ impl Store {
     ///
     /// Classified driver failures.
     pub async fn server(&self) -> Result<ServerInfo, OperationsError> {
-        let client = self.client().await?;
+        let client = self.admin_client().await?;
         let server = statements::server_version()
             .bind(&client)
             .one()

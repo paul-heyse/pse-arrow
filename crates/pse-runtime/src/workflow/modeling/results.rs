@@ -270,7 +270,7 @@ impl ModelingResult {
             );
             result.observations.insert(
                 "candidate_reason".into(),
-                Observation::Text(self.completion.decision.reason.as_str().into()),
+                Observation::Text(self.completion.decision.reason()),
             );
         }
         Some(result)
@@ -317,10 +317,13 @@ impl ModelingResult {
         native_owner: Arc<pse_columnar::AllocationLease>,
     ) -> Self {
         let completion = crate::workflow::numerics::complete(
-            outcome.candidate_use(),
-            &point.checks,
-            point.complete && point.error.is_none(),
-            prepared.solve.numerics().policy.closure,
+            outcome.candidate_use(&prepared.solve.numerics().policy),
+            crate::workflow::numerics::CompletionEvidence::point(
+                &point.checks,
+                point.complete && point.error.is_none(),
+                point.required_closure,
+            ),
+            &prepared.solve.numerics().policy,
         );
         stamp_start(&mut outcome, run_id, attempt);
         Self(Arc::new(ModelingResultData {

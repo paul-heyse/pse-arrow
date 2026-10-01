@@ -99,10 +99,10 @@ fn copy_statements_cover_store_tables() {
 
 #[test]
 fn schema_fingerprint_covers_both_files() {
-    let (path, bytes) = fingerprint_file(b"schema", b"physical").unwrap();
+    let (path, bytes) = fingerprint_file(b"schema", b"physical-- ---------------------------------------------------------------- catalog --catalog", b"catalog", b"operations").unwrap();
     assert_eq!(path, PathBuf::from(format!("{ROOT}/fingerprint.rs")));
     let source = String::from_utf8(bytes).unwrap();
-    let hex = fingerprint(b"schema", b"physical").to_hex();
+    let hex = fingerprint(b"schema", b"physical-- ---------------------------------------------------------------- catalog --catalog").to_hex();
     assert!(source.contains(&format!("SCHEMA_FINGERPRINT_HEX: &str = \"{hex}\"")));
     assert!(source.contains(&format!(
         "COMMENT ON SCHEMA pse_ops IS 'pse.ops.schema.v1 {hex}'"
@@ -115,4 +115,18 @@ fn schema_fingerprint_covers_both_files() {
         fingerprint(b"schemaphysical", b""),
         fingerprint(b"schema", b"physical")
     );
+}
+
+#[test]
+fn histories_consume_only_their_owned_vocabulary() {
+    let reg = crate::registry().unwrap();
+    let catalog = ddl::component(reg, pse_schema::store::HistoryOwner::Catalog).unwrap();
+    let operations = ddl::component(reg, pse_schema::store::HistoryOwner::Operations).unwrap();
+    assert!(!catalog.contains("native_termination"));
+    assert!(!catalog.contains("node_limit"));
+    assert!(operations.contains("node_limit"));
+    assert!(catalog.contains("REFERENCES pse_ops.\"attempts\""));
+    assert!(!catalog.contains("CREATE TABLE pse_ops.\"attempts\""));
+    assert!(catalog.contains("CREATE TABLE pse_ops.\"publications\""));
+    assert!(!operations.contains("CREATE TABLE pse_ops.\"publications\""));
 }

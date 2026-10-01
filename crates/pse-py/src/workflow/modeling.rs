@@ -340,16 +340,16 @@ impl NativeModelingPackage {
             async {
                 let analysis = self
                     .inner
-                    .declared_analysis(
+                    .declared_execution(
                         root,
-                        pse_model::generated::enums::ModelingAnalysisRoute::Steady,
                         Default::default(),
                         settings.clone(),
                         Default::default(),
                         self.limits,
                         &cancel,
                     )
-                    .await?;
+                    .await?
+                    .analysis;
                 self.inner
                     .explain_nonlinear(
                         &analysis,
@@ -406,16 +406,16 @@ impl NativeModelingPackage {
             async {
                 let analysis = self
                     .inner
-                    .declared_analysis(
+                    .declared_execution(
                         root,
-                        pse_model::generated::enums::ModelingAnalysisRoute::Steady,
                         Default::default(),
                         settings.clone(),
                         Default::default(),
                         self.limits,
                         &cancel,
                     )
-                    .await?;
+                    .await?
+                    .analysis;
                 let prepared = self.inner.prepare_diagnostics(&analysis, &cancel).await?;
                 let samples = samples
                     .into_iter()
@@ -501,16 +501,16 @@ impl NativeModelingPackage {
             async {
                 let analysis = self
                     .inner
-                    .declared_analysis(
+                    .declared_execution(
                         root,
-                        pse_model::generated::enums::ModelingAnalysisRoute::Steady,
                         Default::default(),
                         settings.clone(),
                         Default::default(),
                         self.limits,
                         &cancel,
                     )
-                    .await?;
+                    .await?
+                    .analysis;
                 let prepared = self.inner.prepare_diagnostics(&analysis, &cancel).await?;
                 let values = prepared.model.values.clone();
                 self.inner
@@ -576,16 +576,16 @@ impl NativeModelingPackage {
                 async {
                     let analysis = self
                         .inner
-                        .declared_analysis(
+                        .declared_execution(
                             root,
-                            pse_model::generated::enums::ModelingAnalysisRoute::Steady,
                             Default::default(),
                             settings.clone(),
                             Default::default(),
                             self.limits,
                             &cancel,
                         )
-                        .await?;
+                        .await?
+                        .analysis;
                     let prepared = self.inner.prepare_diagnostics(&analysis, &cancel).await?;
                     let plan = &prepared.model.case.compiled().plan;
                     let rows = plan
@@ -695,16 +695,16 @@ impl NativeModelingPackage {
                 async {
                     let analysis = self
                         .inner
-                        .declared_analysis(
+                        .declared_execution(
                             root,
-                            pse_model::generated::enums::ModelingAnalysisRoute::Steady,
                             Default::default(),
                             settings.clone(),
                             Default::default(),
                             self.limits,
                             &cancel,
                         )
-                        .await?;
+                        .await?
+                        .analysis;
                     let prepared = self.inner.prepare_diagnostics(&analysis, &cancel).await?;
                     let values = prepared.model.values.clone();
                     self.inner
@@ -737,52 +737,58 @@ impl NativeModelingPackage {
     }
     #[expect(
         clippy::too_many_arguments,
-        reason = "one parameter per argument of the Python method signature"
+        reason = "optional explicit initialization fields at the Python boundary"
     )]
-    #[pyo3(signature=(case_id, settings, *, stages=Vec::new(), homotopy=false, initial_step=0.25, minimum_step=1e-6, growth=1.5, maximum_attempts=128, time_limit=60.0, discrete="refuse", discrete_values=BTreeMap::new()))]
+    #[pyo3(signature=(case_id, settings, *, stages=None, homotopy=None, initial_step=None, minimum_step=None, growth=None, maximum_attempts=None, time_limit=None, discrete=None, discrete_values=None))]
     fn initialize(
         &self,
         py: Python<'_>,
         case_id: &str,
         settings: &[u8],
-        stages: Vec<String>,
-        homotopy: bool,
-        initial_step: f64,
-        minimum_step: f64,
-        growth: f64,
-        maximum_attempts: usize,
-        time_limit: f64,
-        discrete: &str,
-        discrete_values: BTreeMap<String, f64>,
+        stages: Option<Vec<String>>,
+        homotopy: Option<bool>,
+        initial_step: Option<f64>,
+        minimum_step: Option<f64>,
+        growth: Option<f64>,
+        maximum_attempts: Option<usize>,
+        time_limit: Option<f64>,
+        discrete: Option<&str>,
+        discrete_values: Option<BTreeMap<String, f64>>,
     ) -> PyResult<NativeModelingInitialization> {
         use pse_model::generated::enums::ModelingDiscreteInitialization as Discrete;
         let settings = settings::solve_profile(py, settings)?;
         let root = declaration(py, case_id)?;
-        let duration = Duration::try_from_secs_f64(time_limit)
+        let time_limit = time_limit
+            .map(Duration::try_from_secs_f64)
+            .transpose()
             .map_err(|_| invalid(py, "initialization time limit must be finite and positive"))?;
-        let discrete = match discrete.parse::<Discrete>() {
-            Ok(Discrete::FixAt) => native::DiscreteInitialization::FixAt(discrete_values),
-            Ok(Discrete::FixAtStart) if discrete_values.is_empty() => {
-                native::DiscreteInitialization::FixAtStart
+        let discrete_values = discrete_values.unwrap_or_default();
+        let discrete = match discrete.map(str::parse::<Discrete>).transpose() {
+            Ok(Some(Discrete::FixAt)) => {
+                Some(native::DiscreteInitialization::FixAt(discrete_values))
             }
-            Ok(Discrete::Refuse) if discrete_values.is_empty() => {
-                native::DiscreteInitialization::Refuse
+            Ok(Some(Discrete::FixAtStart)) if discrete_values.is_empty() => {
+                Some(native::DiscreteInitialization::FixAtStart)
             }
+            Ok(Some(Discrete::Refuse)) if discrete_values.is_empty() => {
+                Some(native::DiscreteInitialization::Refuse)
+            }
+            Ok(None) if discrete_values.is_empty() => None,
             _ => {
                 return Err(invalid(
                     py,
-                    "discrete is refuse, fix_at_start or fix_at; values are declared only with fix_at",
+                    "discrete values require an explicit fix_at policy",
                 ));
             }
         };
-        let policy = native::ModelingInitialization {
+        let overrides = native::InitializationOverrides {
             stages,
             homotopy,
             initial_step,
             minimum_step,
             growth,
             maximum_attempts,
-            time_limit: duration,
+            time_limit,
             discrete,
         };
         let cancel = CancelSource::new();
@@ -790,20 +796,19 @@ impl NativeModelingPackage {
             py,
             &self.owner,
             async {
-                let analysis = self
+                let execution = self
                     .inner
-                    .declared_analysis(
+                    .declared_execution(
                         root,
-                        pse_model::generated::enums::ModelingAnalysisRoute::Steady,
                         Default::default(),
-                        settings.clone(),
+                        settings,
                         Default::default(),
                         self.limits,
                         &cancel,
                     )
                     .await?;
                 self.inner
-                    .initialize_model(&analysis, policy, &cancel)
+                    .initialize_declared(&execution, overrides, &cancel)
                     .await
             },
             || cancel.cancel(),
@@ -862,9 +867,8 @@ impl NativeModelingPackage {
                 for (index, root) in ids.into_iter().enumerate() {
                     let analysis = self
                         .inner
-                        .declared_analysis(
+                        .declared_execution(
                             root,
-                            pse_model::generated::enums::ModelingAnalysisRoute::Steady,
                             Default::default(),
                             settings.clone(),
                             Default::default(),
@@ -874,7 +878,7 @@ impl NativeModelingPackage {
                         .await
                         .map_err(Arc::new);
                     points.push(native::ModelingStudyPoint {
-                        analysis,
+                        execution: analysis,
                         predecessor: predecessors.get(index).copied().flatten(),
                         overlay: overlays.get(index).cloned().unwrap_or_default(),
                     });
@@ -941,7 +945,6 @@ impl NativeModelingPackage {
             .collect::<PyResult<Vec<_>>>()?;
         let plan = native::StudyPlan {
             sources: sources.as_ref().clone(),
-            route: pse_model::generated::enums::ModelingAnalysisRoute::Steady,
             settings,
             points,
             retry: native::RetryPolicy {
@@ -965,28 +968,17 @@ impl NativeModelingPackage {
         let settings = settings::solve_profile(py, settings)?;
         let root = declaration(py, case_id)?;
         let cancel = CancelSource::new();
-        let model = blocking(
+        let execution = blocking(
             py,
             &self.owner,
             async {
-                let analysis = self
-                    .inner
-                    .declared_analysis(
+                self.inner
+                    .declared_execution(
                         root,
-                        pse_model::generated::enums::ModelingAnalysisRoute::Steady,
                         Default::default(),
                         settings.clone(),
                         Default::default(),
                         self.limits,
-                        &cancel,
-                    )
-                    .await?;
-                self.inner
-                    .prepare(
-                        analysis.root,
-                        analysis.instance,
-                        analysis.bindings,
-                        analysis.limits,
                         &cancel,
                     )
                     .await
@@ -994,9 +986,9 @@ impl NativeModelingPackage {
             || cancel.cancel(),
         )?;
         py.detach(|| {
-            let source=&model.compiled().model;
+            let source=&execution.model.compiled().model;
             let lineage=|l:&pse_modeling::specialize::Lineage|serde_json::json!({"declaration":l.declaration,"instance":l.instance,"path":l.path,"demand":l.demand,"default_owner":l.default_owner,"is_override":l.is_override,"presets":l.presets});
-            serde_json::to_vec(&serde_json::json!({"payload":{
+            serde_json::to_vec(&serde_json::json!({"payload":{ "execution":{"route":execution.route,"procedure":execution.procedure.kind(),"requested_start":execution.requested_start},
                 "instances":source.instances.values().map(|i|serde_json::json!({"id":i.id,"definition":i.definition,"parent":i.parent,"path":i.path,"members":i.members})).collect::<Vec<_>>(),
                 "members":source.symbols.values().map(|s|serde_json::json!({"id":s.id,"role":s.role,"lineage":lineage(&s.lineage)})).collect::<Vec<_>>(),
                 "ports":source.ports.values().map(|p|serde_json::json!({"id":p.id,"symbol":p.symbol,"lineage":lineage(&p.lineage)})).collect::<Vec<_>>(),
@@ -1025,16 +1017,16 @@ impl NativeModelingPackage {
             async {
                 let analysis = self
                     .inner
-                    .declared_analysis(
+                    .declared_execution(
                         root,
-                        pse_model::generated::enums::ModelingAnalysisRoute::Steady,
                         Default::default(),
                         settings.clone(),
                         Default::default(),
                         self.limits,
                         &cancel,
                     )
-                    .await?;
+                    .await?
+                    .analysis;
                 self.inner.prepare_flow(&analysis, selection, &cancel).await
             },
             || cancel.cancel(),
@@ -1077,16 +1069,16 @@ impl NativeModelingPackage {
                 async {
                     let analysis = self
                         .inner
-                        .declared_analysis(
+                        .declared_execution(
                             root,
-                            pse_model::generated::enums::ModelingAnalysisRoute::Steady,
                             Default::default(),
                             settings.clone(),
                             Default::default(),
                             self.limits,
                             &cancel,
                         )
-                        .await?;
+                        .await?
+                        .analysis;
                     self.inner
                         .prepare_recycle(&analysis, selection, request, &cancel)
                         .await
@@ -1131,16 +1123,16 @@ impl NativeModelingPackage {
                 async {
                     let analysis = self
                         .inner
-                        .declared_analysis(
+                        .declared_execution(
                             root,
-                            pse_model::generated::enums::ModelingAnalysisRoute::Steady,
                             Default::default(),
                             settings.clone(),
                             Default::default(),
                             self.limits,
                             &cancel,
                         )
-                        .await?;
+                        .await?
+                        .analysis;
                     self.inner
                         .prepare_block_initialization(&analysis, stages, &cancel)
                         .await
@@ -1225,29 +1217,23 @@ impl NativeModelingPackage {
             inner: Arc::new(inner),
         })
     }
-    #[pyo3(signature=(case_id, settings, *, route="steady"))]
     fn prepare_solve(
         &self,
         py: Python<'_>,
         case_id: &str,
         settings: &[u8],
-        route: &str,
     ) -> PyResult<NativePreparedOperation> {
         let settings = settings::solve_profile(py, settings)?;
         let root = declaration(py, case_id)?;
-        let route = route
-            .parse()
-            .map_err(|_| invalid(py, "unknown modeling analysis route"))?;
         let cancel = CancelSource::new();
         let inner = blocking(
             py,
             &self.owner,
             async {
-                let analysis = self
+                let execution = self
                     .inner
-                    .declared_analysis(
+                    .declared_execution(
                         root,
-                        route,
                         Default::default(),
                         settings.clone(),
                         Default::default(),
@@ -1255,7 +1241,7 @@ impl NativeModelingPackage {
                         &cancel,
                     )
                     .await?;
-                self.inner.prepare_analysis(&analysis, &cancel).await
+                self.inner.prepare_declared(&execution, &cancel).await
             },
             || cancel.cancel(),
         )?;
@@ -1264,29 +1250,23 @@ impl NativeModelingPackage {
             inner: PreparedOperation::Modeling(Box::new(inner)),
         })
     }
-    #[pyo3(signature=(case_id, settings, *, route="steady"))]
     fn solve_case(
         &self,
         py: Python<'_>,
         case_id: &str,
         settings: &[u8],
-        route: &str,
     ) -> PyResult<NativeModelingResult> {
         let settings = settings::solve_profile(py, settings)?;
         let root = declaration(py, case_id)?;
-        let route = route
-            .parse()
-            .map_err(|_| invalid(py, "unknown modeling analysis route"))?;
         let cancel = CancelSource::new();
         let inner = blocking(
             py,
             &self.owner,
             async {
-                let analysis = self
+                let execution = self
                     .inner
-                    .declared_analysis(
+                    .declared_execution(
                         root,
-                        route,
                         Default::default(),
                         settings.clone(),
                         Default::default(),
@@ -1294,10 +1274,7 @@ impl NativeModelingPackage {
                         &cancel,
                     )
                     .await?;
-                let prepared = self.inner.prepare_analysis(&analysis, &cancel).await?;
-                self.inner
-                    .solve_case(prepared, analysis.compiler, &cancel)
-                    .await
+                self.inner.execute_declared(&execution, &cancel).await
             },
             || cancel.cancel(),
         )?;
@@ -1903,6 +1880,19 @@ impl NativeModelingConformance {
         py.detach(|| self.inner.findings_table())
             .map(inspection::TableStream::from_batch)
             .map_err(|e| errors::diagnostic(py, &e))
+    }
+    /// Retained original route/structure facts, including refused fixtures.
+    fn admission(&self, py: Python<'_>, name: &str) -> PyResult<inspection::TableStream> {
+        let id = relation(py, name)?;
+        py.detach(|| {
+            self.inner.admission_tables().and_then(|mut tables| {
+                tables.remove(&id).ok_or_else(|| {
+                    native::WorkflowError::Contract("conformance admission table absent".into())
+                })
+            })
+        })
+        .map(inspection::TableStream::from_batch)
+        .map_err(|e| errors::diagnostic(py, &e))
     }
     /// The oracle parity report projected from the run's checks (Plan 23 H6).
     fn parity(&self, py: Python<'_>) -> PyResult<inspection::TableStream> {

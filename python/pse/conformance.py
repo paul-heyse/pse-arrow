@@ -166,12 +166,20 @@ def _documents(root: Path) -> dict[str, str | bytes]:
 
 
 def _write(report: Path, result: ModelingConformance) -> None:
-    """Write checks, fixture inventory, findings and oracle parity."""
+    """Write checks, fixture inventory, admission facts, findings and oracle parity."""
     for path, payload in (
         (report, pa.table(result.table())),
         (report.with_suffix(".fixtures.arrow"), pa.table(result.fixture_statuses())),
         (report.with_suffix(".findings.arrow"), pa.table(result.findings())),
         (report.with_suffix(".parity.arrow"), pa.table(result.parity())),
+        (
+            report.with_suffix(".routes.arrow"),
+            pa.table(result.admission("runtime.route_decisions")),
+        ),
+        (
+            report.with_suffix(".structure.arrow"),
+            pa.table(result.admission("runtime.structural_assessments")),
+        ),
     ):
         with (
             pa.OSFile(str(path), "wb") as destination,

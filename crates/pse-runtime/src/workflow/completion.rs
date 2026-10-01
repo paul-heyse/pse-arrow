@@ -256,6 +256,88 @@ impl RunResult {
                     environment_identity: actual_environment.finish_hash(),
                 });
             }
+            #[cfg(feature = "solver-diffsol")]
+            RunRequest::Shooting {
+                problem: p,
+                initial,
+            } => {
+                let report = match &self.report {
+                    Ok(RunReport::Shooting(r)) => Some(r.as_ref()),
+                    _ => None,
+                };
+                let native = report.and_then(|r| r.solve.as_ref());
+                let trajectory = report.and_then(|r| r.trajectory.as_ref());
+                let source = &p.simulation.source;
+                let mut row = header(
+                    self,
+                    ComputationKind::Shooting,
+                    source.revision.identity(),
+                    p.profile_key,
+                );
+                row.state = if native.is_some() {
+                    NativeRunState::Native
+                } else if report.is_some() {
+                    NativeRunState::ConstantEvaluation
+                } else {
+                    NativeRunState::Rejected
+                };
+                row.termination = native.map(|r| r.termination.category);
+                row.trajectory_termination = trajectory.map(|r| r.termination);
+                row.backend = native.map(|r| r.backend);
+                row.native_code = native.map(|r| r.termination.code);
+                row.native_status = native.map(|r| r.termination.name.clone());
+                row.qualification =
+                    native.map_or(NativeQualification::Unqualified, |r| r.qualification);
+                row.candidate_kind = native.and_then(|r| r.candidate.as_ref().map(|c| c.kind));
+                row.candidate_available = report.is_some_and(|r| r.candidate.is_some());
+                if native.is_none() && row.candidate_available {
+                    row.candidate_kind = Some(NativeCandidateKind::ConstantEvaluation);
+                }
+                row.feasible = report.and_then(|r| r.quality.as_ref().map(|q| q.feasible()));
+                row.completed_time = trajectory
+                    .map(|r| r.completed_time)
+                    .filter(|t| t.is_finite());
+                row.completed_samples = trajectory.map(|r| r.samples.len() as i64);
+                row.validation_error = native
+                    .and_then(|r| r.validation_failure().map(ToString::to_string))
+                    .or_else(|| {
+                        report.and_then(|r| r.validation_error.as_ref().map(ToString::to_string))
+                    });
+                row.error = row
+                    .error
+                    .or_else(|| trajectory.and_then(|r| r.error.as_ref().map(ToString::to_string)));
+                product.computation = Some(row);
+                let mut actual_environment =
+                    FramedHasher::new(pse_ids::Frame::CompletedEnvironmentV1);
+                actual_environment
+                    .hash(&environment)
+                    .hash(&pse_buildinfo::BUILD_IDENTITY)
+                    .str(&pse_backend_native::dynamics::settings_identity(
+                        p.simulation.profile(),
+                    ));
+                if let Some(native) = native {
+                    actual_environment.str(native.backend.as_str());
+                    for (name, value) in &native.provenance {
+                        actual_environment.str(name).str(value);
+                    }
+                }
+                let lineage = p.simulation.solved.lineage();
+                product.lineage.push(run_lineage::Row {
+                    run_id: self.run_id,
+                    step: 0,
+                    model_id: lineage.model_id,
+                    revision: source.revision.identity(),
+                    case_id: lineage.case_id,
+                    instance_id: lineage.instance_id,
+                    fit_id: lineage.fit_id,
+                    request_identity: p.request_identity(initial.as_deref()),
+                    preparation_identity: p.request_identity(None),
+                    profile_identity: p.profile_key,
+                    numerical_identity: p.numerics().key,
+                    physical_identity: source.physical.key,
+                    environment_identity: actual_environment.finish_hash(),
+                });
+            }
             RunRequest::Fit(p) => {
                 let r = match &self.report {
                     Ok(RunReport::Fit(r)) => Some(r.as_ref()),

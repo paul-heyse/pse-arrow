@@ -198,6 +198,30 @@ impl PartialEq for AuthoredModelingDeclarationsFieldValueScopeOperational {
     clippy::struct_field_names,
     reason = "field names are the authoritative relation contract"
 )]
+pub struct AuthoredModelingDeclarationsFieldValueScopeFixtureEndpoint {
+    ///kind
+    pub r#kind: crate::generated::enums::EndpointPolicy,
+    ///event
+    pub r#event: Option<String>,
+}
+impl crate::SemanticEq for AuthoredModelingDeclarationsFieldValueScopeFixtureEndpoint {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#kind, &other.r#kind)
+            && crate::SemanticEq::semantic_eq(&self.r#event, &other.r#event)
+    }
+}
+impl PartialEq for AuthoredModelingDeclarationsFieldValueScopeFixtureEndpoint {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
 pub struct AuthoredModelingDeclarationsFieldValueScopeFixturePolicyNativeOptionsItem {
     ///name
     pub r#name: String,
@@ -770,8 +794,12 @@ impl PartialEq for AuthoredModelingDeclarationsFieldValueScopeFixtureSpecificati
 pub struct AuthoredModelingDeclarationsFieldValueScopeFixture {
     ///degrees_of_freedom
     pub r#degrees_of_freedom: i64,
-    ///execution
-    pub r#execution: Option<crate::generated::enums::ModelingFixtureExecution>,
+    ///route
+    pub r#route: Option<crate::generated::enums::ModelingAnalysisRoute>,
+    ///procedure
+    pub r#procedure: Option<crate::generated::enums::ModelingProcedure>,
+    ///endpoint
+    pub r#endpoint: Option<AuthoredModelingDeclarationsFieldValueScopeFixtureEndpoint>,
     ///intent
     pub r#intent: Option<crate::generated::enums::NativeSolveIntent>,
     ///policy
@@ -808,7 +836,9 @@ impl crate::SemanticEq for AuthoredModelingDeclarationsFieldValueScopeFixture {
         crate::SemanticEq::semantic_eq(
             &self.r#degrees_of_freedom,
             &other.r#degrees_of_freedom,
-        ) && crate::SemanticEq::semantic_eq(&self.r#execution, &other.r#execution)
+        ) && crate::SemanticEq::semantic_eq(&self.r#route, &other.r#route)
+            && crate::SemanticEq::semantic_eq(&self.r#procedure, &other.r#procedure)
+            && crate::SemanticEq::semantic_eq(&self.r#endpoint, &other.r#endpoint)
             && crate::SemanticEq::semantic_eq(&self.r#intent, &other.r#intent)
             && crate::SemanticEq::semantic_eq(&self.r#policy, &other.r#policy)
             && crate::SemanticEq::semantic_eq(&self.r#stages, &other.r#stages)
@@ -10445,6 +10475,22 @@ impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueScopeOperational
     }
 }
 impl crate::SemanticFrame
+for AuthoredModelingDeclarationsFieldValueScopeFixtureEndpoint {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#kind));
+        crate::SemanticFrame::frame(&self.r#kind, hash);
+        hash.str(stringify!(r#event));
+        crate::SemanticFrame::frame(&self.r#event, hash);
+    }
+}
+impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueScopeFixtureEndpoint {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#kind))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#event))
+    }
+}
+impl crate::SemanticFrame
 for AuthoredModelingDeclarationsFieldValueScopeFixturePolicyNativeOptionsItem {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(stringify!(r#name));
@@ -10824,8 +10870,12 @@ impl crate::SemanticFrame for AuthoredModelingDeclarationsFieldValueScopeFixture
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(stringify!(r#degrees_of_freedom));
         crate::SemanticFrame::frame(&self.r#degrees_of_freedom, hash);
-        hash.str(stringify!(r#execution));
-        crate::SemanticFrame::frame(&self.r#execution, hash);
+        hash.str(stringify!(r#route));
+        crate::SemanticFrame::frame(&self.r#route, hash);
+        hash.str(stringify!(r#procedure));
+        crate::SemanticFrame::frame(&self.r#procedure, hash);
+        hash.str(stringify!(r#endpoint));
+        crate::SemanticFrame::frame(&self.r#endpoint, hash);
         hash.str(stringify!(r#intent));
         crate::SemanticFrame::frame(&self.r#intent, hash);
         hash.str(stringify!(r#policy));
@@ -10852,7 +10902,9 @@ impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueScopeFixture {
     fn heap_bytes(&self) -> usize {
         0usize
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#degrees_of_freedom))
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#execution))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#route))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#procedure))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#endpoint))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#intent))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#policy))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#stages))

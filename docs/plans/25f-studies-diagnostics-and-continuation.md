@@ -209,10 +209,16 @@ identity and J generation. This document does not duplicate their authorities.
 
 **Implemented/Tested, 2026-10-01; scoped focused verification recorded in [25c Verification](25c-process-composition-and-conservation.md#verification):** Conditional-unit admission uses a typed WorkflowError envelope with a closed modeling.conditional_unit.admission rule family, source identities and retained mathematical cause. The affected workflow diagnostic traversal migrates with it. General failure envelopes, projections, studies, bindings and retry policy remain open. The maintainer authorized only this required slice and its complete affected consumer migration. This packet remains partial; [25c](25c-process-composition-and-conservation.md) owns the slice evidence.
 
+## Consumed 25e prerequisite slice
+
+**Implemented/Tested, 2026-10-01:** Required E-consumer projections now use typed candidate qualifiers/refusals and retained admission facts. Structural admission errors preserve their original native cause plus authored paths. Existing study/durable consumers retain authored routes and shared scientific permission; the wider F1 failure envelope and F3–F5 occurrence-policy redesign remain open.
+[25e Verification](25e-declared-analyses-and-qualification.md#verification) owns commands,
+conditions, composite results and limits; this does not close the companion plan.
+
 ## Execution and evidence
 
-The consumed 25c prerequisite slice above is **Implemented**; its focused evidence is owned
-by 25c. The remaining packet scope and expected benefits are **Proposed**. No full-packet
+The consumed prerequisite slices above are **Implemented**; their focused evidence is owned
+by the linked plans. The remaining packet scope and expected benefits are **Proposed**. No full-packet
 completion or new broad product qualification is claimed. The [series coordinator](25-design-remediation.md)
 owns finding dispositions and decision dependencies. Packets compile affected owners, run focused
 behavioral checks with explicit force-validation, regenerate changed declarations, and immediately

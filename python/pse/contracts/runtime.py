@@ -91,6 +91,18 @@ class RuntimeCandidateAssessmentsRow:
     policy: e.ClosurePolicy = attrs.field(validator=attrs.validators.instance_of(e.ClosurePolicy))
     usability: e.CandidateUse = attrs.field(validator=attrs.validators.instance_of(e.CandidateUse))
     reason: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    incumbent_policy: e.IncumbentPolicy = attrs.field(validator=attrs.validators.instance_of(e.IncumbentPolicy))
+    candidate_kind: e.NativeCandidateKind | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.NativeCandidateKind)))
+    qualification: e.NativeQualification | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.NativeQualification)))
+    validated: b.bool | None = attrs.field(validator=attrs.validators.optional(v.exact_type(b.bool)))
+    bound_origin: e.CandidateBoundOrigin | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.CandidateBoundOrigin)))
+    bound: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    absolute_gap: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    relative_gap: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    qualifiers: b.tuple[e.CandidateQualifier, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(e.CandidateQualifier), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    refusals: b.tuple[e.CandidateRefusal, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(e.CandidateRefusal), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    permits_result: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    permits_seed: b.bool = attrs.field(validator=v.exact_type(b.bool))
 
 
 @attrs.frozen(kw_only=True)
@@ -1351,6 +1363,17 @@ class RuntimeOperationalRetentionMarksRow:
 
 
 @attrs.frozen(kw_only=True)
+class RuntimeOperationalSchemaSupportStateRow:
+    """Declared relation row or nested value."""
+
+    history: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    shared_version: b.int = attrs.field(validator=v.integer_range(-2147483648, 2147483647))
+    source: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    target: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    ready: b.bool = attrs.field(validator=v.exact_type(b.bool))
+
+
+@attrs.frozen(kw_only=True)
 class RuntimeOperationalSettlementsRow:
     """Declared relation row or nested value."""
 
@@ -1640,6 +1663,33 @@ class RuntimeRetainedVersionsRow:
 
 
 @attrs.frozen(kw_only=True)
+class RuntimeRouteDecisionsFieldEligibilityItem:
+    """Declared relation row or nested value."""
+
+    backend: e.NativeBackend = attrs.field(validator=attrs.validators.instance_of(e.NativeBackend))
+    reasons: b.tuple[e.NativeIneligibility, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(e.NativeIneligibility), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeRouteDecisionsRow:
+    """Declared relation row or nested value."""
+
+    request_identity: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    step: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+    intent: e.NativeSolveIntent = attrs.field(validator=attrs.validators.instance_of(e.NativeSolveIntent))
+    selection: e.NativeRouteSelection = attrs.field(validator=attrs.validators.instance_of(e.NativeRouteSelection))
+    requested_backend: e.NativeBackend | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.NativeBackend)))
+    classes: b.tuple[e.NativeProblemClass, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(e.NativeProblemClass), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    eligibility: b.tuple[RuntimeRouteDecisionsFieldEligibilityItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeRouteDecisionsFieldEligibilityItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    selected: e.NativeRouteKind | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.NativeRouteKind)))
+    backend: e.NativeBackend | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.NativeBackend)))
+    representation: e.NativeRepresentation | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.NativeRepresentation)))
+    lexicographic: e.NativeLexicographicRealization | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.NativeLexicographicRealization)))
+    refusal: e.NativeRouteRefusal | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.NativeRouteRefusal)))
+    detail: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+
+
+@attrs.frozen(kw_only=True)
 class RuntimeRunLineageRow:
     """Declared relation row or nested value."""
 
@@ -1800,6 +1850,8 @@ class RuntimeSolverCapabilitiesRow:
     """Declared relation row or nested value."""
 
     backend: e.NativeBackend = attrs.field(validator=attrs.validators.instance_of(e.NativeBackend))
+    structural_policy: e.NativeStructuralPolicy = attrs.field(validator=attrs.validators.instance_of(e.NativeStructuralPolicy))
+    lexicographic_degradation: e.NativeLexicographicDegradation = attrs.field(validator=attrs.validators.instance_of(e.NativeLexicographicDegradation))
     classes: b.tuple[e.NativeProblemClass, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(e.NativeProblemClass), iterable_validator=attrs.validators.instance_of(b.tuple)))
     automatic_classes: b.tuple[e.NativeProblemClass, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(e.NativeProblemClass), iterable_validator=attrs.validators.instance_of(b.tuple)))
     derivatives: e.NativeDerivativeCapability = attrs.field(validator=attrs.validators.instance_of(e.NativeDerivativeCapability))
@@ -1819,6 +1871,46 @@ class RuntimeSolverCapabilitiesRow:
 
 
 @attrs.frozen(kw_only=True)
+class RuntimeStructuralAssessmentsFieldEquationsItem:
+    """Declared relation row or nested value."""
+
+    id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    lower: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    upper: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeStructuralAssessmentsFieldMatchingItem:
+    """Declared relation row or nested value."""
+
+    row: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    column: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeStructuralAssessmentsRow:
+    """Declared relation row or nested value."""
+
+    request_identity: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    step: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+    mode: e.NativeStructuralMode = attrs.field(validator=attrs.validators.instance_of(e.NativeStructuralMode))
+    scope: e.StructuralScopeKind = attrs.field(validator=attrs.validators.instance_of(e.StructuralScopeKind))
+    scope_model: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    scope_members: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    scope_rows: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    scope_columns: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    scope_inputs: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    variables: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    equations: b.tuple[RuntimeStructuralAssessmentsFieldEquationsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeStructuralAssessmentsFieldEquationsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    matching: b.tuple[RuntimeStructuralAssessmentsFieldMatchingItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeStructuralAssessmentsFieldMatchingItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    unmatched_rows: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    unmatched_columns: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    optimization_freedom: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 4294967295)))
+    admitted: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    provenance: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+
+@attrs.frozen(kw_only=True)
 class RuntimeStudyOutcomesRow:
     """Declared relation row or nested value."""
 
@@ -1832,6 +1924,29 @@ class RuntimeStudyOutcomesRow:
     attempt_state: e.AttemptState = attrs.field(validator=attrs.validators.instance_of(e.AttemptState))
     member_catalog: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     error: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeTrajectoryEndpointsRow:
+    """Declared relation row or nested value."""
+
+    run_id: i.RunId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    requirement: e.EndpointPolicy = attrs.field(validator=attrs.validators.instance_of(e.EndpointPolicy))
+    required_event: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    event_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    time: b.float = attrs.field(validator=v.finite_float)
+    mode: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+    state_ids: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    input_ids: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    output_ids: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    state: b.tuple[b.float, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.finite_float, iterable_validator=attrs.validators.instance_of(b.tuple)))
+    outputs: b.tuple[b.float, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.finite_float, iterable_validator=attrs.validators.instance_of(b.tuple)))
+    integrals: b.tuple[b.float, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.finite_float, iterable_validator=attrs.validators.instance_of(b.tuple)))
+    input_columns: b.tuple[b.int, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.integer_range(0, 4294967295), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    inputs: b.tuple[b.float, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.finite_float, iterable_validator=attrs.validators.instance_of(b.tuple)))
+    endpoint_satisfied: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    prefix_complete: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    missing_observations: b.tuple[b.float, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.finite_float, iterable_validator=attrs.validators.instance_of(b.tuple)))
 
 
 @attrs.frozen(kw_only=True)

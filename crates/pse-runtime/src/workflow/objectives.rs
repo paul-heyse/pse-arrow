@@ -135,7 +135,7 @@ struct Levels {
 impl Levels {
     /// Every level but the last states a degradation the native route states exactly:
     /// one of its tolerances is zero.
-    fn native(&self) -> bool {
+    fn single_nonzero(&self) -> bool {
         self.levels.len() > 1
             && self.levels[..self.levels.len() - 1]
                 .iter()
@@ -173,10 +173,39 @@ impl Levels {
     }
 }
 
+/// An incumbent permission does not establish an earlier priority's optimum.
+fn priority_completed(result: &ModelingResult) -> bool {
+    use pse_backend_native::solve::{Assurance, Termination};
+    result.accepted
+        && match &result.outcome {
+            crate::math::solves::Outcome::Constant(_) => true,
+            crate::math::solves::Outcome::Native(report) => {
+                matches!(
+                    report.termination.category,
+                    Termination::Success | Termination::Acceptable
+                ) && matches!(
+                    report.termination.assurance,
+                    Assurance::LocalStationary
+                        | Assurance::NativeOptimal
+                        | Assurance::ExactCertificate
+                )
+            }
+            _ => false,
+        }
+}
+
+fn priority_failure() -> BoundaryDiagnostic {
+    BoundaryDiagnostic::new(
+        pse_model::diagnostic::BoundaryClass::Numerical,
+        "objective-levels",
+        [],
+        "objective.priority_optimization_incomplete",
+    )
+}
+
 impl ModelingPackage {
-    /// Optimize a model's objective levels lexicographically (ADR-0111): natively on HiGHS
-    /// when every level is linear and every degradation is one the native route states
-    /// exactly, otherwise as one staged step per level. A model with one level is one
+    /// Optimize authored priorities using the admitted native capability or one admitted
+    /// staged backend, preserving each authored degradation bound. A model with one level is one
     /// solve. The analysis names no `objective.level`; the solve owns level selection.
     ///
     /// # Errors
@@ -215,25 +244,43 @@ impl ModelingPackage {
             return Err(contract("a lexicographic solve needs an objective"));
         }
         let mut staged = Staged::open(&self.runtime, None)?;
-        let report = if levels.native()
-            && let Some(prepared) = self.native_levels(analysis, cancel).await?
+        let (decision, mut resolution) = self
+            .level_route(analysis, levels.single_nonzero(), cancel)
+            .await?;
+        let mut selected = analysis.clone();
+        if let pse_backend_native::routing::Route::Native(backend) = decision
+            .route()
+            .map_err(crate::math::MathRuntimeError::from)?
         {
-            self.native_solve(&mut staged, &levels, prepared, cancel)
-                .await
-        } else {
-            self.staged_solve(&mut staged, analysis, &levels, cancel)
-                .await
-        };
+            selected.solver.selection =
+                pse_backend_native::solve::SolverSelection::Explicit(backend);
+            resolution.solver.selection = selected.solver.selection;
+        }
+        let report =
+            if decision.lexicographic == Some(pse_backend_native::routing::Lexicographic::Native) {
+                let prepared = self.finish_case(resolution).await?;
+                self.native_solve(&mut staged, &levels, prepared, cancel)
+                    .await
+            } else {
+                self.staged_solve(&mut staged, &selected, &levels, cancel)
+                    .await
+            };
         staged.close().await;
         report
     }
-    /// The multi-objective solve of every level at once, when its class is one HiGHS
-    /// optimizes lexicographically (LP or MILP); `None` otherwise.
-    async fn native_levels(
+    /// Query declared native priority semantics, otherwise admit one backend for staging.
+    async fn level_route(
         &self,
         analysis: &ModelingAnalysis,
+        single_nonzero: bool,
         cancel: &crate::CancelSource,
-    ) -> Result<Option<super::ModelingSolvePreparation>, WorkflowError> {
+    ) -> Result<
+        (
+            pse_backend_native::routing::Decision,
+            super::modeling::cases::ModelingCaseResolution,
+        ),
+        WorkflowError,
+    > {
         let resolution = self
             .resolve_case(
                 analysis.root,
@@ -251,10 +298,21 @@ impl ModelingPackage {
             )
             .await?;
         let facts = &resolution.model.case.compiled().facts;
-        if !facts.coefficients || facts.quadratic {
-            return Ok(None);
-        }
-        Ok(Some(self.finish_case(resolution).await?))
+        let requirements = pse_backend_native::routing::Requirements {
+            table: &pse_backend_native::execution::LINKED,
+            facts,
+            intent: resolution.solver.intent,
+            numerical_psd: false,
+            least_squares: false,
+            controls: &resolution.solver.controls,
+            settings: &resolution.solver.backend,
+            sensitivity: resolution.solver.sensitivity.is_some(),
+        };
+        let decision = requirements.lexicographic(analysis.solver.selection, single_nonzero);
+        decision
+            .route()
+            .map_err(crate::math::MathRuntimeError::from)?;
+        Ok((decision, resolution))
     }
     async fn native_solve(
         &self,
@@ -270,14 +328,17 @@ impl ModelingPackage {
         let mut report = self.report(ModelingObjectiveRoute::Native, levels);
         report.steps.push(result);
         let values = match report.steps[0].as_ref() {
-            Ok(result) if result.accepted => Some(self.level_values(levels, result, cancel).await?),
+            Ok(result) if priority_completed(result) => {
+                Some(self.level_values(levels, result, cancel).await?)
+            }
             _ => None,
         };
         for (level, value) in report.levels.iter_mut().zip(values.iter().flatten()) {
             level.value = Some(*value);
         }
         report.completed = values.is_some();
-        report.failure = failure(&report.steps[0]);
+        report.failure =
+            failure(&report.steps[0]).or_else(|| (!report.completed).then(priority_failure));
         Ok(report)
     }
     async fn staged_solve(
@@ -319,6 +380,38 @@ impl ModelingPackage {
                 })
                 .collect::<Result<Vec<_>, _>>()?
         };
+        // Admit every priority's original bound view before the first numerical attempt.
+        // Earlier beta values are finite RHS placeholders here; only optimization completion supplies actual bounds.
+        for position in 0..=last {
+            let bindings = if last == 0 {
+                analysis.bindings.clone()
+            } else {
+                analysis.bindings.clone().with_objective_level(position)
+            };
+            let resolution = self
+                .resolve_case(
+                    analysis.root,
+                    analysis.instance,
+                    bindings,
+                    analysis.limits,
+                    analysis.case.clone(),
+                    analysis.order,
+                    analysis.compiler,
+                    analysis.solver.clone(),
+                    analysis.numerical.clone(),
+                    CaseOverrides {
+                        parameters: parameters[..position].iter().map(|id| (*id, 0.0)).collect(),
+                        ..Default::default()
+                    },
+                    false,
+                    cancel,
+                )
+                .await?;
+            let decision = resolution.route_decision()?;
+            decision
+                .route()
+                .map_err(crate::math::MathRuntimeError::from)?;
+        }
         let mut report = self.report(ModelingObjectiveRoute::Staged, levels);
         let mut bounds = BTreeMap::new();
         let mut accepted = None;
@@ -352,12 +445,15 @@ impl ModelingPackage {
             let step = report.steps.len();
             report.levels[position].attempt = step;
             let result = match &record.result {
-                Ok(result) if record.interruption.is_none() && result.accepted => result.clone(),
+                Ok(result) if record.interruption.is_none() && priority_completed(result) => {
+                    result.clone()
+                }
                 _ => {
                     report.failure = record
                         .interruption
                         .clone()
-                        .or_else(|| failure(&record.result));
+                        .or_else(|| failure(&record.result))
+                        .or_else(|| Some(priority_failure()));
                     report.steps.push(record.result);
                     return Ok(report);
                 }

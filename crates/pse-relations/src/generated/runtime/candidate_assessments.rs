@@ -8,20 +8,20 @@ pub use pse_model::generated::r#runtime::r#candidate_assessments::{
 };
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    131u8, 145u8, 51u8, 75u8, 0u8, 71u8, 41u8, 252u8, 240u8, 88u8, 36u8, 236u8, 189u8,
-    39u8, 122u8, 50u8,
+    80u8, 155u8, 154u8, 158u8, 146u8, 23u8, 67u8, 159u8, 46u8, 196u8, 223u8, 153u8,
+    229u8, 52u8, 130u8, 193u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "candidate_assessments";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Runtime;
 /// The schema generation.
-pub const VERSION: u32 = 2u32;
+pub const VERSION: u32 = 3u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    61u8, 230u8, 139u8, 27u8, 187u8, 150u8, 97u8, 29u8, 98u8, 211u8, 52u8, 6u8, 78u8,
-    138u8, 25u8, 59u8, 137u8, 160u8, 160u8, 253u8, 16u8, 83u8, 91u8, 79u8, 115u8, 73u8,
-    253u8, 202u8, 158u8, 220u8, 65u8, 149u8,
+    164u8, 68u8, 225u8, 208u8, 29u8, 192u8, 149u8, 70u8, 197u8, 178u8, 229u8, 186u8,
+    97u8, 99u8, 218u8, 49u8, 15u8, 221u8, 28u8, 5u8, 49u8, 119u8, 163u8, 105u8, 194u8,
+    246u8, 140u8, 222u8, 127u8, 40u8, 178u8, 15u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeCandidateAssessmentsRow {
     fn append(
@@ -49,6 +49,51 @@ impl crate::columnar::ArrowValue for RuntimeCandidateAssessmentsRow {
             children[6usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(&self.r#reason, children[7usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#incumbent_policy,
+            children[8usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#candidate_kind,
+            children[9usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#qualification,
+            children[10usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#validated,
+            children[11usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#bound_origin,
+            children[12usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#bound, children[13usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#absolute_gap,
+            children[14usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#relative_gap,
+            children[15usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#qualifiers,
+            children[16usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#refusals,
+            children[17usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#permits_result,
+            children[18usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#permits_seed,
+            children[19usize].as_mut(),
+        )?;
         output.append(true);
         Ok(())
     }
@@ -79,6 +124,38 @@ impl crate::columnar::ArrowValue for RuntimeCandidateAssessmentsRow {
             children[6usize].as_mut(),
         )?;
         <String as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
+        <crate::generated::enums::IncumbentPolicy as crate::columnar::ArrowValue>::append_null(
+            children[8usize].as_mut(),
+        )?;
+        <Option<
+            crate::generated::enums::NativeCandidateKind,
+        > as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
+        <Option<
+            crate::generated::enums::NativeQualification,
+        > as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
+        <Option<
+            bool,
+        > as crate::columnar::ArrowValue>::append_null(children[11usize].as_mut())?;
+        <Option<
+            crate::generated::enums::CandidateBoundOrigin,
+        > as crate::columnar::ArrowValue>::append_null(children[12usize].as_mut())?;
+        <Option<
+            f64,
+        > as crate::columnar::ArrowValue>::append_null(children[13usize].as_mut())?;
+        <Option<
+            f64,
+        > as crate::columnar::ArrowValue>::append_null(children[14usize].as_mut())?;
+        <Option<
+            f64,
+        > as crate::columnar::ArrowValue>::append_null(children[15usize].as_mut())?;
+        <Vec<
+            crate::generated::enums::CandidateQualifier,
+        > as crate::columnar::ArrowValue>::append_null(children[16usize].as_mut())?;
+        <Vec<
+            crate::generated::enums::CandidateRefusal,
+        > as crate::columnar::ArrowValue>::append_null(children[17usize].as_mut())?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[18usize].as_mut())?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[19usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -123,6 +200,72 @@ impl crate::columnar::ArrowValue for RuntimeCandidateAssessmentsRow {
             )?,
             r#reason: <String as crate::columnar::ArrowValue>::read(
                 input.column(7usize).as_ref(),
+                index,
+            )?,
+            r#incumbent_policy: <crate::generated::enums::IncumbentPolicy as crate::columnar::ArrowValue>::read(
+                input.column(8usize).as_ref(),
+                index,
+            )?,
+            r#candidate_kind: <Option<
+                crate::generated::enums::NativeCandidateKind,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(9usize).as_ref(),
+                index,
+            )?,
+            r#qualification: <Option<
+                crate::generated::enums::NativeQualification,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(10usize).as_ref(),
+                index,
+            )?,
+            r#validated: <Option<
+                bool,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(11usize).as_ref(),
+                index,
+            )?,
+            r#bound_origin: <Option<
+                crate::generated::enums::CandidateBoundOrigin,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(12usize).as_ref(),
+                index,
+            )?,
+            r#bound: <Option<
+                f64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(13usize).as_ref(),
+                index,
+            )?,
+            r#absolute_gap: <Option<
+                f64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(14usize).as_ref(),
+                index,
+            )?,
+            r#relative_gap: <Option<
+                f64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(15usize).as_ref(),
+                index,
+            )?,
+            r#qualifiers: <Vec<
+                crate::generated::enums::CandidateQualifier,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(16usize).as_ref(),
+                index,
+            )?,
+            r#refusals: <Vec<
+                crate::generated::enums::CandidateRefusal,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(17usize).as_ref(),
+                index,
+            )?,
+            r#permits_result: <bool as crate::columnar::ArrowValue>::read(
+                input.column(18usize).as_ref(),
+                index,
+            )?,
+            r#permits_seed: <bool as crate::columnar::ArrowValue>::read(
+                input.column(19usize).as_ref(),
                 index,
             )?,
         })
@@ -190,6 +333,51 @@ impl crate::columnar::RelationRow for RuntimeCandidateAssessmentsRow {
             columns[6usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(&self.r#reason, columns[7usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#incumbent_policy,
+            columns[8usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#candidate_kind,
+            columns[9usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#qualification,
+            columns[10usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#validated,
+            columns[11usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#bound_origin,
+            columns[12usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#bound, columns[13usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#absolute_gap,
+            columns[14usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#relative_gap,
+            columns[15usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#qualifiers,
+            columns[16usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#refusals,
+            columns[17usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#permits_result,
+            columns[18usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#permits_seed,
+            columns[19usize].as_mut(),
+        )?;
         Ok(())
     }
     fn relation(
@@ -224,10 +412,10 @@ impl crate::columnar::RelationRow for RuntimeCandidateAssessmentsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        17_408_usize + size_of::<Self::Builder>()
+        44_032_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        136usize
+        344usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -277,6 +465,119 @@ impl crate::columnar::RelationRow for RuntimeCandidateAssessmentsRow {
             bytes,
             crate::columnar::allocation_add(8, (self.r#reason).len())?,
         )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            crate::columnar::allocation_add(8, (self.r#incumbent_policy).as_str().len())?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#candidate_kind).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).as_str().len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#qualification).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).as_str().len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#validated).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(8usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#bound_origin).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).as_str().len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#bound).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(8usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#absolute_gap).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(8usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#relative_gap).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(8usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            (self.r#qualifiers)
+                .iter()
+                .try_fold(
+                    8usize,
+                    |bytes, item| crate::columnar::allocation_add(
+                        bytes,
+                        crate::columnar::allocation_add(8, (item).as_str().len())?,
+                    ),
+                )?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            (self.r#refusals)
+                .iter()
+                .try_fold(
+                    8usize,
+                    |bytes, item| crate::columnar::allocation_add(
+                        bytes,
+                        crate::columnar::allocation_add(8, (item).as_str().len())?,
+                    ),
+                )?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            Ok::<usize, crate::RelationError>(8usize)?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            Ok::<usize, crate::RelationError>(8usize)?,
+        )?;
         Ok(bytes)
     }
 }
@@ -287,7 +588,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 8usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 20usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "run_id",
@@ -328,6 +629,66 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 8usize] = [
         name: "reason",
         position: 7usize,
     },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "incumbent_policy",
+        position: 8usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "candidate_kind",
+        position: 9usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "qualification",
+        position: 10usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "validated",
+        position: 11usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "bound_origin",
+        position: 12usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "bound",
+        position: 13usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "absolute_gap",
+        position: 14usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "relative_gap",
+        position: 15usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "qualifiers",
+        position: 16usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "refusals",
+        position: 17usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "permits_result",
+        position: 18usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "permits_seed",
+        position: 19usize,
+    },
 ];
 /// Named native column references derived from the declared field inventory.
 pub mod columns {
@@ -347,6 +708,30 @@ pub mod columns {
     pub const USABILITY: crate::columnar::ColumnReference = super::COLUMNS[6usize];
     ///reason
     pub const REASON: crate::columnar::ColumnReference = super::COLUMNS[7usize];
+    ///incumbent_policy
+    pub const INCUMBENT_POLICY: crate::columnar::ColumnReference = super::COLUMNS[8usize];
+    ///candidate_kind
+    pub const CANDIDATE_KIND: crate::columnar::ColumnReference = super::COLUMNS[9usize];
+    ///qualification
+    pub const QUALIFICATION: crate::columnar::ColumnReference = super::COLUMNS[10usize];
+    ///validated
+    pub const VALIDATED: crate::columnar::ColumnReference = super::COLUMNS[11usize];
+    ///bound_origin
+    pub const BOUND_ORIGIN: crate::columnar::ColumnReference = super::COLUMNS[12usize];
+    ///bound
+    pub const BOUND: crate::columnar::ColumnReference = super::COLUMNS[13usize];
+    ///absolute_gap
+    pub const ABSOLUTE_GAP: crate::columnar::ColumnReference = super::COLUMNS[14usize];
+    ///relative_gap
+    pub const RELATIVE_GAP: crate::columnar::ColumnReference = super::COLUMNS[15usize];
+    ///qualifiers
+    pub const QUALIFIERS: crate::columnar::ColumnReference = super::COLUMNS[16usize];
+    ///refusals
+    pub const REFUSALS: crate::columnar::ColumnReference = super::COLUMNS[17usize];
+    ///permits_result
+    pub const PERMITS_RESULT: crate::columnar::ColumnReference = super::COLUMNS[18usize];
+    ///permits_seed
+    pub const PERMITS_SEED: crate::columnar::ColumnReference = super::COLUMNS[19usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -361,6 +746,18 @@ pub struct RuntimeCandidateAssessmentsView<'a> {
     policy_column: &'a arrow_array::StringArray,
     usability_column: &'a arrow_array::StringArray,
     reason_column: &'a arrow_array::StringArray,
+    incumbent_policy_column: &'a arrow_array::StringArray,
+    candidate_kind_column: &'a arrow_array::StringArray,
+    qualification_column: &'a arrow_array::StringArray,
+    validated_column: &'a arrow_array::BooleanArray,
+    bound_origin_column: &'a arrow_array::StringArray,
+    bound_column: &'a arrow_array::Float64Array,
+    absolute_gap_column: &'a arrow_array::Float64Array,
+    relative_gap_column: &'a arrow_array::Float64Array,
+    qualifiers_column: &'a arrow_array::ListArray,
+    refusals_column: &'a arrow_array::ListArray,
+    permits_result_column: &'a arrow_array::BooleanArray,
+    permits_seed_column: &'a arrow_array::BooleanArray,
 }
 impl<'a> RuntimeCandidateAssessmentsView<'a> {
     /// Admits a raw candidate's actual schema and visible local values.
@@ -424,6 +821,42 @@ impl<'a> RuntimeCandidateAssessmentsView<'a> {
             reason_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(7usize).as_ref())?,
+            incumbent_policy_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(8usize).as_ref())?,
+            candidate_kind_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(9usize).as_ref())?,
+            qualification_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(10usize).as_ref())?,
+            validated_column: crate::columnar::array::<
+                arrow_array::BooleanArray,
+            >(batch.column(11usize).as_ref())?,
+            bound_origin_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(12usize).as_ref())?,
+            bound_column: crate::columnar::array::<
+                arrow_array::Float64Array,
+            >(batch.column(13usize).as_ref())?,
+            absolute_gap_column: crate::columnar::array::<
+                arrow_array::Float64Array,
+            >(batch.column(14usize).as_ref())?,
+            relative_gap_column: crate::columnar::array::<
+                arrow_array::Float64Array,
+            >(batch.column(15usize).as_ref())?,
+            qualifiers_column: crate::columnar::array::<
+                arrow_array::ListArray,
+            >(batch.column(16usize).as_ref())?,
+            refusals_column: crate::columnar::array::<
+                arrow_array::ListArray,
+            >(batch.column(17usize).as_ref())?,
+            permits_result_column: crate::columnar::array::<
+                arrow_array::BooleanArray,
+            >(batch.column(18usize).as_ref())?,
+            permits_seed_column: crate::columnar::array::<
+                arrow_array::BooleanArray,
+            >(batch.column(19usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -542,6 +975,150 @@ impl<'a> RuntimeCandidateAssessmentsView<'a> {
     pub fn reason_field(&self) -> &'a crate::FieldRef {
         &self.batch.schema_ref().fields()[7usize]
     }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "incumbent_policy",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn incumbent_policy_column(&self) -> &'a arrow_array::StringArray {
+        self.incumbent_policy_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "incumbent_policy", "`.")]
+    pub fn incumbent_policy_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[8usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "candidate_kind",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn candidate_kind_column(&self) -> &'a arrow_array::StringArray {
+        self.candidate_kind_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "candidate_kind", "`.")]
+    pub fn candidate_kind_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[9usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "qualification",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn qualification_column(&self) -> &'a arrow_array::StringArray {
+        self.qualification_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "qualification", "`.")]
+    pub fn qualification_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[10usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "validated",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn validated_column(&self) -> &'a arrow_array::BooleanArray {
+        self.validated_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "validated", "`.")]
+    pub fn validated_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[11usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "bound_origin",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn bound_origin_column(&self) -> &'a arrow_array::StringArray {
+        self.bound_origin_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "bound_origin", "`.")]
+    pub fn bound_origin_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[12usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "bound",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn bound_column(&self) -> &'a arrow_array::Float64Array {
+        self.bound_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "bound", "`.")]
+    pub fn bound_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[13usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "absolute_gap",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn absolute_gap_column(&self) -> &'a arrow_array::Float64Array {
+        self.absolute_gap_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "absolute_gap", "`.")]
+    pub fn absolute_gap_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[14usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "relative_gap",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn relative_gap_column(&self) -> &'a arrow_array::Float64Array {
+        self.relative_gap_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "relative_gap", "`.")]
+    pub fn relative_gap_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[15usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "qualifiers",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn qualifiers_column(&self) -> &'a arrow_array::ListArray {
+        self.qualifiers_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "qualifiers", "`.")]
+    pub fn qualifiers_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[16usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "refusals",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn refusals_column(&self) -> &'a arrow_array::ListArray {
+        self.refusals_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "refusals", "`.")]
+    pub fn refusals_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[17usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "permits_result",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn permits_result_column(&self) -> &'a arrow_array::BooleanArray {
+        self.permits_result_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "permits_result", "`.")]
+    pub fn permits_result_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[18usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "permits_seed",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn permits_seed_column(&self) -> &'a arrow_array::BooleanArray {
+        self.permits_seed_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "permits_seed", "`.")]
+    pub fn permits_seed_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[19usize]
+    }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
     /// # Errors
@@ -571,6 +1148,48 @@ impl<'a> RuntimeCandidateAssessmentsView<'a> {
                 index,
             )?,
             r#reason: crate::columnar::ArrowValue::read(self.reason_column, index)?,
+            r#incumbent_policy: crate::columnar::ArrowValue::read(
+                self.incumbent_policy_column,
+                index,
+            )?,
+            r#candidate_kind: crate::columnar::ArrowValue::read(
+                self.candidate_kind_column,
+                index,
+            )?,
+            r#qualification: crate::columnar::ArrowValue::read(
+                self.qualification_column,
+                index,
+            )?,
+            r#validated: crate::columnar::ArrowValue::read(
+                self.validated_column,
+                index,
+            )?,
+            r#bound_origin: crate::columnar::ArrowValue::read(
+                self.bound_origin_column,
+                index,
+            )?,
+            r#bound: crate::columnar::ArrowValue::read(self.bound_column, index)?,
+            r#absolute_gap: crate::columnar::ArrowValue::read(
+                self.absolute_gap_column,
+                index,
+            )?,
+            r#relative_gap: crate::columnar::ArrowValue::read(
+                self.relative_gap_column,
+                index,
+            )?,
+            r#qualifiers: crate::columnar::ArrowValue::read(
+                self.qualifiers_column,
+                index,
+            )?,
+            r#refusals: crate::columnar::ArrowValue::read(self.refusals_column, index)?,
+            r#permits_result: crate::columnar::ArrowValue::read(
+                self.permits_result_column,
+                index,
+            )?,
+            r#permits_seed: crate::columnar::ArrowValue::read(
+                self.permits_seed_column,
+                index,
+            )?,
         })
     }
     /// Decodes rows directly from Arrow for an explicit scalar algorithm boundary.

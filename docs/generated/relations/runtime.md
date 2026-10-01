@@ -85,7 +85,7 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `name`.
 
 Completion-owned candidate assessment. Native termination, original numerical acceptance, physical closure and final usability remain distinct. A seed-only candidate may seed a later step and is never a published solution; a diagnostic-only point is an observation only.
 
-Version: 2. Snapshot class: `derived`. Primary key: `run_id, step`.
+Version: 3. Snapshot class: `derived`. Primary key: `run_id, step`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
@@ -97,6 +97,20 @@ Version: 2. Snapshot class: `derived`. Primary key: `run_id, step`.
 | `policy` | `enum:ClosurePolicy` | false | `payload` | — | — |
 | `usability` | `enum:CandidateUse` | false | `payload` | — | — |
 | `reason` | `Utf8` | false | `payload` | — | — |
+| `incumbent_policy` | `enum:IncumbentPolicy` | false | `payload` | — | — |
+| `candidate_kind` | `enum:NativeCandidateKind` | true | `payload` | — | — |
+| `qualification` | `enum:NativeQualification` | true | `payload` | — | — |
+| `validated` | `Boolean` | true | `payload` | — | — |
+| `bound_origin` | `enum:CandidateBoundOrigin` | true | `payload` | — | — |
+| `bound` | `Float64` | true | `payload` | — | — |
+| `absolute_gap` | `Float64` | true | `payload` | — | — |
+| `relative_gap` | `Float64` | true | `payload` | — | — |
+| `qualifiers` | `List` | false | `payload` | — | — |
+| `qualifiers.item` | `enum:CandidateQualifier` | false | `payload` | — | — |
+| `refusals` | `List` | false | `payload` | — | — |
+| `refusals.item` | `enum:CandidateRefusal` | false | `payload` | — | — |
+| `permits_result` | `Boolean` | false | `payload` | — | — |
+| `permits_seed` | `Boolean` | false | `payload` | — | — |
 
 ## `change_events`
 
@@ -1511,6 +1525,32 @@ Native row check `deleted_when_marked_deleted` (must be true):
 ("phase" = 'deleted') = ("deleted_at" IS NOT NULL)
 ```
 
+## `operational_schema_support_state`
+
+Owned schema readiness and exact transition support. Catalog/control owns this shared object; operations depends on its supported shared version.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `history`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `history` | `Utf8` | false | `key` | — | — |
+| `shared_version` | `Int32` | false | `payload` | — | — |
+| `source` | `Utf8` | false | `payload` | — | — |
+| `target` | `Utf8` | false | `payload` | — | — |
+| `ready` | `Boolean` | false | `payload` | — | — |
+
+Native row check `history_known` (must be true):
+
+```sql
+"history" IN ('catalog', 'operations')
+```
+
+Native row check `shared_version_positive` (must be true):
+
+```sql
+"shared_version" > 0
+```
+
 ## `operational_settlements`
 
 Settlement inquiries after an uncertain commit acknowledgement, and their outcome: a committed outcome names its publication; a conflict names why and the head it met.
@@ -2049,6 +2089,33 @@ Native row check `ordered_range` (must be true):
 from_version <= through_version
 ```
 
+## `route_decisions`
+
+Request-qualified capability admission retained even without a native attempt. No failed route fabricates a run or solver result.
+
+Version: 1. Snapshot class: `derived`. Primary key: `request_identity, step`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `request_identity` | `content_hash` | false | `key` | — | — |
+| `step` | `Int64` | false | `key` | — | — |
+| `intent` | `enum:NativeSolveIntent` | false | `payload` | — | — |
+| `selection` | `enum:NativeRouteSelection` | false | `payload` | — | — |
+| `requested_backend` | `enum:NativeBackend` | true | `payload` | — | — |
+| `classes` | `List` | false | `payload` | — | — |
+| `classes.item` | `enum:NativeProblemClass` | false | `payload` | — | — |
+| `eligibility` | `List` | false | `payload` | — | — |
+| `eligibility.item` | `Struct` | false | `payload` | — | — |
+| `eligibility.item.backend` | `enum:NativeBackend` | false | `payload` | — | — |
+| `eligibility.item.reasons` | `List` | false | `payload` | — | — |
+| `eligibility.item.reasons.item` | `enum:NativeIneligibility` | false | `payload` | — | — |
+| `selected` | `enum:NativeRouteKind` | true | `payload` | — | — |
+| `backend` | `enum:NativeBackend` | true | `payload` | — | — |
+| `representation` | `enum:NativeRepresentation` | true | `payload` | — | — |
+| `lexicographic` | `enum:NativeLexicographicRealization` | true | `payload` | — | — |
+| `refusal` | `enum:NativeRouteRefusal` | true | `payload` | — | — |
+| `detail` | `Utf8` | true | `payload` | — | — |
+
 ## `run_lineage`
 
 Completion-owned semantic lineage. The run is the execution, not its content: it is not part of request identity, and a durable run's tries are attempts recorded in the operational store, the publication naming the attempt. Model, case, instance and fit name what was solved (`pse_model::lineage`). Effective settings, submitted start and native observations are retained in solve_metrics; source provider and parameter data are retained with the immutable revision.
@@ -2234,11 +2301,13 @@ Version: 3. Snapshot class: `derived`. Primary key: `run_id, step, symbol_id`.
 
 Linked adapter inventory. Contextual eligibility is evaluated separately for the selected request. `automatic_classes` are the classes automatic routing may choose the adapter for; every other class in `classes` needs explicit selection. Automatic routing takes the problem's classes most specific first and selects among the eligible adapters automatic for the first class that has one. `certifies` marks an adapter that serves the explicit certify intent with global_bound and proven_infeasible assurances. `native_forms` lists the constraint handlers the adapter consumes; a structure that leaves any other form to a native handler is ineligible (ADR-0104). `requirements` lists the structural requirements of a formulation the adapter can honour with a method its settings select, such as the l1 exact penalty an authored `penalty(l1)` realization states; a structure stating any other is ineligible, as is a request whose settings select another method (ADR-0104 §5). `lexicographic_classes` lists the classes in which the adapter optimizes several objectives lexicographically in one native solve; a structure with several objectives in any other class is ineligible (ADR-0111). `batch` marks an adapter that solves the independent points of a study sharing one prepared structure as one parallel batch on the admitted threads, each point still qualified on its own (Plan 22 N5). `sensitivities` marks an adapter supporting contextual parameter analysis: original-coordinate multipliers for optimizing KKT sensitivity, or qualified regular-square Root response (ADR-0144); automatic routing of a request for parametric sensitivities prefers one, and an explicit selection of any other solves with the quantities withheld and their reason recorded (ADR-0118).
 
-Version: 3. Snapshot class: `derived`. Primary key: `backend`.
+Version: 4. Snapshot class: `derived`. Primary key: `backend`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
 | `backend` | `enum:NativeBackend` | false | `key` | — | — |
+| `structural_policy` | `enum:NativeStructuralPolicy` | false | `payload` | — | — |
+| `lexicographic_degradation` | `enum:NativeLexicographicDegradation` | false | `payload` | — | — |
 | `classes` | `List` | false | `payload` | — | — |
 | `classes.item` | `enum:NativeProblemClass` | false | `payload` | — | — |
 | `automatic_classes` | `List` | false | `payload` | — | — |
@@ -2260,6 +2329,46 @@ Version: 3. Snapshot class: `derived`. Primary key: `backend`.
 | `lexicographic_classes.item` | `enum:NativeProblemClass` | false | `payload` | — | — |
 | `batch` | `Boolean` | false | `payload` | — | — |
 | `sensitivities` | `Boolean` | false | `payload` | — | — |
+
+## `structural_assessments`
+
+Complete original bound-view structural assessment with library matching and named refusals; modes distinguish Root matching, equality matching, justified native feasibility and constant point evaluation. No numerical rank claim.
+
+Version: 1. Snapshot class: `derived`. Primary key: `request_identity, step`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `request_identity` | `content_hash` | false | `key` | — | — |
+| `step` | `Int64` | false | `key` | — | — |
+| `mode` | `enum:NativeStructuralMode` | false | `payload` | — | — |
+| `scope` | `enum:StructuralScopeKind` | false | `payload` | — | — |
+| `scope_model` | `semantic_id` | false | `payload` | — | — |
+| `scope_members` | `List` | false | `payload` | — | — |
+| `scope_members.item` | `semantic_id` | false | `payload` | — | — |
+| `scope_rows` | `List` | false | `payload` | — | — |
+| `scope_rows.item` | `semantic_id` | false | `payload` | — | — |
+| `scope_columns` | `List` | false | `payload` | — | — |
+| `scope_columns.item` | `semantic_id` | false | `payload` | — | — |
+| `scope_inputs` | `List` | false | `payload` | — | — |
+| `scope_inputs.item` | `semantic_id` | false | `payload` | — | — |
+| `variables` | `List` | false | `payload` | — | — |
+| `variables.item` | `semantic_id` | false | `payload` | — | — |
+| `equations` | `List` | false | `payload` | — | — |
+| `equations.item` | `Struct` | false | `payload` | — | — |
+| `equations.item.id` | `semantic_id` | false | `payload` | — | — |
+| `equations.item.lower` | `Float64` | true | `payload` | — | — |
+| `equations.item.upper` | `Float64` | true | `payload` | — | — |
+| `matching` | `List` | false | `payload` | — | — |
+| `matching.item` | `Struct` | false | `payload` | — | — |
+| `matching.item.row` | `semantic_id` | false | `payload` | — | — |
+| `matching.item.column` | `semantic_id` | false | `payload` | — | — |
+| `unmatched_rows` | `List` | false | `payload` | — | — |
+| `unmatched_rows.item` | `semantic_id` | false | `payload` | — | — |
+| `unmatched_columns` | `List` | false | `payload` | — | — |
+| `unmatched_columns.item` | `semantic_id` | false | `payload` | — | — |
+| `optimization_freedom` | `Int64` | true | `payload` | — | — |
+| `admitted` | `Boolean` | false | `payload` | — | — |
+| `provenance` | `Utf8` | false | `payload` | — | — |
 
 ## `study_outcomes`
 
@@ -2291,6 +2400,41 @@ Native row check `predecessor_is_earlier` (must be true):
 ```sql
 "predecessor" IS NULL OR "predecessor" < "point_index"
 ```
+
+## `trajectory_endpoints`
+
+Actual completion state and inputs in canonical physical coordinates, with stable coordinate IDs, and live pre-termination input segment, separate from requested samples. Future required observations remain explicitly missing; fixed-domain integrals retain their extent.
+
+Version: 1. Snapshot class: `derived`. Primary key: `run_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `requirement` | `enum:EndpointPolicy` | false | `payload` | — | — |
+| `required_event` | `semantic_id` | true | `payload` | — | — |
+| `event_id` | `semantic_id` | true | `payload` | — | — |
+| `time` | `Float64` | false | `payload` | — | — |
+| `mode` | `Int64` | false | `payload` | — | — |
+| `state_ids` | `List` | false | `payload` | — | — |
+| `state_ids.item` | `semantic_id` | false | `payload` | — | — |
+| `input_ids` | `List` | false | `payload` | — | — |
+| `input_ids.item` | `semantic_id` | false | `payload` | — | — |
+| `output_ids` | `List` | false | `payload` | — | — |
+| `output_ids.item` | `semantic_id` | false | `payload` | — | — |
+| `state` | `List` | false | `payload` | — | — |
+| `state.item` | `Float64` | false | `payload` | — | — |
+| `outputs` | `List` | false | `payload` | — | — |
+| `outputs.item` | `Float64` | false | `payload` | — | — |
+| `integrals` | `List` | false | `payload` | — | — |
+| `integrals.item` | `Float64` | false | `payload` | — | — |
+| `input_columns` | `List` | false | `payload` | — | — |
+| `input_columns.item` | `Int64` | false | `payload` | — | — |
+| `inputs` | `List` | false | `payload` | — | — |
+| `inputs.item` | `Float64` | false | `payload` | — | — |
+| `endpoint_satisfied` | `Boolean` | false | `payload` | — | — |
+| `prefix_complete` | `Boolean` | false | `payload` | — | — |
+| `missing_observations` | `List` | false | `payload` | — | — |
+| `missing_observations.item` | `Float64` | false | `payload` | — | — |
 
 ## `validation_findings`
 

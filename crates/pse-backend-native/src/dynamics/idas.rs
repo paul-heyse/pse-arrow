@@ -1815,6 +1815,22 @@ impl<'a> Session<'a> {
             integrals,
         })
     }
+    fn capture_endpoint(
+        &mut self,
+        r: &mut Report,
+        time: f64,
+        stepped: bool,
+        event: Option<SemanticId>,
+    ) -> Result<(), ProblemError> {
+        let point = self.sample(time, stepped)?;
+        r.endpoint = Some(TrajectoryEndpoint {
+            point,
+            event,
+            input_columns: self.callback.map.clone(),
+            inputs: self.callback.parameters.clone(),
+        });
+        Ok(())
+    }
     fn integrals(&mut self, t: f64, stepped: bool) -> Result<Vec<f64>, ProblemError> {
         let integrals = if self.quad.is_null() {
             vec![]
@@ -2146,6 +2162,7 @@ impl<'a> Session<'a> {
             }
             r.completed_time = time;
             if time >= p.end {
+                self.capture_endpoint(r, time, false, None)?;
                 r.termination = Termination::Completed;
                 return Ok(());
             }
@@ -2204,6 +2221,7 @@ impl<'a> Session<'a> {
                     after: None,
                 });
                 if event.terminal {
+                    self.capture_endpoint(r, time, true, Some(event.id))?;
                     if p.samples.get(r.samples.len()) == Some(&time) {
                         let point = self.sample(time, true)?;
                         let inventories = self.inventories(time, &point.state)?;
@@ -2238,6 +2256,7 @@ impl<'a> Session<'a> {
                 continue;
             }
             if time >= p.end && root.is_none() && !changed {
+                self.capture_endpoint(r, time, true, None)?;
                 r.termination = Termination::Completed;
                 return Ok(());
             }

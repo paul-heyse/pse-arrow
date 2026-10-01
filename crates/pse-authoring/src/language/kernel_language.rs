@@ -164,7 +164,7 @@ fn roundtrip_all_declarations_and_explicit_identity() {
  preset Small = D(enabled=true);
  case run { child root = Small(); }
  test check { expect square(2) == 4 tolerance 1e-9; }
- test compared oracle synthetic.upstream fixture { dof 0; run pure; } { expect square(2) == 4 tolerance 1e-9; }
+ test compared oracle synthetic.upstream fixture { dof 0; route steady; procedure check; } { expect square(2) == 4 tolerance 1e-9; }
  }"#;
     let rows = parse_named(source);
     // Plan 23 D0: uniqueness and derivations are typed attributes, not conventions.
@@ -564,7 +564,7 @@ fn fixture_intent_parses_and_renders() {
     };
     for intent in Intent::ALL {
         let source = format!(
-            "package p {{ def D {{ var x: Scalar; }} test t fixture {{ dof 0; run steady; intent {}; value root.x = 1; }} {{ child root: D = D(); }} }}",
+            "package p {{ def D {{ var x: Scalar; }} test t fixture {{ dof 0; route steady; procedure solve; intent {}; value root.x = 1; }} {{ child root: D = D(); }} }}",
             intent.as_str()
         );
         let rows = parse_named(&source);
@@ -574,7 +574,7 @@ fn fixture_intent_parses_and_renders() {
     }
     // Without the clause the fixture leaves the intent to the runtime policy.
     let rows = parse_named(
-        "package p { def D { var x: Scalar; } test t fixture { dof 0; run steady; } { child root: D = D(); } }",
+        "package p { def D { var x: Scalar; } test t fixture { dof 0; route steady; procedure solve; } { child root: D = D(); } }",
     );
     assert_eq!(fixture(&rows).intent, None);
     assert!(!roundtrip(&rows).contains("intent"));
@@ -599,7 +599,7 @@ fn fixture_intent_parses_and_renders() {
 /// finding names, parse and render back to the same declaration.
 #[test]
 fn fixture_diagnostics_parse_and_render() {
-    let source = "package p { def D { var x[i in s]: Scalar; eq e[i in s]: x[i] == 1; } test t fixture { dof 0; run steady; diagnose \"jacobian.parallel_rows\" at(root.e[a], root.e[b]); diagnose \"jacobian.numerical_rank_deficiency\" at(root.x); } { child root: D = D(); } }";
+    let source = "package p { def D { var x[i in s]: Scalar; eq e[i in s]: x[i] == 1; } test t fixture { dof 0; route steady; procedure solve; diagnose \"jacobian.parallel_rows\" at(root.e[a], root.e[b]); diagnose \"jacobian.numerical_rank_deficiency\" at(root.x); } { child root: D = D(); } }";
     let rows = parse_named(source);
     let fixture = rows
         .iter()
@@ -658,7 +658,7 @@ fn fixture_policy_parses_and_renders() {
     };
     let source = |policy: &str| {
         format!(
-            "package p {{ def D {{ var x: Scalar; }} test t fixture {{ dof 0; run steady; {policy} value root.x = 1; }} {{ child root: D = D(); }} }}"
+            "package p {{ def D {{ var x: Scalar; }} test t fixture {{ dof 0; route steady; procedure solve; {policy} value root.x = 1; }} {{ child root: D = D(); }} }}"
         )
     };
     // Every setting, written out of canonical order.
@@ -756,7 +756,7 @@ fn kernel_conformance_refuses_unknown_fixture_policy_setting() {
         ),
     ] {
         let text = format!(
-            "package p {{ def D {{ var x: Scalar; }} test t fixture {{ dof 0; run steady; {policy} }} {{ child root: D = D(); }} }}"
+            "package p {{ def D {{ var x: Scalar; }} test t fixture {{ dof 0; route steady; procedure solve; {policy} }} {{ child root: D = D(); }} }}"
         );
         let error = parse(
             &text,
@@ -1323,5 +1323,73 @@ mod relations {
         )
         .unwrap_err();
         assert!(error.to_string().contains("lower bound"), "{error}");
+    }
+}
+
+#[test]
+fn fixture_route_procedure_endpoint_roundtrip_and_legacy_refusal() {
+    use pse_model::generated::enums::{
+        EndpointPolicy, ModelingAnalysisRoute as Route, ModelingProcedure as Procedure,
+    };
+    for (clauses, route, procedure, endpoint) in [
+        (
+            "route simultaneous; procedure initialize;",
+            Route::Simultaneous,
+            Procedure::Initialize,
+            None,
+        ),
+        (
+            "route integrated; procedure integrate; endpoint fixed_horizon;",
+            Route::Integrated,
+            Procedure::Integrate,
+            Some(EndpointPolicy::FixedHorizon),
+        ),
+        (
+            "route integrated; procedure shooting; endpoint declared_terminal_event(root.done);",
+            Route::Integrated,
+            Procedure::Shooting,
+            Some(EndpointPolicy::DeclaredTerminalEvent),
+        ),
+    ] {
+        let source = format!("package p {{ test t fixture {{ dof 0; {clauses} }} {{ }} }}");
+        let rows = parse_named(&source);
+        let fixture = rows
+            .iter()
+            .find(|r| r.name == "t")
+            .unwrap()
+            .value
+            .scope
+            .as_ref()
+            .unwrap()
+            .fixture
+            .as_ref()
+            .unwrap();
+        assert_eq!(fixture.route, Some(route));
+        assert_eq!(fixture.procedure, Some(procedure));
+        assert_eq!(fixture.endpoint.as_ref().map(|e| e.kind), endpoint);
+        let rendered = render(&rows).unwrap();
+        let again = parse_named(&rendered);
+        assert_eq!(
+            rows.iter().map(|r| &r.value).collect::<Vec<_>>(),
+            again.iter().map(|r| &r.value).collect::<Vec<_>>()
+        );
+    }
+    for clauses in [
+        "run steady;",
+        "route steady; route simultaneous;",
+        "procedure solve; procedure initialize;",
+        "endpoint fixed_horizon; endpoint fixed_horizon;",
+    ] {
+        let source = format!("package p {{ test t fixture {{ dof 0; {clauses} }} {{ }} }}");
+        assert!(
+            parse(
+                &source,
+                SemanticId::NIL,
+                IdentityPolicy::Named,
+                ParseBudget::default()
+            )
+            .is_err(),
+            "{clauses}"
+        );
     }
 }

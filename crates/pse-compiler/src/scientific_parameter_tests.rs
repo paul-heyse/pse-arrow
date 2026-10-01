@@ -100,7 +100,7 @@ dataset chosen:nrtl.selection complete_over(k in packages,i in members,j in memb
 [model,c,b]=[nrtl.parameters[fit_y,nrtl.interaction_parameters,c,b]];
 }
 // Frozen from the independent extensive sum and its analytical amount derivative at x=(.2,.3,.5).
-test nrtl_point fixture {dof 0;run pure;} {
+test nrtl_point fixture {dof 0;route steady; procedure check;} {
 permission selected_fit families(nrtl.parameters) allow_unknown true allow_extrapolation false;
 let n[j in members]:Amount=if j==a then 0.2{mol} else if j==b then 0.3{mol} else 0.5{mol};
 expect nrtl.normalized_excess(300{K},101325{Pa},n,members,model,nrtl.potential)==0.1834063116391329 tolerance 1e-12;
@@ -124,7 +124,7 @@ dataset directed:cubic.directional_pair bind(parameterization=fit_x,family=cubic
 entity properties.selection_context ordered_selection {roots={cubic.directional_pair[fit_x,cubic.binary_interaction,a,b],cubic.directional_pair[fit_x,cubic.binary_interaction,b,a]},subjects={a,b},models={cubic.binary_interaction},rules={}}
 entity properties.property_package ordered_model {admitted=ordered_selection}
 set ordered_members:Set<chemistry.species>={a,b};set ordered_packages:Set<properties.property_package>={ordered_model};set ordered_families:Set<properties.property>={cubic.binary_interaction};dataset ordered_choices:cubic.directional_selection complete_over(k in ordered_packages,family in ordered_families,i in ordered_members,j in ordered_members) provenance(evidence,provenance.Role.synthetic) {[ordered_model,cubic.binary_interaction,a,b]=[cubic.directional_pair[fit_x,cubic.binary_interaction,a,b]];[ordered_model,cubic.binary_interaction,b,a]=[cubic.directional_pair[fit_x,cubic.binary_interaction,b,a]];}
-test pair_point fixture {dof 0;run pure;} {
+test pair_point fixture {dof 0;route steady; procedure check;} {
 permission prediction_use families(properties.predictive_rule,interactions.symmetric_scalar,cubic.directional_pair) allow_unknown true allow_extrapolation false;
 expect interactions.pair_parameter(scalar_model,scalar_pair,a,b)==0.1 tolerance 1e-15;
 expect interactions.pair_parameter(scalar_model,scalar_pair,b,a)==0.1 tolerance 1e-15;

@@ -76,8 +76,9 @@ mod modeling;
 pub mod uncertainty;
 pub use modeling::ModelingNativeAnalysis;
 pub use modeling::{
-    DiagnosticSampleStop, DiscreteInitialization, ElasticObservation, ModelingAnalysis,
-    ModelingCheck, ModelingConformanceCheck, ModelingConformancePolicy, ModelingConformanceReport,
+    DeclaredExecution, DeclaredProcedure, DiagnosticSampleStop, DiscreteInitialization,
+    ElasticObservation, InitializationOverrides, ModelingAnalysis, ModelingCheck,
+    ModelingConformanceCheck, ModelingConformancePolicy, ModelingConformanceReport,
     ModelingDiagnosticPolicy, ModelingDiagnosticPreparation, ModelingDiagnosticSamples,
     ModelingDiagnostics, ModelingElasticAttempt, ModelingFixtureSelection,
     ModelingInfeasibilityCertificate, ModelingInitialization, ModelingInitializationAttempt,
@@ -132,6 +133,15 @@ pub enum WorkflowError {
         /// Structured selected-unit boundary attribution.
         diagnostic: Box<pse_model::diagnostic::BoundaryDiagnostic>,
         /// Original typed failure before any unit iteration.
+        #[source]
+        cause: MathRuntimeError,
+    },
+    /// Original modeling admission facts with their authored lineage and typed native cause.
+    #[error("{diagnostic}")]
+    ModelingAdmission {
+        /// Original identities and available model source paths.
+        diagnostic: Box<pse_model::diagnostic::BoundaryDiagnostic>,
+        /// Retained route decision or structural failure before native execution.
         #[source]
         cause: MathRuntimeError,
     },
@@ -209,7 +219,7 @@ impl From<pse_model::diagnostic::BoundaryDiagnostic> for WorkflowError {
 pse_diagnostics::impl_diagnostic! {
     WorkflowError,
     code(this) {match this {Self::Contract(_)=>Some(pse_diagnostics::DiagnosticCode::CompileMath),Self::EphemeralPublication{..}|Self::UnknownPayloadVersion{..}=>Some(pse_diagnostics::DiagnosticCode::ConfigInvalid),Self::PublicationUnresolved{..}|Self::ExportLeaseExpired{..}=>Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),Self::LegacyWorkspace{..}=>Some(pse_diagnostics::DiagnosticCode::SchemaInvalidDeclaration),_=>None}},
-    forward(this) {match this {Self::Boundary(e)=>Some(e.as_ref()),Self::ConditionalAdmission{diagnostic,..}=>Some(diagnostic.as_ref()),Self::Math(e)=>Some(e),Self::Engine(e)=>Some(e),Self::Authoring(e)=>Some(e),Self::Shared(e)=>Some(e.as_ref()),Self::Operations(e)=>Some(e),_=>None}},
+    forward(this) {match this {Self::Boundary(e)=>Some(e.as_ref()),Self::ConditionalAdmission{diagnostic,..}|Self::ModelingAdmission{diagnostic,..}=>Some(diagnostic.as_ref()),Self::Math(e)=>Some(e),Self::Engine(e)=>Some(e),Self::Authoring(e)=>Some(e),Self::Shared(e)=>Some(e.as_ref()),Self::Operations(e)=>Some(e),_=>None}},
     help(_this){None},related(_this){None},source(_this){None}
 }
 fn contract(message: impl Into<String>) -> WorkflowError {

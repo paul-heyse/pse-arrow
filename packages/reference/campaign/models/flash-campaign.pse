@@ -12,13 +12,13 @@
 @id("28b063d62fdc44e58b36c8b9bfc20a04") dataset feeds:feed provenance(sampling_plan,provenance.Role.synthetic) from "data/flash-feeds.parquet";
 // These workloads retain the units' original physical obligations. Numeric oracle
 // expectations for the single 368 K reference feed stay in bt_pr_formulations.
-@id("42690477e6fc42078670a0dc999cfbc8") test measurement_smooth fixture {dof 0;run steady;fix root.inlet.flow=1{mol/s};fix root.inlet.T=368{K};fix root.inlet.pressure=101325{Pa};fix root.inlet.z[chem.benzene]=0.5{1};fix root.inlet.z[chem.toluene]=0.5{1};fix root.heat=0{W};fix root.delta_pressure=0{Pa};} {
+@id("42690477e6fc42078670a0dc999cfbc8") test measurement_smooth fixture {dof 0;route steady; procedure solve;fix root.inlet.flow=1{mol/s};fix root.inlet.T=368{K};fix root.inlet.pressure=101325{Pa};fix root.inlet.z[chem.benzene]=0.5{1};fix root.inlet.z[chem.toluene]=0.5{1};fix root.heat=0{W};fix root.delta_pressure=0{Pa};} {
 @id("06ea43b64b5d4500a821e5c090eea037") child root:flashing.Flash=flashing.Flash(inlet_pkg=bt_pr.BT_PR(defined_state=true,formulation=equilibrium.VleFormulation.smooth),outlet_pkg=bt_pr.BT_PR(defined_state=false,formulation=equilibrium.VleFormulation.smooth));
 }
-@id("de697862d4084e61a5f04f4e5d7c49a7") test measurement_nested fixture {dof 0;run steady;fix root.inlet.flow=1{mol/s};fix root.inlet.T=368{K};fix root.inlet.pressure=101325{Pa};fix root.inlet.z[chem.benzene]=0.5{1};fix root.inlet.z[chem.toluene]=0.5{1};fix root.heat=0{W};fix root.delta_pressure=0{Pa};} {
+@id("de697862d4084e61a5f04f4e5d7c49a7") test measurement_nested fixture {dof 0;route steady; procedure solve;fix root.inlet.flow=1{mol/s};fix root.inlet.T=368{K};fix root.inlet.pressure=101325{Pa};fix root.inlet.z[chem.benzene]=0.5{1};fix root.inlet.z[chem.toluene]=0.5{1};fix root.heat=0{W};fix root.delta_pressure=0{Pa};} {
 @id("87c8ef2cc651456196f3d34b7db6ae66") child root:flashing.Flash=flashing.Flash(inlet_pkg=bt_pr.BT_PR(defined_state=true,formulation=equilibrium.VleFormulation.nested),outlet_pkg=bt_pr.BT_PR(defined_state=false,formulation=equilibrium.VleFormulation.nested));
 }
-@id("0b09b709785c4d3c9fa1eebf42160aa1") test measurement_value_sweep fixture {dof 0;run steady;fix root.inlet.flow=1{mol/s};fix root.inlet.T=368{K};fix root.inlet.pressure=101325{Pa};fix root.inlet.z[chem.benzene]=0.5{1};fix root.inlet.z[chem.toluene]=0.5{1};fix root.heat=0{W};fix root.delta_pressure=0{Pa};} {
+@id("0b09b709785c4d3c9fa1eebf42160aa1") test measurement_value_sweep fixture {dof 0;route steady; procedure solve;fix root.inlet.flow=1{mol/s};fix root.inlet.T=368{K};fix root.inlet.pressure=101325{Pa};fix root.inlet.z[chem.benzene]=0.5{1};fix root.inlet.z[chem.toluene]=0.5{1};fix root.heat=0{W};fix root.delta_pressure=0{Pa};} {
 @id("d9877efea0d0454a85d7f6c74885295b") child root:flashing.Flash=flashing.Flash(inlet_pkg=bt_ideal.BTIdeal(defined_state=true),outlet_pkg=bt_ideal.BTIdeal(defined_state=false));
 }
 }

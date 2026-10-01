@@ -15,6 +15,8 @@ pub(super) static DIFFSOL: Diffsol = Diffsol;
 pub(super) struct Idas;
 pub(super) static IDAS: Idas = Idas;
 static DIFFSOL_CAPABILITY: Capability = Capability {
+    structural: crate::structural::Policy::NativeFeasibility,
+    lexicographic_degradation: crate::routing::DegradationSupport::Max,
     classes: &[ProblemClass::Ode, ProblemClass::SemiExplicitIndex1],
     automatic_classes: &[],
     // Forward sensitivities and adjoint gradients (Plan 22 Y3a).
@@ -34,6 +36,8 @@ static DIFFSOL_CAPABILITY: Capability = Capability {
     diagnostics: "native statistics per segment and scheme, consistent starts, partial samples, root transitions and reset sensitivities",
 };
 static IDAS_CAPABILITY: Capability = Capability {
+    structural: crate::structural::Policy::NativeFeasibility,
+    lexicographic_degradation: crate::routing::DegradationSupport::Max,
     classes: &[ProblemClass::Ode, ProblemClass::SemiExplicitIndex1],
     automatic_classes: &[],
     // Forward sensitivities, adjoint gradients and the second-order adjoint of an exact

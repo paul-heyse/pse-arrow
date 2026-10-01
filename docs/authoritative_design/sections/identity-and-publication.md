@@ -59,7 +59,7 @@ by identity, so no authored fact depends on a name. Resolution lives in
 parent identities and index members, finished as the
 first 16 bytes of BLAKE3's extendable output. Examples are port identity
 (`named_id(instance, "port:<name>")`) and scalar occurrence identity (instance,
-declaration and index members, in `pse-runtime::workflow::composition`). Unchanged inputs
+declaration and index members, in `pse-modeling::specialize::member_id`). Unchanged inputs
 reproduce identical IDs; changing an index set changes only the IDs that depend on it.
 
 **Positions.** Native layouts assign coordinate order, sparsity positions and block
@@ -540,12 +540,7 @@ R-37).
 
 ### 20.5 Current contracts and schema evolution
 
-> Decision: [ADR-0114](../../adr/0114-typed-operational-store.md) — the operational store
-> (PostgreSQL) does not migrate. Its schema is generated from the registry and identified by
-> a fingerprint. An empty store is created from it; a store with another fingerprint is
-> refused with a typed `SchemaMismatch` and reset explicitly (`just db-reset`), because its
-> contents are regenerable. Register R-35 holds the trigger for versioned migrations
-> (Plan 22 B1, implemented; [§20.6](#section-20-6)).
+> Supplement: [ADR-0146](../../adr/0146-preserve-versioned-operational-transitions.md) (proposed; authorized implementation) replaces normal reset recovery from ADR-0114. Fresh stores are created from generated declarations. Existing stores open read-only after exact support/readiness validation; `just db-migrate` explicitly transitions the supported predecessor while retaining records. Unknown source, conflicting immutable history, incompatible layout or active generations refuse before mutation. Namespace ownership spans separately recorded catalog/control and operations histories. Readiness precedes changed schema, each transition commits with its checksum history, and matching committed progress can resume. Runtime generations hold schema admission until their connections close; current statements are unavailable without verified readiness. Destructive reset is separate maintenance. Historical records retain their recorded contract and never infer new qualification facts from absent fields. Wider directional schema compatibility remains Plan 25g scope.
 
 **Semantic contract.** `pse-schema::fingerprint::SemanticContract`
 (format `pse.semantic-contract.v2`) is the complete support closure of the requested

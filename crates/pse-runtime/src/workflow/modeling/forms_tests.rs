@@ -285,13 +285,27 @@ async fn derived_big_m_follows_value_only_study_points() {
         numerical: NumericalInputs::default(),
     };
     let limits = [50.0, 70.0, 90.0];
+    let declared = package
+        .declared_execution(
+            root,
+            analysis.compiler,
+            analysis.solver.clone(),
+            analysis.numerical.clone(),
+            analysis.limits,
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap();
     let points = limits
         .iter()
         .map(|limit| {
             let mut analysis = analysis.clone();
             analysis.case.values.insert("limit".into(), *limit);
             ModelingStudyPoint {
-                analysis: Ok(analysis),
+                execution: Ok(DeclaredExecution {
+                    analysis,
+                    ..declared.clone()
+                }),
                 predecessor: None,
                 overlay: Default::default(),
             }

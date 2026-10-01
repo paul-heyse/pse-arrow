@@ -761,7 +761,9 @@ impl Pipeline {
                 Termination::Success => SolverReturn::Success,
                 Termination::Acceptable => SolverReturn::StopAtAcceptablePoint,
                 Termination::Cancelled => SolverReturn::UserRequestedStop,
-                Termination::Limit | Termination::IterationLimit => SolverReturn::MaxiterExceeded,
+                Termination::Limit | Termination::IterationLimit | Termination::NodeLimit => {
+                    SolverReturn::MaxiterExceeded
+                }
                 Termination::TimeLimit => SolverReturn::WallTimeExceeded,
                 _ => SolverReturn::Unassigned,
             };

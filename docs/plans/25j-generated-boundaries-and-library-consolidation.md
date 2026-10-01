@@ -152,6 +152,12 @@ This is not Python workflow execution qualification. Wider J1/J2 request/default
 J3 generator/library consolidation remain open. [25d Verification](25d-mathematical-realization-and-response.md#verification)
 owns commands, conditions, composite results and limits; this does not close J2.
 
+## Consumed 25e prerequisite slice
+
+**Implemented/Tested, 2026-10-01:** Required J1/J2 execution consumers use Rust-owned declared admission and optional initialization overrides, with the registry-generated route/procedure/endpoint/qualification vocabulary and actual PyO3 stubs. Python inspection/direct initialization/study and conformance admission exports pass focused controls. Wider request-document/enum/default generation and J3 consolidation remain open.
+[25e Verification](25e-declared-analyses-and-qualification.md#verification) owns commands,
+conditions, composite results and limits; this does not close the companion plan.
+
 ## Proposed acceptance and handoff
 
 Focused checks use isolated Rust request/codec units and Python constructor/decoder units,

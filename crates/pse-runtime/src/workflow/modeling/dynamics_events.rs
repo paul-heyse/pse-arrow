@@ -272,6 +272,9 @@ pub(super) fn resolve_events(
     let mut roles = Vec::new();
     let mut roots = Vec::new();
     for (index, event) in mode.events.iter().enumerate() {
+        if event.next.is_none() && !event.reset.is_empty() {
+            return Err(contract("a terminal event cannot declare resets"));
+        }
         roots.push(ModelingOutput::Member(event.guard).row_id());
         events.push(native::Event {
             id: event.guard,

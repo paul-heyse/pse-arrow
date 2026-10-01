@@ -93,7 +93,6 @@ fn plan(source: &str, points: Vec<StudyPoint>) -> StudyPlan {
             physical,
             modeling: vec![modeling],
         },
-        route: pse_model::generated::enums::ModelingAnalysisRoute::Steady,
         settings: ipopt(),
         points,
         retry: RetryPolicy::ONCE,

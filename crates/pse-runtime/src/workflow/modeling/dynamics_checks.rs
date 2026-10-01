@@ -19,6 +19,14 @@ impl ModelingSimulation {
         point: &mut CaseValues,
     ) -> Result<(), WorkflowError> {
         let parameters = self.profile.parameters_at(parameters, sample.time);
+        self.update_point_values(sample, &parameters, point)
+    }
+    fn update_point_values(
+        &self,
+        sample: &native::Sample,
+        parameters: &[f64],
+        point: &mut CaseValues,
+    ) -> Result<(), WorkflowError> {
         if sample.state.len() != self.coordinates.state.len()
             || parameters.len() != self.coordinates.parameters.len()
         {
@@ -33,7 +41,7 @@ impl ModelingSimulation {
             .state
             .iter()
             .zip(&sample.state)
-            .chain(self.coordinates.parameters.iter().zip(&parameters))
+            .chain(self.coordinates.parameters.iter().zip(parameters))
         {
             point
                 .scalars
@@ -110,16 +118,9 @@ impl ModelingSimulation {
                     program
                         .as_ref()
                         .map(|p| {
-                            let providers = mode
-                                .context
-                                .providers
-                                .values()
-                                .map(|r| {
-                                    r.worker_scoped(cancel.clone())
-                                        .map(|w| (r.spec().key(), w))
-                                        .map_err(|e| contract(e.to_string()))
-                                })
-                                .collect::<Result<_, _>>()?;
+                            let providers =
+                                crate::math::attempt_providers(&mode.context.providers, &cancel)
+                                    .map_err(|e| contract(e.to_string()))?;
                             Ok::<_, WorkflowError>(p.assembly.worker(providers, cancel.clone()))
                         })
                         .transpose()
@@ -135,7 +136,17 @@ impl ModelingSimulation {
                     ))
                 })
                 .collect::<Result<Vec<_>, _>>()?;
-            for (index, sample) in report.samples.iter().enumerate() {
+            let endpoint = report.endpoint.as_ref();
+            let mut points = report.samples.iter().map(|s| (s, None)).collect::<Vec<_>>();
+            if let Some(end) = endpoint {
+                // Replace a coincident grid point's inputs; otherwise evaluate the separate endpoint.
+                if let Some(point) = points.iter_mut().find(|(s, _)| s.time == end.point.time) {
+                    *point = (&end.point, Some(end.inputs.as_slice()));
+                } else {
+                    points.push((&end.point, Some(end.inputs.as_slice())));
+                }
+            }
+            for (index, (sample, endpoint_inputs)) in points.into_iter().enumerate() {
                 let mode = self
                     .modes
                     .get(sample.mode)
@@ -153,7 +164,11 @@ impl ModelingSimulation {
                     )
                     .into());
                 }
-                self.update_sample_values(sample, parameters, point)?;
+                if let Some(inputs) = endpoint_inputs {
+                    self.update_point_values(sample, inputs, point)?;
+                } else {
+                    self.update_sample_values(sample, parameters, point)?;
+                }
                 let terminal = !product.model.integrals.is_empty()
                     && sample.time == self.profile.end
                     && report.termination == native::Termination::Completed;
@@ -275,12 +290,18 @@ impl ModelingSimulation {
         };
         match run() {
             Ok(()) => {
-                result.complete = report.samples.len() == self.profile.samples.len()
-                    && report
-                        .samples
-                        .iter()
-                        .zip(&self.profile.samples)
-                        .all(|(s, t)| s.time == *t)
+                let coverage = report.assess_endpoint(&self.profile);
+                let fixed_integrals_complete = self.modes.iter().all(|m| {
+                    let model = &m.model.compiled().model;
+                    model
+                        .integrals
+                        .keys()
+                        .all(|id| model.inventory_balances.values().any(|b| b.flux_id == *id))
+                }) || report.completed_time == self.profile.end
+                    && report.termination == native::Termination::Completed;
+                result.complete = coverage.satisfied
+                    && coverage.prefix_complete
+                    && fixed_integrals_complete
                     && (self.contract.balances.is_empty()
                         || report
                             .conservation

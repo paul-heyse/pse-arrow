@@ -46,6 +46,10 @@ impl Target {
         )))
     }
 
+    pub(crate) fn migration() -> Self {
+        Self(Arc::from("operational schema migration"))
+    }
+
     /// The description, safe to show: it never contains a password.
     pub fn as_str(&self) -> &str {
         &self.0
@@ -174,6 +178,14 @@ pub enum OperationsError {
         recorded: Option<String>,
         /// This build's schema fingerprint.
         expected: &'static str,
+    },
+    /// An explicit schema transition or generation admission was refused without fallback.
+    #[error("operational schema transition refused ({reason:?}): {detail}")]
+    MigrationRefused {
+        /// Typed source, history, readiness or quiescence cause.
+        reason: crate::schema::MigrationRefusal,
+        /// Attributable context, never interpreted as policy.
+        detail: String,
     },
     /// The connection URL or the server does not satisfy the deployment contract.
     #[error("invalid operational store configuration: {reason}")]
@@ -437,9 +449,9 @@ impl OperationsError {
         match self {
             Self::Cancelled { .. } => DiagnosticCode::RuntimeCancelled,
             Self::Internal { .. } | Self::CorruptValue { .. } => DiagnosticCode::InternalInvariant,
-            Self::Configuration { .. } | Self::SchemaMismatch { .. } => {
-                DiagnosticCode::ConfigInvalid
-            }
+            Self::Configuration { .. }
+            | Self::SchemaMismatch { .. }
+            | Self::MigrationRefused { .. } => DiagnosticCode::ConfigInvalid,
             Self::IllegalTransition { .. }
             | Self::NotFound { .. }
             | Self::InvalidRequest { .. }
@@ -471,7 +483,7 @@ pse_diagnostics::impl_diagnostic! {
                 "check `just db-status`; durable work needs the operational store, ephemeral work does not",
             )),
             OperationsError::SchemaMismatch { .. } => Some(Box::new(
-                "the store holds regenerable data only: `just db-reset` drops and recreates pse_ops",
+                "quiesce workers and close opened store generations, then use `just db-migrate`; unsupported baselines refuse without reset",
             )),
             _ => None,
         }

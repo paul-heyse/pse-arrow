@@ -13,7 +13,7 @@ CREATE DOMAIN pse_ops.content_hash AS bytea
     CONSTRAINT content_hash_width CHECK (octet_length(VALUE) = 32);
 
 -- Registry enumeration AttemptKind.
-CREATE TYPE pse_ops.attempt_kind AS ENUM ('modeling', 'simulation', 'fit', 'study', 'study_finalization');
+CREATE TYPE pse_ops.attempt_kind AS ENUM ('modeling', 'simulation', 'shooting', 'fit', 'study', 'study_finalization');
 
 -- Registry enumeration AttemptState.
 CREATE TYPE pse_ops.attempt_state AS ENUM ('planned', 'queued', 'running', 'completed', 'partial', 'failed', 'cancelled', 'stale', 'superseded');
@@ -40,7 +40,7 @@ CREATE TYPE pse_ops.native_metric_kind AS ENUM ('real', 'integer', 'boolean', 't
 CREATE TYPE pse_ops.native_run_state AS ENUM ('native', 'constant_evaluation', 'rejected', 'unattempted');
 
 -- Registry enumeration NativeTermination.
-CREATE TYPE pse_ops.native_termination AS ENUM ('success', 'acceptable', 'feasible_only', 'infeasible', 'unbounded', 'infeasible_or_unbounded', 'limit', 'iteration_limit', 'resource_exhausted', 'inconclusive', 'objective_limit', 'solution_limit', 'time_limit', 'cancelled', 'numerical', 'evaluation', 'panic', 'invalid');
+CREATE TYPE pse_ops.native_termination AS ENUM ('success', 'acceptable', 'feasible_only', 'infeasible', 'unbounded', 'infeasible_or_unbounded', 'limit', 'iteration_limit', 'node_limit', 'resource_exhausted', 'inconclusive', 'objective_limit', 'solution_limit', 'time_limit', 'cancelled', 'numerical', 'evaluation', 'panic', 'invalid');
 
 -- Registry enumeration PublicationKind.
 CREATE TYPE pse_ops.publication_kind AS ENUM ('relations', 'source', 'model', 'case', 'problem', 'run', 'diagnostics', 'inspection');
@@ -342,6 +342,18 @@ CREATE TABLE pse_ops."retention_marks" (
     "deleted_at" timestamptz,
     CONSTRAINT retention_marks_pkey PRIMARY KEY ("publication_id"),
     CONSTRAINT retention_marks_deleted_when_marked_deleted_check CHECK (("phase" = 'deleted') = ("deleted_at" IS NOT NULL))
+);
+
+-- runtime.operational_schema_support_state
+CREATE TABLE pse_ops."schema_support_state" (
+    "history" text NOT NULL,
+    "shared_version" integer NOT NULL,
+    "source" text NOT NULL,
+    "target" text NOT NULL,
+    "ready" boolean NOT NULL,
+    CONSTRAINT schema_support_state_pkey PRIMARY KEY ("history"),
+    CONSTRAINT schema_support_state_history_known_check CHECK ("history" IN ('catalog', 'operations')),
+    CONSTRAINT schema_support_state_shared_version_positive_check CHECK ("shared_version" > 0)
 );
 
 -- runtime.operational_settlements

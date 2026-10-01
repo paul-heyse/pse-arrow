@@ -63,7 +63,7 @@ persistent Salsa identity or a cache-container-only repair was rejected.
 | <a id="i1"></a>I1 Canonical framing and roles | Existing identity contract; hashing decision route | Centralize framing, role types and small hex utilities | partial: 25c/25d prerequisite slices |
 | <a id="i2"></a>I2 Immutable/binding allocation ownership | Existing prepared-product owner | Share immutable/provenance payload; charge new allocations; retain escaped owners | planned |
 | <a id="i3"></a>I3 Complete bounded reuse | I1/I2; H1/H2/H4; A3 | Body-level queries, immutable bindings and service-scoped view/package retention | planned |
-| <a id="i4"></a>I4 Completion-owned native admission | Existing staged/session owner | Transfer guards with work and release at actual completion | planned |
+| <a id="i4"></a>I4 Completion-owned native admission | Existing staged/session owner | Transfer guards with work and release at actual completion | complete: 25e |
 | <a id="i5"></a>I5 Worker reuse and failure behavior | I3/I4; F1 | Reuse immutable admission, preserve accelerators and expose worker failures | planned |
 
 I2/I4 are direct target corrections and need not wait for the larger cache redesign. H removes
@@ -213,9 +213,15 @@ slice is integrated. MathFactorableV2, ImplicitConfigurationV2, ModelingImplicit
 [25d Verification](25d-mathematical-realization-and-response.md#verification) owns commands,
 conditions, composite results and limits; this does not close the enclosing packets.
 
+## Consumed 25e prerequisite slice
+
+**Implemented/Tested, 2026-10-01:** I4 is complete: a successfully dispatched step owns its CPU permit through required native/TLS destruction, cancellation, waiter abandonment and panic cleanup, and returns capacity between steps. Failed dispatch leaves the guard with the caller. Required numerical/declared-admission/dynamic identities are versioned; historical frame spellings remain intact. Broader I1/I2/I3/I5 identity/cache/reuse work remains open.
+[25e Verification](25e-declared-analyses-and-qualification.md#verification) owns commands,
+conditions, composite results and limits; this does not close the companion plan.
+
 ## Execution and evidence
 
-The consumed 25c/25d prerequisite slices above are **Implemented**; their focused evidence
+The consumed prerequisite slices above are **Implemented**; their focused evidence
 is owned by the linked plans. The remaining packet scope and expected benefits are **Proposed**. No full-packet
 completion or new broad product qualification is claimed. The [series coordinator](25-design-remediation.md)
 owns finding dispositions and decision dependencies. Packets compile affected owners, run focused

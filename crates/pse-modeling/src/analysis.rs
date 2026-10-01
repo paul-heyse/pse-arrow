@@ -12,6 +12,49 @@ use crate::{
 };
 use pse_ids::SemanticId;
 pub use pse_model::generated::enums::ModelingAnalysisRoute as Route;
+/// One admitted authored temporal route and independent procedure.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct DeclaredPolicy {
+    /// Temporal specialization route.
+    pub route: Route,
+    /// Procedure, retained independently from the route.
+    pub procedure: pse_model::generated::enums::ModelingProcedure,
+}
+/// Resolve route/procedure defaults once for admission and every runtime consumer.
+pub fn declared_policy(
+    at: DeclarationId,
+    fixture: Option<&pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeFixture>,
+) -> Result<DeclaredPolicy> {
+    use pse_model::generated::enums::{EndpointPolicy, ModelingProcedure as Procedure};
+    let route = fixture.and_then(|f| f.route).unwrap_or(Route::Steady);
+    let procedure = fixture
+        .and_then(|f| f.procedure)
+        .unwrap_or(Procedure::Solve);
+    if (route == Route::Integrated)
+        != matches!(procedure, Procedure::Integrate | Procedure::Shooting)
+    {
+        return Err(invalid(
+            at,
+            "fixture procedure disagrees with its temporal route",
+        ));
+    }
+    if let Some(endpoint) = fixture.and_then(|f| f.endpoint.as_ref()) {
+        if route != Route::Integrated
+            || match endpoint.kind {
+                EndpointPolicy::FixedHorizon => endpoint.event.is_some(),
+                EndpointPolicy::DeclaredTerminalEvent => {
+                    endpoint.event.as_ref().is_none_or(|e| e.trim().is_empty())
+                }
+            }
+        {
+            return Err(invalid(
+                at,
+                "endpoint requirement needs an integrated route and exactly its declared terminal event",
+            ));
+        }
+    }
+    Ok(DeclaredPolicy { route, procedure })
+}
 /// The registry namespaces of reserved facts.
 pub use pse_model::generated::enums::ModelingFactNamespace as FactNamespace;
 use std::collections::BTreeMap;
@@ -205,6 +248,59 @@ pub(crate) fn route(facts: &Environment) -> Result<Route> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn declared_policy_defaults_and_independent_procedure_admission() {
+        use pse_model::generated::enums::ModelingProcedure as Procedure;
+        let root = DeclarationId::from_bytes([3; 16]);
+        assert_eq!(
+            declared_policy(root, None).unwrap(),
+            DeclaredPolicy {
+                route: Route::Steady,
+                procedure: Procedure::Solve
+            }
+        );
+        let fixture = |clauses: &str| {
+            let source = format!("package p {{ test t fixture {{ dof 0; {clauses} }} {{ }} }}");
+            pse_authoring::language::parse(
+                &source,
+                SemanticId::NIL,
+                pse_authoring::language::IdentityPolicy::Named,
+                pse_authoring::ParseBudget::default(),
+            )
+            .unwrap()
+            .into_iter()
+            .find(|r| r.name == "t")
+            .unwrap()
+            .value
+            .scope
+            .unwrap()
+            .fixture
+            .unwrap()
+        };
+        let declared = fixture("route simultaneous; procedure initialize;");
+        assert_eq!(
+            declared_policy(root, Some(&declared)).unwrap(),
+            DeclaredPolicy {
+                route: Route::Simultaneous,
+                procedure: Procedure::Initialize
+            }
+        );
+        for clauses in [
+            "route integrated; procedure solve;",
+            "route steady; procedure integrate;",
+            "route simultaneous; procedure shooting;",
+            "endpoint fixed_horizon;",
+        ] {
+            let declared = fixture(clauses);
+            assert!(declared_policy(root, Some(&declared)).is_err(), "{clauses}");
+        }
+        let mut declared = fixture(
+            "route integrated; procedure integrate; endpoint declared_terminal_event(root.done);",
+        );
+        declared.endpoint.as_mut().unwrap().event = Some(String::new());
+        assert!(declared_policy(root, Some(&declared)).is_err());
+    }
 
     /// ADR-0123 Outcome 1: a fact is a member of a registry namespace. Paths are read by
     /// the enumeration, an undeclared member names no fact, and a mode binds only stages.

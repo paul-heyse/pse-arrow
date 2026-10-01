@@ -68,6 +68,15 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
         PathBuf::from(format!("{ROOT}/cornucopia.toml")),
         mapping::render(reg).into_bytes(),
     );
+    for (name, owner) in [
+        ("catalog", pse_schema::store::HistoryOwner::Catalog),
+        ("operations", pse_schema::store::HistoryOwner::Operations),
+    ] {
+        tree.files.insert(
+            PathBuf::from(format!("{ROOT}/{name}.sql")),
+            ddl::component(reg, owner)?.into_bytes(),
+        );
+    }
     emit_rust(
         &mut tree,
         "mod.rs",
@@ -82,11 +91,85 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
             /// Cornucopia's type mapping from store types to registry Rust types.
             pub const CORNUCOPIA_TOML: &str = include_str!("cornucopia.toml");
             pub mod copy;
+            /// Registry-derived database layout verification, independent of recorded comments.
+            pub mod layout;
             mod fingerprint;
-            pub use fingerprint::{RECORD_SQL, SCHEMA_FINGERPRINT, SCHEMA_FINGERPRINT_HEX};
+            pub use fingerprint::{RECORD_SQL, SCHEMA_FINGERPRINT, SCHEMA_FINGERPRINT_HEX, CATALOG_FINGERPRINT_HEX, OPERATIONS_FINGERPRINT_HEX, SHARED_VERSION};
         },
     )?;
     emit_rust(&mut tree, "copy.rs", copy::render(reg))?;
+    let mut layouts = Vec::new();
+    let mut enum_layouts = Vec::new();
+    for (table, spec) in pse_schema::store::relations(reg) {
+        for (ordinal, column) in spec.columns.iter().enumerate() {
+            let name = column.name();
+            let ty = ddl::column_type(reg, spec, column)?;
+            let ty = if ty == "timestamptz" {
+                "timestamp with time zone".to_string()
+            } else {
+                ty
+            };
+            let nullable = column.nullable();
+            let ordinal = ordinal as i32 + 1;
+            layouts.push(quote! { (#table, #name, #ordinal, #ty, #nullable) });
+        }
+    }
+    for name in store_enums(reg) {
+        let spec = reg
+            .enum_spec(name)
+            .ok_or_else(|| error(format!("unknown enum {name}")))?;
+        let ty = names::enum_type(name);
+        let members = spec.members.iter().map(|m| m.name).collect::<Vec<_>>();
+        enum_layouts.push(quote! { (#ty, &[#(#members),*]) });
+    }
+    // Mechanically project the constraint names/kinds from the one rendered DDL.
+    let mut constraints = Vec::new();
+    let mut table = None;
+    for line in ddl::render(reg)?.lines() {
+        let fields = line.split_whitespace().collect::<Vec<_>>();
+        if fields.starts_with(&["CREATE", "TABLE"]) {
+            table = fields.get(2).map(|name| {
+                name.trim_start_matches("pse_ops.")
+                    .trim_matches('"')
+                    .to_owned()
+            });
+        }
+        if fields.starts_with(&["CONSTRAINT"]) {
+            if let (Some(table), Some(name), Some(kind)) = (&table, fields.get(1), fields.get(2)) {
+                let kind = match *kind {
+                    "PRIMARY" => "p",
+                    "UNIQUE" => "u",
+                    "CHECK" => "c",
+                    _ => return Err(error(format!("unprojected constraint {line}"))),
+                };
+                constraints.push(quote! { (#table,#name,#kind) });
+            }
+        }
+        if fields.starts_with(&["ALTER", "TABLE"])
+            && fields.get(3) == Some(&"ADD")
+            && fields.get(4) == Some(&"CONSTRAINT")
+        {
+            let table = fields[2].trim_start_matches("pse_ops.").trim_matches('"');
+            let name = fields[5];
+            constraints.push(quote! { (#table,#name,"f") });
+        }
+        if line == ");" {
+            table = None;
+        }
+    }
+    emit_rust(
+        &mut tree,
+        "layout.rs",
+        quote! {
+            /// Expected exact column layout (table, column, ordinal, PostgreSQL type, nullable).
+            pub const COLUMNS: &[(&str, &str, i32, &str, bool)] = &[#(#layouts),*];
+            /// Required generated constraints (table, constraint name, PostgreSQL kind).
+            pub const CONSTRAINTS: &[(&str,&str,&str)] = &[#(#constraints),*];
+            /// Consumed recorded enum domains, including their order.
+            pub const ENUMS: &[(&str, &[&str])] = &[#(#enum_layouts),*];
+        },
+    )?;
+
     Ok(tree)
 }
 
@@ -106,10 +189,27 @@ pub fn fingerprint(schema_sql: &[u8], physical_sql: &[u8]) -> pse_ids::ContentHa
 pub fn fingerprint_file(
     schema_sql: &[u8],
     physical_sql: &[u8],
+    catalog_sql: &[u8],
+    operations_sql: &[u8],
 ) -> Result<(PathBuf, Vec<u8>), SchemaError> {
     let hash = fingerprint(schema_sql, physical_sql);
     let bytes = hash.as_bytes();
     let hex = hash.to_hex();
+    let physical = std::str::from_utf8(physical_sql).map_err(|e| error(e.to_string()))?;
+    let (operations_physical, catalog_physical) = physical
+        .split_once(
+            "-- ---------------------------------------------------------------- catalog --",
+        )
+        .ok_or_else(|| {
+            error("physical.sql must retain the owned catalog section delimiter".into())
+        })?;
+    let component = |name: &str, sql: &[u8], physical: &[u8]| {
+        let mut h = pse_ids::FramedHasher::new(pse_ids::Frame::OpsComponentV1);
+        h.str(name).u64(1).part(sql).part(physical);
+        h.finish_hash().to_hex()
+    };
+    let catalog = component("catalog", catalog_sql, catalog_physical.as_bytes());
+    let operations = component("operations", operations_sql, operations_physical.as_bytes());
     let record = format!(
         "COMMENT ON SCHEMA {} IS '{} {hex}'",
         pse_schema::store::SCHEMA,
@@ -128,6 +228,12 @@ pub fn fingerprint_file(
             pub const SCHEMA_FINGERPRINT_HEX: &str = #hex;
             /// Records the fingerprint on the created schema as its comment.
             pub const RECORD_SQL: &str = #record;
+            /// Catalog/control target and consumed support, independent of worker/native vocabulary.
+            pub const CATALOG_FINGERPRINT_HEX: &str = #catalog;
+            /// Operations target and consumed support, independent of publication vocabulary.
+            pub const OPERATIONS_FINGERPRINT_HEX: &str = #operations;
+            /// Shared namespace and content/identity domain encoding contract.
+            pub const SHARED_VERSION: i32 = 1;
         },
     )?;
     tree.files

@@ -25,6 +25,7 @@ Member names are canonical string values; declaration order is presentation only
 |---|---|---|
 | `modeling` | `` | false |
 | `simulation` | `` | false |
+| `shooting` | `` | false |
 | `fit` | `` | false |
 | `study` | `` | false |
 | `study_finalization` | `` | false |
@@ -87,6 +88,47 @@ Member names are canonical string values; declaration order is presentation only
 | `at_lower` | `` | false |
 | `at_upper` | `` | false |
 | `violated` | `` | false |
+
+## `CandidateBoundOrigin`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `global_export` | `` | false |
+| `linear_program` | `` | false |
+| `mixed_integer` | `` | false |
+| `conic_program` | `` | false |
+
+## `CandidateQualifier`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `accepted_incumbent_feasible` | `` | false |
+| `accepted_incumbent_within_gap` | `` | false |
+| `closure_allowed` | `` | false |
+| `applicability_unknown_allowed` | `` | false |
+| `applicability_extrapolation_allowed` | `` | false |
+
+## `CandidateRefusal`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `no_candidate` | `` | false |
+| `validation_failed` | `` | false |
+| `infeasible` | `` | false |
+| `unqualified` | `` | false |
+| `native_outcome` | `` | false |
+| `model_checks` | `` | false |
+| `closure_unavailable` | `` | false |
+| `closure_unclosed` | `` | false |
+| `applicability_unavailable` | `` | false |
+| `applicability_denied` | `` | false |
+| `endpoint_unavailable` | `` | false |
+| `coverage_unavailable` | `` | false |
+| `bound_unavailable` | `` | false |
+| `gap_exceeded` | `` | false |
+| `least_infeasible` | `` | false |
+| `relaxed_incumbent` | `` | false |
+| `incumbent_refused` | `` | false |
 
 ## `CandidateUse`
 
@@ -172,6 +214,7 @@ Member names are canonical string values; declaration order is presentation only
 |---|---|---|
 | `simulation` | `` | false |
 | `fit` | `` | false |
+| `shooting` | `` | false |
 
 ## `ConstraintScalingScheme`
 
@@ -349,6 +392,13 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `diffsol` | `` | false |
 | `idas` | `` | false |
 
+## `EndpointPolicy`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `fixed_horizon` | `` | false |
+| `declared_terminal_event` | `` | false |
+
 ## `EntityKind`
 
 | Member | IDAES name | Deprecated |
@@ -484,6 +534,14 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 |---|---|---|
 | `algebraic_and_rates` | `` | false |
 | `steady_states` | `` | false |
+
+## `IncumbentPolicy`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `refuse` | `` | false |
+| `accept_feasible` | `` | false |
+| `accept_within_gap` | `` | false |
 
 ## `InputConsumptionKind`
 
@@ -844,17 +902,6 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `lower` | `` | false |
 | `upper` | `` | false |
 
-## `ModelingFixtureExecution`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `pure` | `` | false |
-| `steady` | `` | false |
-| `initialized` | `` | false |
-| `integrated` | `` | false |
-| `simultaneous` | `` | false |
-| `shooting` | `` | false |
-
 ## `ModelingInitializationStep`
 
 | Member | IDAES name | Deprecated |
@@ -932,6 +979,16 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 |---|---|---|
 | `records` | `` | false |
 | `families` | `` | false |
+
+## `ModelingProcedure`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `check` | `` | false |
+| `solve` | `` | false |
+| `initialize` | `` | false |
+| `integrate` | `` | false |
+| `shooting` | `` | false |
 
 ## `ModelingRealValueKind`
 
@@ -1211,6 +1268,20 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `start` | `` | false |
 | `local_solution` | `` | false |
 
+## `NativeLexicographicDegradation`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `max` | `` | false |
+| `single_nonzero` | `` | false |
+
+## `NativeLexicographicRealization`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `native` | `` | false |
+| `staged` | `` | false |
+
 ## `NativeMetricKind`
 
 | Member | IDAES name | Deprecated |
@@ -1266,6 +1337,42 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `variable_upper` | `` | false |
 | `variable` | `` | false |
 
+## `NativeRepresentation`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `nlp` | `` | false |
+| `roots` | `` | false |
+| `coefficients` | `` | false |
+| `cone` | `` | false |
+| `factorable` | `` | false |
+| `trajectory` | `` | false |
+
+## `NativeRouteKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `constant` | `` | false |
+| `native` | `` | false |
+
+## `NativeRouteRefusal`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `invalid_request` | `` | false |
+| `no_eligible` | `` | false |
+| `unavailable` | `` | false |
+| `ineligible` | `` | false |
+| `constant_native_forms` | `` | false |
+| `structure` | `` | false |
+
+## `NativeRouteSelection`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `auto` | `` | false |
+| `explicit` | `` | false |
+
 ## `NativeRunState`
 
 | Member | IDAES name | Deprecated |
@@ -1293,6 +1400,24 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `previous_accepted` | `` | false |
 | `explicit` | `` | false |
 
+## `NativeStructuralMode`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `roots` | `` | false |
+| `nlp` | `` | false |
+| `native_feasibility` | `` | false |
+| `point_evaluation` | `` | false |
+
+## `NativeStructuralPolicy`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `roots` | `` | false |
+| `equalities` | `` | false |
+| `native_feasibility` | `` | false |
+| `factorable` | `` | false |
+
 ## `NativeTermination`
 
 | Member | IDAES name | Deprecated |
@@ -1305,6 +1430,7 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `infeasible_or_unbounded` | `` | false |
 | `limit` | `` | false |
 | `iteration_limit` | `` | false |
+| `node_limit` | `` | false |
 | `resource_exhausted` | `` | false |
 | `inconclusive` | `` | false |
 | `objective_limit` | `` | false |
@@ -1723,6 +1849,15 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 |---|---|---|
 | `output` | `` | false |
 | `incumbent` | `` | false |
+
+## `StructuralScopeKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `whole` | `` | false |
+| `independent` | `` | false |
+| `conditional` | `` | false |
+| `partial` | `` | false |
 
 ## `StudyPointState`
 

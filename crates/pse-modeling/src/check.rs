@@ -737,18 +737,19 @@ fn check_declarations(
                 ));
             }
             if let Some(fixture) = &scope.fixture {
-                use pse_model::generated::enums::ModelingFixtureExecution as Execution;
-                let execution = fixture.execution.unwrap_or(Execution::Steady);
+                use pse_model::generated::enums::ModelingProcedure as Procedure;
+                let declared = crate::analysis::declared_policy(row.declaration_id, Some(fixture))?;
+                let procedure = declared.procedure;
                 // The integrated and shooting routes take the fixture's integration controls.
-                if matches!(execution, Execution::Integrated | Execution::Shooting)
+                if matches!(procedure, Procedure::Integrate | Procedure::Shooting)
                     != fixture.integration.is_some()
-                    || execution != Execution::Initialized
+                    || procedure != Procedure::Initialize
                         && (!fixture.stages.is_empty() || fixture.initialization.is_some())
                     || fixture.stages.iter().any(|s| s.is_empty())
                     // Expected diagnostics describe a solved point of the steady or
                     // initialized route.
                     || !fixture.diagnostics.is_empty()
-                        && !matches!(execution, Execution::Steady | Execution::Initialized)
+                        && !matches!(procedure, Procedure::Solve | Procedure::Initialize)
                     || fixture
                         .diagnostics
                         .iter()
@@ -756,7 +757,7 @@ fn check_declarations(
                 {
                     return Err(invalid(
                         row.declaration_id,
-                        "fixture execution metadata disagrees with its route",
+                        "fixture procedure metadata disagrees with its temporal route",
                     ));
                 }
                 if let Some(expected) = &fixture.expected_failure {
@@ -770,7 +771,7 @@ fn check_declarations(
                     .iter()
                     .flat_map(|i| &i.schedules)
                     .collect::<Vec<_>>();
-                let shooting = execution == Execution::Shooting;
+                let shooting = procedure == Procedure::Shooting;
                 if shooting != fixture.shooting.is_some()
                     || shooting != schedules.iter().any(|s| s.free)
                     || schedules
@@ -802,7 +803,7 @@ fn check_declarations(
                     .iter()
                     .map(|m| m.name.as_str())
                     .collect::<BTreeSet<_>>();
-                if !fixture.modes.is_empty() && execution != Execution::Integrated
+                if !fixture.modes.is_empty() && declared.route != crate::analysis::Route::Integrated
                     || mode_names.len() != fixture.modes.len()
                     || mode_names.contains("")
                     || fixture.modes.iter().any(|m| {
@@ -901,7 +902,7 @@ fn check_declarations(
                     ];
                     if !solver && allowances.iter().all(Option::is_none)
                         || allowances.iter().flatten().any(|n| *n <= 0)
-                        || solver && execution == Execution::Pure
+                        || solver && procedure == Procedure::Check
                     {
                         return Err(invalid(
                             row.declaration_id,

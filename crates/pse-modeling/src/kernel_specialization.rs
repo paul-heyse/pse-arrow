@@ -1121,7 +1121,7 @@ fn fixture_diagnostics_resolve_members_once() {
  entity kind item {} entity item a {} entity item b {}
  set items: Set<item> = {a, b};
  def D { var x[i in items]: Scalar; eq e[i in items]: x[i] == 1; }
- test t fixture { dof 0; run steady; diagnose "jacobian.parallel_rows" at(root.e[a], root.x); } { child root: D = D(); }
+ test t fixture { dof 0; route steady; procedure solve; diagnose "jacobian.parallel_rows" at(root.e[a], root.x); } { child root: D = D(); }
  }"#;
     let model = run(text, "p.t", Bindings::default()).unwrap();
     let fixture = model.fixtures.values().next().unwrap();
@@ -1144,7 +1144,10 @@ fn fixture_diagnostics_resolve_members_once() {
     for (invalid, message) in [
         (text.replace("root.e[a], root.x", "root.absent"), "unknown"),
         (
-            text.replace("run steady;", "run pure;"),
+            text.replace(
+                "route steady; procedure solve;",
+                "route steady; procedure check;",
+            ),
             "fixture execution metadata disagrees with its route",
         ),
     ] {

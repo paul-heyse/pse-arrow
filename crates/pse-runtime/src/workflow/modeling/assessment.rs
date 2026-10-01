@@ -20,6 +20,7 @@ pub(in crate::workflow) struct AssessedPoint {
     pub error: Option<pse_model::diagnostic::BoundaryDiagnostic>,
     /// A candidate existed and was assessed; without one no check applies.
     pub complete: bool,
+    pub required_closure: usize,
     pub owner: Arc<pse_columnar::AllocationLease>,
 }
 impl AssessedPoint {
@@ -43,6 +44,7 @@ pub(in crate::workflow) struct Assessment {
     program: Option<Arc<ExecutableCase>>,
     rows: Vec<SemanticId>,
     scope: AssessmentScope,
+    pub(in crate::workflow) required_closure: usize,
 }
 impl ModelingPackage {
     /// Prepare the assessment of `prepared` before its step runs. The observation program
@@ -81,6 +83,7 @@ impl ModelingPackage {
             program,
             rows,
             scope,
+            required_closure: product.model.closures.len(),
         })
     }
 }
@@ -108,6 +111,7 @@ impl Assessment {
             reports: vec![],
             error: None,
             complete: false,
+            required_closure: self.required_closure,
             owner,
         };
         match outcome {

@@ -357,19 +357,27 @@ impl FitReport {
     }
     /// Candidate use of the final estimate: the native decision, then the fresh
     /// independent original-model quality of the final evaluation.
-    pub(crate) fn candidate_use(&self) -> super::numerics::CandidateDecision {
-        use super::numerics::{CandidateReason, constant_use, native_use, refused};
+    pub(crate) fn candidate_use(
+        &self,
+        policy: &pse_model::numerics::NumericalPolicy,
+    ) -> super::numerics::CandidateDecision {
+        use super::numerics::{constant_use, native_use, refused};
+        use pse_model::generated::enums::CandidateRefusal;
         if self.candidate.is_none() {
-            return refused(CandidateReason::NoCandidate);
+            return refused(CandidateRefusal::NoCandidate);
         }
         let fresh = self
             .quality
             .as_ref()
-            .map_or(refused(CandidateReason::Infeasible), constant_use);
-        match self.solve.as_ref().map(native_use) {
-            // A native seed-only or refused estimate keeps its decision.
-            Some(native) if !native.permits_use() => native,
-            Some(_) | None => fresh,
+            .map_or(refused(CandidateRefusal::Infeasible), constant_use);
+        match self.solve.as_ref().map(|report| native_use(report, policy)) {
+            Some(mut native) => {
+                if !fresh.permits_use() {
+                    native.refuse(CandidateRefusal::Infeasible);
+                }
+                native
+            }
+            None => fresh,
         }
     }
     /// A stationary feasible estimate with locally identifiable free parameters.
@@ -455,4 +463,16 @@ fn measured_rows(
         pse_authoring::ParseBudget::default(),
     )
     .unwrap()
+}
+
+impl PreparedFit {
+    pub(crate) fn required_closure_checks(&self) -> usize {
+        self.assessments
+            .iter()
+            .map(|assessment| match assessment {
+                modeling::Assessment::Steady { model, .. } => model.compiled().model.closures.len(),
+                modeling::Assessment::Transient(simulation) => simulation.required_closure_checks(),
+            })
+            .sum()
+    }
 }

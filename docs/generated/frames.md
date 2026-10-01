@@ -24,6 +24,8 @@ Derived in: pse-ids, pse-schema, pse-columnar, pse-model.
 | `SchemaSemanticProfileV2` | `pse.schema.semantic-profile.v2` | A profile's requirements and requested support closure. |
 | `SchemaExecutionEncodingV1` | `pse.schema.execution-encoding.v1` | The exact observed native field layout. |
 | `NumericalPolicyV1` | `pse.numerical.policy.v1` | An effective numerical policy request. |
+| `NumericalPolicyV2` | `pse.numerical.policy.v2` | Numerical policy including incumbent permission; historical V1 remains unchanged. |
+| `ModelingAdmissionV1` | `pse.modeling.admission.v1` | Request-qualified structural and route admission over bound model and resolved policies. |
 | `ProviderV4` | `pse.provider.v4` | A kernel provider's physical, algorithm and data identity. |
 | `ProviderConfigurationV1` | `pse.provider.configuration.v1` | A kernel provider's configuration key framed with its checked output envelope. |
 
@@ -182,6 +184,7 @@ Derived in: pse-runtime.
 | `DurableStudyRequestV1` | `pse.durable.study_request.v1` | A durable study's request: its definition (Plan 22 O7). |
 | `DurableStudyPointBindingV1` | `pse.durable.study_point_binding.v1` | The value bindings of one durable study point (Plan 22 O7). |
 | `DynamicProfileV6` | `pse.dynamic.profile.v6` | A dynamic simulation profile, with its scheduled inputs and typed sensitivity; its IDAS settings carry no sign constraints. |
+| `DynamicProfileV7` | `pse.dynamic.profile.v7` | Dynamic profile including explicit endpoint requirement. |
 | `ExplicitConicV4` | `pse.explicit-conic.v4` | An explicit conic request; its quadratic is certified exactly, so it carries no Gram witness. |
 | `FitCoordinateV1` | `pse.fit.coordinate.v1` | A fitting coordinate alias of an experiment and source. |
 | `FitPreparedV1` | `pse.fit.prepared.v1` | A prepared fit. |
@@ -217,4 +220,5 @@ Derived in: pse-operations, pse-codegen.
 
 | Frame | Spelling | Meaning |
 |---|---|---|
-| `OpsSchemaV1` | `pse.ops.schema.v1` | The operational store's schema fingerprint over the generated `schema.sql` and `physical.sql` (ADR-0114 Outcome 23). Added after the catalog was captured. |
+| `OpsComponentV1` | `pse.ops.component.v1` | Owned database history/support closure, independent of unrelated registry declarations. |
+| `OpsSchemaV1` | `pse.ops.schema.v1` | Historical operational schema fingerprint over generated and physical SQL. |

@@ -20,9 +20,8 @@ async fn conditional_unit_solves_original_rows_and_restores_each_boundary_overla
     let package = runtime.modeling_package(declarations, physical()).unwrap();
     let cancel = crate::CancelSource::new();
     let analysis = package
-        .declared_analysis(
+        .declared_execution(
             root,
-            pse_model::generated::enums::ModelingAnalysisRoute::Steady,
             compiler_profile(),
             super::super::tests::profile(SolveIntent::Root),
             Default::default(),
@@ -30,7 +29,8 @@ async fn conditional_unit_solves_original_rows_and_restores_each_boundary_overla
             &cancel,
         )
         .await
-        .unwrap();
+        .unwrap()
+        .analysis;
     let model = package
         .prepare(
             root,
@@ -260,9 +260,8 @@ async fn conditional_unit_derived_boundary_solves_constituent_variables() {
     let package = runtime.modeling_package(declarations, physical()).unwrap();
     let cancel = crate::CancelSource::new();
     let analysis = package
-        .declared_analysis(
+        .declared_execution(
             root,
-            pse_model::generated::enums::ModelingAnalysisRoute::Steady,
             compiler_profile(),
             super::super::tests::profile(SolveIntent::Root),
             Default::default(),
@@ -270,7 +269,8 @@ async fn conditional_unit_derived_boundary_solves_constituent_variables() {
             &cancel,
         )
         .await
-        .unwrap();
+        .unwrap()
+        .analysis;
     let model = package
         .prepare(
             root,
@@ -630,9 +630,8 @@ async fn conditional_unit_affine_boundary_retains_difference_magnitudes_and_poin
     let package = runtime.modeling_package(declarations, physical()).unwrap();
     let cancel = crate::CancelSource::new();
     let mut analysis = package
-        .declared_analysis(
+        .declared_execution(
             root,
-            pse_model::generated::enums::ModelingAnalysisRoute::Steady,
             compiler_profile(),
             super::super::tests::profile(SolveIntent::Root),
             Default::default(),
@@ -640,7 +639,8 @@ async fn conditional_unit_affine_boundary_retains_difference_magnitudes_and_poin
             &cancel,
         )
         .await
-        .unwrap();
+        .unwrap()
+        .analysis;
     let prepared_model = package
         .prepare(
             root,

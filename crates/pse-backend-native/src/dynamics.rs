@@ -614,6 +614,33 @@ impl Contract {
         Ok(())
     }
 }
+/// Explicit final-result obligation, independent of the requested output grid.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EndpointRequirement {
+    /// Registry-owned completion policy.
+    pub kind: pse_model::generated::enums::EndpointPolicy,
+    /// Allowed terminal guard identity, required only for declared-event completion.
+    pub event: Option<SemanticId>,
+}
+impl Default for EndpointRequirement {
+    fn default() -> Self {
+        Self {
+            kind: pse_model::generated::enums::EndpointPolicy::FixedHorizon,
+            event: None,
+        }
+    }
+}
+/// Coverage retains final completion and required downstream observations separately.
+#[derive(Clone, Debug, PartialEq)]
+pub struct EndpointAssessment {
+    /// The retained endpoint satisfies the admitted completion requirement.
+    pub satisfied: bool,
+    /// Every requested sample through the actual endpoint exists, in order.
+    pub prefix_complete: bool,
+    /// Requested observations after the endpoint, still required by fixed-domain consumers.
+    pub missing_observations: Vec<f64>,
+}
 /// Finite integration policy. Tolerances apply to the normalized state coordinates.
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -627,6 +654,9 @@ pub struct Profile {
     /// Physical acceptance and ID-keyed nominal requests, distinct from integration error controls.
     #[serde(default)]
     pub numerics: pse_model::numerics::NumericalPolicy,
+    /// Declared completion event; omitted means the full fixed horizon.
+    #[serde(default)]
+    pub endpoint: EndpointRequirement,
     /// Initial physical time in seconds.
     pub start: f64,
     /// Requested final physical time in seconds.
@@ -993,6 +1023,13 @@ impl Profile {
                     .checked_add(c.quadratures.len())?;
                 points.checked_mul(width)?.checked_add(v)
             })
+            .and_then(|v| {
+                v.checked_add(
+                    n.checked_add(c.outputs.len())?
+                        .checked_add(c.quadratures.len())?
+                        .checked_add(c.parameters.len().checked_mul(2)?)?,
+                )
+            })
             .ok_or_else(|| contract("dynamic result extent overflow"))?;
         if cells > self.max_cells {
             return Err(contract("dynamic result cell allowance"));
@@ -1028,6 +1065,20 @@ impl Profile {
     }
     /// Validate before allocation or native construction; arithmetic overflow is a refusal.
     pub fn validate(&self, c: &Contract, p: &[f64]) -> Result<usize, ProblemError> {
+        use pse_model::generated::enums::EndpointPolicy;
+        match self.endpoint.kind {
+            EndpointPolicy::FixedHorizon if self.endpoint.event.is_none() => {}
+            EndpointPolicy::DeclaredTerminalEvent
+                if self.endpoint.event.is_some_and(|id| {
+                    c.events.iter().flatten().any(|e| e.id == id && e.terminal)
+                }) => {}
+            _ => {
+                return Err(contract(
+                    "endpoint declaration must name an admitted terminal event or a fixed horizon",
+                ));
+            }
+        }
+
         c.validate()?;
         let n = c.states.len();
         match self.resolved_method()? {
@@ -1230,6 +1281,13 @@ impl Profile {
                     .checked_add(c.quadratures.len())?;
                 points.checked_mul(width)?.checked_add(v)
             })
+            .and_then(|v| {
+                v.checked_add(
+                    n.checked_add(c.outputs.len())?
+                        .checked_add(c.quadratures.len())?
+                        .checked_add(c.parameters.len().checked_mul(2)?)?,
+                )
+            })
             .ok_or_else(|| contract("dynamic result extent overflow"))?;
         if cells > self.max_cells {
             return Err(contract("dynamic result cell allowance"));
@@ -1391,6 +1449,18 @@ pub struct ConservationPoint {
     /// I(t) - I(t0) - integral(original flux) - sum(permitted transfers).
     pub defects: Vec<f64>,
 }
+/// Actual completion point, captured separately from the requested output grid.
+#[derive(Clone, Debug)]
+pub struct TrajectoryEndpoint {
+    /// Original state, mode, quadratures and physical outputs at completion.
+    pub point: Sample,
+    /// Terminal event guard, absent for a fixed-horizon endpoint.
+    pub event: Option<SemanticId>,
+    /// Live integration column of each contract input, before terminal changes.
+    pub input_columns: Vec<usize>,
+    /// Live contract input values captured from those columns.
+    pub inputs: Vec<f64>,
+}
 /// Joined report retaining valid completed data even when a later callback fails.
 #[derive(Debug)]
 pub struct Report {
@@ -1398,6 +1468,8 @@ pub struct Report {
     pub termination: Termination,
     /// Last completed physical time; initial time until initialization succeeds.
     pub completed_time: f64,
+    /// Actual successful fixed or terminal-event endpoint, even off the output grid.
+    pub endpoint: Option<TrajectoryEndpoint>,
     /// Requested initial state and guesses.
     pub requested_initial: Vec<f64>,
     /// Native consistent initial state.
@@ -1418,12 +1490,66 @@ pub struct Report {
     pub dropped_progress: u64,
 }
 impl Report {
+    /// Evaluate the declared endpoint and observation coverage without inventing samples.
+    pub fn assess_endpoint(&self, profile: &Profile) -> EndpointAssessment {
+        use pse_model::generated::enums::EndpointPolicy;
+        let satisfied = self.error.is_none()
+            && self.endpoint.as_ref().is_some_and(|end| {
+                end.point.time == self.completed_time
+                    && match profile.endpoint.kind {
+                        EndpointPolicy::FixedHorizon => {
+                            self.termination == Termination::Completed
+                                && end.event.is_none()
+                                && end.point.time == profile.end
+                        }
+                        EndpointPolicy::DeclaredTerminalEvent => {
+                            self.termination == Termination::Event
+                                && profile.endpoint.event.is_some()
+                                && end.event == profile.endpoint.event
+                        }
+                    }
+            });
+        let expected = profile
+            .samples
+            .iter()
+            .filter(|t| **t <= self.completed_time)
+            .copied()
+            .collect::<Vec<_>>();
+        let prefix_complete = self.samples.len() == expected.len()
+            && self
+                .samples
+                .iter()
+                .zip(expected)
+                .all(|(sample, time)| sample.time == time);
+        EndpointAssessment {
+            satisfied,
+            prefix_complete,
+            missing_observations: profile
+                .samples
+                .iter()
+                .filter(|t| **t > self.completed_time)
+                .copied()
+                .collect(),
+        }
+    }
+
     /// Known retained trajectory buffers. Opaque statistics/error/progress storage
     /// is covered separately by the runtime's report allowance.
     pub fn numeric_bytes(&self) -> usize {
         size_of::<Self>()
             + (self.requested_initial.capacity() + self.consistent_initial.capacity())
                 * size_of::<f64>()
+            + self.endpoint.as_ref().map_or(0, |e| {
+                size_of::<TrajectoryEndpoint>()
+                    + e.input_columns.capacity() * size_of::<usize>()
+                    + (e.inputs.capacity()
+                        + e.point.integrals.capacity()
+                        + e.point.state.capacity()
+                        + e.point.outputs.capacity()
+                        + e.point.state_sensitivities.capacity()
+                        + e.point.output_sensitivities.capacity())
+                        * size_of::<f64>()
+            })
             + self.samples.capacity() * size_of::<Sample>()
             + self
                 .samples
@@ -1464,6 +1590,7 @@ impl Report {
         Self {
             termination: Termination::Failed,
             completed_time: start,
+            endpoint: None,
             requested_initial: vec![],
             consistent_initial: vec![],
             samples: vec![],
@@ -1735,6 +1862,7 @@ impl Default for Profile {
             method: automatic(),
             trial_failures: terminal(),
             numerics: Default::default(),
+            endpoint: EndpointRequirement::default(),
             start: 0.0,
             end: 1.0,
             samples: vec![0.0, 1.0],

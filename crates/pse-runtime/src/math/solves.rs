@@ -201,7 +201,7 @@ pub struct PreparedSolve {
     route: Route,
     compatibility: Option<Compatibility>,
     explicit_start: Option<WarmStart>,
-    eligibility: Vec<routing::Eligibility>,
+    route_decision: Option<routing::Decision>,
     _owner: Arc<pse_columnar::AllocationLease>,
 }
 impl PreparedSolve {
@@ -327,7 +327,13 @@ impl PreparedSolve {
     }
     /// All contextual alternatives, distinct from the linked adapter inventory.
     pub fn eligibility(&self) -> &[routing::Eligibility] {
-        &self.eligibility
+        self.route_decision
+            .as_ref()
+            .map_or(&[], |d| d.eligibility.as_slice())
+    }
+    /// Retained request, capability and original structural facts.
+    pub fn route_decision(&self) -> Option<&routing::Decision> {
+        self.route_decision.as_ref()
     }
     /// Attach a compatible explicitly selected seed without changing allocation policy.
     pub fn with_start(mut self, seed: WarmStart) -> Result<Self, ProblemError> {
@@ -620,12 +626,17 @@ impl Outcome {
     }
     /// The native candidate-use decision of the workflow completion owner (§16.6,
     /// ADR-0106). Seeding, commits, homotopy, studies and publication consume it.
-    pub(crate) fn candidate_use(&self) -> crate::workflow::numerics::CandidateDecision {
+    pub(crate) fn candidate_use(
+        &self,
+        policy: &NumericalPolicy,
+    ) -> crate::workflow::numerics::CandidateDecision {
         use crate::workflow::numerics;
         match self {
-            Self::Rejected(_) => numerics::refused(numerics::CandidateReason::NoCandidate),
+            Self::Rejected(_) => {
+                numerics::refused(pse_model::generated::enums::CandidateRefusal::NoCandidate)
+            }
             Self::Constant(r) => numerics::constant_use(&r.quality),
-            Self::Native(r) => numerics::native_use(r),
+            Self::Native(r) => numerics::native_use(r, policy),
         }
     }
 }
@@ -742,7 +753,7 @@ pub(crate) fn admit_profile(profile: &SolverProfile, route: Route) -> Result<(),
     let Some(adapter) = adapter else {
         return Ok(());
     };
-    if !adapter.representation().algebraic() || !adapter.linked() {
+    if !execution::algebraic(adapter.representation()) || !adapter.linked() {
         return Err(ProblemError::Unavailable {
             backend: adapter.backend(),
             alternatives: vec![],
@@ -975,22 +986,21 @@ impl MathService {
             settings: &profile.backend,
             sensitivity: profile.sensitivity.is_some(),
         };
-        // A root intent over equalities whose count is not square has no root route. Its
-        // structural analysis names the over- and underdetermined members, which is the
-        // attributable refusal (PS-04), not the absence of an eligible route.
-        if matches!(profile.intent, SolveIntent::Root | SolveIntent::Initialize)
-            && f.equalities
-            && !f.objective
-            && f.variables > 0
-            && f.rows != f.variables
-        {
-            native::structural::admit(prepared.structure(), native::structural::Mode::Roots)?;
-        }
-        let route = requirements.select(profile.selection)?;
-        let eligibility = requirements.eligibility();
-        // An authored realization's structural requirement selects the method it needs on
-        // the route it admitted (ADR-0104 §5): the author's selection, recorded with the
-        // result, never an automatic choice.
+        let decision = requirements.bound_decision(
+            profile.selection,
+            plan.columns().to_vec(),
+            plan.structure()
+                .rows()
+                .iter()
+                .map(|r| pse_structural::incidence::Constraint {
+                    id: r.id,
+                    lower: r.lower.is_finite().then_some(r.lower),
+                    upper: r.upper.is_finite().then_some(r.upper),
+                })
+                .collect(),
+            prepared.prepared.structure.clone(),
+        )?;
+        let route = decision.route()?;
         let profile = match route {
             Route::Native(backend) => SolverProfile {
                 backend: profile.backend.for_requirements(backend, &f.requirements),
@@ -1002,15 +1012,6 @@ impl MathService {
             Route::Native(backend) => Some(execution::adapter(backend)),
             Route::Constant => None,
         };
-        match adapter.map(|a| a.representation()) {
-            Some(execution::Representation::Roots) => {
-                native::structural::admit(prepared.structure(), native::structural::Mode::Roots)?
-            }
-            Some(execution::Representation::Nlp | execution::Representation::Factorable) => {
-                native::structural::admit(prepared.structure(), native::structural::Mode::Nlp)?
-            }
-            _ => {}
-        }
         admit_profile(&profile, route)?;
         // The factorable projection exists only for a factorable route. It is built and
         // admitted before any worker, refusing with every typed reason (ADR-0105 §2).
@@ -1149,7 +1150,7 @@ impl MathService {
             route,
             compatibility: stamp,
             explicit_start: None,
-            eligibility,
+            route_decision: Some(decision),
             _owner: owner,
         })
     }
@@ -1227,7 +1228,7 @@ impl MathService {
             route,
             compatibility: Some(stamp),
             explicit_start: None,
-            eligibility: vec![],
+            route_decision: None,
             _owner: self.reserve("math:prepared-block", bytes)?,
         })
     }
@@ -1400,10 +1401,7 @@ impl MathService {
             route,
             compatibility: Some(stamp),
             explicit_start: None,
-            eligibility: vec![routing::Eligibility {
-                backend: adapter.backend(),
-                reasons: vec![],
-            }],
+            route_decision: None,
             _owner: owner,
         })
     }

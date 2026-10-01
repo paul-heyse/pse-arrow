@@ -20,10 +20,10 @@
 @id("b6baf9089e8e4295b96ecd4d6a7fd384") let saturation_error[i in t]:Scalar=regulator.output[i]-1;
 @id("587155b7553045238187cf7646bff87e") annotation check saturation_error(abs(saturation_error[i])<1e-6);
 }
-@id("1993725dc6e94f1099b147ff839e7758") test antiwindup_integrated oracle references.analytic_antiwindup fixture {dof 0; run integrated; integrate samples(0{s},0.5{s},1{s},2{s}) relative(1e-8) normalized_absolute(1e-10) step(1e-4{s});} {
+@id("1993725dc6e94f1099b147ff839e7758") test antiwindup_integrated oracle references.analytic_antiwindup fixture {dof 0; route integrated; procedure integrate; integrate samples(0{s},0.5{s},1{s},2{s}) relative(1e-8) normalized_absolute(1e-10) step(1e-4{s});} {
 @id("78b9b41aacaf4b8f8ceda9ae158a554e") child root:SaturatedPID=SaturatedPID();
 }
-@id("ea82f4b195684fe0aa01b13961782ebb") test antiwindup_simultaneous oracle references.analytic_antiwindup fixture {dof 0; run simultaneous;} {
+@id("ea82f4b195684fe0aa01b13961782ebb") test antiwindup_simultaneous oracle references.analytic_antiwindup fixture {dof 0; route simultaneous; procedure solve;} {
 @id("23e535e153484561af52f15dbba71ceb") child root:SaturatedPID=SaturatedPID();
 }
 @id("ff1ff4104ae9440b834057b61012d1f6") def SaturatedProcess {
@@ -51,10 +51,10 @@
 @id("32ffcc652f534cd497c3cb873a0d8270") annotation report tracking("tracking");
 @id("fb3a169553524aafa5740d3d57cdd09e") annotation check x(x[i]>=-1e-9 and x[i]<=1+1e-9);
 }
-@id("f33e2cf83c7e4f1b8df6da7f66212bd5") test saturated_simultaneous oracle references.analytic_first_order_lag fixture {dof 24; run simultaneous; intent optimize; fix root.u[0{s}]=1;} {
+@id("f33e2cf83c7e4f1b8df6da7f66212bd5") test saturated_simultaneous oracle references.analytic_first_order_lag fixture {dof 24; route simultaneous; procedure solve; intent optimize; fix root.u[0{s}]=1;} {
 @id("2f03e7e6d0554d68a3d2d714256bd59b") child root:SaturatedProcess=SaturatedProcess();
 }
-@id("50b334c432114f34ade0f9e24ff460e5") test saturated_integrated oracle references.analytic_first_order_lag fixture {dof 0; run integrated; fix root.u[0{s}]=1; integrate samples(0.5{s},1{s},2{s}) relative(1e-10) normalized_absolute(1e-12) step(1e-5{s}) quadrature_relative(1e-9) quadrature_absolute(root.tracking=1e-10{s});} {
+@id("50b334c432114f34ade0f9e24ff460e5") test saturated_integrated oracle references.analytic_first_order_lag fixture {dof 0; route integrated; procedure integrate; fix root.u[0{s}]=1; integrate samples(0.5{s},1{s},2{s}) relative(1e-10) normalized_absolute(1e-12) step(1e-5{s}) quadrature_relative(1e-9) quadrature_absolute(root.tracking=1e-10{s});} {
 @id("894bf686a0b24a6c91436d76b9d01f13") child root:SaturatedProcess=SaturatedProcess();
 }
 @id("74ab6d08c152445c89f6da0afdd3af46") def SwitchedProcess {
@@ -82,7 +82,7 @@
 @id("d570581e840646888472e9961fb1444c") annotation report tracking("tracking");
 @id("e7073bce56c94ae38011dd36b5c507bb") annotation check x(x[i]>=-1e-9 and x[i]<=1+1e-9);
 }
-@id("bbf77b04ed344205a780917531a693f4") test switched_simultaneous oracle references.analytic_first_order_lag fixture {dof 8; run simultaneous; intent optimize; fix root.on[0{s}]=1{1};} {
+@id("bbf77b04ed344205a780917531a693f4") test switched_simultaneous oracle references.analytic_first_order_lag fixture {dof 8; route simultaneous; procedure solve; intent optimize; fix root.on[0{s}]=1{1};} {
 @id("38ed5401e3224133b7c15742b6b8035f") child root:SwitchedProcess=SwitchedProcess();
 }
 }

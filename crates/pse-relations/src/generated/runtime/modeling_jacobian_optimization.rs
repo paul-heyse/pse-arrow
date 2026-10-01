@@ -29,9 +29,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    251u8, 59u8, 222u8, 182u8, 130u8, 106u8, 149u8, 40u8, 206u8, 130u8, 150u8, 107u8,
-    238u8, 64u8, 237u8, 209u8, 126u8, 148u8, 181u8, 229u8, 179u8, 2u8, 18u8, 48u8, 32u8,
-    245u8, 108u8, 178u8, 164u8, 217u8, 205u8, 3u8,
+    89u8, 147u8, 16u8, 37u8, 105u8, 248u8, 42u8, 152u8, 186u8, 53u8, 156u8, 171u8, 112u8,
+    142u8, 37u8, 84u8, 116u8, 232u8, 127u8, 238u8, 9u8, 250u8, 130u8, 140u8, 137u8,
+    247u8, 231u8, 125u8, 96u8, 207u8, 75u8, 62u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeModelingJacobianOptimizationFieldPointItem {
     fn append(

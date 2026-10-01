@@ -3386,7 +3386,7 @@ fn kernel_child_indices_resolve_in_the_authors_import_scope() {
       use data @"1.0.0" as local;
       use library @"1.0.0";
       def Root {}
-      test run fixture {dof 0; run pure; fix root.x[local.a]=5;} {
+      test run fixture {dof 0; route steady; procedure check; fix root.x[local.a]=5;} {
         child root:library.Model=library.Model(selected=local.items);
         expect root.x[local.a]==5 tolerance 1e-12;
       }
@@ -4000,7 +4000,7 @@ fn kernel_negative_literals_keep_the_expected_physical_contract() {
     let inputs = super::super::tests::inputs();
     let names = PhysicalScope::default();
     let rows = source(
-        "package p {fn negative()->DeltaH=-2{J/mol}; test physical fixture {dof 0; run pure;} {expect negative()==-2{J/mol} tolerance 1e-10{J/mol};}} ",
+        "package p {fn negative()->DeltaH=-2{J/mol}; test physical fixture {dof 0; route steady; procedure check;} {expect negative()==-2{J/mol} tolerance 1e-10{J/mol};}} ",
     );
     let id = rows
         .iter()
@@ -4038,7 +4038,7 @@ fn kernel_generic_normalization_requires_the_concrete_physical_operation() {
         );
         let names = PhysicalScope::default();
         let rows = source(&format!(
-            "package p {{fn norm<Q>(a:Q,b:Q)->Scalar=a/b; fn value()->{quantity}={value}; test trial fixture {{dof 0; run pure;}} {{expect norm(value(),value())==1 tolerance 1e-12;}}}}"
+            "package p {{fn norm<Q>(a:Q,b:Q)->Scalar=a/b; fn value()->{quantity}={value}; test trial fixture {{dof 0; route steady; procedure check;}} {{expect norm(value(),value())==1 tolerance 1e-12;}}}}"
         ));
         let id = rows
             .iter()
@@ -4202,7 +4202,7 @@ fn kernel_finite_folds_compose_source_functions_and_library_partials() {
       fn single(values:Scalar[item],members:Set<item>)->Scalar=fold(acc,value; j in members where j==a | values[j]; acc*value);
       fn shadowed(values:Scalar[item],members:Set<item>,acc:Scalar)->Scalar=fold(acc,value; j in members | values[j]+acc; acc*value);
       def Root {}
-      test values fixture {dof 0;run pure;} {param v[j in items]:Scalar=2;
+      test values fixture {dof 0;route steady; procedure check;} {param v[j in items]:Scalar=2;
         expect fold_product(v,items)==8 tolerance 1e-12;
         expect partial(fold_product,values[a])(v,items)==4 tolerance 1e-12;
         expect partial(fold_product,values[a],values[b])(v,items)==2 tolerance 1e-12;

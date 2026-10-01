@@ -93,6 +93,64 @@ pub(super) fn render(reg: &Registry) -> Result<String, SchemaError> {
     Ok(sql)
 }
 
+/// Owned target declaration, including only consumed enum domains and referenced key names.
+pub(super) fn component(
+    reg: &Registry,
+    owner: pse_schema::store::HistoryOwner,
+) -> Result<String, SchemaError> {
+    let relations = pse_schema::store::relations(reg)
+        .into_iter()
+        .filter(|(table, _)| pse_schema::store::history_owner(table) == owner)
+        .collect::<Vec<_>>();
+    let names = relations
+        .iter()
+        .flat_map(|(_, spec)| spec.columns.iter().flat_map(FieldContract::enum_domains))
+        .collect::<BTreeSet<_>>();
+    let mut sql = String::new();
+    for name in names {
+        let spec = reg
+            .enum_spec(&name)
+            .ok_or_else(|| super::error(format!("unknown enum {name}")))?;
+        let labels = spec
+            .members
+            .iter()
+            .map(|member| literal(member.name))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let _ = writeln!(
+            sql,
+            "CREATE TYPE {} AS ENUM ({labels});",
+            qualified(&bounded(enum_type(&name))?)
+        );
+    }
+    let ids = relations
+        .iter()
+        .flat_map(|(_, spec)| spec.columns.iter().filter_map(FieldContract::identity))
+        .collect::<BTreeSet<_>>();
+    for name in ids {
+        let id = reg
+            .identity(name)
+            .ok_or_else(|| super::error(format!("unknown identity {name}")))?;
+        let base = match id.base {
+            IdentityBase::SemanticId => "uuid".to_owned(),
+            IdentityBase::ContentHash => qualified(CONTENT_HASH_DOMAIN),
+        };
+        let _ = writeln!(
+            sql,
+            "CREATE DOMAIN {} AS {base};",
+            qualified(&bounded(identity_domain(name))?)
+        );
+    }
+    let mut refs = Vec::new();
+    for (table, spec) in relations {
+        table_sql(reg, table, spec, &mut sql, &mut refs)?;
+    }
+    for reference in refs {
+        sql.push_str(&reference);
+    }
+    Ok(sql)
+}
+
 fn table_sql(
     reg: &Registry,
     table: &str,
@@ -228,7 +286,7 @@ fn literal(value: &str) -> String {
 }
 
 /// The PostgreSQL type of a store column.
-fn column_type(
+pub(super) fn column_type(
     reg: &Registry,
     spec: &RelationSpec,
     column: &FieldContract,

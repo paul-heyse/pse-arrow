@@ -98,6 +98,86 @@ pub(in crate::workflow) struct ModelingCaseResolution {
     /// The parametric program of the solver's sensitivity request (Plan 22 S1).
     pub parametric: Option<ParametricPreparation<std::sync::Arc<crate::math::ExecutableCase>>>,
 }
+impl ModelingCaseResolution {
+    /// Canonical identity of the bound request and contextual native admission before an attempt exists.
+    pub(in crate::workflow) fn admission_identity(
+        &self,
+        decision: &pse_backend_native::routing::Decision,
+    ) -> Result<pse_ids::ContentHash, WorkflowError> {
+        admission_identity(&self.model, &self.numerics, &self.solver, decision)
+    }
+
+    /// Assess the same complete original compiler witness used by solve admission, without executing a solver.
+    pub(in crate::workflow) fn route_decision(
+        &self,
+    ) -> Result<pse_backend_native::routing::Decision, WorkflowError> {
+        let compiled = self.model.case.compiled();
+        let requirements = pse_backend_native::routing::Requirements {
+            table: &pse_backend_native::execution::LINKED,
+            facts: &compiled.facts,
+            intent: self.solver.intent,
+            numerical_psd: false,
+            least_squares: false,
+            controls: &self.solver.controls,
+            settings: &self.solver.backend,
+            sensitivity: self.solver.sensitivity.is_some(),
+        };
+        requirements
+            .bound_decision(
+                self.solver.selection,
+                compiled.plan.columns().to_vec(),
+                compiled
+                    .plan
+                    .structure()
+                    .rows()
+                    .iter()
+                    .map(|row| pse_structural::incidence::Constraint {
+                        id: row.id,
+                        lower: row.lower.is_finite().then_some(row.lower),
+                        upper: row.upper.is_finite().then_some(row.upper),
+                    })
+                    .collect(),
+                self.model.case.structural_witness(),
+            )
+            .map_err(crate::math::MathRuntimeError::from)
+            .map_err(WorkflowError::from)
+    }
+}
+impl ModelingSolvePreparation {
+    /// Identity of the bound model, numerical policy and retained native admission.
+    pub fn admission_identity(&self) -> Result<pse_ids::ContentHash, WorkflowError> {
+        let decision = self
+            .solve
+            .route_decision()
+            .ok_or_else(|| contract("algebraic preparation admission facts absent"))?;
+        admission_identity(&self.model, self.solve.numerics(), &self.profile, decision)
+    }
+}
+fn admission_identity(
+    model: &ModelingCasePreparation,
+    numerics: &pse_model::numerics::ResolvedNumericalPolicy,
+    solver: &SolverProfile,
+    decision: &pse_backend_native::routing::Decision,
+) -> Result<pse_ids::ContentHash, WorkflowError> {
+    use pse_model::SemanticFrame;
+    let mut hash = pse_ids::FramedHasher::new(pse_ids::Frame::ModelingAdmissionV1);
+    hash.hash(&model.case.compiled().plan.structure().key())
+        .hash(&numerics.key)
+        .hash(
+            &crate::math::solves::profile_key(solver)
+                .map_err(crate::math::MathRuntimeError::from)?,
+        );
+    for artifact in model.case.compiled().artifacts.iter() {
+        hash.hash(&artifact.key());
+    }
+    for adapter in pse_backend_native::execution::LINKED.adapters() {
+        adapter.capability().row(adapter.backend()).frame(&mut hash);
+    }
+    let mut row = decision.row(pse_ids::ContentHash::from_bytes([0; 32]), 0);
+    row.detail = None;
+    row.frame(&mut hash);
+    Ok(hash.finish_hash())
+}
 impl ModelingPackage {
     /// Evaluate exactly the selected source observations through shared compiler artifacts.
     pub async fn observe(
@@ -565,7 +645,20 @@ impl ModelingPackage {
                 solver.clone(),
                 numerical,
             )
-            .await?;
+            .await
+            .map_err(|cause| {
+                let mut diagnostic =
+                    crate::workflow::diagnostics::observed(&cause, "modeling.admission");
+                if diagnostic.rule == "native.structural" {
+                    diagnostics::attribute(&mut diagnostic, model.model.compiled());
+                    WorkflowError::ModelingAdmission {
+                        diagnostic: Box::new(diagnostic),
+                        cause,
+                    }
+                } else {
+                    WorkflowError::Math(cause)
+                }
+            })?;
         if let Some(program) = parametric {
             solve = solve.with_sensitivity(program)?;
         }
@@ -1255,14 +1348,33 @@ mod tests {
                 .iter()
                 .any(|p| p.source == NumericalSource::DerivedNominal && p.selected)
         );
-        let report = package
-            .solve_case(
-                p,
-                super::super::super::tests::compiler_profile(),
-                &crate::CancelSource::new(),
-            )
-            .await
-            .unwrap();
+        let admission_identity = p.admission_identity().unwrap();
+        let run = p.start().unwrap().wait().await.unwrap();
+        let super::super::super::RunReport::Modeling(reports) = run.report().unwrap() else {
+            panic!("modeling result expected");
+        };
+        let report = &reports[0];
+        use pse_relations::columnar::RelationRow;
+        let admission = pse_relations::generated::runtime::route_decisions::Row::rows(
+            &run.table("runtime.route_decisions").unwrap(),
+        )
+        .unwrap();
+        let structure = pse_relations::generated::runtime::structural_assessments::Row::rows(
+            &run.table("runtime.structural_assessments").unwrap(),
+        )
+        .unwrap();
+        assert_eq!(admission.len(), 1);
+        assert_eq!(admission[0].request_identity, admission_identity);
+        assert_eq!(
+            admission[0].selected,
+            Some(pse_model::generated::enums::NativeRouteKind::Constant)
+        );
+        assert!(admission[0].refusal.is_none());
+        assert_eq!(structure.len(), 1);
+        assert_eq!(structure[0].request_identity, admission_identity);
+        assert!(structure[0].admitted);
+        assert!(structure[0].variables.is_empty());
+        assert!(!run.usable()); // The model check refuses the result independently of native admission.
         assert!(matches!(&report.outcome,Outcome::Constant(r) if r.quality.feasible()));
         assert!(!report.accepted);
         assert!(report.validation_error.is_none());

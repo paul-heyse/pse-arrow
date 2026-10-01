@@ -26,6 +26,30 @@ pub struct RuntimeCandidateAssessmentsRow {
     pub r#usability: crate::generated::enums::CandidateUse,
     ///reason
     pub r#reason: String,
+    ///incumbent_policy
+    pub r#incumbent_policy: crate::generated::enums::IncumbentPolicy,
+    ///candidate_kind
+    pub r#candidate_kind: Option<crate::generated::enums::NativeCandidateKind>,
+    ///qualification
+    pub r#qualification: Option<crate::generated::enums::NativeQualification>,
+    ///validated
+    pub r#validated: Option<bool>,
+    ///bound_origin
+    pub r#bound_origin: Option<crate::generated::enums::CandidateBoundOrigin>,
+    ///bound
+    pub r#bound: Option<f64>,
+    ///absolute_gap
+    pub r#absolute_gap: Option<f64>,
+    ///relative_gap
+    pub r#relative_gap: Option<f64>,
+    ///qualifiers
+    pub r#qualifiers: Vec<crate::generated::enums::CandidateQualifier>,
+    ///refusals
+    pub r#refusals: Vec<crate::generated::enums::CandidateRefusal>,
+    ///permits_result
+    pub r#permits_result: bool,
+    ///permits_seed
+    pub r#permits_seed: bool,
 }
 impl crate::SemanticEq for RuntimeCandidateAssessmentsRow {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -42,6 +66,39 @@ impl crate::SemanticEq for RuntimeCandidateAssessmentsRow {
             && crate::SemanticEq::semantic_eq(&self.r#policy, &other.r#policy)
             && crate::SemanticEq::semantic_eq(&self.r#usability, &other.r#usability)
             && crate::SemanticEq::semantic_eq(&self.r#reason, &other.r#reason)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#incumbent_policy,
+                &other.r#incumbent_policy,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#candidate_kind,
+                &other.r#candidate_kind,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#qualification,
+                &other.r#qualification,
+            ) && crate::SemanticEq::semantic_eq(&self.r#validated, &other.r#validated)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#bound_origin,
+                &other.r#bound_origin,
+            ) && crate::SemanticEq::semantic_eq(&self.r#bound, &other.r#bound)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#absolute_gap,
+                &other.r#absolute_gap,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#relative_gap,
+                &other.r#relative_gap,
+            ) && crate::SemanticEq::semantic_eq(&self.r#qualifiers, &other.r#qualifiers)
+            && crate::SemanticEq::semantic_eq(&self.r#refusals, &other.r#refusals)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#permits_result,
+                &other.r#permits_result,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#permits_seed,
+                &other.r#permits_seed,
+            )
     }
 }
 impl PartialEq for RuntimeCandidateAssessmentsRow {
@@ -69,6 +126,30 @@ impl crate::SemanticFrame for RuntimeCandidateAssessmentsRow {
         crate::SemanticFrame::frame(&self.r#usability, hash);
         hash.str(stringify!(r#reason));
         crate::SemanticFrame::frame(&self.r#reason, hash);
+        hash.str(stringify!(r#incumbent_policy));
+        crate::SemanticFrame::frame(&self.r#incumbent_policy, hash);
+        hash.str(stringify!(r#candidate_kind));
+        crate::SemanticFrame::frame(&self.r#candidate_kind, hash);
+        hash.str(stringify!(r#qualification));
+        crate::SemanticFrame::frame(&self.r#qualification, hash);
+        hash.str(stringify!(r#validated));
+        crate::SemanticFrame::frame(&self.r#validated, hash);
+        hash.str(stringify!(r#bound_origin));
+        crate::SemanticFrame::frame(&self.r#bound_origin, hash);
+        hash.str(stringify!(r#bound));
+        crate::SemanticFrame::frame(&self.r#bound, hash);
+        hash.str(stringify!(r#absolute_gap));
+        crate::SemanticFrame::frame(&self.r#absolute_gap, hash);
+        hash.str(stringify!(r#relative_gap));
+        crate::SemanticFrame::frame(&self.r#relative_gap, hash);
+        hash.str(stringify!(r#qualifiers));
+        crate::SemanticFrame::frame(&self.r#qualifiers, hash);
+        hash.str(stringify!(r#refusals));
+        crate::SemanticFrame::frame(&self.r#refusals, hash);
+        hash.str(stringify!(r#permits_result));
+        crate::SemanticFrame::frame(&self.r#permits_result, hash);
+        hash.str(stringify!(r#permits_seed));
+        crate::SemanticFrame::frame(&self.r#permits_seed, hash);
     }
 }
 impl crate::HeapUsage for RuntimeCandidateAssessmentsRow {
@@ -82,5 +163,17 @@ impl crate::HeapUsage for RuntimeCandidateAssessmentsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#policy))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#usability))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#reason))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#incumbent_policy))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#candidate_kind))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#qualification))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#validated))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#bound_origin))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#bound))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#absolute_gap))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#relative_gap))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#qualifiers))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#refusals))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#permits_result))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#permits_seed))
     }
 }

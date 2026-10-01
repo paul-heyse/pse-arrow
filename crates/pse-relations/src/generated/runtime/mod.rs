@@ -99,6 +99,8 @@ pub mod r#operational_reader_leases;
 ///Generated relation contract.
 pub mod r#operational_retention_marks;
 ///Generated relation contract.
+pub mod r#operational_schema_support_state;
+///Generated relation contract.
 pub mod r#operational_settlements;
 ///Generated relation contract.
 pub mod r#operational_solutions;
@@ -137,6 +139,8 @@ pub mod r#response_sensitivities;
 ///Generated relation contract.
 pub mod r#retained_versions;
 ///Generated relation contract.
+pub mod r#route_decisions;
+///Generated relation contract.
 pub mod r#run_lineage;
 ///Generated relation contract.
 pub mod r#simulation_events;
@@ -155,6 +159,10 @@ pub mod r#solve_variables;
 ///Generated relation contract.
 pub mod r#solver_capabilities;
 ///Generated relation contract.
+pub mod r#structural_assessments;
+///Generated relation contract.
 pub mod r#study_outcomes;
+///Generated relation contract.
+pub mod r#trajectory_endpoints;
 ///Generated relation contract.
 pub mod r#validation_findings;

@@ -666,6 +666,12 @@ fn identities(
         }
         RunRequest::Simulation(s) => (AttemptKind::Simulation, s.identity(), Some(s.identity())),
         RunRequest::Fit(f) => (AttemptKind::Fit, f.problem.key, Some(f.problem.key)),
+        #[cfg(feature = "solver-diffsol")]
+        RunRequest::Shooting { problem, initial } => (
+            AttemptKind::Shooting,
+            problem.request_identity(initial.as_deref()),
+            Some(problem.request_identity(None)),
+        ),
     })
 }
 
@@ -779,12 +785,7 @@ fn classify(result: &RunResult, cancelled: bool) -> Outcome {
         Err(error) => return failure(error, cancelled),
     };
     let uses: Vec<CandidateUse> = result.assessments().iter().map(|a| a.usability).collect();
-    let usable = |a: &&pse_model::generated::runtime::candidate_assessments::Row| {
-        matches!(
-            a.usability,
-            CandidateUse::Usable | CandidateUse::QualifiedUnclosed
-        )
-    };
+    let usable = |a: &&pse_model::generated::runtime::candidate_assessments::Row| a.permits_result;
     let any = result.assessments().iter().any(|a| usable(&a));
     let code = match (report, result.completion()) {
         (RunReport::Modeling(_), Ok(c)) => c
@@ -799,6 +800,13 @@ fn classify(result: &RunResult, cancelled: bool) -> Outcome {
                 )
             }),
         (RunReport::Simulation(t), _) => TerminationCode::Trajectory(t.report.termination),
+        #[cfg(feature = "solver-diffsol")]
+        (RunReport::Shooting(_), Ok(c)) => {
+            c.computation.as_ref().and_then(|r| r.termination).map_or(
+                TerminationCode::Runtime(RuntimeTermination::ConstantEvaluation),
+                TerminationCode::Native,
+            )
+        }
         (RunReport::Fit(_), Ok(c)) => c.computation.as_ref().and_then(|r| r.termination).map_or(
             TerminationCode::Runtime(RuntimeTermination::ConstantEvaluation),
             TerminationCode::Native,
@@ -1254,7 +1262,7 @@ async fn store_seeds(
         let crate::math::solves::Outcome::Native(native) = &step.outcome else {
             continue;
         };
-        if !(step.accepted && step.outcome.candidate_use().permits_use()) {
+        if !step.completion.decision.permits_seed() {
             continue;
         }
         let (Some(seed), Some(preparation)) = (

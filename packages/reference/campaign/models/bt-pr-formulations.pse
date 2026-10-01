@@ -13,7 +13,7 @@
 @id("01a0eef9a1b5764cac354b546cbb61b9") use chemistry @"1.0.0";
 @id("01a0eef9a1b5764cac354b552088e9e5") use peng_robinson @"1.0.0";
 @id("01a0eef9a1b5764cac354b56e542fad0") use phase_stability @"1.0.0";
-@id("01a0eecf2935721c9fc3aa970addbbc4") test bt_pr_flash_smooth oracle campaign_references.idaes_test_flash_bt_pr fixture {dof 0; run steady; fix root.inlet.flow=1{mol/s}; fix root.inlet.T=368{K}; fix root.inlet.pressure=101325{Pa}; fix root.inlet.z[chem.benzene]=0.5{1}; fix root.inlet.z[chem.toluene]=0.5{1}; fix root.heat=0{W}; fix root.delta_pressure=0{Pa};} {
+@id("01a0eecf2935721c9fc3aa970addbbc4") test bt_pr_flash_smooth oracle campaign_references.idaes_test_flash_bt_pr fixture {dof 0; route steady; procedure solve; fix root.inlet.flow=1{mol/s}; fix root.inlet.T=368{K}; fix root.inlet.pressure=101325{Pa}; fix root.inlet.z[chem.benzene]=0.5{1}; fix root.inlet.z[chem.toluene]=0.5{1}; fix root.heat=0{W}; fix root.delta_pressure=0{Pa};} {
 @id("01a0eecf2935721c9fc3aa98b477b588") child root:flashing.Flash=flashing.Flash(inlet_pkg=bt_pr.BT_PR(defined_state=true,formulation=equilibrium.VleFormulation.smooth),outlet_pkg=bt_pr.BT_PR(defined_state=false,formulation=equilibrium.VleFormulation.smooth));
 @id("01a0eecf2935721c9fc3aa9922b7d32a") expect root.liquid_flow==0.6033{mol/s} tolerance 0.001{mol/s};
 @id("01a0eecf2935721c9fc3aa9abbd997e1") expect root.vapor_flow==0.3967{mol/s} tolerance 0.001{mol/s};
@@ -24,7 +24,7 @@
 @id("01a0eecf2935721c9fc3aa9f9c510678") expect root.vapor_composition[chem.benzene]==0.6282{1} tolerance 0.001{1};
 @id("01a0eecf2935721c9fc3aaa02c6d89d1") expect root.vapor_composition[chem.toluene]==0.3718{1} tolerance 0.001{1};
 }
-@id("01a0eecf2935721c9fc3aaa1435621bf") test bt_pr_flash_complementarity oracle campaign_references.idaes_test_flash_bt_pr fixture {dof 0; run steady; fix root.inlet.flow=1{mol/s}; fix root.inlet.T=368{K}; fix root.inlet.pressure=101325{Pa}; fix root.inlet.z[chem.benzene]=0.5{1}; fix root.inlet.z[chem.toluene]=0.5{1}; fix root.heat=0{W}; fix root.delta_pressure=0{Pa};} {
+@id("01a0eecf2935721c9fc3aaa1435621bf") test bt_pr_flash_complementarity oracle campaign_references.idaes_test_flash_bt_pr fixture {dof 0; route steady; procedure solve; fix root.inlet.flow=1{mol/s}; fix root.inlet.T=368{K}; fix root.inlet.pressure=101325{Pa}; fix root.inlet.z[chem.benzene]=0.5{1}; fix root.inlet.z[chem.toluene]=0.5{1}; fix root.heat=0{W}; fix root.delta_pressure=0{Pa};} {
 @id("01a0eecf2935721c9fc3aaa2bb9f8227") child root:flashing.Flash=flashing.Flash(inlet_pkg=bt_pr.BT_PR(defined_state=true,formulation=equilibrium.VleFormulation.complementarity),outlet_pkg=bt_pr.BT_PR(defined_state=false,formulation=equilibrium.VleFormulation.complementarity));
 @id("01a0eecf2935721c9fc3aaa3c792744e") expect root.liquid_flow==0.6033{mol/s} tolerance 0.001{mol/s};
 @id("01a0eecf2935721c9fc3aaa41d69c1a5") expect root.vapor_flow==0.3967{mol/s} tolerance 0.001{mol/s};
@@ -35,7 +35,7 @@
 @id("01a0eecf2935721c9fc3aaa93b14d8b0") expect root.vapor_composition[chem.benzene]==0.6282{1} tolerance 0.001{1};
 @id("01a0eecf2935721c9fc3aaaa9190b0b2") expect root.vapor_composition[chem.toluene]==0.3718{1} tolerance 0.001{1};
 }
-@id("01a0eecf2935721c9fc3aaab14032e96") test bt_pr_flash_nested oracle campaign_references.idaes_test_flash_bt_pr fixture {dof 0; run steady; fix root.inlet.flow=1{mol/s}; fix root.inlet.T=368{K}; fix root.inlet.pressure=101325{Pa}; fix root.inlet.z[chem.benzene]=0.5{1}; fix root.inlet.z[chem.toluene]=0.5{1}; fix root.heat=0{W}; fix root.delta_pressure=0{Pa};} {
+@id("01a0eecf2935721c9fc3aaab14032e96") test bt_pr_flash_nested oracle campaign_references.idaes_test_flash_bt_pr fixture {dof 0; route steady; procedure solve; fix root.inlet.flow=1{mol/s}; fix root.inlet.T=368{K}; fix root.inlet.pressure=101325{Pa}; fix root.inlet.z[chem.benzene]=0.5{1}; fix root.inlet.z[chem.toluene]=0.5{1}; fix root.heat=0{W}; fix root.delta_pressure=0{Pa};} {
 @id("01a0eecf2935721c9fc3aaace35ae6a2") child root:flashing.Flash=flashing.Flash(inlet_pkg=bt_pr.BT_PR(defined_state=true,formulation=equilibrium.VleFormulation.nested),outlet_pkg=bt_pr.BT_PR(defined_state=false,formulation=equilibrium.VleFormulation.nested));
 @id("01a0eecf2935721c9fc3aaadf027c708") expect root.liquid_flow==0.6033{mol/s} tolerance 0.001{mol/s};
 @id("01a0eecf2935721c9fc3aaae3d31b8eb") expect root.vapor_flow==0.3967{mol/s} tolerance 0.001{mol/s};
@@ -66,7 +66,7 @@
 // 23 H10): it is neither reported as infeasible nor a certificate. With the handler
 // disabled SCIP finds tpd = 0 but its dual bound is -4.1e-5 after 600 s and 522 506 nodes,
 // like the Plan 22 PR instability case, which does not close in 10 minutes either.
-@id("01a0eef9a1b5764cac354b5a39185826") test bt_pr_liquid_stability oracle campaign_references.analytic_equilibrium_tangent_plane fixture {dof 1; run steady; intent certify; failure inconclusive members(root.reference.rho, root.trial.rho); value root.temperature=368{K}; value root.pressure=101325{Pa}; value root.reference_lower=5000{mol/m^3}; value root.reference_upper=11000{mol/m^3}; value root.trial_upper=10500{mol/m^3}; value root.reference.rho=9460{mol/m^3}; value root.trial.rho=34{mol/m^3};} {
+@id("01a0eef9a1b5764cac354b5a39185826") test bt_pr_liquid_stability oracle campaign_references.analytic_equilibrium_tangent_plane fixture {dof 1; route steady; procedure solve; intent certify; failure inconclusive members(root.reference.rho, root.trial.rho); value root.temperature=368{K}; value root.pressure=101325{Pa}; value root.reference_lower=5000{mol/m^3}; value root.reference_upper=11000{mol/m^3}; value root.trial_upper=10500{mol/m^3}; value root.reference.rho=9460{mol/m^3}; value root.trial.rho=34{mol/m^3};} {
 @id("01a0eef9a1b5764cac354b5bc48b03c1") child root:phase_stability.TangentPlaneStability=phase_stability.TangentPlaneStability(selected=bt_ideal.aromatics,law=eos_data.potential,feed=liquid_fraction);
 @id("01a0eef9a1b5764cac354b5c78b9cff2") expect root.tpd==0 tolerance 0.000001;
 }

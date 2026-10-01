@@ -13,8 +13,7 @@
 //! authority: the claimed attempt's heartbeat returns it, and a `LISTEN` watcher that
 //! re-reads it after every reconnect only shortens latency.
 use super::{
-    Durability, ModelingAnalysis, Operations, PhysicalContext, RunDurability, Runtime,
-    WorkflowError, contract,
+    Durability, Operations, PhysicalContext, RunDurability, Runtime, WorkflowError, contract,
     durable::{Claim, DurableAttempt, DurableRecord},
 };
 use crate::authoring_driver::document::{
@@ -35,7 +34,7 @@ use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
 /// The payload version this build executes: the store's `payload_version` column and the
 /// document's own `version` ([`JobPayload`]).
-pub const JOB_PAYLOAD_VERSION: i32 = 3;
+pub const JOB_PAYLOAD_VERSION: i32 = 4;
 
 /// How a job's solve is started.
 #[derive(
@@ -64,13 +63,13 @@ pub enum JobStart {
     },
 }
 
-/// Version 3 of a durable job's payload: the one task a job runs. Unknown fields, tasks
+/// Version 4 of a durable job's payload: the one task a job runs. Unknown fields, tasks
 /// and versions are refused.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct JobPayload {
     /// Document version.
-    pub version: Version<3>,
+    pub version: Version<4>,
     /// The task.
     pub task: JobTask,
 }
@@ -523,10 +522,9 @@ impl Runtime {
             modeling.push(operations.sources(bundle).await?);
         }
         let package = self.package_from_sources(&modeling, physical)?;
-        let mut analysis: ModelingAnalysis = package
-            .declared_analysis(
+        let execution = package
+            .declared_execution(
                 job.case,
-                job.route,
                 Default::default(),
                 solver,
                 Default::default(),
@@ -534,6 +532,20 @@ impl Runtime {
                 cancel,
             )
             .await?;
+        if execution.route != job.route {
+            return Err(contract(
+                "durable job route differs from its authored execution",
+            ));
+        }
+        if !matches!(
+            execution.procedure,
+            super::modeling::DeclaredProcedure::Solve
+        ) {
+            return Err(contract(
+                "durable algebraic job requires the authored solve procedure",
+            ));
+        }
+        let mut analysis = execution.analysis;
         let Some(binding) = job.study else {
             let prepared = package.prepare_analysis(&analysis, cancel).await?;
             let (prepared, applied) = start(operations, claimed, job.start, prepared).await?;

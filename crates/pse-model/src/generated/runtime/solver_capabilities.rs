@@ -12,6 +12,10 @@
 pub struct RuntimeSolverCapabilitiesRow {
     ///backend
     pub r#backend: crate::generated::enums::NativeBackend,
+    ///structural_policy
+    pub r#structural_policy: crate::generated::enums::NativeStructuralPolicy,
+    ///lexicographic_degradation
+    pub r#lexicographic_degradation: crate::generated::enums::NativeLexicographicDegradation,
     ///classes
     pub r#classes: Vec<crate::generated::enums::NativeProblemClass>,
     ///automatic_classes
@@ -48,7 +52,14 @@ pub struct RuntimeSolverCapabilitiesRow {
 impl crate::SemanticEq for RuntimeSolverCapabilitiesRow {
     fn semantic_eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(&self.r#backend, &other.r#backend)
-            && crate::SemanticEq::semantic_eq(&self.r#classes, &other.r#classes)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#structural_policy,
+                &other.r#structural_policy,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#lexicographic_degradation,
+                &other.r#lexicographic_degradation,
+            ) && crate::SemanticEq::semantic_eq(&self.r#classes, &other.r#classes)
             && crate::SemanticEq::semantic_eq(
                 &self.r#automatic_classes,
                 &other.r#automatic_classes,
@@ -97,6 +108,10 @@ impl crate::SemanticFrame for RuntimeSolverCapabilitiesRow {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(stringify!(r#backend));
         crate::SemanticFrame::frame(&self.r#backend, hash);
+        hash.str(stringify!(r#structural_policy));
+        crate::SemanticFrame::frame(&self.r#structural_policy, hash);
+        hash.str(stringify!(r#lexicographic_degradation));
+        crate::SemanticFrame::frame(&self.r#lexicographic_degradation, hash);
         hash.str(stringify!(r#classes));
         crate::SemanticFrame::frame(&self.r#classes, hash);
         hash.str(stringify!(r#automatic_classes));
@@ -135,6 +150,10 @@ impl crate::HeapUsage for RuntimeSolverCapabilitiesRow {
     fn heap_bytes(&self) -> usize {
         0usize
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#backend))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#structural_policy))
+            .saturating_add(
+                crate::HeapUsage::heap_bytes(&self.r#lexicographic_degradation),
+            )
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#classes))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#automatic_classes))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#derivatives))

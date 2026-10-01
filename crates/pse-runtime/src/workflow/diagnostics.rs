@@ -10,7 +10,9 @@ use std::error::Error as _;
 impl super::WorkflowError {
     /// Structured preparation/execution failure, retaining native source identities.
     pub fn boundary_diagnostic(&self) -> BoundaryDiagnostic {
-        if let Self::ConditionalAdmission { diagnostic, .. } = self {
+        if let Self::ConditionalAdmission { diagnostic, .. }
+        | Self::ModelingAdmission { diagnostic, .. } = self
+        {
             return diagnostic.as_ref().clone();
         }
         observed(self, "workflow")
@@ -330,7 +332,8 @@ pub(super) fn observed(
         current = if let Some(workflow) = error.downcast_ref::<super::WorkflowError>() {
             match workflow {
                 super::WorkflowError::Boundary(error) => Some(error.as_ref()),
-                super::WorkflowError::ConditionalAdmission { diagnostic, .. } => {
+                super::WorkflowError::ConditionalAdmission { diagnostic, .. }
+                | super::WorkflowError::ModelingAdmission { diagnostic, .. } => {
                     Some(diagnostic.as_ref())
                 }
                 super::WorkflowError::Math(error) => Some(error),
@@ -426,6 +429,57 @@ pub(super) fn observed(
 fn problem(error: &pse_backend_native::ProblemError, result: &mut BoundaryDiagnostic) {
     use pse_backend_native::{LimitKind, ProblemError as E};
     let (class, rule) = match error {
+        E::RouteRefused(decision) => {
+            result.observations.insert(
+                "route_intent".into(),
+                Observation::Text(decision.intent.as_str().into()),
+            );
+            result.observations.insert(
+                "route_selection".into(),
+                Observation::Text(format!("{:?}", decision.selection)),
+            );
+            result.observations.insert(
+                "route_classes".into(),
+                Observation::Text(
+                    decision
+                        .classes
+                        .iter()
+                        .map(|c| c.as_str())
+                        .collect::<Vec<_>>()
+                        .join(","),
+                ),
+            );
+            result.observations.insert(
+                "route_eligibility".into(),
+                Observation::Text(
+                    decision
+                        .eligibility
+                        .iter()
+                        .map(ToString::to_string)
+                        .collect::<Vec<_>>()
+                        .join(" | "),
+                ),
+            );
+            if let Some(structure) = &decision.structure {
+                result.observations.insert(
+                    "structural_mode".into(),
+                    Observation::Text(format!("{:?}", structure.mode)),
+                );
+                if let Some((rows, columns)) = &structure.refusal {
+                    result.sources.extend(rows);
+                    result.sources.extend(columns);
+                }
+            }
+            if decision
+                .structure
+                .as_ref()
+                .is_some_and(|structure| structure.refusal.is_some())
+            {
+                (Class::InvalidModel, "native.structural")
+            } else {
+                (Class::Unsupported, "native.route_refused")
+            }
+        }
         E::Unavailable { backend, .. } => {
             result
                 .observations
@@ -511,6 +565,18 @@ impl RunResult {
             Err(error) => vec![error.boundary_diagnostic()],
             Ok(RunReport::Modeling(r)) => r.iter().filter_map(|r| r.diagnostic()).collect(),
             Ok(RunReport::Simulation(r)) => r.diagnostic().into_iter().collect(),
+            #[cfg(feature = "solver-diffsol")]
+            Ok(RunReport::Shooting(r)) => r
+                .solve
+                .iter()
+                .filter_map(|s| s.validation_failure())
+                .map(|cause| {
+                    let mut diagnostic = observed(cause, "shooting");
+                    diagnostic.rule = "shooting.candidate_validation".into();
+                    diagnostic
+                })
+                .chain(r.validation_error.clone())
+                .collect(),
             // Stable rule codes with the class derived from each typed cause.
             Ok(RunReport::Fit(r)) => r
                 .diagnostic
@@ -591,16 +657,16 @@ mod tests {
             sensitivity: false,
         };
         let error = refused.select(SolverSelection::Auto).unwrap_err();
-        assert!(matches!(error, ProblemError::Unsupported(_)), "{error:?}");
+        assert!(matches!(error, ProblemError::RouteRefused(_)), "{error:?}");
         let diagnostic = observed(&error, "routing");
         assert_eq!(diagnostic.class, Class::Unsupported);
-        assert_eq!(diagnostic.rule, "native.unsupported");
+        assert_eq!(diagnostic.rule, "native.route_refused");
         // An explicitly selected adapter outside the linked inventory is unavailable.
         let error = refused
             .select(SolverSelection::Explicit(Backend::Ipopt))
             .unwrap_err();
         assert!(
-            matches!(error, ProblemError::Unavailable { .. }),
+            matches!(error, ProblemError::RouteRefused(ref decision) if matches!(decision.refusal, Some(pse_backend_native::routing::Refusal::Unavailable(Backend::Ipopt)))),
             "{error:?}"
         );
         assert_eq!(observed(&error, "routing").class, Class::Unsupported);

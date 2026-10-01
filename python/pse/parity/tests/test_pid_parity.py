@@ -49,7 +49,7 @@ LOOP = f"""package pid_parity {{
   eq target[i in t]:regulator.setpoint[i]=={SETPOINT};
   annotation start y({START});
  }}
- test pi_loop fixture {{dof 0; run integrated;
+ test pi_loop fixture {{dof 0; route integrated; procedure integrate;
    integrate samples({",".join(f"{t}{{s}}" for t in SAMPLES)})
    relative(1e-10) normalized_absolute(1e-12) step(1e-4{{s}});}} {{
   child root:Loop=Loop();

@@ -141,6 +141,9 @@ pub enum ProblemError {
         /// Other linked backends; eligibility still requires admission.
         alternatives: Vec<solve::Backend>,
     },
+    /// Route admission refused, retaining the request and contextual assessments.
+    #[error("route refused: {0}")]
+    RouteRefused(Box<routing::Decision>),
     /// The model or request violates a declared contract.
     #[error("invalid native problem: {0}")]
     Contract(String),
@@ -243,10 +246,12 @@ impl ProblemError {
                 kind: LimitKind::Time,
                 detail: format!("{detail} [{status}]"),
             },
-            T::IterationLimit | T::Limit | T::SolutionLimit | T::ObjectiveLimit => Self::Limit {
-                kind: LimitKind::Work,
-                detail: format!("{detail} [{status}]"),
-            },
+            T::IterationLimit | T::NodeLimit | T::Limit | T::SolutionLimit | T::ObjectiveLimit => {
+                Self::Limit {
+                    kind: LimitKind::Work,
+                    detail: format!("{detail} [{status}]"),
+                }
+            }
             T::ResourceExhausted => Self::Limit {
                 kind: LimitKind::Memory,
                 detail: format!("{detail} [{status}]"),
@@ -290,6 +295,7 @@ impl ProblemError {
                 .saturating_mul(size_of::<SemanticId>()),
             Self::Math(e) => e.retained_bytes(),
             Self::Provider(e) => e.retained_bytes(),
+            Self::RouteRefused(decision) => decision.retained_bytes(),
             Self::Cancelled => 0,
         })
     }
@@ -298,7 +304,7 @@ pse_diagnostics::impl_diagnostic! {
     ProblemError,
     code(this) { match this {
         Self::Contract(_) | Self::Structural{..} => Some(pse_diagnostics::DiagnosticCode::CompileMath),
-        Self::Unavailable{..} | Self::Unsupported(_) | Self::Reuse{..} => Some(pse_diagnostics::DiagnosticCode::CapabilityBackend),
+        Self::Unavailable{..} | Self::RouteRefused(_) | Self::Unsupported(_) | Self::Reuse{..} => Some(pse_diagnostics::DiagnosticCode::CapabilityBackend),
         Self::Numerical{..} => Some(pse_diagnostics::DiagnosticCode::SolveSolverError),
         Self::Limit{kind: LimitKind::Time, ..} => Some(pse_diagnostics::DiagnosticCode::RuntimeTimeout),
         Self::Limit{..} => Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit),

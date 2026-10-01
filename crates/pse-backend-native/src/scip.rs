@@ -300,10 +300,10 @@ pub fn termination(status: Status) -> NativeTermination {
         Status::Unbounded => (Termination::Unbounded, Assurance::None),
         Status::InfeasibleOrUnbounded => (Termination::InfeasibleOrUnbounded, Assurance::None),
         Status::UserInterrupt | Status::Terminate => (Termination::Cancelled, Assurance::None),
-        Status::NodeLimit
-        | Status::TotalNodeLimit
-        | Status::StallNodeLimit
-        | Status::RestartLimit => (Termination::Limit, Assurance::None),
+        Status::NodeLimit | Status::TotalNodeLimit | Status::StallNodeLimit => {
+            (Termination::NodeLimit, Assurance::None)
+        }
+        Status::RestartLimit => (Termination::Limit, Assurance::None),
         Status::TimeLimit => (Termination::TimeLimit, Assurance::None),
         Status::MemoryLimit => (Termination::ResourceExhausted, Assurance::None),
         Status::PrimalLimit | Status::DualLimit => (Termination::ObjectiveLimit, Assurance::None),

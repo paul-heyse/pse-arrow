@@ -231,7 +231,7 @@ pub struct ModelingInitializationReport {
 #[derive(Clone, Debug)]
 pub struct ModelingStudyPoint {
     /// The point's analysis, or why it could not be declared.
-    pub analysis: Result<ModelingAnalysis, Arc<WorkflowError>>,
+    pub execution: Result<DeclaredExecution, Arc<WorkflowError>>,
     /// Earlier point whose candidate seeds this one.
     pub predecessor: Option<usize>,
     /// Case values and declared parameters this point replaces, composed over its
@@ -279,7 +279,7 @@ pub(super) fn bounded_error(error: impl std::fmt::Display) -> String {
     message.text
 }
 impl ModelingInitialization {
-    fn validate(&self) -> Result<(), WorkflowError> {
+    pub(super) fn validate(&self) -> Result<(), WorkflowError> {
         if self.maximum_attempts == 0
             || self.maximum_attempts > 4096
             || self.stages.len() > 4096
@@ -363,8 +363,8 @@ impl ModelingPackage {
             .iter()
             .map(|p| {
                 (
-                    p.analysis.as_ref().ok().map(|a| a.root),
-                    p.analysis.as_ref().ok().map(|a| a.instance),
+                    p.execution.as_ref().ok().map(|e| e.analysis.root),
+                    p.execution.as_ref().ok().map(|e| e.analysis.instance),
                     p.predecessor,
                 )
             })
@@ -385,14 +385,14 @@ impl ModelingPackage {
                     continue;
                 };
                 let mut analyses = Vec::new();
-                if let Ok(analysis) = p.analysis {
-                    analyses.push(analysis);
+                if let Ok(execution) = p.execution {
+                    analyses.push(execution.analysis);
                 }
                 while let Some(next) = points.front()
                     && batching(next) == Some(backend)
-                    && let Some(Ok(analysis)) = points.pop_front().map(|p| p.analysis)
+                    && let Some(Ok(execution)) = points.pop_front().map(|p| p.execution)
                 {
-                    analyses.push(analysis);
+                    analyses.push(execution.analysis);
                 }
                 for result in staged
                     .batch(self, &analyses, Obligations::Final, cancel)
@@ -449,13 +449,14 @@ impl ModelingPackage {
         point: ModelingStudyPoint,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingResult, BoundaryDiagnostic> {
-        let analysis = match point.analysis {
-            Ok(analysis) => analysis,
+        let execution = match point.execution {
+            Ok(execution) => execution,
             Err(error) => {
                 staged.refuse();
                 return Err(error.boundary_diagnostic());
             }
         };
+        let analysis = &execution.analysis;
         let overlay = Overlay {
             values: point.overlay.values,
             parameters: point.overlay.parameters,
@@ -477,6 +478,63 @@ impl ModelingPackage {
                 pse_model::diagnostic::Observation::Integer(previous as i64),
             );
             return Err(error);
+        }
+        if let DeclaredProcedure::Initialize(policy) = &execution.procedure {
+            let mut selected = overlay.compose(analysis);
+            let seed = staged.seed(start).unwrap_or_default();
+            let paths = &execution.model.compiled().model.paths;
+            for (id, value) in &seed {
+                let Some((path, _)) = paths.iter().find(|(_, member)| *member == id) else {
+                    continue;
+                };
+                // A predecessor starts free coordinates; the point's explicit values and fixes retain precedence.
+                if selected.case.values.contains_key(path)
+                    || selected
+                        .case
+                        .variables
+                        .get(path)
+                        .is_some_and(|state| state.fixed == Some(true))
+                {
+                    continue;
+                }
+                selected.case.values.insert(path.clone(), *value);
+            }
+            for (id, value) in &overlay.parameters {
+                let Some((path, _)) = paths.iter().find(|(_, member)| *member == id) else {
+                    continue;
+                };
+                selected.case.values.insert(path.clone(), *value);
+            }
+            let report = self
+                .initialize_model(&selected, policy.clone(), cancel)
+                .await
+                .map_err(|e| e.boundary_diagnostic())?;
+            let result = report
+                .attempts
+                .last()
+                .and_then(|a| a.result.as_ref().ok())
+                .filter(|_| report.completed)
+                .cloned()
+                .ok_or_else(|| {
+                    report.failure.unwrap_or_else(|| {
+                        BoundaryDiagnostic::new(
+                            BoundaryClass::Numerical,
+                            "modeling-study",
+                            [analysis.root.as_id()],
+                            "modeling.study.initialization",
+                        )
+                    })
+                })?;
+            staged.retain_external(&result);
+            return Ok(result);
+        }
+        if !matches!(execution.procedure, DeclaredProcedure::Solve) {
+            return Err(BoundaryDiagnostic::new(
+                BoundaryClass::Unsupported,
+                "modeling-study",
+                [analysis.root.as_id()],
+                "modeling.study.procedure",
+            ));
         }
         staged
             .step(
@@ -894,7 +952,11 @@ fn continuation_values(
 /// The batching adapter an independent study point explicitly selects (Plan 22 N5): the
 /// point joins a batch with its neighbours that select the same one.
 fn batching(point: &ModelingStudyPoint) -> Option<pse_backend_native::solve::Backend> {
-    let analysis = point.analysis.as_ref().ok()?;
+    let execution = point.execution.as_ref().ok()?;
+    if !matches!(execution.procedure, DeclaredProcedure::Solve) {
+        return None;
+    }
+    let analysis = &execution.analysis;
     match analysis.solver.selection {
         // A batch binds the points' own analyses; a point with an overlay runs alone.
         pse_backend_native::solve::SolverSelection::Explicit(backend)
@@ -1139,26 +1201,41 @@ mod tests {
         let before = package.prepare_analysis(&analysis, &cancel).await.unwrap();
         let mut failing = analysis.clone();
         failing.case.values.insert("x".into(), 0.);
+        let declared = package
+            .declared_execution(
+                root,
+                analysis.compiler,
+                analysis.solver.clone(),
+                analysis.numerical.clone(),
+                analysis.limits,
+                &cancel,
+            )
+            .await
+            .unwrap();
+        let point_execution = |analysis: ModelingAnalysis| DeclaredExecution {
+            analysis,
+            ..declared.clone()
+        };
         let study = package
             .study(
                 vec![
                     ModelingStudyPoint {
-                        analysis: Ok(analysis.clone()),
+                        execution: Ok(point_execution(analysis.clone())),
                         predecessor: None,
                         overlay: Default::default(),
                     },
                     ModelingStudyPoint {
-                        analysis: Ok(failing),
+                        execution: Ok(point_execution(failing)),
                         predecessor: None,
                         overlay: Default::default(),
                     },
                     ModelingStudyPoint {
-                        analysis: Ok(analysis.clone()),
+                        execution: Ok(point_execution(analysis.clone())),
                         predecessor: None,
                         overlay: Default::default(),
                     },
                     ModelingStudyPoint {
-                        analysis: Ok(analysis.clone()),
+                        execution: Ok(point_execution(analysis.clone())),
                         predecessor: Some(1),
                         overlay: Default::default(),
                     },

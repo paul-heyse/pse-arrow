@@ -7,13 +7,220 @@ use pse_structural::{
     projection::{GraphLimits, Scope},
 };
 
-/// A square equation closure or an NLP that may retain optimization degrees of freedom.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Mode {
-    /// Every original row and free variable must participate in the matching.
-    Roots,
-    /// Every equality must match; inequalities and optimization freedom remain admissible.
-    Nlp,
+/// Registry-owned structural interpretation, distinct from numerical rank.
+pub use pse_model::generated::enums::NativeStructuralMode as Mode;
+
+/// Structural policy is declared once in the registry.
+pub use pse_model::generated::enums::NativeStructuralPolicy as Policy;
+/// Root intent dominates the selected native representation.
+pub fn mode(
+    policy: Policy,
+    facts: &pse_math::facts::ProblemFacts,
+    intent: crate::solve::SolveIntent,
+) -> Mode {
+    if matches!(
+        intent,
+        crate::solve::SolveIntent::Root | crate::solve::SolveIntent::Initialize
+    ) {
+        return Mode::Roots;
+    }
+    match policy {
+        Policy::Roots => Mode::Roots,
+        Policy::Equalities => Mode::Nlp,
+        Policy::NativeFeasibility => Mode::NativeFeasibility,
+        Policy::Factorable if facts.affine_rows.iter().all(|affine| *affine) => {
+            Mode::NativeFeasibility
+        }
+        Policy::Factorable => Mode::Nlp,
+    }
+}
+
+/// Retained original bound-view assessment, including a refused matching witness.
+#[derive(Clone, Debug)]
+pub struct Assessment {
+    /// Representation-qualified interpretation; never numerical rank.
+    pub mode: Mode,
+    /// Complete original free-variable inventory.
+    pub variables: Vec<pse_ids::SemanticId>,
+    /// Complete original constraints, including inequality roles and isolated rows.
+    pub equations: Vec<Constraint>,
+    /// The existing compiler-owned library matching; no second matching search.
+    pub witness: std::sync::Arc<StructuralAnalysis>,
+    /// Named matching refusal, retained separately from the witness.
+    pub refusal: Option<(Vec<pse_ids::SemanticId>, Vec<pse_ids::SemanticId>)>,
+}
+impl Assessment {
+    /// Assess the already analyzed complete original view.
+    pub fn new(
+        mode: Mode,
+        variables: Vec<pse_ids::SemanticId>,
+        equations: Vec<Constraint>,
+        witness: std::sync::Arc<StructuralAnalysis>,
+    ) -> Result<Self, ProblemError> {
+        if matches!(witness.scope, Scope::Partial(_)) {
+            return Err(ProblemError::Contract(
+                "structural admission requires complete scope".into(),
+            ));
+        }
+        let mut rows = if matches!(mode, Mode::NativeFeasibility | Mode::PointEvaluation) {
+            vec![]
+        } else {
+            witness.over.rows.clone()
+        };
+        let columns = if mode == Mode::Roots {
+            witness.under.columns.clone()
+        } else {
+            vec![]
+        };
+        if mode == Mode::Roots {
+            let matched = witness
+                .matching
+                .iter()
+                .map(|(r, _)| *r)
+                .collect::<std::collections::BTreeSet<_>>();
+            rows.extend(
+                equations
+                    .iter()
+                    .filter(|r| r.lower.is_none() || r.lower != r.upper || !matched.contains(&r.id))
+                    .map(|r| r.id),
+            );
+            rows.sort_unstable();
+            rows.dedup();
+        }
+        let refusal = (!rows.is_empty() || !columns.is_empty()).then_some((rows, columns));
+        Ok(Self {
+            mode,
+            variables,
+            equations,
+            witness,
+            refusal,
+        })
+    }
+    /// Publish the existing complete witness and original inventories on success or refusal.
+    pub fn row(
+        &self,
+        request_identity: pse_ids::ContentHash,
+        step: i64,
+    ) -> pse_model::generated::runtime::structural_assessments::Row {
+        use pse_model::generated::{
+            enums::StructuralScopeKind as Kind, runtime::structural_assessments::*,
+        };
+        let (scope, scope_model, scope_members, scope_rows, scope_columns, scope_inputs) =
+            match &self.witness.scope {
+                Scope::Whole(model) => (Kind::Whole, *model, vec![], vec![], vec![], vec![]),
+                Scope::Partial(model) => (Kind::Partial, *model, vec![], vec![], vec![], vec![]),
+                Scope::Independent { model, members } => (
+                    Kind::Independent,
+                    *model,
+                    members.iter().copied().collect(),
+                    vec![],
+                    vec![],
+                    vec![],
+                ),
+                Scope::Conditional {
+                    model,
+                    rows,
+                    columns,
+                    inputs,
+                } => (
+                    Kind::Conditional,
+                    *model,
+                    vec![],
+                    rows.iter().copied().collect(),
+                    columns.iter().copied().collect(),
+                    inputs.iter().copied().collect(),
+                ),
+            };
+        let matched_rows = self
+            .witness
+            .matching
+            .iter()
+            .map(|(row, _)| *row)
+            .collect::<std::collections::BTreeSet<_>>();
+        let matched_columns = self
+            .witness
+            .matching
+            .iter()
+            .map(|(_, column)| *column)
+            .collect::<std::collections::BTreeSet<_>>();
+        RuntimeStructuralAssessmentsRow {
+            request_identity,
+            step,
+            mode: self.mode,
+            scope,
+            scope_model,
+            scope_members,
+            scope_rows,
+            scope_columns,
+            scope_inputs,
+            variables: self.variables.clone(),
+            equations: self
+                .equations
+                .iter()
+                .map(|row| RuntimeStructuralAssessmentsFieldEquationsItem {
+                    id: row.id,
+                    lower: row.lower,
+                    upper: row.upper,
+                })
+                .collect(),
+            matching: self
+                .witness
+                .matching
+                .iter()
+                .map(
+                    |(row, column)| RuntimeStructuralAssessmentsFieldMatchingItem {
+                        row: *row,
+                        column: *column,
+                    },
+                )
+                .collect(),
+            unmatched_rows: self
+                .equations
+                .iter()
+                .filter(|row| {
+                    row.lower.is_some() && row.lower == row.upper && !matched_rows.contains(&row.id)
+                })
+                .map(|row| row.id)
+                .collect(),
+            unmatched_columns: self
+                .variables
+                .iter()
+                .filter(|id| !matched_columns.contains(id))
+                .copied()
+                .collect(),
+            optimization_freedom: self.optimization_freedom().map(|value| value as i64),
+            admitted: self.refusal.is_none(),
+            provenance: self.witness.provenance.to_owned(),
+        }
+    }
+    /// Admission retains every original identity, including through refusal.
+    pub fn admit(&self) -> Result<(), ProblemError> {
+        match &self.refusal {
+            Some((rows, columns)) => Err(ProblemError::Structural {
+                mode: self.mode,
+                rows: rows.clone(),
+                columns: columns.clone(),
+            }),
+            None => Ok(()),
+        }
+    }
+    /// Signed original free-variable/equality inventory difference; never an admission verdict.
+    pub fn inventory_difference(&self) -> i64 {
+        self.variables.len() as i64
+            - self
+                .equations
+                .iter()
+                .filter(|r| r.lower.is_some() && r.lower == r.upper)
+                .count() as i64
+    }
+    /// The count meaningful for this structural mode; no numerical rank or zero-DOF claim.
+    pub fn optimization_freedom(&self) -> Option<usize> {
+        (self.mode == Mode::Nlp).then(|| {
+            self.variables
+                .len()
+                .saturating_sub(self.witness.matching.len())
+        })
+    }
 }
 
 /// Consume the compiler's existing library-owned analysis without repeating matching.
@@ -23,7 +230,11 @@ pub fn admit(analysis: &StructuralAnalysis, mode: Mode) -> Result<(), ProblemErr
             "structural admission requires complete scope".into(),
         ));
     }
-    let rows = analysis.over.rows.clone();
+    let rows = if matches!(mode, Mode::NativeFeasibility | Mode::PointEvaluation) {
+        vec![]
+    } else {
+        analysis.over.rows.clone()
+    };
     let columns = if mode == Mode::Roots {
         analysis.under.columns.clone()
     } else {
@@ -312,5 +523,97 @@ mod tests {
             )
             .is_err()
         );
+    }
+    #[test]
+    fn retained_original_assessment_distinguishes_matching_and_native_feasibility() {
+        let equations = vec![
+            Constraint {
+                id: id(3),
+                lower: Some(0.),
+                upper: Some(0.),
+            },
+            Constraint {
+                id: id(4),
+                lower: Some(0.),
+                upper: Some(0.),
+            },
+        ];
+        let graph = CaseIncidence::new(
+            Scope::Whole(id(5)),
+            equations.clone(),
+            vec![id(1)],
+            vec![
+                Incidence {
+                    row: id(3),
+                    column: id(1),
+                    instance: id(3),
+                    output: 0,
+                },
+                Incidence {
+                    row: id(4),
+                    column: id(1),
+                    instance: id(4),
+                    output: 0,
+                },
+            ],
+            Default::default(),
+            GraphLimits { nodes: 3, edges: 2 },
+        )
+        .unwrap();
+        let witness = std::sync::Arc::new(
+            graph
+                .analyze(&std::sync::atomic::AtomicBool::new(false))
+                .unwrap(),
+        );
+        let nonlinear =
+            Assessment::new(Mode::Nlp, vec![id(1)], equations.clone(), witness.clone()).unwrap();
+        assert!(nonlinear.admit().is_err());
+        assert_eq!(nonlinear.equations.len(), 2);
+        let linear = Assessment::new(
+            Mode::NativeFeasibility,
+            vec![id(1)],
+            equations.clone(),
+            witness.clone(),
+        )
+        .unwrap();
+        linear.admit().unwrap();
+        assert!(linear.optimization_freedom().is_none());
+        assert!(std::sync::Arc::ptr_eq(&linear.witness, &nonlinear.witness));
+        let facts = crate::routing::oracle_facts(
+            &OracleContract {
+                identity: pse_ids::ContentHash::from_bytes([1; 32]),
+                variables: vec![crate::Variable {
+                    id: id(1),
+                    lower: -1.,
+                    upper: 1.,
+                }],
+                rows: vec![id(3), id(4)],
+                derivatives: pse_kernels::DerivativeOrder::First,
+                smoothness: pse_kernels::DerivativeOrder::First,
+            },
+            false,
+            true,
+        );
+        for policy in [
+            Policy::Equalities,
+            Policy::NativeFeasibility,
+            Policy::Factorable,
+        ] {
+            assert_eq!(
+                mode(policy, &facts, crate::solve::SolveIntent::Root),
+                Mode::Roots
+            );
+            assert!(
+                Assessment::new(
+                    mode(policy, &facts, crate::solve::SolveIntent::Root),
+                    vec![id(1)],
+                    equations.clone(),
+                    witness.clone()
+                )
+                .unwrap()
+                .admit()
+                .is_err()
+            );
+        }
     }
 }

@@ -429,7 +429,9 @@ fn print_block(
                     v.oracle.as_ref().map_or_else(String::new,|o|format!(" oracle {}",path(o))),
                     v.fixture.as_ref().map_or_else(|| Ok(String::new()), |f| {
                         let mut statements = vec![format!("dof {};", f.degrees_of_freedom)];
-                        if let Some(execution) = f.execution { statements.push(format!("run {};", execution.as_str())); }
+                        if let Some(route) = f.route { statements.push(format!("route {};", route.as_str())); }
+                        if let Some(procedure) = f.procedure { statements.push(format!("procedure {};", procedure.as_str())); }
+                        if let Some(endpoint) = &f.endpoint { statements.push(match &endpoint.event { Some(event)=>format!("endpoint {}({event});", endpoint.kind.as_str()), None=>format!("endpoint {};", endpoint.kind.as_str()) }); }
                         if let Some(intent) = f.intent { statements.push(format!("intent {};", intent.as_str())); }
                         if let Some(policy) = &f.policy { statements.push(fixture_policy(policy)?); }
                         if !f.stages.is_empty() { statements.push(format!("stages({});", f.stages.iter().map(|s| quoted(s)).collect::<Vec<_>>().join(", "))); }

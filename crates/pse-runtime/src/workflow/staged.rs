@@ -22,7 +22,7 @@ use super::{
     ModelingAnalysis, ModelingPackage, ModelingResult, ModelingSolvePreparation, Runtime,
     WorkflowError,
     modeling::{assessment::Obligations, cases::CaseOverrides},
-    numerics::{CandidateDecision, CandidateReason, refused},
+    numerics::{CandidateDecision, refused},
 };
 use crate::math::{
     NativeSession,
@@ -150,14 +150,14 @@ impl Staged {
     /// an explicit dependency, a result's or a seed-only candidate's. `None` refuses the
     /// start.
     pub(in crate::workflow) fn seed(&self, start: Start) -> Option<BTreeMap<SemanticId, f64>> {
-        let (index, permitted): (usize, fn(CandidateDecision) -> bool) = match start {
+        let (index, permitted): (usize, fn(&CandidateDecision) -> bool) = match start {
             Start::Specification => return Some(BTreeMap::new()),
             Start::Accepted(index) => (index, CandidateDecision::permits_use),
             Start::Seed(index) => (index, CandidateDecision::permits_seed),
         };
         self.records
             .get(index)
-            .filter(|r| permitted(r.decision))
+            .filter(|r| permitted(&r.decision))
             .map(|r| r.values.clone())
     }
     /// The native output seed of the last step when its candidate is a result: what a
@@ -180,7 +180,7 @@ impl Staged {
     /// Record a step that ended before a native attempt. It seeds nothing.
     pub(in crate::workflow) fn refuse(&mut self) -> usize {
         self.records.push(Record {
-            decision: refused(CandidateReason::NoCandidate),
+            decision: refused(pse_model::generated::enums::CandidateRefusal::NoCandidate),
             values: BTreeMap::new(),
             warm: None,
         });
@@ -190,7 +190,7 @@ impl Staged {
         match result {
             Ok(result) => {
                 self.records.push(Record {
-                    decision: result.completion.decision,
+                    decision: result.completion.decision.clone(),
                     values: result.values.scalars.clone(),
                     warm: match &result.outcome {
                         Outcome::Native(native) => native.warm_start.clone(),
@@ -201,6 +201,11 @@ impl Staged {
             }
             Err(_) => self.refuse(),
         }
+    }
+    /// Retain an externally supervised result's composed permissions and lawful seed.
+    /// Mutable native state stays with its original session.
+    pub(in crate::workflow) fn retain_external(&mut self, result: &ModelingResult) -> usize {
+        self.record(&Ok(result.clone()))
     }
     /// Execute one prepared step on the session, assess it against `obligations` on the
     /// same worker, and record it. `previous` is the native seed a `PreviousAccepted`
@@ -605,22 +610,26 @@ mod tests {
         let runtime = runtime();
         let mut staged = Staged::open(&runtime, None).unwrap();
         let x = SemanticId::from_bytes([3; 16]);
-        let decision = |usability, reason| CandidateDecision { usability, reason };
-        for (usability, reason, value) in [
+        for (usability, refusal, value) in [
             (
                 CandidateUse::SeedOnly,
-                CandidateReason::StoppedFeasible,
+                Some(pse_model::generated::enums::CandidateRefusal::IncumbentRefused),
                 1.5,
             ),
-            (CandidateUse::Usable, CandidateReason::Accepted, 2.0),
+            (CandidateUse::Usable, None, 2.0),
             (
                 CandidateUse::DiagnosticOnly,
-                CandidateReason::LeastInfeasible,
+                Some(pse_model::generated::enums::CandidateRefusal::LeastInfeasible),
                 9.0,
             ),
         ] {
             staged.records.push(Record {
-                decision: decision(usability, reason),
+                decision: CandidateDecision {
+                    usability,
+                    qualifiers: vec![],
+                    refusals: refusal.into_iter().collect(),
+                    bound: None,
+                },
                 values: BTreeMap::from([(x, value)]),
                 warm: None,
             });
@@ -702,15 +711,33 @@ mod native_tests {
         };
         (package, analysis)
     }
-    fn point(
+    async fn declared(
+        package: &ModelingPackage,
         analysis: &ModelingAnalysis,
+    ) -> super::super::modeling::DeclaredExecution {
+        let mut declared = package
+            .declared_execution(
+                analysis.root,
+                analysis.compiler,
+                analysis.solver.clone(),
+                analysis.numerical.clone(),
+                analysis.limits,
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap();
+        declared.analysis = analysis.clone();
+        declared
+    }
+    fn point(
+        execution: &super::super::modeling::DeclaredExecution,
         t: f64,
         predecessor: Option<usize>,
     ) -> ModelingStudyPoint {
-        let mut analysis = analysis.clone();
-        analysis.case.values.insert("t".into(), t);
+        let mut execution = execution.clone();
+        execution.analysis.case.values.insert("t".into(), t);
         ModelingStudyPoint {
-            analysis: Ok(analysis),
+            execution: Ok(execution),
             predecessor,
             overlay: Default::default(),
         }
@@ -746,9 +773,10 @@ mod native_tests {
         let runtime = runtime();
         let cancel = crate::CancelSource::new();
         let (single, analysis) = package_on(&runtime, LINEAR);
+        let execution = declared(&single, &analysis).await;
         let before = runtime.native().preparations();
         let one = single
-            .study(vec![point(&analysis, 1., None)], 8, &cancel)
+            .study(vec![point(&execution, 1., None)], 8, &cancel)
             .await
             .unwrap();
         assert!(one.outcomes[0].as_ref().unwrap().accepted);
@@ -756,9 +784,10 @@ mod native_tests {
         assert_eq!(after_one.views - before.views, 1);
         // A second package over the same runtime starts without prepared views.
         let (package, analysis) = package_on(&runtime, LINEAR);
+        let execution = declared(&package, &analysis).await;
         let start = runtime.native().preparations();
         let points = (1..=5)
-            .map(|t| point(&analysis, f64::from(t), None))
+            .map(|t| point(&execution, f64::from(t), None))
             .collect();
         let report = package.study(points, 8, &cancel).await.unwrap();
         let end = runtime.native().preparations();
@@ -786,10 +815,10 @@ mod native_tests {
     async fn study_results_carry_preparation_counts() {
         let runtime = runtime();
         let cancel = crate::CancelSource::new();
-        let points = |analysis: &ModelingAnalysis| {
+        let points = |execution: &super::super::modeling::DeclaredExecution| {
             (1..=5)
                 .map(|t| ModelingStudyPoint {
-                    analysis: Ok(analysis.clone()),
+                    execution: Ok(execution.clone()),
                     predecessor: None,
                     overlay: crate::workflow::PointOverlay {
                         values: BTreeMap::from([("t".into(), f64::from(t))]),
@@ -800,10 +829,12 @@ mod native_tests {
         };
         let (first, first_analysis) = package_on(&runtime, LINEAR);
         let (second, second_analysis) = package_on(&runtime, LINEAR);
+        let first_execution = declared(&first, &first_analysis).await;
+        let second_execution = declared(&second, &second_analysis).await;
         let before = runtime.native().preparations();
         let (first, second) = tokio::join!(
-            first.study(points(&first_analysis), 8, &cancel),
-            second.study(points(&second_analysis), 8, &cancel),
+            first.study(points(&first_execution), 8, &cancel),
+            second.study(points(&second_execution), 8, &cancel),
         );
         let after = runtime.native().preparations();
         let (first, second) = (first.unwrap(), second.unwrap());
@@ -998,13 +1029,14 @@ mod native_tests {
     async fn failed_point_isolated_in_study() {
         let runtime = runtime();
         let (package, analysis) = package_on(&runtime, LINEAR);
+        let execution = declared(&package, &analysis).await;
         let points = vec![
-            point(&analysis, 1., None),
-            point(&analysis, -5., None),
-            point(&analysis, 2., None),
-            point(&analysis, 3., None),
-            point(&analysis, 4., Some(1)),
-            point(&analysis, 5., Some(0)),
+            point(&execution, 1., None),
+            point(&execution, -5., None),
+            point(&execution, 2., None),
+            point(&execution, 3., None),
+            point(&execution, 4., Some(1)),
+            point(&execution, 5., Some(0)),
         ];
         let report = package
             .study(points, 8, &crate::CancelSource::new())

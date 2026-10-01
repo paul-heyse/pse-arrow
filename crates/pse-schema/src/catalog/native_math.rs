@@ -53,11 +53,19 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         b,
         N::Runtime,
         "solver_capabilities",
-        3,
+        4,
         S::Derived,
         &["backend"],
         vec![
             column("backend", T::enumeration("NativeBackend")),
+            column(
+                "structural_policy",
+                T::enumeration("NativeStructuralPolicy"),
+            ),
+            column(
+                "lexicographic_degradation",
+                T::enumeration("NativeLexicographicDegradation"),
+            ),
             column("classes", T::list(T::enumeration("NativeProblemClass"))),
             column(
                 "automatic_classes",
@@ -120,7 +128,7 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         ],
         "Completion-owned semantic lineage. The run is the execution, not its content: it is not part of request identity, and a durable run's tries are attempts recorded in the operational store, the publication naming the attempt. Model, case, instance and fit name what was solved (`pse_model::lineage`). Effective settings, submitted start and native observations are retained in solve_metrics; source provider and parameter data are retained with the immutable revision.",
     );
-    enumeration(b, "ComputationKind", ["simulation", "fit"]);
+    enumeration(b, "ComputationKind", ["simulation", "fit", "shooting"]);
     enumeration(
         b,
         "TrajectoryTermination",
@@ -177,6 +185,177 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             "coordinate_scale",
         ],
     );
+    enumeration(
+        b,
+        "NativeStructuralMode",
+        ["roots", "nlp", "native_feasibility", "point_evaluation"],
+    );
+    enumeration(
+        b,
+        "NativeRepresentation",
+        [
+            "nlp",
+            "roots",
+            "coefficients",
+            "cone",
+            "factorable",
+            "trajectory",
+        ],
+    );
+    enumeration(b, "NativeRouteSelection", ["auto", "explicit"]);
+    enumeration(b, "NativeRouteKind", ["constant", "native"]);
+    enumeration(b, "NativeLexicographicRealization", ["native", "staged"]);
+    enumeration(
+        b,
+        "NativeRouteRefusal",
+        [
+            "invalid_request",
+            "no_eligible",
+            "unavailable",
+            "ineligible",
+            "constant_native_forms",
+            "structure",
+        ],
+    );
+    enumeration(
+        b,
+        "StructuralScopeKind",
+        ["whole", "independent", "conditional", "partial"],
+    );
+    relation(
+        b,
+        N::Runtime,
+        "route_decisions",
+        S::Derived,
+        &["request_identity", "step"],
+        vec![
+            column("request_identity", T::hash()),
+            column("step", ordinal()),
+            column("intent", T::enumeration("NativeSolveIntent")),
+            column("selection", T::enumeration("NativeRouteSelection")),
+            column("requested_backend", T::enumeration("NativeBackend")).optional(),
+            column("classes", T::list(T::enumeration("NativeProblemClass"))),
+            column(
+                "eligibility",
+                T::list(record(vec![
+                    ("backend", T::enumeration("NativeBackend")),
+                    ("reasons", T::list(T::enumeration("NativeIneligibility"))),
+                ])),
+            ),
+            column("selected", T::enumeration("NativeRouteKind")).optional(),
+            column("backend", T::enumeration("NativeBackend")).optional(),
+            column("representation", T::enumeration("NativeRepresentation")).optional(),
+            column(
+                "lexicographic",
+                T::enumeration("NativeLexicographicRealization"),
+            )
+            .optional(),
+            column("refusal", T::enumeration("NativeRouteRefusal")).optional(),
+            column("detail", text()).optional(),
+        ],
+        "Request-qualified capability admission retained even without a native attempt. No failed route fabricates a run or solver result.",
+    );
+    relation(
+        b,
+        N::Runtime,
+        "structural_assessments",
+        S::Derived,
+        &["request_identity", "step"],
+        vec![
+            column("request_identity", T::hash()),
+            column("step", ordinal()),
+            column("mode", T::enumeration("NativeStructuralMode")),
+            column("scope", T::enumeration("StructuralScopeKind")),
+            column("scope_model", T::id()),
+            column("scope_members", T::list(T::id())),
+            column("scope_rows", T::list(T::id())),
+            column("scope_columns", T::list(T::id())),
+            column("scope_inputs", T::list(T::id())),
+            column("variables", T::list(T::id())),
+            column(
+                "equations",
+                T::list(record(vec![
+                    ("id", T::id()),
+                    ("lower", real().optional()),
+                    ("upper", real().optional()),
+                ])),
+            ),
+            column(
+                "matching",
+                T::list(record(vec![("row", T::id()), ("column", T::id())])),
+            ),
+            column("unmatched_rows", T::list(T::id())),
+            column("unmatched_columns", T::list(T::id())),
+            column("optimization_freedom", ordinal()).optional(),
+            column("admitted", flag()),
+            column("provenance", text()),
+        ],
+        "Complete original bound-view structural assessment with library matching and named refusals; modes distinguish Root matching, equality matching, justified native feasibility and constant point evaluation. No numerical rank claim.",
+    );
+    enumeration(
+        b,
+        "NativeStructuralPolicy",
+        ["roots", "equalities", "native_feasibility", "factorable"],
+    );
+    enumeration(
+        b,
+        "NativeLexicographicDegradation",
+        ["max", "single_nonzero"],
+    );
+    enumeration(
+        b,
+        "EndpointPolicy",
+        ["fixed_horizon", "declared_terminal_event"],
+    );
+    enumeration(
+        b,
+        "IncumbentPolicy",
+        ["refuse", "accept_feasible", "accept_within_gap"],
+    );
+    enumeration(
+        b,
+        "CandidateQualifier",
+        [
+            "accepted_incumbent_feasible",
+            "accepted_incumbent_within_gap",
+            "closure_allowed",
+            "applicability_unknown_allowed",
+            "applicability_extrapolation_allowed",
+        ],
+    );
+    enumeration(
+        b,
+        "CandidateRefusal",
+        [
+            "no_candidate",
+            "validation_failed",
+            "infeasible",
+            "unqualified",
+            "native_outcome",
+            "model_checks",
+            "closure_unavailable",
+            "closure_unclosed",
+            "applicability_unavailable",
+            "applicability_denied",
+            "endpoint_unavailable",
+            "coverage_unavailable",
+            "bound_unavailable",
+            "gap_exceeded",
+            "least_infeasible",
+            "relaxed_incumbent",
+            "incumbent_refused",
+        ],
+    );
+    enumeration(
+        b,
+        "CandidateBoundOrigin",
+        [
+            "global_export",
+            "linear_program",
+            "mixed_integer",
+            "conic_program",
+        ],
+    );
     enumeration(b, "ClosurePolicy", ["require_closed", "allow_unclosed"]);
     enumeration(
         b,
@@ -199,7 +378,7 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         b,
         N::Runtime,
         "candidate_assessments",
-        2,
+        3,
         S::Derived,
         &["run_id", "step"],
         vec![
@@ -211,6 +390,18 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             column("policy", T::enumeration("ClosurePolicy")),
             column("usability", T::enumeration("CandidateUse")),
             column("reason", text()),
+            column("incumbent_policy", T::enumeration("IncumbentPolicy")),
+            column("candidate_kind", T::enumeration("NativeCandidateKind")).optional(),
+            column("qualification", T::enumeration("NativeQualification")).optional(),
+            column("validated", flag()).optional(),
+            column("bound_origin", T::enumeration("CandidateBoundOrigin")).optional(),
+            column("bound", real()).optional(),
+            column("absolute_gap", real()).optional(),
+            column("relative_gap", real()).optional(),
+            column("qualifiers", T::list(T::enumeration("CandidateQualifier"))),
+            column("refusals", T::list(T::enumeration("CandidateRefusal"))),
+            column("permits_result", flag()),
+            column("permits_seed", flag()),
         ],
         "Completion-owned candidate assessment. Native termination, original numerical acceptance, physical closure and final usability remain distinct. A seed-only candidate may seed a later step and is never a published solution; a diagnostic-only point is an observation only.",
     );
@@ -329,6 +520,7 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             "infeasible_or_unbounded",
             "limit",
             "iteration_limit",
+            "node_limit",
             "resource_exhausted",
             "inconclusive",
             "objective_limit",
@@ -936,6 +1128,33 @@ fn declare_dynamics_fitting(b: &mut RegistryBuilder) {
             column("value", real()),
         ],
         "Successfully completed physical samples only; no missing trajectory tail is fabricated.",
+    );
+    relation(
+        b,
+        N::Runtime,
+        "trajectory_endpoints",
+        S::Derived,
+        &["run_id"],
+        vec![
+            run_id(),
+            column("requirement", T::enumeration("EndpointPolicy")),
+            column("required_event", T::id()).optional(),
+            column("event_id", T::id()).optional(),
+            column("time", real()),
+            column("mode", ordinal()),
+            column("state_ids", T::list(T::id())),
+            column("input_ids", T::list(T::id())),
+            column("output_ids", T::list(T::id())),
+            column("state", T::list(real())),
+            column("outputs", T::list(real())),
+            column("integrals", T::list(real())),
+            column("input_columns", T::list(ordinal())),
+            column("inputs", T::list(real())),
+            column("endpoint_satisfied", flag()),
+            column("prefix_complete", flag()),
+            column("missing_observations", T::list(real())),
+        ],
+        "Actual completion state and inputs in canonical physical coordinates, with stable coordinate IDs, and live pre-termination input segment, separate from requested samples. Future required observations remain explicitly missing; fixed-domain integrals retain their extent.",
     );
     relation(
         b,

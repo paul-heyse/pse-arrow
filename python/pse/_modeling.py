@@ -45,7 +45,6 @@ from pse.contracts.documents import (
 )
 from pse.contracts.enums import (
     FitDerivatives,
-    ModelingAnalysisRoute,
     ModelingDiscreteInitialization,
 )
 from pse.contracts.identities import DeclarationId, FitId, InstanceId, RunId
@@ -248,6 +247,10 @@ class ModelingConformance:
     def parity(self) -> TableStream:
         """Oracle parity by unit, oracle and release for every oracle fixture."""
         return TableStream(self._handle.parity())
+
+    def admission(self, name: str) -> TableStream:
+        """Export retained runtime.route_decisions or runtime.structural_assessments."""
+        return TableStream(self._handle.admission(name))
 
     def failure(self, ordinal: int) -> DiagnosticReport:
         return self._handle.failure(ordinal)
@@ -825,31 +828,23 @@ class ModelingPackage:
         self,
         case_id: DeclarationId,
         settings: SolveSettings,
-        *,
-        route: ModelingAnalysisRoute = ModelingAnalysisRoute.STEADY,
     ) -> PreparedOperation:
         """Prepare an authored algebraic case for owned execution and publication."""
         return PreparedOperation(
-            self._handle.prepare_solve(
-                case_id.to_hex(), codec.encode_json(settings), route=route.value
-            )
+            self._handle.prepare_solve(case_id.to_hex(), codec.encode_json(settings))
         )
 
     def solve_case(
         self,
         case_id: DeclarationId,
         settings: SolveSettings,
-        *,
-        route: ModelingAnalysisRoute = ModelingAnalysisRoute.STEADY,
     ) -> ModelingResult:
         """Solve a case through the native solver pipeline.
 
         The case uses its source fixture specifications and model starts.
         """
         return ModelingResult(
-            self._handle.solve_case(
-                case_id.to_hex(), codec.encode_json(settings), route=route.value
-            )
+            self._handle.solve_case(case_id.to_hex(), codec.encode_json(settings))
         )
 
     def initialize(
@@ -857,16 +852,14 @@ class ModelingPackage:
         case_id: DeclarationId,
         settings: SolveSettings,
         *,
-        stages: tuple[str, ...] = (),
-        homotopy: bool = False,
-        initial_step: float = 0.25,
-        minimum_step: float = 1e-6,
-        growth: float = 1.5,
-        maximum_attempts: int = 128,
-        time_limit: float = 60.0,
-        discrete: ModelingDiscreteInitialization = (
-            ModelingDiscreteInitialization.REFUSE
-        ),
+        stages: tuple[str, ...] | None = None,
+        homotopy: bool | None = None,
+        initial_step: float | None = None,
+        minimum_step: float | None = None,
+        growth: float | None = None,
+        maximum_attempts: int | None = None,
+        time_limit: float | None = None,
+        discrete: ModelingDiscreteInitialization | None = None,
         discrete_values: Mapping[str, float] | None = None,
     ) -> ModelingInitialization:
         """Run bounded stages and adaptive homotopy, qualifying the original model.
@@ -879,15 +872,17 @@ class ModelingPackage:
             self._handle.initialize(
                 case_id.to_hex(),
                 codec.encode_json(settings),
-                stages=list(stages),
+                stages=None if stages is None else list(stages),
                 homotopy=homotopy,
                 initial_step=initial_step,
                 minimum_step=minimum_step,
                 growth=growth,
                 maximum_attempts=maximum_attempts,
                 time_limit=time_limit,
-                discrete=discrete.value,
-                discrete_values=dict(discrete_values or {}),
+                discrete=None if discrete is None else discrete.value,
+                discrete_values=None
+                if discrete_values is None
+                else dict(discrete_values),
             )
         )
 

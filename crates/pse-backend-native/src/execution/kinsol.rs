@@ -20,6 +20,8 @@ use std::collections::BTreeMap;
 pub(super) struct Kinsol;
 pub(super) static ADAPTER: Kinsol = Kinsol;
 static CAPABILITY: Capability = Capability {
+    structural: crate::structural::Policy::Roots,
+    lexicographic_degradation: crate::routing::DegradationSupport::Max,
     classes: &[ProblemClass::SquareRoot, ProblemClass::DeclaredFixedPoint],
     automatic_classes: &[ProblemClass::SquareRoot, ProblemClass::DeclaredFixedPoint],
     derivatives: DerivativeCapability::JacobianOrProduct,

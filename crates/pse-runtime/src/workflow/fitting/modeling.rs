@@ -901,7 +901,7 @@ impl PreparedFit {
                         for (id,col) in &s.coordinates {values.scalars.insert(*id,candidate[col.get()]);}
                         let mut applicability=Vec::new();
                         let observed=if let Some(program)=program {
-                            let providers=s.providers.values().map(|p|p.worker_scoped(flag.clone()).map(|w|(p.spec().key(),w)).map_err(|e|WorkflowError::from(crate::math::MathRuntimeError::from(native::ProblemError::Provider(e))))).collect::<Result<_,_>>()?;
+                            let providers=crate::math::attempt_providers(&s.providers,&flag).map_err(|e|WorkflowError::from(crate::math::MathRuntimeError::from(native::ProblemError::Provider(e))))?;
                             let mut worker=program.assembly.worker(providers,flag.clone());
                             let outputs=worker.constraints(&values).map_err(math)?;
                             applicability=worker.applicability_observations();

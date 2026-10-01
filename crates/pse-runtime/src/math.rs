@@ -281,6 +281,10 @@ impl Preparation {
     pub fn compiled(&self) -> &PreparedCase {
         &self.prepared
     }
+    /// Share the compiler-owned complete structural witness without copying or rematching.
+    pub fn structural_witness(&self) -> Arc<pse_structural::incidence::StructuralAnalysis> {
+        self.prepared.structure.clone()
+    }
     /// Pure semantic outputs. No evaluator is constructed by preparation.
     pub fn structure(&self) -> &pse_structural::incidence::StructuralAnalysis {
         &self.prepared.structure

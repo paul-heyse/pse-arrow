@@ -59,15 +59,8 @@ impl FitOracle {
             .iter()
             .map(|e| match e {
                 Experiment::Steady(s) => {
-                    let providers = s
-                        .providers
-                        .values()
-                        .map(|r| {
-                            r.worker_scoped(execution.cancel.clone())
-                                .map(|w| (r.spec().key(), w))
-                                .map_err(ProblemError::Provider)
-                        })
-                        .collect::<Result<_, _>>()?;
+                    let providers = crate::math::attempt_providers(&s.providers, &execution.cancel)
+                        .map_err(ProblemError::Provider)?;
                     Ok(Some(
                         s.case.assembly.worker(providers, execution.cancel.clone()),
                     ))
@@ -1961,9 +1954,8 @@ mod tests {
         };
         // A block initialization attempt.
         let analysis = package
-            .declared_analysis(
+            .declared_execution(
                 root,
-                pse_model::generated::enums::ModelingAnalysisRoute::Steady,
                 compiler,
                 // Initialization blocks prepare first derivatives only.
                 SolverProfile {
@@ -1978,7 +1970,8 @@ mod tests {
                 &cancel,
             )
             .await
-            .unwrap();
+            .unwrap()
+            .analysis;
         let initialized = package
             .prepare_block_initialization(&analysis, vec![BTreeMap::new()], &cancel)
             .await

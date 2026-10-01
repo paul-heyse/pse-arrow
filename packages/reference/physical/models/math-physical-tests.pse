@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 @id("01a0e1a07862767ba03110c7f0a0f9a3") package physical_math_tests {
 @id("01a0e1a07862767ba03110c81c59e72d") use math @"1.0.0";
-    @id("01a0e19282e1720fbfb0de57a10a4881") test affine_smoothing fixture {dof 0; run pure;} {
+    @id("01a0e19282e1720fbfb0de57a10a4881") test affine_smoothing fixture {dof 0; route steady; procedure check;} {
     @id("01a0e196500a754696f7b59e3682935f") param temperature:Temperature=300{K};
     @id("01a0e196500a754696f7b59f6d916031") param width:DeltaTemperature=0.1{K};
     @id("01a0e19282e1720fbfb0de585cc0a90a") expect math.smooth_max(temperature,temperature,width)==300.05{K} tolerance 1e-10{K};
@@ -13,7 +13,7 @@
 @id("01a0e1e80e5b772d9919f9dec44a4669") entity kinds.port_set first {}
 @id("01a0e1e80e5b772d9919f9dfb08d298b") entity kinds.port_set second {}
 @id("01a0e1e80e5b772d9919f9e0e3d9cf8b") set pair:Set<kinds.port_set>={first,second};
-@id("01a0e1e80e5b772d9919f9e1eb5342e0") test indexed_smoothing fixture {dof 0;run pure;} {
+@id("01a0e1e80e5b772d9919f9e1eb5342e0") test indexed_smoothing fixture {dof 0;route steady; procedure check;} {
 @id("01a0e1e80e5b772d9919f9e24fc16439") param values[i in pair]:Temperature=300{K};
 @id("01a0e1e80e5b772d9919f9e3cd51e381") param width:DeltaTemperature=0.1{K};
 @id("01a0e1e80e5b772d9919f9e41e89336c") expect math.smooth_min_over(values,pair,width)==299.95{K} tolerance 1e-10{K};

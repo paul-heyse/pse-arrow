@@ -956,6 +956,14 @@
       ],
       "type": "object"
     },
+    "IncumbentPolicy": {
+      "enum": [
+        "refuse",
+        "accept_feasible",
+        "accept_within_gap"
+      ],
+      "type": "string"
+    },
     "IpoptLinear": {
       "description": "One linked symmetric-indefinite factorization with its typed parameters. HSL solvers and\nthe runtime-loaded Pardiso are not representable (ADR-0108 item 9). Each kind is spelled\nas its [`IpoptLinearSolver`], Ipopt's native `linear_solver` name.",
       "oneOf": [
@@ -1496,6 +1504,11 @@
           "format": "double",
           "type": "number"
         },
+        "incumbent": {
+          "$ref": "#/$defs/IncumbentPolicy",
+          "default": "refuse",
+          "description": "Whether a validated original-feasible limit incumbent may be used as a result."
+        },
         "integrality": {
           "default": 1e-8,
           "description": "Integer-lattice violation budget in original variable coordinates.",
@@ -1920,6 +1933,7 @@
             "closure": "require_closed",
             "gap_absolute": 1e-8,
             "gap_relative": 1e-8,
+            "incumbent": "refuse",
             "integrality": 1e-8,
             "kkt": {
               "complementarity": 1e-8,
@@ -2109,15 +2123,15 @@
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "Version 3 of a durable job's payload: the one task a job runs. Unknown fields, tasks\nand versions are refused.",
+  "description": "Version 4 of a durable job's payload: the one task a job runs. Unknown fields, tasks\nand versions are refused.",
   "properties": {
     "task": {
       "$ref": "#/$defs/JobTask",
       "description": "The task."
     },
     "version": {
-      "const": 3,
-      "default": 3,
+      "const": 4,
+      "default": 4,
       "description": "Document version.",
       "type": "integer"
     }

@@ -31,13 +31,27 @@ async fn study(selection: SolverSelection, threads: usize) -> Vec<(f64, f64, Mod
     base.solver.controls.threads = threads;
     base.bindings.demand = vec!["x".into(), "y".into()];
     let values = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
+    let declared = package
+        .declared_execution(
+            root,
+            base.compiler,
+            base.solver.clone(),
+            base.numerical.clone(),
+            base.limits,
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap();
     let points = values
         .iter()
         .map(|a| {
             let mut analysis = base.clone();
             analysis.case.values.insert("a".into(), *a);
             ModelingStudyPoint {
-                analysis: Ok(analysis),
+                execution: Ok(DeclaredExecution {
+                    analysis,
+                    ..declared.clone()
+                }),
                 predecessor: None,
                 overlay: Default::default(),
             }

@@ -154,6 +154,14 @@ class AuthoredModelingDeclarationsFieldValueScopeOperational:
 
 
 @attrs.frozen(kw_only=True)
+class AuthoredModelingDeclarationsFieldValueScopeFixtureEndpoint:
+    """Declared relation row or nested value."""
+
+    kind: e.EndpointPolicy = attrs.field(validator=attrs.validators.instance_of(e.EndpointPolicy))
+    event: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+
+
+@attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueScopeFixturePolicyNativeOptionsItem:
     """Declared relation row or nested value."""
 
@@ -321,7 +329,9 @@ class AuthoredModelingDeclarationsFieldValueScopeFixture:
     """Declared relation row or nested value."""
 
     degrees_of_freedom: b.int = attrs.field(validator=v.integer_range(-9223372036854775808, 9223372036854775807))
-    execution: e.ModelingFixtureExecution | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.ModelingFixtureExecution)))
+    route: e.ModelingAnalysisRoute | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.ModelingAnalysisRoute)))
+    procedure: e.ModelingProcedure | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.ModelingProcedure)))
+    endpoint: AuthoredModelingDeclarationsFieldValueScopeFixtureEndpoint | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueScopeFixtureEndpoint)))
     intent: e.NativeSolveIntent | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.NativeSolveIntent)))
     policy: AuthoredModelingDeclarationsFieldValueScopeFixturePolicy | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueScopeFixturePolicy)))
     stages: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))

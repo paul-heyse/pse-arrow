@@ -143,14 +143,7 @@ fn provider_workers(
     providers: &BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
     cancel: &Arc<AtomicBool>,
 ) -> Result<BTreeMap<pse_kernels::ProviderKey, Box<dyn pse_kernels::Provider>>, ProblemError> {
-    providers
-        .values()
-        .map(|r| {
-            r.worker_scoped(cancel.clone())
-                .map(|w| (r.spec().key(), w))
-                .map_err(ProblemError::Provider)
-        })
-        .collect()
+    crate::math::attempt_providers(providers, cancel).map_err(ProblemError::Provider)
 }
 /// Immutable function execution inputs, independent of their source representation.
 #[derive(Clone, Debug)]
@@ -609,7 +602,7 @@ impl Oracle for DynamicWorker {
 }
 
 pub(crate) fn profile_identity(p: &SimulationProfile) -> ContentHash {
-    let mut h = FramedHasher::new(pse_ids::Frame::DynamicProfileV6);
+    let mut h = FramedHasher::new(pse_ids::Frame::DynamicProfileV7);
     h.str(&native::profile_json(p).to_string())
         .hash(&p.numerics.key());
     h.finish_hash()

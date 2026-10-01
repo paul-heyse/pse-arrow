@@ -14,6 +14,8 @@ use crate::{
 pub(super) struct Pounce;
 pub(super) static ADAPTER: Pounce = Pounce;
 static CAPABILITY: Capability = Capability {
+    structural: crate::structural::Policy::Equalities,
+    lexicographic_degradation: crate::routing::DegradationSupport::Max,
     classes: &[ProblemClass::SmoothNlp],
     automatic_classes: &[ProblemClass::SmoothNlp],
     derivatives: DerivativeCapability::ExactHessianOrLimitedMemory,

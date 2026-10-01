@@ -16,8 +16,11 @@ Outcome. [25c is complete](25c-process-composition-and-conservation.md#outcome-r
 with focused verification, final workspace/native-contract compilation and explicit limits.
 [25d is complete](25d-mathematical-realization-and-response.md#outcome-recorded-after-implementation),
 with selected mathematical meaning, exact export, shared response and composite focused evidence.
-Required 25e/25f/25h/25i/25j prerequisite slices are implemented and tested, with their wider
-scope still partial. Other lettered plans remain proposed.
+[25e is complete](25e-declared-analyses-and-qualification.md#outcome-recorded-after-implementation),
+with declared execution, composed permission, actual endpoints, supervised shooting and the
+required preserving operational transition. Required 25f/25g/25h/25i/25j slices are implemented
+and tested; I4 is complete and the wider companion scope stays partial. Other lettered plans
+remain proposed.
 The series reserves full integration and qualification for 25k after all functional
 work, with focused checks and immediate deletion of replaced mechanisms during the pivot.
 

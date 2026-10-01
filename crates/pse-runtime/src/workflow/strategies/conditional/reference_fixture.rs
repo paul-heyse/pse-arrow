@@ -60,17 +60,17 @@ pub(in crate::workflow) async fn actual_reference_recycle_fixture(
         pse_compiler::workspace::physical_identity(&physical.quantities, &physical.preconditions);
     let package = runtime.modeling_package(rows, physical)?;
     let analysis = package
-        .declared_analysis(
+        .declared_execution(
             root,
-            pse_model::generated::enums::ModelingAnalysisRoute::Steady,
             compiler_profile(),
             super::super::tests::profile(SolveIntent::Root),
             Default::default(),
             Default::default(),
             cancel,
         )
-        .await?;
-    // declared_analysis projects the authored fixture's original fresh-feed fixes.
+        .await?
+        .analysis;
+    // declared_execution admits the authored fixture's original fresh-feed fixes.
     let resolved = package
         .resolve_case(
             analysis.root,

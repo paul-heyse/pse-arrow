@@ -5,7 +5,10 @@ use crate::{
     SemanticFrame,
     generated::{
         authored::numerical_requirements,
-        enums::{ClosurePolicy, NumericalProvenanceField, NumericalSource, NumericalTarget},
+        enums::{
+            ClosurePolicy, IncumbentPolicy, NumericalProvenanceField, NumericalSource,
+            NumericalTarget,
+        },
     },
 };
 use pse_ids::{ContentHash, FramedHasher, SemanticId};
@@ -58,6 +61,8 @@ pub struct NumericalPolicy {
     pub mip_relative_gap: f64,
     /// Physical acceptance, separate from native termination.
     pub closure: ClosurePolicy,
+    /// Whether a validated original-feasible limit incumbent may be used as a result.
+    pub incumbent: IncumbentPolicy,
 }
 impl Default for NumericalPolicy {
     fn default() -> Self {
@@ -73,6 +78,7 @@ impl Default for NumericalPolicy {
             mip_absolute_gap: 1e-6,
             mip_relative_gap: 1e-4,
             closure: ClosurePolicy::RequireClosed,
+            incumbent: IncumbentPolicy::Refuse,
         }
     }
 }
@@ -106,7 +112,7 @@ impl NumericalPolicy {
     }
     /// Effective request identity with canonical registry framing and source ordering.
     pub fn key(&self) -> ContentHash {
-        let mut h = FramedHasher::new(pse_ids::Frame::NumericalPolicyV1);
+        let mut h = FramedHasher::new(pse_ids::Frame::NumericalPolicyV2);
         let mut rows = self.requirements.iter().collect::<Vec<_>>();
         rows.sort_by_key(|r| r.requirement_id);
         h.u64(rows.len() as u64);
@@ -132,6 +138,7 @@ impl NumericalPolicy {
                 .u64(k.complementarity.to_bits());
         }
         self.closure.frame(&mut h);
+        self.incumbent.frame(&mut h);
         h.finish_hash()
     }
 }
@@ -186,4 +193,22 @@ pub struct ResolvedNumericalPolicy {
     pub targets: Vec<ResolvedTarget>,
     /// Complete interpretation identity, including provenance.
     pub key: ContentHash,
+}
+
+#[cfg(test)]
+mod policy_identity_tests {
+    use super::*;
+    #[test]
+    fn incumbent_permission_has_an_independent_request_identity() {
+        let conservative = NumericalPolicy::default();
+        assert_eq!(conservative.incumbent, IncumbentPolicy::Refuse);
+        assert_eq!(conservative.closure, ClosurePolicy::RequireClosed);
+        let mut feasible = conservative.clone();
+        feasible.incumbent = IncumbentPolicy::AcceptFeasible;
+        let mut within_gap = conservative.clone();
+        within_gap.incumbent = IncumbentPolicy::AcceptWithinGap;
+        assert_ne!(conservative.key(), feasible.key());
+        assert_ne!(conservative.key(), within_gap.key());
+        assert_ne!(feasible.key(), within_gap.key());
+    }
 }

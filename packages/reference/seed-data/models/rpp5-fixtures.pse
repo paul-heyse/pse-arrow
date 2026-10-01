@@ -18,7 +18,7 @@
 @id("ce332a6c805546d59cdacc69175704a9") constant reference_temperature:Temperature=273.15{K} provenance(references.idaes_test_rpp5,provenance.Role.oracle_input);
 @id("9527a955593a4ce4a1b435dee5d35904") constant formation_increment:DeltaH=-241810{J/mol} provenance(references.idaes_test_rpp5,provenance.Role.oracle_input);
 @id("3fc31bff385d459bafa7184ac7b484a4") constant entropy_reference_increment:DeltaS=188.84{J/(mol*K)} provenance(references.idaes_test_rpp5,provenance.Role.oracle_input);
-@id("6a1e7e34308a442f9de6c8f0b9288665") test water_rpp5_and_antoine oracle references.idaes_test_rpp5 fixture {dof 0; run pure;} {
+@id("6a1e7e34308a442f9de6c8f0b9288665") test water_rpp5_and_antoine oracle references.idaes_test_rpp5 fixture {dof 0; route steady; procedure check;} {
 @id("0a5e5bc096d242b9886df9eab2aa8af5") expect properties.cp(water_rpp5_package,chemistry.vapor,chem.water,298.15{K})==33.518{J/(mol*K)} tolerance 0.001{J/(mol*K)};
 @id("bcd1b5228e58433ab2eaafba77674328") expect formation_increment+properties.enthalpy_increment(water_rpp5_package,chemistry.vapor,chem.water,reference_temperature,298.15{K})==-240973.683{J/mol} tolerance 0.001{J/mol};
 @id("5373402d1f5f4223b91b01208d995783") expect properties.enthalpy_increment(water_rpp5_package,chemistry.vapor,chem.water,reference_temperature,298.15{K})==836.317{J/mol} tolerance 0.001{J/mol};

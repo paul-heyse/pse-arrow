@@ -26,6 +26,7 @@ class AttemptKind(StrEnum):
 
     MODELING = "modeling"
     SIMULATION = "simulation"
+    SHOOTING = "shooting"
     FIT = "fit"
     STUDY = "study"
     STUDY_FINALIZATION = "study_finalization"
@@ -88,6 +89,47 @@ class BoundStatus(StrEnum):
     AT_LOWER = "at_lower"
     AT_UPPER = "at_upper"
     VIOLATED = "violated"
+
+
+class CandidateBoundOrigin(StrEnum):
+    """The declared CandidateBoundOrigin enumeration."""
+
+    GLOBAL_EXPORT = "global_export"
+    LINEAR_PROGRAM = "linear_program"
+    MIXED_INTEGER = "mixed_integer"
+    CONIC_PROGRAM = "conic_program"
+
+
+class CandidateQualifier(StrEnum):
+    """The declared CandidateQualifier enumeration."""
+
+    ACCEPTED_INCUMBENT_FEASIBLE = "accepted_incumbent_feasible"
+    ACCEPTED_INCUMBENT_WITHIN_GAP = "accepted_incumbent_within_gap"
+    CLOSURE_ALLOWED = "closure_allowed"
+    APPLICABILITY_UNKNOWN_ALLOWED = "applicability_unknown_allowed"
+    APPLICABILITY_EXTRAPOLATION_ALLOWED = "applicability_extrapolation_allowed"
+
+
+class CandidateRefusal(StrEnum):
+    """The declared CandidateRefusal enumeration."""
+
+    NO_CANDIDATE = "no_candidate"
+    VALIDATION_FAILED = "validation_failed"
+    INFEASIBLE = "infeasible"
+    UNQUALIFIED = "unqualified"
+    NATIVE_OUTCOME = "native_outcome"
+    MODEL_CHECKS = "model_checks"
+    CLOSURE_UNAVAILABLE = "closure_unavailable"
+    CLOSURE_UNCLOSED = "closure_unclosed"
+    APPLICABILITY_UNAVAILABLE = "applicability_unavailable"
+    APPLICABILITY_DENIED = "applicability_denied"
+    ENDPOINT_UNAVAILABLE = "endpoint_unavailable"
+    COVERAGE_UNAVAILABLE = "coverage_unavailable"
+    BOUND_UNAVAILABLE = "bound_unavailable"
+    GAP_EXCEEDED = "gap_exceeded"
+    LEAST_INFEASIBLE = "least_infeasible"
+    RELAXED_INCUMBENT = "relaxed_incumbent"
+    INCUMBENT_REFUSED = "incumbent_refused"
 
 
 class CandidateUse(StrEnum):
@@ -173,6 +215,7 @@ class ComputationKind(StrEnum):
 
     SIMULATION = "simulation"
     FIT = "fit"
+    SHOOTING = "shooting"
 
 
 class ConstraintScalingScheme(StrEnum):
@@ -349,6 +392,13 @@ class DynamicsMethod(StrEnum):
     IDAS = "idas"
 
 
+class EndpointPolicy(StrEnum):
+    """The declared EndpointPolicy enumeration."""
+
+    FIXED_HORIZON = "fixed_horizon"
+    DECLARED_TERMINAL_EVENT = "declared_terminal_event"
+
+
 class EntityKind(StrEnum):
     """The declared EntityKind enumeration."""
 
@@ -483,6 +533,14 @@ class IdasInitialization(StrEnum):
 
     ALGEBRAIC_AND_RATES = "algebraic_and_rates"
     STEADY_STATES = "steady_states"
+
+
+class IncumbentPolicy(StrEnum):
+    """The declared IncumbentPolicy enumeration."""
+
+    REFUSE = "refuse"
+    ACCEPT_FEASIBLE = "accept_feasible"
+    ACCEPT_WITHIN_GAP = "accept_within_gap"
 
 
 class InputConsumptionKind(StrEnum):
@@ -844,17 +902,6 @@ class ModelingFixtureBinding(StrEnum):
     UPPER = "upper"
 
 
-class ModelingFixtureExecution(StrEnum):
-    """The declared ModelingFixtureExecution enumeration."""
-
-    PURE = "pure"
-    STEADY = "steady"
-    INITIALIZED = "initialized"
-    INTEGRATED = "integrated"
-    SIMULTANEOUS = "simultaneous"
-    SHOOTING = "shooting"
-
-
 class ModelingInitializationStep(StrEnum):
     """The declared ModelingInitializationStep enumeration."""
 
@@ -931,6 +978,16 @@ class ModelingPermissionTarget(StrEnum):
 
     RECORDS = "records"
     FAMILIES = "families"
+
+
+class ModelingProcedure(StrEnum):
+    """The declared ModelingProcedure enumeration."""
+
+    CHECK = "check"
+    SOLVE = "solve"
+    INITIALIZE = "initialize"
+    INTEGRATE = "integrate"
+    SHOOTING = "shooting"
 
 
 class ModelingRealValueKind(StrEnum):
@@ -1211,6 +1268,20 @@ class NativeInfeasibilityWitness(StrEnum):
     LOCAL_SOLUTION = "local_solution"
 
 
+class NativeLexicographicDegradation(StrEnum):
+    """The declared NativeLexicographicDegradation enumeration."""
+
+    MAX = "max"
+    SINGLE_NONZERO = "single_nonzero"
+
+
+class NativeLexicographicRealization(StrEnum):
+    """The declared NativeLexicographicRealization enumeration."""
+
+    NATIVE = "native"
+    STAGED = "staged"
+
+
 class NativeMetricKind(StrEnum):
     """The declared NativeMetricKind enumeration."""
 
@@ -1266,6 +1337,42 @@ class NativeRayCoordinate(StrEnum):
     VARIABLE = "variable"
 
 
+class NativeRepresentation(StrEnum):
+    """The declared NativeRepresentation enumeration."""
+
+    NLP = "nlp"
+    ROOTS = "roots"
+    COEFFICIENTS = "coefficients"
+    CONE = "cone"
+    FACTORABLE = "factorable"
+    TRAJECTORY = "trajectory"
+
+
+class NativeRouteKind(StrEnum):
+    """The declared NativeRouteKind enumeration."""
+
+    CONSTANT = "constant"
+    NATIVE = "native"
+
+
+class NativeRouteRefusal(StrEnum):
+    """The declared NativeRouteRefusal enumeration."""
+
+    INVALID_REQUEST = "invalid_request"
+    NO_ELIGIBLE = "no_eligible"
+    UNAVAILABLE = "unavailable"
+    INELIGIBLE = "ineligible"
+    CONSTANT_NATIVE_FORMS = "constant_native_forms"
+    STRUCTURE = "structure"
+
+
+class NativeRouteSelection(StrEnum):
+    """The declared NativeRouteSelection enumeration."""
+
+    AUTO = "auto"
+    EXPLICIT = "explicit"
+
+
 class NativeRunState(StrEnum):
     """The declared NativeRunState enumeration."""
 
@@ -1293,6 +1400,24 @@ class NativeStartPolicy(StrEnum):
     EXPLICIT = "explicit"
 
 
+class NativeStructuralMode(StrEnum):
+    """The declared NativeStructuralMode enumeration."""
+
+    ROOTS = "roots"
+    NLP = "nlp"
+    NATIVE_FEASIBILITY = "native_feasibility"
+    POINT_EVALUATION = "point_evaluation"
+
+
+class NativeStructuralPolicy(StrEnum):
+    """The declared NativeStructuralPolicy enumeration."""
+
+    ROOTS = "roots"
+    EQUALITIES = "equalities"
+    NATIVE_FEASIBILITY = "native_feasibility"
+    FACTORABLE = "factorable"
+
+
 class NativeTermination(StrEnum):
     """The declared NativeTermination enumeration."""
 
@@ -1304,6 +1429,7 @@ class NativeTermination(StrEnum):
     INFEASIBLE_OR_UNBOUNDED = "infeasible_or_unbounded"
     LIMIT = "limit"
     ITERATION_LIMIT = "iteration_limit"
+    NODE_LIMIT = "node_limit"
     RESOURCE_EXHAUSTED = "resource_exhausted"
     INCONCLUSIVE = "inconclusive"
     OBJECTIVE_LIMIT = "objective_limit"
@@ -1722,6 +1848,15 @@ class StoredSolutionOrigin(StrEnum):
 
     OUTPUT = "output"
     INCUMBENT = "incumbent"
+
+
+class StructuralScopeKind(StrEnum):
+    """The declared StructuralScopeKind enumeration."""
+
+    WHOLE = "whole"
+    INDEPENDENT = "independent"
+    CONDITIONAL = "conditional"
+    PARTIAL = "partial"
 
 
 class StudyPointState(StrEnum):

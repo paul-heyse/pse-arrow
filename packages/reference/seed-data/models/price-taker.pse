@@ -29,7 +29,7 @@
 @id("03f8c6ef4e764f94b9a1233d2e7bc7c2") annotation start on(0{1});
 @id("2f8b9161f55148d69856ffcbbdfbc12c") annotation start output(0{W});
 }
-@id("fd8c3e9b9115475583c56f259c717306") test price_taker oracle references.synthetic_price_taker fixture {dof 6; run steady; intent optimize;} {
+@id("fd8c3e9b9115475583c56f259c717306") test price_taker oracle references.synthetic_price_taker fixture {dof 6; route steady; procedure solve; intent optimize;} {
 @id("11517cbd54da4899bd328cfa420afc4e") child root:Generator=Generator();
 @id("a22e0b9c79cc4ba9a2cbd4c0ac22c2c4") expect root.margin==70{W} tolerance 0.000001{W};
 @id("6e6b258d933f4a6b98389f1ccae542b1") expect root.output[h3]==100{W} tolerance 0.000001{W};

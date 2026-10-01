@@ -348,9 +348,18 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 T::list(T::enumeration("ModelingKindFacet")).with_name("facets"),
                 T::structure(vec![
                     T::native(D::Int64).with_name("degrees_of_freedom"),
-                    T::enumeration("ModelingFixtureExecution")
-                        .with_name("execution")
+                    T::enumeration("ModelingAnalysisRoute")
+                        .with_name("route")
                         .optional(),
+                    T::enumeration("ModelingProcedure")
+                        .with_name("procedure")
+                        .optional(),
+                    T::structure(vec![
+                        T::enumeration("EndpointPolicy").with_name("kind"),
+                        text("event").optional(),
+                    ])
+                    .with_name("endpoint")
+                    .optional(),
                     // ADR-0119 Outcome 1: the fixture's declared solve intent; absent leaves
                     // the intent to the runtime policy.
                     T::enumeration("NativeSolveIntent")
@@ -1145,15 +1154,8 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
     );
     enumeration(
         builder,
-        "ModelingFixtureExecution",
-        [
-            "pure",
-            "steady",
-            "initialized",
-            "integrated",
-            "simultaneous",
-            "shooting",
-        ],
+        "ModelingProcedure",
+        ["check", "solve", "initialize", "integrate", "shooting"],
     );
     // A validity layer either refuses a value outside it or, explicitly selected by its
     // consumer, accepts it as an extrapolation (ADR-0115 Outcome 3, ADR-0123 Outcome 4).

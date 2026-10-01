@@ -51,6 +51,9 @@ authors = ["Paul Heyse <paul@heyse.io>"]
 publish = false
 
 [workspace.dependencies]
+refinery = { version = "=0.9.2", default-features = false, features = [
+  "tokio-postgres",
+] }
 allocation-counter = "=0.8.1"
 # ---- internal (path deps; `version` is added when publish flips to true) ----
 pse-codegen = { path = "crates/pse-codegen" }

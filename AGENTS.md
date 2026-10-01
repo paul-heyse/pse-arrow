@@ -322,7 +322,8 @@ worktrees or separate checkouts for a task.
 Use separate branches or worktrees only when genuinely concurrent agent editing
 requires isolation. Coordinate file ownership first and preserve other agents'
 uncommitted changes. Keep checkout paths stable to retain each checkout's build
-artifacts. Each checkout builds into its own `target/`, and the sccache compiler cache
+artifacts, and clean up any remaining worktrees that are fully merged. Each checkout builds
+into its own `target/`, and the sccache compiler cache
 is shared across checkouts: the recipe environment never exports the default
 `CARGO_TARGET_DIR`, because sccache keys Rust compilations on their `CARGO_*`
 environment. The Plan 15 second-worktree experiment saw no Rust cache hits for that

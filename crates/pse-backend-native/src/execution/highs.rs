@@ -14,6 +14,8 @@ use crate::{
 pub(super) struct Highs;
 pub(super) static ADAPTER: Highs = Highs;
 static CAPABILITY: Capability = Capability {
+    structural: crate::structural::Policy::NativeFeasibility,
+    lexicographic_degradation: crate::routing::DegradationSupport::SingleNonzero,
     classes: &[
         ProblemClass::Linear,
         ProblemClass::MixedLinear,

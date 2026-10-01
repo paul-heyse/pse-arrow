@@ -85,7 +85,7 @@
 @id("01a0eed189fc72d7af4d92b767fe5b32") override eq fugacity[j in components]:y[j]==closure.y[j];
 }
 }
-@id("01a0e1b4f611717da49a928ba89fe8d7") test ftpx_368 oracle references.idaes_test_bt_pr_368 fixture {dof 0; run steady; fix root.flow=100{mol/s}; fix root.T=368{K}; fix root.pressure=100000{Pa}; fix root.z[chem.benzene]=0.5{1}; fix root.z[chem.toluene]=0.5{1};} {
+@id("01a0e1b4f611717da49a928ba89fe8d7") test ftpx_368 oracle references.idaes_test_bt_pr_368 fixture {dof 0; route steady; procedure solve; fix root.flow=100{mol/s}; fix root.T=368{K}; fix root.pressure=100000{Pa}; fix root.z[chem.benzene]=0.5{1}; fix root.z[chem.toluene]=0.5{1};} {
 @id("624edaf474e24a85987dfd0365308aad") permission selected_unknown_fit families(cubic.critical_point,properties.predictive_rule) allow_unknown true allow_extrapolation false;
 @id("01a0e1b4f611717da49a928c23791ee5") child root:BT_PR=BT_PR;
 @id("01a0e1b4f611717da49a928d8bf28e89") expect root.x[chem.benzene]==0.4012128{1} tolerance 0.000005{1};
@@ -101,7 +101,7 @@
 @id("01a0e1b4f611717da49a92973e438b65") expect root.oracle_s_liquid==-359.256{J/(mol*K)} tolerance 0.004{J/(mol*K)};
 @id("01a0e1b4f611717da49a9298e6ab23f4") expect root.oracle_s_vapor==-262.348{J/(mol*K)} tolerance 0.003{J/(mol*K)};
 }
-@id("01a0e1c6a64b7167adfc3a95a9afa0d6") test initialized_ftpx oracle references.idaes_test_bt_pr_368 fixture {dof 0; run initialized; stages("ideal-K"); initialize homotopy(false) step(0.5) minimum(1e-6) growth(2) attempts(4) seconds(600); fix root.flow=100{mol/s}; fix root.T=368{K}; fix root.pressure=100000{Pa}; fix root.z[chem.benzene]=0.5{1}; fix root.z[chem.toluene]=0.5{1};} {
+@id("01a0e1c6a64b7167adfc3a95a9afa0d6") test initialized_ftpx oracle references.idaes_test_bt_pr_368 fixture {dof 0; route steady; procedure initialize; stages("ideal-K"); initialize homotopy(false) step(0.5) minimum(1e-6) growth(2) attempts(4) seconds(600); fix root.flow=100{mol/s}; fix root.T=368{K}; fix root.pressure=100000{Pa}; fix root.z[chem.benzene]=0.5{1}; fix root.z[chem.toluene]=0.5{1};} {
 @id("8b35dc90c40145d4a1f78a23fa8a9d85") permission selected_unknown_fit families(cubic.critical_point,properties.predictive_rule) allow_unknown true allow_extrapolation false;
 @id("01a0e1c6a64b7167adfc3a96dacbd442") child root:BT_PR=BT_PR;
 @id("01a0e1c6a64b7167adfc3a97e41fc4c3") expect root.x[chem.benzene]==0.4012128{1} tolerance 0.000005{1};

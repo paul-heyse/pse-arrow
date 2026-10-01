@@ -32,6 +32,8 @@ use crate::{
 pub(super) struct PounceConvex;
 pub(super) static ADAPTER: PounceConvex = PounceConvex;
 static CAPABILITY: Capability = Capability {
+    structural: crate::structural::Policy::Equalities,
+    lexicographic_degradation: crate::routing::DegradationSupport::Max,
     classes: &[
         ProblemClass::Linear,
         ProblemClass::ConvexQuadratic,

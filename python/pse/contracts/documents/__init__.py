@@ -340,12 +340,12 @@ class IpoptSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
 
 
 class JobPayload(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Version 3 of a durable job's payload: the one task a job runs. Unknown fields, tasks
+    """Version 4 of a durable job's payload: the one task a job runs. Unknown fields, tasks
     and versions are refused.
     """
 
     #: Document version.
-    version: Literal[3] = 3
+    version: Literal[4] = 4
     #: The task.
     task: JobTask
 
@@ -501,6 +501,8 @@ class NumericalPolicy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
     gap_absolute: float = 1e-8
     #: Dimensionless relative continuous optimality gap.
     gap_relative: float = 1e-8
+    #: Whether a validated original-feasible limit incumbent may be used as a result.
+    incumbent: enums.IncumbentPolicy = enums.IncumbentPolicy.REFUSE
     #: Integer-lattice violation budget in original variable coordinates.
     integrality: float = 1e-8
     #: Independent KKT budgets.
@@ -713,7 +715,7 @@ class SolveSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
     #: Mathematical purpose.
     intent: enums.NativeSolveIntent = enums.NativeSolveIntent.OPTIMIZE
     #: ID-keyed numerical requirements and acceptance budgets.
-    numerics: NumericalPolicy = msgspec.field(default_factory=lambda: msgspec.convert({"acceptable": None, "closure": "require_closed", "gap_absolute": 1e-8, "gap_relative": 1e-8, "integrality": 1e-8, "kkt": {"complementarity": 1e-8, "stationarity": 1e-8}, "mip_absolute_gap": 1e-6, "mip_relative_gap": 0.0001, "native_scaling": True, "requirements": [], "strict_nominals": False}, type=NumericalPolicy))
+    numerics: NumericalPolicy = msgspec.field(default_factory=lambda: msgspec.convert({"acceptable": None, "closure": "require_closed", "gap_absolute": 1e-8, "gap_relative": 1e-8, "incumbent": "refuse", "integrality": 1e-8, "kkt": {"complementarity": 1e-8, "stationarity": 1e-8}, "mip_absolute_gap": 1e-6, "mip_relative_gap": 0.0001, "native_scaling": True, "requirements": [], "strict_nominals": False}, type=NumericalPolicy))
     #: Library presolve policy.
     presolve: enums.PresolvePolicyKind = enums.PresolvePolicyKind.AUTO
     #: Native presolve options; an explicit policy only.
@@ -738,20 +740,18 @@ class SourceManifest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
 
 
 class StudyDefinition(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Version 1 of a study's definition: the store's `definition` document and the content of
+    """Version 2 of a study's definition: the store's `definition` document and the content of
     the study's request identity.
     """
 
     #: Document version.
-    version: Literal[1] = 1
+    version: Literal[2] = 2
     #: The source bundles of the modeling package closure, in load order.
     modeling: tuple[Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")], ...]
     #: The source bundle of the physical package.
     physical: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
     #: The points, in index order.
     points: tuple[StudyPointDefinition, ...]
-    #: The analysis route of every point.
-    route: enums.ModelingAnalysisRoute
     #: The solve settings of every point.
     settings: SolveSettings
 
@@ -785,6 +785,8 @@ class StudyPointDefinition(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
     overlay: PointOverlay = msgspec.field(default_factory=lambda: msgspec.convert({"parameters": {}, "values": {}}, type=PointOverlay))
     #: The earlier point that seeds it.
     predecessor: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: The authored route admitted when this point was queued.
+    route: enums.ModelingAnalysisRoute
 
 
 class TerminationCauseAssessment(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="assessment"):

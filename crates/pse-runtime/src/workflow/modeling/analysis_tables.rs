@@ -6,6 +6,67 @@ use pse_model::generated::identities::RunId;
 use pse_relations::columnar::{Collection, FieldCheckedBatch, RelationRow};
 type Tables = BTreeMap<SemanticId, FieldCheckedBatch>;
 
+/// Publish retained admission without requiring a numerical attempt.
+pub(super) fn admission_tables(
+    runtime: &Runtime,
+    decision: &pse_backend_native::routing::Decision,
+    request_identity: pse_ids::ContentHash,
+    step: i64,
+) -> Result<Tables, WorkflowError> {
+    use pse_model::HeapUsage;
+    let route = decision.row(request_identity, step);
+    let structure = decision
+        .structure
+        .as_ref()
+        .map(|assessment| assessment.row(request_identity, step));
+    let bytes = route
+        .heap_bytes()
+        .saturating_add(structure.as_ref().map_or(0, HeapUsage::heap_bytes))
+        .saturating_add(4096);
+    export(runtime, bytes, |columns| {
+        columns.push(route).map_err(relation)?;
+        if let Some(structure) = structure {
+            columns.push(structure).map_err(relation)?;
+        }
+        Ok(())
+    })
+}
+impl ModelingSolvePreparation {
+    /// Checked route and original structural facts, keyed by the owning request and step.
+    pub fn admission_tables(
+        &self,
+        request_identity: pse_ids::ContentHash,
+        step: i64,
+    ) -> Result<Tables, WorkflowError> {
+        let decision = self
+            .solve
+            .route_decision()
+            .ok_or_else(|| contract("algebraic preparation admission facts absent"))?;
+        admission_tables(&self.source.runtime, decision, request_identity, step)
+    }
+}
+impl ModelingDiagnosticPreparation {
+    /// Checked retained refusal or admission facts; preparing these tables executes no native solver.
+    pub fn admission_tables(
+        &self,
+        runtime: &Runtime,
+        request_identity: pse_ids::ContentHash,
+        step: i64,
+    ) -> Result<Tables, WorkflowError> {
+        admission_tables(runtime, &self.route_decision, request_identity, step)
+    }
+}
+impl ModelingDiagnostics {
+    /// The route and original witness assessed before numerical diagnostics.
+    pub fn admission_tables(
+        &self,
+        request_identity: pse_ids::ContentHash,
+        step: i64,
+    ) -> Result<Tables, WorkflowError> {
+        admission_tables(&self.runtime, &self.route_decision, request_identity, step)
+    }
+}
+
 fn real_evidence(
     value: f64,
 ) -> (
@@ -215,6 +276,14 @@ impl ModelingDiagnostics {
             self.columns.as_slice().as_ref(),
         );
         export(&self.runtime, self._owner.size(), |columns| {
+            columns
+                .push(self.route_decision.row(self.admission_identity, 0))
+                .map_err(relation)?;
+            if let Some(assessment) = &self.route_decision.structure {
+                columns
+                    .push(assessment.row(self.admission_identity, 0))
+                    .map_err(relation)?;
+            }
             let matrix = self
                 .matrix
                 .as_ref()

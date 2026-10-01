@@ -134,15 +134,23 @@ fn analytic() -> ([f64; 2], f64) {
     let u = [(r1 * a22 - r2 * a12) / det, (a11 * r2 - a12 * r1) / det];
     (u, 4.25 - (r1 * u[0] + r2 * u[1]))
 }
-fn solve(problem: ShootingProblem, initial: Option<&[f64]>) -> ShootingReport {
-    Arc::new(problem)
-        .solve(
-            RunId::from_bytes([7; 16]),
-            Arc::new(AtomicBool::new(false)),
-            Arc::new(native::solve::Progress::new(256)),
-            initial,
-        )
-        .unwrap()
+async fn solve(
+    problem: ShootingProblem,
+    initial: Option<&[f64]>,
+) -> Arc<crate::workflow::RunResult> {
+    let problem = Arc::new(problem);
+    let handle = match initial {
+        Some(initial) => problem.start_with_initial(initial.to_vec()),
+        None => problem.start(),
+    }
+    .unwrap();
+    handle.wait().await.unwrap()
+}
+fn report_of(result: &crate::workflow::RunResult) -> &ShootingReport {
+    let crate::workflow::RunReport::Shooting(report) = result.report().unwrap() else {
+        panic!("shooting report expected");
+    };
+    report
 }
 
 /// ADR-0110 Outcome 5: single shooting and multiple shooting (nodes at 0.5, 1 and 1.5 s)
@@ -168,7 +176,32 @@ async fn shooting_matches_simultaneous_optimum() {
                 .unwrap();
             assert_eq!(problem.controls(), 2);
             assert_eq!(problem.contract().variables.len(), 2 + nodes.len());
-            let report = solve(problem, None);
+            let result = solve(problem, None).await;
+            let report = report_of(&result);
+            assert!(
+                result.usable(),
+                "{:?}; complete {}; error {:?}; checks {:?}",
+                result.assessments(),
+                report.checks_complete,
+                report.validation_error,
+                report.checks
+            );
+            let header = result.table("runtime.computation_runs").unwrap();
+            let rows =
+                pse_relations::generated::runtime::computation_runs::View::from_checked(&header)
+                    .unwrap();
+            assert_eq!(
+                rows.row(0).unwrap().kind,
+                pse_model::generated::enums::ComputationKind::Shooting
+            );
+            assert_eq!(
+                result
+                    .table("runtime.solve_variables")
+                    .unwrap()
+                    .batch()
+                    .num_rows(),
+                report.candidate.as_ref().unwrap().len()
+            );
             let solve = report.solve.as_ref().unwrap();
             assert_eq!(
                 solve.termination.category,
@@ -232,14 +265,21 @@ async fn multiple_shooting_continuity_closes() {
             for node in &mut initial[controls..] {
                 *node += 0.3;
             }
-            let report = problem
-                .solve(
-                    RunId::from_bytes([7; 16]),
-                    Arc::new(AtomicBool::new(false)),
-                    Arc::new(native::solve::Progress::new(256)),
-                    Some(&initial),
-                )
+            let result = problem
+                .start_with_initial(initial)
+                .unwrap()
+                .wait()
+                .await
                 .unwrap();
+            let report = report_of(&result);
+            assert!(
+                result.usable(),
+                "{:?}; complete {}; error {:?}; checks {:?}",
+                result.assessments(),
+                report.checks_complete,
+                report.validation_error,
+                report.checks
+            );
             let solve = report.solve.as_ref().unwrap();
             assert_eq!(
                 solve.termination.category,
@@ -363,7 +403,16 @@ async fn shooting_path_bounds_hold_at_samples() {
             lower: None,
             upper: Some(0.9),
         }];
-        let report = solve(simulation.shooting(profile).unwrap(), None);
+        let result = solve(simulation.shooting(profile).unwrap(), None).await;
+        let report = report_of(&result);
+        assert!(
+            result.usable(),
+            "{:?}; complete {}; error {:?}; checks {:?}",
+            result.assessments(),
+            report.checks_complete,
+            report.validation_error,
+            report.checks
+        );
         let trajectory = report.trajectory.as_ref().unwrap();
         assert!(
             trajectory
@@ -375,9 +424,12 @@ async fn shooting_path_bounds_hold_at_samples() {
             trajectory.samples.iter().any(|s| s.outputs[x] > 0.9 - 1e-6),
             "the bound is active"
         );
-        reports.push(report);
+        reports.push(result);
     }
-    let (single, multiple) = (&reports[0].controls, &reports[1].controls);
+    let (single, multiple) = (
+        &report_of(&reports[0]).controls,
+        &report_of(&reports[1]).controls,
+    );
     for (a, b) in single.values().flatten().zip(multiple.values().flatten()) {
         assert!((a - b).abs() < 1e-5, "{single:?} vs {multiple:?}");
     }
@@ -404,7 +456,7 @@ fn parse(
         pse_authoring::ParseBudget::default(),
     )
 }
-/// A `run shooting` fixture declares its method, its controls (schedules held free) and
+/// A `route integrated; procedure shooting` fixture declares its method, its controls (schedules held free) and
 /// its integration controls; the package admission refuses each incomplete or misplaced
 /// declaration before any integration.
 #[tokio::test]
@@ -419,34 +471,36 @@ async fn shooting_fixture_needs_authored_controls() {
     for (fixture, refusal) in [
         // No integration controls.
         (
-            "run shooting; shoot single;".to_owned(),
-            "fixture execution metadata disagrees with its route",
+            "route integrated; procedure shooting; shoot single;".to_owned(),
+            "fixture procedure metadata disagrees with its temporal route",
         ),
         // No controls, or no method.
         (
-            format!("run shooting; {integrate} shoot single;"),
+            format!("route integrated; procedure shooting; {integrate} shoot single;"),
             "a shooting fixture declares its method",
         ),
         (
-            format!("run shooting; {integrate} shoot single; {fixed}"),
+            format!("route integrated; procedure shooting; {integrate} shoot single; {fixed}"),
             "a shooting fixture declares its method",
         ),
         (
-            format!("run shooting; {integrate} {free}"),
+            format!("route integrated; procedure shooting; {integrate} {free}"),
             "a shooting fixture declares its method",
         ),
         // Multiple shooting needs its inner nodes; single shooting has none.
         (
-            format!("run shooting; {integrate} shoot multiple; {free}"),
+            format!("route integrated; procedure shooting; {integrate} shoot multiple; {free}"),
             "a shooting fixture declares its method",
         ),
         (
-            format!("run shooting; {integrate} shoot single nodes(0.5{{s}}); {free}"),
+            format!(
+                "route integrated; procedure shooting; {integrate} shoot single nodes(0.5{{s}}); {free}"
+            ),
             "a shooting fixture declares its method",
         ),
         // Only a shooting fixture holds a schedule free.
         (
-            format!("run integrated; {integrate} {free}"),
+            format!("route integrated; procedure integrate; {integrate} {free}"),
             "only a shooting fixture holds a schedule free",
         ),
     ] {
@@ -460,7 +514,7 @@ async fn shooting_fixture_needs_authored_controls() {
     }
 }
 
-/// ADR-0110 Outcome 5 from authored data (ADR-0119): a `run shooting` fixture declares the
+/// ADR-0110 Outcome 5 from authored data (ADR-0119): a `route integrated; procedure shooting` fixture declares the
 /// method and nodes and holds the control schedule free within its bounds; the model's
 /// objective annotations name the integral cost and the terminal miss. The declared
 /// shooting problem reaches the tracking problem's analytic optimum by single and multiple
@@ -472,7 +526,7 @@ async fn authored_shooting_fixture_solves() {
     let def = "def Tracking { domain t: Time from 0{s} to 2{s}; discretize grid on t using integrated(elements=1,order=1); param u: Scalar = 0.5; var x[i in t]: Scalar; var y[i in t]: Scalar; eq rate[i in t]: d(x[i])/di == (u - x[i])/1{s}; eq square[i in t]: y[i] == x[i]*x[i]; eq initial: x[0{s}] == 0; annotation start x(0); annotation start y(0); let cost: Scalar = integral(i in t | (x[i]-1)*(x[i]-1)/1{s}); annotation check cost(cost >= 0); let miss[i in t]: Scalar = (x[i]-1.5)*(x[i]-1.5); annotation report miss(\"terminal miss\"); annotation objective cost(minimize, weight = 1); annotation objective miss(minimize, weight = 1); }";
     let fixture = |name: &str, shoot: &str| {
         format!(
-            "test {name} fixture {{ dof 0; run shooting; integrate samples(0{{s}}, 0.5{{s}}, 1{{s}}, 1.5{{s}}, 2{{s}}) relative(1e-10) normalized_absolute(1e-12) step(1e-6{{s}}) quadrature_relative(1e-10) quadrature_absolute(root.cost = 1e-12); schedule root.u at(1{{s}}) values(0.5, 0.5) free lower(0) upper(5); {shoot} }} {{ child root: Tracking = Tracking(); }}"
+            "test {name} fixture {{ dof 0; route integrated; procedure shooting; integrate samples(0{{s}}, 0.5{{s}}, 1{{s}}, 1.5{{s}}, 2{{s}}) relative(1e-10) normalized_absolute(1e-12) step(1e-6{{s}}) quadrature_relative(1e-10) quadrature_absolute(root.cost = 1e-12); schedule root.u at(1{{s}}) values(0.5, 0.5) free lower(0) upper(5); {shoot} }} {{ child root: Tracking = Tracking(); }}"
         )
     };
     let text = format!(
@@ -503,6 +557,22 @@ async fn authored_shooting_fixture_solves() {
     let cancel = crate::CancelSource::new();
     let (optimum, value) = analytic();
     for (fixture, nodes) in fixtures.into_iter().zip([0, 3]) {
+        let refusal = package
+            .declared_simulation(
+                fixture,
+                compiler_profile(),
+                None,
+                Limits::default(),
+                &cancel,
+            )
+            .await
+            .unwrap_err();
+        assert!(
+            refusal
+                .to_string()
+                .contains("requires the authored integration procedure"),
+            "{refusal}"
+        );
         let problem = package
             .declared_shooting(
                 fixture,
@@ -516,7 +586,16 @@ async fn authored_shooting_fixture_solves() {
             .unwrap();
         assert_eq!(problem.controls(), 2);
         assert_eq!(problem.contract().variables.len(), 2 + nodes);
-        let report = solve(problem, None);
+        let result = solve(problem, None).await;
+        let report = report_of(&result);
+        assert!(
+            result.usable(),
+            "{:?}; complete {}; error {:?}; checks {:?}",
+            result.assessments(),
+            report.checks_complete,
+            report.validation_error,
+            report.checks
+        );
         let solve = report.solve.as_ref().unwrap();
         assert_eq!(
             solve.termination.category,

@@ -100,7 +100,7 @@ fn coefficient_unit_refusal_names_attribute_expected_and_actual_quantity() {
 fn native_fixture_options_admit_only_exact_primitives() {
     let source = |value: &str| {
         format!(
-            "package p {{ def D {{var x:Scalar; eq e:x==1;}} test t fixture {{dof 0; run steady; policy {{options {{\"setting\" = {value};}};}}}} {{child root:D=D();}} }}"
+            "package p {{ def D {{var x:Scalar; eq e:x==1;}} test t fixture {{dof 0; route steady; procedure solve; policy {{options {{\"setting\" = {value};}};}}}} {{child root:D=D();}} }}"
         )
     };
     for value in ["0", "false", "1e-3", "\"method\""] {
@@ -115,7 +115,10 @@ fn native_fixture_options_admit_only_exact_primitives() {
     ] {
         assert!(refusal(&source(value)).contains("requires a unique name and an exact Boolean"));
     }
-    assert!(refusal(&source("0").replace("run steady", "run pure")).contains("pure fixture"));
+    assert!(
+        refusal(&source("0").replace("procedure solve", "procedure check"))
+            .contains("pure fixture")
+    );
 }
 
 #[test]

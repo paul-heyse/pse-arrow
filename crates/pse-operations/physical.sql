@@ -9,8 +9,8 @@
 -- append-only grant. It is SQL because SQL is the declaration language for access paths.
 -- Store::open applies it after schema.sql in the same transaction; every enum literal
 -- below is checked against its ENUM type then, and a misspelling fails the open.
--- The schema fingerprint covers this file: editing it requires `just codegen` and a
--- `just db-reset` of every existing store.
+-- The schema fingerprint covers this file: editing it requires `just codegen` and
+-- an explicit supported migration after workers drain and store generations close.
 
 -- --------------------------------------------------------------- attempts --
 

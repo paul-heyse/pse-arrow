@@ -23,7 +23,7 @@
 @id("77117de01346421887afa3957075e23a") let gamma[j in members]:LogActivityCoefficient=nrtl.ln_gamma(constants.standard_temperature,constants.standard_pressure,n,members,package_selection,j);
 @id("6a8808622dc0470c9e0e2c4ff8a77c48") let gibbs_duhem[j in members]:GibbsDuhemResidual=nrtl.gibbs_duhem_response(constants.standard_temperature,constants.standard_pressure,n,members,package_selection,j,nrtl.potential);
 }
-@id("ee8c7df5633b4a6a86b9f747da770636") test default_nrtl_closed_form_derivatives_and_idaes oracle nrtl_reference.defaults fixture {dof 0;run pure;} {
+@id("ee8c7df5633b4a6a86b9f747da770636") test default_nrtl_closed_form_derivatives_and_idaes oracle nrtl_reference.defaults fixture {dof 0;route steady; procedure check;} {
 @id("82e5d6709acb4bafabb72abb6edf1c2f") permission selected_unknown_fit families(nrtl.parameters) allow_unknown true allow_extrapolation false;
 @id("ef0b0e4f1a214085918a7857dbf27b8e") set compositions:Set<Scalar>={0.2,0.5,0.8};
 @id("d9ccffdaaf204644989be4739ac9a6b9") child point[x in compositions]:Binary=Binary(composition=x);
@@ -31,7 +31,7 @@
 @id("ce7e23846bac40868d47e84166e29e94") expect sum(x in compositions | sum(j in members | abs(point[x].gamma[j]-nrtl_reference.observations[x,j])))==0{1} tolerance 1e-12{1};
 @id("f927845fa2bf494d90b879250c999895") expect sum(x in compositions | sum(j in members | abs(point[x].gibbs_duhem[j])))==0{1} tolerance 1e-12{1};
 }
-@id("04ece38aec494e4da773690b00b809a9") test degree_one_excess_and_amount_invariant_activity oracle nrtl_reference.defaults fixture {dof 0;run pure;} {
+@id("04ece38aec494e4da773690b00b809a9") test degree_one_excess_and_amount_invariant_activity oracle nrtl_reference.defaults fixture {dof 0;route steady; procedure check;} {
 @id("8cb39535530f446aa6cf5cc3b93707e5") permission selected_unknown_fit families(nrtl.parameters) allow_unknown true allow_extrapolation false;
 @id("42e3b97590a24c019754fdcab147f7a0") child one:Binary=Binary(composition=0.3,total=1{mol});
 @id("c772e7721e53411a9de17f6a821215b4") child three:Binary=Binary(composition=0.3,total=3{mol});

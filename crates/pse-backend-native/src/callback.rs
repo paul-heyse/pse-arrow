@@ -59,7 +59,8 @@ pub fn classify(error: &ProblemError) -> Failure {
             kind: crate::LimitKind::Time,
             ..
         } => Failure::Stopped(Termination::TimeLimit),
-        ProblemError::Unavailable { .. }
+        ProblemError::RouteRefused(_)
+        | ProblemError::Unavailable { .. }
         | ProblemError::Contract(_)
         | ProblemError::Structural { .. }
         | ProblemError::Unsupported(_)

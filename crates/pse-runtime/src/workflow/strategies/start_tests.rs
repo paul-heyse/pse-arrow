@@ -22,9 +22,8 @@ async fn authored_sequence_separates_seed_policy_reuse_and_original_acceptance()
     let package = runtime.modeling_package(rows, physical).unwrap();
     let cancel = crate::CancelSource::new();
     let mut analysis = package
-        .declared_analysis(
+        .declared_execution(
             root,
-            pse_model::generated::enums::ModelingAnalysisRoute::Steady,
             compiler_profile(),
             profile(SolveIntent::Root),
             Default::default(),
@@ -32,7 +31,8 @@ async fn authored_sequence_separates_seed_policy_reuse_and_original_acceptance()
             &cancel,
         )
         .await
-        .unwrap();
+        .unwrap()
+        .analysis;
     let positive = package.prepare_analysis(&analysis, &cancel).await.unwrap();
     analysis.case.values.insert("x".into(), -1.0);
     let negative = package.prepare_analysis(&analysis, &cancel).await.unwrap();
@@ -168,9 +168,8 @@ async fn root_package() -> (
     let package = runtime.modeling_package(rows, physical).unwrap();
     let cancel = crate::CancelSource::new();
     let analysis = package
-        .declared_analysis(
+        .declared_execution(
             root,
-            pse_model::generated::enums::ModelingAnalysisRoute::Steady,
             compiler_profile(),
             profile(SolveIntent::Root),
             Default::default(),
@@ -178,7 +177,8 @@ async fn root_package() -> (
             &cancel,
         )
         .await
-        .unwrap();
+        .unwrap()
+        .analysis;
     (runtime, package, analysis, cancel)
 }
 

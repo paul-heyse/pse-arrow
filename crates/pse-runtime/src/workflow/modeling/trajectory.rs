@@ -9,8 +9,15 @@ impl ModelingTrajectory {
         &self,
     ) -> Result<BTreeMap<SemanticId, pse_relations::columnar::FieldCheckedBatch>, WorkflowError>
     {
+        self.tables_for_kind(pse_model::generated::enums::ComputationKind::Simulation)
+    }
+    pub(in crate::workflow) fn tables_for_kind(
+        &self,
+        kind: pse_model::generated::enums::ComputationKind,
+    ) -> Result<BTreeMap<SemanticId, pse_relations::columnar::FieldCheckedBatch>, WorkflowError>
+    {
         use pse_model::generated::{
-            enums::{ComputationKind, NativeBackend, NativeQualification, NativeRunState},
+            enums::{NativeBackend, NativeQualification, NativeRunState},
             runtime::{
                 computation_runs, response_sensitivities, simulation_events, simulation_samples,
             },
@@ -90,12 +97,61 @@ impl ModelingTrajectory {
                 )
                 .map_err(relation)?;
         }
+        columns
+            .push(self.completion.assessment_row(
+                self.run_id,
+                0,
+                &p.numerics().policy,
+                None,
+                None,
+                false,
+            ))
+            .map_err(relation)?;
         let r = &self.report;
+        columns
+            .ensure::<pse_model::generated::runtime::trajectory_endpoints::Row>()
+            .map_err(relation)?;
+        if let Some(end) = &r.endpoint {
+            let coverage = r.assess_endpoint(&p.profile);
+            columns
+                .push(pse_model::generated::runtime::trajectory_endpoints::Row {
+                    run_id: self.run_id,
+                    requirement: p.profile.endpoint.kind,
+                    required_event: p.profile.endpoint.event,
+                    event_id: end.event,
+                    time: end.point.time,
+                    mode: end.point.mode as i64,
+                    state_ids: p.coordinates.state.iter().map(|c| c.id).collect(),
+                    input_ids: p.coordinates.parameters.iter().map(|c| c.id).collect(),
+                    output_ids: p.contract.outputs.clone(),
+                    state: p
+                        .coordinates
+                        .state
+                        .iter()
+                        .zip(&end.point.state)
+                        .map(|(c, v)| v * c.scale + c.offset)
+                        .collect(),
+                    inputs: p
+                        .coordinates
+                        .parameters
+                        .iter()
+                        .zip(&end.inputs)
+                        .map(|(c, v)| v * c.scale + c.offset)
+                        .collect(),
+                    outputs: end.point.outputs.clone(),
+                    integrals: end.point.integrals.clone(),
+                    input_columns: end.input_columns.iter().map(|c| *c as i64).collect(),
+                    endpoint_satisfied: coverage.satisfied,
+                    prefix_complete: coverage.prefix_complete,
+                    missing_observations: coverage.missing_observations,
+                })
+                .map_err(relation)?;
+        }
         let error = r.error.as_ref().map(engines::bounded_error);
         columns
             .push(computation_runs::Row {
                 run_id: self.run_id,
-                kind: ComputationKind::Simulation,
+                kind,
                 source_identity: p.source.revision.identity(),
                 profile_identity: super::super::super::dynamics::profile_identity(&p.profile),
                 state: NativeRunState::Native,
@@ -108,7 +164,7 @@ impl ModelingTrajectory {
                 },
                 native_code: None,
                 native_status: None,
-                qualification: if self.accepted {
+                qualification: if self.checks_complete && self.checks.iter().all(|c| c.satisfied) {
                     NativeQualification::Feasible
                 } else {
                     NativeQualification::Unqualified

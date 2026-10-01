@@ -35,3 +35,28 @@ pub fn relations(registry: &Registry) -> Vec<(&'static str, &RelationSpec)> {
     out.sort_by_key(|(table, _)| *table);
     out
 }
+
+/// Attribution of operational declarations to independently versioned histories.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum HistoryOwner {
+    /// Publication inventory, catalog control and reader protection.
+    Catalog,
+    /// Attempts, workers, queues, native streams and reusable solutions.
+    Operations,
+}
+/// One owning history per physical table; references consume keys, not target vocabulary.
+pub fn history_owner(table: &str) -> HistoryOwner {
+    match table {
+        "workspaces"
+        | "publication_intents"
+        | "publications"
+        | "publication_heads"
+        | "publication_members"
+        | "publication_windows"
+        | "reader_leases"
+        | "retention_marks"
+        | "settlements"
+        | "schema_support_state" => HistoryOwner::Catalog,
+        _ => HistoryOwner::Operations,
+    }
+}

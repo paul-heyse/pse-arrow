@@ -3,6 +3,8 @@
 //! Public finite modeling packages are immutable inputs to the existing compiler service.
 pub(super) mod cases;
 mod conformance;
+pub(super) mod declared;
+pub use declared::{DeclaredExecution, DeclaredProcedure, InitializationOverrides};
 mod knowledge;
 mod pure;
 pub use conformance::{
@@ -495,63 +497,6 @@ impl ModelingPackage {
                 .map_err(relation)?,
         );
         Ok(tables)
-    }
-    /// Build an analysis from a data-authored case/test and its physical fixture.
-    #[expect(
-        clippy::too_many_arguments,
-        reason = "a declared analysis binds its root and route with the compiler, solver and numerical profiles, limits and cancellation"
-    )]
-    pub async fn declared_analysis(
-        &self,
-        root: DeclarationId,
-        route: pse_model::generated::enums::ModelingAnalysisRoute,
-        compiler: pse_compiler::workspace::Profile,
-        solver: crate::math::solves::SolverProfile,
-        numerical: crate::math::solves::NumericalInputs,
-        limits: Limits,
-        cancel: &crate::CancelSource,
-    ) -> Result<ModelingAnalysis, WorkflowError> {
-        let row = self
-            .declarations()
-            .iter()
-            .find(|row| row.declaration_id == root)
-            .ok_or_else(|| contract(format!("missing declared analysis root {root}")))?;
-        let limits = conformance::fixture_limits(row, limits)?;
-        let solver = conformance::fixture_solver(row, &solver)?;
-        let (bindings, case) = self.declared_case(root, route, limits, cancel).await?;
-        let order = solver.derivative_order();
-        Ok(ModelingAnalysis {
-            root,
-            instance: pse_modeling::specialize::root_instance(root),
-            bindings,
-            limits,
-            case,
-            order,
-            compiler,
-            solver,
-            numerical,
-        })
-    }
-    pub(in crate::workflow) async fn declared_case(
-        &self,
-        root: DeclarationId,
-        route: pse_model::generated::enums::ModelingAnalysisRoute,
-        limits: Limits,
-        cancel: &crate::CancelSource,
-    ) -> Result<(Bindings, pse_compiler::workspace::ModelingCaseBindings), WorkflowError> {
-        let bindings = Bindings::default().with_analysis(route);
-        let instance = pse_modeling::specialize::root_instance(root);
-        let prepared = self
-            .prepare(root, instance, bindings.clone(), limits, cancel)
-            .await?;
-        let case = prepared
-            .compiled()
-            .model
-            .fixtures
-            .get(&instance)
-            .map(pse_compiler::workspace::ModelingCaseBindings::from)
-            .unwrap_or_default();
-        Ok((bindings, case))
     }
     /// Prepare predecessor-ordered conditional initialization under the analysis's solve
     /// profile and the supplied continuation stages, without changing the original

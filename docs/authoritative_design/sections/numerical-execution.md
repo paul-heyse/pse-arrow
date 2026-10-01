@@ -37,6 +37,10 @@ rather than repeating matching (`pse-backend-native::structural`):
 |---|---|---|
 | Roots (square equations, declared fixed point) | Every original equality row and free variable participates in the maximum matching | `ProblemError::Structural` naming overdetermined rows and underdetermined columns by semantic ID |
 | NLP | Every equality row matches; inequalities and genuine optimization degrees of freedom remain admissible | Overdetermined equality rows by semantic ID |
+| Native feasibility | The capability admits redundant affine/conic rows to its native feasibility algorithm; the original scope and matching observations remain retained | Unsupported scope or capability |
+| Point evaluation | No free variable; evaluate every original obligation directly | Failed original checks; no matching or rank claim |
+
+[ADR-0145](../../adr/0145-declared-execution-and-composed-qualification.md) (proposed; authorized implementation) makes Root intent require complete original square equality matching even for an explicitly selected NLP or factorable adapter. Optimization uses the selected capability's structural policy. `StructuralAssessment` retains scope, original variable/equation roles, bounds, matching and unmatched identities; `RouteDecision` retains intent, requested selection, eligibility, representation, lexicographic realization and refusals. Diagnose, conformance and solve preparation consume these facts. Generated `runtime.route_decisions` and `runtime.structural_assessments` retain them without a native attempt.
 
 A scope marked partial is refused; structure over a subset cannot certify the case.
 Fixed-point and Picard admission observe the original residual support, not the
@@ -321,7 +325,7 @@ tolerances or infer magnitudes from trial values.
 `pse-model::numerics::NumericalPolicy` holds library-neutral controls: ID-keyed
 analysis requirements, `strict_nominals`, `native_scaling`, independent KKT budgets
 (stationarity, complementarity), an optional separately qualified acceptable-stop
-budget, integrality, continuous and MIP gaps, and the closure policy.
+budget, integrality, continuous and MIP gaps, and independent closure/incumbent policies.
 `pse-math::numerics::resolve` combines it with the selected targets and sourced
 declarations into an immutable `ResolvedNumericalPolicy`.
 
@@ -347,10 +351,12 @@ positive row scale. Hard guards are never relaxed by scaling.
 
 | Rank | `NumericalSource` | Origin |
 |---|---|---|
-| 5 | `Analysis` | Requirements in the request's `NumericalPolicy` |
-| 4 | `Case` | Selected case declarations |
-| 3 | `Model` | Explicit model target declarations (`authored.numerical_requirements`) |
-| 2 | `PropertyDefault` | Explicitly bound provider-output/property defaults |
+| 7 | `Analysis` | Requirements in the request's `NumericalPolicy` |
+| 6 | `Case` | Selected case declarations |
+| 5 | `Model` | Explicit model target declarations (`authored.numerical_requirements`) |
+| 4 | `ModelHint` | Bound authored nominal/scale/tolerance annotations |
+| 3 | `PropertyDefault` | Explicitly bound provider-output/property defaults |
+| 2 | `DerivedNominal` | Qualified characteristic magnitude from original additive terms |
 | 1 | `QuantityNominal` | Quantity registry nominal |
 | 0 | `CanonicalFallback` | Recorded canonical-unit nominal of one |
 
@@ -457,50 +463,13 @@ oracle's order. Integration accuracy, integrated observables, instantaneous bala
 and cumulative closure are distinct requirements.
 
 The workflow completion owner (`pse-runtime/src/workflow/numerics.rs`) is the single
-owner of candidate use. It combines native outcome, original numerical feasibility,
-required model checks and physical closure into one immutable `CandidateUse`, with a
-stable reason published as text and never parsed:
+owner of candidate use. It retains native termination, original validation and qualification, required model checks, closure, applicability and coverage independently. Final permission and every applicable qualifier/refusal are typed; the reason text is a derived presentation and is never parsed ([ADR-0145](../../adr/0145-declared-execution-and-composed-qualification.md), proposed; authorized implementation).
 
-| `CandidateUse` | Meaning | Permits |
-|---|---|---|
-| `usable` | Every required original-coordinate check passed | Result and seed |
-| `qualified_unclosed` | Numerically qualified; closure failed under explicit `AllowUnclosed` (no closure claim) | Result and seed |
-| `seed_only` | Feasible in original coordinates, but the native stop forbids use as a result | Seed only; never published as a solution |
-| `diagnostic_only` | The least-infeasible point a native infeasibility stop returns, or the incumbent of a relaxed global export | Observation only; never a seed or a result |
-| `unusable` | Anything else | Neither |
+Default incumbent `Refuse` keeps independently validated original-feasible limited candidates seed-only where lawful. `AcceptFeasible` may grant result permission at typed time, node, iteration or solution limits. `AcceptWithinGap` additionally requires a valid bound in the original objective convention meeting the authored absolute or valid same-sign relative criterion. A relaxed export may supply a qualified bound but its incumbent remains diagnostic. Missing validation, failure, cancellation, panic, least-infeasible and relaxed-only points cannot be upgraded.
 
-The decision is made in two ordered steps.
+Closure defaults to `RequireClosed`. `AllowUnclosed` qualifies completed outside-budget closure while retaining its residuals; missing required closure remains unavailable and refuses. Applicability opt-ins retain their individual qualifiers alongside incumbent and closure qualifiers. Missing checks or required observation coverage refuse permission. All-fixed point evaluation grants permission only through complete original checks. A trajectory qualifies only when its admitted actual endpoint and required prefix obligations are satisfied (§13.5).
 
-**Native step.** For one native attempt the first applicable rule decides:
-
-1. independent original-model validation failed, or the API supplied no candidate:
-   `unusable`;
-2. the native stop is `infeasible`: `diagnostic_only`;
-3. the candidate is the incumbent of a relaxed global export
-   (`PrimalSource::RelaxedIncumbent`, [§18.10.1](#section-18-10-1)): `diagnostic_only`;
-4. original-coordinate feasibility failed or is unavailable: `unusable`;
-5. qualification is `Unqualified`: `unusable`;
-6. otherwise the native stop category decides: success, acceptable or feasible-only is
-   `usable`; an iteration, time, solution, objective or general limit, resource
-   exhaustion, an inconclusive or a numerical stop is `seed_only`; unbounded,
-   infeasible-or-unbounded, cancelled, evaluation, panic or invalid is `unusable`. The
-   match over `NativeTermination` is exhaustive, so a new stop category must be assigned.
-
-An all-fixed constant evaluation has no native stop, so original quality alone decides
-between `usable` and `unusable`. A dynamic trajectory is `usable` only after a completed
-integration without a typed failure. A refusal before any native report is `unusable`.
-
-**Completion step.** Required model checks and physical closure can only refuse or
-qualify a `usable` native decision. Any other native decision passes through unchanged;
-checks never upgrade a `seed_only` or `diagnostic_only` point.
-
-| Condition on a `usable` native decision | `CandidateUse` |
-|---|---|
-| Required original-model checks failed or incomplete | `unusable` |
-| Required physical closure unavailable | `unusable` |
-| Closure failed the frozen budget, default `RequireClosed` | `unusable` (candidate retained) |
-| Closure failed, explicit `AllowUnclosed` | `qualified_unclosed` |
-| Closure closed or not required | `usable` |
+`CandidateUse` remains the permission projection (`usable`, `qualified_unclosed`, `seed_only`, `diagnostic_only`, `unusable`); `runtime.candidate_assessments` additionally records independent evidence, incumbent policy, bound/gaps, qualifiers, refusals and result/seed permissions. Consumers retain the composed decision and never reconstruct it from a success bit or enum spelling.
 
 Every workflow consumes this decision; none re-derives acceptance:
 

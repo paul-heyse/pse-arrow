@@ -292,8 +292,8 @@ async fn horizon_reuses_prepared_view() {
     if cfg!(feature = "solver-pounce") {
         backends.push((
             Backend::Pounce,
-            BackendSettings::Pounce(pse_backend_native::pounce::Settings {
-                method: pse_backend_native::pounce::Method::ActiveSetSqp,
+            BackendSettings::Pounce(pse_backend_native::settings::pounce::Settings {
+                method: pse_backend_native::settings::pounce::Method::ActiveSetSqp,
                 ..Default::default()
             }),
         ));

@@ -15,7 +15,7 @@
 @id("1c673fef9cad42bcbe5952d535477f40") set subjects:Set<chemistry.species>={chem.benzene};
 @id("6591abcc0686480bb61f1cbfebe313da") set critical:Set<properties.property>={cubic.critical_parameters};
 @id("1d6cc23f7ae94d13a5ea809027196b67") dataset selection:properties.pure_selection complete_over(k in packages,j in subjects,p in critical) provenance(references.poling2000,provenance.Role.published) {[poling_package,chem.benzene,cubic.critical_parameters]=[cubic.critical_point[chem.benzene,cubic.critical_parameters,references.poling2000_critical_fit]];}
-@id("b87c6ddd582443968a40b21bf3603845") test one_species_two_critical_banks oracle references.poling2000 fixture {dof 0;run pure;} {
+@id("b87c6ddd582443968a40b21bf3603845") test one_species_two_critical_banks oracle references.poling2000 fixture {dof 0;route steady; procedure check;} {
 @id("8da51f1347a54e36bedd6a8d96627c44") permission selected_unknown_fit families(cubic.critical_point) allow_unknown true allow_extrapolation false;
 @id("27c17643f7334f7f9bba486ab99fa574") expect cubic.selected_tc(poling_package,chem.benzene)==562.05{K} tolerance 1e-12{K};
 @id("42d344a769d24d85a24de25f571cdd4e") expect cubic.selected_pc(poling_package,chem.benzene)==4895000{Pa} tolerance 1e-8{Pa};

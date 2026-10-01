@@ -10,9 +10,8 @@ use crate::math::{
 use pse_compiler::workspace::{ModelingCaseBindings, ModelingHint, ModelingOutput, Profile};
 use pse_kernels::DerivativeOrder;
 use pse_model::generated::enums::{
-    ModelingAnalysisRoute as Route, ModelingCheckKind, ModelingConformanceKind as Kind,
-    ModelingConformanceStatus as Status, ModelingDeclarationKind as DeclarationKind,
-    ModelingFixtureExecution as Execution,
+    ModelingCheckKind, ModelingConformanceKind as Kind, ModelingConformanceStatus as Status,
+    ModelingDeclarationKind as DeclarationKind,
 };
 use pse_model::generated::identities::RunId;
 pub use pse_model::generated::runtime::modeling_conformance::Row as ModelingConformanceCheck;
@@ -27,98 +26,6 @@ fn authored_fixture(
 >{
     row.value.scope.as_ref().and_then(|s| s.fixture.as_ref())
 }
-/// The specialization limits one fixture runs under: the run's, with each allowance its
-/// declared execution policy states (ADR-0119); admission refused a nonpositive one.
-pub(super) fn fixture_limits(row: &Declaration, run: Limits) -> Result<Limits, WorkflowError> {
-    let Some(declared) = authored_fixture(row).and_then(|f| f.policy.as_ref()) else {
-        return Ok(run);
-    };
-    let fixture = row.declaration_id;
-    let allowance = |name: &str, value: i64| {
-        usize::try_from(value)
-            .map_err(|_| contract(format!("fixture {fixture} policy {name} allowance")))
-    };
-    Ok(Limits {
-        items: declared
-            .items
-            .map_or(Ok(run.items), |v| allowance("items", v))?,
-        body_occurrences: declared
-            .body_occurrences
-            .map(|v| allowance("body_occurrences", v))
-            .transpose()?
-            .or(run.body_occurrences),
-        body_slots: declared
-            .body_slots
-            .map(|v| allowance("body_slots", v))
-            .transpose()?
-            .or(run.body_slots),
-        ..run
-    })
-}
-/// Resolve a declaration's solver policy once for both conformance and declared analyses.
-/// Authored settings override caller defaults only for this fixture.
-pub(super) fn fixture_solver(
-    row: &Declaration,
-    run: &SolverProfile,
-) -> Result<SolverProfile, WorkflowError> {
-    use pse_backend_native::presolve::{Policy as Presolve, PolicyKind};
-    let fixture = row.declaration_id;
-    let authored = authored_fixture(row);
-    let mut solver = run.clone();
-    if let Some(intent) = authored.and_then(|f| f.intent) {
-        solver.intent = intent;
-    }
-    if let Some(declared) = authored.and_then(|f| f.policy.as_ref()) {
-        if let Some(backend) = declared.backend {
-            solver.selection = pse_backend_native::solve::SolverSelection::Explicit(backend);
-        }
-        match declared.presolve {
-            Some(PolicyKind::Off) => solver.presolve = Presolve::Off,
-            Some(PolicyKind::Auto) => solver.presolve = Presolve::Auto,
-            Some(PolicyKind::Explicit) => {
-                return Err(contract(format!(
-                    "fixture {fixture} policy presolve is auto or off"
-                )));
-            }
-            None => {}
-        }
-        for option in &declared.native_options {
-            use pse_authoring::language::CellSelected;
-            use pse_backend_native::solve::OptionValue;
-            let value = match option
-                .value
-                .value
-                .selected()
-                .map_err(|error| contract(error.to_string()))?
-            {
-                CellSelected::Boolean(value) => OptionValue::Bool(value.value),
-                CellSelected::Integer(value) => OptionValue::Integer(
-                    i32::try_from(value.value)
-                        .map_err(|_| contract("native option integer extent"))?,
-                ),
-                CellSelected::Quantity(value)
-                    if value.unit.as_ref().is_none_or(Vec::is_empty)
-                        && value.magnitude.is_finite() =>
-                {
-                    OptionValue::Real(value.magnitude)
-                }
-                CellSelected::Text(value) => OptionValue::Text(value.value.clone()),
-                _ => return Err(contract("native fixture option is not a primitive")),
-            };
-            if option.value.uncertainty.is_some() {
-                return Err(contract("native fixture options have no uncertainty"));
-            }
-            solver.controls.options.insert(option.name.clone(), value);
-        }
-        if let Some(bytes) = declared.foreign_bytes {
-            solver.controls.foreign_bytes =
-                Some(usize::try_from(bytes).map_err(|_| {
-                    contract(format!("fixture {fixture} policy foreign allowance"))
-                })?);
-        }
-    }
-    Ok(solver)
-}
 /// The policy one fixture runs under (ADR-0119): the run's, with the solve intent and each
 /// execution-policy setting its declaration states, for this fixture only; a declared
 /// foreign allowance becomes its solves' control. The time limit and every other control
@@ -130,7 +37,7 @@ fn fixture_policy(
 ) -> Result<ModelingConformancePolicy, WorkflowError> {
     let fixture = row.declaration_id;
     let authored = authored_fixture(row);
-    let solver = fixture_solver(row, &run.solver)?;
+    let solver = declared::declared_solver(row, &run.solver)?;
     let mut derivatives = run.derivatives;
     if let Some(declared) = authored.and_then(|f| f.policy.as_ref()) {
         derivatives.perturbation = declared.derivative_step.unwrap_or(derivatives.perturbation);
@@ -160,7 +67,7 @@ fn fixture_policy(
         compiler: run.compiler,
         solver,
         numerical: run.numerical.clone(),
-        limits: fixture_limits(row, run.limits)?,
+        limits: declared::declared_limits(row, run.limits)?,
         derivatives,
         maximum_fixtures: run.maximum_fixtures,
         maximum_checks: run.maximum_checks,
@@ -250,6 +157,9 @@ pub struct ModelingConformanceReport {
     pub checks: Vec<ModelingConformanceCheck>,
     /// Demanded pure-point evidence retains complete typed authorization and input lineage.
     pub applicability: BTreeMap<DeclarationId, Vec<pse_model::applicability::Observation>>,
+    /// Retained typed route and original structural admission facts, including refusals.
+    pub admissions:
+        BTreeMap<DeclarationId, BTreeMap<SemanticId, pse_relations::columnar::FieldCheckedBatch>>,
     /// Solve results, by fixture.
     pub results: BTreeMap<DeclarationId, ModelingResult>,
     /// Initialization reports, by fixture.
@@ -307,6 +217,7 @@ impl ModelingConformanceReport {
             run_id: pse_operations::mint_id(),
             checks: Vec::with_capacity(cap),
             applicability: BTreeMap::new(),
+            admissions: BTreeMap::new(),
             failures: Vec::with_capacity(cap),
             results: BTreeMap::new(),
             initializations: BTreeMap::new(),
@@ -1029,6 +940,38 @@ impl ModelingConformanceReport {
             .collect::<Vec<_>>();
         self.export(&rows)
     }
+    /// Typed admission facts from every resolved fixture, including refused fixtures.
+    pub fn admission_tables(
+        &self,
+    ) -> Result<BTreeMap<SemanticId, pse_relations::columnar::FieldCheckedBatch>, WorkflowError>
+    {
+        use pse_relations::columnar::FieldCheckedBatch;
+        let cancel = pse_columnar::CancellationToken::new();
+        ["runtime.route_decisions", "runtime.structural_assessments"]
+            .into_iter()
+            .map(|name| {
+                let spec = self
+                    .registry
+                    .relation(name)
+                    .ok_or_else(|| contract("conformance admission relation absent"))?;
+                let inputs = self
+                    .admissions
+                    .values()
+                    .filter_map(|tables| tables.get(&spec.id))
+                    .cloned()
+                    .collect::<Vec<_>>();
+                let batch = FieldCheckedBatch::concat_reserved(
+                    &self.registry,
+                    spec,
+                    &inputs,
+                    &self.pool,
+                    &cancel,
+                )
+                .map_err(relation)?;
+                Ok((batch.relation_id(), batch))
+            })
+            .collect()
+    }
     /// The recorded checks as a checked `modeling_conformance` relation.
     pub fn table(&self) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
         self.export(&self.checks)
@@ -1129,37 +1072,30 @@ impl ModelingPackage {
                 break;
             }
             let fixture = row.declaration_id;
-            let solve_order = policy.solver.derivative_order();
 
             let oracle = self.revision.oracle(fixture);
             report.note_oracle(oracle, |oracle| self.revision.release_of(oracle));
-            let authored = row.value.scope.as_ref().and_then(|s| s.fixture.as_ref());
-            let execution = authored
-                .and_then(|f| f.execution)
-                .unwrap_or(Execution::Steady);
-            let bindings = Bindings::default().with_analysis(match execution {
-                Execution::Integrated | Execution::Shooting => Route::Integrated,
-                Execution::Simultaneous => Route::Simultaneous,
-                _ => Route::Steady,
-            });
-            let model = match self
-                .prepare(
+            let admitted = match self
+                .declared_execution(
                     fixture,
-                    pse_modeling::specialize::root_instance(fixture),
-                    bindings.clone(),
+                    policy.compiler,
+                    policy.solver.clone(),
+                    policy.numerical.clone(),
                     policy.limits,
                     cancel,
                 )
                 .await
             {
-                Ok(model) => model,
-                // An expected failure is resolved with the fixture's model, so a fixture that
-                // cannot be prepared has observed none it expects (Plan 23 H5).
+                Ok(execution) => execution,
+                // Expected failures are resolved within the admitted fixture model.
                 Err(error) => {
                     report.failed(fixture, Kind::Preparation, &error, None, oracle, cap);
                     continue;
                 }
             };
+            let model = admitted.model.clone();
+            let bindings = admitted.analysis.bindings.clone();
+            let solve_order = admitted.analysis.order;
             covered.extend(
                 model
                     .compiled()
@@ -1176,8 +1112,8 @@ impl ModelingPackage {
                 .get(&pse_modeling::specialize::root_instance(fixture));
             let expected = data.map_or(0, |f| f.expected_degrees_of_freedom);
             let mut expected_failure = data.and_then(|f| f.expected_failure.as_ref());
-            let case = data.map(ModelingCaseBindings::from).unwrap_or_default();
-            if execution == Execution::Pure {
+            let case = admitted.analysis.case.clone();
+            if matches!(&admitted.procedure, DeclaredProcedure::Check) {
                 let checked = self
                     .runtime
                     .shared
@@ -1187,8 +1123,8 @@ impl ModelingPackage {
                         self.revision.clone(),
                         fixture,
                         bindings,
-                        policy.limits,
-                        policy.compiler,
+                        admitted.analysis.limits,
+                        admitted.analysis.compiler,
                         cancel,
                     )
                     .await;
@@ -1203,34 +1139,21 @@ impl ModelingPackage {
             // A shooting fixture solves the shooting problem it declares (ADR-0110 Outcome 5):
             // its schedules held free are the controls and the model's objective level is
             // minimized; the stitched trajectory carries the model's checks.
-            if execution == Execution::Shooting {
+            if matches!(&admitted.procedure, DeclaredProcedure::Shooting { .. }) {
                 #[cfg(feature = "solver-diffsol")]
-                match self
-                    .conform_shooting(fixture, &model, data, &policy, report.run_id, cancel)
-                    .await
-                {
-                    Ok(shooting) => {
-                        let solved = shooting.solve.as_ref().is_some_and(|s| {
-                            s.termination.category
-                                == pse_backend_native::solve::Termination::Success
-                        });
-                        report.record_fixture(
-                            fixture,
-                            Kind::StartToSolve,
-                            if solved && shooting.checks_complete && expected_failure.is_none() {
-                                Status::Passed
-                            } else {
-                                Status::Failed
-                            },
-                            format!(
-                                "{} shooting over the declared controls; objective {:?}, continuity {:?}",
-                                shooting.method.as_str(),
-                                shooting.objective,
-                                shooting.continuity
-                            ),
-                            oracle,
-                            cap,
-                        );
+                match self.conform_shooting(&admitted, cancel).await {
+                    Ok(result) => {
+                        let crate::workflow::RunReport::Shooting(shooting) = result
+                            .report
+                            .as_ref()
+                            .map_err(|error| WorkflowError::Shared(error.clone()))?
+                        else {
+                            return Err(contract("shooting conformance report mismatch"));
+                        };
+                        report.record_fixture(fixture, Kind::StartToSolve,
+                            if result.usable() && expected_failure.is_none() { Status::Passed } else { Status::Failed },
+                            format!("{} shooting over the declared controls; objective {:?}, continuity {:?}",
+                                shooting.method.as_str(), shooting.objective, shooting.continuity), oracle, cap);
                         report.model_checks(fixture, &shooting.checks, oracle, cap);
                     }
                     Err(error) => {
@@ -1255,11 +1178,8 @@ impl ModelingPackage {
                 );
                 continue;
             }
-            if execution == Execution::Integrated {
-                match self
-                    .conform_integrated(fixture, &model, data, &policy, cancel)
-                    .await
-                {
+            if matches!(&admitted.procedure, DeclaredProcedure::Integrate(_)) {
+                match self.conform_integrated(&admitted, cancel).await {
                     Ok(trajectory) => {
                         if let Some(failure) = trajectory.diagnostic() {
                             report.failed(
@@ -1398,35 +1318,9 @@ impl ModelingPackage {
             }
             let mut seed = BTreeMap::new();
             let mut initialized = None;
-            if execution == Execution::Initialized {
-                let analysis = ModelingAnalysis {
-                    root: fixture,
-                    instance: pse_modeling::specialize::root_instance(fixture),
-                    bindings: bindings.clone(),
-                    limits: policy.limits,
-                    case: case.clone(),
-                    order: solve_order,
-                    compiler: policy.compiler,
-                    solver: policy.solver.clone(),
-                    numerical: policy.numerical.clone(),
-                };
-                let mut initialization = ModelingInitialization {
-                    stages: data.map(|f| f.stages.clone()).unwrap_or_default(),
-                    ..ModelingInitialization::default()
-                };
-                if let Some(policy) = data.and_then(|f| f.initialization.as_ref()) {
-                    initialization.homotopy = policy.homotopy;
-                    initialization.initial_step = policy.initial_step;
-                    initialization.minimum_step = policy.minimum_step;
-                    initialization.growth = policy.growth;
-                    initialization.maximum_attempts = usize::try_from(policy.maximum_attempts)
-                        .map_err(|_| contract("initialization attempt extent"))?;
-                    initialization.time_limit =
-                        std::time::Duration::try_from_secs_f64(policy.time_limit_seconds)
-                            .map_err(|_| contract("initialization time extent"))?;
-                }
+            if matches!(&admitted.procedure, DeclaredProcedure::Initialize(_)) {
                 match self
-                    .initialize_model(&analysis, initialization, cancel)
+                    .initialize_declared(&admitted, InitializationOverrides::default(), cancel)
                     .await
                 {
                     Ok(initialization) => {
@@ -1513,12 +1407,12 @@ impl ModelingPackage {
                     fixture,
                     pse_modeling::specialize::root_instance(fixture),
                     bindings,
-                    policy.limits,
+                    admitted.analysis.limits,
                     case,
                     solve_order,
-                    policy.compiler,
-                    policy.solver.clone(),
-                    policy.numerical.clone(),
+                    admitted.analysis.compiler,
+                    admitted.analysis.solver.clone(),
+                    admitted.analysis.numerical.clone(),
                     cases::CaseOverrides {
                         seed,
                         ..Default::default()
@@ -1550,14 +1444,19 @@ impl ModelingPackage {
                 cap,
             );
             let structure = resolution.model.case.compiled().plan.structure();
-            let free = resolution.model.case.compiled().plan.columns().len();
-            let equalities = structure
-                .rows()
-                .iter()
-                .filter(|r| r.lower == r.upper)
-                .count();
-            let dof = i64::try_from(free).map_err(|_| contract("DoF variable extent"))?
-                - i64::try_from(equalities).map_err(|_| contract("DoF equality extent"))?;
+            let decision = resolution.route_decision()?;
+            let identity = resolution.admission_identity(&decision)?;
+            report.admissions.insert(
+                fixture,
+                analysis_tables::admission_tables(&self.runtime, &decision, identity, 0)?,
+            );
+            let assessment = decision
+                .structure
+                .as_ref()
+                .ok_or_else(|| contract("original fixture structural assessment absent"))?;
+            let free = assessment.variables.len();
+            let dof = assessment.inventory_difference();
+            let equalities = free as i64 - dof;
             report.record_fixture(
                 fixture,
                 Kind::DegreesOfFreedom,
@@ -1567,7 +1466,7 @@ impl ModelingPackage {
                     Status::Failed
                 },
                 format!(
-                    "free variables {free}; equalities {equalities}; DoF {dof}; expected {expected}"
+                    "original free variables {free}; equalities {equalities}; inventory difference {dof}; expected {expected}"
                 ),
                 oracle,
                 cap,
@@ -1712,12 +1611,24 @@ impl ModelingPackage {
                 Ok(result)
             } else {
                 match self.finish_case(resolution).await {
-                    Ok(prepared) => self.solve_case(prepared, policy.compiler, cancel).await,
+                    Ok(prepared) => {
+                        report.admissions.insert(
+                            fixture,
+                            prepared.admission_tables(prepared.admission_identity()?, 0)?,
+                        );
+                        self.solve_case(prepared, policy.compiler, cancel).await
+                    }
                     Err(error) => Err(error),
                 }
             };
             match solved {
                 Ok(result) => {
+                    report.admissions.insert(
+                        fixture,
+                        result
+                            .prepared
+                            .admission_tables(result.prepared.admission_identity()?, 0)?,
+                    );
                     if let Some(failure) = result.diagnostic() {
                         report.failed(
                             fixture,
@@ -1851,81 +1762,34 @@ impl ModelingPackage {
     }
     async fn conform_integrated(
         &self,
-        fixture: DeclarationId,
-        model: &ModelingPreparation,
-        data: Option<&pse_modeling::specialize::Fixture>,
-        policy: &ModelingConformancePolicy,
+        execution: &DeclaredExecution,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingTrajectory, WorkflowError> {
-        let data = data.ok_or_else(|| contract("integrated fixture data absent"))?;
-        let profile = self.integration_profile(model, data, &policy.solver.numerics)?;
-        self.declared_simulation(
-            fixture,
-            policy.compiler,
-            Some(profile),
-            policy.limits,
-            cancel,
-        )
-        .await?
-        .run(cancel)
-        .await
+        self.simulation_for_declared(execution, None, cancel)
+            .await?
+            .run(cancel)
+            .await
     }
     /// Solve an authored shooting fixture's problem on the math service.
     #[cfg(feature = "solver-diffsol")]
     async fn conform_shooting(
         &self,
-        fixture: DeclarationId,
-        model: &ModelingPreparation,
-        data: Option<&pse_modeling::specialize::Fixture>,
-        policy: &ModelingConformancePolicy,
-        run_id: RunId,
+        execution: &DeclaredExecution,
         cancel: &crate::CancelSource,
-    ) -> Result<crate::workflow::ShootingReport, WorkflowError> {
-        let data = data.ok_or_else(|| contract("shooting fixture data absent"))?;
-        let profile = self.integration_profile(model, data, &policy.solver.numerics)?;
-        let simulation = self
-            .declared_simulation(
-                fixture,
-                policy.compiler,
-                Some(profile),
-                policy.limits,
-                cancel,
-            )
-            .await?;
-        let request = simulation.authored_shooting(
-            pse_modeling::specialize::root_instance(fixture),
-            policy.solver.clone(),
-        )?;
-        // Every window holds its own integration of the simulation's layout. The job holds
-        // the deployment's foreign allowance; a declared one is the solve's to reserve while
-        // it runs.
-        let bytes = simulation
-            .bytes
-            .checked_mul(request.nodes.len() + 2)
-            .ok_or_else(|| contract("shooting extent"))?;
-        let admitted = bytes
-            .checked_add(policy.solver.controls.foreign_bytes.unwrap_or(0))
-            .ok_or_else(|| contract("shooting extent"))?;
-        let problem = Arc::new(simulation.shooting(request)?);
-        let handle = self
-            .runtime
-            .shared
-            .math()
-            .submit(1, admitted, move |flag, progress| {
-                let report = problem.solve(run_id, flag, progress, None)?;
-                Ok((report, bytes))
-            })?;
-        let control = handle.cancellation();
-        let finish = handle.finish();
+    ) -> Result<Arc<crate::workflow::RunResult>, WorkflowError> {
+        let problem = Arc::new(self.shooting_for_declared(execution, None, cancel).await?);
+        let handle = problem.start()?;
+        let finish = handle.wait();
         tokio::pin!(finish);
-        let (report, _owner) = tokio::select! {
-            result = &mut finish => result?,
-            () = cancel.cancelled() => {
-                control.cancel();
-                finish.await?
-            }
-        };
-        Ok(report)
+        let result = tokio::select! {
+            result = &mut finish => result,
+            () = cancel.cancelled() => { handle.cancel(); finish.await }
+        }?;
+        result
+            .report
+            .as_ref()
+            .map_err(|error| WorkflowError::Shared(error.clone()))?;
+        Ok(result)
     }
     async fn conformance_derivatives(
         &self,
@@ -2392,22 +2256,22 @@ mod tests {
         let rt = super::super::super::tests::runtime();
         let physical = super::super::super::tests::physical();
         let rows = |metadata: &str| {
-            pse_authoring::language::parse(&format!("package p {{test valid fixture {{dof 0; run pure;}} {{expect 1==1 tolerance 1e-6;}} test invalid fixture {{dof 0; {metadata}}} {{expect 1==1 tolerance 1e-6;}}}}"), SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named, pse_authoring::ParseBudget::default()).unwrap()
+            pse_authoring::language::parse(&format!("package p {{test valid fixture {{dof 0; route steady; procedure check;}} {{expect 1==1 tolerance 1e-6;}} test invalid fixture {{dof 0; {metadata}}} {{expect 1==1 tolerance 1e-6;}}}}"), SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named, pse_authoring::ParseBudget::default()).unwrap()
         };
         for metadata in [
-            "run steady; stages(warm);",
-            "run initialized; initialize homotopy(true) step(0) minimum(1e-6) growth(2) attempts(4) seconds(30);",
-            "run initialized; initialize homotopy(true) step(0.5) minimum(0.6) growth(2) attempts(4) seconds(30);",
-            "run initialized; initialize homotopy(true) step(0.5) minimum(1e-6) growth(1) attempts(4) seconds(30);",
-            "run integrated;",
+            "route steady; procedure solve; stages(warm);",
+            "route steady; procedure initialize; initialize homotopy(true) step(0) minimum(1e-6) growth(2) attempts(4) seconds(30);",
+            "route steady; procedure initialize; initialize homotopy(true) step(0.5) minimum(0.6) growth(2) attempts(4) seconds(30);",
+            "route steady; procedure initialize; initialize homotopy(true) step(0.5) minimum(1e-6) growth(1) attempts(4) seconds(30);",
+            "route integrated; procedure integrate;",
             // A pure fixture starts no solver; allowances are positive.
-            "run pure; policy { backend ipopt; }",
-            "run pure; policy { derivatives step(1e-7); }",
-            "run steady; policy { limits items(0); }",
-            "run steady; policy { derivatives cells(0); }",
+            "route steady; procedure check; policy { backend ipopt; }",
+            "route steady; procedure check; policy { derivatives step(1e-7); }",
+            "route steady; procedure solve; policy { limits items(0); }",
+            "route steady; procedure solve; policy { derivatives cells(0); }",
             // A foreign allowance is a solve's, and positive.
-            "run pure; policy { limits foreign_bytes(1048576); }",
-            "run steady; policy { limits foreign_bytes(0); }",
+            "route steady; procedure check; policy { limits foreign_bytes(1048576); }",
+            "route steady; procedure solve; policy { limits foreign_bytes(0); }",
         ] {
             assert!(
                 rt.modeling_package(rows(metadata), physical.clone())
@@ -2418,9 +2282,9 @@ mod tests {
         // Admitted, but the derivative policy it declares is outside its bounds: the whole
         // run is refused, before the valid fixture ahead of it runs.
         for metadata in [
-            "run steady; policy { derivatives step(1.5); }",
-            "run steady; policy { derivatives step(0) tolerance(1e-4); }",
-            "run steady; policy { derivatives tolerance(-1); }",
+            "route steady; procedure solve; policy { derivatives step(1.5); }",
+            "route steady; procedure solve; policy { derivatives step(0) tolerance(1e-4); }",
+            "route steady; procedure solve; policy { derivatives tolerance(-1); }",
         ] {
             let package = rt
                 .modeling_package(rows(metadata), physical.clone())
@@ -2444,7 +2308,7 @@ mod tests {
     #[tokio::test]
     async fn kernel_conformance_uses_initialized_original_results() {
         let p = package(
-            "package p { def D { var x:Scalar; } test initialized fixture {dof 0; run initialized; initialize homotopy(false) step(0.5) minimum(1e-6) growth(2) attempts(2) seconds(30); fix root.x=2;} {child root:D=D(); expect root.x==2 tolerance 1e-8;} }",
+            "package p { def D { var x:Scalar; } test initialized fixture {dof 0; route steady; procedure initialize; initialize homotopy(false) step(0.5) minimum(1e-6) growth(2) attempts(2) seconds(30); fix root.x=2;} {child root:D=D(); expect root.x==2 tolerance 1e-8;} }",
         );
         let report = p
             .conform(policy(), &crate::CancelSource::new())
@@ -2476,7 +2340,7 @@ mod tests {
    stage "warm" {override eq e:x==2;} }
  interface Derived extends Base {}
  def D:Derived {}
- test initialized fixture {dof 0; run initialized; stages("warm");}
+ test initialized fixture {dof 0; route steady; procedure initialize; stages("warm");}
  {child root:D=D; expect root.x==4 tolerance 1e-8;}
  }"#;
         let p = package(source);
@@ -2516,7 +2380,7 @@ mod tests {
         let source = r#"package p {
  def D {var x:Scalar; var y:Scalar; eq a:x+y==2; eq b:x+1.000001*y==2.000001;
    annotation start x(0.5); annotation start y(0.5);}
- test near fixture {dof 0; run steady; EXPECTED} {child root:D=D(); expect root.x==1 tolerance 1e-4;}
+ test near fixture {dof 0; route steady; procedure solve; EXPECTED} {child root:D=D(); expect root.x==1 tolerance 1e-4;}
  }"#;
         let thresholds: ModelingDiagnosticPolicy = serde_json::from_str(include_str!(
             "../../../../../packages/reference/diagnostics/idaes-2.13.json"
@@ -2560,6 +2424,106 @@ mod tests {
         // Expected findings need the run's thresholds.
         assert!(run(named, None).await.is_err());
     }
+    #[tokio::test]
+    async fn conformance_publishes_original_structural_refusal_without_a_run_result() {
+        let p = package(
+            r#"package p {
+ def D { var x:Scalar; var y:Scalar; eq a:x==1; eq b:y==2; eq c:x+y==3;
+ annotation start x(0); annotation start y(0); }
+ test over fixture { dof -1; route steady; procedure solve; } { child root:D=D(); }
+ }"#,
+        );
+        let report = p
+            .conform(policy(), &crate::CancelSource::new())
+            .await
+            .unwrap();
+        assert!(report.results.is_empty());
+        let tables = report.admission_tables().unwrap();
+        let route = pse_relations::generated::runtime::route_decisions::Row::rows(
+            &tables[&pse_relations::generated::runtime::route_decisions::spec(&p.runtime.registry)
+                .unwrap()
+                .id],
+        )
+        .unwrap();
+        let structural_id =
+            pse_relations::generated::runtime::structural_assessments::spec(&p.runtime.registry)
+                .unwrap()
+                .id;
+        let structure = pse_relations::generated::runtime::structural_assessments::Row::rows(
+            &tables[&structural_id],
+        )
+        .unwrap();
+        assert_eq!(route.len(), 1);
+        assert_eq!(
+            route[0].refusal,
+            Some(pse_model::generated::enums::NativeRouteRefusal::NoEligible)
+        );
+        assert!(route[0].selected.is_none());
+        assert_eq!(structure.len(), 1);
+        assert_eq!(structure[0].request_identity, route[0].request_identity);
+        assert_eq!(
+            structure[0].mode,
+            pse_model::generated::enums::NativeStructuralMode::Roots
+        );
+        assert!(!structure[0].admitted);
+        assert_eq!(structure[0].variables.len(), 2);
+        assert_eq!(structure[0].equations.len(), 3);
+        assert_eq!(structure[0].matching.len(), 2);
+        assert_eq!(structure[0].unmatched_rows.len(), 1);
+        assert!(structure[0].unmatched_columns.is_empty());
+        let fixture = p
+            .declarations()
+            .iter()
+            .find(|row| row.name == "over")
+            .unwrap()
+            .declaration_id;
+        let defaults = policy();
+        let cancel = crate::CancelSource::new();
+        let execution = p
+            .declared_execution(
+                fixture,
+                defaults.compiler,
+                defaults.solver,
+                defaults.numerical,
+                defaults.limits,
+                &cancel,
+            )
+            .await
+            .unwrap();
+        let error = p.prepare_declared(&execution, &cancel).await.unwrap_err();
+        let WorkflowError::ModelingAdmission { diagnostic, cause } = error else {
+            panic!("attributed typed admission refusal expected");
+        };
+        assert!(
+            matches!(cause, MathRuntimeError::Solve(pse_backend_native::ProblemError::RouteRefused(ref decision))
+            if decision.structure.as_ref().is_some_and(|assessment| assessment.refusal.is_some()))
+        );
+        assert_eq!(
+            diagnostic.class,
+            pse_model::diagnostic::BoundaryClass::InvalidModel
+        );
+        assert_eq!(diagnostic.rule, "native.structural");
+        assert!(!diagnostic.locations.is_empty());
+        for member in ["root.a", "root.b", "root.c"] {
+            assert!(
+                diagnostic
+                    .locations
+                    .iter()
+                    .any(|location| location.path.ends_with(member)),
+                "{diagnostic:?}"
+            );
+        }
+        // The retained buffers remain inspectable after the fixture report and package drop.
+        drop(report);
+        drop(p);
+        assert_eq!(
+            pse_relations::generated::runtime::structural_assessments::Row::rows(
+                &tables[&structural_id]
+            )
+            .unwrap(),
+            structure
+        );
+    }
     /// An over-specified root model is refused structurally before any route is selected,
     /// naming its over-determined equations; its fixture expects that typed refusal, which
     /// the derivative inspection observes as well.
@@ -2568,7 +2532,7 @@ mod tests {
     async fn overspecified_root_is_refused_structurally_naming_members() {
         let source = r#"package p {
  def D {var x:Scalar; var y:Scalar; eq a:x==1; eq b:y==2; eq c:x+y==3; annotation start x(0); annotation start y(0);}
- test over fixture {dof -1; run steady;FAILURE} {child root:D=D();}
+ test over fixture {dof -1; route steady; procedure solve;FAILURE} {child root:D=D();}
  }"#;
         let p = package(&source.replace(
             "FAILURE",
@@ -2591,9 +2555,14 @@ mod tests {
             refusals.iter().all(|f| f.sources.len() == 3),
             "{refusals:?}"
         );
-        assert!(report.checks.iter().any(|c| c.kind == Kind::StartToSolve
-            && c.status == Status::Passed
-            && c.message.contains("structural deficiency")));
+        assert!(report.checks.iter().any(|c| {
+            c.kind == Kind::StartToSolve
+                && c.status == Status::Passed
+                && c.failure_ordinal
+                    .and_then(|ordinal| usize::try_from(ordinal).ok())
+                    .and_then(|ordinal| report.failures.get(ordinal))
+                    .is_some_and(|failure| failure.rule == "native.structural")
+        }));
         // Unexpected, the same refusal fails the fixture.
         let unexpected = package(&source.replace("FAILURE", ""))
             .conform(policy(), &crate::CancelSource::new())
@@ -2610,7 +2579,7 @@ mod tests {
         let source = r#"package p {
  def D {var x:Scalar; eq e:x==4; annotation start x(1); annotation bounds x(0,10);
    stage "out_of_range" {override eq e:x==20;} }
- test failed fixture {dof 0; run initialized; stages("out_of_range");FAILURE}
+ test failed fixture {dof 0; route steady; procedure initialize; stages("out_of_range");FAILURE}
  {child root:D=D; expect root.x==4 tolerance 1e-8;}
  }"#;
         let run = |text: String| async move {
@@ -2673,7 +2642,7 @@ mod tests {
         use pse_backend_native::presolve::Policy as Presolve;
         use pse_backend_native::solve::{Backend, SolveIntent as Intent, SolverSelection};
         let p = package(
-            "package p { def D { var x:Scalar; eq e:x==1; } test declared fixture {dof 0; run steady; intent certify; policy { backend ipopt; presolve off; options { \"print_level\" = 0; }; derivatives step(1e-7) cells(64); limits items(12) body_occurrences(4096) foreign_bytes(2147483648); }} {child root:D=D();} test open fixture {dof 0; run steady;} {child root:D=D();} }",
+            "package p { def D { var x:Scalar; eq e:x==1; } test declared fixture {dof 0; route steady; procedure solve; intent certify; policy { backend ipopt; presolve off; options { \"print_level\" = 0; }; derivatives step(1e-7) cells(64); limits items(12) body_occurrences(4096) foreign_bytes(2147483648); }} {child root:D=D();} test open fixture {dof 0; route steady; procedure solve;} {child root:D=D();} }",
         );
         let rows = p.declarations();
         let row = |name: &str| rows.iter().find(|r| r.name == name).unwrap();
@@ -2746,9 +2715,8 @@ mod tests {
                 .unwrap();
             assert_eq!(model.compiled().model.fixtures[&instance].intent, expected);
             let analysis = p
-                .declared_analysis(
+                .declared_execution(
                     id,
-                    Route::Steady,
                     Default::default(),
                     run.solver.clone(),
                     Default::default(),
@@ -2756,7 +2724,8 @@ mod tests {
                     &cancel,
                 )
                 .await
-                .unwrap();
+                .unwrap()
+                .analysis;
             let resolved = fixture_policy(row(name), &run).unwrap();
             assert_eq!(analysis.solver.controls, resolved.solver.controls);
             assert_eq!(analysis.solver.intent, resolved.solver.intent);
@@ -2765,7 +2734,7 @@ mod tests {
         }
         // A declared allowance applies to its own fixture only.
         let p = package(
-            "package p { def D { var x:Scalar; let y:Scalar=x*x; } test large fixture {dof 0; run pure; fix root.x=2;} {child root:D=D(); expect root.y==4 tolerance 1e-12;} test small fixture {dof 0; run pure; policy { limits items(1); } fix root.x=2;} {child root:D=D(); expect root.y==4 tolerance 1e-12;} }",
+            "package p { def D { var x:Scalar; let y:Scalar=x*x; } test large fixture {dof 0; route steady; procedure check; fix root.x=2;} {child root:D=D(); expect root.y==4 tolerance 1e-12;} test small fixture {dof 0; route steady; procedure check; policy { limits items(1); } fix root.x=2;} {child root:D=D(); expect root.y==4 tolerance 1e-12;} }",
         );
         let id = |name: &str| {
             p.declarations()
@@ -2796,11 +2765,11 @@ mod tests {
     async fn kernel_conformance_mixes_explicit_fixture_solver_and_derivative_policies() {
         let p = package(
             r#"package p {
-            test root fixture {dof 0; run steady;} {
+            test root fixture {dof 0; route steady; procedure solve;} {
                 var x:Scalar; eq e:x*x==4; annotation start x(1); annotation bounds x(0.5,3);
                 expect x==2 tolerance 1e-6;
             }
-            test optimization fixture {dof 1; run steady; intent optimize; policy { backend ipopt; derivatives step(1e-7) tolerance(1e-4) cells(100); }} {
+            test optimization fixture {dof 1; route steady; procedure solve; intent optimize; policy { backend ipopt; derivatives step(1e-7) tolerance(1e-4) cells(100); }} {
                 var x:Scalar; let cost:Scalar=(x-3)^2; annotation objective cost(minimize);
                 annotation start x(1); expect x==3 tolerance 1e-6;
             }
@@ -2836,7 +2805,7 @@ mod tests {
     #[tokio::test]
     async fn kernel_conformance_prepares_the_requested_exact_hessian() {
         let p = package(
-            "package p {def D {var x:Scalar; eq e:x*x==4; annotation start x(1); annotation bounds x(0.5,3);} test bounded fixture {dof 0; run steady;} {child root:D=D(); expect root.x==2 tolerance 1e-6;}}",
+            "package p {def D {var x:Scalar; eq e:x*x==4; annotation start x(1); annotation bounds x(0.5,3);} test bounded fixture {dof 0; route steady; procedure solve;} {child root:D=D(); expect root.x==2 tolerance 1e-6;}}",
         );
         let mut policy = policy();
         policy.solver.selection = pse_backend_native::solve::SolverSelection::Explicit(
@@ -2897,11 +2866,11 @@ mod tests {
         let physical = super::super::super::tests::physical();
         let source = r#"package p {
             fn square(x:Scalar)->Scalar=x*x;
-            test pure fixture { dof 0; run pure; } {
+            test pure fixture { dof 0; route steady; procedure check; } {
                 expect square(3)==9 tolerance 1e-12 relative 1e-6;
             }
             fn positive(x:Scalar)->Scalar valid(x > 0) = x;
-            test negative fixture { dof 0; run pure; failure trial_rejected validity(form) form(positive) variable(x); } {
+            test negative fixture { dof 0; route steady; procedure check; failure trial_rejected validity(form) form(positive) variable(x); } {
                 expect positive(-1)==1 tolerance 0;
             }
         }"#;
@@ -2983,10 +2952,10 @@ mod tests {
         use pse_model::generated::enums::ModelingValidityLayer as Layer;
         let source = format!(
             r#"package p {{ {ENVELOPE_BANK}
- test above fixture {{ dof 0; run pure; failure trial_rejected validity(data) form(cp) set(cp_data[a]) variable(T); }} {{ expect cp(450{{K}}, cp_data[a]) == 75{{J/(mol*K)}} tolerance 1e-9{{J/(mol*K)}}; }}
- test interval fixture {{ dof 0; run pure; failure trial_rejected validity(data) form(dh) set(cp_data[b]) variable(T0, T); }} {{ expect dh(250{{K}}, 350{{K}}, cp_data[b]) == 8000{{J/mol}} tolerance 1e-6{{J/mol}}; }}
- test negative fixture {{ dof 0; run pure; failure trial_rejected validity(form) form(cp) variable(T); }} {{ expect cp(-5{{K}}, cp_data[a]) == 75{{J/(mol*K)}} tolerance 1e-9{{J/(mol*K)}}; }}
- test inside fixture {{ dof 0; run pure; }} {{ expect cp(300{{K}}, cp_data[a]) == 75{{J/(mol*K)}} tolerance 1e-9{{J/(mol*K)}}; }}
+ test above fixture {{ dof 0; route steady; procedure check; failure trial_rejected validity(data) form(cp) set(cp_data[a]) variable(T); }} {{ expect cp(450{{K}}, cp_data[a]) == 75{{J/(mol*K)}} tolerance 1e-9{{J/(mol*K)}}; }}
+ test interval fixture {{ dof 0; route steady; procedure check; failure trial_rejected validity(data) form(dh) set(cp_data[b]) variable(T0, T); }} {{ expect dh(250{{K}}, 350{{K}}, cp_data[b]) == 8000{{J/mol}} tolerance 1e-6{{J/mol}}; }}
+ test negative fixture {{ dof 0; route steady; procedure check; failure trial_rejected validity(form) form(cp) variable(T); }} {{ expect cp(-5{{K}}, cp_data[a]) == 75{{J/(mol*K)}} tolerance 1e-9{{J/(mol*K)}}; }}
+ test inside fixture {{ dof 0; route steady; procedure check; }} {{ expect cp(300{{K}}, cp_data[a]) == 75{{J/(mol*K)}} tolerance 1e-9{{J/(mol*K)}}; }}
 }}"#
         );
         let rows = pse_authoring::language::parse(
@@ -3126,12 +3095,12 @@ mod tests {
         let tests = fixtures
             .iter()
             .map(|(name, lineage, _)| {
-                format!("test {name} fixture {{ dof 0; run pure; failure trial_rejected {lineage}; }} {{ {call} }}")
+                format!("test {name} fixture {{ dof 0; route steady; procedure check; failure trial_rejected {lineage}; }} {{ {call} }}")
             })
             .collect::<Vec<_>>()
             .join("\n");
         let source = format!(
-            "package p {{ {ENVELOPE_BANK}\n{tests}\n test unobserved fixture {{ dof 0; run pure; failure trial_rejected validity(data) form(cp) set(cp_data[a]) variable(T); }} {{ expect cp(300{{K}}, cp_data[a]) == 75{{J/(mol*K)}} tolerance 1e-9{{J/(mol*K)}}; }} }}"
+            "package p {{ {ENVELOPE_BANK}\n{tests}\n test unobserved fixture {{ dof 0; route steady; procedure check; failure trial_rejected validity(data) form(cp) set(cp_data[a]) variable(T); }} {{ expect cp(300{{K}}, cp_data[a]) == 75{{J/(mol*K)}} tolerance 1e-9{{J/(mol*K)}}; }} }}"
         );
         let p = package(&source);
         let report = p
@@ -3184,10 +3153,10 @@ mod tests {
  entity publication handbook { title = "Handbook", year = 1997 }
  fn positive(x: Scalar) -> Scalar valid(x > 0) = x;
  def Unit { param x: Scalar; let y: Scalar = x*x; }
- test unit_fixture oracle upstream_test fixture { dof 0; run pure; value root.x = 2; } { child root: Unit = Unit(); expect root.y == 4 tolerance 1e-9; }
- test release_fixture oracle upstream fixture { dof 0; run pure; } { expect positive(3) == 3 tolerance 1e-6 relative 1e-3; }
- test handbook_fixture oracle handbook fixture { dof 0; run pure; failure trial_rejected validity(form) form(positive) variable(x); } { expect positive(-1) == 1 tolerance 0.1; }
- test analytic fixture { dof 0; run pure; } { expect positive(1) == 1 tolerance 1e-9; }
+ test unit_fixture oracle upstream_test fixture { dof 0; route steady; procedure check; value root.x = 2; } { child root: Unit = Unit(); expect root.y == 4 tolerance 1e-9; }
+ test release_fixture oracle upstream fixture { dof 0; route steady; procedure check; } { expect positive(3) == 3 tolerance 1e-6 relative 1e-3; }
+ test handbook_fixture oracle handbook fixture { dof 0; route steady; procedure check; failure trial_rejected validity(form) form(positive) variable(x); } { expect positive(-1) == 1 tolerance 0.1; }
+ test analytic fixture { dof 0; route steady; procedure check; } { expect positive(1) == 1 tolerance 1e-9; }
 }"#,
         );
         let id = |name: &str| {

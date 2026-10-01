@@ -44,7 +44,7 @@
 }
 // Refinement of the IDAES 2.13 test_pfr TestInitializers specification over 5, 10, 20
 // and 40 backward finite-difference elements.
-@id("01a0ee447c1375339658c5a4e1c11aa5") test pfr_order_backward oracle campaign_references.analytic_backward_difference_order fixture {dof 0; run steady; policy { derivatives cells(20000000); }} {
+@id("01a0ee447c1375339658c5a4e1c11aa5") test pfr_order_backward oracle campaign_references.analytic_backward_difference_order fixture {dof 0; route steady; procedure solve; policy { derivatives cells(20000000); }} {
 // These concrete analyses read the recorded water constants through parameter defaults.
 // Accept their missing form-axis evidence only for these two fits; extrapolation stays disallowed.
 @id("41e087c15ad044858ba5271ad27f636c") permission solvent_parameter_use records(correlations.constant[chem.water,properties.heat_capacity,compatibility.PhaseType.liquidPhase,references.saponification_caloric_fit],correlations.constant_density[chem.water,properties.liquid_molar_density,compatibility.PhaseType.liquidPhase,references.saponification_density_fit]) allow_unknown true allow_extrapolation false;
@@ -54,7 +54,7 @@
 // Refinement of the same specification over 1, 2, 4 and 8 three-point Radau elements.
 // Finer meshes reach the solver tolerance at 8 elements (6e-9 mol/m3 from the seed
 // pfr_radau SciPy reference) and exceed the opaque derivative-support bound at 20.
-@id("01a0ee447c1375339658c5a6de76089b") test pfr_order_radau oracle campaign_references.analytic_radau_order fixture {dof 0; run steady; policy { derivatives cells(20000000); }} {
+@id("01a0ee447c1375339658c5a6de76089b") test pfr_order_radau oracle campaign_references.analytic_radau_order fixture {dof 0; route steady; procedure solve; policy { derivatives cells(20000000); }} {
 @id("8609a0c54aa44c9cb1b2f92456646926") permission solvent_parameter_use records(correlations.constant[chem.water,properties.heat_capacity,compatibility.PhaseType.liquidPhase,references.saponification_caloric_fit],correlations.constant_density[chem.water,properties.liquid_molar_density,compatibility.PhaseType.liquidPhase,references.saponification_density_fit]) allow_unknown true allow_extrapolation false;
 @id("3a3bb76099ba546f8d798492c2454e5f") permission kinetic_use families(reaction_forms.reaction_set) allow_unknown true allow_extrapolation false;
 @id("01a0ee447c1375339658c5a762738491") child root:OrderStudy=OrderStudy(radau=true,base=1,lower=4.4,upper=5.3);
@@ -62,7 +62,7 @@
 // Conservation and heat of reaction follow TestSaponification.test_conservation; its
 // 1e-6 absolute molar and energy balances add a 1e-9 relative allowance on the
 // 5.6e4 mol/s and 2e7 W streams for this solve's original-space tolerance.
-@id("01a0eeb74d7e726e81ad8d65fb5e4d34") test pfr_initializers_oracle oracle campaign_references.idaes_test_pfr_initializers fixture {dof 0; run steady;} {
+@id("01a0eeb74d7e726e81ad8d65fb5e4d34") test pfr_initializers_oracle oracle campaign_references.idaes_test_pfr_initializers fixture {dof 0; route steady; procedure solve;} {
 @id("cf9c69f1ad4f4698b6a37798d7341fc7") permission solvent_parameter_use records(correlations.constant[chem.water,properties.heat_capacity,compatibility.PhaseType.liquidPhase,references.saponification_caloric_fit],correlations.constant_density[chem.water,properties.liquid_molar_density,compatibility.PhaseType.liquidPhase,references.saponification_density_fit]) allow_unknown true allow_extrapolation false;
 @id("ea085e1c54a4551e92c5b8773bd278fc") permission kinetic_use families(reaction_forms.reaction_set) allow_unknown true allow_extrapolation false;
 @id("01a0eeb74d7e726e81ad8d66c516ac6e") child root:SaponificationPFR=SaponificationPFR(elements=20,radau=false);

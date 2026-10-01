@@ -91,6 +91,12 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
     declare_solutions(b);
     declare_catalog(b);
     declare_studies(b);
+    b.declare_relation(store("operational_schema_support_state", &["history"], vec![
+        column("history", text()), column("shared_version", int32()),
+        column("source", text()), column("target", text()), column("ready", flag()),
+    ], "Owned schema readiness and exact transition support. Catalog/control owns this shared object; operations depends on its supported shared version.")
+        .check("history_known", "\"history\" IN ('catalog', 'operations')")
+        .check("shared_version_positive", "\"shared_version\" > 0"));
 }
 
 fn declare_enumerations(b: &mut RegistryBuilder) {
@@ -135,6 +141,7 @@ fn declare_enumerations(b: &mut RegistryBuilder) {
         [
             "modeling",
             "simulation",
+            "shooting",
             "fit",
             "study",
             "study_finalization",

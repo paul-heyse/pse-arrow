@@ -88,8 +88,6 @@ pub struct StudyPoint {
 pub struct StudyPlan {
     /// The package closure's sources, stored content-addressed for the workers.
     pub sources: PackageSources,
-    /// The analysis route of every point.
-    pub route: ModelingAnalysisRoute,
     /// The solve settings of every point.
     pub settings: crate::math::settings::SolveSettings,
     /// The points, in index order.
@@ -100,19 +98,17 @@ pub struct StudyPlan {
     pub priority: i32,
 }
 
-/// Version 1 of a study's definition: the store's `definition` document and the content of
+/// Version 2 of a study's definition: the store's `definition` document and the content of
 /// the study's request identity.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct StudyDefinition {
     /// Document version.
-    pub version: Version<1>,
+    pub version: Version<2>,
     /// The source bundle of the physical package.
     pub physical: ContentHash,
     /// The source bundles of the modeling package closure, in load order.
     pub modeling: Vec<ContentHash>,
-    /// The analysis route of every point.
-    pub route: ModelingAnalysisRoute,
     /// The solve settings of every point.
     pub settings: crate::math::settings::SolveSettings,
     /// The points, in index order.
@@ -123,6 +119,8 @@ pub struct StudyDefinition {
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct StudyPointDefinition {
+    /// The authored route admitted when this point was queued.
+    pub route: ModelingAnalysisRoute,
     /// The authored case.
     pub case: DeclarationId,
     /// The hash of the point's value bindings.
@@ -409,14 +407,36 @@ impl Runtime {
         for bundle in &plan.sources.modeling {
             modeling.push(operations.put_sources(bundle).await?);
         }
+        let cancel = crate::CancelSource::new();
+        let package = self.package_from_sources(
+            &plan.sources.modeling,
+            self.physical_from_sources(&plan.sources.physical, &cancel)
+                .await?,
+        )?;
+        let solver = plan
+            .settings
+            .clone()
+            .profile()
+            .map_err(WorkflowError::Math)?;
         let mut points = Vec::with_capacity(plan.points.len());
         let mut bindings = std::collections::BTreeSet::new();
         for (index, point) in plan.points.iter().enumerate() {
+            let route = package
+                .declared_execution(
+                    point.case,
+                    Default::default(),
+                    solver.clone(),
+                    Default::default(),
+                    pse_modeling::Limits::default(),
+                    &cancel,
+                )
+                .await?
+                .route;
             let binding_hash = identity(
                 pse_ids::Frame::DurableStudyPointBindingV1,
                 &BindingContent {
                     case: point.case,
-                    route: plan.route,
+                    route,
                     overlay: &point.overlay,
                 },
             )?;
@@ -426,6 +446,7 @@ impl Runtime {
                 )));
             }
             points.push(StudyPointDefinition {
+                route,
                 case: point.case,
                 binding_hash,
                 overlay: point.overlay.clone(),
@@ -436,7 +457,6 @@ impl Runtime {
             version: Version,
             physical,
             modeling,
-            route: plan.route,
             settings: plan.settings,
             points,
         };
@@ -463,7 +483,7 @@ impl Runtime {
                 physical: definition.physical,
                 modeling: definition.modeling.clone(),
                 case: point.case,
-                route: definition.route,
+                route: point.route,
                 settings: definition.settings.clone(),
                 start: JobStart::Fresh,
                 study: Some(StudyPointBinding {

@@ -123,6 +123,10 @@ frames! {
         SchemaExecutionEncodingV1 => "pse.schema.execution-encoding.v1",
         /// An effective numerical policy request.
         NumericalPolicyV1 => "pse.numerical.policy.v1",
+        /// Numerical policy including incumbent permission; historical V1 remains unchanged.
+        NumericalPolicyV2 => "pse.numerical.policy.v2",
+        /// Request-qualified structural and route admission over bound model and resolved policies.
+        ModelingAdmissionV1 => "pse.modeling.admission.v1",
         /// A kernel provider's physical, algorithm and data identity.
         ProviderV4 => "pse.provider.v4",
         /// A kernel provider's configuration key framed with its checked output envelope.
@@ -386,6 +390,8 @@ frames! {
         /// A dynamic simulation profile, with its scheduled inputs and typed sensitivity; its
         /// IDAS settings carry no sign constraints.
         DynamicProfileV6 => "pse.dynamic.profile.v6",
+        /// Dynamic profile including explicit endpoint requirement.
+        DynamicProfileV7 => "pse.dynamic.profile.v7",
         /// An explicit conic request; its quadratic is certified exactly, so it carries no
         /// Gram witness.
         ExplicitConicV4 => "pse.explicit-conic.v4",
@@ -451,8 +457,9 @@ frames! {
     }
 
     "operational store" ("pse-operations, pse-codegen") {
-        /// The operational store's schema fingerprint over the generated `schema.sql` and
-        /// `physical.sql` (ADR-0114 Outcome 23). Added after the catalog was captured.
+        /// Owned database history/support closure, independent of unrelated registry declarations.
+        OpsComponentV1 => "pse.ops.component.v1",
+        /// Historical operational schema fingerprint over generated and physical SQL.
         OpsSchemaV1 => "pse.ops.schema.v1",
     }
 }

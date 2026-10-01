@@ -908,6 +908,7 @@ fn run<LS: LinearSolver<M>>(
                 let mut solver = $solver.map_err(native)?;
                 record_start(&shared, &solver, p, r, time)?;
                 if time >= p.end && boundaries.get(segment) != Some(&time) {
+                    capture_endpoint(&shared, r, time, solver.state().y.as_slice(), None)?;
                     r.termination = Termination::Completed;
                     return Ok(());
                 }
@@ -944,6 +945,7 @@ fn run<LS: LinearSolver<M>>(
                 let mut solver = $solver.map_err(native)?;
                 record_start(&shared, &solver, p, r, time)?;
                 if time >= p.end && boundaries.get(segment) != Some(&time) {
+                    capture_endpoint(&shared, r, time, solver.state().y.as_slice(), None)?;
                     r.termination = Termination::Completed;
                     return Ok(());
                 }
@@ -1004,6 +1006,7 @@ fn run<LS: LinearSolver<M>>(
                 after: None,
             });
             if e.terminal {
+                capture_endpoint(&shared, r, time, &state, Some(e.id))?;
                 if p.samples.get(r.samples.len()).is_some_and(|t| *t == time) {
                     let outputs = shared
                         .evaluate(Function::Output, time, &state, false)
@@ -1034,7 +1037,7 @@ fn run<LS: LinearSolver<M>>(
             // schedule changes are consistently initialized.
             continue;
         } else {
-            *shared.seed.borrow_mut() = Some(state);
+            *shared.seed.borrow_mut() = Some(state.clone());
         }
         // Roots precede a scheduled change at the same native stop time.
         let changed = boundaries.get(segment).is_some_and(|b| *b == time);
@@ -1060,6 +1063,7 @@ fn run<LS: LinearSolver<M>>(
             segment += 1;
         }
         if time >= p.end && event.is_none() && !changed {
+            capture_endpoint(&shared, r, time, &state, None)?;
             r.termination = Termination::Completed;
             return Ok(());
         }
@@ -1252,6 +1256,40 @@ fn drive<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>>>(
             return Ok((root, s.state().y.as_slice().to_vec()));
         }
     }
+}
+fn capture_endpoint(
+    shared: &Rc<Shared<'_>>,
+    r: &mut Report,
+    time: f64,
+    state: &[f64],
+    event: Option<SemanticId>,
+) -> Result<(), ProblemError> {
+    shared.check();
+    let outputs = shared.evaluate(Function::Output, time, state, false).values;
+    if let Some((_, error)) = shared.failure.borrow_mut().take() {
+        return Err(error);
+    }
+    let point = r
+        .samples
+        .last()
+        .filter(|s| s.time == time && s.mode == shared.mode.get())
+        .cloned()
+        .unwrap_or_else(|| Sample {
+            mode: shared.mode.get(),
+            integrals: shared.integrals.borrow().clone(),
+            time,
+            state: state.to_vec(),
+            outputs,
+            state_sensitivities: vec![],
+            output_sensitivities: vec![],
+        });
+    r.endpoint = Some(TrajectoryEndpoint {
+        point,
+        event,
+        input_columns: shared.columns.borrow().clone(),
+        inputs: shared.values(),
+    });
+    Ok(())
 }
 fn sample<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>>>(
     shared: &Rc<Shared<'o>>,

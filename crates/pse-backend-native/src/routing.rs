@@ -24,6 +24,134 @@ pub enum Route {
     /// Native implementation and its separately admitted representation.
     Native(Backend),
 }
+/// Native degradation semantics are registry-owned.
+pub use pse_model::generated::enums::NativeLexicographicDegradation as DegradationSupport;
+/// Registry-owned realization of authored priorities.
+pub use pse_model::generated::enums::NativeLexicographicRealization as Lexicographic;
+/// Attributable refusal independent of whether a native attempt exists.
+#[derive(Clone, Debug)]
+pub enum Refusal {
+    /// Invalid request retained independently of capability eligibility.
+    InvalidRequest(String),
+    /// No admitted automatic representation.
+    NoEligible,
+    /// Requested backend is absent from the linked table.
+    Unavailable(Backend),
+    /// Requested backend cannot represent this request.
+    Ineligible(Backend),
+    /// Constant evaluation cannot consume native forms.
+    ConstantNativeForms,
+    /// Original-coordinate structural admission refused.
+    Structure,
+}
+/// Complete route facts retained on success and refusal.
+#[derive(Clone, Debug)]
+pub struct Decision {
+    /// Authored mathematical purpose.
+    pub intent: SolveIntent,
+    /// Requested automatic or explicit selection.
+    pub selection: SolverSelection,
+    /// Compiler-derived classes in preference order.
+    pub classes: Vec<ProblemClass>,
+    /// Every contextual capability assessment.
+    pub eligibility: Vec<Eligibility>,
+    /// Selected route, absent on refusal.
+    pub selected: Option<Route>,
+    /// Chosen native representation, retained from the selected capability table.
+    pub representation: Option<crate::execution::Representation>,
+    /// Native/staged priority realization, absent for one objective.
+    pub lexicographic: Option<Lexicographic>,
+    /// Original structural facts, including refused witness.
+    pub structure: Option<crate::structural::Assessment>,
+    /// Admission refusal, never inferred from an absent candidate.
+    pub refusal: Option<Refusal>,
+}
+impl Decision {
+    /// Return the admitted route or preserve all refusal facts in its typed cause.
+    pub fn route(&self) -> Result<Route, ProblemError> {
+        self.selected
+            .filter(|_| self.refusal.is_none())
+            .ok_or_else(|| ProblemError::RouteRefused(Box::new(self.clone())))
+    }
+    /// Publish retained admission facts without manufacturing a numerical run identity.
+    pub fn row(
+        &self,
+        request_identity: pse_ids::ContentHash,
+        step: i64,
+    ) -> pse_model::generated::runtime::route_decisions::Row {
+        use pse_model::generated::{
+            enums::{
+                NativeRouteKind as Kind, NativeRouteRefusal as Refused,
+                NativeRouteSelection as Selection,
+            },
+            runtime::route_decisions::*,
+        };
+        let (selection, requested_backend) = match self.selection {
+            SolverSelection::Auto => (Selection::Auto, None),
+            SolverSelection::Explicit(backend) => (Selection::Explicit, Some(backend)),
+        };
+        let (selected, backend) = match self.selected {
+            None => (None, None),
+            Some(Route::Constant) => (Some(Kind::Constant), None),
+            Some(Route::Native(backend)) => (Some(Kind::Native), Some(backend)),
+        };
+        let refusal = self.refusal.as_ref().map(|reason| match reason {
+            Refusal::InvalidRequest(_) => Refused::InvalidRequest,
+            Refusal::NoEligible => Refused::NoEligible,
+            Refusal::Unavailable(_) => Refused::Unavailable,
+            Refusal::Ineligible(_) => Refused::Ineligible,
+            Refusal::ConstantNativeForms => Refused::ConstantNativeForms,
+            Refusal::Structure => Refused::Structure,
+        });
+        RuntimeRouteDecisionsRow {
+            request_identity,
+            step,
+            intent: self.intent,
+            selection,
+            requested_backend,
+            classes: self.classes.clone(),
+            eligibility: self
+                .eligibility
+                .iter()
+                .map(|entry| RuntimeRouteDecisionsFieldEligibilityItem {
+                    backend: entry.backend,
+                    reasons: entry.reasons.iter().map(Ineligible::code).collect(),
+                })
+                .collect(),
+            selected,
+            backend,
+            representation: self.representation,
+            lexicographic: self.lexicographic,
+            refusal,
+            detail: self.refusal.as_ref().map(|_| self.to_string()),
+        }
+    }
+    /// Bytes retained outside a fixed route receipt.
+    pub fn retained_bytes(&self) -> usize {
+        self.classes.capacity() * size_of::<ProblemClass>()
+            + self
+                .eligibility
+                .iter()
+                .map(|e| e.reasons.capacity() * size_of::<Ineligible>())
+                .sum::<usize>()
+            + self.structure.as_ref().map_or(0, |s| {
+                s.variables.capacity() * size_of::<pse_ids::SemanticId>()
+                    + s.equations.capacity() * size_of::<pse_structural::incidence::Constraint>()
+            })
+    }
+}
+impl std::fmt::Display for Decision {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{:?} {:?}: {:?}; {}",
+            self.intent,
+            self.selection,
+            self.refusal,
+            assessed(&self.eligibility)
+        )
+    }
+}
 /// Why one adapter cannot represent this request; every applicable reason is reported.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Ineligible {
@@ -407,7 +535,7 @@ impl Requirements<'_> {
     pub fn eligibility(&self) -> Vec<Eligibility> {
         self.table
             .adapters()
-            .filter(|a| a.representation().algebraic())
+            .filter(|a| crate::execution::algebraic(a.representation()))
             .map(|a| Eligibility {
                 backend: a.backend(),
                 reasons: a.admit(self),
@@ -415,14 +543,137 @@ impl Requirements<'_> {
             .collect()
     }
     /// Deterministic route; explicit selection never silently falls back.
+    /// Assess once and retain every fact even when routing refuses.
+    pub fn decision(&self, selection: SolverSelection) -> Decision {
+        self.decide_assessed(selection, self.eligibility(), None)
+    }
+    /// Reuse the same original witness for solving, diagnosis and conformance.
+    pub fn bound_decision(
+        &self,
+        selection: SolverSelection,
+        variables: Vec<pse_ids::SemanticId>,
+        equations: Vec<pse_structural::incidence::Constraint>,
+        witness: std::sync::Arc<pse_structural::incidence::StructuralAnalysis>,
+    ) -> Result<Decision, ProblemError> {
+        let mut decision = self.decision(selection);
+        let policy = match decision.selected {
+            Some(Route::Native(backend)) => {
+                self.table.get(backend).map(|a| a.capability().structural)
+            }
+            _ => match selection {
+                SolverSelection::Explicit(backend) => {
+                    self.table.get(backend).map(|a| a.capability().structural)
+                }
+                SolverSelection::Auto => None,
+            },
+        }
+        .unwrap_or(if self.facts.coefficients || self.facts.convexity.cone() {
+            crate::structural::Policy::NativeFeasibility
+        } else {
+            crate::structural::Policy::Equalities
+        });
+        let mode = if decision.selected == Some(Route::Constant) {
+            crate::structural::Mode::PointEvaluation
+        } else {
+            crate::structural::mode(policy, self.facts, self.intent)
+        };
+        let assessment = crate::structural::Assessment::new(mode, variables, equations, witness)?;
+        if assessment.refusal.is_some() && decision.refusal.is_none() {
+            decision.refusal = Some(Refusal::Structure);
+        }
+        decision.structure = Some(assessment);
+        Ok(decision)
+    }
+    fn decide_assessed(
+        &self,
+        selection: SolverSelection,
+        eligibility: Vec<Eligibility>,
+        lexicographic: Option<Lexicographic>,
+    ) -> Decision {
+        let result = self.select_assessed(selection, &eligibility);
+        let (selected, refusal) = match result {
+            Ok(route) => (Some(route), None),
+            Err(ProblemError::Contract(detail)) => (None, Some(Refusal::InvalidRequest(detail))),
+            Err(ProblemError::Unavailable { backend, .. }) => {
+                (None, Some(Refusal::Unavailable(backend)))
+            }
+            Err(_) if self.facts.variables == 0 && !self.facts.native.is_empty() => {
+                (None, Some(Refusal::ConstantNativeForms))
+            }
+            Err(_) => (
+                None,
+                Some(match selection {
+                    SolverSelection::Auto => Refusal::NoEligible,
+                    SolverSelection::Explicit(b) => Refusal::Ineligible(b),
+                }),
+            ),
+        };
+        Decision {
+            intent: self.intent,
+            selection,
+            classes: problem_classes(self.facts, self.intent, self.numerical_psd),
+            eligibility,
+            selected,
+            representation: selected.and_then(|r| match r {
+                Route::Native(b) => self.table.get(b).map(|a| a.representation()),
+                Route::Constant => None,
+            }),
+            lexicographic,
+            structure: None,
+            refusal,
+        }
+    }
+    /// A capability query chooses native priorities first, otherwise admitted stages.
+    /// An explicit backend is retained for every stage; no fallback is requested.
+    pub fn lexicographic(&self, selection: SolverSelection, single_nonzero: bool) -> Decision {
+        let mut eligibility = self.eligibility();
+        for choice in &mut eligibility {
+            if !single_nonzero
+                && self.table.get(choice.backend).is_some_and(|a| {
+                    a.capability().lexicographic_degradation == DegradationSupport::SingleNonzero
+                })
+            {
+                choice.reasons.push(Ineligible::Lexicographic {
+                    problem: problem_classes(self.facts, self.intent, self.numerical_psd),
+                });
+            }
+        }
+        let native = self.decide_assessed(selection, eligibility, Some(Lexicographic::Native));
+        if native.selected.is_some() {
+            return native;
+        }
+        let mut facts = self.facts.clone();
+        facts.objectives = 1;
+        let staged = Requirements {
+            table: self.table,
+            facts: &facts,
+            intent: self.intent,
+            numerical_psd: self.numerical_psd,
+            least_squares: self.least_squares,
+            controls: self.controls,
+            settings: self.settings,
+            sensitivity: self.sensitivity,
+        };
+        let mut decision =
+            staged.decide_assessed(selection, staged.eligibility(), Some(Lexicographic::Staged));
+        decision.classes = problem_classes(self.facts, self.intent, self.numerical_psd);
+        decision
+    }
+    /// Select from the retained decision consumed by diagnostics.
     pub fn select(&self, selection: SolverSelection) -> Result<Route, ProblemError> {
+        self.decision(selection).route()
+    }
+    fn select_assessed(
+        &self,
+        selection: SolverSelection,
+        choices: &[Eligibility],
+    ) -> Result<Route, ProblemError> {
         self.controls.validate()?;
         if self.intent == SolveIntent::Optimize && !self.facts.objective {
             return Err(ProblemError::Contract(
                 "optimization needs an authored objective".into(),
             ));
         }
-        let choices = self.eligibility();
         let admitted = |backend| {
             choices
                 .iter()
@@ -568,7 +819,7 @@ mod tests {
         };
         assert!(matches!(
             requirements.select(SolverSelection::Auto),
-            Err(ProblemError::Unsupported(_))
+            Err(ProblemError::RouteRefused(_))
         ));
         if adapter(Backend::Ipopt).linked() {
             static IPOPT_ONLY: Table = Table::new(&[adapter(Backend::Ipopt)]);
@@ -832,7 +1083,7 @@ mod tests {
         f.variables = 0;
         assert!(matches!(
             select(&f, SolveIntent::Optimize, SolverSelection::Auto, true),
-            Err(ProblemError::Unsupported(_))
+            Err(ProblemError::RouteRefused(_))
         ));
         f.native.clear();
         assert_eq!(
@@ -1052,7 +1303,7 @@ mod tests {
             );
             assert!(matches!(
                 requirements.select(SolverSelection::Auto),
-                Err(ProblemError::Unsupported(_))
+                Err(ProblemError::RouteRefused(_))
             ));
             // In the linked table, HiGHS keeps both classes automatically.
             if adapter(Backend::Highs).linked() {
@@ -1202,7 +1453,7 @@ mod tests {
                 false,
             );
             assert!(
-                matches!(&explicit, Err(ProblemError::Unsupported(m)) if m.contains("problem class")),
+                matches!(&explicit, Err(ProblemError::RouteRefused(d)) if d.eligibility.iter().any(|e| e.backend == Backend::Clarabel && e.reasons.iter().any(|r| matches!(r, Ineligible::Class {..})))),
                 "{explicit:?}"
             );
             if let Ok(route) = select(&f, SolveIntent::Optimize, SolverSelection::Auto, false) {
@@ -1396,14 +1647,17 @@ mod tests {
                 false,
             )
             .unwrap_err();
-            assert!(matches!(error, ProblemError::Unsupported(_)), "{error:?}");
+            assert!(
+                matches!(error, ProblemError::RouteRefused(ref decision) if decision.selected.is_none() && decision.refusal.is_some()),
+                "{error:?}"
+            );
         }
         let route = select(&f, SolveIntent::Certify, SolverSelection::Auto, false);
         if linked {
             assert_eq!(route.unwrap(), Route::Native(Backend::Scip));
         } else {
             assert!(
-                matches!(&route, Err(ProblemError::Unsupported(m)) if m == "no linked backend certifies global bounds"),
+                matches!(&route, Err(ProblemError::RouteRefused(d)) if matches!(d.refusal, Some(Refusal::NoEligible))),
                 "{route:?}"
             );
         }
@@ -1418,7 +1672,7 @@ mod tests {
         f.variables = 0;
         assert!(matches!(
             select(&f, SolveIntent::Certify, SolverSelection::Auto, false),
-            Err(ProblemError::Unsupported(_))
+            Err(ProblemError::RouteRefused(_))
         ));
         let requirements = Requirements {
             table: &LINKED,

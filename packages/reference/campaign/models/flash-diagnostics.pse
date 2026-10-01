@@ -55,7 +55,7 @@
 // change fixed) whose outlet temperature is fixed as well: one equation too many. The root
 // solve is refused structurally before any route is chosen, and the refusal names the
 // over-determined equations; the derivative inspection observes the same refusal.
-@id("01a0f068fdfc75a08bdfd2a200159013") test flash_overspecified oracle campaign_references.analytic_overspecified_flash fixture {dof -1; run steady; failure invalid_model members(root.outlet.fugacity); fix root.inlet.flow=1{mol/s}; fix root.inlet.T=368{K}; fix root.inlet.pressure=101325{Pa}; fix root.inlet.z[chem.benzene]=0.5{1}; fix root.inlet.z[chem.toluene]=0.5{1}; fix root.heat=0{W}; fix root.delta_pressure=0{Pa}; fix root.outlet.T=368{K};} {
+@id("01a0f068fdfc75a08bdfd2a200159013") test flash_overspecified oracle campaign_references.analytic_overspecified_flash fixture {dof -1; route steady; procedure solve; failure invalid_model members(root.outlet.fugacity); fix root.inlet.flow=1{mol/s}; fix root.inlet.T=368{K}; fix root.inlet.pressure=101325{Pa}; fix root.inlet.z[chem.benzene]=0.5{1}; fix root.inlet.z[chem.toluene]=0.5{1}; fix root.heat=0{W}; fix root.delta_pressure=0{Pa}; fix root.outlet.T=368{K};} {
 @id("01a0f068fdfc75a08bdfd2a3cdbe2102") child root:flashing.Flash=flashing.Flash(inlet_pkg=bt_ideal.BTIdeal(defined_state=true),outlet_pkg=bt_ideal.BTIdeal(defined_state=false));
 }
 // Two equilibrium stages at 101325 Pa with 100 mol/s boilup, fed 1e-6 mol/s of equimolar
@@ -66,7 +66,7 @@
 // the Jacobian numerically rank deficient, the deficiency carried by those balances. The
 // state is the total-reflux limit: the reflux is the top vapor, the boilup the bottom
 // liquid, and the overall balance makes y1 + x2 = 1 for benzene.
-@id("01a0f07702427104927e4f2b77e7ea5d") test cascade_near_singular_diagnostics_name_members oracle campaign_references.analytic_total_reflux_cascade fixture {dof 0; run steady; diagnose "jacobian.parallel_rows" at(root.material[tray_1,chem.benzene], root.material[tray_2,chem.benzene]); diagnose "jacobian.parallel_rows" at(root.material[tray_1,chem.toluene], root.material[tray_2,chem.toluene]); diagnose "jacobian.numerical_rank_deficiency" at(root.material); fix root.feed=0.000001{mol/s}; fix root.feed_composition[chem.benzene]=0.5{1}; fix root.feed_composition[chem.toluene]=0.5{1}; fix root.distillate=0.0000005{mol/s}; fix root.boilup=100{mol/s}; fix root.pressure=101325{Pa};} {
+@id("01a0f07702427104927e4f2b77e7ea5d") test cascade_near_singular_diagnostics_name_members oracle campaign_references.analytic_total_reflux_cascade fixture {dof 0; route steady; procedure solve; diagnose "jacobian.parallel_rows" at(root.material[tray_1,chem.benzene], root.material[tray_2,chem.benzene]); diagnose "jacobian.parallel_rows" at(root.material[tray_1,chem.toluene], root.material[tray_2,chem.toluene]); diagnose "jacobian.numerical_rank_deficiency" at(root.material); fix root.feed=0.000001{mol/s}; fix root.feed_composition[chem.benzene]=0.5{1}; fix root.feed_composition[chem.toluene]=0.5{1}; fix root.distillate=0.0000005{mol/s}; fix root.boilup=100{mol/s}; fix root.pressure=101325{Pa};} {
 @id("01a0f07702427104927e4f2c4edcde14") child root:EquilibriumCascade=EquilibriumCascade(stages=trays,links=keys(descends),top=tray_1,bottom=tray_2,vapor_pressure=bt_ideal.psat);
 @id("01a0f0825b1773e7a4249396ebce4074") expect root.y[tray_1,chem.benzene]==0.71137987{1} tolerance 0.000001{1};
 @id("01a0f0825b1773e7a42493979d19d447") expect root.x[tray_1,chem.benzene]==0.49720822{1} tolerance 0.000001{1};

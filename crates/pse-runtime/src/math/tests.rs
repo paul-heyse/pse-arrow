@@ -14,7 +14,7 @@ use std::sync::atomic::Ordering;
 fn id(n: u8) -> SemanticId {
     SemanticId::from_bytes([n; 16])
 }
-fn service() -> Arc<MathService> {
+pub(super) fn service() -> Arc<MathService> {
     service_and_cache().0
 }
 fn service_and_cache() -> (
@@ -1579,5 +1579,8 @@ async fn certify_intent_projects_and_solves_through_the_factorable_route() {
     assert!((x + 1.300_839).abs() < 1e-3, "{x}");
     assert_eq!(r.qualification, Qualification::GapQualified);
     assert_eq!(r.termination.assurance, Assurance::GlobalBound);
-    assert_eq!(outcome.candidate_use().usability, CandidateUse::Usable);
+    assert_eq!(
+        outcome.candidate_use(&Default::default()).usability,
+        CandidateUse::Usable
+    );
 }

@@ -60,6 +60,7 @@ proposed, implemented, tested and measured claims
 distinct, date verified claims, and retain composite or partial qualification boundaries. Close
 findings only with evidence for their stated obligation. Follow repository commit policy within
 the task's authorization, and update the existing plan or active packet checkpoint when the work
-changes what is true; keep `docs/plans/README.md` as navigation to its owner. Report the resulting
+changes what is true; keep `docs/plans/README.md` as navigation to its owner. Clean up any
+remaining worktrees that are fully merged. Report the resulting
 behavior, verification and any remaining authorized work or blockers;
 do not treat a partial slice as completion of the requested scope.

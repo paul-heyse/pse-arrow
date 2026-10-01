@@ -36,8 +36,9 @@ use std::collections::{BTreeMap, BTreeSet};
 pub use value::{Environment, Value};
 mod fixture;
 pub use fixture::{
-    ExpectedFailure, ExpectedLineage, Fixture, FixtureDiagnostic, FixtureEvent, FixtureMode,
-    FixtureValue, IntegrationFixture, ScheduleControl, ScheduleFixture, ShootingFixture,
+    ExpectedFailure, ExpectedLineage, Fixture, FixtureDiagnostic, FixtureEndpoint, FixtureEvent,
+    FixtureMode, FixtureValue, IntegrationFixture, ScheduleControl, ScheduleFixture,
+    ShootingFixture,
 };
 mod regimes;
 pub use regimes::{Regime, RegimeSelection, RootSelection};

@@ -1818,7 +1818,9 @@ impl Cursor<'_> {
                         .map_err(|_| self.error("signed integer degrees of freedom"))?;
                     self.expect(";")?;
                     let mut specifications = Vec::new();
-                    let mut execution = None;
+                    let mut route = None;
+                    let mut procedure = None;
+                    let mut endpoint = None;
                     let mut intent = None;
                     let mut policy = None;
                     let mut stages = Vec::new();
@@ -1988,16 +1990,47 @@ impl Cursor<'_> {
                                 });
                             continue;
                         }
-                        if self.eat("run") {
-                            if execution.is_some() {
-                                return Err(self.error("one fixture execution mode"));
+                        if self.eat("route") {
+                            if route.is_some() {
+                                return Err(self.error("one fixture temporal route"));
                             }
-                            execution = Some(
+                            route = Some(
                                 self.word()?
                                     .parse()
-                                    .map_err(|_| self.error("fixture execution mode"))?,
+                                    .map_err(|_| self.error("fixture temporal route"))?,
                             );
                             self.expect(";")?;
+                            continue;
+                        }
+                        if self.eat("procedure") {
+                            if procedure.is_some() {
+                                return Err(self.error("one fixture procedure"));
+                            }
+                            procedure = Some(
+                                self.word()?
+                                    .parse()
+                                    .map_err(|_| self.error("fixture procedure"))?,
+                            );
+                            self.expect(";")?;
+                            continue;
+                        }
+                        if self.eat("endpoint") {
+                            if endpoint.is_some() {
+                                return Err(self.error("one endpoint requirement"));
+                            }
+                            let kind = self
+                                .word()?
+                                .parse::<pse_model::generated::enums::EndpointPolicy>()
+                                .map_err(|_| self.error("endpoint policy"))?;
+                            let event = if kind == pse_model::generated::enums::EndpointPolicy::DeclaredTerminalEvent {
+                                self.expect("(")?; let event = self.until(&[")"])?; self.expect(")")?; Some(event)
+                            } else { None };
+                            self.expect(";")?;
+                            endpoint =
+                                Some(AuthoredModelingDeclarationsFieldValueScopeFixtureEndpoint {
+                                    kind,
+                                    event,
+                                });
                             continue;
                         }
                         if self.eat("intent") {
@@ -2235,7 +2268,9 @@ impl Cursor<'_> {
                     }
                     Some(AuthoredModelingDeclarationsFieldValueScopeFixture {
                         degrees_of_freedom,
-                        execution,
+                        route,
+                        procedure,
+                        endpoint,
                         intent,
                         policy,
                         stages,

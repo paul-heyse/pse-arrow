@@ -409,6 +409,12 @@ impl RunResult {
                 algorithms.hash(&f.problem.profile_key);
                 target.hash(&f.problem.key);
             }
+            #[cfg(feature = "solver-diffsol")]
+            super::run::RunRequest::Shooting { problem, initial } => {
+                source.hash(&problem.simulation.source.revision.identity());
+                algorithms.hash(&problem.profile_key);
+                target.hash(&problem.request_identity(initial.as_deref()));
+            }
             super::run::RunRequest::Simulation(s) => {
                 source.hash(&s.source.revision.identity());
                 algorithms.hash(&s.contract().identity);

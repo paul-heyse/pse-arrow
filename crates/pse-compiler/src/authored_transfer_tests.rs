@@ -473,7 +473,7 @@ expect reactors.stored_energy(0.1{m^3},10{mol/m^3},2000{J/mol},100000{Pa})==2000
 expect reactors.stored_energy(0.1{m^3},10{mol/m^3},2000{J/mol},101325{Pa})==1867.5{J} tolerance 1e-9{J};
 expect reactors.stored_energy(0.1{m^3},10{mol/m^3},0{J/mol},101325{Pa})==-132.5{J} tolerance 1e-9{J};
 }
-test reaction_rates fixture {dof 0;run pure;fix root.T=303.15{K};fix root.concentration[chem.water]=55388{mol/m^3};fix root.concentration[chem.sodium_hydroxide]=100{mol/m^3};fix root.concentration[chem.ethyl_acetate]=100{mol/m^3};fix root.concentration[chem.sodium_acetate]=0{mol/m^3};fix root.concentration[chem.ethanol]=0{mol/m^3};} {
+test reaction_rates fixture {dof 0;route steady; procedure check;fix root.T=303.15{K};fix root.concentration[chem.water]=55388{mol/m^3};fix root.concentration[chem.sodium_hydroxide]=100{mol/m^3};fix root.concentration[chem.ethyl_acetate]=100{mol/m^3};fix root.concentration[chem.sodium_acetate]=0{mol/m^3};fix root.concentration[chem.ethanol]=0{mol/m^3};} {
 permission kinetic_use families(reaction_forms.reaction_set) allow_unknown true allow_extrapolation false;
 child root:reactions.Projection=reactions.Projection(material=saponification.SaponificationReactions.components,selected=saponification.SaponificationReactions.records,selection=saponification.SaponificationReactions.admitted);
 let extent[r in saponification.reaction_set]:ReactionExtentRate=0.001{m^3}*root.rate[r];

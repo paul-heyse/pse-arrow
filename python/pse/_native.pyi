@@ -372,6 +372,7 @@ class NativeIneligible:
 
 @final
 class NativeModelingConformance:
+    def admission(self, /, name: str) -> TableStream: ...
     @property
     def complete(self, /) -> bool: ...
     def failure(self, /, ordinal: int) -> DiagnosticReport: ...
@@ -566,15 +567,15 @@ class NativeModelingPackage:
         case_id: str,
         settings: bytes,
         *,
-        stages: Sequence[str] = ...,
-        homotopy: bool = False,
-        initial_step: float = 0.25,
-        minimum_step: float = 1e-6,
-        growth: float = 1.5,
-        maximum_attempts: int = 128,
-        time_limit: float = 60.0,
-        discrete: str = "refuse",
-        discrete_values: dict[str, float] = ...,
+        stages: Sequence[str] | None = None,
+        homotopy: bool | None = None,
+        initial_step: float | None = None,
+        minimum_step: float | None = None,
+        growth: float | None = None,
+        maximum_attempts: int | None = None,
+        time_limit: float | None = None,
+        discrete: str | None = None,
+        discrete_values: dict[str, float] | None = None,
     ) -> NativeModelingInitialization: ...
     def inspect(self, /, case_id: str, settings: bytes) -> bytes: ...
     def knowledge(
@@ -610,14 +611,12 @@ class NativeModelingPackage:
         self, /, case_id: str, settings: SimulationSettings
     ) -> NativePreparedOperation: ...
     def prepare_solve(
-        self, /, case_id: str, settings: bytes, *, route: str = "steady"
+        self, /, case_id: str, settings: bytes
     ) -> NativePreparedOperation: ...
     def simulate(
         self, /, case_id: str, settings: SimulationSettings
     ) -> NativeModelingTrajectory: ...
-    def solve_case(
-        self, /, case_id: str, settings: bytes, *, route: str = "steady"
-    ) -> NativeModelingResult: ...
+    def solve_case(self, /, case_id: str, settings: bytes) -> NativeModelingResult: ...
     def start_study(
         self,
         /,

@@ -89,6 +89,8 @@ impl Settings {
 pub(super) struct Scip;
 pub(super) static ADAPTER: Scip = Scip;
 static CAPABILITY: Capability = Capability {
+    structural: crate::structural::Policy::Factorable,
+    lexicographic_degradation: crate::routing::DegradationSupport::Max,
     classes: &[
         ProblemClass::Linear,
         ProblemClass::MixedLinear,

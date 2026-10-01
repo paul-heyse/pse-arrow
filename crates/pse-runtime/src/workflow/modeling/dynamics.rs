@@ -77,15 +77,13 @@ pub struct ModelingTrajectory {
     pub checks_complete: bool,
     /// Whether the native outcome, checks and closure permit using the trajectory.
     pub accepted: bool,
+    /// One composed permission decision retained for every downstream consumer.
+    pub(in crate::workflow) completion: crate::workflow::numerics::Completed,
     /// Why sample checks could not be evaluated, if they could not.
     pub validation_error: Option<pse_model::diagnostic::BoundaryDiagnostic>,
     _owner: Arc<pse_columnar::AllocationLease>,
 }
 impl ModelingTrajectory {
-    /// Native trajectory decision owned by `pse-backend-native`.
-    pub(crate) fn candidate_use(&self) -> crate::workflow::numerics::CandidateDecision {
-        crate::workflow::numerics::trajectory_use(&self.report)
-    }
     pub(super) fn sample_context(
         &self,
         sample: &native::Sample,
@@ -214,6 +212,41 @@ type DynamicsHandle = crate::math::solves::SolveHandle<(
     Arc<pse_columnar::AllocationLease>,
 )>;
 impl ModelingSimulation {
+    /// Project an already joined scientific completion through the shared trajectory transport.
+    #[cfg(feature = "solver-diffsol")]
+    pub(in crate::workflow) fn completed_trajectory(
+        &self,
+        run_id: RunId,
+        report: Arc<native::Report>,
+        checks: Vec<ModelingCheck>,
+        reports: Vec<ModelingReport>,
+        completion: crate::workflow::numerics::Completed,
+        checks_complete: bool,
+        owner: Arc<pse_columnar::AllocationLease>,
+    ) -> ModelingTrajectory {
+        ModelingTrajectory {
+            run_id,
+            accepted: completion.permits_use(),
+            completion,
+            report,
+            checks,
+            reports,
+            checks_complete,
+            prepared: self.clone(),
+            validation_error: None,
+            _owner: owner,
+        }
+    }
+    /// Required physical obligations from the admitted model, even when evaluation is absent.
+    pub(in crate::workflow) fn required_closure_checks(&self) -> usize {
+        self.contract.balances.len()
+            + self
+                .modes
+                .iter()
+                .map(|mode| mode.model.compiled().model.closures.len())
+                .max()
+                .unwrap_or(0)
+    }
     /// Content identity of the simulation's contract, programs and modes.
     pub fn identity(&self) -> ContentHash {
         self.key
@@ -263,7 +296,7 @@ impl ModelingSimulation {
             max_cells: self.profile.max_cells,
         }
     }
-    /// The shooting request an authored `run shooting` fixture of `instance` declares
+    /// The shooting request an authored `procedure shooting` fixture of `instance` declares
     /// (ADR-0110 Outcome 5): its method and nodes, its schedules held free as the
     /// controls, and the model's one objective level, minimized. A member that names a
     /// declared integral weighs that quadrature over the horizon; any other member is an
@@ -407,15 +440,23 @@ impl ModelingSimulation {
         checks: checks::SampleChecks,
         owner: Arc<pse_columnar::AllocationLease>,
     ) -> ModelingTrajectory {
+        let coverage = report.assess_endpoint(&self.profile);
+        let required_closure = self.required_closure_checks();
         let completion = crate::workflow::numerics::complete(
-            crate::workflow::numerics::trajectory_use(&report),
-            &checks.rows,
-            checks.complete && checks.error.is_none(),
-            self.numerics().policy.closure,
+            crate::workflow::numerics::trajectory_use(&report, coverage.satisfied),
+            crate::workflow::numerics::CompletionEvidence {
+                checks: &checks.rows,
+                checks_complete: checks.complete && checks.error.is_none(),
+                required_closure,
+                endpoint_satisfied: Some(coverage.satisfied),
+                coverage_complete: coverage.prefix_complete,
+            },
+            &self.numerics().policy,
         );
         ModelingTrajectory {
             run_id,
             accepted: completion.permits_use(),
+            completion,
             checks: checks.rows,
             reports: checks.reports,
             checks_complete: checks.complete,
@@ -579,6 +620,17 @@ impl ModelingPackage {
                 .or_insert(tolerance);
         }
         let profile = pse_backend_native::dynamics::Profile {
+            endpoint: match data.endpoint {
+                pse_modeling::specialize::FixtureEndpoint::FixedHorizon => {
+                    native::EndpointRequirement::default()
+                }
+                pse_modeling::specialize::FixtureEndpoint::DeclaredTerminalEvent(event) => {
+                    native::EndpointRequirement {
+                        kind: pse_model::generated::enums::EndpointPolicy::DeclaredTerminalEvent,
+                        event: Some(event),
+                    }
+                }
+            },
             start: axis.lower * time_scale,
             end: integration
                 .samples
@@ -655,36 +707,59 @@ impl ModelingPackage {
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
-        let (bindings, case) = self
-            .declared_case(
+        let execution = self
+            .declared_execution(
                 root,
-                pse_model::generated::enums::ModelingAnalysisRoute::Integrated,
+                compiler,
+                Default::default(),
+                Default::default(),
                 limits,
                 cancel,
             )
             .await?;
-        let instance = pse_modeling::specialize::root_instance(root);
+        if !matches!(execution.procedure, DeclaredProcedure::Integrate(_)) {
+            return Err(contract(
+                "declared simulation requires the authored integration procedure",
+            ));
+        }
+        self.simulation_for_declared(&execution, profile, cancel)
+            .await
+    }
+    /// Internal integration projection; the declared operation owner retains its procedure.
+    pub(in crate::workflow) async fn simulation_for_declared(
+        &self,
+        execution: &DeclaredExecution,
+        profile: Option<native::Profile>,
+        cancel: &crate::CancelSource,
+    ) -> Result<ModelingSimulation, WorkflowError> {
+        if !matches!(
+            execution.procedure,
+            DeclaredProcedure::Integrate(_) | DeclaredProcedure::Shooting { .. }
+        ) {
+            return Err(contract(
+                "integration projection requires an admitted integrated procedure",
+            ));
+        }
+        let analysis = &execution.analysis;
         let profile = if let Some(profile) = profile {
             profile
         } else {
-            let model = self
-                .prepare(root, instance, bindings.clone(), limits, cancel)
-                .await?;
-            let fixture = model
+            let fixture = execution
+                .model
                 .compiled()
                 .model
                 .fixtures
-                .get(&instance)
+                .get(&analysis.instance)
                 .ok_or_else(|| contract("authored integration controls absent"))?;
-            self.integration_profile(&model, fixture, &Default::default())?
+            self.integration_profile(&execution.model, fixture, &analysis.solver.numerics)?
         };
         self.prepare_simulation(
-            root,
-            instance,
-            bindings,
-            limits,
-            case,
-            compiler,
+            analysis.root,
+            analysis.instance,
+            analysis.bindings.clone(),
+            analysis.limits,
+            analysis.case.clone(),
+            analysis.compiler,
             profile,
             DerivativeOrder::First,
             cancel,
@@ -720,6 +795,24 @@ impl ModelingPackage {
             .prepare(root, instance, bindings, limits, cancel)
             .await?;
         let product = model.compiled();
+        if let Some(fixture) = product.model.fixtures.get(&instance) {
+            let required = match fixture.endpoint {
+                pse_modeling::specialize::FixtureEndpoint::FixedHorizon => {
+                    native::EndpointRequirement::default()
+                }
+                pse_modeling::specialize::FixtureEndpoint::DeclaredTerminalEvent(event) => {
+                    native::EndpointRequirement {
+                        kind: pse_model::generated::enums::EndpointPolicy::DeclaredTerminalEvent,
+                        event: Some(event),
+                    }
+                }
+            };
+            if profile.endpoint != required {
+                return Err(contract(
+                    "integration profile contradicts the authored endpoint requirement",
+                ));
+            }
+        }
         let axis = product
             .model
             .integrated
@@ -729,7 +822,7 @@ impl ModelingPackage {
         // An authored objective needs an optimizing consumer: a shooting fixture, whose
         // shooting problem minimizes it (ADR-0110 Outcome 5).
         let shooting = product.model.fixtures.get(&instance).is_some_and(|f| {
-            f.execution == pse_model::generated::enums::ModelingFixtureExecution::Shooting
+            f.procedure == pse_model::generated::enums::ModelingProcedure::Shooting
         });
         if product.model.integrated.len() != 1
             || (product.admitted.case.objective().is_some() && !shooting)
@@ -759,7 +852,14 @@ impl ModelingPackage {
             .keys()
             .copied()
             .collect::<BTreeSet<_>>();
-        if !integral_ids.is_empty()
+        let fixed_integrals = integral_ids.iter().any(|id| {
+            !product
+                .model
+                .inventory_balances
+                .values()
+                .any(|b| b.flux_id == *id)
+        });
+        if fixed_integrals
             && (profile.end != axis.upper * time_scale
                 || profile.samples.last().copied() != Some(profile.end))
         {
@@ -2065,7 +2165,7 @@ mod tests {
                 ""
             };
             let source = format!(
-                "package p {{ def Root {{ domain t: Time from 0{{s}} to 1{{s}}; discretize grid on t using integrated(elements=1,order=1); param p: Scalar = 0.5; var x[i in t]: Time; conserve stock[i in t]: Time on t inventory x[i] flux p tolerance 1e-6{{s}}; eq initial: x[0{{s}}] == 1{{s}}; {extra} }} test dynamic fixture {{ dof 0; run integrated; integrate samples(0{{s}},0.5{{s}},1{{s}}) relative(1e-8) normalized_absolute(1e-10) step(1e-4{{s}}); }} {{ child root: Root = Root(); }} }}"
+                "package p {{ def Root {{ domain t: Time from 0{{s}} to 1{{s}}; discretize grid on t using integrated(elements=1,order=1); param p: Scalar = 0.5; var x[i in t]: Time; conserve stock[i in t]: Time on t inventory x[i] flux p tolerance 1e-6{{s}}; eq initial: x[0{{s}}] == 1{{s}}; {extra} }} test dynamic fixture {{ dof 0; route integrated; procedure integrate; integrate samples(0{{s}},0.5{{s}},1{{s}}) relative(1e-8) normalized_absolute(1e-10) step(1e-4{{s}}); }} {{ child root: Root = Root(); }} }}"
             );
             let rows = pse_authoring::language::parse(
                 &source,
@@ -2103,6 +2203,135 @@ mod tests {
                 assert_eq!(prepared.profile.out_atol, vec![1e-6 * 0.1]);
                 let trajectory = prepared.run(&cancel).await.unwrap();
                 assert!(trajectory.accepted, "{:?}", trajectory.validation_error);
+            }
+        }
+    }
+    #[tokio::test]
+    async fn declared_terminal_endpoint_qualifies_conservation_prefix_without_fabricating_integrals()
+     {
+        let runtime = super::super::super::tests::runtime();
+        let compiler = super::super::super::tests::compiler_profile();
+        let cancel = crate::CancelSource::new();
+        let mut methods = vec![native::Method::Diffsol];
+        #[cfg(feature = "solver-idas")]
+        methods.push(native::Method::Idas);
+        for method in methods {
+            for (endpoint, integral, accepted) in [
+                (
+                    "endpoint declared_terminal_event(root.hit[0{s}]);",
+                    "",
+                    true,
+                ),
+                ("endpoint fixed_horizon;", "", false),
+                (
+                    "endpoint declared_terminal_event(root.hit[0{s}]);",
+                    "let total: Time = integral(i in t | p); annotation report total(\"whole-domain\");",
+                    false,
+                ),
+            ] {
+                let quadrature = if integral.is_empty() {
+                    ""
+                } else {
+                    "quadrature_relative(1e-9) quadrature_absolute(root.total=1e-10{s})"
+                };
+                let source = format!(
+                    "package p {{ def Root {{ domain t:Time from 0{{s}} to 1{{s}}; discretize grid on t using integrated(elements=1,order=1); param p:Scalar=0.5; var x[i in t]:Time; conserve stock[i in t]:Time on t inventory x[i] flux p tolerance 1e-6{{s}}; eq initial:x[0{{s}}]==1{{s}}; let hit[i in t]:Time=x[i]-1.25{{s}}; {integral} }} test stopped fixture {{ dof 0; route integrated; procedure integrate; {endpoint} integrate samples(0{{s}},0.2{{s}},0.8{{s}},1{{s}}) relative(1e-9) normalized_absolute(1e-11) step(1e-4{{s}}) {quadrature}; mode arc; event root.hit[0{{s}}] direction(either) tolerance(1e-8{{s}}) terminal; }} {{ child root:Root=Root(); }} }}"
+                );
+                let rows = pse_authoring::language::parse(
+                    &source,
+                    SemanticId::NIL,
+                    pse_authoring::language::IdentityPolicy::Named,
+                    pse_authoring::ParseBudget::default(),
+                )
+                .unwrap();
+                let root = rows
+                    .iter()
+                    .find(|r| r.name == "stopped")
+                    .unwrap()
+                    .declaration_id;
+                let package = runtime.modeling_package(rows, physical()).unwrap();
+                let prepared = package
+                    .declared_simulation(root, compiler, None, Limits::default(), &cancel)
+                    .await
+                    .unwrap();
+                if accepted {
+                    let resetting = source.replace(
+                        "tolerance(1e-8{s}) terminal;",
+                        "tolerance(1e-8{s}) reset(root.x[0{s}]=root.x[0{s}]) terminal;",
+                    );
+                    let rows = pse_authoring::language::parse(
+                        &resetting,
+                        SemanticId::NIL,
+                        pse_authoring::language::IdentityPolicy::Named,
+                        pse_authoring::ParseBudget::default(),
+                    )
+                    .unwrap();
+                    let error = runtime.modeling_package(rows, physical()).unwrap_err();
+                    assert!(
+                        error.to_string().contains("terminal without resets"),
+                        "{error}"
+                    );
+                }
+                let mut profile = prepared.profile().clone();
+                profile.method = method;
+                profile.out_rtol = Some(1e-9);
+                profile.out_atol = vec![1e-10; prepared.contract.quadratures.len()];
+                let prepared = package
+                    .declared_simulation(
+                        root,
+                        compiler,
+                        Some(profile.clone()),
+                        Limits::default(),
+                        &cancel,
+                    )
+                    .await
+                    .unwrap();
+                if accepted {
+                    profile.endpoint = native::EndpointRequirement::default();
+                    let error = package
+                        .declared_simulation(
+                            root,
+                            compiler,
+                            Some(profile),
+                            Limits::default(),
+                            &cancel,
+                        )
+                        .await
+                        .unwrap_err();
+                    assert!(error.to_string().contains("authored endpoint"), "{error}");
+                }
+                let trajectory = prepared.run(&cancel).await.unwrap();
+                assert_eq!(
+                    trajectory.report.termination,
+                    native::Termination::Event,
+                    "{:?}",
+                    trajectory.report.error
+                );
+                assert!((trajectory.report.completed_time - 0.5).abs() < 1e-6);
+                assert_eq!(trajectory.report.samples.len(), 2);
+                assert_eq!(
+                    trajectory.accepted, accepted,
+                    "{:?}; {:?}",
+                    trajectory.completion, trajectory.validation_error
+                );
+                assert_eq!(trajectory.checks_complete, accepted);
+                assert!(trajectory.reports.iter().all(|r| r.label != "whole-domain"));
+                assert_eq!(
+                    trajectory.report.conservation.last().unwrap().time,
+                    trajectory.report.completed_time
+                );
+                let endpoint = trajectory.report.endpoint.as_ref().unwrap();
+                assert!((endpoint.point.outputs[0] - 1.25).abs() < 1e-6);
+                let tables = trajectory.tables().unwrap();
+                assert!(tables.contains_key(
+                    &pse_relations::generated::runtime::trajectory_endpoints::RELATION_ID
+                ));
+                if accepted {
+                    assert_eq!(
+                        trajectory.completion.closure,
+                        pse_model::generated::enums::ClosureAssessment::Closed
+                    );
+                }
             }
         }
     }
@@ -2279,12 +2508,7 @@ mod tests {
                     trajectory.checks_complete,
                     trajectory.report.conservation
                 );
-                let assessment = crate::workflow::numerics::complete(
-                    trajectory.candidate_use(),
-                    &trajectory.checks,
-                    trajectory.checks_complete && trajectory.validation_error.is_none(),
-                    prepared.numerics().policy.closure,
-                );
+                let assessment = &trajectory.completion;
                 assert_eq!(
                     assessment.closure,
                     if closes {
@@ -2568,7 +2792,7 @@ mod tests {
             ] {
                 let event_guard = if guard_matches { "hit" } else { "other" };
                 let source = format!(
-                    "package p {{ def Root {{ domain t: Time from 0{{s}} to 1{{s}}; discretize grid on t using integrated(elements=1,order=1); param p: Scalar = 1; var x[i in t]: Time; conserve stock[i in t]: Time on t inventory x[i] flux p tolerance 1e-6{{s}} transfers(hit[0{{s}}] = {expression}); eq initial: x[0{{s}}] == 1{{s}}; let hit[i in t]: Time = x[i]-1.5{{s}}; let other[i in t]: Time = x[i]-1.5{{s}}; let jump[i in t]: Time = 2*x[i]; }} def Assembly {{ child renamed: Root = Root(); }} test evented fixture {{ dof 0; run integrated; integrate samples(0{{s}},0.25{{s}},0.75{{s}},1{{s}}) relative(1e-9) normalized_absolute(1e-11) step(1e-4{{s}}); mode before; event plant.renamed.{event_guard}[0{{s}}] direction(either) tolerance(1e-8{{s}}) reset(plant.renamed.x[0{{s}}] = plant.renamed.jump[0{{s}}]) next(after); mode after; }} {{ child plant: Assembly = Assembly(); }} }}"
+                    "package p {{ def Root {{ domain t: Time from 0{{s}} to 1{{s}}; discretize grid on t using integrated(elements=1,order=1); param p: Scalar = 1; var x[i in t]: Time; conserve stock[i in t]: Time on t inventory x[i] flux p tolerance 1e-6{{s}} transfers(hit[0{{s}}] = {expression}); eq initial: x[0{{s}}] == 1{{s}}; let hit[i in t]: Time = x[i]-1.5{{s}}; let other[i in t]: Time = x[i]-1.5{{s}}; let jump[i in t]: Time = 2*x[i]; }} def Assembly {{ child renamed: Root = Root(); }} test evented fixture {{ dof 0; route integrated; procedure integrate; integrate samples(0{{s}},0.25{{s}},0.75{{s}},1{{s}}) relative(1e-9) normalized_absolute(1e-11) step(1e-4{{s}}); mode before; event plant.renamed.{event_guard}[0{{s}}] direction(either) tolerance(1e-8{{s}}) reset(plant.renamed.x[0{{s}}] = plant.renamed.jump[0{{s}}]) next(after); mode after; }} {{ child plant: Assembly = Assembly(); }} }}"
                 );
                 let rows = pse_authoring::language::parse(
                     &source,
@@ -2847,7 +3071,7 @@ mod tests {
             &physical.quantities,
             &physical.preconditions,
         );
-        let source = "package p { def Root { domain t:Time from 0{s} to 2{s}; discretize grid on t using integrated(elements=1,order=1); param base:Temperature=300{K}; param step:DeltaTemperature=1{K}; var x[i in t]:Temperature; let rate[i in t]:TemperatureRate=0.5*step/1{s}; conserve stock[i in t]:Temperature on t inventory x[i] flux rate[i] tolerance 1e-6{K} transfers(hit[0{s}]=x[i]-base); eq initial:x[0{s}]==base; let hit[i in t]:DeltaTemperature=x[i]-base-0.5*step; let jump[i in t]:Temperature=x[i]+(x[i]-base); } test evented fixture { dof 0; run integrated; integrate samples(0{s},0.5{s},1.5{s},2{s}) relative(1e-9) normalized_absolute(1e-10) step(1e-4{s}); mode before; event root.hit[0{s}] direction(either) tolerance(1e-8{K}) reset(root.x[0{s}]=root.jump[0{s}]) next(after); mode after; } { child root:Root=Root(); } }";
+        let source = "package p { def Root { domain t:Time from 0{s} to 2{s}; discretize grid on t using integrated(elements=1,order=1); param base:Temperature=300{K}; param step:DeltaTemperature=1{K}; var x[i in t]:Temperature; let rate[i in t]:TemperatureRate=0.5*step/1{s}; conserve stock[i in t]:Temperature on t inventory x[i] flux rate[i] tolerance 1e-6{K} transfers(hit[0{s}]=x[i]-base); eq initial:x[0{s}]==base; let hit[i in t]:DeltaTemperature=x[i]-base-0.5*step; let jump[i in t]:Temperature=x[i]+(x[i]-base); } test evented fixture { dof 0; route integrated; procedure integrate; integrate samples(0{s},0.5{s},1.5{s},2{s}) relative(1e-9) normalized_absolute(1e-10) step(1e-4{s}); mode before; event root.hit[0{s}] direction(either) tolerance(1e-8{K}) reset(root.x[0{s}]=root.jump[0{s}]) next(after); mode after; } { child root:Root=Root(); } }";
         let rows = pse_authoring::language::parse(
             source,
             SemanticId::NIL,
@@ -2903,7 +3127,7 @@ mod tests {
     async fn authored_conservation_refuses_algebraic_resets_before_native_consistency() {
         let runtime = super::super::super::tests::runtime();
         let physical = physical();
-        let source = "package p { def Root { domain t: Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); param p: Scalar = 1; var x[i in t]: Time; var y[i in t]: Time; conserve stock[i in t]: Time on t inventory x[i] flux p tolerance 1e-6{s}; eq initial: x[0{s}] == 1{s}; eq definition[i in t]: y[i] == 2*x[i]; annotation start y(2{s}); let hit[i in t]: Time = x[i]-1.5{s}; let jump[i in t]: Time = 2*y[i]; } test evented fixture { dof 0; run integrated; integrate samples(0{s},1{s}) relative(1e-9) normalized_absolute(1e-11) step(1e-4{s}); mode before; event root.hit[0{s}] direction(either) tolerance(1e-8{s}) reset(root.y[0{s}] = root.jump[0{s}]) next(after); mode after; } { child root: Root = Root(); } }";
+        let source = "package p { def Root { domain t: Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); param p: Scalar = 1; var x[i in t]: Time; var y[i in t]: Time; conserve stock[i in t]: Time on t inventory x[i] flux p tolerance 1e-6{s}; eq initial: x[0{s}] == 1{s}; eq definition[i in t]: y[i] == 2*x[i]; annotation start y(2{s}); let hit[i in t]: Time = x[i]-1.5{s}; let jump[i in t]: Time = 2*y[i]; } test evented fixture { dof 0; route integrated; procedure integrate; integrate samples(0{s},1{s}) relative(1e-9) normalized_absolute(1e-11) step(1e-4{s}); mode before; event root.hit[0{s}] direction(either) tolerance(1e-8{s}) reset(root.y[0{s}] = root.jump[0{s}]) next(after); mode after; } { child root: Root = Root(); } }";
         let rows = pse_authoring::language::parse(
             source,
             SemanticId::NIL,
@@ -2950,7 +3174,7 @@ mod tests {
     async fn kernel_conformance_integrates_authored_samples_and_retains_each_check() {
         let runtime = super::super::super::tests::runtime();
         let physical = physical();
-        let text = "package p { def Root {domain t:Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); var x[i in t]:Time; eq rate[i in t]:d(x[i])/di==2; eq initial:x[0{s}]==1{s}; annotation check x(x[i]<=4{s}); annotation valid x(0{s},4{s}); let area:Time=integral(i in t | 2); annotation check area(area>1.9{s});} test dynamic fixture {dof 0; run integrated; integrate samples(0{s},0.5{s},1{s}) relative(1e-6) normalized_absolute(1e-8) step(1e-4{s}) quadrature_relative(1e-6) quadrature_absolute(root.area=1e-7{s});} {child root:Root=Root();} }";
+        let text = "package p { def Root {domain t:Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); var x[i in t]:Time; eq rate[i in t]:d(x[i])/di==2; eq initial:x[0{s}]==1{s}; annotation check x(x[i]<=4{s}); annotation valid x(0{s},4{s}); let area:Time=integral(i in t | 2); annotation check area(area>1.9{s});} test dynamic fixture {dof 0; route integrated; procedure integrate; integrate samples(0{s},0.5{s},1{s}) relative(1e-6) normalized_absolute(1e-8) step(1e-4{s}) quadrature_relative(1e-6) quadrature_absolute(root.area=1e-7{s});} {child root:Root=Root();} }";
         let rows = pse_authoring::language::parse(
             text,
             SemanticId::NIL,
@@ -3039,7 +3263,7 @@ mod tests {
     async fn kernel_fixture_schedules_inputs() {
         let runtime = super::super::super::tests::runtime();
         let physical = physical();
-        let text = "package p { def Root { domain t: Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); param u: Scalar = 5; var x[i in t]: Time; eq rate[i in t]: d(x[i])/di == u; eq initial: x[0{s}] == 1{s}; } test scheduled fixture {dof 0; run integrated; integrate samples(0{s}, 0.5{s}, 1{s}) relative(1e-8) normalized_absolute(1e-10) step(1e-4{s}); schedule root.u at(0.5{s}) values(2, -1);} {child root: Root = Root();} test on_state fixture {dof 0; run integrated; integrate samples(0{s}, 1{s}) relative(1e-8) normalized_absolute(1e-10) step(1e-4{s}); schedule root.x[0{s}] at(0.5{s}) values(1{s}, 2{s});} {child root: Root = Root();} }";
+        let text = "package p { def Root { domain t: Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); param u: Scalar = 5; var x[i in t]: Time; eq rate[i in t]: d(x[i])/di == u; eq initial: x[0{s}] == 1{s}; } test scheduled fixture {dof 0; route integrated; procedure integrate; integrate samples(0{s}, 0.5{s}, 1{s}) relative(1e-8) normalized_absolute(1e-10) step(1e-4{s}); schedule root.u at(0.5{s}) values(2, -1);} {child root: Root = Root();} test on_state fixture {dof 0; route integrated; procedure integrate; integrate samples(0{s}, 1{s}) relative(1e-8) normalized_absolute(1e-10) step(1e-4{s}); schedule root.x[0{s}] at(0.5{s}) values(1{s}, 2{s});} {child root: Root = Root();} }";
         let rows = pse_authoring::language::parse(
             text,
             SemanticId::NIL,
@@ -3141,7 +3365,7 @@ mod tests {
     async fn kernel_integrated_events_bind_source_resets_and_same_layout_modes() {
         let runtime = super::super::super::tests::runtime();
         let physical = physical();
-        let integrate = "dof 0; run integrated; integrate samples(0{s}, 0.25{s}, 0.75{s}, 2{s}) relative(1e-8) normalized_absolute(1e-8) step(1e-4{s});";
+        let integrate = "dof 0; route integrated; procedure integrate; integrate samples(0{s}, 0.25{s}, 0.75{s}, 2{s}) relative(1e-8) normalized_absolute(1e-8) step(1e-4{s});";
         let source = format!(
             "package p {{ def Root {{ domain t: Time from 0{{s}} to 2{{s}}; discretize grid on t using integrated(elements=1,order=1); param p: Scalar = 2; var x[i in t]: Time; eq rate[i in t]: d(x[i])/di == p; eq initial: x[0{{s}}] == 1{{s}}; let hit[i in t]: Time = x[i]-2{{s}}; let jump[i in t]: Time = 2*x[i]; let wrong: Scalar = 0; stage coast {{ override eq rate[i in t]: d(x[i])/di == 0; }} annotation check x(x[i] <= 4.01{{s}}); }} \
              test evented fixture {{ {integrate} mode rise; event root.hit[0{{s}}] direction(either) tolerance(1e-8{{s}}) reset(root.x[0{{s}}] = root.jump[0{{s}}]) next(coast); mode coast facts(stage.coast = true); }} {{ child root: Root = Root(); }} \
@@ -3245,7 +3469,7 @@ mod tests {
         let physical = physical();
         let fixture = |direction: &str| {
             format!(
-                "test {direction} fixture {{ dof 0; run integrated; integrate samples(0{{s}}, 0.5{{s}}, 1{{s}}) relative(1e-9) normalized_absolute(1e-10) step(1e-4{{s}}); mode arc; event root.g[0{{s}}] direction({direction}) tolerance(1e-8{{s}}) terminal; }} {{ child root: Arc = Arc(); }}"
+                "test {direction} fixture {{ dof 0; route integrated; procedure integrate; integrate samples(0{{s}}, 0.5{{s}}, 1{{s}}) relative(1e-9) normalized_absolute(1e-10) step(1e-4{{s}}); mode arc; event root.g[0{{s}}] direction({direction}) tolerance(1e-8{{s}}) terminal; }} {{ child root: Arc = Arc(); }}"
             )
         };
         let source = format!(
@@ -3323,7 +3547,7 @@ mod tests {
     async fn idas_sign_constraints_from_authored_bounds() {
         let runtime = super::super::super::tests::runtime();
         let physical = physical();
-        let integrate = "dof 0; run integrated; integrate samples(0{s}, 10{s}) relative(1e-2) normalized_absolute(1e-2) step(1e-4{s});";
+        let integrate = "dof 0; route integrated; procedure integrate; integrate samples(0{s}, 10{s}) relative(1e-2) normalized_absolute(1e-2) step(1e-4{s});";
         let decay = |state: &str, start: &str, rate: &str, bounds: &str| {
             format!(
                 "var {state}[i in t]: Time; eq rate_{state}[i in t]: d({state}[i])/di == -{rate}*{state}[i]/1{{s}}; eq initial_{state}: {state}[0{{s}}] == {start}{{s}}; annotation bounds {state}({bounds});"
@@ -3428,7 +3652,7 @@ mod tests {
             .unwrap()
         };
         let rows = parse(&format!(
-            "package p {{ {def} test evented fixture {{ dof 0; run integrated; integrate samples(0{{s}}, 1{{s}}) relative(1e-8) normalized_absolute(1e-8) step(1e-4{{s}}); {events} }} {{ child root: Root = Root(); }} }}"
+            "package p {{ {def} test evented fixture {{ dof 0; route integrated; procedure integrate; integrate samples(0{{s}}, 1{{s}}) relative(1e-8) normalized_absolute(1e-8) step(1e-4{{s}}); {events} }} {{ child root: Root = Root(); }} }}"
         ));
         let evented = rows
             .iter()
@@ -3465,7 +3689,7 @@ mod tests {
             .await
             .unwrap();
         let rows = parse(&format!(
-            "package p {{ {def} test declared fixture {{ dof 0; run simultaneous; {events} }} {{ child root: Root = Root(); }} }}"
+            "package p {{ {def} test declared fixture {{ dof 0; route simultaneous; procedure solve; {events} }} {{ child root: Root = Root(); }} }}"
         ));
         let error = runtime.modeling_package(rows, physical).unwrap_err();
         assert!(error.to_string().contains("integrated route"), "{error}");

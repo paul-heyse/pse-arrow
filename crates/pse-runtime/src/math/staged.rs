@@ -29,6 +29,9 @@ struct Request {
     /// Adapter whose scope the step's native state must live in.
     backend: Option<Backend>,
     work: Work,
+    /// Successful dispatch transfers CPU admission to the native request, including
+    /// scope entry and required state cleanup. A waiter never owns dispatched capacity.
+    _permits: tokio::sync::OwnedSemaphorePermit,
 }
 /// Adapter scopes currently entered on the session thread.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -247,11 +250,27 @@ impl NativeSession {
             backend,
             work: Box::new(move |retained| {
                 let outcome = match retained {
-                    Ok(retained) => work(retained, &flag, &budget),
+                    Ok(retained) => {
+                        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                            work(retained, &flag, &budget)
+                        })) {
+                            Ok(outcome) => outcome,
+                            Err(_) => {
+                                // The request still owns its CPU guard. Destroy poisoned
+                                // foreign state inside its adapter scope before releasing it.
+                                retained.clear();
+                                retained.release();
+                                Err(MathRuntimeError::Infrastructure(
+                                    "native session step panic".into(),
+                                ))
+                            }
+                        }
+                    }
                     Err(error) => Err(error.into()),
                 };
                 let _ = reply.send(outcome);
             }),
+            _permits: permits,
         };
         sender
             .send(request)
@@ -265,7 +284,6 @@ impl NativeSession {
             }
         };
         drop(stop);
-        drop(permits);
         outcome.map_err(|_| MathRuntimeError::Infrastructure("lost native session step".into()))?
     }
     /// Execute one bound solve step on the retained native state and `assess` its outcome
@@ -305,7 +323,7 @@ impl NativeSession {
                 step, previous, attempt, retained, flag, &progress, budget, &owner,
             )?;
             let (assessed, accepted) = assess(&outcome, flag, budget);
-            if !(accepted && outcome.candidate_use().permits_use()) {
+            if !accepted {
                 retained.clear();
             }
             Ok((outcome, assessed))
@@ -355,7 +373,7 @@ impl NativeSession {
                 .map(|(i, outcome)| {
                     outcome.map(|outcome| {
                         let (assessed, accepted) = assess(i, &outcome, flag, budget);
-                        kept &= accepted && outcome.candidate_use().permits_use();
+                        kept &= accepted;
                         (outcome, assessed)
                     })
                 })
@@ -380,5 +398,160 @@ impl Drop for NativeSession {
         // Without an explicit close the thread still exits after its last step and the
         // supervisor joins it before releasing the admission.
         self.sender.take();
+    }
+}
+
+#[cfg(test)]
+mod admission_tests {
+    use super::*;
+    use std::sync::{Condvar, Mutex};
+
+    /// Release the worker even if a test assertion unwinds.
+    struct Gate(Arc<(Mutex<bool>, Condvar)>);
+    impl Gate {
+        fn new() -> Self {
+            Self(Arc::new((Mutex::new(false), Condvar::new())))
+        }
+        fn release(&self) {
+            *self.0.0.lock().unwrap() = true;
+            self.0.1.notify_all();
+        }
+    }
+    impl Drop for Gate {
+        fn drop(&mut self) {
+            self.release();
+        }
+    }
+    fn wait_gate(gate: &Arc<(Mutex<bool>, Condvar)>) {
+        let mut released = gate.0.lock().unwrap();
+        while !*released {
+            released = gate.1.wait(released).unwrap();
+        }
+    }
+    async fn stopped_waiter_keeps_dispatched_capacity(abandon: bool) {
+        let service = super::super::tests::service();
+        let baseline = service.pool.reserved();
+        let first = service.open_session().unwrap();
+        let second = service.open_session().unwrap();
+        let entered = Arc::new(tokio::sync::Notify::new());
+        let gate = Gate::new();
+        let stopped = Arc::new(AtomicBool::new(false));
+        let cancel = crate::CancelSource::new();
+        let seen = entered.clone();
+        let held = gate.0.clone();
+        let observed = stopped.clone();
+        let mut waiting = Some(Box::pin(first.run(2, None, &cancel, move |_, flag, _| {
+            seen.notify_one();
+            wait_gate(&held);
+            observed.store(flag.load(Ordering::Acquire), Ordering::Release);
+            Ok(())
+        })));
+        assert!(futures_util::poll!(waiting.as_mut().unwrap().as_mut()).is_pending());
+        entered.notified().await;
+        if abandon {
+            drop(waiting.take());
+        } else {
+            cancel.cancel();
+            assert!(futures_util::poll!(waiting.as_mut().unwrap().as_mut()).is_pending());
+        }
+        assert_eq!(service.cpu.available_permits(), 0);
+        let cancel_second = crate::CancelSource::new();
+        let began = Arc::new(AtomicBool::new(false));
+        let observed = began.clone();
+        let mut next = Box::pin(second.run(2, None, &cancel_second, move |_, _, _| {
+            observed.store(true, Ordering::Release);
+            Ok(())
+        }));
+        assert!(futures_util::poll!(next.as_mut()).is_pending());
+        assert!(!began.load(Ordering::Acquire));
+        gate.release();
+        if let Some(waiting) = waiting.take() {
+            waiting.await.unwrap();
+        }
+        drop(waiting);
+        next.await.unwrap();
+        assert!(stopped.load(Ordering::Acquire));
+        first.close().await;
+        second.close().await;
+        assert_eq!(service.cpu.available_permits(), service.cores);
+        assert_eq!(service.pool.reserved(), baseline);
+    }
+    #[tokio::test]
+    async fn abandoned_session_waiter_keeps_dispatched_cpu() {
+        stopped_waiter_keeps_dispatched_capacity(true).await;
+    }
+    #[tokio::test]
+    async fn cancelled_session_waiter_keeps_dispatched_cpu() {
+        stopped_waiter_keeps_dispatched_capacity(false).await;
+    }
+    #[tokio::test]
+    async fn failed_session_dispatch_returns_undispatched_cpu() {
+        let service = super::super::tests::service();
+        let mut session = service.open_session().unwrap();
+        let (sender, receiver) = mpsc::channel();
+        drop(receiver);
+        session.sender = Some(sender);
+        let cancelled = crate::CancelSource::new();
+        assert!(matches!(
+            session.run(2, None, &cancelled, |_, _, _| Ok(())).await,
+            Err(MathRuntimeError::Infrastructure(_))
+        ));
+        assert_eq!(service.cpu.available_permits(), service.cores);
+        session.close().await;
+    }
+    struct NativeState {
+        entered: Arc<tokio::sync::Notify>,
+        gate: Arc<(Mutex<bool>, Condvar)>,
+    }
+    impl Drop for NativeState {
+        fn drop(&mut self) {
+            self.entered.notify_one();
+            wait_gate(&self.gate);
+        }
+    }
+    #[tokio::test]
+    async fn panicked_session_step_keeps_cpu_through_state_cleanup_and_can_reuse() {
+        let service = super::super::tests::service();
+        let session = service.open_session().unwrap();
+        let entered = Arc::new(tokio::sync::Notify::new());
+        let gate = Gate::new();
+        let seen = entered.clone();
+        let held = gate.0.clone();
+        let cancelled = crate::CancelSource::new();
+        let mut waiting =
+            Box::pin(
+                session.run::<()>(2, None, &cancelled, move |retained, _, _| {
+                    // Only the retained-state owner is exercised; no adapter or solver is invoked.
+                    retained.session(
+                        Backend::Ipopt,
+                        pse_backend_native::solve::ReusePolicy::AllowRebuild,
+                        |_: &mut NativeState| Ok(true),
+                        || {
+                            Ok(NativeState {
+                                entered: seen,
+                                gate: held,
+                            })
+                        },
+                    )?;
+                    panic!("gated staged-worker panic control");
+                }),
+            );
+        assert!(futures_util::poll!(waiting.as_mut()).is_pending());
+        entered.notified().await;
+        assert_eq!(service.cpu.available_permits(), 0);
+        gate.release();
+        assert!(matches!(
+            waiting.await,
+            Err(MathRuntimeError::Infrastructure(_))
+        ));
+        session
+            .run(2, None, &cancelled, |retained, _, _| {
+                assert!(retained.is_empty());
+                Ok(())
+            })
+            .await
+            .unwrap();
+        session.close().await;
+        assert_eq!(service.cpu.available_permits(), service.cores);
     }
 }

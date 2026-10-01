@@ -76,9 +76,8 @@ async fn failed_continuation_preserves_original_bindings_and_prior_solved_unknow
     let original = package.revision.identity();
     let cancel = crate::CancelSource::new();
     let analysis = package
-        .declared_analysis(
+        .declared_execution(
             root,
-            pse_model::generated::enums::ModelingAnalysisRoute::Steady,
             compiler_profile(),
             SolverProfile {
                 controls: Controls {
@@ -93,7 +92,8 @@ async fn failed_continuation_preserves_original_bindings_and_prior_solved_unknow
             &cancel,
         )
         .await
-        .unwrap();
+        .unwrap()
+        .analysis;
     let model = package
         .prepare(
             root,
@@ -153,9 +153,8 @@ async fn authored_causal_recycle_retains_topology_and_refuses_hidden_inputs() {
     let package = runtime.modeling_package(rows, physical).unwrap();
     let cancel = crate::CancelSource::new();
     let mut analysis = package
-        .declared_analysis(
+        .declared_execution(
             root,
-            pse_model::generated::enums::ModelingAnalysisRoute::Steady,
             compiler_profile(),
             profile(SolveIntent::Root),
             Default::default(),
@@ -163,7 +162,8 @@ async fn authored_causal_recycle_retains_topology_and_refuses_hidden_inputs() {
             &cancel,
         )
         .await
-        .unwrap();
+        .unwrap()
+        .analysis;
     analysis.bindings.demand.push("bad".into());
     let model = package
         .prepare(

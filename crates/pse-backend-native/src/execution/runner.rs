@@ -468,6 +468,23 @@ impl Transported {
             }
         }
         reobserve(&mut report, run.problem, run.original, step)?;
+        if let Some(evidence) = report.evidence.coefficient
+            && evidence.upload_equivalent
+            && evidence.discrete
+            && let Some(value) = evidence.mip_dual_bound.filter(|v| v.is_finite())
+        {
+            let value = value * step.normalization.objective;
+            let absolute_tolerance = step.accuracy.mip_absolute_gap * step.normalization.objective;
+            if value.is_finite() && absolute_tolerance.is_finite() {
+                report.evidence.original_bound = Some(crate::solve::OriginalObjectiveBound {
+                    origin: pse_model::generated::enums::CandidateBoundOrigin::MixedInteger,
+                    sense: run.problem.sense,
+                    value,
+                    absolute_tolerance,
+                    relative_tolerance: step.accuracy.mip_relative_gap,
+                });
+            }
+        }
         quality::qualify(&mut report, step.accuracy);
         Ok(report)
     }

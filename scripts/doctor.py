@@ -561,7 +561,7 @@ def check_operational_store() -> Check:
             "opstore",
             False,
             f"PostgreSQL {version}; pse_ops schema is another build's",
-            "just db-reset (the store holds regenerable data only)",
+            "drain workers, close store generations, then just db-migrate for a declared supported source; preserve unsupported sources",
             blocking=False,
         )
     return Check(

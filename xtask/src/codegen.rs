@@ -180,7 +180,15 @@ fn add_schema_fingerprint(root: &Path, tree: &mut GeneratedTree) -> Result<()> {
         .context("the PostgreSQL generator rendered no schema.sql")?;
     let physical = fs::read(root.join(postgres::PHYSICAL_SQL))
         .with_context(|| format!("reading {}", postgres::PHYSICAL_SQL))?;
-    let (path, bytes) = postgres::fingerprint_file(schema, &physical)?;
+    let catalog = tree
+        .files
+        .get(&Path::new(postgres::ROOT).join("catalog.sql"))
+        .context("missing catalog target")?;
+    let operations = tree
+        .files
+        .get(&Path::new(postgres::ROOT).join("operations.sql"))
+        .context("missing operations target")?;
+    let (path, bytes) = postgres::fingerprint_file(schema, &physical, catalog, operations)?;
     if tree.files.insert(path, bytes).is_some() {
         bail!("the PostgreSQL generator must leave fingerprint.rs to the xtask writer");
     }

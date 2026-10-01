@@ -40,6 +40,7 @@
 "pse_ops.retention_phase" = "pse_model::generated::enums::RetentionPhase"
 "pse_ops.run_id" = "pse_model::generated::identities::RunId"
 "pse_ops.runtime_termination" = "pse_model::generated::enums::RuntimeTermination"
+"pse_ops.schema_support_state" = { rust-type = "pse_model::generated::runtime::operational_schema_support_state::RuntimeOperationalSchemaSupportStateRow", is-copy = false }
 "pse_ops.settlement_id" = "pse_model::generated::identities::SettlementId"
 "pse_ops.settlement_outcome" = "pse_model::generated::enums::SettlementOutcome"
 "pse_ops.settlements" = { rust-type = "pse_model::generated::runtime::operational_settlements::RuntimeOperationalSettlementsRow", is-copy = false }

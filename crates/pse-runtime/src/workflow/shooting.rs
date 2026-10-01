@@ -101,11 +101,11 @@ enum Row {
 /// A prepared shooting problem: the NLP over the controls and the inner nodes' states.
 #[derive(Debug)]
 pub struct ShootingProblem {
-    simulation: super::ModelingSimulation,
+    pub(super) simulation: super::ModelingSimulation,
     experiment: IntegratedExperiment,
     method: ShootingMethod,
-    runtime: super::Runtime,
-    solver: SolverProfile,
+    pub(super) runtime: super::Runtime,
+    pub(super) solver: SolverProfile,
     /// The windows in time order and, for every horizon sample, its window and index there.
     windows: Vec<Window>,
     samples: Vec<(usize, usize)>,
@@ -123,7 +123,8 @@ pub struct ShootingProblem {
     tolerances: native::quality::Tolerances,
     accuracy: native::solve::ResolvedAccuracy,
     route: native::routing::Route,
-    profile_key: ContentHash,
+    pub(super) profile_key: ContentHash,
+    numerics: pse_model::numerics::ResolvedNumericalPolicy,
 }
 /// The outcome of a shooting solve.
 #[derive(Debug)]
@@ -132,8 +133,13 @@ pub struct ShootingReport {
     pub method: ShootingMethod,
     /// The NLP runner's report; absent when there is no variable to solve for.
     pub solve: Option<native::solve::SolveReport>,
+    /// Fresh original-coordinate shooting constraint and bound quality.
+    pub quality: Option<native::quality::Quality>,
+    pub(crate) completion: super::numerics::Completed,
     /// The NLP candidate: the controls, then every inner node's differential states.
     pub candidate: Option<Vec<f64>>,
+    /// Fresh original-coordinate constraint values at the candidate.
+    pub constraint_values: Option<Vec<f64>>,
     /// Each control input's interval values at the candidate.
     pub controls: BTreeMap<SemanticId, Vec<f64>>,
     /// The anchored (differential) states at every node, the fixed start first, in
@@ -148,9 +154,11 @@ pub struct ShootingReport {
     pub parameters: Option<Vec<f64>>,
     /// The candidate's trajectory at the horizon's samples, stitched from the windows,
     /// with every quadrature accumulated from the horizon's start.
-    pub trajectory: Option<native::dynamics::Report>,
+    pub trajectory: Option<Arc<native::dynamics::Report>>,
     /// The model's checks on the stitched trajectory at the candidate.
     pub checks: Vec<super::ModelingCheck>,
+    /// Authored reports evaluated with the candidate trajectory.
+    pub reports: Vec<super::ModelingReport>,
     /// Whether every sample check was evaluated.
     pub checks_complete: bool,
     /// Why the sample checks could not be evaluated, if they could not.
@@ -158,7 +166,7 @@ pub struct ShootingReport {
 }
 
 impl super::ModelingPackage {
-    /// Prepare the shooting problem an authored `run shooting` case declares (ADR-0110
+    /// Prepare the shooting problem an authored shooting procedure declares (ADR-0110
     /// Outcome 5, ADR-0119): the case's simulation, its schedules held free as the controls
     /// from their authored values, its shooting method and nodes, and the model's objective
     /// level, minimized. A given `profile` replaces the fixture's integration controls.
@@ -171,11 +179,34 @@ impl super::ModelingPackage {
         limits: pse_modeling::Limits,
         cancel: &crate::CancelSource,
     ) -> Result<ShootingProblem, WorkflowError> {
-        let simulation = self
-            .declared_simulation(root, compiler, profile, limits, cancel)
+        let execution = self
+            .declared_execution(root, compiler, solver, Default::default(), limits, cancel)
             .await?;
-        let request =
-            simulation.authored_shooting(pse_modeling::specialize::root_instance(root), solver)?;
+        self.shooting_for_declared(&execution, profile, cancel)
+            .await
+    }
+    /// Prepare shooting from the operation's already admitted authored execution.
+    pub(in crate::workflow) async fn shooting_for_declared(
+        &self,
+        execution: &super::modeling::DeclaredExecution,
+        profile: Option<native::dynamics::Profile>,
+        cancel: &crate::CancelSource,
+    ) -> Result<ShootingProblem, WorkflowError> {
+        if !matches!(
+            execution.procedure,
+            super::modeling::DeclaredProcedure::Shooting { .. }
+        ) {
+            return Err(contract(
+                "declared shooting requires the authored shooting procedure",
+            ));
+        }
+        let simulation = self
+            .simulation_for_declared(execution, profile, cancel)
+            .await?;
+        let request = simulation.authored_shooting(
+            execution.analysis.instance,
+            execution.analysis.solver.clone(),
+        )?;
         simulation.shooting(request)
     }
 }
@@ -554,6 +585,7 @@ impl ShootingProblem {
             accuracy,
             route: native::routing::Route::Constant,
             profile_key: session.finish_hash(),
+            numerics,
         };
         problem.pattern = problem.jacobian_structure()?;
         problem.admit_windows(simulation)?;
@@ -582,7 +614,7 @@ impl ShootingProblem {
     }
     /// The fixed start of the first window: the anchored (differential) states in
     /// normalized coordinates, in state order.
-    pub fn start(&self) -> &[f64] {
+    pub fn initial_state(&self) -> &[f64] {
         &self.start
     }
     /// Start the horizon from another state (a receding horizon's measured or estimated
@@ -1026,7 +1058,7 @@ impl ShootingProblem {
     /// Solve from `initial` (or [`Self::initial_point`]) on the admitted worker: the NLP
     /// through the one NLP runner, then a fresh evaluation of the candidate for its
     /// objective, continuity residual and stitched trajectory.
-    pub fn solve(
+    pub(crate) fn solve(
         self: &Arc<Self>,
         run_id: RunId,
         flag: Arc<AtomicBool>,
@@ -1125,6 +1157,14 @@ impl ShootingProblem {
             method: self.method,
             solve,
             candidate,
+            quality: None,
+            constraint_values: None,
+            completion: super::numerics::Completed {
+                closure: pse_model::generated::enums::ClosureAssessment::Unavailable,
+                decision: super::numerics::refused(
+                    pse_model::generated::enums::CandidateRefusal::NoCandidate,
+                ),
+            },
             controls: BTreeMap::new(),
             nodes: Vec::new(),
             objective: None,
@@ -1132,6 +1172,7 @@ impl ShootingProblem {
             parameters: None,
             trajectory: None,
             checks: Vec::new(),
+            reports: Vec::new(),
             checks_complete: false,
             validation_error: None,
         };
@@ -1142,7 +1183,26 @@ impl ShootingProblem {
                 execution: execution.clone(),
                 point: None,
             };
-            let point = oracle.evaluate(&x)?;
+            let point = match oracle.evaluate(&x) {
+                Ok(point) => point,
+                Err(error) => {
+                    let diagnostic = super::diagnostics::observed(&error, "shooting");
+                    if let Some(native) = report.solve.as_mut() {
+                        native.record_validation_failure(error);
+                    }
+                    report.validation_error = Some(diagnostic);
+                    self.assess_completion(&mut report);
+                    return Ok(report);
+                }
+            };
+            report.quality = Some(native::quality::observed(
+                &self.contract,
+                &self.bounds,
+                &x,
+                &point.constraints,
+                &self.tolerances,
+            )?);
+            report.constraint_values = Some(point.constraints.clone());
             report.objective = Some(point.objective);
             report.continuity = Some(
                 self.rows
@@ -1169,6 +1229,7 @@ impl ShootingProblem {
                 requested_initial: point.reports[0].requested_initial.clone(),
                 consistent_initial: point.reports[0].consistent_initial.clone(),
                 samples: Vec::with_capacity(self.samples.len()),
+                endpoint: point.reports.last().and_then(|r| r.endpoint.clone()),
                 conservation: Vec::new(),
                 events: point
                     .reports
@@ -1199,6 +1260,40 @@ impl ShootingProblem {
                         .collect(),
                 );
             }
+            if let Some(endpoint) = stitched.endpoint.as_mut() {
+                // Window anchors are execution coordinates, not physical model inputs.
+                // Preserve the final window's actual left-side values while projecting its
+                // column map back onto the original experiment integration vector.
+                let parameters = self.experiment.program.contract.parameters.len();
+                let window = self
+                    .windows
+                    .last()
+                    .ok_or_else(|| ProblemError::internal("shooting endpoint without window"))?;
+                if endpoint.inputs.len() < parameters || endpoint.input_columns.len() < parameters {
+                    return Err(
+                        ProblemError::internal("shooting endpoint physical input extent").into(),
+                    );
+                }
+                endpoint.inputs.truncate(parameters);
+                endpoint.input_columns.truncate(parameters);
+                for column in &mut endpoint.input_columns {
+                    *column = match window.columns.get(*column) {
+                        Some(WindowColumn::Integration(original)) => *original,
+                        _ => {
+                            return Err(ProblemError::internal(
+                                "shooting endpoint physical input map",
+                            )
+                            .into());
+                        }
+                    };
+                }
+                let offset = &before[point.reports.len() - 1];
+                for (value, offset) in endpoint.point.integrals.iter_mut().zip(offset) {
+                    *value += offset;
+                }
+                endpoint.point.state_sensitivities.clear();
+                endpoint.point.output_sensitivities.clear();
+            }
             stitched.conservation = stitch_conservation(
                 &self.experiment.program.contract,
                 &point.reports,
@@ -1219,11 +1314,153 @@ impl ShootingProblem {
                     .check_samples(run_id, &stitched, &integration, &flag, started);
             report.checks_complete = checks.complete && checks.error.is_none();
             report.checks = checks.rows;
+            report.reports = checks.reports;
             report.validation_error = checks.error;
-            report.trajectory = Some(stitched);
+            report.trajectory = Some(Arc::new(stitched));
             report.parameters = Some(integration);
         }
+        self.assess_completion(&mut report);
         Ok(report)
+    }
+    fn assess_completion(&self, report: &mut ShootingReport) {
+        use super::numerics::{CompletionEvidence, complete, constant_use, native_use, refused};
+        use pse_model::generated::enums::CandidateRefusal;
+        let fresh = report
+            .quality
+            .as_ref()
+            .map_or_else(|| refused(CandidateRefusal::Infeasible), constant_use);
+        let native = match report.solve.as_ref() {
+            Some(report) => {
+                let mut native = native_use(report, &self.numerics.policy);
+                if !fresh.permits_use() {
+                    native.refuse(CandidateRefusal::Infeasible);
+                }
+                native
+            }
+            None => fresh,
+        };
+        let coverage_complete = report.trajectory.as_ref().is_some_and(|trajectory| {
+            self.experiment.profile.samples.iter().all(|required| {
+                trajectory
+                    .samples
+                    .iter()
+                    .any(|sample| sample.time == *required)
+            })
+        });
+        let endpoint_satisfied = report.trajectory.as_ref().is_some_and(|trajectory| {
+            trajectory
+                .assess_endpoint(&self.experiment.profile)
+                .satisfied
+                && trajectory.error.is_none()
+        });
+        report.completion = complete(
+            native,
+            CompletionEvidence {
+                checks: &report.checks,
+                checks_complete: report.checks_complete && report.validation_error.is_none(),
+                required_closure: self.simulation.required_closure_checks(),
+                endpoint_satisfied: Some(endpoint_satisfied),
+                coverage_complete,
+            },
+            &self.numerics.policy,
+        );
+    }
+    pub(super) fn encoding_bytes(
+        &self,
+        report: Option<&ShootingReport>,
+    ) -> Result<usize, crate::math::MathRuntimeError> {
+        let variables = self
+            .contract
+            .variables
+            .len()
+            .checked_mul(size_of::<pse_model::generated::runtime::solve_variables::Row>());
+        let rows = self.contract.rows.len().checked_mul(size_of::<
+            pse_model::generated::runtime::solve_constraints::Row,
+        >());
+        variables
+            .and_then(|n| rows.and_then(|r| n.checked_add(r)))
+            .and_then(|n| n.checked_add(report.map_or(0, ShootingReport::numeric_bytes)))
+            .and_then(|n| {
+                self.solver
+                    .controls
+                    .report_allowance()
+                    .ok()
+                    .and_then(|a| n.checked_add(a))
+            })
+            .ok_or(crate::math::MathRuntimeError::Limit(
+                "shooting encoding extent",
+            ))
+    }
+    pub(super) fn constraint_bounds(&self) -> &[(f64, f64)] {
+        &self.bounds
+    }
+    pub(super) fn tolerances(&self) -> &native::quality::Tolerances {
+        &self.tolerances
+    }
+    pub(super) fn initial_extent(&self) -> usize {
+        self.contract.variables.len()
+    }
+    pub(super) fn numerics(&self) -> &pse_model::numerics::ResolvedNumericalPolicy {
+        &self.numerics
+    }
+    pub(super) fn request_identity(&self, initial: Option<&[f64]>) -> ContentHash {
+        let mut identity = FramedHasher::new(pse_ids::Frame::ShootingProblemV1);
+        identity
+            .hash(&self.contract.identity)
+            .hash(&self.profile_key)
+            .bool(initial.is_some());
+        if let Some(initial) = initial {
+            identity.u64(initial.len() as u64);
+            for value in initial {
+                identity.u64(pse_ids::canonical_f64_bits(*value));
+            }
+        }
+        identity.finish_hash()
+    }
+    pub(super) fn job_bytes(&self) -> Result<usize, crate::math::MathRuntimeError> {
+        self.simulation
+            .bytes
+            .checked_mul(self.windows.len() + 1)
+            .and_then(|n| n.checked_add(self.solver.controls.foreign_bytes.unwrap_or(0)))
+            .ok_or(crate::math::MathRuntimeError::Limit("shooting extent"))
+    }
+}
+impl ShootingReport {
+    pub(super) fn numeric_bytes(&self) -> usize {
+        use pse_model::HeapUsage;
+        size_of::<Self>()
+            + self
+                .trajectory
+                .as_ref()
+                .map_or(0, |report| report.numeric_bytes())
+            + self
+                .checks
+                .iter()
+                .map(HeapUsage::owned_bytes)
+                .sum::<usize>()
+            + self
+                .reports
+                .iter()
+                .map(HeapUsage::owned_bytes)
+                .sum::<usize>()
+            + self
+                .validation_error
+                .as_ref()
+                .map_or(0, HeapUsage::owned_bytes)
+            + self.quality.as_ref().map_or(0, |q| {
+                (q.rows.capacity() + q.bounds.capacity() + q.integrality.capacity())
+                    * size_of::<native::quality::Violation>()
+            })
+            + self.completion.decision.qualifiers.capacity()
+                * size_of::<pse_model::generated::enums::CandidateQualifier>()
+            + self.completion.decision.refusals.capacity()
+                * size_of::<pse_model::generated::enums::CandidateRefusal>()
+            + (self.candidate.as_ref().map_or(0, Vec::capacity)
+                + self.constraint_values.as_ref().map_or(0, Vec::capacity)
+                + self.parameters.as_ref().map_or(0, Vec::capacity)
+                + self.nodes.iter().map(Vec::capacity).sum::<usize>()
+                + self.controls.values().map(Vec::capacity).sum::<usize>())
+                * size_of::<f64>()
     }
 }
 
@@ -1358,6 +1595,7 @@ mod conservation_tests {
             requested_initial: vec![],
             consistent_initial: vec![],
             samples: vec![],
+            endpoint: None,
             conservation: vec![
                 fact(start, inventory, 0., 0.),
                 fact(start + 1., inventory + 3., 1., 2.),

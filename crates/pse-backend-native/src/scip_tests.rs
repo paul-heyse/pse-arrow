@@ -690,7 +690,7 @@ fn scip_status_map_exhaustive() {
         category(Status::MemoryLimit),
         Termination::ResourceExhausted
     );
-    assert_eq!(category(Status::NodeLimit), Termination::Limit);
+    assert_eq!(category(Status::NodeLimit), Termination::NodeLimit);
     assert_eq!(category(Status::SolutionLimit), Termination::SolutionLimit);
     assert_eq!(category(Status::DualLimit), Termination::ObjectiveLimit);
     assert_eq!(category(Status::Unknown), Termination::Inconclusive);

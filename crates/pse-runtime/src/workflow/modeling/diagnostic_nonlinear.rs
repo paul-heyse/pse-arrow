@@ -416,7 +416,7 @@ fn classify(
         })
         .filter(|v| v.is_finite());
     // The shared candidate-use decision: a limited or failed stop is never a witness.
-    let feasible = result.outcome.candidate_use().permits_use();
+    let feasible = result.completion.decision.permits_use();
     let observation = if feasible && penalty.is_some_and(|v| v <= policy.penalty_tolerance) {
         ElasticObservation::FeasibleWitness
     } else if report.least_infeasible.is_some()
