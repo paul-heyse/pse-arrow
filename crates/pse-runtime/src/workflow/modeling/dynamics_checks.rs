@@ -119,7 +119,7 @@ impl ModelingSimulation {
                         .as_ref()
                         .map(|p| {
                             let providers =
-                                crate::math::attempt_providers(&mode.context.providers, &cancel)
+                                crate::math::attempt_providers(&mode.context.providers, cancel)
                                     .map_err(|e| contract(e.to_string()))?;
                             Ok::<_, WorkflowError>(p.assembly.worker(providers, cancel.clone()))
                         })

@@ -62,7 +62,7 @@ pub enum CausalUnitRealization {
         /// Remaining local free coordinates after boundary inputs are fixed.
         unknowns: BTreeSet<SemanticId>,
         /// The canonical solver settings document; defaults resolve in its existing owner.
-        solver: crate::math::settings::SolveSettings,
+        solver: Box<crate::math::settings::SolveSettings>,
     },
 }
 /// Explicit causal direction and admitted mathematical realization for one unit.
@@ -508,37 +508,37 @@ impl ModelingPackage {
                 .iter()
                 .map(|p| source_ports[p].symbol)
                 .collect();
-            let conditional = match &unit.realization {
-                CausalUnitRealization::ExplicitMap => None,
-                CausalUnitRealization::Conditional {
-                    residuals,
-                    unknowns,
-                    solver,
-                } => Some(
-                    self.runtime
-                        .native()
-                        .prepare_conditional_unit(
-                            self.workspace.clone(),
-                            resolved.model.model.clone(),
-                            resolved.model.case.clone(),
-                            unit.node,
-                            self.quantities.clone(),
-                            declared.clone(),
-                            required,
-                            residuals.clone(),
-                            unknowns.clone(),
-                            compiler,
-                            solver
-                                .clone()
-                                .profile()
-                                .map_err(|cause| conditional_admission(unit, &request, cause))?,
-                            resolved.numerics.clone(),
-                            cancel,
-                        )
-                        .await
-                        .map_err(|cause| conditional_admission(unit, &request, cause))?,
-                ),
-            };
+            let conditional =
+                match &unit.realization {
+                    CausalUnitRealization::ExplicitMap => None,
+                    CausalUnitRealization::Conditional {
+                        residuals,
+                        unknowns,
+                        solver,
+                    } => Some(
+                        self.runtime
+                            .native()
+                            .prepare_conditional_unit(
+                                self.workspace.clone(),
+                                resolved.model.model.clone(),
+                                resolved.model.case.clone(),
+                                unit.node,
+                                self.quantities.clone(),
+                                declared.clone(),
+                                required,
+                                residuals.clone(),
+                                unknowns.clone(),
+                                compiler,
+                                solver.as_ref().clone().profile().map_err(|cause| {
+                                    conditional_admission(unit, &request, cause)
+                                })?,
+                                resolved.numerics.clone(),
+                                cancel,
+                            )
+                            .await
+                            .map_err(|cause| conditional_admission(unit, &request, cause))?,
+                    ),
+                };
             let program = self
                 .runtime
                 .native()

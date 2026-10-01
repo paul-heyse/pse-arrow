@@ -316,16 +316,16 @@ pub(crate) async fn seed_prepare(
     cancel: &pse_runtime::CancelSource,
 ) -> Result<pse_runtime::workflow::ModelingSolvePreparation, pse_runtime::workflow::WorkflowError> {
     let analysis = package
-        .declared_analysis(
+        .declared_execution(
             case.into(),
-            pse_relations::generated::enums::ModelingAnalysisRoute::Steady,
             compiler(),
             solver,
             Default::default(),
             seed_limits(),
             cancel,
         )
-        .await?;
+        .await?
+        .analysis;
     package.prepare_analysis(&analysis, cancel).await
 }
 /// Both original physical checks and native feasibility are required.

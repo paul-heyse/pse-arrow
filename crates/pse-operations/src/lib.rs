@@ -35,6 +35,7 @@ pub mod sources;
 mod store;
 pub mod streams;
 pub mod studies;
+pub mod study_policy;
 pub mod tables;
 #[cfg(any(test, feature = "test-support"))]
 pub mod testing;

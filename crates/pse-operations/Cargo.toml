@@ -22,6 +22,7 @@ default = []
 test-support = ["dep:url"]
 
 [dependencies]
+petgraph.workspace = true
 refinery.workspace = true
 pse-diagnostics.workspace = true
 pse-ids.workspace = true

@@ -218,10 +218,8 @@ impl ModelingSimulation {
         &self,
         run_id: RunId,
         report: Arc<native::Report>,
-        checks: Vec<ModelingCheck>,
-        reports: Vec<ModelingReport>,
+        checks: checks::SampleChecks,
         completion: crate::workflow::numerics::Completed,
-        checks_complete: bool,
         owner: Arc<pse_columnar::AllocationLease>,
     ) -> ModelingTrajectory {
         ModelingTrajectory {
@@ -229,11 +227,11 @@ impl ModelingSimulation {
             accepted: completion.permits_use(),
             completion,
             report,
-            checks,
-            reports,
-            checks_complete,
+            checks: checks.rows,
+            reports: checks.reports,
+            checks_complete: checks.complete,
             prepared: self.clone(),
-            validation_error: None,
+            validation_error: checks.error,
             _owner: owner,
         }
     }

@@ -239,6 +239,49 @@ async fn shooting_matches_simultaneous_optimum() {
     }
 }
 
+#[tokio::test]
+async fn shooting_trajectory_projection_retains_completion_diagnostic_and_lease() {
+    let simulation = tracking(Method::Diffsol).await;
+    let problem = simulation
+        .shooting(request(&simulation, ShootingMethod::Single, vec![], false))
+        .unwrap();
+    let result = solve(problem, None).await;
+    let report = report_of(&result);
+    let native = report.trajectory.as_ref().unwrap();
+    let diagnostic = pse_model::diagnostic::BoundaryDiagnostic::new(
+        pse_model::diagnostic::BoundaryClass::Inconclusive,
+        "shooting-trajectory-projection",
+        [id(30)],
+        "modeling.trajectory.incomplete",
+    );
+    let owner = result._owner.as_ref().unwrap();
+    let owners_before = Arc::strong_count(owner);
+    let projected = simulation.completed_trajectory(
+        result.run_id,
+        native.clone(),
+        crate::workflow::modeling::dynamics::checks::SampleChecks {
+            rows: report.checks.clone(),
+            reports: report.reports.clone(),
+            complete: false,
+            error: Some(diagnostic.clone()),
+        },
+        report.completion.clone(),
+        owner.clone(),
+    );
+    assert!(Arc::ptr_eq(&projected.report, native));
+    assert_eq!(projected.completion.decision, report.completion.decision);
+    assert_eq!(projected.accepted, report.completion.permits_use());
+    assert!(!projected.checks_complete);
+    let retained = projected.validation_error.as_ref().unwrap();
+    assert_eq!(retained.class, diagnostic.class);
+    assert_eq!(retained.stage, diagnostic.stage);
+    assert_eq!(retained.rule, diagnostic.rule);
+    assert_eq!(retained.sources, diagnostic.sources);
+    assert_eq!(Arc::strong_count(owner), owners_before + 1);
+    drop(projected);
+    assert_eq!(Arc::strong_count(owner), owners_before);
+}
+
 /// Multiple shooting's continuity rows close from nodes perturbed away from the chained
 /// integration, with and without free controls: the stitched trajectory then equals one
 /// integration of the horizon at the candidate's controls at every sample (1e-7), and the

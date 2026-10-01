@@ -1263,6 +1263,49 @@ pub(in crate::workflow) fn requirement(
     }
 }
 
+/// Separate optional response capability/resource failure from cancellation and
+/// infrastructure failure, which still stop the requested operation.
+fn root_parametric_failure(
+    cause: &crate::math::MathRuntimeError,
+) -> Option<pse_backend_native::square_response::Withheld> {
+    use crate::math::MathRuntimeError as E;
+    use pse_backend_native::square_response::Withheld;
+    match cause {
+        E::Shared(cause) => root_parametric_failure(cause),
+        E::Math(cause) | E::Solve(pse_backend_native::ProblemError::Math(cause)) => {
+            root_math_response_failure(cause)
+        }
+        E::Compile(pse_compiler::workspace::CompileError::Math(cause)) => {
+            root_math_response_failure(cause)
+        }
+        E::Cancelled
+        | E::Solve(pse_backend_native::ProblemError::Cancelled)
+        | E::Compile(pse_compiler::workspace::CompileError::Cancelled)
+        | E::Retiring
+        | E::Infrastructure(_) => None,
+        E::Limit(_)
+        | E::Pool(_)
+        | E::Compile(pse_compiler::workspace::CompileError::Limit(_))
+        | E::Solve(pse_backend_native::ProblemError::Limit { .. }) => Some(Withheld::Memory),
+        _ => Some(Withheld::Neighborhood(cause.to_string())),
+    }
+}
+
+fn root_math_response_failure(
+    cause: &pse_math::MathError,
+) -> Option<pse_backend_native::square_response::Withheld> {
+    use pse_backend_native::square_response::Withheld;
+    use pse_math::MathError;
+    match cause {
+        MathError::Instance { cause, .. } => root_math_response_failure(cause),
+        MathError::Cancelled => None,
+        MathError::Limit(_) | MathError::SlotLimit { .. } | MathError::WorkLimit { .. } => {
+            Some(Withheld::Memory)
+        }
+        _ => Some(Withheld::Neighborhood(cause.to_string())),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1671,49 +1714,6 @@ mod native_tests {
     }
 }
 
-/// Separate optional response capability/resource failure from cancellation and
-/// infrastructure failure, which still stop the requested operation.
-fn root_parametric_failure(
-    cause: &crate::math::MathRuntimeError,
-) -> Option<pse_backend_native::square_response::Withheld> {
-    use crate::math::MathRuntimeError as E;
-    use pse_backend_native::square_response::Withheld;
-    match cause {
-        E::Shared(cause) => root_parametric_failure(cause),
-        E::Math(cause) | E::Solve(pse_backend_native::ProblemError::Math(cause)) => {
-            root_math_response_failure(cause)
-        }
-        E::Compile(pse_compiler::workspace::CompileError::Math(cause)) => {
-            root_math_response_failure(cause)
-        }
-        E::Cancelled
-        | E::Solve(pse_backend_native::ProblemError::Cancelled)
-        | E::Compile(pse_compiler::workspace::CompileError::Cancelled)
-        | E::Retiring
-        | E::Infrastructure(_) => None,
-        E::Limit(_)
-        | E::Pool(_)
-        | E::Compile(pse_compiler::workspace::CompileError::Limit(_))
-        | E::Solve(pse_backend_native::ProblemError::Limit { .. }) => Some(Withheld::Memory),
-        _ => Some(Withheld::Neighborhood(cause.to_string())),
-    }
-}
-
-fn root_math_response_failure(
-    cause: &pse_math::MathError,
-) -> Option<pse_backend_native::square_response::Withheld> {
-    use pse_backend_native::square_response::Withheld;
-    use pse_math::MathError;
-    match cause {
-        MathError::Instance { cause, .. } => root_math_response_failure(cause),
-        MathError::Cancelled => None,
-        MathError::Limit(_) | MathError::SlotLimit { .. } | MathError::WorkLimit { .. } => {
-            Some(Withheld::Memory)
-        }
-        _ => Some(Withheld::Neighborhood(cause.to_string())),
-    }
-}
-
 #[cfg(all(test, feature = "solver-kinsol"))]
 mod root_unavailable_tests {
     use super::*;
@@ -1728,23 +1728,24 @@ mod root_unavailable_tests {
         },
     };
 
-    async fn fixed_guard() -> (ModelingPackage, ModelingAnalysis, SemanticId) {
+    async fn fixed_guard() -> Result<
+        (ModelingPackage, ModelingAnalysis, SemanticId),
+        Box<dyn std::error::Error + Send + Sync>,
+    > {
         let text = "package p { def Root { param p: Scalar=0; var x: Scalar; eq root: x==(if p>0 then 1 else -1); annotation start x(-1); } }";
         let rows = pse_authoring::language::parse(
             text,
             SemanticId::NIL,
             pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default(),
-        )
-        .unwrap();
+        )?;
         let root = rows
             .iter()
             .find(|row| row.name == "Root")
-            .unwrap()
+            .ok_or_else(|| std::io::Error::other("Root declaration absent"))?
             .declaration_id;
         let package = fixture::runtime_with(16 << 20, 1 << 20, 1 << 30)
-            .modeling_package(rows, fixture::physical())
-            .unwrap();
+            .modeling_package(rows, fixture::physical())?;
         let mut solver = fixture::profile();
         solver.intent = SolveIntent::Root;
         solver.selection = SolverSelection::Explicit(Backend::Kinsol);
@@ -1761,7 +1762,7 @@ mod root_unavailable_tests {
         };
         analysis.bindings.demand.push("p".into());
         let cancel = crate::CancelSource::new();
-        let prepared = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+        let prepared = package.prepare_analysis(&analysis, &cancel).await?;
         let parameter = prepared.model.model.compiled().model.paths["p"];
         // A fixed parameter guard is valid for the base x derivative. Making p a
         // derivative coordinate crosses a discontinuous selector and refuses compilation.
@@ -1778,11 +1779,11 @@ mod root_unavailable_tests {
                 .await
                 .is_err()
         );
-        (package, analysis, parameter)
+        Ok((package, analysis, parameter))
     }
     #[tokio::test]
     async fn unavailable_parametric_guard_keeps_public_base_root() {
-        let (package, mut analysis, parameter) = fixed_guard().await;
+        let (package, mut analysis, parameter) = fixed_guard().await.unwrap();
         analysis.solver.sensitivity = Some(SensitivityRequest {
             parameters: vec![parameter],
             reduced_hessian: false,
@@ -1821,7 +1822,7 @@ mod root_unavailable_tests {
     }
     #[tokio::test]
     async fn unavailable_response_memory_keeps_public_base_root() {
-        let (package, mut analysis, parameter) = fixed_guard().await;
+        let (package, mut analysis, parameter) = fixed_guard().await.unwrap();
         analysis.solver.sensitivity = Some(SensitivityRequest {
             parameters: vec![parameter],
             reduced_hessian: false,
@@ -1856,7 +1857,7 @@ mod root_unavailable_tests {
     }
     #[tokio::test]
     async fn malformed_root_parameter_request_still_refuses_preparation() {
-        let (package, mut analysis, parameter) = fixed_guard().await;
+        let (package, mut analysis, parameter) = fixed_guard().await.unwrap();
         for parameters in [vec![SemanticId::NIL], vec![parameter, parameter]] {
             analysis.solver.sensitivity = Some(SensitivityRequest {
                 parameters,

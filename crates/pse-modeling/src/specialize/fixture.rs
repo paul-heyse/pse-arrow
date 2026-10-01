@@ -68,7 +68,7 @@ pub enum FixtureEndpoint {
 #[derive(Clone, Debug, PartialEq)]
 pub struct FixtureDiagnostic {
     /// The diagnostics rule, such as a near-parallel or rank-deficiency finding.
-    pub rule: String,
+    pub rule: pse_diagnostics::DiagnosticRule,
     /// Each named member: its authored path and its equation or variable identities.
     pub members: Vec<(String, BTreeSet<SemanticId>)>,
 }
@@ -568,7 +568,9 @@ impl Engine<'_, '_> {
             }
             self.reserve(1 + members.len())?;
             diagnostics.push(FixtureDiagnostic {
-                rule: expected.rule.clone(),
+                rule: expected.rule.parse().map_err(|error| ModelingError::Contract {
+                    declaration: declaration.declaration_id.as_id(), message: error.to_string(),
+                })?,
                 members,
             });
         }

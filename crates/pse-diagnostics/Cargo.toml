@@ -19,6 +19,7 @@ workspace = true
 [dependencies]
 thiserror.workspace = true
 miette.workspace = true
+serde.workspace = true
 postgres-types = { workspace = true, optional = true, features = ["derive"] }
 
 [features]

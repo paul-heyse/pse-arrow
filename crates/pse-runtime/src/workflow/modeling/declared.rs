@@ -245,10 +245,6 @@ impl DeclaredExecution {
 }
 impl ModelingPackage {
     /// Admit the authored route/procedure before any operation executes it.
-    #[expect(
-        clippy::too_many_arguments,
-        reason = "independent compiler, native, numerical and finite specialization policies"
-    )]
     pub async fn declared_execution(
         &self,
         root: DeclarationId,

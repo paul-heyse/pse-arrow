@@ -134,16 +134,16 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
                     .to_owned()
             });
         }
-        if fields.starts_with(&["CONSTRAINT"]) {
-            if let (Some(table), Some(name), Some(kind)) = (&table, fields.get(1), fields.get(2)) {
-                let kind = match *kind {
-                    "PRIMARY" => "p",
-                    "UNIQUE" => "u",
-                    "CHECK" => "c",
-                    _ => return Err(error(format!("unprojected constraint {line}"))),
-                };
-                constraints.push(quote! { (#table,#name,#kind) });
-            }
+        if fields.starts_with(&["CONSTRAINT"])
+            && let (Some(table), Some(name), Some(kind)) = (&table, fields.get(1), fields.get(2))
+        {
+            let kind = match *kind {
+                "PRIMARY" => "p",
+                "UNIQUE" => "u",
+                "CHECK" => "c",
+                _ => return Err(error(format!("unprojected constraint {line}"))),
+            };
+            constraints.push(quote! { (#table,#name,#kind) });
         }
         if fields.starts_with(&["ALTER", "TABLE"])
             && fields.get(3) == Some(&"ADD")

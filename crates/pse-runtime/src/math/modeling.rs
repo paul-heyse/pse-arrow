@@ -264,7 +264,6 @@ impl MathService {
                         item.configurations,
                         solver.clone(),
                         requested_output,
-                        solver.minimum_order(),
                         &accelerators,
                         flag.clone(),
                         profile.evaluation,

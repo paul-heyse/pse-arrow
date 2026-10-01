@@ -365,7 +365,46 @@ pse_diagnostics::impl_diagnostic! {
     forward(_this) { None },
     help(_this) { None },
     related(_this) { None },
-    source(_this) { None }
+    source(_this) { None },
+    facts(this) {
+        use pse_diagnostics::{DiagnosticFacts, DiagnosticObservation as O, DiagnosticRule as R, OperandContract};
+        let mut facts = DiagnosticFacts::default();
+        facts.observe("detail", O::Text(this.to_string()));
+        match this {
+            Self::Incompatible { operands, hint, reason } => {
+                facts.rule = Some(R::QuantityIncompatible);
+                facts.observe("reason", O::Text(reason.to_string()));
+                facts.observe("operands", O::Contracts(operands.iter().map(|(quantity, axes)| OperandContract {
+                    quantity: *quantity.as_bytes(), indices: axes.iter().map(|axis| [*axis.bound_index.as_bytes(), *axis.domain.as_bytes(), *axis.kind.as_bytes()]).collect()
+                }).collect()));
+                facts.sources.extend(operands.iter().map(|(quantity,_)| *quantity.as_bytes()));
+                if let Some(hint) = hint { facts.sources.push(*hint.as_bytes()); }
+            }
+            Self::ContractMismatch { expected, actual, component } => {
+                facts.rule = Some(R::QuantityContractMismatch);
+                facts.observe("component", O::Text(component.to_string()));
+                facts.observe("operands", O::Contracts([expected, actual].into_iter().map(|quantity| OperandContract {quantity: *quantity.as_bytes(), indices: Vec::new()}).collect()));
+                facts.sources.extend([*expected.as_bytes(), *actual.as_bytes()]);
+            }
+            Self::UnitConvertMismatch {declared_from, operand_unit, to} => {
+                facts.rule = Some(R::QuantityUnitConversion);
+                facts.sources.extend([*declared_from.as_bytes(), *operand_unit.as_bytes(), *to.as_bytes()]);
+                for (key, value) in [("declared_from",declared_from),("operand_unit",operand_unit),("to",to)] { facts.observe(key, O::Text(value.to_string())); }
+            }
+            Self::NonfiniteMagnitude {quantity, unit, value} => {
+                facts.rule = Some(R::QuantityNonfinite); facts.sources.extend([*quantity.as_bytes(),*unit.as_bytes()]); facts.observe("value", O::Number(*value));
+            }
+            Self::NonfiniteConversion {quantity,from,to,value,scale,offset} => {
+                facts.rule = Some(R::QuantityNonfinite); facts.sources.extend([*quantity.as_bytes(),*from.as_bytes(),*to.as_bytes()]);
+                for (key,value) in [("value",value),("scale",scale),("offset",offset)] { facts.observe(key,O::Number(*value)); }
+            }
+            Self::UnknownId {id,kind} => { facts.rule=Some(R::QuantityUnknownId);facts.sources.push(*id.as_bytes()); facts.observe("kind",O::Text((*kind).into())); }
+            Self::StaticDomain {value,..} => {facts.rule=Some(R::MathDomain);facts.observe("value",O::Number(*value));}
+            Self::Registry {subject,..} => {facts.rule=Some(R::MathQuantity); facts.sources.push(*subject.as_bytes());}
+            Self::InferencePrecondition {..} | Self::Dimension(_) | Self::OperationUnsupported {..} | Self::UnregisteredResultType {..} | Self::AmbiguousLiteral {..} | Self::UnknownUnitSymbol {..} | Self::AffineUnitFactor {..} => facts.rule=Some(R::MathQuantity),
+        }
+        facts
+    }
 }
 
 #[cfg(test)]

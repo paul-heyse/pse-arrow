@@ -433,9 +433,24 @@ pse_diagnostics::impl_diagnostic! {
         Self::Cancelled => pse_diagnostics::DiagnosticCode::RuntimeCancelled,
         Self::Limit(_) => pse_diagnostics::DiagnosticCode::RuntimeResourceLimit,
         Self::Contract(_) => pse_diagnostics::DiagnosticCode::KernelUnboundParameter,
-        _ => pse_diagnostics::DiagnosticCode::SolveEvaluationError,
+        Self::Terminal(_) => pse_diagnostics::DiagnosticCode::RuntimeInfrastructure,
+        Self::Trial(_) | Self::OutsideEnvelope {..} | Self::Singular(_) | Self::RegimeCrossing {..} => pse_diagnostics::DiagnosticCode::MathProvider,
     }) },
-    forward(_this) { None }, help(_this) { None }, related(_this) { None }, source(_this) { None }
+    forward(_this) { None }, help(_this) { None }, related(_this) { None }, source(_this) { None },
+    facts(this) {
+        use pse_diagnostics::{DiagnosticFacts, DiagnosticObservation as O, DiagnosticRule as R};
+        let mut facts = DiagnosticFacts { rule: Some(R::MathProvider), ..Default::default() };
+        facts.observe("provider_recoverable", O::Boolean(this.recoverable()));
+        match this {
+            Self::OutsideEnvelope {axis,value,lower,upper} => {
+                facts.observe("provider_axis",O::Text(axis.clone()));
+                for (key,value) in [("provider_value",value),("provider_lower",lower),("provider_upper",upper)] {facts.observe(key,O::Number(*value));}
+            }
+            Self::RegimeCrossing {selector,bound,selected} => facts.sources.extend([*selector.as_bytes(),*bound.as_bytes(),*selected.as_bytes()]),
+            Self::Cancelled | Self::Limit(_) | Self::Contract(_) | Self::Trial(_) | Self::Singular(_) | Self::Terminal(_) => {}
+        }
+        facts
+    }
 }
 
 impl ProviderSpec {
@@ -684,3 +699,5 @@ impl Registration {
 
 #[cfg(test)]
 mod envelope_tests;
+
+impl pse_model::diagnostic::DiagnosticProjection for ProviderError {}

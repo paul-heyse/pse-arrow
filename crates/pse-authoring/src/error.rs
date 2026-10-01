@@ -176,5 +176,31 @@ pse_diagnostics::impl_diagnostic! {
             _ => None,
         } },
     related(_this) { None },
-    source(_this) { None }
+    source(_this) { None },
+    facts(this) {
+        use pse_diagnostics::{DiagnosticFacts, DiagnosticLocation, DiagnosticRule as R, DiagnosticObservation as O};
+        let (rule, span) = match this {
+            Self::DocumentIo {..} => (R::AuthoringDocumentIo, None),
+            Self::Contract {at,..} => (R::AuthoringContract, *at),
+            Self::Syntax {at,..} => (R::AuthoringSyntax, Some(*at)),
+            Self::UnknownKey {at,..} => (R::AuthoringUnknownKey, Some(*at)),
+            Self::MissingId {at,..} => (R::AuthoringMissingId, Some(*at)),
+            Self::UnresolvedTarget {at,..} => (R::AuthoringUnresolvedTarget, Some(*at)),
+            Self::Budget {..} => (R::AuthoringBudget, None),
+            Self::DerivedWrite {..} => (R::AuthoringDerivedWrite, None),
+            Self::RenameNamed {..} => (R::AuthoringRenameNamed, None),
+            Self::UnknownRowKey {..} => (R::AuthoringUnknownRowKey, None),
+            Self::PackageUnresolved {..} => (R::AuthoringPackageUnresolved, None),
+            Self::PackageVersionConflict {..} => (R::AuthoringPackageVersionConflict, None),
+            Self::SchemaVersionMismatch {..} => (R::AuthoringSchemaVersion, None),
+        };
+        let mut facts = DiagnosticFacts { rule: Some(rule), ..Default::default() };
+        facts.observe("detail", O::Text(this.to_string()));
+        if let Some(span) = span {
+            facts.sources.push(*span.document_id.as_bytes());
+            facts.locations.push(DiagnosticLocation { source: *span.document_id.as_bytes(), revision: None,
+                path: format!("document/{}", span.document_id), name: None, start: Some(span.start), end: Some(span.end) });
+        }
+        facts
+    }
 }

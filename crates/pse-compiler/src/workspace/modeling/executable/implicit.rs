@@ -413,17 +413,11 @@ impl AdmittedImplicit {
         mut configurations: BTreeMap<SemanticId, pse_math::implicit::Configuration>,
         solver: Arc<dyn pse_math::implicit::InnerSolver>,
         requested_output: DerivativeOrder,
-        native_minimum: DerivativeOrder,
         accelerators: &pse_math::implicit::accelerators::Accelerators,
         cancel: Arc<AtomicBool>,
         limits: EvaluationLimits,
     ) -> Result<pse_math::implicit::ImplicitFactory> {
         use pse_math::implicit::{Factory, ImplicitFactory, RegimeFactory, RegimeFactoryBranch};
-        if self.algorithm == ImplicitAlgorithm::Native && native_minimum != solver.minimum_order() {
-            return Err(CompileError::Missing(
-                "native implicit derivative minimum disagrees with selected adapter".into(),
-            ));
-        }
         if configurations.len() != self.residuals.len() || self.residuals.is_empty() {
             return Err(CompileError::Missing(
                 "implicit branch configuration extent".into(),

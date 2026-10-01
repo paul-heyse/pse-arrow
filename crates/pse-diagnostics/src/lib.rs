@@ -4,12 +4,80 @@
 //! Shared diagnostic vocabulary and lossless native engine causes.
 
 mod vocabulary;
-pub use vocabulary::{DiagnosticCode, FailureClass, VocabularyError};
+pub use vocabulary::{DiagnosticCode, DiagnosticRule, DiagnosticStage, FailureClass, VocabularyError};
+
+/// Source-owned attribution without a dependency on semantic identity crates.
+#[derive(Clone, Debug, Default)]
+pub struct DiagnosticFacts {
+    /// Original semantic identities, in source order.
+    pub sources: Vec<[u8; 16]>,
+    /// Structured authored locations, when known.
+    pub locations: Vec<DiagnosticLocation>,
+    /// The checking rule; wrappers may retain a more specific child rule.
+    pub rule: Option<DiagnosticRule>,
+    /// Observed facts, independent of display text.
+    pub observations: std::collections::BTreeMap<String, DiagnosticObservation>,
+}
+/// A revision-bound authored location. Absence of revision means unattributed context.
+#[derive(Clone, Debug)]
+pub struct DiagnosticLocation {
+    /// Authored occurrence identity.
+    pub source: [u8; 16],
+    /// Immutable revision, when supplied by the source owner.
+    pub revision: Option<[u8; 32]>,
+    /// Authored path.
+    pub path: String,
+    /// Authored display name.
+    pub name: Option<String>,
+    /// UTF-8 start byte.
+    pub start: Option<u32>,
+    /// UTF-8 exclusive end byte.
+    pub end: Option<u32>,
+}
+/// Low-coupling observed evidence; physical meaning uses registered identities.
+#[derive(Clone, Debug)]
+pub enum DiagnosticObservation {
+    /// Absent evidence, distinct from a numerical value.
+    Missing,
+    /// A numerical observation; projection tags nonfinite values explicitly.
+    Number(f64),
+    /// An exact count.
+    Integer(i64),
+    /// Checked predicate.
+    Boolean(bool),
+    /// Native status or explanatory detail.
+    Text(String),
+    /// Ordered complete quantity/free-index operand contracts.
+    Contracts(Vec<OperandContract>),
+}
+/// A complete registered quantity type plus its free-index obligations.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct OperandContract {
+    /// Immutable complete quantity-type identity.
+    pub quantity: [u8; 16],
+    /// Ordered bound-index, domain and entity-kind identities.
+    pub indices: Vec<[[u8; 16]; 3]>,
+}
+impl DiagnosticFacts {
+    /// Append an observation without coupling its owner to the public envelope.
+    pub fn observe(&mut self, key: impl Into<String>, value: DiagnosticObservation) {
+        self.observations.insert(key.into(), value);
+    }
+    /// Merge a wrapper's supplied facts while retaining the child's rule and evidence.
+    pub fn merge(&mut self, other: Self) {
+        self.sources.extend(other.sources);
+        self.locations.extend(other.locations);
+        if other.rule.is_some() { self.rule = other.rule; }
+        self.observations.extend(other.observations);
+    }
+}
 
 /// Semantic identity and aggregate structure, independent of presentation.
 pub trait TypedDiagnostic: miette::Diagnostic + 'static {
     /// One declared code, or none for an empty or mixed aggregate.
     fn diagnostic_code(&self) -> Option<DiagnosticCode>;
+    /// Source-owned facts; lower layers never need a model/runtime dependency.
+    fn diagnostic_facts(&self) -> DiagnosticFacts { DiagnosticFacts::default() }
     /// Ordered children; an empty iterator denotes an empty failed aggregate.
     fn diagnostic_children(&self) -> Option<Box<dyn Iterator<Item = &dyn TypedDiagnostic> + '_>> {
         None
@@ -42,6 +110,14 @@ macro_rules! impl_diagnostic {
     ($ty:ty, code($c:ident) $code:block, forward($f:ident) $forward:block,
      help($h:ident) $help:block, related($r:ident) $related:block,
      source($s:ident) $source:block) => {
+        $crate::impl_diagnostic! { $ty, code($c) $code, forward($f) $forward,
+            help($h) $help, related($r) $related, source($s) $source,
+            facts(_this) { $crate::DiagnosticFacts::default() }
+        }
+    };
+    ($ty:ty, code($c:ident) $code:block, forward($f:ident) $forward:block,
+     help($h:ident) $help:block, related($r:ident) $related:block,
+     source($s:ident) $source:block, facts($d:ident) $facts:block) => {
         impl $ty {
             #[allow(clippy::unnecessary_wraps, reason = "a wrapper may delegate every variant while the shared projection also supports partial delegation")]
             fn diagnostic_forward(&self) -> Option<&dyn $crate::TypedDiagnostic> {
@@ -63,6 +139,14 @@ macro_rules! impl_diagnostic {
             reason = "projection macro accepts exhaustive and partially delegated variant maps"
         )]
         impl $crate::TypedDiagnostic for $ty {
+            fn diagnostic_facts(&self) -> $crate::DiagnosticFacts {
+                let $d = self;
+                let own: $crate::DiagnosticFacts = $facts;
+                let mut facts = self.diagnostic_forward().map_or_else(
+                    $crate::DiagnosticFacts::default, $crate::TypedDiagnostic::diagnostic_facts);
+                facts.merge(own);
+                facts
+            }
             fn diagnostic_code(&self) -> Option<$crate::DiagnosticCode> {
                 self.diagnostic_own_code().or_else(|| {
                     self.diagnostic_forward()

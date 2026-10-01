@@ -729,7 +729,7 @@ impl Requirements<'_> {
                     .ok_or_else(|| {
                         ProblemError::Unsupported(format!(
                             "no eligible native route: {}",
-                            assessed(&choices)
+                            assessed(choices)
                         ))
                     })?
             }
@@ -748,7 +748,7 @@ impl Requirements<'_> {
             return Err(ProblemError::Unsupported(format!(
                 "selected {} is ineligible: {}",
                 selected.as_str(),
-                assessed(&choices)
+                assessed(choices)
             )));
         }
         Ok(Route::Native(selected))

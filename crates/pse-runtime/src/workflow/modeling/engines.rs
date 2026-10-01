@@ -539,7 +539,7 @@ impl ModelingPackage {
         staged
             .step(
                 self,
-                &analysis,
+                analysis,
                 &overlay,
                 start,
                 Obligations::Final,

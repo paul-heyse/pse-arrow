@@ -701,7 +701,7 @@ mod tests {
                     assert!(completed.decision.permits_seed());
                 }
                 assert_eq!(native.termination.category, stop);
-                assert_eq!(native.quality.as_ref().unwrap().feasible(), true);
+                assert!(native.quality.as_ref().unwrap().feasible());
             }
         }
     }

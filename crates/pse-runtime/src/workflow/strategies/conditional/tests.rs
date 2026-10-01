@@ -111,7 +111,7 @@ async fn conditional_unit_solves_original_rows_and_restores_each_boundary_overla
             realization: CausalUnitRealization::Conditional {
                 residuals: rows.clone(),
                 unknowns: unknowns.clone(),
-                solver,
+                solver: Box::new(solver),
             },
         }],
         anderson: 0,
@@ -351,7 +351,7 @@ async fn conditional_unit_derived_boundary_solves_constituent_variables() {
             realization: CausalUnitRealization::Conditional {
                 residuals: rows.clone(),
                 unknowns: unknowns.clone(),
-                solver,
+                solver: Box::new(solver),
             },
         }],
         anderson: 0,
@@ -495,10 +495,10 @@ fn conditional_unit_request_has_one_declared_realization_and_canonical_settings_
         realization: CausalUnitRealization::Conditional {
             residuals: BTreeSet::from([id(4)]),
             unknowns: BTreeSet::from([id(5)]),
-            solver: crate::math::settings::SolveSettings {
+            solver: Box::new(crate::math::settings::SolveSettings {
                 intent: SolveIntent::Root,
                 ..Default::default()
-            },
+            }),
         },
     };
     let value = serde_json::to_value(&request).unwrap();
@@ -740,10 +740,10 @@ async fn conditional_unit_affine_boundary_retains_difference_magnitudes_and_poin
                     .map(|r| r.id)
                     .collect(),
                 unknowns: BTreeSet::from([symbol("x"), symbol("y")]),
-                solver: crate::math::settings::SolveSettings {
+                solver: Box::new(crate::math::settings::SolveSettings {
                     intent: SolveIntent::Root,
                     ..Default::default()
-                },
+                }),
             },
         }],
         anderson: 0,

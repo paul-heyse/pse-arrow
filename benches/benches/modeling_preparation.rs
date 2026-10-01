@@ -216,7 +216,7 @@ fn bench_source(seed: &[String], workloads: &[Value]) -> String {
                     .map(|j| format!("fix root.phase.amount[{j}]={}{{mol}};", 1.0 / n as f64))
                     .collect();
                 s.push_str(&format!(
-                    "test {name} fixture {{dof 0; run steady; fix root.phase.T={TEMPERATURE}; {amounts}}} {{\n\
+                    "test {name} fixture {{dof 0; route steady; procedure solve; fix root.phase.T={TEMPERATURE}; {amounts}}} {{\n\
                      child root:PcSaftState=PcSaftState(selected=members_{n:02});\n}}\n"
                 ));
             }
@@ -228,7 +228,7 @@ fn bench_source(seed: &[String], workloads: &[Value]) -> String {
                     other => panic!("unregistered realization {other}"),
                 };
                 s.push_str(&format!(
-                    "test {name} fixture {{dof 0; run steady; fix root.T=450{{K}}; fix root.target_pressure={PRESSURE}; fix root.amount[chem.benzene]=0.5{{mol}}; fix root.amount[chem.toluene]=0.5{{mol}}; value root.density_lower=1; value root.density_upper=100; value root.density_start=27;}} {{\n\
+                    "test {name} fixture {{dof 0; route steady; procedure solve; fix root.T=450{{K}}; fix root.target_pressure={PRESSURE}; fix root.amount[chem.benzene]=0.5{{mol}}; fix root.amount[chem.toluene]=0.5{{mol}}; value root.density_lower=1; value root.density_upper=100; value root.density_start=27;}} {{\n\
                      child root:peng_robinson.DensityRoot=peng_robinson.{realization}(selected=bt_ideal.aromatics,pkg=eos_data.bt_pr_parameters,law=eos_data.potential);\n}}\n"
                 ));
             }
@@ -290,9 +290,8 @@ async fn prepare(
     let started = Instant::now();
     let outcome: Result<Value, (&str, WorkflowError)> = async {
         let mut analysis = package
-            .declared_analysis(
+            .declared_execution(
                 case,
-                pse_relations::generated::enums::ModelingAnalysisRoute::Steady,
                 Default::default(),
                 Default::default(),
                 Default::default(),
@@ -300,7 +299,8 @@ async fn prepare(
                 &cancel,
             )
             .await
-            .map_err(|e| ("specialization_lowering", e))?;
+            .map_err(|e| ("specialization_lowering", e))?
+            .analysis;
         if stage == "value" {
             let path = if workload["model"] == "pcsaft" {
                 "root.pressure"

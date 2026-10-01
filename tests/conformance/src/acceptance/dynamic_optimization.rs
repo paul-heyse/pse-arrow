@@ -7,7 +7,6 @@
 use super::fixtures::*;
 use pse_backend_native::solve::{Backend, Qualification, SolverSelection};
 use pse_ids::SemanticId;
-use pse_relations::generated::enums::ModelingAnalysisRoute;
 use pse_runtime::{
     CancelSource,
     math::solves::{Outcome, SolverProfile},
@@ -77,9 +76,8 @@ async fn simultaneous(
 ) -> (std::sync::Arc<RunResult>, Vec<SemanticId>) {
     let cancel = CancelSource::new();
     let mut analysis = package
-        .declared_analysis(
+        .declared_execution(
             SemanticId::parse_hex(fixture).unwrap().into(),
-            ModelingAnalysisRoute::Simultaneous,
             compiler(),
             solver,
             Default::default(),
@@ -87,7 +85,8 @@ async fn simultaneous(
             &cancel,
         )
         .await
-        .unwrap();
+        .unwrap()
+        .analysis;
     if let Some(target) = target {
         analysis.case.values.insert("root.target".into(), target);
     }

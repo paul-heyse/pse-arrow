@@ -5868,6 +5868,7 @@ version = "0.0.1"
 dependencies = [
  "miette",
  "postgres-types",
+ "serde",
  "thiserror 2.0.20",
 ]
 
@@ -6006,6 +6007,7 @@ dependencies = [
  "deadpool-postgres",
  "futures",
  "miette",
+ "petgraph",
  "pse-diagnostics",
  "pse-ids",
  "pse-model",

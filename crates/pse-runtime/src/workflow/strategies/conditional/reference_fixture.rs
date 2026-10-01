@@ -148,11 +148,11 @@ pub(in crate::workflow) async fn actual_reference_recycle_fixture(
             CausalUnitRealization::Conditional {
                 residuals: inventory.residuals,
                 unknowns: inventory.unknowns,
-                solver: crate::math::settings::SolveSettings {
+                solver: Box::new(crate::math::settings::SolveSettings {
                     intent: SolveIntent::Root,
                     backend: Some(Backend::Kinsol),
                     ..Default::default()
-                },
+                }),
             }
         };
         units.push(CausalUnitRequest {
@@ -257,7 +257,7 @@ async fn conditional_unit_reference_request_declares_original_inventories_and_ro
         ..
     } = &mixer.realization
     else {
-        unreachable!()
+        panic!("reference mixer must retain its conditional realization")
     };
     assert!(
         residuals

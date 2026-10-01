@@ -529,14 +529,14 @@ check-solver-contracts:
     cargo check -p pse-backend-native -p pse-runtime -p pse-compiler -p pse-relations --all-targets --locked --features pse-runtime/native-solvers,pse-relations/force-validate
 
 [group('local')]
-[doc('Static lint of the linked native math, runtime and Python boundary contracts')]
+[doc('Static lint of the linked native workspace, conformance and benchmark consumers')]
 lint-solver-contracts:
     #!/usr/bin/env bash
     set -euo pipefail
     source scripts/build-env.sh
     source scripts/native-solver-env.sh
     source scripts/native-math-env.sh
-    cargo clippy --no-deps -p pse-backend-native -p pse-runtime -p pse-py -p pse-compiler -p pse-math --all-targets --locked --features pse-py/native-solvers,pse-relations/force-validate -- -D warnings
+    cargo clippy --keep-going --no-deps --workspace --all-targets --locked --features pse-py/native-solvers,pse-tests-conformance/native-acceptance,pse-benches/native-process,pse-relations/force-validate -- -D warnings
 
 [group('local')]
 [doc('Native callback, upload, status, ABI and lifetime units; no native convergence journeys')]

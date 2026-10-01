@@ -412,16 +412,16 @@ async fn pcsaft_tpd(
     let package = package.with_declarations(rows).unwrap();
     let cancel = CancelSource::new();
     let analysis = package
-        .declared_analysis(
+        .declared_execution(
             case,
-            pse_relations::generated::enums::ModelingAnalysisRoute::Steady,
             compiler(),
             profile(Backend::Ipopt, true),
             Default::default(),
             limits,
             &cancel,
         )
-        .await?;
+        .await?
+        .analysis;
     package.prepare_analysis(&analysis, &cancel).await
 }
 

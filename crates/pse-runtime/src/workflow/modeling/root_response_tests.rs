@@ -13,26 +13,26 @@ use pse_relations::{
         runtime::{local_validity, parametric_sensitivities, solve_runs},
     },
 };
+type TestResult<T> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
+
 async fn solve_with_backend(
     boundary: bool,
     backend: Backend,
-) -> std::sync::Arc<crate::workflow::RunResult> {
+) -> TestResult<std::sync::Arc<crate::workflow::RunResult>> {
     let text = "package p { def Root { param p: Scalar=4; var x: Scalar; eq root: x*x==p; annotation start x(2); } }";
     let rows = pse_authoring::language::parse(
         text,
         SemanticId::NIL,
         pse_authoring::language::IdentityPolicy::Named,
         pse_authoring::ParseBudget::default(),
-    )
-    .unwrap();
+    )?;
     let root = rows
         .iter()
         .find(|r| r.name == "Root")
-        .unwrap()
+        .ok_or_else(|| std::io::Error::other("Root declaration absent"))?
         .declaration_id;
     let package = fixture::runtime_with(16 << 20, 16 << 20, 1 << 30)
-        .modeling_package(rows, fixture::physical())
-        .unwrap();
+        .modeling_package(rows, fixture::physical())?;
     let mut solver = fixture::profile();
     solver.intent = SolveIntent::Root;
     solver.selection = SolverSelection::Explicit(backend);
@@ -62,26 +62,23 @@ async fn solve_with_backend(
         },
     );
     let cancel = crate::CancelSource::new();
-    let plain = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+    let plain = package.prepare_analysis(&analysis, &cancel).await?;
     let p = plain.model.model.compiled().model.paths["p"];
     analysis.solver.sensitivity = Some(SensitivityRequest {
         parameters: vec![p],
         reduced_hessian: false,
         propagation: None,
     });
-    package
+    Ok(package
         .prepare_analysis(&analysis, &cancel)
-        .await
-        .unwrap()
-        .start()
-        .unwrap()
+        .await?
+        .start()?
         .wait()
-        .await
-        .unwrap()
+        .await?)
 }
 #[tokio::test]
 async fn root_response_publication_has_physical_primal_and_no_kkt_fields() {
-    let result = solve_with_backend(false, Backend::Kinsol).await;
+    let result = solve_with_backend(false, Backend::Kinsol).await.unwrap();
     let validity =
         local_validity::Row::rows(&result.table("runtime.local_validity").unwrap()).unwrap();
     assert_eq!(validity.len(), 1);
@@ -105,7 +102,7 @@ async fn root_response_publication_has_physical_primal_and_no_kkt_fields() {
 }
 #[tokio::test]
 async fn root_response_withheld_at_active_bound_keeps_base_solution() {
-    let result = solve_with_backend(true, Backend::Kinsol).await;
+    let result = solve_with_backend(true, Backend::Kinsol).await.unwrap();
     let validity =
         local_validity::Row::rows(&result.table("runtime.local_validity").unwrap()).unwrap();
     assert_eq!(validity.len(), 1);
@@ -135,16 +132,13 @@ async fn root_response_withheld_at_active_bound_keeps_base_solution() {
     feature = "solver-pounce",
     feature = "solver-scip"
 ))]
-async fn assert_root_response(backend: Backend, boundary: bool) {
-    let result = solve_with_backend(boundary, backend).await;
-    let validity =
-        local_validity::Row::rows(&result.table("runtime.local_validity").unwrap()).unwrap();
+async fn assert_root_response(backend: Backend, boundary: bool) -> TestResult<()> {
+    let result = solve_with_backend(boundary, backend).await?;
+    let validity = local_validity::Row::rows(&result.table("runtime.local_validity")?)?;
     assert_eq!(validity.len(), 1);
     let v = &validity[0].validity;
-    let response = parametric_sensitivities::Row::rows(
-        &result.table("runtime.parametric_sensitivities").unwrap(),
-    )
-    .unwrap();
+    let response =
+        parametric_sensitivities::Row::rows(&result.table("runtime.parametric_sensitivities")?)?;
     assert!(v.licq.is_none() && v.strict_complementarity.is_none() && v.second_order.is_none());
     if boundary {
         assert!(!v.certified, "{backend:?}: {v:?}");
@@ -160,46 +154,52 @@ async fn assert_root_response(backend: Backend, boundary: bool) {
         assert_eq!(response.len(), 1);
         assert!(response[0].dual.is_none());
         assert!(
-            (response[0].primal.unwrap() - 0.25).abs() < 1e-9,
+            (response[0]
+                .primal
+                .ok_or_else(|| std::io::Error::other("physical primal response absent"))?
+                - 0.25)
+                .abs()
+                < 1e-9,
             "{backend:?}: {:?}",
             response[0]
         );
     }
-    let runs = solve_runs::Row::rows(&result.table("runtime.solve_runs").unwrap()).unwrap();
+    let runs = solve_runs::Row::rows(&result.table("runtime.solve_runs")?)?;
     assert!(
         runs.iter().any(|r| r.backend == Some(backend)
             && r.qualification == pse_relations::generated::enums::NativeQualification::Feasible),
         "{backend:?}: {runs:?}"
     );
+    Ok(())
 }
 #[cfg(feature = "solver-ipopt")]
 #[tokio::test]
 async fn explicit_ipopt_root_response_uses_shared_square_analysis() {
-    assert_root_response(Backend::Ipopt, false).await;
+    assert_root_response(Backend::Ipopt, false).await.unwrap();
 }
 #[cfg(feature = "solver-ipopt")]
 #[tokio::test]
 async fn explicit_ipopt_root_active_bound_withholds_response_and_keeps_base() {
-    assert_root_response(Backend::Ipopt, true).await;
+    assert_root_response(Backend::Ipopt, true).await.unwrap();
 }
 #[cfg(feature = "solver-pounce")]
 #[tokio::test]
 async fn explicit_pounce_root_response_uses_shared_square_analysis() {
-    assert_root_response(Backend::Pounce, false).await;
+    assert_root_response(Backend::Pounce, false).await.unwrap();
 }
 #[cfg(feature = "solver-pounce")]
 #[tokio::test]
 async fn explicit_pounce_root_active_bound_withholds_response_and_keeps_base() {
-    assert_root_response(Backend::Pounce, true).await;
+    assert_root_response(Backend::Pounce, true).await.unwrap();
 }
 
 #[cfg(feature = "solver-scip")]
 #[tokio::test]
 async fn explicit_scip_root_response_uses_shared_square_analysis() {
-    assert_root_response(Backend::Scip, false).await;
+    assert_root_response(Backend::Scip, false).await.unwrap();
 }
 #[cfg(feature = "solver-scip")]
 #[tokio::test]
 async fn explicit_scip_root_active_bound_withholds_response_and_keeps_base() {
-    assert_root_response(Backend::Scip, true).await;
+    assert_root_response(Backend::Scip, true).await.unwrap();
 }

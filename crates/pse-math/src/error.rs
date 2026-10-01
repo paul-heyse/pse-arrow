@@ -120,7 +120,7 @@ pub enum MathError {
         source_id: SemanticId,
         /// Original typed native failure.
         #[source]
-        cause: Box<dyn std::error::Error + Send + Sync + 'static>,
+        cause: Box<dyn pse_model::diagnostic::DiagnosticProjection + Send + Sync + 'static>,
         /// Owned extent of `cause`, reported by the producer that knows its type.
         retained: usize,
     },
@@ -171,13 +171,51 @@ mod tests {
 pse_diagnostics::impl_diagnostic! {
     MathError,
     code(this) { match this {
-        Self::Applicability(_) | Self::Validity(_) | Self::Domain {..} | Self::OutsideRange {..} => Some(pse_diagnostics::DiagnosticCode::SolveEvaluationError),
+        Self::Applicability(_) => Some(pse_diagnostics::DiagnosticCode::MathApplicability),
+        Self::Validity(_) => Some(pse_diagnostics::DiagnosticCode::MathValidity),
+        Self::Domain {..} => Some(pse_diagnostics::DiagnosticCode::MathDomain),
+        Self::OutsideRange {..} => Some(pse_diagnostics::DiagnosticCode::MathRange),
+        Self::Evaluation {..} => Some(pse_diagnostics::DiagnosticCode::MathEvaluation),
         Self::Cancelled => Some(pse_diagnostics::DiagnosticCode::RuntimeCancelled),
         Self::Limit(_) | Self::SlotLimit {..} | Self::WorkLimit {..} => Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit),
-        Self::Quantity(_) | Self::Provider {..} | Self::Instance {..} => None,
-        Self::Native {..} => Some(pse_diagnostics::DiagnosticCode::SolveSolverError),
-        _ => Some(pse_diagnostics::DiagnosticCode::CompileMath),
+        Self::Quantity(_) | Self::Provider {..} | Self::Instance {..} | Self::Native {..} => None,
+        Self::Contract(_) => Some(pse_diagnostics::DiagnosticCode::MathContract),
+        Self::Library(_) => Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
+        Self::CoefficientRange => Some(pse_diagnostics::DiagnosticCode::MathCoefficientRange),
     } },
-    forward(this) { match this { Self::Quantity(e) => Some(e), Self::Instance {cause,..} => Some(cause.as_ref()), Self::Provider {cause,..} => Some(cause), _ => None } },
+    forward(this) { match this { Self::Quantity(e) => Some(e), Self::Instance {cause,..} => Some(cause.as_ref()), Self::Provider {cause,..} => Some(cause), Self::Native {cause,..} => Some(cause.as_ref()), _ => None } },
     help(_this) { None }, related(_this) { None }, source(_this) { None }
+}
+
+impl pse_model::diagnostic::DiagnosticProjection for MathError {
+    fn boundary_diagnostic(&self, stage: pse_diagnostics::DiagnosticStage) -> pse_model::diagnostic::BoundaryDiagnostic {
+        use pse_diagnostics::{TypedDiagnostic, DiagnosticRule as R};
+        use pse_model::diagnostic::{project_facts, BoundaryDiagnostic, Observation as O, DiagnosticProjection};
+        let mut d = match self {
+            Self::Instance {cause,..} => cause.boundary_diagnostic(stage),
+            Self::Provider {cause,..} => cause.boundary_diagnostic(stage),
+            Self::Native {cause,..} => cause.boundary_diagnostic(stage),
+            Self::Quantity(cause) => project_facts(cause.diagnostic_code(),cause.diagnostic_facts(),stage),
+            Self::Contract(_) | Self::CoefficientRange | Self::Library(_) | Self::Evaluation{..} | Self::Validity(_) | Self::Applicability(_) | Self::Domain{..} | Self::OutsideRange{..} | Self::Limit(_) | Self::SlotLimit{..} | Self::WorkLimit{..} | Self::Cancelled => project_facts(self.diagnostic_code(),self.diagnostic_facts(),stage),
+        };
+        match self {
+            Self::Instance {instance,..} => {d.causes.push(d.clone());d.sources.push(*instance); for observation in &mut d.applicability {observation.instance=Some(*instance);} }
+            Self::Validity(lineage) => {d.rule=R::MathValidity;d.sources.push(lineage.source);d.sources.extend(lineage.form);d.sources.extend(&lineage.sets);d.sources.extend(&lineage.members);d.validity=Some(lineage.as_ref().clone());}
+            Self::Applicability(assessment) => {d.rule=R::MathApplicability;d.applicability=assessment.observations.clone();for o in &d.applicability {d.sources.extend(o.claim.id);d.sources.push(o.claim.form);d.sources.extend(&o.claim.records);} }
+            Self::Domain{source_id,requirement} => {d.rule=R::MathDomain;d.sources.push(*source_id);d.observations.insert("requirement".into(),O::Text((*requirement).into()));}
+            Self::Evaluation{source_id,order,..} => {d.rule=R::MathEvaluation;d.sources.push(*source_id);d.observations.insert("derivative_order".into(),O::Integer(match order {pse_kernels::DerivativeOrder::Value=>0,pse_kernels::DerivativeOrder::First=>1,pse_kernels::DerivativeOrder::Second=>2}));}
+            Self::OutsideRange{source_id,target,value,lower,upper} => {d.rule=R::MathRange;d.sources.extend([*source_id,*target]);for (key,value) in [("value",Some(*value)),("lower",*lower),("upper",*upper)] {d.observations.insert(key.into(),value.map_or(O::Missing,O::number));}}
+            Self::Provider{source_id,provider,..} => {d.causes.push(d.clone());d.sources.extend([*source_id,*provider]);d.observations.insert("provider".into(),O::Text(provider.to_hex()));}
+            Self::Native{source_id,..} => {d.causes.push(d.clone());d.sources.push(*source_id);}
+            Self::WorkLimit{source_id,resource,required,available,components} => {d.rule=R::MathLimit;d.sources.push(*source_id);d.observations.insert("resource".into(),O::Text((*resource).into()));for (key,value) in [("required_operations",required),("available_operations",available),("taylor_components",components)] {d.observations.insert(key.into(),i64::try_from(*value).map_or_else(|_|O::Text(value.to_string()),O::Integer));}}
+            Self::SlotLimit{required,available} => {d.rule=R::MathLimit;for (key,value) in [("required_slots",required),("available_slots",available)] {d.observations.insert(key.into(),i64::try_from(*value).map_or_else(|_|O::Text(value.to_string()),O::Integer));}}
+            Self::Limit(_) => d.rule=R::MathLimit,
+            Self::Cancelled => d.rule=R::MathCancelled,
+            Self::Contract(_) => d.rule=R::MathContract,
+            Self::CoefficientRange => d.rule=R::MathCoefficientRange,
+            Self::Library(_) => d.rule=R::MathLibrary,
+            Self::Quantity(_) => {}
+        }
+        d.observations.insert("detail".into(),O::Text(self.to_string()));d.sources.sort_unstable();d.sources.dedup();d
+    }
 }

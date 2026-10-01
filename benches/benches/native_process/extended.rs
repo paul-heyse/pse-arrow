@@ -31,9 +31,8 @@ async fn algebraic(
     owner: &WorkflowRuntime,
     quadratic: bool,
     mixed: bool,
-) -> (workflow::ModelingPackage, DeclarationId) {
+) -> (ModelingPackage, DeclarationId) {
     let physical = physical(owner).await;
-    let (q, _) = neutral(&physical);
     let (a, b) = if mixed { (1e-6, 1e6) } else { (2.0, 3.0) };
     let equations = if quadratic {
         "let cost:Scalar=(x-a)*(x-a)+(y-b)*(y-b); annotation objective cost(minimize);"
@@ -93,7 +92,6 @@ async fn cone(owner: &WorkflowRuntime) {
 
 async fn recycle(owner: &WorkflowRuntime) {
     let physical = physical(owner).await;
-    let (q, _) = neutral(&physical);
     let rows=pse_authoring::language::parse("package benchmark {def Root {param a:Scalar=2; var x:Scalar; let result:Scalar=x/2+a; port inlet:Scalar=x; port outlet:Scalar=result; connect outlet -> inlet; annotation start x(1);}}",id(1),pse_authoring::language::IdentityPolicy::Named,Default::default()).unwrap();
     let root = rows
         .iter()
@@ -103,9 +101,8 @@ async fn recycle(owner: &WorkflowRuntime) {
     let package = runtime(owner).modeling_package(rows, physical).unwrap();
     let cancel = CancelSource::new();
     let analysis = package
-        .declared_analysis(
+        .declared_execution(
             root,
-            pse_relations::generated::enums::ModelingAnalysisRoute::Steady,
             compiler(),
             profile(Backend::Kinsol, false),
             Default::default(),
@@ -113,7 +110,8 @@ async fn recycle(owner: &WorkflowRuntime) {
             &cancel,
         )
         .await
-        .unwrap();
+        .unwrap()
+        .analysis;
     let model = package
         .prepare(
             root,
@@ -135,7 +133,7 @@ async fn recycle(owner: &WorkflowRuntime) {
     };
     let (input, output) = (port("inlet"), port("outlet"));
     let selection = pse_compiler::workspace::ModelingFlowSelection {
-        nodes: std::collections::BTreeSet::from([pse_modeling::specialize::root_instance(root)]),
+        nodes: BTreeSet::from([pse_modeling::specialize::root_instance(root)]),
         connections: product
             .connections
             .keys()
@@ -174,8 +172,9 @@ async fn recycle(owner: &WorkflowRuntime) {
         tears: selected.decisions,
         units: vec![workflow::CausalUnitRequest {
             node: pse_modeling::specialize::root_instance(root).into(),
-            inputs: std::collections::BTreeSet::from([input]),
-            outputs: std::collections::BTreeSet::from([output]),
+            inputs: BTreeSet::from([input]),
+            outputs: BTreeSet::from([output]),
+            realization: workflow::CausalUnitRealization::ExplicitMap,
         }],
         anderson: 1,
         damping: pse_model::scalars::Fraction::try_new(1.0).unwrap(),
@@ -277,9 +276,8 @@ async fn run(owner: &WorkflowRuntime, operation: &str, size: usize) {
             );
             selected.presolve = native::presolve::Policy::Off;
             let mut analysis = package
-                .declared_analysis(
+                .declared_execution(
                     root,
-                    pse_relations::generated::enums::ModelingAnalysisRoute::Steady,
                     compiler(),
                     selected,
                     Default::default(),
@@ -287,7 +285,8 @@ async fn run(owner: &WorkflowRuntime, operation: &str, size: usize) {
                     &cancel,
                 )
                 .await
-                .unwrap();
+                .unwrap()
+                .analysis;
             let count = if operation == "value-sweep" { 1000 } else { 1 };
             for point in 0..count {
                 let expected = [
@@ -337,9 +336,8 @@ async fn run(owner: &WorkflowRuntime, operation: &str, size: usize) {
                 std::hint::black_box(result.tables().unwrap());
             } else {
                 let analysis = package
-                    .declared_analysis(
+                    .declared_execution(
                         root,
-                        pse_relations::generated::enums::ModelingAnalysisRoute::Integrated,
                         compiler(),
                         profile(Backend::Ipopt, false),
                         Default::default(),
@@ -347,7 +345,8 @@ async fn run(owner: &WorkflowRuntime, operation: &str, size: usize) {
                         &cancel,
                     )
                     .await
-                    .unwrap();
+                    .unwrap()
+                    .analysis;
                 for step in 1..=4 {
                     let mut case = analysis.case.clone();
                     case.values.insert("root.heat".into(), step as f64);

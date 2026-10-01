@@ -1360,7 +1360,6 @@ fn kernel_nested_implicit_provider_projects_values_and_ift_derivatives() {
                 )]),
                 Arc::new(AnalyticRoot),
                 DerivativeOrder::Second,
-                DerivativeOrder::Value,
                 &accelerators,
                 cancel.clone(),
                 EvaluationLimits::default(),
@@ -1373,16 +1372,15 @@ fn kernel_nested_implicit_provider_projects_values_and_ift_derivatives() {
             &cancel,
         )
         .unwrap();
-        let configuration = match &factory {
-            pse_math::implicit::ImplicitFactory::Root(f) => f.configuration.clone(),
-            _ => unreachable!(),
+        let pse_math::implicit::ImplicitFactory::Root(root_factory) = &factory else {
+            panic!("expected a single root factory");
         };
+        let configuration = root_factory.configuration.clone();
         let first_factory = inner
             .factory(
                 BTreeMap::from([(inner.residuals[0].id, configuration)]),
                 Arc::new(AnalyticRoot),
                 DerivativeOrder::First,
-                DerivativeOrder::Value,
                 &accelerators,
                 cancel.clone(),
                 EvaluationLimits::default(),
@@ -1578,7 +1576,6 @@ fn implicit_selection_requires_authored_meaning_and_separates_operational_anchor
                     configs.clone(),
                     Arc::new(Anchored),
                     DerivativeOrder::First,
-                    DerivativeOrder::First,
                     &accelerators,
                     cancel.clone(),
                     EvaluationLimits::default()
@@ -1592,7 +1589,6 @@ fn implicit_selection_requires_authored_meaning_and_separates_operational_anchor
                 configs,
                 Arc::new(Anchored),
                 DerivativeOrder::Value,
-                DerivativeOrder::First,
                 &accelerators,
                 cancel.clone(),
                 EvaluationLimits::default(),
@@ -1661,7 +1657,6 @@ fn implicit_selection_requires_authored_meaning_and_separates_operational_anchor
             )]),
             Arc::new(Anchored),
             DerivativeOrder::Value,
-            DerivativeOrder::First,
             &pse_math::implicit::accelerators::Accelerators::standard(),
             cancel,
             EvaluationLimits::default(),
@@ -1738,7 +1733,9 @@ fn implicit_c1_provider_compiles_only_justified_first_order() {
             _: &pse_math::implicit::Options,
             _: &Arc<AtomicBool>,
         ) -> std::result::Result<Vec<f64>, MathError> {
-            unreachable!("factory compilation control")
+            Err(MathError::Contract(
+                "compile-only First solver does not execute native solves".into(),
+            ))
         }
     }
     let configs = BTreeMap::from([(
@@ -1767,7 +1764,6 @@ fn implicit_c1_provider_compiles_only_justified_first_order() {
             configs.clone(),
             Arc::new(First),
             DerivativeOrder::First,
-            DerivativeOrder::First,
             &accelerators,
             cancel.clone(),
             EvaluationLimits::default(),
@@ -1783,7 +1779,6 @@ fn implicit_c1_provider_compiles_only_justified_first_order() {
                 configs,
                 Arc::new(First),
                 DerivativeOrder::Second,
-                DerivativeOrder::First,
                 &accelerators,
                 cancel,
                 EvaluationLimits::default()
@@ -1878,7 +1873,6 @@ fn implicit_nested_value_propagates_native_first_order_to_child() {
             configs(parent),
             Arc::new(FirstRoot),
             DerivativeOrder::Value,
-            DerivativeOrder::First,
             &accelerators,
             cancel.clone(),
             limits,
@@ -1895,7 +1889,6 @@ fn implicit_nested_value_propagates_native_first_order_to_child() {
             configs(child),
             Arc::new(FirstRoot),
             DerivativeOrder::Value,
-            DerivativeOrder::First,
             &accelerators,
             cancel.clone(),
             limits,
@@ -1915,7 +1908,6 @@ fn implicit_nested_value_propagates_native_first_order_to_child() {
             configs(child),
             Arc::new(FirstRoot),
             demands[&child.descriptor.spec().key()],
-            DerivativeOrder::First,
             &accelerators,
             cancel.clone(),
             limits,
@@ -3223,7 +3215,6 @@ fn kernel_regime_derivatives_are_regular_local_branch_jets() {
             configs,
             Arc::new(Roots),
             DerivativeOrder::Second,
-            DerivativeOrder::Value,
             &pse_math::implicit::accelerators::Accelerators::standard(),
             cancel.clone(),
             EvaluationLimits::default(),
@@ -3319,7 +3310,6 @@ fn implicit_minimum_score_unproved_native_roots_are_value_only() {
                     configs.clone(),
                     Arc::new(Candidate),
                     requested,
-                    DerivativeOrder::First,
                     &accelerators,
                     cancel.clone(),
                     EvaluationLimits::default(),
@@ -3335,7 +3325,6 @@ fn implicit_minimum_score_unproved_native_roots_are_value_only() {
                 configs,
                 Arc::new(Candidate),
                 DerivativeOrder::Value,
-                DerivativeOrder::First,
                 &accelerators,
                 cancel.clone(),
                 EvaluationLimits::default(),

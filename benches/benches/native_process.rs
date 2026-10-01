@@ -40,7 +40,7 @@ fn heater_blocks(package: &ModelingPackage, blocks: usize) -> (ModelingPackage, 
         children.push_str(&format!("child block{i}:homogeneous_units.HeaterRecycle=homogeneous_units.HeaterRecycle(selected=vessel_fixtures.alkanes,law=pcsaft_data.potential,ideal_h=vessel_fixtures.ideal_enthalpy,composition=vessel_fixtures.fraction); expect block{i}.phase.T==350{{K}} tolerance 0.00001{{K}}; expect block{i}.recycle==5{{mol/s}} tolerance 0.000001{{mol/s}};"));
     }
     let source = format!(
-        "@id(\"b70ab2554b57594e8d2b75288e80da8e\") package homogeneous_fixtures {{test workload fixture {{dof 0; run steady; {fixture}}} {{{children}}} }}"
+        "@id(\"b70ab2554b57594e8d2b75288e80da8e\") package homogeneous_fixtures {{test workload fixture {{dof 0; route steady; procedure solve; {fixture}}} {{{children}}} }}"
     );
     let extra = pse_authoring::language::parse(
         &source,
@@ -159,7 +159,7 @@ fn process(c: &mut Criterion) {
         mark(&mut phases,"source_admission",begin);
         let begin=Instant::now();
         let cancel=CancelSource::new();
-        let mut analysis=executor.block_on(package.declared_analysis(case,pse_relations::generated::enums::ModelingAnalysisRoute::Steady,compiler(),profile(Backend::Ipopt,false),Default::default(),seed_limits(),&cancel)).unwrap();
+        let mut analysis=executor.block_on(package.declared_execution(case,compiler(),profile(Backend::Ipopt,false),Default::default(),seed_limits(),&cancel)).unwrap().analysis;
         if reuse=="warm" {
             let path=if operation=="flash" {"root.liquid.T"} else {"block0.phase.T"};
             analysis.case.values.insert(path.into(),if operation=="flash" {280.0} else {313.15}+(iterations+1) as f64*1e-9);

@@ -38,20 +38,19 @@ pub fn declared_policy(
             "fixture procedure disagrees with its temporal route",
         ));
     }
-    if let Some(endpoint) = fixture.and_then(|f| f.endpoint.as_ref()) {
-        if route != Route::Integrated
+    if let Some(endpoint) = fixture.and_then(|f| f.endpoint.as_ref())
+        && (route != Route::Integrated
             || match endpoint.kind {
                 EndpointPolicy::FixedHorizon => endpoint.event.is_some(),
                 EndpointPolicy::DeclaredTerminalEvent => {
                     endpoint.event.as_ref().is_none_or(|e| e.trim().is_empty())
                 }
-            }
-        {
-            return Err(invalid(
-                at,
-                "endpoint requirement needs an integrated route and exactly its declared terminal event",
-            ));
-        }
+            })
+    {
+        return Err(invalid(
+            at,
+            "endpoint requirement needs an integrated route and exactly its declared terminal event",
+        ));
     }
     Ok(DeclaredPolicy { route, procedure })
 }

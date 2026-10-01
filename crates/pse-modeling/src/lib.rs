@@ -192,20 +192,22 @@ impl ModelingError {
                         .locations
                         .push(pse_model::diagnostic::SourceLocation {
                             source: *source,
+                            revision: None,
                             path: format!("document/{}", span.document_id),
                             name: Some(name.clone()),
                             start: Some(span.start),
                             end: Some(span.end),
                         });
                 }
-                return diagnostic;
+                let code = pse_diagnostics::TypedDiagnostic::diagnostic_code(self).unwrap_or(diagnostic.code);
+                return diagnostic.with_code(code);
             }
             Self::Contract {
                 declaration,
                 message,
             } => (
                 Class::InvalidModel,
-                "modeling.contract",
+                pse_diagnostics::DiagnosticRule::ModelingContract,
                 Some(*declaration),
                 Some(message),
             ),
@@ -214,7 +216,7 @@ impl ModelingError {
                 capability,
             } => (
                 Class::Unsupported,
-                "modeling.capability",
+                pse_diagnostics::DiagnosticRule::ModelingCapability,
                 Some(*declaration),
                 Some(capability),
             ),
@@ -233,9 +235,9 @@ impl ModelingError {
                 };
                 let mut diagnostic = BoundaryDiagnostic::new(
                     class,
-                    "modeling",
+                    pse_diagnostics::DiagnosticStage::Modeling,
                     [*declaration, *variable],
-                    "modeling.domain",
+                    pse_diagnostics::DiagnosticRule::ModelingDomain,
                 );
                 for (name, value) in [
                     ("variable", path.as_str()),
@@ -247,7 +249,8 @@ impl ModelingError {
                         .observations
                         .insert(name.into(), Observation::Text(value.into()));
                 }
-                return diagnostic;
+                let code = pse_diagnostics::TypedDiagnostic::diagnostic_code(self).unwrap_or(diagnostic.code);
+                return diagnostic.with_code(code);
             }
             Self::Realization {
                 declaration,
@@ -258,9 +261,9 @@ impl ModelingError {
             } => {
                 let mut diagnostic = BoundaryDiagnostic::new(
                     Class::Unsupported,
-                    "modeling",
+                    pse_diagnostics::DiagnosticStage::Modeling,
                     [*declaration],
-                    "modeling.realization",
+                    pse_diagnostics::DiagnosticRule::ModelingRealization,
                 );
                 for (name, value) in [
                     ("form", form.as_str()),
@@ -272,7 +275,8 @@ impl ModelingError {
                         .observations
                         .insert(name.into(), Observation::Text(value.into()));
                 }
-                return diagnostic;
+                let code = pse_diagnostics::TypedDiagnostic::diagnostic_code(self).unwrap_or(diagnostic.code);
+                return diagnostic.with_code(code);
             }
             Self::Objective {
                 declaration,
@@ -284,14 +288,15 @@ impl ModelingError {
                     } else {
                         Class::InvalidModel
                     },
-                    "modeling",
+                    pse_diagnostics::DiagnosticStage::Modeling,
                     [*declaration],
-                    "modeling.objective",
+                    pse_diagnostics::DiagnosticRule::ModelingObjective,
                 );
                 diagnostic
                     .observations
                     .insert("reason".into(), Observation::Text(reason.as_str().into()));
-                return diagnostic;
+                let code = pse_diagnostics::TypedDiagnostic::diagnostic_code(self).unwrap_or(diagnostic.code);
+                return diagnostic.with_code(code);
             }
             Self::TestOnly {
                 declaration,
@@ -300,25 +305,27 @@ impl ModelingError {
             } => {
                 let mut diagnostic = BoundaryDiagnostic::new(
                     Class::InvalidModel,
-                    "modeling",
+                    pse_diagnostics::DiagnosticStage::Modeling,
                     [*declaration, *root],
-                    "modeling.provenance",
+                    pse_diagnostics::DiagnosticRule::ModelingProvenance,
                 );
                 diagnostic
                     .observations
                     .insert("data".into(), Observation::Text(data.clone()));
-                return diagnostic;
+                let code = pse_diagnostics::TypedDiagnostic::diagnostic_code(self).unwrap_or(diagnostic.code);
+                return diagnostic.with_code(code);
             }
-            Self::Cancelled => (Class::Cancelled, "modeling.cancelled", None, None),
-            Self::Budget(reason) => (Class::ResourceLimit, "modeling.budget", None, Some(reason)),
+            Self::Cancelled => (Class::Cancelled, pse_diagnostics::DiagnosticRule::ModelingCancelled, None, None),
+            Self::Budget(reason) => (Class::ResourceLimit, pse_diagnostics::DiagnosticRule::ModelingBudget, None, Some(reason)),
         };
-        let mut diagnostic = BoundaryDiagnostic::new(class, "modeling", source, rule);
+        let mut diagnostic = BoundaryDiagnostic::new(class, pse_diagnostics::DiagnosticStage::Modeling, source, rule);
         if let Some(detail) = detail {
             diagnostic
                 .observations
                 .insert("detail".into(), Observation::Text(detail.clone()));
         }
-        diagnostic
+        let code = pse_diagnostics::TypedDiagnostic::diagnostic_code(self).unwrap_or(diagnostic.code);
+        diagnostic.with_code(code)
     }
 }
 /// The analysis whose admission refused a declared discrete domain (ADR-0103 item 6).
@@ -406,7 +413,7 @@ pub struct DomainTightening {
 }
 impl DomainTightening {
     /// Boundary rule of the informational finding.
-    pub const RULE: &'static str = "modeling.domain.tightened";
+    pub const RULE: pse_diagnostics::DiagnosticRule = pse_diagnostics::DiagnosticRule::ModelingDomainTightened;
     /// The informational finding that reports this tightening: rule
     /// `modeling.domain.tightened`, severity `info`, with the variable's path and domain
     /// and both bound pairs as observations. It never makes the model invalid.
@@ -414,7 +421,7 @@ impl DomainTightening {
         use pse_model::diagnostic::{BoundaryClass, BoundaryDiagnostic, Observation, Severity};
         let mut diagnostic = BoundaryDiagnostic::new(
             BoundaryClass::InvalidModel,
-            "modeling",
+            pse_diagnostics::DiagnosticStage::Modeling,
             [self.declaration, self.variable],
             Self::RULE,
         )
@@ -582,3 +589,7 @@ pub mod applicability;
 
 #[cfg(test)]
 mod scientific_selection_tests;
+
+impl pse_model::diagnostic::DiagnosticProjection for ModelingError {
+    fn boundary_diagnostic(&self, _stage: pse_diagnostics::DiagnosticStage) -> pse_model::diagnostic::BoundaryDiagnostic { self.boundary_diagnostic() }
+}

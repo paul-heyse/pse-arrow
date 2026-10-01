@@ -158,7 +158,7 @@ fn solve(backend: Backend, fault: Fault, controls: &Controls) -> (SolveReport, b
             None,
             compatibility,
         ),
-        _ => unreachable!(),
+        _ => panic!("quadratic oracle control requires an NLP backend"),
     }
     .unwrap();
     assert_eq!(report.termination.assurance, Assurance::None);

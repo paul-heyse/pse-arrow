@@ -52,27 +52,30 @@ impl RunResult {
             .try_grow(problem.encoding_bytes(report)?)
             .map_err(|e| WorkflowError::Math(e.into()))?;
         let mut batches = BTreeMap::new();
-        if let Ok(RunReport::Shooting(report)) = &self.report {
-            if let Some(trajectory) = &report.trajectory {
-                // Share the native trajectory; qualification is copied
-                // from the joined shooting result and never recomputed by this exporter.
-                let owner = self
-                    ._owner
-                    .clone()
-                    .ok_or_else(|| contract("shooting result ownership absent"))?;
-                batches = problem
-                    .simulation
-                    .completed_trajectory(
-                        self.run_id,
-                        trajectory.clone(),
-                        report.checks.clone(),
-                        report.reports.clone(),
-                        report.completion.clone(),
-                        report.checks_complete,
-                        owner,
-                    )
-                    .tables_for_kind(pse_model::generated::enums::ComputationKind::Shooting)?;
-            }
+        if let Ok(RunReport::Shooting(report)) = &self.report
+            && let Some(trajectory) = &report.trajectory
+        {
+            // Share the native trajectory; qualification is copied
+            // from the joined shooting result and never recomputed by this exporter.
+            let owner = self
+                ._owner
+                .clone()
+                .ok_or_else(|| contract("shooting result ownership absent"))?;
+            batches = problem
+                .simulation
+                .completed_trajectory(
+                    self.run_id,
+                    trajectory.clone(),
+                    super::modeling::dynamics::checks::SampleChecks {
+                        rows: report.checks.clone(),
+                        reports: report.reports.clone(),
+                        complete: report.checks_complete,
+                        error: report.validation_error.clone(),
+                    },
+                    report.completion.clone(),
+                    owner,
+                )
+                .tables_for_kind(pse_model::generated::enums::ComputationKind::Shooting)?;
         }
         use pse_model::generated::enums::{
             DualQualification, ModelingVariableDomain, NumericalTarget,

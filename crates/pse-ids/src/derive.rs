@@ -212,6 +212,8 @@ frames! {
         MathResolvedAdmissionsV1 => "pse.math.resolved-admissions.v1",
         /// Checked expression occurrences and complete contextual admission products.
         MathResolvedAdmissionsV2 => "pse.math.resolved-admissions.v2",
+        /// Canonical member/value/physical-context binding content, distinct from an occurrence.
+        StudyBindingV1 => "pse.study.binding.v1",
         /// A mathematical body including its retained physical admission product.
         MathBodyV2 => "pse.math.body.v2",
         /// Checked expression occurrences and complete contextual admission products.
