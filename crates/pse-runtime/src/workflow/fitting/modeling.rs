@@ -230,11 +230,7 @@ impl ModelingPackage {
                 "gradient-only fitting requires the limited-memory Hessian",
             ));
         }
-        let order = if hessian != HessianMode::LimitedMemory {
-            DerivativeOrder::Second
-        } else {
-            DerivativeOrder::First
-        };
+        let order = profile.solver.derivative_order();
         let q = &self.quantities;
         // Resolve paths and physical contracts before creating any global coordinates.
         let mut sources = Vec::new();

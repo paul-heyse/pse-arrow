@@ -64,6 +64,9 @@ impl CubicRoots {
     }
 }
 impl InnerSolver for CubicRoots {
+    fn minimum_order(&self) -> DerivativeOrder {
+        DerivativeOrder::Value
+    }
     fn identity(&self) -> ContentHash {
         solver_identity("symbolica.cubic-roots.v1")
     }

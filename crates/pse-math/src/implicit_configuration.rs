@@ -16,6 +16,7 @@ pub trait HintResolver: std::fmt::Debug + Send + Sync {
         &self,
         values: &[f64],
         original_terms: Option<&[f64]>,
+        semantic_anchor: Option<&[f64]>,
     ) -> Result<(Vec<Unknown>, Options), MathError>;
 }
 
@@ -106,6 +107,7 @@ impl ConfigurationWorker {
         problem: &mut Arc<Problem>,
         inputs: &[f64],
         cancel: &Arc<AtomicBool>,
+        semantic_anchor: Option<&[f64]>,
     ) -> Result<Options, MathError> {
         if cancel.load(Ordering::Acquire) {
             return Err(MathError::Cancelled);
@@ -113,8 +115,19 @@ impl ConfigurationWorker {
         if inputs.len() != problem.inputs {
             return Err(MathError::Contract("implicit hint input extent".into()));
         }
+        if semantic_anchor.is_some_and(|anchor| anchor.len() != problem.unknowns.len()) {
+            return Err(MathError::Contract(
+                "implicit semantic anchor extent".into(),
+            ));
+        }
         let (unknowns, options) = match &self.source {
-            Configuration::Fixed(unknowns, options) => (unknowns.clone(), options.clone()),
+            Configuration::Fixed(unknowns, options) => {
+                let mut options = options.clone();
+                if let Some(anchor) = semantic_anchor {
+                    options.start = anchor.to_vec();
+                }
+                (unknowns.clone(), options)
+            }
             Configuration::Hints(resolver) => {
                 let values = if let Some(worker) = &mut self.hints {
                     // Admission proves these unknown coordinates are absent from hint dependencies.
@@ -133,7 +146,7 @@ impl ConfigurationWorker {
                 } else {
                     Vec::new()
                 };
-                let initial = resolver.resolve(&values, None)?;
+                let initial = resolver.resolve(&values, None, semantic_anchor)?;
                 if let Some(worker) = &mut self.terms {
                     let mut nominal = initial.1.variable_nominals.clone();
                     nominal.extend_from_slice(inputs);
@@ -147,7 +160,7 @@ impl ConfigurationWorker {
                             cancel,
                         )?
                         .values;
-                    resolver.resolve(&values, Some(&terms))?
+                    resolver.resolve(&values, Some(&terms), semantic_anchor)?
                 } else {
                     initial
                 }

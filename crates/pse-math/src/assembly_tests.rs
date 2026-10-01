@@ -853,9 +853,39 @@ fn parametric_plan_keeps_objective_and_differentiates_parameters() {
     assert_eq!(plan.columns(), &[id(1)]);
     assert!(plan.parameter_targets().is_empty());
     for refused in [&[][..], &[id(1)][..], &[id(3)][..], &[id(2), id(2)][..]] {
-        assert!(plan.parametric(refused, &registry, &cancel).is_err());
+        assert!(
+            plan.parametric(refused, DerivativeOrder::Second, &registry, &cancel)
+                .is_err()
+        );
     }
-    let parametric = Arc::new(plan.parametric(&[id(2)], &registry, &cancel).unwrap());
+    // Root response requests physical First partials without constructing Hessians.
+    let first = Arc::new(
+        plan.parametric(&[id(2)], DerivativeOrder::First, &registry, &cancel)
+            .unwrap(),
+    );
+    assert_eq!(first.order(), DerivativeOrder::First);
+    let first_assembly = Arc::new(
+        first
+            .compile(
+                Optimization::default(),
+                EvaluationLimits::default(),
+                &cancel,
+            )
+            .unwrap(),
+    );
+    let mut first_worker = first_assembly.worker(BTreeMap::new(), cancel.clone());
+    let first_values = CaseValues {
+        scalars: BTreeMap::from([(id(1), 2.), (id(2), 3.)]),
+    };
+    assert_eq!(
+        first_worker.jacobian(&first_values).unwrap().to_dense()[(0, 1)],
+        1.
+    );
+    assert_eq!(first_worker.gradient(&first_values).unwrap(), vec![3., 2.]);
+    let parametric = Arc::new(
+        plan.parametric(&[id(2)], DerivativeOrder::Second, &registry, &cancel)
+            .unwrap(),
+    );
     assert_eq!(parametric.columns(), &[id(1), id(2)]);
     assert_eq!(parametric.order(), DerivativeOrder::Second);
     let targets = parametric.parameter_targets();

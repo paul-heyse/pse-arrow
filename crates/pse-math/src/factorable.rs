@@ -14,8 +14,9 @@
 //! Every row and the objective carry a [`Fidelity`]. `Require` and `Domain` stages are
 //! obligations, never dependencies of a value: they become closed constraints, and a
 //! validity predicate is decomposed into its closed conjunction where its structure allows.
-//! Implicit blocks export their residual equations and declared bounds whatever their
-//! realization. Other providers and unrepresentable branches become auxiliary variables
+//! Implicit blocks export residual equations with compiler-owned selection evidence. A
+//! selected function is exact only when the represented graph is library-established;
+//! otherwise lifting all residual roots is a sound relaxation. Other providers and unrepresentable branches become auxiliary variables
 //! within the envelope their evaluation enforces, which makes the dependent rows `Relaxed`.
 //! The evaluator and original-coordinate qualification remain the authority for every
 //! candidate (ADR-0105).
@@ -54,59 +55,11 @@ const DEFINITION_BYTES: usize = 16 * 1024;
 /// Candidate factors α of the absolute-value identity, as `(numerator, denominator)`.
 const IDENTITY_FACTORS: [(i64, i64); 6] = [(1, 1), (-1, 1), (-2, 1), (2, 1), (1, 2), (-1, 2)];
 
-/// Exact rational constant `numerator / denominator` with a positive denominator.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct Rational {
-    /// Signed numerator.
-    pub numerator: i64,
-    /// Positive denominator.
-    pub denominator: i64,
-}
-impl Rational {
-    /// Normalized rational; `None` for a zero denominator or an unrepresentable sign.
-    pub fn new(numerator: i64, denominator: i64) -> Option<Self> {
-        if denominator == 0 {
-            return None;
-        }
-        let (mut n, mut d) = (numerator, denominator);
-        if d < 0 {
-            n = n.checked_neg()?;
-            d = d.checked_neg()?;
-        }
-        let g = gcd(n.unsigned_abs(), d.unsigned_abs());
-        let g = i64::try_from(g).ok()?;
-        Some(Self {
-            numerator: n / g,
-            denominator: d / g,
-        })
-    }
-    /// Nearest binary64 value.
-    pub fn value(self) -> f64 {
-        self.numerator as f64 / self.denominator as f64
-    }
-    fn add(self, other: Self) -> Option<Self> {
-        let n = self
-            .numerator
-            .checked_mul(other.denominator)?
-            .checked_add(other.numerator.checked_mul(self.denominator)?)?;
-        Self::new(n, self.denominator.checked_mul(other.denominator)?)
-    }
-    fn mul(self, other: Self) -> Option<Self> {
-        Self::new(
-            self.numerator.checked_mul(other.numerator)?,
-            self.denominator.checked_mul(other.denominator)?,
-        )
-    }
-}
-fn gcd(mut a: u64, mut b: u64) -> u64 {
-    while b != 0 {
-        (a, b) = (b, a % b);
-    }
-    a.max(1)
-}
+/// Library-owned arbitrary precision rational; no local arithmetic authority.
+pub use symbolica::domains::rational::Rational;
 
 /// A constant, retained exactly when the library atom is rational.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub enum Constant {
     /// Exact rational from the library atom.
     Rational(Rational),
@@ -115,34 +68,27 @@ pub enum Constant {
 }
 impl Constant {
     /// Binary64 value used by numerical consumers.
-    pub fn value(self) -> f64 {
+    pub fn value(&self) -> f64 {
         match self {
-            Self::Rational(r) => r.value(),
-            Self::Float(v) => v,
+            Self::Rational(r) => r.to_f64(),
+            Self::Float(v) => *v,
         }
     }
-    const fn integer(value: i64) -> Self {
-        Self::Rational(Rational {
-            numerator: value,
-            denominator: 1,
-        })
+    fn integer(value: i64) -> Self {
+        Self::Rational(Rational::from(value))
     }
     fn fold(
         values: &[Self],
-        rational: fn(Rational, Rational) -> Option<Rational>,
+        rational: fn(&Rational, &Rational) -> Rational,
         float: fn(f64, f64) -> f64,
         unit: i64,
     ) -> Option<Self> {
-        let exact = values.iter().try_fold(
-            Rational {
-                numerator: unit,
-                denominator: 1,
-            },
-            |acc, v| match v {
-                Self::Rational(r) => rational(acc, *r),
+        let exact = values
+            .iter()
+            .try_fold(Rational::from(unit), |acc, v| match v {
+                Self::Rational(r) => Some(rational(&acc, r)),
                 Self::Float(_) => None,
-            },
-        );
+            });
         match exact {
             Some(r) => Some(Self::Rational(r)),
             None => {
@@ -151,6 +97,34 @@ impl Constant {
                     .fold(unit as f64, |acc, v| float(acc, v.value()));
                 value.is_finite().then_some(Self::Float(value))
             }
+        }
+    }
+    /// Canonical identity fields: normalized signed base-ten numerator, positive
+    /// denominator, or tagged IEEE-754 bits. Library `Hash` is only used for interning.
+    fn frame(&self, h: &mut FramedHasher) {
+        match self {
+            Self::Rational(r) => {
+                h.str("rational:decimal:v1")
+                    .str(&r.numerator_ref().to_string())
+                    .str(&r.denominator_ref().to_string());
+            }
+            Self::Float(v) => {
+                h.str("binary64").u64(v.to_bits());
+            }
+        }
+    }
+    fn allocated_bytes(&self) -> usize {
+        match self {
+            Self::Rational(r) => [r.numerator_ref(), r.denominator_ref()]
+                .into_iter()
+                .map(|integer| match integer {
+                    symbolica::domains::integer::Integer::Large(value) => {
+                        value.as_raw().capacity().div_ceil(8)
+                    }
+                    _ => 0,
+                })
+                .sum(),
+            Self::Float(_) => 0,
         }
     }
 }
@@ -385,6 +359,8 @@ pub struct ProjectedImplicit {
     pub bounds: Vec<Constraint>,
     /// Worst fidelity of its residuals and bounds.
     pub fidelity: Fidelity,
+    /// Why residual lifting preserves or relaxes the selected meaning.
+    pub selection: SelectedGraph,
 }
 
 /// Declared export policy for a branch that the exact identity does not cover.
@@ -397,6 +373,88 @@ pub enum BranchPolicy {
     Disjunctive,
 }
 
+/// Compiler-issued selected graph evidence retained by transport.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum SelectedGraph {
+    /// The authored meaning is the entire relation, not a selected function.
+    Relation,
+    /// Library-checked nondegenerate affine graph with represented selector domain.
+    NondegenerateAffine {
+        /// Represented sign restriction, if the selector includes one.
+        sign: Option<bool>,
+        /// Whether the represented sign predicate excludes zero.
+        strict: bool,
+    },
+    /// Library-checked square-root graph on the explicitly selected half-line.
+    RestrictedSquareRoot {
+        /// Select the nonnegative rather than nonpositive half-line.
+        positive: bool,
+        /// Whether the represented sign predicate excludes zero.
+        strict: bool,
+    },
+    /// The residual graph includes roots the selector does not promise to return.
+    Unestablished {
+        /// Canonical selected-meaning tag, including an operational settings reference.
+        meaning: String,
+    },
+}
+impl SelectedGraph {
+    fn fidelity(&self) -> Fidelity {
+        match self {
+            Self::Unestablished { .. } => Fidelity::Relaxed,
+            _ => Fidelity::Exact,
+        }
+    }
+    fn allocated_bytes(&self) -> usize {
+        match self {
+            Self::Unestablished { meaning } => meaning.capacity(),
+            _ => 0,
+        }
+    }
+    fn checked(&self, body: &PreparedBody, unknowns: usize) -> Result<Self, MathError> {
+        use crate::implicit::{SelectionEquivalence, graph_equivalence};
+        let (sign, expected) = match self {
+            Self::NondegenerateAffine { sign, .. } => {
+                (*sign, SelectionEquivalence::NondegenerateAffine)
+            }
+            Self::RestrictedSquareRoot { positive, .. } => {
+                (Some(*positive), SelectionEquivalence::RestrictedSquareRoot)
+            }
+            Self::Relation | Self::Unestablished { .. } => return Ok(self.clone()),
+        };
+        if graph_equivalence(body, unknowns, sign)? == expected {
+            Ok(self.clone())
+        } else {
+            Ok(Self::Unestablished {
+                meaning: "unsupported-graph-equivalence-witness".into(),
+            })
+        }
+    }
+    fn frame(&self, h: &mut FramedHasher) {
+        match self {
+            Self::Relation => {
+                h.str("relation");
+            }
+            Self::NondegenerateAffine { sign, strict } => {
+                h.str("nondegenerate-affine")
+                    .bool(sign.is_some())
+                    .bool(*strict);
+                if let Some(positive) = sign {
+                    h.bool(*positive);
+                }
+            }
+            Self::RestrictedSquareRoot { positive, strict } => {
+                h.str("restricted-square-root")
+                    .bool(*positive)
+                    .bool(*strict);
+            }
+            Self::Unestablished { meaning } => {
+                h.str("unestablished-selected-graph").str(meaning);
+            }
+        }
+    }
+}
+
 /// An implicit block's original residual definition, independent of its realization.
 #[derive(Clone, Debug)]
 pub struct ImplicitDefinition {
@@ -407,6 +465,8 @@ pub struct ImplicitDefinition {
     pub unknowns: Vec<(f64, f64)>,
     /// Bounds evaluated from the block inputs, as the evaluator enforces them.
     pub bounds: Option<ImplicitBounds>,
+    /// Relation/function selection and checked graph-equivalence witness.
+    pub selection: SelectedGraph,
 }
 
 /// A bound program over the residual formals; unknown coordinates are not read.
@@ -429,6 +489,8 @@ pub struct FactorableRequest {
     pub envelopes: BTreeMap<ProviderKey, Vec<(f64, f64)>>,
     /// Branch export policy.
     pub branches: BranchPolicy,
+    /// Refuse a projection whose complete fidelity is not exact.
+    pub require_exact: bool,
 }
 
 /// An operand of a native constraint: a free column, or a value the case fixes.
@@ -523,6 +585,8 @@ pub struct FidelityCounts {
 /// Immutable factorable projection of one case under fixed consumed values.
 #[derive(Clone, Debug)]
 pub struct FactorableProgram {
+    /// Whether native transport must refuse any further relaxation.
+    pub require_exact: bool,
     /// Structure, consumed values and request identity.
     pub key: ContentHash,
     /// Original case layout.
@@ -629,7 +693,7 @@ impl FactorableProgram {
                 Node::Const(c) => c.value(),
                 Node::Sum(children) => children.iter().map(|&i| values[i]).sum(),
                 Node::Product(children) => children.iter().map(|&i| values[i]).product(),
-                Node::Pow { base, exponent } => power(values[*base], *exponent),
+                Node::Pow { base, exponent } => power(values[*base], exponent),
                 Node::Exp(i) => values[*i].exp(),
                 Node::Log(i) => values[*i].ln(),
                 Node::Abs(i) => values[*i].abs(),
@@ -649,6 +713,7 @@ impl FactorableProgram {
                 .iter()
                 .map(|n| match n {
                     Node::Sum(c) | Node::Product(c) => c.capacity() * size_of::<NodeId>(),
+                    Node::Const(c) | Node::Pow { exponent: c, .. } => c.allocated_bytes(),
                     _ => 0,
                 })
                 .sum::<usize>()
@@ -669,6 +734,7 @@ impl FactorableProgram {
                         + i.unknowns.capacity() * size_of::<usize>()
                         + i.residuals.capacity() * size_of::<NodeId>()
                         + i.bounds.capacity() * size_of::<Constraint>()
+                        + i.selection.allocated_bytes()
                 })
                 .sum::<usize>()
             + self.values.len() * 64
@@ -694,18 +760,12 @@ impl FactorableProgram {
             + self.incomplete.capacity() * size_of::<SemanticId>()
     }
 }
-pub(crate) fn power(base: f64, exponent: Constant) -> f64 {
+pub(crate) fn power(base: f64, exponent: &Constant) -> f64 {
     match exponent {
-        Constant::Rational(Rational {
-            numerator,
-            denominator: 1,
-        }) => {
-            i32::try_from(numerator).map_or_else(|_| base.powf(numerator as f64), |n| base.powi(n))
+        Constant::Rational(r) if r.is_integer() => {
+            i32::try_from(r.numerator()).map_or_else(|_| base.powf(r.to_f64()), |n| base.powi(n))
         }
-        Constant::Rational(Rational {
-            numerator: 1,
-            denominator: 2,
-        }) => base.sqrt(),
+        Constant::Rational(r) if r == &Rational::new(1, 2) => base.sqrt(),
         other => base.powf(other.value()),
     }
 }
@@ -860,18 +920,20 @@ impl CasePlan {
             None => None,
         };
         let native = project_native(self, &columns, &rows, values, &mut consumed)?;
-        let mut h = FramedHasher::new(pse_ids::Frame::MathFactorableV1);
+        let mut h = FramedHasher::new(pse_ids::Frame::MathFactorableV2);
         h.hash(&self.structure().key())
             .str(match request.branches {
                 BranchPolicy::Auxiliary => "branches:auxiliary",
                 BranchPolicy::Disjunctive => "branches:disjunctive",
             })
-            .u64(limit as u64);
+            .u64(limit as u64)
+            .bool(request.require_exact);
         for (id, bits) in &consumed {
             h.id(id).u64(*bits);
         }
         for (key, definition) in &request.implicit {
             h.hash(&key.0).u64(definition.unknowns.len() as u64);
+            definition.selection.frame(&mut h);
             for (lower, upper) in &definition.unknowns {
                 h.u64(lower.to_bits()).u64(upper.to_bits());
             }
@@ -882,8 +944,55 @@ impl CasePlan {
                 h.u64(lower.to_bits()).u64(upper.to_bits());
             }
         }
+        // Transport identity includes explicit node tags and arbitrary precision contents.
+        // Neither library Hash nor Debug/Display of an expression is a durable identity.
+        h.u64(builder.nodes.len() as u64);
+        for node in &builder.nodes {
+            match node {
+                Node::Var(i) => {
+                    h.str("var").u64(*i as u64);
+                }
+                Node::Aux(i) => {
+                    h.str("aux").u64(*i as u64);
+                }
+                Node::Const(c) => {
+                    h.str("constant");
+                    c.frame(&mut h);
+                }
+                Node::Sum(children) | Node::Product(children) => {
+                    h.str(if matches!(node, Node::Sum(_)) {
+                        "sum"
+                    } else {
+                        "product"
+                    })
+                    .u64(children.len() as u64);
+                    for child in children {
+                        h.u64(*child as u64);
+                    }
+                }
+                Node::Pow { base, exponent } => {
+                    h.str("power").u64(*base as u64);
+                    exponent.frame(&mut h);
+                }
+                Node::Exp(i) | Node::Log(i) | Node::Abs(i) | Node::Sin(i) | Node::Cos(i) => {
+                    h.str(match node {
+                        Node::Exp(_) => "exp",
+                        Node::Log(_) => "log",
+                        Node::Abs(_) => "abs",
+                        Node::Sin(_) => "sin",
+                        _ => "cos",
+                    })
+                    .u64(*i as u64);
+                }
+            }
+        }
+        for block in &builder.implicit {
+            h.str("checked-selected-graph");
+            block.selection.frame(&mut h);
+        }
         let mut program = FactorableProgram {
             key: h.finish_hash(),
+            require_exact: request.require_exact,
             structure: self.structure().key(),
             values: consumed,
             nodes: builder.nodes,
@@ -898,6 +1007,11 @@ impl CasePlan {
             fidelity: vec![],
         };
         classify(&mut program);
+        if request.require_exact && program.fidelity() != Fidelity::Exact {
+            return Err(FactorableError::ExactRequired {
+                fidelity: program.fidelity(),
+            });
+        }
         Ok(program)
     }
 }
@@ -1012,7 +1126,8 @@ fn classify(p: &mut FactorableProgram) {
                 .chain(block.bounds.iter().map(|c| &c.expression))
                 .map(|&i| fidelity[i])
                 .max()
-                .unwrap_or(Fidelity::Exact);
+                .unwrap_or(Fidelity::Exact)
+                .max(block.selection.fidelity());
             for &u in &block.unknowns {
                 if aux[u] < block.fidelity {
                     aux[u] = block.fidelity;
@@ -1081,6 +1196,12 @@ pub enum FactorableError {
     /// Admission, consumed values, cancellation or a resource bound.
     #[error(transparent)]
     Math(#[from] MathError),
+    /// An exact-only consumer cannot use a relaxed or unavailable projection.
+    #[error("exact factorable export required; projection is {fidelity:?}")]
+    ExactRequired {
+        /// Actual complete projection fidelity.
+        fidelity: Fidelity,
+    },
     /// The declared policy asks for the exact disjunctive (mixed-integer) export of a
     /// branch with proven continuity; it belongs to the discrete-decision packets
     /// (Plan 22 M4, G7). The auxiliary policy exports the same branch as a relaxation.
@@ -1094,9 +1215,9 @@ pse_diagnostics::impl_diagnostic! {
     FactorableError,
     code(this) { match this {
         Self::Math(_) => None,
-        Self::DisjunctiveBranch { .. } => Some(pse_diagnostics::DiagnosticCode::CompileMath),
+        Self::DisjunctiveBranch { .. } | Self::ExactRequired { .. } => Some(pse_diagnostics::DiagnosticCode::CompileMath),
     } },
-    forward(this) { match this { Self::Math(e) => Some(e), Self::DisjunctiveBranch { .. } => None } },
+    forward(this) { match this { Self::Math(e) => Some(e), Self::DisjunctiveBranch { .. } | Self::ExactRequired { .. } => None } },
     help(_this) { None }, related(_this) { None }, source(_this) { None }
 }
 fn fail<T>(error: MathError) -> Result<T, FactorableError> {
@@ -1285,13 +1406,13 @@ impl<'a> Builder<'a> {
     }
     fn constant_of(&self, node: NodeId) -> Option<Constant> {
         match self.nodes.get(node) {
-            Some(Node::Const(c)) => Some(*c),
+            Some(Node::Const(c)) => Some(c.clone()),
             _ => None,
         }
     }
     fn value_constant(&self, value: &Value) -> Option<f64> {
         match value {
-            Value::Node(n) => self.constant_of(*n).map(Constant::value),
+            Value::Node(n) => self.constant_of(*n).map(|c| c.value()),
             _ => None,
         }
     }
@@ -1304,23 +1425,43 @@ impl<'a> Builder<'a> {
             node => node,
         };
         let folded = match &node {
-            Node::Sum(c) => self.fold(c, Rational::add, |a, b| a + b, 0),
-            Node::Product(c) => self.fold(c, Rational::mul, |a, b| a * b, 1),
-            Node::Pow { base, exponent } => self
-                .constant_of(*base)
-                .map(|b| Constant::Float(power(b.value(), *exponent))),
-            Node::Exp(i) | Node::Log(i) | Node::Abs(i) | Node::Sin(i) | Node::Cos(i) => {
-                self.constant_of(*i).map(|c| {
-                    let v = c.value();
-                    Constant::Float(match &node {
-                        Node::Exp(_) => v.exp(),
-                        Node::Log(_) => v.ln(),
-                        Node::Abs(_) => v.abs(),
-                        Node::Sin(_) => v.sin(),
-                        _ => v.cos(),
-                    })
-                })
+            Node::Sum(c) => self.fold(c, |a, b| a + b, |a, b| a + b, 0),
+            Node::Product(c) => self.fold(c, |a, b| a * b, |a, b| a * b, 1),
+            Node::Pow {
+                base,
+                exponent: Constant::Rational(exponent),
+            } if exponent.is_integer() => {
+                match self.constant_of(*base) {
+                    Some(Constant::Rational(base)) => {
+                        let integer = i64::try_from(exponent.numerator()).ok();
+                        integer.and_then(|n| {
+                            // Folding is optional: retain the exact power node when a
+                            // constant expansion would exceed the bounded expression budget.
+                            let bits = base
+                                .numerator_ref()
+                                .significant_bits()
+                                .saturating_add(base.denominator_ref().significant_bits());
+                            if bits.saturating_mul(n.unsigned_abs()) > (DEFINITION_BYTES as u64) * 8
+                            {
+                                return None;
+                            }
+                            let powered = base.pow(n.unsigned_abs());
+                            if n < 0 && powered.is_zero() {
+                                None
+                            } else if n < 0 {
+                                Some(Constant::Rational(Rational::one() / powered))
+                            } else {
+                                Some(Constant::Rational(powered))
+                            }
+                        })
+                    }
+                    _ => None,
+                }
             }
+            Node::Abs(i) => self.constant_of(*i).map(|c| match c {
+                Constant::Rational(r) => Constant::Rational(r.abs()),
+                Constant::Float(v) => Constant::Float(v.abs()),
+            }),
             _ => None,
         };
         let node = match folded {
@@ -1342,7 +1483,7 @@ impl<'a> Builder<'a> {
     fn fold(
         &self,
         children: &[NodeId],
-        rational: fn(Rational, Rational) -> Option<Rational>,
+        rational: fn(&Rational, &Rational) -> Rational,
         float: fn(f64, f64) -> f64,
         unit: i64,
     ) -> Option<Constant> {
@@ -1785,10 +1926,7 @@ impl<'a> Builder<'a> {
                     s if s == Symbol::ABS => Some(Node::Abs),
                     s if s == Symbol::SQRT => Some(|base| Node::Pow {
                         base,
-                        exponent: Constant::Rational(Rational {
-                            numerator: 1,
-                            denominator: 2,
-                        }),
+                        exponent: Constant::Rational(Rational::new(1, 2)),
                     }),
                     _ => None,
                 };
@@ -1965,10 +2103,7 @@ impl<'a> Builder<'a> {
                 (&difference - &(&factor * &separation))
                     .expand()
                     .is_zero()
-                    .then_some(Constant::Rational(Rational {
-                        numerator,
-                        denominator,
-                    }))
+                    .then_some(Constant::Rational(Rational::new(numerator, denominator)))
             })
         else {
             return Ok(None);
@@ -1977,10 +2112,7 @@ impl<'a> Builder<'a> {
         let yn = self.materialize(&b.values[slot])?;
         let ln = self.materialize(&parent.values[left])?;
         let rn = self.materialize(&parent.values[right])?;
-        let half = self.constant(Constant::Rational(Rational {
-            numerator: 1,
-            denominator: 2,
-        }))?;
+        let half = self.constant(Constant::Rational(Rational::new(1, 2)))?;
         let total = self.push(Node::Sum(vec![xn, yn]))?;
         let mean = self.push(Node::Product(vec![half, total]))?;
         if alpha.value() == 0.0 {
@@ -1989,16 +2121,8 @@ impl<'a> Builder<'a> {
         let gap = self.difference(ln, rn)?;
         let magnitude = self.push(Node::Abs(gap))?;
         let coefficient = match alpha {
-            Constant::Rational(r) => r
-                .mul(Rational {
-                    numerator: -1,
-                    denominator: 2,
-                })
-                .map(Constant::Rational),
-            Constant::Float(v) => Some(Constant::Float(-v / 2.0)),
-        };
-        let Some(coefficient) = coefficient else {
-            return Ok(None);
+            Constant::Rational(r) => Constant::Rational(&r * &Rational::new(-1, 2)),
+            Constant::Float(v) => Constant::Float(-v / 2.0),
         };
         let coefficient = self.constant(coefficient)?;
         let term = self.push(Node::Product(vec![coefficient, magnitude]))?;
@@ -2130,9 +2254,22 @@ impl<'a> Builder<'a> {
         {
             return fail(MathError::Contract("implicit definition layout".into()));
         }
+        let selection = definition.selection.checked(residual, n)?;
         let first = self.auxiliaries.len();
         let mut unknowns = Vec::with_capacity(n);
-        for (k, &(lower, upper)) in definition.unknowns.iter().enumerate() {
+        for (k, &(mut lower, mut upper)) in definition.unknowns.iter().enumerate() {
+            let sign = match selection {
+                SelectedGraph::RestrictedSquareRoot { positive, .. } => Some(positive),
+                SelectedGraph::NondegenerateAffine { sign, .. } => sign,
+                _ => None,
+            };
+            if let Some(positive) = sign {
+                if positive {
+                    lower = lower.max(0.0);
+                } else {
+                    upper = upper.min(0.0);
+                }
+            }
             unknowns.push(self.auxiliary(
                 cx.instance,
                 AuxiliaryRole::Implicit {
@@ -2183,7 +2320,7 @@ impl<'a> Builder<'a> {
                 for (ordinal, lower) in [(program.lower[k], true), (program.upper[k], false)] {
                     let Some(ordinal) = ordinal else { continue };
                     let bound = values[&ordinal];
-                    match self.constant_of(bound).map(Constant::value) {
+                    match self.constant_of(bound).map(|c| c.value()) {
                         Some(v) if lower => {
                             let a = &mut self.auxiliaries[index];
                             a.lower = a.lower.max(v);
@@ -2207,6 +2344,25 @@ impl<'a> Builder<'a> {
                 }
             }
         }
+        // Keep the selector's open/closed domain in transport, independently of the
+        // closed auxiliary box. A native backend must label its closure as relaxation.
+        let selected_sign = match selection {
+            SelectedGraph::RestrictedSquareRoot { positive, strict } => Some((positive, strict)),
+            SelectedGraph::NondegenerateAffine {
+                sign: Some(positive),
+                strict,
+            } => Some((positive, strict)),
+            _ => None,
+        };
+        if let Some((positive, strict)) = selected_sign {
+            for &unknown in &unknowns {
+                bounds.push(if positive {
+                    at_least(unknown, 0.0, strict)
+                } else {
+                    at_most(unknown, 0.0, strict)
+                });
+            }
+        }
         let formals: Vec<_> = unknowns.iter().chain(inputs).copied().collect();
         let ordinals: Vec<usize> = (0..n).collect();
         let values = self.body(residual, &formals, &ordinals, inner)?;
@@ -2216,7 +2372,8 @@ impl<'a> Builder<'a> {
             unknowns: (first..first + n).collect(),
             residuals: ordinals.iter().map(|o| values[o]).collect(),
             bounds,
-            fidelity: Fidelity::Exact,
+            fidelity: selection.fidelity(),
+            selection,
         });
         Ok(unknowns)
     }
@@ -2362,15 +2519,62 @@ fn pure(stages: &[Stage]) -> bool {
 fn constant(view: CoefficientView<'_>) -> Option<Constant> {
     use symbolica::domains::float::RealLike;
     match view {
-        CoefficientView::Natural(n, d, 0, _) => Rational::new(n, d).map(Constant::Rational),
+        CoefficientView::Natural(n, d, 0, _) => {
+            (d != 0).then(|| Constant::Rational(Rational::new(n, d)))
+        }
         CoefficientView::Float(re, im) if im.is_zero() => {
             let v = re.to_float().to_f64();
             v.is_finite().then_some(Constant::Float(v))
         }
-        CoefficientView::Large(re, im) if im.is_zero() => {
-            let v = re.to_rat().to_f64();
-            v.is_finite().then_some(Constant::Float(v))
-        }
+        CoefficientView::Large(re, im) if im.is_zero() => Some(Constant::Rational(re.to_rat())),
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod exact_constant_tests {
+    use super::*;
+    #[test]
+    fn rational_folding_exceeds_machine_integer_range_without_rounding() {
+        let max = Constant::Rational(Rational::from(i64::MAX));
+        let sum =
+            Constant::fold(&[max.clone(), max.clone()], |a, b| a + b, |a, b| a + b, 0).unwrap();
+        let product = Constant::fold(&[sum, max], |a, b| a * b, |a, b| a * b, 1).unwrap();
+        assert_eq!(
+            product,
+            Constant::Rational(Rational::from(i64::MAX).pow(2) * Rational::from(2))
+        );
+    }
+    #[test]
+    fn rational_identity_normalizes_ratios_and_retains_large_adjacent_integers() {
+        let key = |constant: Constant| {
+            let mut frame = FramedHasher::new(pse_ids::Frame::MathFactorableV2);
+            constant.frame(&mut frame);
+            frame.finish_hash()
+        };
+        assert_eq!(
+            key(Constant::Rational(Rational::new(2, 6))),
+            key(Constant::Rational(Rational::new(1, 3)))
+        );
+        // Fixed canonical preimage vector, independent of library printing/Hash.
+        let golden = pse_ids::derive_hash(
+            pse_ids::Frame::MathFactorableV2,
+            &[b"rational:decimal:v1", b"1", b"3"],
+        );
+        assert_eq!(key(Constant::Rational(Rational::new(1, 3))), golden);
+        assert_ne!(
+            golden,
+            pse_ids::derive_hash(
+                pse_ids::Frame::MathFactorableV1,
+                &[b"rational:decimal:v1", b"1", b"3"]
+            )
+        );
+        let huge = Rational::from(i64::MAX).pow(4);
+        let adjacent = &huge + &Rational::one();
+        assert_eq!(huge.to_f64(), adjacent.to_f64());
+        assert_ne!(
+            key(Constant::Rational(huge)),
+            key(Constant::Rational(adjacent))
+        );
     }
 }

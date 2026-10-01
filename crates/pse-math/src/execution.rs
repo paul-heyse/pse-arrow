@@ -251,6 +251,10 @@ impl PreparedBody {
             DerivativeOrder::Value
         }
     }
+    /// Order available inside an active branch; its boundary still requires runtime checks.
+    pub fn branch_local_order(&self) -> DerivativeOrder {
+        self.smooth
+    }
     /// Fixed external guards do not reduce derivatives with respect to selected free coordinates.
     pub fn available_order_for(&self, coordinates: &[usize]) -> DerivativeOrder {
         if coordinates.iter().any(|c| self.switches.contains(c)) {
@@ -307,6 +311,44 @@ impl PreparedBody {
     /// Consumed executable contracts, keyed by full physical/data interpretation.
     pub fn providers(&self) -> &[ProviderSpec] {
         &self.providers
+    }
+    /// Actual provider orders required by compilation, including authored local partials.
+    /// Domain and applicability evidence is evaluated at value order independently of outer jets.
+    pub fn provider_demands(
+        &self,
+        order: DerivativeOrder,
+    ) -> Result<BTreeMap<ProviderKey, DerivativeOrder>, MathError> {
+        fn collect(
+            stages: &[Stage],
+            order: DerivativeOrder,
+            demands: &mut BTreeMap<ProviderKey, DerivativeOrder>,
+        ) -> Result<(), MathError> {
+            for stage in stages {
+                match stage {
+                    Stage::Provider { spec, partial, .. } => {
+                        let required = provider_request_order(order, partial.len())?;
+                        demands
+                            .entry(spec.key())
+                            .and_modify(|o| *o = (*o).max(required))
+                            .or_insert(required);
+                    }
+                    Stage::Domain { stages, .. } | Stage::Applicability { stages, .. } => {
+                        collect(stages, DerivativeOrder::Value, demands)?
+                    }
+                    Stage::Branch {
+                        then, otherwise, ..
+                    } => {
+                        collect(then, order, demands)?;
+                        collect(otherwise, order, demands)?;
+                    }
+                    Stage::Block { .. } | Stage::Require { .. } => {}
+                }
+            }
+            Ok(())
+        }
+        let mut demands = BTreeMap::new();
+        collect(&self.stages, order, &mut demands)?;
+        Ok(demands)
     }
     /// Optional flattened library expression of one output. It is absent when a provider or
     /// branch prevents flattening, and also when substituting the shared stage results
@@ -639,6 +681,16 @@ impl std::fmt::Debug for CompiledBody {
     }
 }
 impl CompiledBody {
+    /// Highest residual order actually compiled, distinct from symbolic availability.
+    pub fn compiled_order(&self) -> DerivativeOrder {
+        if self.layouts[DerivativeOrder::Second].is_some() {
+            DerivativeOrder::Second
+        } else if self.layouts[DerivativeOrder::First].is_some() {
+            DerivativeOrder::First
+        } else {
+            DerivativeOrder::Value
+        }
+    }
     /// Attach accounting to the allocation itself so evaluator/worker clones retain it.
     pub fn with_owner(mut self, owner: Arc<dyn crate::AllocationOwner>) -> Self {
         self.owner = Some(owner);
@@ -843,6 +895,19 @@ struct BuildAllowance {
     /// Instruction storage of the evaluators built so far, in bytes: retained with the
     /// program, never scratch.
     instructions: usize,
+}
+fn provider_request_order(
+    order: DerivativeOrder,
+    partials: usize,
+) -> Result<DerivativeOrder, MathError> {
+    match order as usize + partials {
+        0 => Ok(DerivativeOrder::Value),
+        1 => Ok(DerivativeOrder::First),
+        2 => Ok(DerivativeOrder::Second),
+        _ => Err(MathError::Contract(
+            "external derivative order exhausted by explicit partial".into(),
+        )),
+    }
 }
 #[allow(
     clippy::too_many_arguments,
@@ -1079,16 +1144,7 @@ fn compile_stages(
                         .enumerate()
                         .filter_map(|(i, &slot)| (slot != usize::MAX).then_some(i))
                         .collect(),
-                    order: match layout.order as usize + partial.len() {
-                        0 => DerivativeOrder::Value,
-                        1 => DerivativeOrder::First,
-                        2 => DerivativeOrder::Second,
-                        _ => {
-                            return Err(MathError::Contract(
-                                "external derivative order exhausted by explicit partial".into(),
-                            ));
-                        }
-                    },
+                    order: provider_request_order(layout.order, partial.len())?,
                 };
                 let destinations = outputs
                     .iter()
@@ -1332,11 +1388,10 @@ fn evaluate_stages(
                 let provider = providers
                     .get_mut(&spec.key())
                     .ok_or_else(|| MathError::Contract("missing provider worker".into()))?;
-                if provider.spec() != spec {
-                    return Err(MathError::Contract(
-                        "provider worker changed its contract".into(),
-                    ));
-                }
+                provider
+                    .spec()
+                    .check_bound(spec, request.order)
+                    .map_err(|e| MathError::Contract(e.to_string()))?;
                 for (value, &slot) in arguments.iter_mut().zip(inputs.iter()) {
                     *value = frame[slot * width];
                 }

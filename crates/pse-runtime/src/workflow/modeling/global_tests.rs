@@ -137,7 +137,7 @@ async fn price_taker_quadratic_cost_miqp() {
 /// (y − 1)²(y − 2.5)² + y/10 has two basins: its global minimum near y = 0.98 and a
 /// higher one near y = 2.49.
 const IMPLICIT: &str = "package p { def Root { var x: Scalar;
-    implicit root { var y: Scalar; eq residual: y*y == x; annotation bounds y(0.5, 3); annotation start y(1); }
+    implicit root select branch(y>=0) { var y: Scalar; eq residual: y*y == x; annotation bounds y(0.5, 3); annotation start y(1); }
     realize policy on root using nested;
     let f: Scalar = (root.y-1)*(root.y-1)*(root.y-2.5)*(root.y-2.5) + 0.1*root.y;
     annotation bounds x(0.25, 9); annotation start x(2);

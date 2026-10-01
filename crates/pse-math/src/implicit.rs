@@ -11,6 +11,8 @@ mod configuration;
 mod cubic;
 #[path = "implicit_regimes.rs"]
 mod regimes;
+#[path = "implicit_selection.rs"]
+mod selection;
 use crate::{
     MathError,
     guarded::{CompiledBody, Evaluation, Worker},
@@ -30,6 +32,7 @@ use faer::{
 use pse_ids::{ContentHash, SemanticId};
 use pse_kernels::{DerivativeOrder, ProviderValues};
 pub use regimes::{Regime, RegimeFactory, RegimeFactoryBranch, RegimeSelection, SelectedRegime};
+pub use selection::{Selection, SelectionEquivalence, graph_equivalence};
 use std::{
     collections::BTreeMap,
     sync::{
@@ -80,6 +83,10 @@ pub struct Problem {
     pub rows: Vec<SemanticId>,
     /// Number of independent inputs after the unknowns.
     pub inputs: usize,
+    /// Actual compiled residual order shared with the native oracle.
+    pub compiled_order: DerivativeOrder,
+    /// Resolved derivative facts shared with provider and native contracts.
+    pub requirements: pse_kernels::DerivativeRequirements,
     worker: Mutex<Worker>,
     providers: Mutex<BTreeMap<pse_kernels::ProviderKey, Box<dyn pse_kernels::Provider>>>,
     pattern: SymbolicSparseColMat<usize>,
@@ -97,12 +104,14 @@ impl Problem {
         max_entries: usize,
     ) -> Result<Self, MathError> {
         let n = unknowns.len();
-        if n == 0
-            || n != rows.len()
-            || n.checked_add(inputs)
-                .and_then(|width| n.checked_mul(width).and_then(|v| v.checked_mul(width)))
-                .is_none_or(|v| v > max_entries)
-        {
+        let extent = n
+            .checked_add(inputs)
+            .and_then(|width| match body.compiled_order() {
+                DerivativeOrder::Value => Some(n),
+                DerivativeOrder::First => n.checked_mul(width),
+                DerivativeOrder::Second => n.checked_mul(width).and_then(|v| v.checked_mul(width)),
+            });
+        if n == 0 || n != rows.len() || extent.is_none_or(|v| v > max_entries) {
             return Err(MathError::Limit("implicit derivative extent"));
         }
         if unknowns.iter().any(|u| {
@@ -151,6 +160,15 @@ impl Problem {
             unknowns,
             rows,
             inputs,
+            compiled_order: body.compiled_order(),
+            requirements: pse_kernels::DerivativeRequirements::new(
+                body.compiled_order(),
+                body.compiled_order(),
+                body.compiled_order(),
+                DerivativeOrder::Value,
+                body.compiled_order(),
+            )
+            .map_err(|e| MathError::Contract(e.to_string()))?,
             worker: Mutex::new(body.worker()),
             providers: Mutex::new(BTreeMap::new()),
             pattern,
@@ -164,6 +182,19 @@ impl Problem {
     ) -> Self {
         self.providers = Mutex::new(providers);
         self
+    }
+    /// Attach the compiler's resolved selected-function requirements to its residual problem.
+    pub fn with_requirements(
+        mut self,
+        requirements: pse_kernels::DerivativeRequirements,
+    ) -> Result<Self, MathError> {
+        if self.compiled_order != requirements.residual_compilation {
+            return Err(MathError::Contract(
+                "implicit requirements compilation order mismatch".into(),
+            ));
+        }
+        self.requirements = requirements;
+        Ok(self)
     }
     /// Structural Jacobian support of the residuals with respect to the unknowns.
     pub fn pattern(&self) -> faer::sparse::SymbolicSparseColMatRef<'_, usize> {
@@ -284,7 +315,23 @@ impl Problem {
             jacobian: vec![],
             hessians: vec![],
         };
-        if order == DerivativeOrder::Value || p == 0 {
+        if order == DerivativeOrder::Value {
+            return Ok(output);
+        }
+        if point
+            .iter()
+            .zip(&self.unknowns)
+            .zip(&options.variable_tolerance)
+            .any(|((value, bounds), tolerance)| {
+                *value - bounds.lower <= *tolerance || bounds.upper - *value <= *tolerance
+            })
+        {
+            return Err(MathError::Domain {
+                source_id: self.id,
+                requirement: "implicit derivative neighborhood meets a declared unknown bound",
+            });
+        }
+        if p == 0 {
             return Ok(output);
         }
         let jet = self.evaluate(parameters, point, order, cancel)?;
@@ -394,6 +441,12 @@ fn check_solve(
 }
 /// Injected native capability; it runs on the already admitted outer worker.
 pub trait InnerSolver: std::fmt::Debug + Send + Sync {
+    /// Residual order the selected algorithm requires to compute values.
+    fn minimum_order(&self) -> DerivativeOrder;
+    /// Whether this algorithm implements the named semantic operational settings.
+    fn honors_operational(&self, _settings: &str) -> bool {
+        false
+    }
     /// Versioned algorithm identity included in attempt configuration and provider reuse.
     fn identity(&self) -> ContentHash;
     /// Solve for the unknowns at the given parameters, within the options' budgets.
@@ -417,6 +470,10 @@ pub fn solver_identity(reference: &str) -> ContentHash {
 /// as outer math evaluation. The factory never acquires runtime CPU permits.
 #[derive(Debug)]
 pub struct Factory {
+    /// Compiler-issued semantic choice, independent of ordinary numerical starts.
+    pub selection: Selection,
+    /// Shared capabilities and resolved demand.
+    pub requirements: pse_kernels::DerivativeRequirements,
     /// Provider contract: parameters in, solved unknowns out.
     pub spec: pse_kernels::ProviderSpec,
     /// Compiled residual body, unknowns first.
@@ -463,13 +520,18 @@ impl ImplicitFactory {
                 .checked_add(factory.max_entries.checked_mul(8)?)
                 .and_then(|n| n.checked_add(factory.configuration.retained_bytes()))
                 .and_then(|n| {
-                    n.checked_add(factory.hints.iter().chain(&factory.terms).try_fold(
-                        0usize,
-                        |n, b| {
-                            n.checked_add(b.retained_bytes())?
-                                .checked_add(b.scratch_bytes())
-                        },
-                    )?)
+                    n.checked_add(
+                        factory
+                            .hints
+                            .iter()
+                            .chain(&factory.terms)
+                            .chain(&factory.selection.anchor)
+                            .chain(&factory.selection.restriction)
+                            .try_fold(0usize, |n, b| {
+                                n.checked_add(b.retained_bytes())?
+                                    .checked_add(b.scratch_bytes())
+                            })?,
+                    )
                 })
         };
         match self {
@@ -499,6 +561,14 @@ impl ImplicitFactory {
                 for body in factory.hints.iter_mut().chain(&mut factory.terms) {
                     retain(body);
                 }
+                for body in factory
+                    .selection
+                    .anchor
+                    .iter_mut()
+                    .chain(&mut factory.selection.restriction)
+                {
+                    retain(body);
+                }
             }
             Self::Regimes(factory) => {
                 for branch in &mut factory.alternatives {
@@ -508,6 +578,15 @@ impl ImplicitFactory {
                         .hints
                         .iter_mut()
                         .chain(&mut branch.residual.terms)
+                    {
+                        retain(body);
+                    }
+                    for body in branch
+                        .residual
+                        .selection
+                        .anchor
+                        .iter_mut()
+                        .chain(&mut branch.residual.selection.restriction)
                     {
                         retain(body);
                     }
@@ -566,8 +645,18 @@ impl pse_kernels::ProviderFactory for Factory {
         &self.spec
     }
     fn configuration_key(&self) -> ContentHash {
-        let mut h = pse_ids::FramedHasher::new(pse_ids::Frame::ImplicitConfigurationV1);
+        let mut h = pse_ids::FramedHasher::new(pse_ids::Frame::ImplicitConfigurationV2);
         h.hash(&self.spec.identity()).hash(&self.solver.identity());
+        for order in [
+            self.requirements.residual_available,
+            self.requirements.output_smoothness,
+            self.requirements.selector_neighborhood,
+            self.requirements.inner_minimum,
+            self.requirements.requested_output,
+            self.requirements.residual_compilation,
+        ] {
+            h.u64(order as u64);
+        }
         for u in &self.unknowns {
             h.id(&u.id).u64(u.lower.to_bits()).u64(u.upper.to_bits());
         }
@@ -595,11 +684,30 @@ impl pse_kernels::ProviderFactory for Factory {
             ),
             solver: self.solver.clone(),
             cancel,
+            selection: selection::SelectionWorker::new(&self.selection),
+            requested_output: self.requirements.requested_output,
         }))
     }
 }
 impl Factory {
     fn problem(&self, cancel: Arc<AtomicBool>) -> Result<Arc<Problem>, pse_kernels::ProviderError> {
+        if self.requirements.inner_minimum != self.solver.minimum_order()
+            || self.body.compiled_order() != self.requirements.residual_compilation
+        {
+            return Err(pse_kernels::ProviderError::Contract(
+                "implicit compiled requirements disagree with selected solver".into(),
+            ));
+        }
+        if self
+            .selection
+            .settings
+            .as_ref()
+            .is_some_and(|settings| !self.solver.honors_operational(settings))
+        {
+            return Err(pse_kernels::ProviderError::Contract(
+                "selected realization cannot honor implicit operational settings".into(),
+            ));
+        }
         let providers = self
             .providers
             .iter()
@@ -616,9 +724,13 @@ impl Factory {
                 self.max_entries,
             )
             .map_err(provider_error)?
+            .with_requirements(self.requirements)
+            .map_err(provider_error)?
             .with_providers(providers),
         );
-        if let Configuration::Fixed(_, options) = &self.configuration {
+        if let Configuration::Fixed(_, options) = &self.configuration
+            && self.selection.anchor.is_none()
+        {
             problem.validate_options(options).map_err(provider_error)?;
         }
         Ok(problem)
@@ -627,6 +739,8 @@ impl Factory {
 
 #[derive(Debug)]
 struct Nested {
+    requested_output: DerivativeOrder,
+    selection: selection::SelectionWorker,
     spec: pse_kernels::ProviderSpec,
     problem: Arc<Problem>,
     configuration: ConfigurationWorker,
@@ -644,17 +758,29 @@ impl pse_kernels::Provider for Nested {
         context: &pse_kernels::EvaluationContext<'_>,
     ) -> Result<ProviderValues, pse_kernels::ProviderError> {
         request.validate(&self.spec, context)?;
+        if request.order > self.requested_output {
+            return Err(pse_kernels::ProviderError::Contract(
+                "implicit output exceeds compiled demand".into(),
+            ));
+        }
         if !std::ptr::eq(context.cancelled, self.cancel.as_ref()) {
             return Err(pse_kernels::ProviderError::Contract(
                 "nested provider requires its admitted outer cancellation owner".into(),
             ));
         }
         let started = std::time::Instant::now();
+        let anchor = self
+            .selection
+            .anchor(&self.problem, inputs, &self.cancel)
+            .map_err(provider_error)?;
         let mut options = self
             .configuration
-            .resolve(&mut self.problem, inputs, &self.cancel)
+            .resolve(&mut self.problem, inputs, &self.cancel, anchor.as_deref())
             .map_err(provider_error)?;
         let allowance = options.time_limit;
+        self.selection
+            .configure(&mut self.problem, &options)
+            .map_err(provider_error)?;
         options.time_limit = allowance.saturating_sub(started.elapsed());
         if options.time_limit.is_zero() {
             return Err(pse_kernels::ProviderError::Limit(
@@ -668,6 +794,9 @@ impl pse_kernels::Provider for Nested {
         let all = self
             .problem
             .derivatives(inputs, &point, request.order, &options, &self.cancel)
+            .map_err(provider_error)?;
+        self.selection
+            .verify(&self.problem, inputs, &point, request.order, &self.cancel)
             .map_err(provider_error)?;
         let n = inputs.len();
         if started.elapsed() >= allowance {
@@ -749,7 +878,7 @@ mod tests {
                 )
                 .unwrap(),
         );
-        let problem = Problem::new(
+        let mut problem = Problem::new(
             id,
             ContentHash::from_bytes([0; 32]),
             vec![Unknown {
@@ -778,11 +907,32 @@ mod tests {
         assert_eq!(jet.values, vec![2.0]);
         assert_eq!(jet.jacobian, vec![0.25]);
         assert_eq!(jet.hessians, vec![-0.03125]);
+        // The root remains an original feasible value at an interval endpoint,
+        // but full local derivatives require an interior at the physical budget.
+        assert_eq!(
+            problem
+                .derivatives(&[9.], &[3.], DerivativeOrder::Value, &options, &cancel)
+                .unwrap()
+                .values,
+            vec![3.]
+        );
+        for order in [DerivativeOrder::First, DerivativeOrder::Second] {
+            assert!(matches!(
+                problem.derivatives(&[9.], &[3.], order, &options, &cancel),
+                Err(MathError::Domain {
+                    requirement: "implicit derivative neighborhood meets a declared unknown bound",
+                    ..
+                })
+            ));
+        }
+        // Exercise singularity separately from the newly enforced bound interior.
+        problem.unknowns[0].lower = -1.;
         assert!(
             problem
                 .derivatives(&[0.0], &[0.0], DerivativeOrder::Second, &options, &cancel)
                 .is_err()
         );
+        problem.unknowns[0].lower = 0.;
         assert!(
             problem
                 .derivatives(&[4.0], &[1.0], DerivativeOrder::First, &options, &cancel)

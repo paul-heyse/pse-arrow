@@ -30,6 +30,21 @@ pub struct RegimeSelection {
     /// Regimes in authored order.
     pub alternatives: Vec<Regime>,
 }
+/// Authored single-residual selection, specialized to physical symbol identities.
+#[derive(Clone, Debug, PartialEq)]
+pub enum RootSelection {
+    /// Explicit branch restriction, with equivalence established later from library mathematics.
+    Branch(dsl::Predicate),
+    /// Deterministic operational choice. A neighborhood predicate is not itself stability proof.
+    Operational {
+        /// Unknown targets and semantic anchors in canonical physical coordinates.
+        anchors: BTreeMap<SemanticId, Expr>,
+        /// Checked realization/settings capability reference.
+        settings: String,
+        /// Optional authored branch neighborhood restriction.
+        neighborhood: Option<dsl::Predicate>,
+    },
+}
 impl Engine<'_, '_> {
     pub(super) fn regimes(
         &mut self,
@@ -38,6 +53,97 @@ impl Engine<'_, '_> {
         members: &BTreeMap<String, DeclarationId>,
         env: &Environment,
     ) -> Result<()> {
+        if let Some(contract) = &scope.value.scope {
+            let parse_predicate = |s: &str| {
+                dsl::parse_predicate(s).map_err(|e| invalid(scope.declaration_id, e.to_string()))
+            };
+            if let Some(branch) = &contract.branch {
+                let predicate = self.rewrite_predicate(
+                    instance,
+                    &parse_predicate(branch)?,
+                    env,
+                    &[scope.declaration_id],
+                )?;
+                self.model
+                    .root_selections
+                    .insert(instance, RootSelection::Branch(predicate));
+            }
+            if let Some(operation) = &contract.operational {
+                if operation.settings != "native.kinsol.v1" || operation.anchors.is_empty() {
+                    return Err(invalid(
+                        scope.declaration_id,
+                        "unknown implicit operational settings or empty anchor",
+                    ));
+                }
+                let mut anchors = BTreeMap::new();
+                for anchor in &operation.anchors {
+                    let target = self.rewrite(
+                        instance,
+                        &dsl::parse_expr(&anchor.target)
+                            .map_err(|e| invalid(scope.declaration_id, e.to_string()))?,
+                        env,
+                        &[scope.declaration_id],
+                    )?;
+                    let ExprKind::Path(path) = target.kind else {
+                        return Err(invalid(
+                            scope.declaration_id,
+                            "operational anchor requires an unknown target",
+                        ));
+                    };
+                    let symbol = self
+                        .model
+                        .symbols
+                        .values()
+                        .find(|s| {
+                            path.segments.len() == 1
+                                && path.segments[0].name == symbol_name(s.id)
+                                && s.lineage.instance == instance
+                                && s.role == Kind::Variable
+                                && s.expression.is_none()
+                        })
+                        .ok_or_else(|| {
+                            invalid(
+                                scope.declaration_id,
+                                "operational anchor target is not an implicit unknown",
+                            )
+                        })?;
+                    let id = symbol.id;
+                    let expression = self.rewrite(
+                        instance,
+                        &dsl::parse_expr(&anchor.expression)
+                            .map_err(|e| invalid(scope.declaration_id, e.to_string()))?,
+                        env,
+                        &[scope.declaration_id],
+                    )?;
+                    if anchors.insert(id, expression).is_some() {
+                        return Err(invalid(
+                            scope.declaration_id,
+                            "duplicate operational anchor target",
+                        ));
+                    }
+                }
+                let neighborhood = operation
+                    .neighborhood
+                    .as_ref()
+                    .map(|n| {
+                        self.rewrite_predicate(
+                            instance,
+                            &parse_predicate(n)?,
+                            env,
+                            &[scope.declaration_id],
+                        )
+                    })
+                    .transpose()?;
+                self.model.root_selections.insert(
+                    instance,
+                    RootSelection::Operational {
+                        anchors,
+                        settings: operation.settings.clone(),
+                        neighborhood,
+                    },
+                );
+            }
+        }
         let rows = members
             .values()
             .filter(|id| self.p.declarations[id].value.kind == Kind::Regime)

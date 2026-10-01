@@ -673,7 +673,7 @@ impl<'a> Pass<'a> {
                     unknown(interval)
                 }
             }
-            Node::Pow { base, exponent } => self.power(*base, *exponent, interval),
+            Node::Pow { base, exponent } => self.power(*base, exponent, interval),
             Node::Exp(a) => {
                 if self.get(*a).curvature.convex() {
                     Info {
@@ -775,7 +775,7 @@ impl<'a> Pass<'a> {
         }
         None
     }
-    fn power(&self, base: NodeId, exponent: Constant, interval: Interval) -> Info {
+    fn power(&self, base: NodeId, exponent: &Constant, interval: Interval) -> Info {
         let p = exponent.value();
         let b = self.get(base);
         let result = |curvature, shape| Info {
@@ -899,14 +899,14 @@ impl<'a> Pass<'a> {
                 .auxiliaries
                 .get(*k)
                 .map_or(Interval::ENTIRE, |a| Interval::new(a.lower, a.upper)),
-            Node::Const(c) => constant_interval(*c),
+            Node::Const(c) => constant_interval(c),
             Node::Sum(children) => children
                 .iter()
                 .fold(Interval::point(0.0), |acc, c| acc.add(get(c))),
             Node::Product(children) => children
                 .iter()
                 .fold(Interval::point(1.0), |acc, c| acc.mul(get(c))),
-            Node::Pow { base, exponent } => power_interval(get(base), *exponent),
+            Node::Pow { base, exponent } => power_interval(get(base), exponent),
             Node::Exp(a) => get(a).exp(),
             Node::Log(a) => get(a).ln(),
             Node::Abs(a) => get(a).abs(),
@@ -923,7 +923,7 @@ impl<'a> Pass<'a> {
             Node::Const(c) => c.value(),
             Node::Sum(children) => children.iter().map(value).sum::<Option<f64>>()?,
             Node::Product(children) => children.iter().map(value).product::<Option<f64>>()?,
-            Node::Pow { base, exponent } => crate::factorable::power(value(base)?, *exponent),
+            Node::Pow { base, exponent } => crate::factorable::power(value(base)?, exponent),
             Node::Exp(a) => value(a)?.exp(),
             Node::Log(a) => value(a)?.ln(),
             Node::Abs(a) => value(a)?.abs(),
@@ -1041,7 +1041,7 @@ impl<'a> Pass<'a> {
         let child = |c: &NodeId| known.get(c).cloned().flatten();
         match &program.nodes[n] {
             Node::Var(c) => Some(Polynomial::from([((*c, NONE), Rational::one())])),
-            Node::Const(c) => Some(Polynomial::from([((NONE, NONE), exact(*c)?)])),
+            Node::Const(c) => Some(Polynomial::from([((NONE, NONE), exact(c)?)])),
             Node::Sum(members) => {
                 let mut sum = Polynomial::new();
                 for m in members {
@@ -1063,13 +1063,13 @@ impl<'a> Pass<'a> {
             }
             Node::Pow { base, exponent } => {
                 let square = match exponent {
-                    Constant::Rational(r) if r.denominator == 1 && r.numerator == 0 => {
+                    Constant::Rational(r) if r.is_zero() => {
                         return Some(Polynomial::from([((NONE, NONE), Rational::one())]));
                     }
-                    Constant::Rational(r) if r.denominator == 1 && r.numerator == 1 => {
+                    Constant::Rational(r) if r.is_one() => {
                         return child(base);
                     }
-                    Constant::Rational(r) => r.denominator == 1 && r.numerator == 2,
+                    Constant::Rational(r) => r == &Rational::from(2),
                     Constant::Float(v) => *v == 2.0,
                 };
                 if !square {
@@ -1327,15 +1327,15 @@ fn children(node: &Node) -> &[NodeId] {
 }
 /// The exact rational of a constant: a library rational, or a binary64 value, which is a
 /// dyadic rational.
-fn exact(c: Constant) -> Option<Rational> {
+fn exact(c: &Constant) -> Option<Rational> {
     match c {
-        Constant::Rational(r) => Some(Rational::new(r.numerator, r.denominator)),
-        Constant::Float(v) => Rational::try_from(v).ok(),
+        Constant::Rational(r) => Some(r.clone()),
+        Constant::Float(v) => Rational::try_from(*v).ok(),
     }
 }
 /// A constant's enclosure: its binary64 value, widened by one unit in the last place when
 /// a rational is not exactly that value.
-fn constant_interval(c: Constant) -> Interval {
+fn constant_interval(c: &Constant) -> Interval {
     let v = c.value();
     match c {
         Constant::Float(_) => Interval::point(v),
@@ -1350,7 +1350,7 @@ fn constant_interval(c: Constant) -> Interval {
 }
 /// `baseᵖ` over an enclosure: integer powers through the library's operations, a real
 /// power of a nonnegative base as `exp(p·log base)`.
-fn power_interval(base: Interval, exponent: Constant) -> Interval {
+fn power_interval(base: Interval, exponent: &Constant) -> Interval {
     let p = exponent.value();
     if !p.is_finite() || base.is_empty() {
         return Interval::ENTIRE;

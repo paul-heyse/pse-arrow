@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    72u8, 147u8, 68u8, 135u8, 26u8, 167u8, 77u8, 95u8, 34u8, 85u8, 144u8, 10u8, 20u8,
-    162u8, 58u8, 26u8, 151u8, 64u8, 179u8, 130u8, 184u8, 58u8, 146u8, 138u8, 97u8, 47u8,
-    120u8, 250u8, 68u8, 186u8, 118u8, 20u8,
+    13u8, 58u8, 9u8, 75u8, 43u8, 159u8, 81u8, 212u8, 65u8, 70u8, 229u8, 135u8, 167u8,
+    137u8, 95u8, 70u8, 117u8, 194u8, 217u8, 156u8, 195u8, 124u8, 154u8, 163u8, 43u8,
+    66u8, 47u8, 78u8, 11u8, 132u8, 75u8, 234u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeLocalValidityRow {
     fn append(
@@ -174,10 +174,10 @@ impl crate::columnar::RelationRow for RuntimeLocalValidityRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        28_672_usize + size_of::<Self::Builder>()
+        40_960_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        224usize
+        320usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -288,6 +288,73 @@ impl crate::columnar::RelationRow for RuntimeLocalValidityRow {
                         crate::columnar::allocation_add(
                             1,
                             Ok::<usize, crate::RelationError>(8usize)?,
+                        )
+                    } else {
+                        Ok::<usize, crate::RelationError>(1)
+                    }?,
+                )?;
+                bytes = crate::columnar::allocation_add(
+                    bytes,
+                    if ((self.r#validity).r#root_rank).is_some() {
+                        crate::columnar::allocation_add(
+                            1,
+                            Ok::<usize, crate::RelationError>(8usize)?,
+                        )
+                    } else {
+                        Ok::<usize, crate::RelationError>(1)
+                    }?,
+                )?;
+                bytes = crate::columnar::allocation_add(
+                    bytes,
+                    if ((self.r#validity).r#root_rank_cutoff).is_some() {
+                        crate::columnar::allocation_add(
+                            1,
+                            Ok::<usize, crate::RelationError>(8usize)?,
+                        )
+                    } else {
+                        Ok::<usize, crate::RelationError>(1)
+                    }?,
+                )?;
+                bytes = crate::columnar::allocation_add(
+                    bytes,
+                    if ((self.r#validity).r#root_rank_relative_cutoff).is_some() {
+                        crate::columnar::allocation_add(
+                            1,
+                            Ok::<usize, crate::RelationError>(8usize)?,
+                        )
+                    } else {
+                        Ok::<usize, crate::RelationError>(1)
+                    }?,
+                )?;
+                bytes = crate::columnar::allocation_add(
+                    bytes,
+                    if ((self.r#validity).r#root_backward_error).is_some() {
+                        crate::columnar::allocation_add(
+                            1,
+                            Ok::<usize, crate::RelationError>(8usize)?,
+                        )
+                    } else {
+                        Ok::<usize, crate::RelationError>(1)
+                    }?,
+                )?;
+                bytes = crate::columnar::allocation_add(
+                    bytes,
+                    if ((self.r#validity).r#root_backward_error_limit).is_some() {
+                        crate::columnar::allocation_add(
+                            1,
+                            Ok::<usize, crate::RelationError>(8usize)?,
+                        )
+                    } else {
+                        Ok::<usize, crate::RelationError>(1)
+                    }?,
+                )?;
+                bytes = crate::columnar::allocation_add(
+                    bytes,
+                    if let Some(value) = ((self.r#validity).r#root_neighborhood).as_ref()
+                    {
+                        crate::columnar::allocation_add(
+                            1,
+                            crate::columnar::allocation_add(8, (value).len())?,
                         )
                     } else {
                         Ok::<usize, crate::RelationError>(1)

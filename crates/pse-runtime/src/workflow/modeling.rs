@@ -40,6 +40,8 @@ mod implicit;
     feature = "solver-pounce"
 ))]
 mod pounce_convex_tests;
+#[cfg(all(test, feature = "solver-kinsol"))]
+mod root_response_tests;
 #[cfg(test)]
 #[cfg(all(feature = "solver-ipopt", feature = "solver-highs"))]
 pub(in crate::workflow) mod sensitivity_tests;
@@ -517,12 +519,7 @@ impl ModelingPackage {
         let limits = conformance::fixture_limits(row, limits)?;
         let solver = conformance::fixture_solver(row, &solver)?;
         let (bindings, case) = self.declared_case(root, route, limits, cancel).await?;
-        let order =
-            if solver.controls.hessian == pse_backend_native::solve::HessianMode::LimitedMemory {
-                pse_kernels::DerivativeOrder::First
-            } else {
-                pse_kernels::DerivativeOrder::Second
-            };
+        let order = solver.derivative_order();
         Ok(ModelingAnalysis {
             root,
             instance: pse_modeling::specialize::root_instance(root),

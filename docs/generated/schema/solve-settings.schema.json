@@ -1585,7 +1585,7 @@
     },
     "SensitivityRequest": {
       "additionalProperties": false,
-      "description": "A request for the parametric sensitivities of an optimization's local solution with\nrespect to declared parameters (Plan 22 S1; ADR-0118). They are computed from the\nKKT-point analysis at the qualified candidate, in original coordinates and physical\nunits, and each is published with its validity: certified, or withheld with the\ncondition that failed.",
+      "description": "Physical parameter sensitivities at a regular square Root or an optimization's local\nsolution (ADR-0144; ADR-0118). Roots use qualified equality Jacobian response;\noptimization uses KKT-point analysis. Results use original physical coordinates and\nunits, with certified validity or the condition that withheld them.",
       "properties": {
         "parameters": {
           "description": "Declared parameters of the solved case by identity, in the order results report\nthem; at least one, none repeated.",
@@ -1857,7 +1857,7 @@
           "type": "null"
         }
       ],
-      "description": "Parametric sensitivities to compute at the candidate of an optimization (Plan 22\nS1); absent computes none. An absent request is not encoded, so a document without\none keeps its identity."
+      "description": "Physical parameter sensitivities at a regular square Root or optimizing candidate;\nabsent computes none. An absent request is not encoded, so a document without\none keeps its identity."
     },
     "settings": {
       "anyOf": [

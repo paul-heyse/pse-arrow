@@ -544,6 +544,10 @@ package changed in memory (`with_declarations`, `with_fit_data`, `with_limits`) 
 
 ### 19.4 Parameter estimation
 
+> Supplement: [ADR-0144](../../adr/0144-selected-mathematical-realizations-and-square-response.md) (proposed; authorized implementation).
+
+Steady fitting response and public Root parameter sensitivity consume one qualified regular-square operation. It solves `F_x X_p = -F_p`, consumes complete original equality support and physical feasibility, applies explicit scaling, checks numerical rank and normwise backward error, and returns physical state/parameter coordinates. Guard/selector derivative checks and inactive state bounds qualify the local neighborhood; failure withholds response while retaining the base solution. This response is separate from optimizing KKT analysis and statistical covariance assumptions.
+
 > Decision: [ADR-0118](../../adr/0118-one-kkt-point-analysis.md) — covariance and
 > confidence intervals by one rule: exact from the fit's KKT analysis when the fit used the
 > exact Hessian, otherwise Gauss–Newton from the response SVD; profile-likelihood intervals
@@ -629,7 +633,9 @@ certified by the same LICQ, strict-complementarity and second-order verdicts; it
 `Σ = S·V·diag(s⁻²)·Vᵀ·S` from the singular values `s` and right singular vectors `V` of the
 weighted, parameter-scaled response `R·S·√importance/σ`, with `S` the declared parameter
 scales, never forming `JᵀWJ`; it is labelled `gauss_newton`. The label follows the requested
-Hessian mode. The declared standard deviations are taken as absolute, so no residual
+Hessian mode. Here `exact` identifies the library-derived curvature used in the local
+statistical approximation; it does not assert an exact sampling distribution or global
+uncertainty law. The declared standard deviations are taken as absolute, so no residual
 variance rescales the covariance. Admission keeps the declared-deviation rule: every
 included observation needs a finite value, a positive standard deviation and positive
 importance.

@@ -37,6 +37,8 @@ pub mod routing;
 pub mod scip;
 pub mod settings;
 pub mod solve;
+/// Qualified regular-square parameter response.
+pub mod square_response;
 /// Original-equation structural admission.
 pub mod structural;
 pub mod tears;

@@ -36,6 +36,9 @@ impl Affine {
     }
 }
 impl InnerSolver for Affine {
+    fn minimum_order(&self) -> DerivativeOrder {
+        DerivativeOrder::First
+    }
     fn identity(&self) -> ContentHash {
         solver_identity("faer.affine.v1")
     }

@@ -7,4 +7,4 @@ from pse.contracts.extension_types import EXTENSION_NAMES, register_all
 
 __all__ = ["EXTENSION_NAMES", "REGISTRY_FINGERPRINT", "register_all"]
 
-REGISTRY_FINGERPRINT = "blake3:b3f3f1a3d17a6ff4acc930fd2cb0d03f6637d183645088fe4b401cb326a5c20f"
+REGISTRY_FINGERPRINT = "blake3:8634882bfce4a72f951464071d8a9ca79edc00ff55caae9d5f5cee59e59833e6"

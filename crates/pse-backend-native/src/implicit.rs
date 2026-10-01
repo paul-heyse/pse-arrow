@@ -212,6 +212,16 @@ impl NleOracle for Oracle {
     }
 }
 impl InnerSolver for Kinsol {
+    fn minimum_order(&self) -> DerivativeOrder {
+        crate::routing::derivative_demand(
+            crate::execution::adapter(Backend::Kinsol).capability(),
+            &Controls::default(),
+        )
+        .unwrap_or(DerivativeOrder::Value)
+    }
+    fn honors_operational(&self, settings: &str) -> bool {
+        settings == "native.kinsol.v1"
+    }
     fn identity(&self) -> pse_ids::ContentHash {
         pse_math::implicit::solver_identity("sundials.kinsol.v1")
     }
@@ -278,8 +288,11 @@ impl InnerSolver for Kinsol {
                 })
                 .collect(),
             rows: problem.rows.clone(),
-            derivatives: DerivativeOrder::Second,
-            smoothness: DerivativeOrder::Second,
+            derivatives: problem.requirements.residual_compilation,
+            smoothness: problem
+                .requirements
+                .output_smoothness
+                .min(problem.requirements.residual_compilation),
         };
         let pattern = problem
             .pattern()
@@ -369,6 +382,13 @@ mod tests {
         problem_with(96, deficient)
     }
     fn problem_with(identity: u8, deficient: bool) -> Result<Problem, MathError> {
+        problem_order(identity, deficient, DerivativeOrder::Second)
+    }
+    fn problem_order(
+        identity: u8,
+        deficient: bool,
+        order: DerivativeOrder,
+    ) -> Result<Problem, MathError> {
         let registry = pse_quantity::standard::standard_registry().unwrap();
         let q = registry.neutral_dimensionless().unwrap();
         let id = pse_ids::SemanticId::from_bytes([96; 16]);
@@ -407,7 +427,7 @@ mod tests {
                 builder
                     .finish(
                         &[a, b],
-                        DerivativeOrder::Second,
+                        order,
                         pse_math::library::Optimization::default(),
                         &cancel,
                     )
@@ -445,6 +465,29 @@ mod tests {
             time_limit: std::time::Duration::from_secs(2),
             derivative_tolerance: 1e-10,
         }
+    }
+    #[test]
+    fn implicit_kinsol_first_order_contract_does_not_require_hessians() {
+        let cancel = Arc::new(AtomicBool::new(false));
+        let problem = Arc::new(problem_order(100, false, DerivativeOrder::First).unwrap());
+        assert_eq!(Kinsol.minimum_order(), DerivativeOrder::First);
+        assert_eq!(problem.compiled_order, DerivativeOrder::First);
+        let root = Kinsol
+            .solve(problem.clone(), &[3.], &options(), &cancel)
+            .unwrap();
+        assert!(root.iter().all(|x| (*x - 3.).abs() < 1e-8));
+        assert_eq!(
+            problem
+                .derivatives(&[3.], &root, DerivativeOrder::First, &options(), &cancel)
+                .unwrap()
+                .jacobian,
+            vec![1., 1.]
+        );
+        assert!(
+            problem
+                .derivatives(&[3.], &root, DerivativeOrder::Second, &options(), &cancel)
+                .is_err()
+        );
     }
     #[test]
     fn structural_failure_keeps_rows_and_columns() {

@@ -1716,17 +1716,63 @@ impl Cursor<'_> {
                         }
                     }
                 }
+                let mut branch = None;
+                let mut operational = None;
                 let selection = if self.eat("select") {
-                    self.expect("minimum")?;
-                    self.expect("(")?;
-                    let criterion = self.until(&[","])?;
-                    self.expect(",")?;
-                    let tolerance = self.until(&[")"])?;
-                    self.expect(")")?;
-                    Some(AuthoredModelingDeclarationsFieldValueScopeSelection {
-                        criterion,
-                        tolerance,
-                    })
+                    if self.eat("branch") {
+                        self.expect("(")?;
+                        branch = Some(self.until(&[")"])?);
+                        self.expect(")")?;
+                        None
+                    } else if self.eat("operational") {
+                        self.expect("(")?;
+                        let mut anchors = Vec::new();
+                        loop {
+                            let target = self.word()?;
+                            self.expect("=")?;
+                            let expression = self.until(&[",", ")"])?;
+                            anchors.push(
+                                AuthoredModelingDeclarationsFieldValueScopeOperationalAnchorsItem {
+                                    target,
+                                    expression,
+                                },
+                            );
+                            if !self.eat(",") {
+                                break;
+                            }
+                        }
+                        self.expect(")")?;
+                        self.expect("settings")?;
+                        self.expect("(")?;
+                        let settings = self.word()?;
+                        self.expect(")")?;
+                        let neighborhood = if self.eat("neighborhood") {
+                            self.expect("(")?;
+                            let predicate = self.until(&[")"])?;
+                            self.expect(")")?;
+                            Some(predicate)
+                        } else {
+                            None
+                        };
+                        operational =
+                            Some(AuthoredModelingDeclarationsFieldValueScopeOperational {
+                                anchors,
+                                settings,
+                                neighborhood,
+                            });
+                        None
+                    } else {
+                        self.expect("minimum")?;
+                        self.expect("(")?;
+                        let criterion = self.until(&[","])?;
+                        self.expect(",")?;
+                        let tolerance = self.until(&[")"])?;
+                        self.expect(")")?;
+                        Some(AuthoredModelingDeclarationsFieldValueScopeSelection {
+                            criterion,
+                            tolerance,
+                        })
+                    }
                 } else {
                     None
                 };
@@ -1738,7 +1784,8 @@ impl Cursor<'_> {
                 } else {
                     None
                 };
-                if selection.is_some() && keyword != "implicit"
+                if (selection.is_some() || branch.is_some() || operational.is_some())
+                    && keyword != "implicit"
                     || eligibility.is_some() && keyword != "regime"
                 {
                     return Err(self
@@ -2213,6 +2260,8 @@ impl Cursor<'_> {
                     bases,
                     type_parameters,
                     selection,
+                    branch,
+                    operational,
                     eligibility,
                     oracle,
                     facets,

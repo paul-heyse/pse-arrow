@@ -100,7 +100,9 @@ fn parameterized(
     let ids: Vec<SemanticId> = (0..parameters.len())
         .map(|k| parameter_port(k).id)
         .collect();
-    let parametric = plan.parametric(&ids, registry, &cancel).unwrap();
+    let parametric = plan
+        .parametric(&ids, DerivativeOrder::Second, registry, &cancel)
+        .unwrap();
     let compile = |plan: CasePlan| {
         Arc::new(
             Arc::new(plan)

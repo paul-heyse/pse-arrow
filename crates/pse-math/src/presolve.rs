@@ -199,9 +199,8 @@ impl CasePlan {
             .factorable_program(values, &FactorableRequest::default(), limit, cancel)
             .map_err(|e| match e {
                 FactorableError::Math(e) => e,
-                other @ FactorableError::DisjunctiveBranch { .. } => {
-                    MathError::Contract(other.to_string())
-                }
+                other @ (FactorableError::DisjunctiveBranch { .. }
+                | FactorableError::ExactRequired { .. }) => MathError::Contract(other.to_string()),
             })?;
         let lower: Vec<_> = program.variables.iter().map(|v| v.lower).collect();
         let upper: Vec<_> = program.variables.iter().map(|v| v.upper).collect();

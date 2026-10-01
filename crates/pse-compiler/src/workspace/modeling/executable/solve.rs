@@ -612,7 +612,7 @@ impl PreparedModeling {
 impl CompilerWorkspace {
     /// The parametric projection of a prepared solver view (Plan 22 S1): the view's plan
     /// with its objective and rows, its free columns followed by `parameters` as derivative
-    /// coordinates at second order ([`CasePlan::parametric`]), and the artifact requests
+    /// coordinates at the requested analysis order ([`CasePlan::parametric`]), and the artifact requests
     /// that compile it. It depends on no value, like the view it projects, so one program
     /// serves every value rebind of that view; the runtime caches it under
     /// [`PreparedModeling::parametric_key`].
@@ -623,13 +623,15 @@ impl CompilerWorkspace {
         &self,
         view: &PreparedCase,
         parameters: &[SemanticId],
+        order: DerivativeOrder,
         profile: Profile,
         cancel: &Arc<AtomicBool>,
     ) -> Result<PreparedFunctions> {
-        let plan = Arc::new(
-            view.plan
-                .parametric(parameters, &self.inputs.quantities, cancel)?,
-        );
+        let plan =
+            Arc::new(
+                view.plan
+                    .parametric(parameters, order, &self.inputs.quantities, cancel)?,
+            );
         Ok(PreparedFunctions {
             artifacts: artifact_requests(&plan, profile, self.inventory.environment(&self.db)),
             plan,

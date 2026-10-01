@@ -7,7 +7,6 @@ use native::{
     NlpOracle,
     solve::{Backend, Execution},
 };
-use pse_relations::columnar::RelationRow;
 use std::sync::atomic::AtomicBool;
 fn source(mixed: bool, expected: f64) -> (crate::workflow::ModelingPackage, FitProfile) {
     source_case(mixed, expected, "Dynamic")
@@ -365,6 +364,8 @@ async fn adjoint_gradient_equals_forward_on_transient_fit() {
 #[cfg(feature = "solver-ipopt")]
 #[tokio::test]
 async fn nonzero_clock_smooth_scheduled_and_state_reset_fits_share_response_contract() {
+    use pse_relations::columnar::RelationRow;
+
     for mode in 0..3 {
         let expected = match mode {
             0 => 74.,

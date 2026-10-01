@@ -1,6 +1,6 @@
 ---
 title: "25j: Generated boundaries and library consolidation"
-status: draft
+status: in-progress
 date: 2026-09-30
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_codebase-domain-alignment_2026-09-30.md, docs/design_review/reviews/design_review_codebase-domain-alignment-follow-up_2026-09-30.md]
@@ -65,7 +65,7 @@ No accepted ADR is edited in place and no new crate is required.
 | Packet | Prerequisites | Responsibility and target | Deletion | Status |
 |---|---|---|---|---|
 | <a id="j1"></a>J1 Owned document and admission boundary | F1/F2/F3; E2/E4; C1 | Move adapter-owned request meanings into the Rust owner; register actual request/results with generation; use one typed document bridge | Ad hoc JSON shape construction, adapter policy and duplicate schema definitions for migrated operations | planned |
-| <a id="j2"></a>J2 Python consumer cutover | J1; F2/F3/F4, E2/E3/E4 and C1 interfaces as applicable; G2 for changed persisted representations | Generate models, enums and native stubs; migrate all Python/public Rust boundary consumers and defaults | Hand-written mirrors, string enum getters, parallel wire types and copied defaults | planned |
+| <a id="j2"></a>J2 Python consumer cutover | J1; F2/F3/F4, E2/E3/E4 and C1 interfaces as applicable; G2 for changed persisted representations | Generate models, enums and native stubs; migrate all Python/public Rust boundary consumers and defaults | Hand-written mirrors, string enum getters, parallel wire types and copied defaults | partial: 25d prerequisite slice |
 | <a id="j3"></a>J3 Generator/library consolidation | F1 and I1 utility contracts | Generate common vocabulary surfaces; use adopted graph/cardinality mechanisms; review regenerated outputs | Bespoke emitter DFS, repeated enum glue and quadratic cardinality/uniqueness mechanisms | planned |
 
 J1/J2 proceed by complete operation slices after their owner is ready; they need not wait for
@@ -142,6 +142,16 @@ implementation that refuses a formerly valid structured element is not equivalen
 old mechanisms and their mechanism-specific tests; retain semantic contract controls using the
 new owner. Regeneration is functional work, not deferred polish.
 
+## Consumed 25d prerequisite slice
+
+**Implemented/Tested, 2026-10-01:** J2's required mathematical-response slice is integrated.
+Registry-owned selector documents, Root sensitivity admission and local-validity/withheld-reason
+fields are regenerated into Rust/Python/schema/document consumers. Public Rust tests exercise
+response publication and withholding; linked Python compilation checks the generated boundary.
+This is not Python workflow execution qualification. Wider J1/J2 request/default migration and
+J3 generator/library consolidation remain open. [25d Verification](25d-mathematical-realization-and-response.md#verification)
+owns commands, conditions, composite results and limits; this does not close J2.
+
 ## Proposed acceptance and handoff
 
 Focused checks use isolated Rust request/codec units and Python constructor/decoder units,
@@ -168,7 +178,8 @@ survived. The coordinator resolves F18/F26 only after all their component obliga
 
 ### What was built
 
-Not implemented; this document records Proposed changes.
+Full-plan closure remains outstanding. The implemented 25d prerequisite slice is recorded
+above; 25d owns its focused evidence. Remaining work is Proposed.
 
 ### A mistake made and corrected
 

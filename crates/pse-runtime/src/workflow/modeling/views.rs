@@ -137,6 +137,7 @@ impl ModelingPackage {
                 self.workspace.clone(),
                 prepared.case.clone(),
                 parameters.to_vec(),
+                order,
                 compiler,
                 cancel,
             )

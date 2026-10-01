@@ -433,6 +433,10 @@ common conformance runner executes the formulas through the production mathemati
 
 ### 9.4 External-function contract
 
+> Supplement: [ADR-0144](../../adr/0144-selected-mathematical-realizations-and-square-response.md) (proposed; authorized implementation).
+
+Implicit providers retain residual availability separately from output smoothness and selection stability. A stable C1 closure supports First when the inner method needs First, and refuses Second specifically. Physical coordinate wrappers remain part of library differentiation; caller-specific rescaling does not define another derivative contract.
+
 > Decision: [ADR-0120](../../adr/0120-provider-envelope-contract.md) — a provider factory
 > may declare one closed output interval per output that every successful evaluation lies
 > in; the host checks the declaration against the contract (Plan 22 G4, implemented),
@@ -468,6 +472,10 @@ this envelope ([§7.5](mathematics-and-compilation.md#section-7-5)). *Tested* by
 units).
 
 ### 9.5 Phase equilibrium
+
+> Supplement: [ADR-0144](../../adr/0144-selected-mathematical-realizations-and-square-response.md) (proposed; authorized implementation).
+
+Phase restrictions and an operationally selected root are distinct scientific meanings. Compiler admission retains branch restrictions or explicit semantic anchors/settings; numerical starts do not prove a phase. An accelerator unable to preserve the admitted selection refuses. Coalescing/boundary roots may have an exact exported graph while their local derivatives remain unavailable.
 
 > Decision: [ADR-0102](../../adr/0102-discrete-and-global-design-target.md) — a certified
 > tangent-plane-distance stability check over the global certification route enters the

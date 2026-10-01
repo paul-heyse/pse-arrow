@@ -54,18 +54,17 @@ pub struct SolveSettings {
     /// Relative eigenvalue budget of a numerical convexity assessment.
     #[serde(default)]
     pub convexity_relative: Option<f64>,
-    /// Parametric sensitivities to compute at the candidate of an optimization (Plan 22
-    /// S1); absent computes none. An absent request is not encoded, so a document without
+    /// Physical parameter sensitivities at a regular square Root or optimizing candidate;
+    /// absent computes none. An absent request is not encoded, so a document without
     /// one keeps its identity.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sensitivity: Option<SensitivityRequest>,
 }
 
-/// A request for the parametric sensitivities of an optimization's local solution with
-/// respect to declared parameters (Plan 22 S1; ADR-0118). They are computed from the
-/// KKT-point analysis at the qualified candidate, in original coordinates and physical
-/// units, and each is published with its validity: certified, or withheld with the
-/// condition that failed.
+/// Physical parameter sensitivities at a regular square Root or an optimization's local
+/// solution (ADR-0144; ADR-0118). Roots use qualified equality Jacobian response;
+/// optimization uses KKT-point analysis. Results use original physical coordinates and
+/// units, with certified validity or the condition that withheld them.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SensitivityRequest {
@@ -135,18 +134,21 @@ impl ParameterCovariance {
     }
 }
 impl SensitivityRequest {
-    /// Admit the request for a solve of `intent`: an optimization, distinct parameters,
+    /// Admit the request for Root or Optimize: distinct parameters, optimization-only
     /// and a propagation over a valid covariance of requested parameters to distinct
     /// outputs.
     ///
     /// # Errors
     /// A contract error naming the violated rule.
     pub fn admit(&self, intent: SolveIntent) -> Result<(), ProblemError> {
-        if intent != SolveIntent::Optimize {
+        if !matches!(intent, SolveIntent::Optimize | SolveIntent::Root) {
             return Err(ProblemError::Contract(format!(
                 "parametric sensitivities differentiate an optimum, not a {} solve",
                 intent.as_str()
             )));
+        }
+        if intent == SolveIntent::Root && (self.reduced_hessian || self.propagation.is_some()) {
+            return Err(ProblemError::Contract("a root response supports parameter sensitivities; reduced Hessians and covariance propagation require optimization".into()));
         }
         let distinct: BTreeSet<_> = self.parameters.iter().collect();
         if self.parameters.is_empty() || distinct.len() != self.parameters.len() {
@@ -209,7 +211,7 @@ impl SolveSettings {
     /// The solver profile these settings state, after the rules that relate fields:
     /// presolve options and required passes only with an explicit policy, finite controls,
     /// independent acceptance budgets, both or neither convexity budget, and a sensitivity
-    /// request only for an optimization.
+    /// request for optimization KKT sensitivity or regular-square Root response.
     ///
     /// # Errors
     /// A typed refusal naming the violated rule.
@@ -287,7 +289,7 @@ mod tests {
 
     /// A sensitivity request is a typed field of the settings document (Plan 22 S1): it
     /// decodes with the parameter identities it names, enters the profile and its request
-    /// identity, and is refused for a solve that optimizes nothing, a repeated parameter or
+    /// identity, admits Root parameter responses, and refuses Root KKT-only quantities, repeated parameters or
     /// an unknown field.
     #[test]
     fn sensitivity_request_in_solve_settings() {
@@ -313,8 +315,13 @@ mod tests {
             super::super::solves::profile_key(&profile).unwrap(),
             super::super::solves::profile_key(&plain).unwrap()
         );
+        let root: SolveSettings = serde_json::from_value(
+            json!({"version":1,"intent":"root","sensitivity":{"parameters":[a]}}),
+        )
+        .unwrap();
+        assert!(root.profile().is_ok());
         for refused in [
-            json!({"version": 1, "intent": "root", "sensitivity": {"parameters": [a]}}),
+            json!({"version": 1, "intent": "root", "sensitivity": {"parameters": [a], "reduced_hessian": true}}),
             json!({"version": 1, "sensitivity": {"parameters": [a, a]}}),
             json!({"version": 1, "sensitivity": {"parameters": []}}),
         ] {

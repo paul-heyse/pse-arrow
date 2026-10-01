@@ -1297,6 +1297,9 @@ fn kernel_nested_implicit_provider_projects_values_and_ift_derivatives() {
     #[derive(Debug)]
     struct AnalyticRoot;
     impl InnerSolver for AnalyticRoot {
+        fn minimum_order(&self) -> DerivativeOrder {
+            DerivativeOrder::Value
+        }
         fn identity(&self) -> ContentHash {
             pse_math::implicit::solver_identity("test.analytic-root.v1")
         }
@@ -1316,7 +1319,7 @@ fn kernel_nested_implicit_provider_projects_values_and_ift_derivatives() {
         "accelerated(test_polynomial)",
     ] {
         let (mut workspace, _, _, root) = setup(
-        &"package p { def Root { var x: Scalar; implicit root { var y: Scalar; eq residual: y*y == x; } realize policy on root using nested; eq pin: root.y == 2; } }".replace("using nested",&format!("using {policy}")),
+        &"package p { def Root { var x: Scalar; implicit root select branch(y>=0) { var y: Scalar; eq residual: y*y == x; } realize policy on root using nested; eq pin: root.y == 2; } }".replace("using nested",&format!("using {policy}")),
     );
         let admitted = admit(&mut workspace, root);
         assert_eq!(admitted.inputs.len(), 1);
@@ -1340,7 +1343,7 @@ fn kernel_nested_implicit_provider_projects_values_and_ift_derivatives() {
                             .iter()
                             .map(|id| Unknown {
                                 id: *id,
-                                lower: 0.5,
+                                lower: 0.0,
                                 upper: 2.5,
                             })
                             .collect(),
@@ -1356,6 +1359,8 @@ fn kernel_nested_implicit_provider_projects_values_and_ift_derivatives() {
                     ),
                 )]),
                 Arc::new(AnalyticRoot),
+                DerivativeOrder::Second,
+                DerivativeOrder::Value,
                 &accelerators,
                 cancel.clone(),
                 EvaluationLimits::default(),
@@ -1368,6 +1373,65 @@ fn kernel_nested_implicit_provider_projects_values_and_ift_derivatives() {
             &cancel,
         )
         .unwrap();
+        let configuration = match &factory {
+            pse_math::implicit::ImplicitFactory::Root(f) => f.configuration.clone(),
+            _ => unreachable!(),
+        };
+        let first_factory = inner
+            .factory(
+                BTreeMap::from([(inner.residuals[0].id, configuration)]),
+                Arc::new(AnalyticRoot),
+                DerivativeOrder::First,
+                DerivativeOrder::Value,
+                &accelerators,
+                cancel.clone(),
+                EvaluationLimits::default(),
+            )
+            .unwrap();
+        assert_eq!(inner.descriptor.spec().derivatives, DerivativeOrder::Second);
+        assert_eq!(first_factory.spec().derivatives, DerivativeOrder::First);
+        let bound = pse_kernels::Registration::bind(
+            inner
+                .descriptor
+                .restrict_order(DerivativeOrder::First)
+                .unwrap(),
+            Arc::new(first_factory),
+        )
+        .unwrap();
+        let first = fixture(
+            &admitted,
+            workspace.inputs.quantities.clone(),
+            DerivativeOrder::First,
+            &cancel,
+        )
+        .unwrap();
+        let point = CaseValues {
+            scalars: BTreeMap::from([(admitted.inputs[0], 4.)]),
+        };
+        let mut first_worker = first.assembly.worker(
+            BTreeMap::from([(
+                inner.descriptor.spec().key(),
+                bound.worker_scoped(cancel.clone()).unwrap(),
+            )]),
+            cancel.clone(),
+        );
+        first_worker.constraints(&point).unwrap();
+        assert!(first_worker.jacobian(&point).is_ok());
+        let mut unavailable = f.assembly.worker(
+            BTreeMap::from([(
+                inner.descriptor.spec().key(),
+                bound.worker_scoped(cancel.clone()).unwrap(),
+            )]),
+            cancel.clone(),
+        );
+        let rows = unavailable.constraints(&point).unwrap();
+        assert!(
+            unavailable
+                .hessian(&point, 0., &vec![1.; rows.len()])
+                .unwrap_err()
+                .to_string()
+                .contains("bound derivative capability")
+        );
         let mut worker = f.assembly.worker(
             BTreeMap::from([(inner.descriptor.spec().key(), factory.create().unwrap())]),
             cancel.clone(),
@@ -1403,9 +1467,486 @@ fn kernel_nested_implicit_provider_projects_values_and_ift_derivatives() {
                 })
                 .is_err()
         );
+        let coalescing = CaseValues {
+            scalars: BTreeMap::from([(admitted.inputs[0], 0.)]),
+        };
+        assert!(worker.constraints(&coalescing).is_ok());
+        assert!(worker.jacobian(&coalescing).is_err());
         cancel.store(true, Ordering::Release);
         assert!(worker.constraints(&values).is_err());
     }
+}
+
+#[test]
+fn implicit_selection_requires_authored_meaning_and_separates_operational_anchor_from_start() {
+    use pse_kernels::{EvaluationContext, ProviderFactory, ProviderRequest};
+    use pse_math::implicit::{
+        Configuration, ImplicitFactory, InnerSolver, Options, Problem, Unknown,
+    };
+    #[derive(Debug)]
+    struct Anchored;
+    impl InnerSolver for Anchored {
+        fn minimum_order(&self) -> DerivativeOrder {
+            DerivativeOrder::First
+        }
+        fn honors_operational(&self, s: &str) -> bool {
+            s == "native.kinsol.v1"
+        }
+        fn identity(&self) -> ContentHash {
+            pse_math::implicit::solver_identity("test.anchored.v1")
+        }
+        fn solve(
+            &self,
+            _: Arc<Problem>,
+            p: &[f64],
+            o: &Options,
+            _: &Arc<AtomicBool>,
+        ) -> std::result::Result<Vec<f64>, MathError> {
+            Ok(vec![o.start[0].signum() * p[0].sqrt()])
+        }
+    }
+    let base = "package p {def Root {var p:Scalar; implicit root {var y:Scalar; eq e:y*y==p; annotation start y(1); annotation bounds y(-10,10);} realize r on root using nested; eq e:root.y==2;}}";
+    let (mut workspace, _, _, root) = setup(base);
+    let error = workspace
+        .admit_modeling(
+            root,
+            InstanceId::from_id(SemanticId::NIL),
+            Bindings::default(),
+            Limits::default(),
+        )
+        .unwrap_err();
+    assert!(
+        error.to_string().contains("explicit function selector"),
+        "{error}"
+    );
+    let mut identities = vec![];
+    for anchor in [-1, 1] {
+        let text = base.replace(
+            "implicit root {",
+            &format!(
+                "implicit root select operational(y={anchor}) settings(\"native.kinsol.v1\") {{"
+            ),
+        );
+        let (mut workspace, rows, _, root) = setup(&text);
+        let roundtrip = source(&pse_authoring::language::render(&rows).unwrap());
+        assert_eq!(
+            roundtrip
+                .iter()
+                .map(|r| r.value.clone())
+                .collect::<Vec<_>>(),
+            rows.iter().map(|r| r.value.clone()).collect::<Vec<_>>()
+        );
+        let admitted = admit(&mut workspace, root);
+        let inner = admitted.implicit.values().next().unwrap();
+        assert_eq!(inner.descriptor.spec().derivatives, DerivativeOrder::Value);
+        assert_eq!(
+            inner.selection.equivalence,
+            SelectionEquivalence::Unestablished
+        );
+        identities.push(inner.selection.identity);
+        let (mut changed_workspace, _, _, changed_root) =
+            setup(&text.replace("annotation start y(1)", "annotation start y(-3)"));
+        let changed = admit(&mut changed_workspace, changed_root);
+        let changed_inner = changed.implicit.values().next().unwrap();
+        assert_eq!(inner.selection.identity, changed_inner.selection.identity);
+        assert_ne!(
+            inner.descriptor.spec().revision,
+            changed_inner.descriptor.spec().revision
+        );
+        let cancel = Arc::new(AtomicBool::new(false));
+        let configuration = Configuration::Fixed(
+            vec![Unknown {
+                id: inner.unknowns[0],
+                lower: -10.,
+                upper: 10.,
+            }],
+            Options {
+                start: vec![50.],
+                variable_nominals: vec![1.],
+                variable_tolerance: vec![1e-9],
+                residual_tolerance: vec![1e-9],
+                iterations: 20,
+                time_limit: std::time::Duration::from_secs(1),
+                derivative_tolerance: 1e-9,
+            },
+        );
+        let configs = BTreeMap::from([(inner.residuals[0].id, configuration)]);
+        let accelerators = pse_math::implicit::accelerators::Accelerators::standard();
+        assert!(
+            inner
+                .factory(
+                    configs.clone(),
+                    Arc::new(Anchored),
+                    DerivativeOrder::First,
+                    DerivativeOrder::First,
+                    &accelerators,
+                    cancel.clone(),
+                    EvaluationLimits::default()
+                )
+                .unwrap_err()
+                .to_string()
+                .contains("selector neighborhood")
+        );
+        let factory = inner
+            .factory(
+                configs,
+                Arc::new(Anchored),
+                DerivativeOrder::Value,
+                DerivativeOrder::First,
+                &accelerators,
+                cancel.clone(),
+                EvaluationLimits::default(),
+            )
+            .unwrap();
+        let ImplicitFactory::Root(root_factory) = &factory else {
+            panic!("single root factory");
+        };
+        assert_eq!(root_factory.body.compiled_order(), DerivativeOrder::First);
+        let mut provider = factory.create().unwrap();
+        let values = provider
+            .evaluate(
+                &[4.],
+                &ProviderRequest {
+                    outputs: vec![0],
+                    order: DerivativeOrder::Value,
+                },
+                &EvaluationContext {
+                    cancelled: &cancel,
+                    max_result_bytes: 1024,
+                },
+            )
+            .unwrap();
+        assert_eq!(values.values, vec![f64::from(anchor) * 2.]);
+    }
+    assert_ne!(identities[0], identities[1]);
+    let switched=base.replace("implicit root {","implicit root select operational(y=if p>0 then 1 else -1) settings(\"native.kinsol.v1\") {").replace("y*y==p","y*y==1");
+    let (mut workspace, _, _, root) = setup(&switched);
+    let admitted = admit(&mut workspace, root);
+    let inner = admitted.implicit.values().next().unwrap();
+    assert_eq!(inner.descriptor.spec().smoothness, DerivativeOrder::Value);
+    assert_eq!(
+        inner.selection.equivalence,
+        SelectionEquivalence::Unestablished
+    );
+    let accelerated = base
+        .replace(
+            "implicit root {",
+            "implicit root select operational(y=1) settings(\"native.kinsol.v1\") {",
+        )
+        .replace("using nested", "using accelerated(cubic_roots)");
+    let (mut workspace, _, _, root) = setup(&accelerated);
+    let admitted = admit(&mut workspace, root);
+    let inner = admitted.implicit.values().next().unwrap();
+    let cancel = Arc::new(AtomicBool::new(false));
+    let factory = inner
+        .factory(
+            BTreeMap::from([(
+                inner.residuals[0].id,
+                Configuration::Fixed(
+                    vec![Unknown {
+                        id: inner.unknowns[0],
+                        lower: -10.,
+                        upper: 10.,
+                    }],
+                    Options {
+                        start: vec![1.],
+                        variable_nominals: vec![1.],
+                        variable_tolerance: vec![1e-9],
+                        residual_tolerance: vec![1e-9],
+                        iterations: 20,
+                        time_limit: std::time::Duration::from_secs(1),
+                        derivative_tolerance: 1e-9,
+                    },
+                ),
+            )]),
+            Arc::new(Anchored),
+            DerivativeOrder::Value,
+            DerivativeOrder::First,
+            &pse_math::implicit::accelerators::Accelerators::standard(),
+            cancel,
+            EvaluationLimits::default(),
+        )
+        .unwrap();
+    assert!(
+        factory
+            .create()
+            .unwrap_err()
+            .to_string()
+            .contains("cannot honor implicit operational settings")
+    );
+}
+
+#[test]
+fn implicit_c1_provider_compiles_only_justified_first_order() {
+    use pse_kernels::{AdmittedProvider, DerivativeSource, Port, ProviderShapes, ProviderSpec};
+    let revision = ContentHash::from_bytes([31; 32]);
+    let data = ContentHash::from_bytes([32; 32]);
+    let text = format!(
+        "package p {{fn c1(p:Scalar)->Scalar external \"c1\" revision \"{revision}\" data \"{data}\" output 0 derivatives 1 source analytic smoothness 1; def Root {{var p:Scalar; implicit root {{var y:Scalar;eq e:y==c1(p);}} realize r on root using nested;eq e:root.y==2;}}}}"
+    );
+    let mut inputs = super::super::tests::inputs();
+    let quantity = inputs.quantities.neutral_dimensionless().unwrap();
+    let unit = inputs
+        .quantities
+        .quantity_type(quantity)
+        .unwrap()
+        .canonical_unit;
+    let port = |id| Port {
+        id: SemanticId::from_bytes([id; 16]),
+        quantity,
+        unit,
+    };
+    let spec = ProviderSpec {
+        shapes: ProviderShapes::default(),
+        derivative_source: DerivativeSource::Analytic,
+        id: SemanticId::from_bytes([35; 16]),
+        revision,
+        data,
+        inputs: vec![port(33)],
+        outputs: vec![port(34)],
+        derivatives: DerivativeOrder::First,
+        smoothness: DerivativeOrder::First,
+    };
+    inputs.providers.insert(
+        "c1".into(),
+        ProviderCall {
+            descriptor: AdmittedProvider::new(spec, &inputs.quantities).unwrap(),
+            output: 0,
+        },
+    );
+    let (mut workspace, _, _, root) = setup_with_inputs(&text, inputs);
+    let admitted = admit(&mut workspace, root);
+    let inner = admitted.implicit.values().next().unwrap();
+    assert_eq!(
+        inner.selection.equivalence,
+        SelectionEquivalence::NondegenerateAffine
+    );
+    assert_eq!(inner.descriptor.spec().derivatives, DerivativeOrder::First);
+    #[derive(Debug)]
+    struct First;
+    impl pse_math::implicit::InnerSolver for First {
+        fn minimum_order(&self) -> DerivativeOrder {
+            DerivativeOrder::First
+        }
+        fn identity(&self) -> ContentHash {
+            pse_math::implicit::solver_identity("test.first.v1")
+        }
+        fn solve(
+            &self,
+            _: Arc<pse_math::implicit::Problem>,
+            _: &[f64],
+            _: &pse_math::implicit::Options,
+            _: &Arc<AtomicBool>,
+        ) -> std::result::Result<Vec<f64>, MathError> {
+            unreachable!("factory compilation control")
+        }
+    }
+    let configs = BTreeMap::from([(
+        inner.residuals[0].id,
+        pse_math::implicit::Configuration::Fixed(
+            vec![pse_math::implicit::Unknown {
+                id: inner.unknowns[0],
+                lower: -10.,
+                upper: 10.,
+            }],
+            pse_math::implicit::Options {
+                start: vec![1.],
+                variable_nominals: vec![1.],
+                variable_tolerance: vec![1e-9],
+                residual_tolerance: vec![1e-9],
+                iterations: 20,
+                time_limit: std::time::Duration::from_secs(1),
+                derivative_tolerance: 1e-9,
+            },
+        ),
+    )]);
+    let cancel = Arc::new(AtomicBool::new(false));
+    let accelerators = pse_math::implicit::accelerators::Accelerators::standard();
+    let factory = inner
+        .factory(
+            configs.clone(),
+            Arc::new(First),
+            DerivativeOrder::First,
+            DerivativeOrder::First,
+            &accelerators,
+            cancel.clone(),
+            EvaluationLimits::default(),
+        )
+        .unwrap();
+    let pse_math::implicit::ImplicitFactory::Root(factory) = factory else {
+        panic!("single root");
+    };
+    assert_eq!(factory.body.compiled_order(), DerivativeOrder::First);
+    assert!(
+        inner
+            .factory(
+                configs,
+                Arc::new(First),
+                DerivativeOrder::Second,
+                DerivativeOrder::First,
+                &accelerators,
+                cancel,
+                EvaluationLimits::default()
+            )
+            .is_err()
+    );
+}
+
+#[test]
+fn implicit_nested_value_propagates_native_first_order_to_child() {
+    use pse_kernels::ProviderFactory;
+    use pse_math::implicit::{Configuration, InnerSolver, Options, Problem, Unknown};
+    #[derive(Debug)]
+    struct FirstRoot;
+    impl InnerSolver for FirstRoot {
+        fn minimum_order(&self) -> DerivativeOrder {
+            DerivativeOrder::First
+        }
+        fn identity(&self) -> ContentHash {
+            pse_math::implicit::solver_identity("test.first-root.v1")
+        }
+        fn solve(
+            &self,
+            _: Arc<Problem>,
+            inputs: &[f64],
+            _: &Options,
+            _: &Arc<AtomicBool>,
+        ) -> std::result::Result<Vec<f64>, MathError> {
+            Ok(vec![inputs[0].sqrt()])
+        }
+    }
+    let text = "package p {def Root {var x:Scalar; implicit outer {var y:Scalar;implicit child select branch(z>=0) {var z:Scalar;eq e:z*z==x;}realize c on child using nested;eq e:y==x-child.z;}realize o on outer using nested;eq e:outer.y==2;}}";
+    let (mut workspace, _, _, root) = setup(text);
+    let admitted = admit(&mut workspace, root);
+    let order = admitted.implicit_order().unwrap();
+    assert_eq!(order.len(), 2);
+    let child = &order[0];
+    let parent = &order[1];
+    let outer_demands = admitted
+        .provider_demands_for(None, DerivativeOrder::Value)
+        .unwrap();
+    assert_eq!(
+        outer_demands[&parent.descriptor.spec().key()],
+        DerivativeOrder::Value
+    );
+    assert!(
+        outer_demands
+            .get(&child.descriptor.spec().key())
+            .is_none_or(|o| *o == DerivativeOrder::Value)
+    );
+    let accelerators = pse_math::implicit::accelerators::Accelerators::standard();
+    let cancel = Arc::new(AtomicBool::new(false));
+    let limits = EvaluationLimits::default();
+    let requirements = parent
+        .requirements(
+            DerivativeOrder::Value,
+            DerivativeOrder::First,
+            &accelerators,
+            &cancel,
+            limits,
+        )
+        .unwrap();
+    assert_eq!(requirements.residual_compilation, DerivativeOrder::First);
+    let demands = parent.provider_demands(requirements).unwrap();
+    assert_eq!(
+        demands[&child.descriptor.spec().key()],
+        DerivativeOrder::First
+    );
+    let configs = |inner: &AdmittedImplicit| {
+        BTreeMap::from([(
+            inner.residuals[0].id,
+            Configuration::Fixed(
+                vec![Unknown {
+                    id: inner.unknowns[0],
+                    lower: 0.,
+                    upper: 10.,
+                }],
+                Options {
+                    start: vec![1.],
+                    variable_nominals: vec![1.],
+                    variable_tolerance: vec![1e-9],
+                    residual_tolerance: vec![1e-9],
+                    iterations: 20,
+                    time_limit: std::time::Duration::from_secs(1),
+                    derivative_tolerance: 1e-9,
+                },
+            ),
+        )])
+    };
+    let parent_factory = parent
+        .factory(
+            configs(parent),
+            Arc::new(FirstRoot),
+            DerivativeOrder::Value,
+            DerivativeOrder::First,
+            &accelerators,
+            cancel.clone(),
+            limits,
+        )
+        .unwrap();
+    assert_eq!(parent_factory.spec().derivatives, DerivativeOrder::Value);
+    let pse_math::implicit::ImplicitFactory::Root(parent_factory) = parent_factory else {
+        panic!("single parent");
+    };
+    assert_eq!(parent_factory.body.compiled_order(), DerivativeOrder::First);
+    let mut evaluator = parent_factory.body.worker();
+    let child_value = child
+        .factory(
+            configs(child),
+            Arc::new(FirstRoot),
+            DerivativeOrder::Value,
+            DerivativeOrder::First,
+            &accelerators,
+            cancel.clone(),
+            limits,
+        )
+        .unwrap();
+    let mut workers =
+        BTreeMap::from([(child.descriptor.spec().key(), child_value.create().unwrap())]);
+    assert!(
+        evaluator
+            .evaluate(&[2., 4.], DerivativeOrder::First, &mut workers, &cancel)
+            .unwrap_err()
+            .to_string()
+            .contains("bound derivative capability")
+    );
+    let child_first = child
+        .factory(
+            configs(child),
+            Arc::new(FirstRoot),
+            demands[&child.descriptor.spec().key()],
+            DerivativeOrder::First,
+            &accelerators,
+            cancel.clone(),
+            limits,
+        )
+        .unwrap();
+    workers.insert(child.descriptor.spec().key(), child_first.create().unwrap());
+    let evaluated = evaluator
+        .evaluate(&[2., 4.], DerivativeOrder::First, &mut workers, &cancel)
+        .unwrap();
+    assert!(evaluated.values[0].abs() < 1e-12);
+    assert!((evaluated.jacobian[1] + 0.75).abs() < 1e-12);
+    let value_only = text.replace(
+        "select branch(z>=0)",
+        "select operational(z=1) settings(\"native.kinsol.v1\")",
+    );
+    let (mut workspace, _, _, root) = setup(&value_only);
+    let admitted = admit(&mut workspace, root);
+    let order = admitted.implicit_order().unwrap();
+    assert!(
+        order[1]
+            .requirements(
+                DerivativeOrder::Value,
+                DerivativeOrder::First,
+                &accelerators,
+                &cancel,
+                limits
+            )
+            .unwrap_err()
+            .to_string()
+            .contains("residual derivative order unavailable")
+    );
 }
 
 #[test]
@@ -2592,6 +3133,9 @@ fn kernel_regime_derivatives_are_regular_local_branch_jets() {
     #[derive(Debug)]
     struct Roots;
     impl InnerSolver for Roots {
+        fn minimum_order(&self) -> DerivativeOrder {
+            DerivativeOrder::Value
+        }
         fn identity(&self) -> ContentHash {
             pse_math::implicit::solver_identity("test.polynomial-roots.v1")
         }
@@ -2605,7 +3149,7 @@ fn kernel_regime_derivatives_are_regular_local_branch_jets() {
             Ok(vec![options.start[0].signum() * inputs[0].sqrt()])
         }
     }
-    let source = "package p { def Root { var x:Scalar; implicit roots select minimum(y,1e-8) { var y:Scalar; regime negative eligible(y<0) {eq root:y*y==x;} regime positive eligible(y>0) {eq root:y*y==x;} } realize policy on roots using nested; eq pin:roots.y==-2; } }";
+    let source = "package p { def Root { var x:Scalar; implicit roots select minimum(y,1e-8) { var y:Scalar; regime negative eligible(y<0) {eq root:y==-sqrt(x);} regime positive eligible(y>0) {eq root:y==sqrt(x);} } realize policy on roots using nested; eq pin:roots.y==-2; } }";
     let (mut workspace, _, _, root) = setup(source);
     let admitted = admit(&mut workspace, root);
     let inner = admitted.implicit.values().next().unwrap();
@@ -2678,6 +3222,8 @@ fn kernel_regime_derivatives_are_regular_local_branch_jets() {
         .factory(
             configs,
             Arc::new(Roots),
+            DerivativeOrder::Second,
+            DerivativeOrder::Value,
             &pse_math::implicit::accelerators::Accelerators::standard(),
             cancel.clone(),
             EvaluationLimits::default(),
@@ -2698,6 +3244,134 @@ fn kernel_regime_derivatives_are_regular_local_branch_jets() {
     assert!((jet.hessians[0] - 0.03125).abs() < 1e-12);
     assert!(provider.evaluate(&[0.0], &request, &context).is_err());
     assert!(provider.evaluate(&[9.0], &request, &context).is_err());
+}
+
+#[test]
+fn implicit_minimum_score_unproved_native_roots_are_value_only() {
+    use pse_kernels::{EvaluationContext, ProviderFactory, ProviderRequest};
+    use pse_math::implicit::{Configuration, InnerSolver, Options, Problem, Unknown};
+    #[derive(Debug)]
+    struct Candidate;
+    impl InnerSolver for Candidate {
+        fn minimum_order(&self) -> DerivativeOrder {
+            DerivativeOrder::First
+        }
+        fn identity(&self) -> ContentHash {
+            pse_math::implicit::solver_identity("test.regime-candidate.v1")
+        }
+        fn solve(
+            &self,
+            _: Arc<Problem>,
+            _: &[f64],
+            options: &Options,
+            _: &Arc<AtomicBool>,
+        ) -> std::result::Result<Vec<f64>, MathError> {
+            Ok(options.start.clone())
+        }
+    }
+    let source = "package p {def Root {var p:Scalar;implicit roots select minimum((y-p)*(y-p),1e-8) {var y:Scalar;regime multiple eligible(y>0) {eq e:(y-1)*(y-2)==0;}regime single eligible(y>0) {eq e:y==3;}}realize r on roots using nested;eq pin:roots.y==1;}}";
+    let (mut workspace, _, _, root) = setup(source);
+    let admitted = admit(&mut workspace, root);
+    let inner = admitted.implicit.values().next().unwrap();
+    assert!(matches!(
+        inner.selection.meaning,
+        ImplicitMeaning::MinimumScore
+    ));
+    assert_eq!(inner.selection.neighborhood, DerivativeOrder::Value);
+    assert_eq!(inner.descriptor.spec().derivatives, DerivativeOrder::Value);
+    assert_eq!(inner.descriptor.spec().smoothness, DerivativeOrder::Value);
+    let cancel = Arc::new(AtomicBool::new(false));
+    let accelerators = pse_math::implicit::accelerators::Accelerators::standard();
+    // Both points are regular, eligible roots inside the same native regime. The
+    // winner's regime ID and its score gap do not distinguish those root choices.
+    for candidate in [1., 2.] {
+        let configs = inner
+            .residuals
+            .iter()
+            .map(|residual| {
+                let affine = pse_math::implicit::graph_equivalence(&residual.body.math, 1, None)
+                    .unwrap()
+                    == SelectionEquivalence::NondegenerateAffine;
+                (
+                    residual.id,
+                    Configuration::Fixed(
+                        vec![Unknown {
+                            id: inner.unknowns[0],
+                            lower: 0.1,
+                            upper: 4.,
+                        }],
+                        Options {
+                            start: vec![if affine { 3. } else { candidate }],
+                            variable_nominals: vec![1.],
+                            variable_tolerance: vec![1e-9],
+                            residual_tolerance: vec![1e-9],
+                            iterations: 10,
+                            time_limit: std::time::Duration::from_secs(2),
+                            derivative_tolerance: 1e-10,
+                        },
+                    ),
+                )
+            })
+            .collect::<BTreeMap<_, _>>();
+        for requested in [DerivativeOrder::First, DerivativeOrder::Second] {
+            let error = inner
+                .factory(
+                    configs.clone(),
+                    Arc::new(Candidate),
+                    requested,
+                    DerivativeOrder::First,
+                    &accelerators,
+                    cancel.clone(),
+                    EvaluationLimits::default(),
+                )
+                .unwrap_err();
+            assert!(
+                error.to_string().contains("selector neighborhood"),
+                "{error}"
+            );
+        }
+        let factory = inner
+            .factory(
+                configs,
+                Arc::new(Candidate),
+                DerivativeOrder::Value,
+                DerivativeOrder::First,
+                &accelerators,
+                cancel.clone(),
+                EvaluationLimits::default(),
+            )
+            .unwrap();
+        let mut provider = factory.create().unwrap();
+        let context = EvaluationContext {
+            cancelled: &cancel,
+            max_result_bytes: 1024,
+        };
+        let value = provider
+            .evaluate(
+                &[0.],
+                &ProviderRequest {
+                    outputs: vec![0],
+                    order: DerivativeOrder::Value,
+                },
+                &context,
+            )
+            .unwrap();
+        assert_eq!(value.values, vec![candidate]);
+        for requested in [DerivativeOrder::First, DerivativeOrder::Second] {
+            assert!(
+                provider
+                    .evaluate(
+                        &[0.],
+                        &ProviderRequest {
+                            outputs: vec![0],
+                            order: requested
+                        },
+                        &context
+                    )
+                    .is_err()
+            );
+        }
+    }
 }
 
 #[test]

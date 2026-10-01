@@ -329,6 +329,16 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 T::structure(vec![text("criterion"), text("tolerance")])
                     .with_name("selection")
                     .optional(),
+                // ADR-0144: selected implicit meaning is distinct from numerical hints.
+                text("branch").optional(),
+                T::structure(vec![
+                    T::list(T::structure(vec![text("target"), text("expression")]))
+                        .with_name("anchors"),
+                    text("settings"),
+                    text("neighborhood").optional(),
+                ])
+                .with_name("operational")
+                .optional(),
                 text("eligibility").optional(),
                 // ADR-0123 Outcome 5: a test names the source entity its expected values
                 // come from, by path; the entity's kind carries the provenance facet.

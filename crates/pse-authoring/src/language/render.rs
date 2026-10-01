@@ -419,7 +419,12 @@ fn print_block(
                         format!(" : {}", v.bases.join(", "))
                     },
                     v.facets.iter().map(|f| format!(" {}", f.as_str())).collect::<String>(),
-                    v.selection.as_ref().map_or_else(String::new,|s|format!(" select minimum({}, {})",s.criterion,s.tolerance)),
+                    v.selection.as_ref().map_or_else(|| {
+                        if let Some(branch) = &v.branch { format!(" select branch({branch})") }
+                        else if let Some(operation) = &v.operational {
+                            format!(" select operational({}) settings({}){}", operation.anchors.iter().map(|a| format!("{}={}", a.target,a.expression)).collect::<Vec<_>>().join(", "), quoted(&operation.settings), operation.neighborhood.as_ref().map_or_else(String::new, |n| format!(" neighborhood({n})")))
+                        } else { String::new() }
+                    },|s|format!(" select minimum({}, {})",s.criterion,s.tolerance)),
                     v.eligibility.as_ref().map_or_else(String::new,|e|format!(" eligible({e})")),
                     v.oracle.as_ref().map_or_else(String::new,|o|format!(" oracle {}",path(o))),
                     v.fixture.as_ref().map_or_else(|| Ok(String::new()), |f| {

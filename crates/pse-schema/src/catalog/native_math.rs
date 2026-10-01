@@ -87,7 +87,7 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             column("batch", flag()),
             column("sensitivities", flag()),
         ],
-        "Linked adapter inventory. Contextual eligibility is evaluated separately for the selected request. `automatic_classes` are the classes automatic routing may choose the adapter for; every other class in `classes` needs explicit selection. Automatic routing takes the problem's classes most specific first and selects among the eligible adapters automatic for the first class that has one. `certifies` marks an adapter that serves the explicit certify intent with global_bound and proven_infeasible assurances. `native_forms` lists the constraint handlers the adapter consumes; a structure that leaves any other form to a native handler is ineligible (ADR-0104). `requirements` lists the structural requirements of a formulation the adapter can honour with a method its settings select, such as the l1 exact penalty an authored `penalty(l1)` realization states; a structure stating any other is ineligible, as is a request whose settings select another method (ADR-0104 §5). `lexicographic_classes` lists the classes in which the adapter optimizes several objectives lexicographically in one native solve; a structure with several objectives in any other class is ineligible (ADR-0111). `batch` marks an adapter that solves the independent points of a study sharing one prepared structure as one parallel batch on the admitted threads, each point still qualified on its own (Plan 22 N5). `sensitivities` marks an adapter whose candidate carries the original-coordinate multipliers the KKT-point analysis differentiates: automatic routing of a request for parametric sensitivities prefers one, and an explicit selection of any other solves with the quantities withheld and their reason recorded (ADR-0118).",
+        "Linked adapter inventory. Contextual eligibility is evaluated separately for the selected request. `automatic_classes` are the classes automatic routing may choose the adapter for; every other class in `classes` needs explicit selection. Automatic routing takes the problem's classes most specific first and selects among the eligible adapters automatic for the first class that has one. `certifies` marks an adapter that serves the explicit certify intent with global_bound and proven_infeasible assurances. `native_forms` lists the constraint handlers the adapter consumes; a structure that leaves any other form to a native handler is ineligible (ADR-0104). `requirements` lists the structural requirements of a formulation the adapter can honour with a method its settings select, such as the l1 exact penalty an authored `penalty(l1)` realization states; a structure stating any other is ineligible, as is a request whose settings select another method (ADR-0104 §5). `lexicographic_classes` lists the classes in which the adapter optimizes several objectives lexicographically in one native solve; a structure with several objectives in any other class is ineligible (ADR-0111). `batch` marks an adapter that solves the independent points of a study sharing one prepared structure as one parallel batch on the admitted threads, each point still qualified on its own (Plan 22 N5). `sensitivities` marks an adapter supporting contextual parameter analysis: original-coordinate multipliers for optimizing KKT sensitivity, or qualified regular-square Root response (ADR-0144); automatic routing of a request for parametric sensitivities prefers one, and an explicit selection of any other solves with the quantities withheld and their reason recorded (ADR-0118).",
     );
     relation_version(
         b,
@@ -1067,7 +1067,7 @@ fn declare_local_analysis(b: &mut RegistryBuilder) {
         vec![
             EnumMember::new(
                 "parametric_sensitivity",
-                "Derivatives of the primal and dual solution and of the optimal value with respect to declared parameters.",
+                "Physical parameter derivatives of a regular square root solution, or the primal/dual solution and optimal value of an optimizing NLP.",
             ),
             EnumMember::new(
                 "reduced_hessian",
@@ -1094,13 +1094,16 @@ fn declare_local_analysis(b: &mut RegistryBuilder) {
     b.declare_enum(EnumDecl::platform(
         "WithheldReason",
         vec![
+            EnumMember::new("not_feasible", "Original physical equality feasibility is insufficient for square response."),
+            EnumMember::new("structural_unavailable", "Complete original equality support does not establish a square closure."),
+            EnumMember::new("neighborhood_unavailable", "A state bound, guard or selector lacks an admitted local interior."),
             EnumMember::new(
                 "no_candidate",
                 "No candidate was observed in original coordinates.",
             ),
             EnumMember::new(
                 "no_local_analysis",
-                "The route ran no KKT-point analysis at its candidate: a coefficient, cone or root route, or a global incumbent adopted without the fixed-assignment re-solve.",
+                "The route ran no applicable local analysis at its candidate: a coefficient/cone route or a global incumbent adopted without fixed-assignment re-solve.",
             ),
             EnumMember::new(
                 "multipliers_unrecovered",
@@ -1136,7 +1139,7 @@ fn declare_local_analysis(b: &mut RegistryBuilder) {
             ),
             EnumMember::new(
                 "rank_deficient",
-                "The fit's responses do not have full rank: a parameter combination is unidentifiable.",
+                "The scaled square state Jacobian or fitted parameter responses fail the stated numerical rank cutoff.",
             ),
             EnumMember::new(
                 "nonunit_importance",
@@ -1217,6 +1220,12 @@ fn declare_local_analysis(b: &mut RegistryBuilder) {
         ("weakly_active", ordinal().optional()),
         ("condition_1norm", real().optional()),
         ("residual", real().optional()),
+        ("root_rank", ordinal().optional()),
+        ("root_rank_cutoff", real().optional()),
+        ("root_rank_relative_cutoff", real().optional()),
+        ("root_backward_error", real().optional()),
+        ("root_backward_error_limit", real().optional()),
+        ("root_neighborhood", text().optional()),
     ])
     .named("LocalValidity");
     relation(

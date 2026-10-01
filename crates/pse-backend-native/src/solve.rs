@@ -1402,6 +1402,9 @@ pub struct Evidence {
     /// computed or withheld with its reason; `None` when none was requested or the step
     /// ended before its analysis.
     pub sensitivity: Option<crate::kkt::Parametric>,
+    /// Qualified square response, separate from optimizing KKT quantities.
+    pub root_response:
+        Option<Result<crate::square_response::Response, crate::square_response::Withheld>>,
     /// The inverse reduced Hessian a request named over the solve's own columns (Plan 22
     /// S3), or why it is withheld; `None` when none was requested or the step ended before
     /// its analysis.

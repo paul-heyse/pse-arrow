@@ -1814,6 +1814,9 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 
 | Member | IDAES name | Deprecated |
 |---|---|---|
+| `not_feasible` | `` | false |
+| `structural_unavailable` | `` | false |
+| `neighborhood_unavailable` | `` | false |
 | `no_candidate` | `` | false |
 | `no_local_analysis` | `` | false |
 | `multipliers_unrecovered` | `` | false |

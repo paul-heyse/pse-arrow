@@ -9,6 +9,8 @@ pub use pse_model::generated::r#authored::r#modeling_declarations::{
     AuthoredModelingDeclarationsFieldValueContinuation,
     AuthoredModelingDeclarationsFieldValueScopeParametersItem,
     AuthoredModelingDeclarationsFieldValueScopeSelection,
+    AuthoredModelingDeclarationsFieldValueScopeOperationalAnchorsItem,
+    AuthoredModelingDeclarationsFieldValueScopeOperational,
     AuthoredModelingDeclarationsFieldValueScopeFixturePolicyNativeOptionsItem,
     AuthoredModelingDeclarationsFieldValueScopeFixturePolicy,
     AuthoredModelingDeclarationsFieldValueScopeFixtureInitialization,
@@ -124,9 +126,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 23u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    194u8, 237u8, 107u8, 162u8, 157u8, 30u8, 251u8, 23u8, 47u8, 214u8, 167u8, 178u8,
-    148u8, 2u8, 229u8, 88u8, 9u8, 34u8, 62u8, 55u8, 101u8, 119u8, 44u8, 43u8, 134u8,
-    96u8, 138u8, 62u8, 94u8, 174u8, 41u8, 44u8,
+    116u8, 17u8, 226u8, 110u8, 129u8, 40u8, 116u8, 65u8, 251u8, 139u8, 80u8, 63u8, 219u8,
+    183u8, 160u8, 43u8, 89u8, 204u8, 136u8, 99u8, 177u8, 59u8, 223u8, 227u8, 176u8,
+    221u8, 183u8, 126u8, 146u8, 167u8, 13u8, 237u8,
 ]);
 impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueTemporal {
     fn append(
@@ -383,6 +385,119 @@ for AuthoredModelingDeclarationsFieldValueScopeSelection {
             )?,
             r#tolerance: <String as crate::columnar::ArrowValue>::read(
                 input.column(1usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue
+for AuthoredModelingDeclarationsFieldValueScopeOperationalAnchorsItem {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#target, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#expression,
+            children[1usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#target: <String as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#expression: <String as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue
+for AuthoredModelingDeclarationsFieldValueScopeOperational {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#anchors, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#settings,
+            children[1usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#neighborhood,
+            children[2usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <Vec<
+            AuthoredModelingDeclarationsFieldValueScopeOperationalAnchorsItem,
+        > as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#anchors: <Vec<
+                AuthoredModelingDeclarationsFieldValueScopeOperationalAnchorsItem,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#settings: <String as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#neighborhood: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
                 index,
             )?,
         })
@@ -1749,13 +1864,18 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueScope
             &self.r#selection,
             children[3usize].as_mut(),
         )?;
+        crate::columnar::ArrowValue::append(&self.r#branch, children[4usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#operational,
+            children[5usize].as_mut(),
+        )?;
         crate::columnar::ArrowValue::append(
             &self.r#eligibility,
-            children[4usize].as_mut(),
+            children[6usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#oracle, children[5usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#facets, children[6usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#fixture, children[7usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#oracle, children[7usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#facets, children[8usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#fixture, children[9usize].as_mut())?;
         output.append(true);
         Ok(())
     }
@@ -1782,14 +1902,20 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueScope
             String,
         > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
         <Option<
-            Vec<String>,
+            AuthoredModelingDeclarationsFieldValueScopeOperational,
         > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
-        <Vec<
-            crate::generated::enums::ModelingKindFacet,
+        <Option<
+            String,
         > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueScopeFixture,
+            Vec<String>,
         > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
+        <Vec<
+            crate::generated::enums::ModelingKindFacet,
+        > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        <Option<
+            AuthoredModelingDeclarationsFieldValueScopeFixture,
+        > as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -1824,28 +1950,40 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueScope
                 input.column(3usize).as_ref(),
                 index,
             )?,
-            r#eligibility: <Option<
+            r#branch: <Option<
                 String,
             > as crate::columnar::ArrowValue>::read(
                 input.column(4usize).as_ref(),
                 index,
             )?,
+            r#operational: <Option<
+                AuthoredModelingDeclarationsFieldValueScopeOperational,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
+                index,
+            )?,
+            r#eligibility: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(6usize).as_ref(),
+                index,
+            )?,
             r#oracle: <Option<
                 Vec<String>,
             > as crate::columnar::ArrowValue>::read(
-                input.column(5usize).as_ref(),
+                input.column(7usize).as_ref(),
                 index,
             )?,
             r#facets: <Vec<
                 crate::generated::enums::ModelingKindFacet,
             > as crate::columnar::ArrowValue>::read(
-                input.column(6usize).as_ref(),
+                input.column(8usize).as_ref(),
                 index,
             )?,
             r#fixture: <Option<
                 AuthoredModelingDeclarationsFieldValueScopeFixture,
             > as crate::columnar::ArrowValue>::read(
-                input.column(7usize).as_ref(),
+                input.column(9usize).as_ref(),
                 index,
             )?,
         })
@@ -7804,10 +7942,10 @@ impl crate::columnar::RelationRow for AuthoredModelingDeclarationsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        2_268_160_usize + size_of::<Self::Builder>()
+        2_281_472_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        17720usize
+        17824usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -8117,6 +8255,75 @@ impl crate::columnar::RelationRow for AuthoredModelingDeclarationsRow {
                                                         8,
                                                         ((value).r#tolerance).len(),
                                                     )?,
+                                                )?;
+                                                Ok::<usize, crate::RelationError>(bytes)
+                                            }?,
+                                        )
+                                    } else {
+                                        Ok::<usize, crate::RelationError>(1)
+                                    }?,
+                                )?;
+                                bytes = crate::columnar::allocation_add(
+                                    bytes,
+                                    if let Some(value) = ((value).r#branch).as_ref() {
+                                        crate::columnar::allocation_add(
+                                            1,
+                                            crate::columnar::allocation_add(8, (value).len())?,
+                                        )
+                                    } else {
+                                        Ok::<usize, crate::RelationError>(1)
+                                    }?,
+                                )?;
+                                bytes = crate::columnar::allocation_add(
+                                    bytes,
+                                    if let Some(value) = ((value).r#operational).as_ref() {
+                                        crate::columnar::allocation_add(
+                                            1,
+                                            {
+                                                let mut bytes = 1usize;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    ((value).r#anchors)
+                                                        .iter()
+                                                        .try_fold(
+                                                            8usize,
+                                                            |bytes, item| crate::columnar::allocation_add(
+                                                                bytes,
+                                                                {
+                                                                    let mut bytes = 1usize;
+                                                                    bytes = crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        crate::columnar::allocation_add(8, ((item).r#target).len())?,
+                                                                    )?;
+                                                                    bytes = crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        crate::columnar::allocation_add(
+                                                                            8,
+                                                                            ((item).r#expression).len(),
+                                                                        )?,
+                                                                    )?;
+                                                                    Ok::<usize, crate::RelationError>(bytes)
+                                                                }?,
+                                                            ),
+                                                        )?,
+                                                )?;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    crate::columnar::allocation_add(
+                                                        8,
+                                                        ((value).r#settings).len(),
+                                                    )?,
+                                                )?;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    if let Some(value) = ((value).r#neighborhood).as_ref() {
+                                                        crate::columnar::allocation_add(
+                                                            1,
+                                                            crate::columnar::allocation_add(8, (value).len())?,
+                                                        )
+                                                    } else {
+                                                        Ok::<usize, crate::RelationError>(1)
+                                                    }?,
                                                 )?;
                                                 Ok::<usize, crate::RelationError>(bytes)
                                             }?,

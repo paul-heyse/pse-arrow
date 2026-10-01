@@ -18,7 +18,10 @@ mod projection_tests;
 mod solve;
 pub use conformance::{ModelingExpectationResult, ModelingPointChecks, ModelingValidityResult};
 pub use derived::{Derivation, Derived};
-pub use implicit::{AdmittedImplicit, ImplicitAlgorithm, ImplicitScale};
+pub use implicit::{
+    AdmittedImplicit, ImplicitAlgorithm, ImplicitMeaning, ImplicitScale, ImplicitSelection,
+    SelectionEquivalence,
+};
 pub use solve::{BoundStructure, ModelingCaseBindings, ModelingVariableState};
 
 /// Numerical observation purpose. These do not add equations or fix variables.

@@ -2,6 +2,87 @@
 // Copyright (c) 2026 Paul Heyse
 use super::*;
 use pse_kernels::{AdmittedProvider, Port, ProviderSpec};
+pub use pse_math::implicit::SelectionEquivalence;
+/// Authored/admitted mathematical meaning, independent of a numerical initial guess.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ImplicitMeaning {
+    /// Original residual relation; expression use needs selection or uniqueness evidence.
+    Relation,
+    /// Library-established unique graph, or the separately proven affine-rate operation.
+    Unique,
+    /// Explicitly restricted mathematical branch.
+    Branch,
+    /// Semantic anchor and algorithm/settings reference.
+    Operational(String),
+    /// Authored minimum-score selection among alternative regimes.
+    MinimumScore,
+}
+/// One compiler-issued selector, consumed by evaluation, native realization and export.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ImplicitSelection {
+    /// Selected scientific operation identity; excludes incidental numerical hints.
+    pub identity: ContentHash,
+    /// Relation or selected function contract.
+    pub meaning: ImplicitMeaning,
+    /// Semantic anchors in unknown output order, independent of numerical starts.
+    pub anchors: Option<Arc<AdmittedBody>>,
+    /// Physical branch/neighborhood predicate encoded as a scalar indicator.
+    pub restriction: Option<Arc<AdmittedBody>>,
+    /// Supported scalar half-line restriction; true is positive.
+    pub sign: Option<bool>,
+    /// Whether the recognized half-line excludes its zero endpoint.
+    pub strict: bool,
+    /// Checked equivalence of residual plus restrictions to the selected graph.
+    pub equivalence: SelectionEquivalence,
+    /// Justified selector-neighborhood derivative capability.
+    pub neighborhood: DerivativeOrder,
+}
+#[derive(Clone, Debug, PartialEq)]
+struct SelectionProjection {
+    identity: ContentHash,
+    meaning: ImplicitMeaning,
+    anchors: Vec<Expr>,
+    restriction: Option<Expr>,
+    sign: Option<bool>,
+    strict: bool,
+}
+fn sign_restriction(predicate: &dsl::Predicate, unknowns: &[SemanticId]) -> Option<bool> {
+    use dsl::{CompareOp, PredicateKind};
+    let PredicateKind::Compare { op, lhs, rhs } = &predicate.kind else {
+        return None;
+    };
+    if unknowns.len() != 1 {
+        return None;
+    }
+    let is_unknown = |e: &Expr| matches!(&e.kind, ExprKind::Path(p) if p.segments.len()==1 && p.segments[0].name==symbol_name(unknowns[0]));
+    let is_zero =
+        |e: &Expr| matches!(&e.kind, ExprKind::Number(n) if n.value==0. && n.unit.is_none());
+    match (
+        is_unknown(lhs),
+        is_zero(rhs),
+        is_zero(lhs),
+        is_unknown(rhs),
+        op,
+    ) {
+        (true, true, _, _, CompareOp::Gt | CompareOp::Ge)
+        | (_, _, true, true, CompareOp::Lt | CompareOp::Le) => Some(true),
+        (true, true, _, _, CompareOp::Lt | CompareOp::Le)
+        | (_, _, true, true, CompareOp::Gt | CompareOp::Ge) => Some(false),
+        _ => None,
+    }
+}
+fn indicator(predicate: dsl::Predicate) -> Result<Expr> {
+    Ok(Expr {
+        kind: ExprKind::Conditional {
+            guard: Box::new(predicate),
+            then: Box::new(dsl::parse_expr("1").map_err(|e| CompileError::Missing(e.to_string()))?),
+            otherwise: Box::new(
+                dsl::parse_expr("0").map_err(|e| CompileError::Missing(e.to_string()))?,
+            ),
+        },
+        span: Span::default(),
+    })
+}
 
 /// Algorithm selected by source realization or by the compiler's affine rate proof.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -67,6 +148,7 @@ struct ResidualProjection {
 }
 #[derive(Clone, Debug, PartialEq)]
 pub(super) struct Projection {
+    selection: SelectionProjection,
     algorithm: ImplicitAlgorithm,
     id: SemanticId,
     unknowns: Vec<SemanticId>,
@@ -80,6 +162,17 @@ impl Projection {
     pub(super) fn retained_bytes(&self) -> usize {
         size_of::<Self>()
             + self.algorithm.retained_bytes()
+            + self
+                .selection
+                .anchors
+                .iter()
+                .chain(self.selection.restriction.iter())
+                .map(pse_modeling::expression::retained_bytes)
+                .sum::<usize>()
+            + match &self.selection.meaning {
+                ImplicitMeaning::Operational(settings) => settings.capacity(),
+                _ => 0,
+            }
             + self
                 .validity
                 .iter()
@@ -159,6 +252,8 @@ pub struct AdmittedResidual {
 /// Checked implicit systems over a single ordered unknown set.
 #[derive(Clone, Debug, PartialEq)]
 pub struct AdmittedImplicit {
+    /// Compiler-owned mathematical selection shared across realizations.
+    pub selection: ImplicitSelection,
     /// Algorithm that solves the system.
     pub algorithm: ImplicitAlgorithm,
     /// Provider descriptor through which the solved unknowns are called.
@@ -169,23 +264,130 @@ pub struct AdmittedImplicit {
     pub residuals: Vec<AdmittedResidual>,
 }
 impl AdmittedImplicit {
+    fn residual_requirements(
+        &self,
+        residual: &AdmittedResidual,
+        requested_output: DerivativeOrder,
+        inner_minimum: DerivativeOrder,
+    ) -> Result<pse_kernels::DerivativeRequirements> {
+        let available = residual
+            .body
+            .math
+            .available_order_for(&(0..residual.body.math.input_count()).collect::<Vec<_>>());
+        pse_kernels::DerivativeRequirements::new(
+            available,
+            available,
+            self.selection.neighborhood,
+            inner_minimum,
+            requested_output,
+        )
+        .map_err(|e| CompileError::Missing(e.to_string()))
+    }
+    /// Resolve the selected algorithms' minimum and the shared residual/output capability.
+    /// Called under the library allocation owner before dependencies receive their demands.
+    pub fn requirements(
+        &self,
+        requested_output: DerivativeOrder,
+        native_minimum: DerivativeOrder,
+        accelerators: &pse_math::implicit::accelerators::Accelerators,
+        cancel: &Arc<AtomicBool>,
+        limits: EvaluationLimits,
+    ) -> Result<pse_kernels::DerivativeRequirements> {
+        let mut available = None;
+        let mut minimum = DerivativeOrder::Value;
+        for residual in &self.residuals {
+            let order = residual
+                .body
+                .math
+                .available_order_for(&(0..residual.body.math.input_count()).collect::<Vec<_>>());
+            available = Some(available.map_or(order, |a: DerivativeOrder| a.min(order)));
+            let inner = match &self.algorithm {
+                ImplicitAlgorithm::Native => native_minimum,
+                ImplicitAlgorithm::AffineRates => {
+                    use pse_math::implicit::InnerSolver;
+                    pse_math::implicit::Affine::new(&residual.body.math, self.unknowns.len())?
+                        .minimum_order()
+                }
+                ImplicitAlgorithm::Accelerator(id) => accelerators
+                    .admit(id, &residual.body.math, self.unknowns.len(), limits, cancel)?
+                    .minimum_order(),
+            };
+            minimum = minimum.max(inner);
+        }
+        let available =
+            available.ok_or_else(|| CompileError::Missing("empty implicit residuals".into()))?;
+        pse_kernels::DerivativeRequirements::new(
+            available,
+            available,
+            self.selection.neighborhood,
+            minimum,
+            requested_output,
+        )
+        .map_err(|e| CompileError::Missing(e.to_string()))
+    }
+    /// Actual dependency demands for residual, numerical and selector programs.
+    pub fn provider_demands(
+        &self,
+        requirements: pse_kernels::DerivativeRequirements,
+    ) -> Result<BTreeMap<pse_kernels::ProviderKey, DerivativeOrder>> {
+        let mut demands = BTreeMap::new();
+        let mut add = |body: &Arc<AdmittedBody>, order| -> Result<()> {
+            for (key, required) in body.math.provider_demands(order)? {
+                demands
+                    .entry(key)
+                    .and_modify(|o: &mut DerivativeOrder| *o = (*o).max(required))
+                    .or_insert(required);
+            }
+            Ok(())
+        };
+        let local = if requirements.requested_output > DerivativeOrder::Value {
+            DerivativeOrder::First
+        } else {
+            DerivativeOrder::Value
+        };
+        for residual in &self.residuals {
+            add(&residual.body, requirements.residual_compilation)?;
+            for body in residual.hints.iter().chain(&residual.terms) {
+                add(body, DerivativeOrder::Value)?;
+            }
+            if let Some(assessment) = &residual.assessment {
+                add(&assessment.eligibility, local)?;
+                add(&assessment.criterion, local)?;
+            }
+        }
+        if let Some(body) = &self.selection.anchors {
+            add(body, DerivativeOrder::Value)?;
+        }
+        if let Some(body) = &self.selection.restriction {
+            add(body, local)?;
+        }
+        Ok(demands)
+    }
     /// Every admitted body: residuals, hints, nominal terms and regime assessments.
     pub fn bodies(&self) -> impl Iterator<Item = &Arc<AdmittedBody>> {
-        self.residuals.iter().flat_map(|r| {
-            std::iter::once(&r.body)
-                .chain(r.hints.iter())
-                .chain(r.terms.iter())
-                .chain(
-                    r.assessment
-                        .iter()
-                        .flat_map(|a| [&a.eligibility, &a.criterion]),
-                )
-        })
+        self.residuals
+            .iter()
+            .flat_map(|r| {
+                std::iter::once(&r.body)
+                    .chain(r.hints.iter())
+                    .chain(r.terms.iter())
+                    .chain(
+                        r.assessment
+                            .iter()
+                            .flat_map(|a| [&a.eligibility, &a.criterion]),
+                    )
+            })
+            .chain(self.selection.anchors.iter())
+            .chain(self.selection.restriction.iter())
     }
     /// Approximate heap bytes retained by the system, for cache accounting.
     pub fn retained_bytes(&self) -> usize {
         size_of_val(self.unknowns.as_slice())
             + self.algorithm.retained_bytes()
+            + match &self.selection.meaning {
+                ImplicitMeaning::Operational(settings) => settings.capacity(),
+                _ => 0,
+            }
             + self
                 .residuals
                 .iter()
@@ -210,11 +412,18 @@ impl AdmittedImplicit {
         &self,
         mut configurations: BTreeMap<SemanticId, pse_math::implicit::Configuration>,
         solver: Arc<dyn pse_math::implicit::InnerSolver>,
+        requested_output: DerivativeOrder,
+        native_minimum: DerivativeOrder,
         accelerators: &pse_math::implicit::accelerators::Accelerators,
         cancel: Arc<AtomicBool>,
         limits: EvaluationLimits,
     ) -> Result<pse_math::implicit::ImplicitFactory> {
         use pse_math::implicit::{Factory, ImplicitFactory, RegimeFactory, RegimeFactoryBranch};
+        if self.algorithm == ImplicitAlgorithm::Native && native_minimum != solver.minimum_order() {
+            return Err(CompileError::Missing(
+                "native implicit derivative minimum disagrees with selected adapter".into(),
+            ));
+        }
         if configurations.len() != self.residuals.len() || self.residuals.is_empty() {
             return Err(CompileError::Missing(
                 "implicit branch configuration extent".into(),
@@ -276,11 +485,58 @@ impl AdmittedImplicit {
                 )?),
                 ImplicitAlgorithm::Native => solver.clone(),
             };
-            let mut spec = self.descriptor.spec().clone();
+            let requirements = self.residual_requirements(
+                residual,
+                requested_output,
+                branch_solver.minimum_order(),
+            )?;
+            let mut spec = self
+                .descriptor
+                .restrict_order(requirements.requested_output)
+                .map_err(|e| CompileError::Missing(e.to_string()))?
+                .spec()
+                .clone();
             spec.id = residual.id;
+            let restriction = self
+                .selection
+                .restriction
+                .as_ref()
+                .map(|body| {
+                    body.math
+                        .compile_branch_local(
+                            &(0..body.math.output_count()).collect::<Vec<_>>(),
+                            &(0..body.math.input_count()).collect::<Vec<_>>(),
+                            if requested_output > DerivativeOrder::Value {
+                                DerivativeOrder::First
+                            } else {
+                                DerivativeOrder::Value
+                            },
+                            Optimization::default(),
+                            limits,
+                            &cancel,
+                        )
+                        .map(Arc::new)
+                        .map_err(CompileError::from)
+                })
+                .transpose()?;
             let factory = Factory {
+                selection: pse_math::implicit::Selection {
+                    anchor: self
+                        .selection
+                        .anchors
+                        .as_ref()
+                        .map(|b| compile(b, DerivativeOrder::Value))
+                        .transpose()?,
+                    settings: match &self.selection.meaning {
+                        ImplicitMeaning::Operational(s) => Some(s.clone()),
+                        _ => None,
+                    },
+                    restriction,
+                    sign: self.selection.sign,
+                },
+                requirements,
                 spec,
-                body: compile(&residual.body, DerivativeOrder::Second)?,
+                body: compile(&residual.body, requirements.residual_compilation)?,
                 unknowns,
                 rows: residual.rows.clone(),
                 hints: if matches!(configuration, pse_math::implicit::Configuration::Hints(_)) {
@@ -311,7 +567,11 @@ impl AdmittedImplicit {
                 Ok(Arc::new(body.math.compile_branch_local(
                     &(0..body.math.output_count()).collect::<Vec<_>>(),
                     &(0..body.math.input_count()).collect::<Vec<_>>(),
-                    DerivativeOrder::First,
+                    if requested_output > DerivativeOrder::Value {
+                        DerivativeOrder::First
+                    } else {
+                        DerivativeOrder::Value
+                    },
                     Optimization::default(),
                     limits,
                     &cancel,
@@ -332,7 +592,12 @@ impl AdmittedImplicit {
             }
         }
         Ok(ImplicitFactory::Regimes(RegimeFactory {
-            spec: self.descriptor.spec().clone(),
+            spec: self
+                .descriptor
+                .restrict_order(requested_output)
+                .map_err(|e| CompileError::Missing(e.to_string()))?
+                .spec()
+                .clone(),
             maximum_regimes: self.residuals.len(),
             alternatives: branches,
             time_limit: total_time
@@ -437,6 +702,56 @@ pub(super) fn project(
                 .collect::<Vec<_>>()
         };
         let selection = model.regimes.get(instance);
+        let mut operation = SelectionProjection {
+            identity: ContentHash::from_bytes([0; 32]),
+            meaning: if selection.is_some() {
+                ImplicitMeaning::MinimumScore
+            } else if generated {
+                ImplicitMeaning::Unique
+            } else {
+                ImplicitMeaning::Relation
+            },
+            anchors: vec![],
+            restriction: None,
+            sign: None,
+            strict: false,
+        };
+        if let Some(authored) = model.root_selections.get(instance) {
+            use pse_modeling::specialize::RootSelection;
+            let predicate = match authored {
+                RootSelection::Branch(p) => {
+                    operation.meaning = ImplicitMeaning::Branch;
+                    Some(p)
+                }
+                RootSelection::Operational {
+                    anchors,
+                    settings,
+                    neighborhood,
+                } => {
+                    operation.meaning = ImplicitMeaning::Operational(settings.clone());
+                    if anchors.len() != unknowns.len()
+                        || unknowns.iter().any(|u| !anchors.contains_key(u))
+                    {
+                        return Err(CompileError::Missing(
+                            "operational selector requires one anchor per unknown".into(),
+                        ));
+                    }
+                    operation.anchors = unknowns.iter().map(|u| anchors[u].clone()).collect();
+                    neighborhood.as_ref()
+                }
+            };
+            if let Some(predicate) = predicate {
+                operation.sign = sign_restriction(predicate, &unknowns);
+                operation.strict = matches!(
+                    predicate.kind,
+                    dsl::PredicateKind::Compare {
+                        op: dsl::CompareOp::Gt | dsl::CompareOp::Lt,
+                        ..
+                    }
+                );
+                operation.restriction = Some(indicator(predicate.clone())?);
+            }
+        }
         let branches = if generated {
             let rows = p
                 .outputs
@@ -648,9 +963,12 @@ pub(super) fn project(
         let scope_bindings = ordered_bindings(scope_bindings)?;
         // Configuration cannot depend on the unknown it initializes, including through
         // derived locals, nested providers, or validity guards. Enclosing unknowns are inputs.
-        for hint in residuals.iter().flat_map(|r| &r.hints) {
-            let mut dependencies = hint
-                .3
+        for expression in residuals
+            .iter()
+            .flat_map(|r| r.hints.iter().map(|h| &h.3))
+            .chain(&operation.anchors)
+        {
+            let mut dependencies = expression
                 .free_paths()
                 .into_iter()
                 .filter(|&p| p.segments.len() == 1)
@@ -700,17 +1018,22 @@ pub(super) fn project(
             .map(|(n, _)| n.clone())
             .collect::<BTreeSet<_>>();
         let mut needed = BTreeSet::new();
-        for expression in residuals.iter().flat_map(|r| {
-            r.expressions
-                .iter()
-                .chain(r.hints.iter().map(|h| &h.3))
-                .chain(r.terms.iter().map(|(e, _)| e))
-                .chain(
-                    r.assessment
-                        .iter()
-                        .flat_map(|a| std::iter::once(&a.eligibility).chain(&a.criterion)),
-                )
-        }) {
+        for expression in residuals
+            .iter()
+            .flat_map(|r| {
+                r.expressions
+                    .iter()
+                    .chain(r.hints.iter().map(|h| &h.3))
+                    .chain(r.terms.iter().map(|(e, _)| e))
+                    .chain(
+                        r.assessment
+                            .iter()
+                            .flat_map(|a| std::iter::once(&a.eligibility).chain(&a.criterion)),
+                    )
+            })
+            .chain(&operation.anchors)
+            .chain(operation.restriction.iter())
+        {
             for path in expression.paths() {
                 if path.segments.len() == 1 {
                     needed.insert(path.segments[0].name.clone());
@@ -785,6 +1108,12 @@ pub(super) fn project(
                 }
             }
         }
+        for anchor in &mut operation.anchors {
+            wrap(anchor);
+        }
+        if let Some(restriction) = &mut operation.restriction {
+            wrap(restriction);
+        }
         let formals = unknowns
             .iter()
             .chain(&inputs)
@@ -793,10 +1122,32 @@ pub(super) fn project(
                 quantity: ports[id].quantity,
             })
             .collect::<Vec<_>>();
-        let mut h = FramedHasher::new(pse_ids::Frame::ModelingImplicitResidualV4);
+        let mut h = FramedHasher::new(pse_ids::Frame::ModelingImplicitResidualV5);
+        let mut semantic = FramedHasher::new(pse_ids::Frame::ModelingImplicitOperationV1);
         h.id(stage).str(&algorithm.key());
+        semantic.id(stage);
+        for hasher in [&mut h, &mut semantic] {
+            hasher.str(match &operation.meaning {
+                ImplicitMeaning::Relation => "relation",
+                ImplicitMeaning::Unique => "unique",
+                ImplicitMeaning::Branch => "branch",
+                ImplicitMeaning::MinimumScore => "minimum-score",
+                ImplicitMeaning::Operational(s) => s,
+            });
+            hasher.u64(operation.anchors.len() as u64);
+            for anchor in &operation.anchors {
+                hasher.str(&dsl::render_expr(anchor));
+            }
+            hasher.bool(operation.restriction.is_some());
+            if let Some(restriction) = &operation.restriction {
+                hasher.str(&dsl::render_expr(restriction));
+            }
+        }
         for residual in &residuals {
             h.id(&residual.id);
+            semantic
+                .id(&residual.id)
+                .u64(residual.expressions.len() as u64);
             for scale in &residual.scales {
                 h.id(&scale.row)
                     .id(&scale.source.as_id())
@@ -816,56 +1167,65 @@ pub(super) fn project(
             }
             for e in &residual.expressions {
                 h.str(&dsl::render_expr(e));
+                semantic.str(&dsl::render_expr(e));
+            }
+            for quantity in &residual.quantities {
+                semantic.id(&quantity.as_id());
             }
             if let Some(a) = &residual.assessment {
                 h.str(&dsl::render_expr(&a.eligibility));
+                semantic.str(&dsl::render_expr(&a.eligibility));
                 for e in &a.criterion {
                     h.str(&dsl::render_expr(e));
+                    semantic.str(&dsl::render_expr(e));
                 }
             }
         }
         // Function bodies and guards affect the executable meaning, including assessor-only calls.
-        for function in p.functions.values() {
-            h.id(&function.id.as_id());
-            // Plan 23 H5: each validity predicate with the sets and arguments it reads.
-            let reads = |h: &mut FramedHasher, reads: &pse_modeling::envelope::Reads| {
-                h.u64(reads.sets.len() as u64);
-                for set in &reads.sets {
-                    h.id(set);
+        for h in [&mut h, &mut semantic] {
+            for function in p.functions.values() {
+                h.id(&function.id.as_id());
+                // Plan 23 H5: each validity predicate with the sets and arguments it reads.
+                let reads = |h: &mut FramedHasher, reads: &pse_modeling::envelope::Reads| {
+                    h.u64(reads.sets.len() as u64);
+                    for set in &reads.sets {
+                        h.id(set);
+                    }
+                    h.u64(reads.variables.len() as u64);
+                    for variable in &reads.variables {
+                        h.u64(u64::from(*variable));
+                    }
+                };
+                if let Some(validity) = &function.validity {
+                    h.str(&dsl::render_predicate(validity));
+                    reads(h, &function.validity_reads);
                 }
-                h.u64(reads.variables.len() as u64);
-                for variable in &reads.variables {
-                    h.u64(u64::from(*variable));
+                // ADR-0123 Outcome 4: the data-layer guards, their envelopes and policies.
+                h.u64(function.envelopes.len() as u64);
+                for guard in &function.envelopes {
+                    h.id(&guard.envelope.owner.as_id())
+                        .str(&dsl::render_predicate(&guard.predicate));
+                    reads(h, &guard.reads);
                 }
-            };
-            if let Some(validity) = &function.validity {
-                h.str(&dsl::render_predicate(validity));
-                reads(&mut h, &function.validity_reads);
+                if let Some(external) = &function.external {
+                    h.hash(&external.revision)
+                        .hash(&external.data)
+                        .str(&external.implementation);
+                }
+                if let Some(body) = &function.body {
+                    h.str(&dsl::render_expr(body));
+                }
             }
-            // ADR-0123 Outcome 4: the data-layer guards, their envelopes and policies.
-            h.u64(function.envelopes.len() as u64);
-            for guard in &function.envelopes {
-                h.id(&guard.envelope.owner.as_id())
-                    .str(&dsl::render_predicate(&guard.predicate));
-                reads(&mut h, &guard.reads);
+            for (name, guard) in &p.validity {
+                h.str(name)
+                    .str(&dsl::render_expr(&guard.lower))
+                    .str(&dsl::render_expr(&guard.upper));
             }
-            if let Some(external) = &function.external {
-                h.hash(&external.revision)
-                    .hash(&external.data)
-                    .str(&external.implementation);
-            }
-            if let Some(body) = &function.body {
-                h.str(&dsl::render_expr(body));
+            for f in &formals {
+                h.id(&f.quantity.as_id());
             }
         }
-        for (name, guard) in &p.validity {
-            h.str(name)
-                .str(&dsl::render_expr(&guard.lower))
-                .str(&dsl::render_expr(&guard.upper));
-        }
-        for f in &formals {
-            h.id(&f.quantity.as_id());
-        }
+        operation.identity = semantic.finish_hash();
         let revision = h.finish_hash();
         let spec = ProviderSpec {
             shapes: pse_kernels::ProviderShapes::default(),
@@ -876,10 +1236,9 @@ pub(super) fn project(
 
             inputs: inputs.iter().map(|id| ports[id].clone()).collect(),
             outputs: unknowns.iter().map(|id| ports[id].clone()).collect(),
-            // The selector binds one regular branch per worker and refuses ties,
-            // eligibility boundaries and branch changes before supplying derivatives.
-            derivatives: DerivativeOrder::Second,
-            smoothness: DerivativeOrder::Second,
+            // Body admission issues actual capabilities before this descriptor is consumed.
+            derivatives: DerivativeOrder::Value,
+            smoothness: DerivativeOrder::Value,
         };
         let input_expressions = inputs
             .iter()
@@ -915,6 +1274,7 @@ pub(super) fn project(
             }
         }
         p.implicit.push(Projection {
+            selection: operation,
             algorithm: algorithm.clone(),
             id: *stage,
             unknowns: unknowns.clone(),
@@ -983,6 +1343,32 @@ fn ordered_bindings(bindings: Vec<(String, Expr)>) -> Result<Vec<(String, Expr)>
         .collect())
 }
 impl AdmittedModeling {
+    /// Provider demand of selected original observations before implicit dependency propagation.
+    pub fn provider_demands_for(
+        &self,
+        rows: Option<&BTreeSet<SemanticId>>,
+        order: DerivativeOrder,
+    ) -> Result<BTreeMap<pse_kernels::ProviderKey, DerivativeOrder>> {
+        let mut demands = BTreeMap::new();
+        for instance in self
+            .case
+            .instances()
+            .iter()
+            .filter(|i| rows.is_none_or(|r| r.contains(&i.instance)))
+        {
+            let body = self
+                .bodies
+                .get(&instance.body)
+                .ok_or_else(|| CompileError::Missing("observation body".into()))?;
+            for (key, required) in body.math.provider_demands(order)? {
+                demands
+                    .entry(key)
+                    .and_modify(|o: &mut DerivativeOrder| *o = (*o).max(required))
+                    .or_insert(required);
+            }
+        }
+        Ok(demands)
+    }
     /// Child residual providers before their consumers, using admitted library dependencies.
     pub fn implicit_order(&self) -> Result<Vec<Arc<AdmittedImplicit>>> {
         self.implicit_order_for(None)
@@ -1074,8 +1460,6 @@ pub(super) fn admit(
     }
     for implicit in &p.implicit {
         checkpoint(db);
-        let descriptor = AdmittedProvider::new(implicit.spec.clone(), registry)
-            .map_err(|e| CompileError::Missing(e.to_string()))?;
         let mut available = external_calls.clone();
         available.extend(calls.clone());
         let admit_body = |definition,
@@ -1159,6 +1543,125 @@ pub(super) fn admit(
                 hint_targets: r.hints.iter().map(|h| (h.0, h.1, h.2)).collect(),
             });
         }
+        let available_order = residuals
+            .iter()
+            .map(|r| {
+                r.body
+                    .math
+                    .available_order_for(&(0..r.body.math.input_count()).collect::<Vec<_>>())
+            })
+            .min()
+            .ok_or_else(|| CompileError::Missing("empty implicit residuals".into()))?;
+        let mut meaning = implicit.selection.meaning.clone();
+        let equivalence = if residuals.len() == 1 {
+            pse_math::implicit::graph_equivalence(
+                &residuals[0].body.math,
+                implicit.unknowns.len(),
+                implicit.selection.sign,
+            )?
+        } else {
+            SelectionEquivalence::Unestablished
+        };
+        if meaning == ImplicitMeaning::Relation {
+            if equivalence == SelectionEquivalence::NondegenerateAffine {
+                meaning = ImplicitMeaning::Unique;
+            } else {
+                return Err(CompileError::Missing("implicit expression requires an explicit function selector; numerical starts and bounds do not select mathematical meaning".into()));
+            }
+        }
+        // Regime margin and assessor separation establish a stable winner only after
+        // each alternative has a checked root selection of its own. One native iterate
+        // per regime cannot establish which of multiple roots within that regime is selected.
+        let unique_regimes = if matches!(meaning, ImplicitMeaning::MinimumScore) {
+            let mut unique = true;
+            for residual in &residuals {
+                if pse_math::implicit::graph_equivalence(
+                    &residual.body.math,
+                    implicit.unknowns.len(),
+                    None,
+                )? != SelectionEquivalence::NondegenerateAffine
+                {
+                    unique = false;
+                    break;
+                }
+            }
+            unique
+        } else {
+            false
+        };
+        let mut neighborhood = if unique_regimes
+            || implicit.algorithm == ImplicitAlgorithm::AffineRates
+            || equivalence != SelectionEquivalence::Unestablished
+        {
+            available_order
+        } else {
+            DerivativeOrder::Value
+        };
+        if residuals
+            .iter()
+            .filter_map(|r| r.assessment.as_ref())
+            .any(|a| {
+                a.eligibility.math.branch_local_order() < DerivativeOrder::First
+                    || a.criterion.math.branch_local_order() < DerivativeOrder::First
+            })
+        {
+            neighborhood = DerivativeOrder::Value;
+        }
+        let mut selection = ImplicitSelection {
+            identity: implicit.selection.identity,
+            meaning,
+            anchors: if implicit.selection.anchors.is_empty() {
+                None
+            } else {
+                Some(admit_body(
+                    pse_ids::named_id(implicit.id, "selection-anchors"),
+                    &implicit.selection.anchors,
+                    &implicit
+                        .unknowns
+                        .iter()
+                        .map(|u| {
+                            implicit
+                                .spec
+                                .outputs
+                                .iter()
+                                .find(|p| p.id == *u)
+                                .map(|p| p.quantity)
+                                .ok_or_else(|| CompileError::Missing("anchor quantity".into()))
+                        })
+                        .collect::<Result<Vec<_>>>()?,
+                )?)
+            },
+            restriction: implicit
+                .selection
+                .restriction
+                .as_ref()
+                .map(|e| {
+                    admit_body(
+                        pse_ids::named_id(implicit.id, "selection-neighborhood"),
+                        std::slice::from_ref(e),
+                        &[registry.neutral_dimensionless().ok_or_else(|| {
+                            CompileError::Missing("selection indicator quantity".into())
+                        })?],
+                    )
+                })
+                .transpose()?,
+            sign: implicit.selection.sign,
+            strict: implicit.selection.strict,
+            equivalence,
+            neighborhood,
+        };
+        if selection
+            .restriction
+            .as_ref()
+            .is_some_and(|b| b.math.branch_local_order() < DerivativeOrder::First)
+        {
+            selection.neighborhood = DerivativeOrder::Value;
+        }
+        let mut spec = implicit.spec.clone();
+        spec.derivatives = available_order.min(selection.neighborhood);
+        spec.smoothness = spec.derivatives;
+        let descriptor = AdmittedProvider::new(spec, registry)
+            .map_err(|e| CompileError::Missing(e.to_string()))?;
         for output in 0..implicit.unknowns.len() {
             calls.insert(
                 call_name(implicit.id, output),
@@ -1171,6 +1674,7 @@ pub(super) fn admit(
         definitions.insert(
             implicit.id,
             Arc::new(AdmittedImplicit {
+                selection,
                 algorithm: implicit.algorithm.clone(),
                 descriptor,
                 unknowns: implicit.unknowns.clone(),

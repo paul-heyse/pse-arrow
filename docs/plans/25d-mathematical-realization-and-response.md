@@ -1,8 +1,8 @@
 ---
 title: "25d: Mathematical realization and response"
-status: in-progress
+status: done
 date: 2026-09-30
-adrs: []
+adrs: [ADR-0144]
 review_sources: [docs/design_review/reviews/design_review_codebase-domain-alignment_2026-09-30.md, docs/design_review/reviews/design_review_codebase-domain-alignment-follow-up_2026-09-30.md]
 scenario_sources: [docs/design_review/reviews/design_review_codebase-domain-alignment_2026-09-30.md#s04]
 ---
@@ -65,10 +65,10 @@ when stronger selection evidence is unavailable.
 
 | Packet | Prerequisites | Responsibility | Status |
 |---|---|---|---|
-| <a id="d1"></a>D1 Admitted implicit meaning | A3; H2; I1 | Own relation/function selection, domain and capability declarations across realizations | partial: 25c prerequisite slice |
-| <a id="d2"></a>D2 Faithful export and exact constants | D1; E1 | Carry selection restrictions/fidelity; replace bounded custom rational arithmetic | planned |
-| <a id="d3"></a>D3 Demand-aware physical derivatives | D1/A3 | Compile inner and outer requirements consistently across compiler, provider and native oracle | partial: 25c prerequisite slice |
-| <a id="d4"></a>D4 Qualified square response | D3; E1 | Extract one reusable root-response operation and migrate fitting; expose it to E2 | planned |
+| <a id="d1"></a>D1 Admitted implicit meaning | A3; H2; I1 | Own relation/function selection, domain and capability declarations across realizations | done |
+| <a id="d2"></a>D2 Faithful export and exact constants | D1; E1 | Carry selection restrictions/fidelity; replace bounded custom rational arithmetic | done |
+| <a id="d3"></a>D3 Demand-aware physical derivatives | D1/A3 | Compile inner and outer requirements consistently across compiler, provider and native oracle | done |
+| <a id="d4"></a>D4 Qualified square response | D3; E1 | Extract one reusable root-response operation and migrate fitting; expose it to E2 | done |
 
 E1's structural contract is independent of D4; E2 later consumes D4. This ordering breaks the
 apparent mathematical-analysis/workflow cycle.
@@ -167,7 +167,8 @@ new statistical defect from the existing Exact enum's name.
 ## Authority and handoff
 
 Use a short ADR for the implicit contract reconciling ADR-0100/ADR-0105, with blueprint §7.5/§9.5.
-Amend ADR-0118's scope and blueprint §15.5.1/§25 for root sensitivity. Correct D6's wording so it
+Extend ADR-0118's scope through the proposed successor/supplement ADR-0144 and amend
+blueprint §15.5.1/§25 for root sensitivity; accepted arguments remain immutable. Correct D6's wording so it
 permits the existing non-evaluating factorable export while retaining library-owned mathematics.
 A hashing change follows I1; physical kinds follow A; policy and public result use follow E.
 
@@ -177,37 +178,157 @@ qualified responses, not scheduler or serialization policy.
 
 ## Consumed 25c prerequisite slice
 
-**Implemented/Tested, 2026-10-01; scoped focused verification recorded in [25c Verification](25c-process-composition-and-conservation.md#verification):** Conditional unit problems select explicit-map or owned square root realization before execution. The required native derivative order is derived from the selected adapter capability and consumed by the conditional compiler/runner. Full implicit relation selection, exports and root response remain open. The maintainer authorized only this required slice and its complete affected consumer migration. This packet remains partial; [25c](25c-process-composition-and-conservation.md) owns the slice evidence.
+**Implemented/Tested, 2026-10-01; scoped focused verification recorded in [25c Verification](25c-process-composition-and-conservation.md#verification):** Conditional unit problems select explicit-map or owned square root realization before execution. The required native derivative order is derived from the selected adapter capability and consumed by the conditional compiler/runner. The full D1–D4 work now supersedes the limits of that slice; its original evidence remains owned by 25c. The maintainer authorized only this required slice and its complete affected consumer migration. The original slice was partial; [25c](25c-process-composition-and-conservation.md) owns the slice evidence.
 
-## Execution and evidence
+## Completion and handoff
 
-The consumed 25c prerequisite slice above is **Implemented**; its focused evidence is owned
-by 25c. The remaining packet scope and expected benefits are **Proposed**. No full-packet
-completion or new broad product qualification is claimed. The [series coordinator](25-design-remediation.md)
-owns finding dispositions and decision dependencies. Packets compile affected owners, run focused
-behavioral checks with explicit force-validation, regenerate changed declarations, and immediately
-delete replaced code, callers, obsolete tests and fixtures. No shims or parallel production paths remain.
-Full integration, formatting, lint and performance qualification run once in
-[25k](25k-integrated-qualification-and-closure.md), after the series' functional scope is complete.
+D1–D4 are complete, 2026-10-01, against `2c253c82` plus retained 25c closure
+changes. Required E/H/I/J slices and affected consumers are integrated; their enclosing
+packets remain open. ADR-0144, the bounded Proposed design review and blueprint revision
+90 carry the enduring contract amendments. ADR acceptance remains a separate decision-PR
+step; no accepted predecessor record was edited.
 
-Use current recipe-owned checks such as `just check-package <pkg>` and
-`just unit-package <pkg> <filter>`; select isolated tests rather than broad suites hidden under
-a unit label. The acceptance scenarios above define what those tests must establish, not claims
-that tests with particular names already exist. Cross-owner scientific/storage journeys are authored
-with the functional work and executed in 25k. Record state, decisions and next steps during work;
-record actual commands, conditions and failures against zero in the final qualification evidence.
+The [series coordinator](25-design-remediation.md) owns finding dispositions. Continue with
+the remaining lettered packets in their dependency order. Full integration, static checks,
+scientific journeys and performance qualification remain in
+[25k](25k-integrated-qualification-and-closure.md). This completed plan is retained while
+those packets and ADR-0144 consume its scoped evidence; it is not a new backlog.
+
+## Verification
+
+**Tested, 2026-10-01:** local Linux, pinned nightly and locked dependencies. All Nextest
+commands below explicitly enable `pse-relations/force-validate` through the recipes.
+Licensed numerical tests source `.envrc.local`, run through `scripts/native_exec.sh`
+(memory-capped execution), and use one test thread. Compiler controls use the same licensed
+environment through `direnv exec .` and the memory-cap wrapper. Baseline is zero failures.
+Excluded tests are outside these filters, not evidence of product qualification.
+
+| Owner and scope | Recipe and selection | Final result against zero failures |
+|---|---|---|
+| Pure requirements and provider binding | `direnv exec . just unit-package pse-kernels 'test(requirement_tests)'` | 2 passed, 0 failed; 41 excluded |
+| Compiler selection, C1/C2, nested demand and regime evidence | `direnv exec . bash scripts/memory-cap.sh just unit-package pse-compiler 'test(implicit_selection_requires) \| test(implicit_c1_provider) \| test(kernel_nested_implicit_provider) \| test(kernel_nested_hints) \| test(implicit_nested_value) \| test(regime) \| test(implicit_minimum_score_unproved)' --test-threads 1` | 7 passed, 0 failed; 228 excluded |
+| Exact constants, canonical identity, export fidelity, parametric order and implicit derivatives | `bash scripts/native_exec.sh just unit-package pse-math 'test(factorable) or test(parametric_plan_keeps_objective_and_differentiates_parameters) or test(implicit_)' --test-threads 1` | 20 passed, 0 failed; 122 excluded |
+| Affected implicit derivatives after the final bound-neighborhood correction | `bash scripts/native_exec.sh just unit-package pse-math 'test(implicit_)' --test-threads 1` | 5 passed, 0 failed; 137 excluded; overlaps the preceding selection |
+| Native square response, strict graph transport and implicit execution | `bash scripts/native_exec.sh just unit-package pse-backend-native 'test(square_response) or test(selected_graph_tests) or test(implicit::tests)' --features pse-backend-native/kinsol --test-threads 1` | 12 passed, 0 failed; 143 excluded |
+| Shared fitting/public Root response, withholding, nested provider demand and request admission | Runtime command below | 22 passed, 0 failed; 273 excluded |
+
+The runtime command was:
+
+```bash
+source .envrc.local
+bash scripts/native_exec.sh just test-package pse-runtime --lib \
+  --features pse-runtime/native-solvers \
+  -E 'test(root_response_tests) or test(root_unavailable_tests) or test(kernel_nested_) or test(kernel_regime_selection_executes_branch_hints_and_refuses_ties) or test(steady_response_solves_the_compiled_implicit_closure) or test(bounded_rank_diagnostic_does_not_disable_sparse_candidate_evaluation) or test(library_parameter_rank_has_independent_controls) or test(sensitivity_request_in_solve_settings)' \
+  --test-threads 1
+```
+
+**Tested controls:** exact restricted positive/negative square-root graphs versus unproved
+Relaxed graphs; exact-only refusal; arbitrary Rational coefficients and fixed canonical
+preimages; stable C1 First versus unavailable Second; native residual minimum without
+promoting hints or unused providers; operational/multi-root selectors without proved
+neighborhoods; selected-function bound and singularity refusal; complete original matching
+including isolates; independent perturbed roots at nontrivial physical scaling; rank,
+backward-error, active-bound, guard, selector and resource withholding. Public Root tests
+check physical primal units, absent KKT/objective/dual fields and retained feasible base
+solutions when optional response preparation is unavailable. The resource-publication
+control injects the typed memory-unavailable result; it is not an allocator-pressure campaign.
+KINSOL, Ipopt, POUNCE and SCIP public controls each exercise regular response and active-bound
+withholding through the selected base adapter. Fitting exercises the same operation on a
+compiled implicit closure.
+
+This is **composite focused evidence**. An earlier runtime selection had 11 passes and
+2 failures against zero: fresh matching's thread stack was incorrectly counted against the
+numeric worker limit, and a new test incorrectly assumed a value-demand hint had no provider
+seed. Both were corrected; the affected 2 tests passed, then the combined 16 passed.
+After the explicit-adapter correction below, the final combined selection passed 22 tests
+with zero failures.
+An earlier native recipe selection failed before running tests because its selected packages
+did not expose the explicit force-validation feature; the corrected `unit-package` recipe
+above selects `pse-relations` as well. The first new explicit-adapter test build also
+failed before execution on one assertion comparing an optional backend to a bare backend;
+the assertion was corrected. Its first numerical run had 4 passes and 4 preparation
+failures: the fixture requested First base compilation for Ipopt/POUNCE profiles whose
+exact-Hessian base solver requests Second. The fixture now respects the selected adapter
+order, while optional Root response still requests First. No failing test or compile error
+is accepted as a baseline.
+
+**Interface-checked:** final `source .envrc.local; just check`,
+`source .envrc.local; just check-solver-contracts` and
+`source .envrc.local; just check-native-python` all exited successfully after functional
+changes, covering workspace targets, native contracts and the linked Python boundary.
+Cargo reports the upstream future-incompatibility warning in `proc-macro-error2 v2.0.1`;
+this does not establish a zero-warning static gate. **Implemented:** changed registry and
+identity declarations were regenerated with `source .envrc.local; just codegen`; ADR index
+was regenerated with `just adr-index`. Generated files were not hand edited.
+
+**Not run:** `just hygiene`, broad integration/component/solver/Python journeys, full parity,
+distribution builds, powerset/manual static gates, scientific campaigns and performance
+measurements. These remain series 25k qualification. No Measured or whole-series Tested
+claim is made. The independent design review remains Accept at **Proposed** evidence;
+it is not implementation acceptance or broader product qualification.
 
 ## Outcome (recorded after implementation)
 
 ### What was built
 
-Full-plan closure remains outstanding. The implemented 25c prerequisite slice and its
-remaining boundaries are recorded above; 25c owns its focused execution evidence.
+**Implemented/Tested** under the focused commands and conditions above:
+
+- D1 admits residual relations separately from selected functions. Explicit branch or
+  operational anchor/settings meaning survives preparation, realization and identity.
+  Missing graph equivalence stays Relaxed; missing local selection stability stays value-only.
+  Seeded Peng–Robinson density explicitly declares its operational selection.
+- D2 keeps Symbolica Rational through the non-evaluating DAG, removes bounded custom
+  arithmetic and overflow-to-float fallback, and performs finite binary64 conversion only
+  at the native boundary. Library-checked nondegenerate affine and restricted-square-root
+  cases establish graph fidelity; unproved claims cannot become Exact. Strict predicates
+  retain their meaning, and closed native endpoint projections carry Relaxed fidelity.
+- D3 uses pure shared requirements for residual availability, output smoothness, selector
+  stability, adapter minimum and actual consumer demand. Reverse nested demand propagation
+  binds honest provider/native descriptors. Unconditional Second compilation and duplicate
+  consumed demand matches are removed; C1 First and C2 Second remain distinct capabilities.
+- D4 provides one regular-square local response `F_x X_p = -F_p`, retaining ordered physical
+  coordinates, original feasibility/matching, scaling, numerical rank, backward error,
+  neighborhood validity and allocation ownership. Fitting's private scaled solve is deleted.
+  Existing Root sensitivity requests and generated validity tables publish the same physical
+  response, with typed withholding that preserves a qualified base root.
+
+**Implemented:** required E1/E2 original square scope and Root request dispatch, H2 implicit
+syntax/checked occurrence consumers, I1 versioned canonical mathematical/selection frames,
+and J2 generated request/result consumers. Wider route/default/qualification, authoring,
+identity/reuse/resource and Python-boundary consolidation remain their owning packets.
+Blueprint §D6/§7.2/§7.5/§9.4/§9.5/§14.3/§15.5.1/§19.4/§25 now describe these contracts
+through ADR-0144. KKT meaning and covariance's local statistical approximation stay distinct.
 
 ### A mistake made and corrected
 
-Record an actual implementation correction, not a hypothetical planning example.
+A separation margin between scored regimes was initially treated as proof that the native
+root inside each regime was stable. A regime can still contain multiple regular roots.
+Promotion now requires the checked within-alternative selection evidence; unsupported native
+nonlinear regimes remain value-only. A new two-root-within-one-regime test exercises that
+refusal. Active declared unknown bounds likewise withhold selected-function derivatives
+without blocking values or native residual iteration.
+
+The first native lowering of strict sign predicates used a small positive margin. That
+excluded valid roots arbitrarily close to zero. It now exports the closed endpoint as a
+Relaxed projection and refuses exact-only use, retaining original strict candidate assessment.
+Fresh matching's stack reservation was also moved outside the separate numerical worker
+allowance; its shared-pool reservation remains explicit.
+
+Independent source review found that selecting response by native representation instead of
+Root intent sent explicit NLP/global Root sensitivities into optimization-only KKT analysis.
+Dispatch now preserves the selected base adapter, then performs one shared original-space
+Root response independently. The same optional-response contract applies across supported
+KINSOL, Ipopt, POUNCE and SCIP routes; public route regressions accompany the correction.
 
 ### Deviations from the plan, deliberate
 
-None recorded. A changed architectural decision follows its owning ADR/design route.
+The reusable response lives in the existing native local-analysis owner, using faer, while
+Symbolica retains expression derivatives and exact arithmetic. No new solver/prover/framework
+was introduced. Initial checked graph cases are deliberately narrow; lack of stronger proof
+receives the planned Relaxed/value-only/refusal behavior.
+
+Public Root parametric response requests First and reuses the existing sensitivity/result
+boundary; base compilation retains the selected adapter's actual derivative requirements.
+Reduced-Hessian and covariance propagation remain unavailable for Root; no dummy objective,
+optimization dual or KKT sufficiency claim is added. Broader prerequisite packets and 25k
+qualification remain open, as authorized. ADR-0144 stays proposed pending its decision PR.

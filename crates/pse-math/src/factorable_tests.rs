@@ -295,22 +295,12 @@ fn projection_exact_rows_match_evaluator() {
     assert!(program.nodes.iter().any(|n| matches!(
         n,
         Node::Pow {
-            exponent: Constant::Rational(Rational {
-                numerator: 1,
-                denominator: 3
-            }),
-            ..
-        }
+            exponent: Constant::Rational(r), .. } if r == &Rational::new(1, 3)
     )));
     assert!(program.nodes.iter().any(|n| matches!(
         n,
         Node::Pow {
-            exponent: Constant::Rational(Rational {
-                numerator: 3,
-                denominator: 2
-            }),
-            ..
-        }
+            exponent: Constant::Rational(r), .. } if r == &Rational::new(3, 2)
     )));
     // The logarithm, square root, quotient and powers keep closed obligations.
     assert!(
@@ -552,6 +542,10 @@ fn implicit_residual_exported_exactly() {
     let bounds = Arc::new(b.prepare(&[zero, upper]).unwrap());
     let definition = ImplicitDefinition {
         residual,
+        selection: SelectedGraph::RestrictedSquareRoot {
+            positive: true,
+            strict: false,
+        },
         unknowns: vec![(f64::NEG_INFINITY, 10.0)],
         bounds: Some(ImplicitBounds {
             body: bounds,
@@ -569,7 +563,7 @@ fn implicit_residual_exported_exactly() {
     let block = &program.implicit[0];
     assert_eq!(block.fidelity, Fidelity::Exact);
     assert_eq!(block.residuals.len(), 1);
-    assert_eq!(block.bounds.len(), 1);
+    assert_eq!(block.bounds.len(), 2);
     let unknown = &program.auxiliaries[block.unknowns[0]];
     assert!(matches!(
         unknown.role,
@@ -588,6 +582,66 @@ fn implicit_residual_exported_exactly() {
     let nodes = program.evaluate(&[4.0, 0.0], &[2.0]).unwrap();
     assert_eq!(nodes[block.residuals[0]], 0.0);
     assert!(nodes[block.bounds[0].expression] <= block.bounds[0].upper);
+    // An operational selection without graph equivalence exposes both residual roots;
+    // selected evaluator values remain admissible, but exact-only consumers refuse it.
+    let mut operational = request.clone();
+    operational.implicit.get_mut(&root.key()).unwrap().selection = SelectedGraph::Unestablished {
+        meaning: "operational:native.kinsol.v1".into(),
+    };
+    operational.implicit.get_mut(&root.key()).unwrap().bounds = None;
+    operational.implicit.get_mut(&root.key()).unwrap().unknowns = vec![(-10.0, 10.0)];
+    let graph = project(&assembly, &operational);
+    assert_eq!(graph.implicit[0].fidelity, Fidelity::Relaxed);
+    assert_eq!(graph.rows[0].fidelity, Fidelity::Relaxed);
+    assert_ne!(graph.key, program.key);
+    let nodes = graph.evaluate(&[4.0, 0.0], &[-2.0]).unwrap();
+    assert_eq!(nodes[graph.implicit[0].residuals[0]], 0.0);
+    assert_rows_match(
+        &assembly,
+        &graph,
+        &[vec![1.0, 0.0]],
+        || registered(&root, Box::new(Root(root.clone()))),
+        |_| vec![1.0],
+    );
+    let wrong = graph.evaluate(&[1.0, 0.0], &[-1.0]).unwrap();
+    let selected = program.evaluate(&[1.0, 0.0], &[1.0]).unwrap();
+    assert_ne!(
+        wrong[graph.rows[0].expression.unwrap()],
+        selected[program.rows[0].expression.unwrap()]
+    );
+    operational.require_exact = true;
+    assert!(matches!(
+        assembly.factorable_program(
+            &CaseValues::default(),
+            &operational,
+            10000,
+            &Arc::new(AtomicBool::new(false))
+        ),
+        Err(FactorableError::ExactRequired {
+            fidelity: Fidelity::Relaxed
+        })
+    ));
+    // A caller cannot fabricate an affine equivalence witness for this square relation.
+    let mut fabricated = request.clone();
+    fabricated.implicit.get_mut(&root.key()).unwrap().selection =
+        SelectedGraph::NondegenerateAffine {
+            sign: None,
+            strict: false,
+        };
+    assert_eq!(
+        project(&assembly, &fabricated).fidelity(),
+        Fidelity::Relaxed
+    );
+    fabricated.require_exact = true;
+    assert!(matches!(
+        assembly.factorable_program(
+            &CaseValues::default(),
+            &fabricated,
+            10000,
+            &Arc::new(AtomicBool::new(false))
+        ),
+        Err(FactorableError::ExactRequired { .. })
+    ));
     // Without the definition the same provider output is only a relaxation.
     let relaxed = project(&assembly, &FactorableRequest::default());
     assert_eq!(relaxed.rows[0].fidelity, Fidelity::Relaxed);
@@ -910,4 +964,27 @@ fn form_lineage(source: SemanticId) -> Arc<pse_model::diagnostic::ValidityLineag
         variables: Vec::new(),
         members: Vec::new(),
     })
+}
+
+#[test]
+fn arbitrary_precision_rational_coefficients_survive_factorable_transport() {
+    let registry = standard_registry().unwrap();
+    let huge = Rational::from(i64::MAX).pow(4);
+    let ratio = &huge / &Rational::new(3, 7);
+    let mut b = builder(&registry, 1);
+    let x = inputs(&mut b, 1).remove(0);
+    let coefficient = number(Atom::num(ratio.clone()));
+    let value = op(&mut b, Binary::Mul, &coefficient, &x);
+    let body = b.prepare(&[value]).unwrap();
+    let assembly = case(&registry, body, &[(0.0, 1.0)], &[]);
+    let program = project(&assembly, &FactorableRequest::default());
+    assert!(program.nodes.iter().any(|node| matches!(node,
+        Node::Const(Constant::Rational(q)) if q == &ratio)));
+    assert!(
+        !program
+            .nodes
+            .iter()
+            .any(|node| matches!(node, Node::Const(Constant::Float(_))))
+    );
+    assert_eq!(program.fidelity(), Fidelity::Exact);
 }

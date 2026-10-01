@@ -825,9 +825,6 @@ impl FitProblem {
         Ok(())
     }
 }
-fn singular_values(a: &Mat<f64>, limit: usize) -> Result<Vec<f64>, ProblemError> {
-    decompose(a, limit, false).map(|(s, _)| s)
-}
 /// The singular values of `a`, decreasing, and on request its full right singular basis:
 /// column `k` belongs to singular value `k`, and the columns beyond `min(rows, cols)` span
 /// the null space.
@@ -887,80 +884,6 @@ fn rank_scratch(rows: usize, cols: usize, vectors: bool) -> faer::dyn_stack::Sta
         Default::default(),
     )
 }
-fn response_scratch(n: usize, np: usize) -> faer::dyn_stack::StackReq {
-    use faer::{
-        Par,
-        linalg::lu::partial_pivoting::{factor, solve},
-    };
-    factor::lu_in_place_scratch::<usize, f64>(n, n, Par::Seq, Default::default())
-        .or(solve::solve_in_place_scratch::<usize, f64>(n, np, Par::Seq))
-}
-fn solve_regular(a: &Mat<f64>, mut rhs: Mat<f64>, limit: usize) -> Result<Mat<f64>, ProblemError> {
-    use faer::{
-        Par,
-        dyn_stack::{MemBuffer, MemStack},
-        linalg::lu::partial_pivoting::{factor, solve},
-    };
-    let n = a.nrows();
-    let mut lu = a.clone();
-    let mut perm = vec![0usize; n];
-    let mut inverse = vec![0usize; n];
-    let req = response_scratch(n, rhs.ncols());
-    if req.size_bytes() > limit {
-        return Err(ProblemError::memory("response solve scratch allowance"));
-    }
-    let mut memory = MemBuffer::try_new(req).map_err(|e| ProblemError::memory(e.to_string()))?;
-    let (_, permutation) = factor::lu_in_place(
-        lu.as_mut(),
-        &mut perm,
-        &mut inverse,
-        Par::Seq,
-        MemStack::new(&mut memory),
-        Default::default(),
-    );
-    solve::solve_in_place(
-        lu.as_ref(),
-        lu.as_ref(),
-        permutation,
-        rhs.as_mut(),
-        Par::Seq,
-        MemStack::new(&mut memory),
-    );
-    if rhs
-        .as_ref()
-        .col_iter()
-        .any(|c| c.iter().any(|v| !v.is_finite()))
-    {
-        return Err(ProblemError::numerical("nonfinite implicit response solve"));
-    }
-    Ok(rhs)
-}
-/// Normwise backward error in the same scaled coordinates used for rank admission.
-fn check_response(a: &Mat<f64>, x: &Mat<f64>, b: &Mat<f64>) -> Result<(), ProblemError> {
-    let mut residual = -b;
-    faer::linalg::matmul::matmul(
-        residual.as_mut(),
-        faer::Accum::Add,
-        a.as_ref(),
-        x.as_ref(),
-        1.0,
-        faer::Par::Seq,
-    );
-    let numerator = residual.as_ref().norm_l2();
-    let denominator = a.as_ref().norm_l2() * x.as_ref().norm_l2() + b.as_ref().norm_l2();
-    let error_bound = 64.0 * a.nrows().max(1) as f64 * f64::EPSILON;
-    let backward_error = if denominator == 0.0 {
-        numerator
-    } else {
-        numerator / denominator
-    };
-    if !denominator.is_finite() || !backward_error.is_finite() || backward_error > error_bound {
-        return Err(ProblemError::numerical(format!(
-            "implicit response backward error {backward_error} exceeds {error_bound}"
-        )));
-    }
-    Ok(())
-}
 impl FitOracle {
     fn response_rank(&mut self, x: &[f64]) -> Result<RankDiagnostic, ProblemError> {
         // Rank and responses need the response Jacobian: a gradient-only fit reruns the
@@ -1011,20 +934,14 @@ impl FitOracle {
         for experiment in &p.experiments {
             if let Experiment::Steady(s) = experiment {
                 let n = s.local_states;
-                // fx, scaled closure, LU; rhs, solve, residual, physical response.
-                // temp_mat_scratch uses the same public faer alignment policy as
-                // fresh Mat allocations. Each matrix here is created at final size.
+                // Shared response owns its peak matrix, rank, identities and scratch
+                // accounting. Matching's separate thread stack is reserved below;
+                // worker_bytes bounds numeric capacity, not structural recursion.
                 bytes = bytes
-                    .and_then(|b| {
-                        b.checked_add(temp_mat_scratch::<f64>(n, n).size_bytes().checked_mul(3)?)
-                    })
-                    .and_then(|b| {
-                        b.checked_add(temp_mat_scratch::<f64>(n, np).size_bytes().checked_mul(4)?)
-                    })
-                    .and_then(|b| b.checked_add(n.checked_mul(4 * size_of::<usize>())?));
-                scratch = scratch
-                    .max(rank_scratch(n, n, false).size_bytes())
-                    .max(response_scratch(n, np).size_bytes());
+                    .and_then(|b| b.checked_add(native::square_response::workspace_bytes(n, np)?))
+                    .and_then(|b| b.checked_add(n.checked_add(np)?.checked_mul(256)?))
+                    .and_then(|b| b.checked_add(n.checked_mul(n)?.checked_mul(128)?));
+                scratch = scratch.max(rank_scratch(n, n, false).size_bytes());
             }
         }
         // Vector bookkeeping and opaque library metadata, separate from numeric
@@ -1040,8 +957,23 @@ impl FitOracle {
         let reservation =
             datafusion::execution::memory_pool::MemoryConsumer::new("fit:response-diagnostic")
                 .register(&p.runtime.shared.pool());
+        // Structural analyses run sequentially, so one separately declared matching
+        // stack covers every steady closure without multiplying its peak by experiment.
+        let matching_stack = if p
+            .experiments
+            .iter()
+            .any(|e| matches!(e,Experiment::Steady(s) if s.local_states>0))
+        {
+            pse_structural::incidence::MATCHING_STACK
+        } else {
+            0
+        };
         reservation
-            .try_grow(bytes)
+            .try_grow(
+                bytes
+                    .checked_add(matching_stack)
+                    .ok_or_else(|| ProblemError::memory("response structural stack extent"))?,
+            )
             .map_err(|e| ProblemError::memory(e.to_string()))?;
         let mut response = Mat::zeros(p.measurements.len(), np);
         let free = p
@@ -1063,60 +995,123 @@ impl FitOracle {
         for (ei, e) in p.experiments.iter().enumerate() {
             if let Experiment::Steady(s) = e {
                 let nx = s.local_states;
-                if s.constraints.len() != nx
-                    || s.constraints
-                        .iter()
-                        .any(|(_, g)| p.bounds[g.get()].0 != p.bounds[g.get()].1)
-                {
-                    return Err(ProblemError::unsupported(
-                        "steady response needs square equality closure; fit NLP remains valid",
-                    ));
-                }
-                if s.constraints.iter().any(|(_, g)| {
-                    let g = g.get();
-                    (point.constraints[g] - p.bounds[g].0).abs() > p.tolerances.rows[g]
-                }) {
-                    return Err(error(
-                        "steady response requires a feasible physical closure",
-                    ));
-                }
                 if nx == 0 {
                     continue;
                 }
+                // Original model support, projected only by fixed parameter roles. Keep
+                // every equality and free state, including isolates; observation rows are
+                // not closure equations. Matching is library-owned, not a count test.
+                let original = native::assembled::contract(&s.case.assembly);
+                let mut contract = original.clone();
+                contract.variables.truncate(nx);
+                contract.rows = s
+                    .constraints
+                    .iter()
+                    .map(|(r, _)| original.rows[r.get()])
+                    .collect();
+                let row_map: BTreeMap<_, _> = s
+                    .constraints
+                    .iter()
+                    .enumerate()
+                    .map(|(i, (r, _))| (r.get(), i))
+                    .collect();
+                let source = s.case.assembly.jacobian_pattern();
+                let row_map = &row_map;
+                let pairs = (0..nx)
+                    .flat_map(|j| {
+                        source.row_idx_of_col(j).filter_map(move |r| {
+                            row_map.get(&r).map(|i| faer::sparse::Pair::new(*i, j))
+                        })
+                    })
+                    .collect::<Vec<_>>();
+                let (pattern, _) =
+                    faer::sparse::SymbolicSparseColMat::try_new_from_indices(nx, nx, &pairs)
+                        .map_err(|e| ProblemError::numerical(format!("{e:?}")))?;
+                let bounds = s
+                    .constraints
+                    .iter()
+                    .map(|(_, r)| p.bounds[r.get()])
+                    .collect::<Vec<_>>();
+                let scope = native::square_response::SquareScope::admit(
+                    &contract,
+                    pattern.as_ref(),
+                    &bounds,
+                    None,
+                )
+                .map_err(|e| ProblemError::unsupported(e.to_string()))?;
+                let states = (0..nx)
+                    .map(|i| point.x[s.coordinates[GlobalCol::new(i)].1.get()])
+                    .collect::<Vec<_>>();
+                let row_values = s
+                    .constraints
+                    .iter()
+                    .map(|(_, r)| point.constraints[r.get()])
+                    .collect::<Vec<_>>();
+                let tolerances = native::quality::Tolerances {
+                    variables: (0..nx)
+                        .map(|i| p.tolerances.variables[s.coordinates[GlobalCol::new(i)].1.get()])
+                        .collect(),
+                    rows: s
+                        .constraints
+                        .iter()
+                        .map(|(_, r)| p.tolerances.rows[r.get()])
+                        .collect(),
+                    integrality: p.tolerances.integrality,
+                };
+                let normalization = Normalization {
+                    variables: (0..nx)
+                        .map(|i| {
+                            p.normalization.variables[s.coordinates[GlobalCol::new(i)].1.get()]
+                        })
+                        .collect(),
+                    rows: s
+                        .constraints
+                        .iter()
+                        .map(|(_, r)| p.normalization.rows[r.get()])
+                        .collect(),
+                    objective: 1.,
+                };
+                let parameters = free
+                    .iter()
+                    .map(|(_, c)| p.contract.variables[c.get()].id)
+                    .collect::<Vec<_>>();
+                let parameter_scales = free
+                    .iter()
+                    .map(|(_, c)| p.normalization.variables[c.get()])
+                    .collect::<Vec<_>>();
                 let jac = point.blocks[ei]
                     .as_ref()
                     .ok_or_else(|| ProblemError::internal("steady response partials"))?;
-                let fx = Mat::from_fn(nx, nx, |i, j| {
-                    jac.get(s.constraints[i].0.get(), j).copied().unwrap_or(0.0)
-                });
-                let scaled = Mat::from_fn(nx, nx, |i, j| {
-                    fx[(i, j)] * p.tolerances.variables[s.coordinates[GlobalCol::new(j)].1.get()]
-                        / p.tolerances.rows[s.constraints[i].1.get()]
-                });
-                let spectrum = singular_values(&scaled, bytes)?;
-                if spectrum
-                    .last()
-                    .is_none_or(|last| *last <= spectrum[0] * p.profile.rank_tolerance)
-                {
-                    return Err(ProblemError::numerical(
-                        "steady closure is locally rank deficient at the stated scaling/cutoff",
-                    ));
-                }
-                let rhs = Mat::from_fn(nx, np, |i, j| {
-                    -point
-                        .jacobian
-                        .matrix()
-                        .get(s.constraints[i].1.get(), free[j].1.get())
-                        .copied()
-                        .unwrap_or(0.0)
-                        / p.tolerances.rows[s.constraints[i].1.get()]
-                });
-                let scaled_dx = solve_regular(&scaled, rhs.clone(), bytes)?;
-                check_response(&scaled, &scaled_dx, &rhs)?;
-                let dx = Mat::from_fn(nx, np, |i, j| {
-                    scaled_dx[(i, j)]
-                        * p.tolerances.variables[s.coordinates[GlobalCol::new(i)].1.get()]
-                });
+                let qualified_response = native::square_response::response(
+                    native::square_response::Request {
+                        scope: &scope,
+                        point: &states,
+                        residual_values: &row_values,
+                        tolerances: &tolerances,
+                        normalization: &normalization,
+                        parameters: &parameters,
+                        parameter_scales: &parameter_scales,
+                        rank_tolerance: p.profile.rank_tolerance,
+                        bytes,
+                    },
+                    || {
+                        Ok((
+                            Mat::from_fn(nx, nx, |i, j| {
+                                jac.get(s.constraints[i].0.get(), j).copied().unwrap_or(0.)
+                            }),
+                            Mat::from_fn(nx, np, |i, j| {
+                                point
+                                    .jacobian
+                                    .matrix()
+                                    .get(s.constraints[i].1.get(), free[j].1.get())
+                                    .copied()
+                                    .unwrap_or(0.)
+                            }),
+                        ))
+                    },
+                )
+                .map_err(|e| ProblemError::numerical(e.to_string()))?;
+                let dx = qualified_response.values;
                 for (i, o) in p
                     .measurements
                     .iter()
@@ -1163,16 +1158,6 @@ impl FitOracle {
 mod tests {
     use super::*;
     use crate::workflow::tests::{compiler_profile, id, physical, runtime};
-    #[test]
-    fn implicit_response_checks_scaled_backward_error() {
-        let a = faer::mat![[2.0, 1.0], [1.0, 3.0]];
-        let b = faer::mat![[4.0], [7.0]];
-        let x = solve_regular(&a, b.clone(), 1024 * 1024).unwrap();
-        check_response(&a, &x, &b).unwrap();
-        assert!(check_response(&a, &faer::mat![[1.0], [1.0]], &b).is_err());
-        check_response(&Mat::zeros(2, 2), &Mat::zeros(2, 1), &Mat::zeros(2, 1)).unwrap();
-        assert!(check_response(&a, &faer::mat![[f64::NAN], [1.0]], &b).is_err());
-    }
     fn source(fixed: bool) -> crate::workflow::ModelingPackage {
         source_body(
             fixed,
@@ -2061,16 +2046,12 @@ mod tests {
     }
 
     #[test]
-    fn library_rank_and_regular_solve_have_independent_controls() {
+    fn library_parameter_rank_has_independent_controls() {
         let a = Mat::from_fn(2, 2, |i, j| if i == j { 2.0 } else { 0.0 });
-        let rhs = Mat::from_fn(2, 1, |i, _| 2.0 * (i + 1) as f64);
-        let solved = solve_regular(&a, rhs, 1 << 20).unwrap();
-        assert_eq!(solved[(0, 0)], 1.0);
-        assert_eq!(solved[(1, 0)], 2.0);
         let singular = Mat::from_fn(2, 2, |_, _| 1.0);
-        let s = singular_values(&singular, 1 << 20).unwrap();
+        let (s, _) = decompose(&singular, 1 << 20, false).unwrap();
         assert!(s[1] < 1e-12);
-        assert!(singular_values(&a, 0).is_err());
+        assert!(decompose(&a, 0, false).is_err());
     }
 }
 

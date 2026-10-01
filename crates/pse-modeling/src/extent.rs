@@ -374,6 +374,18 @@ impl SpecializedModel {
     pub fn retained_bytes(&self) -> usize {
         size_of::<Self>()
             + selections(&self.selection_closures)
+            + map(&self.root_selections, |_, s| match s {
+                crate::specialize::RootSelection::Branch(p) => predicate(p),
+                crate::specialize::RootSelection::Operational {
+                    anchors,
+                    settings,
+                    neighborhood,
+                } => {
+                    settings.capacity()
+                        + map(anchors, |_, e| expression(e))
+                        + neighborhood.as_ref().map_or(0, predicate)
+                }
+            })
             + map(&self.regimes, |_, r| {
                 expression(&r.criterion)
                     + expression(&r.tolerance)

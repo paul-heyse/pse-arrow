@@ -1811,7 +1811,7 @@ impl crate::SemanticFrame for DerivationGranularity {
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
 pub enum DerivedQuantity {
-    ///Derivatives of the primal and dual solution and of the optimal value with respect to declared parameters.
+    ///Physical parameter derivatives of a regular square root solution, or the primal/dual solution and optimal value of an optimizing NLP.
     #[serde(rename = "parametric_sensitivity")]
     ParametricSensitivity,
     ///The reduced Hessian over declared parameters: the second derivative of the optimal value.
@@ -17386,10 +17386,19 @@ impl crate::SemanticFrame for WeightNormalization {
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
 pub enum WithheldReason {
+    ///Original physical equality feasibility is insufficient for square response.
+    #[serde(rename = "not_feasible")]
+    NotFeasible,
+    ///Complete original equality support does not establish a square closure.
+    #[serde(rename = "structural_unavailable")]
+    StructuralUnavailable,
+    ///A state bound, guard or selector lacks an admitted local interior.
+    #[serde(rename = "neighborhood_unavailable")]
+    NeighborhoodUnavailable,
     ///No candidate was observed in original coordinates.
     #[serde(rename = "no_candidate")]
     NoCandidate,
-    ///The route ran no KKT-point analysis at its candidate: a coefficient, cone or root route, or a global incumbent adopted without the fixed-assignment re-solve.
+    ///The route ran no applicable local analysis at its candidate: a coefficient/cone route or a global incumbent adopted without fixed-assignment re-solve.
     #[serde(rename = "no_local_analysis")]
     NoLocalAnalysis,
     ///A multiplier of some original row or bound is missing or failed recovery, postsolve included.
@@ -17416,7 +17425,7 @@ pub enum WithheldReason {
     ///A backsolve or eigen-decomposition against the KKT factor failed.
     #[serde(rename = "backsolve_failed")]
     BacksolveFailed,
-    ///The fit's responses do not have full rank: a parameter combination is unidentifiable.
+    ///The scaled square state Jacobian or fitted parameter responses fail the stated numerical rank cutoff.
     #[serde(rename = "rank_deficient")]
     RankDeficient,
     ///An included observation has an importance weight other than one.
@@ -17439,7 +17448,10 @@ impl crate::SemanticEq for WithheldReason {
 }
 impl WithheldReason {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 15usize] = [
+    pub const ALL: [Self; 18usize] = [
+        Self::NotFeasible,
+        Self::StructuralUnavailable,
+        Self::NeighborhoodUnavailable,
         Self::NoCandidate,
         Self::NoLocalAnalysis,
         Self::MultipliersUnrecovered,
@@ -17459,6 +17471,9 @@ impl WithheldReason {
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
         match self {
+            Self::NotFeasible => "not_feasible",
+            Self::StructuralUnavailable => "structural_unavailable",
+            Self::NeighborhoodUnavailable => "neighborhood_unavailable",
             Self::NoCandidate => "no_candidate",
             Self::NoLocalAnalysis => "no_local_analysis",
             Self::MultipliersUnrecovered => "multipliers_unrecovered",
@@ -17479,21 +17494,24 @@ impl WithheldReason {
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
         match self {
-            Self::NoCandidate => 0usize,
-            Self::NoLocalAnalysis => 1usize,
-            Self::MultipliersUnrecovered => 2usize,
-            Self::ComplementarityFailed => 3usize,
-            Self::NotStationary => 4usize,
-            Self::AnalysisUnavailable => 5usize,
-            Self::LicqFailed => 6usize,
-            Self::WeaklyActive => 7usize,
-            Self::SecondOrderFailed => 8usize,
-            Self::BacksolveFailed => 9usize,
-            Self::RankDeficient => 10usize,
-            Self::NonunitImportance => 11usize,
-            Self::ResponsesUnavailable => 12usize,
-            Self::ParameterAtBound => 13usize,
-            Self::UpstreamWithheld => 14usize,
+            Self::NotFeasible => 0usize,
+            Self::StructuralUnavailable => 1usize,
+            Self::NeighborhoodUnavailable => 2usize,
+            Self::NoCandidate => 3usize,
+            Self::NoLocalAnalysis => 4usize,
+            Self::MultipliersUnrecovered => 5usize,
+            Self::ComplementarityFailed => 6usize,
+            Self::NotStationary => 7usize,
+            Self::AnalysisUnavailable => 8usize,
+            Self::LicqFailed => 9usize,
+            Self::WeaklyActive => 10usize,
+            Self::SecondOrderFailed => 11usize,
+            Self::BacksolveFailed => 12usize,
+            Self::RankDeficient => 13usize,
+            Self::NonunitImportance => 14usize,
+            Self::ResponsesUnavailable => 15usize,
+            Self::ParameterAtBound => 16usize,
+            Self::UpstreamWithheld => 17usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -17504,6 +17522,9 @@ impl WithheldReason {
     )]
     pub const fn idaes_name(self) -> Option<&'static str> {
         match self {
+            Self::NotFeasible => None,
+            Self::StructuralUnavailable => None,
+            Self::NeighborhoodUnavailable => None,
             Self::NoCandidate => None,
             Self::NoLocalAnalysis => None,
             Self::MultipliersUnrecovered => None,
@@ -17533,7 +17554,8 @@ impl schemars::JsonSchema for WithheldReason {
     }
     fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
         schemars::json_schema!(
-            { "type" : "string", "enum" : ["no_candidate", "no_local_analysis",
+            { "type" : "string", "enum" : ["not_feasible", "structural_unavailable",
+            "neighborhood_unavailable", "no_candidate", "no_local_analysis",
             "multipliers_unrecovered", "complementarity_failed", "not_stationary",
             "analysis_unavailable", "licq_failed", "weakly_active",
             "second_order_failed", "backsolve_failed", "rank_deficient",
@@ -17546,6 +17568,9 @@ impl core::str::FromStr for WithheldReason {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value {
+            "not_feasible" => Ok(Self::NotFeasible),
+            "structural_unavailable" => Ok(Self::StructuralUnavailable),
+            "neighborhood_unavailable" => Ok(Self::NeighborhoodUnavailable),
             "no_candidate" => Ok(Self::NoCandidate),
             "no_local_analysis" => Ok(Self::NoLocalAnalysis),
             "multipliers_unrecovered" => Ok(Self::MultipliersUnrecovered),

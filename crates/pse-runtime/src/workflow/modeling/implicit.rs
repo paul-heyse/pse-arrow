@@ -53,10 +53,14 @@ impl HintResolver for TrialHints {
         &self,
         observed: &[f64],
         terms: Option<&[f64]>,
+        semantic_anchor: Option<&[f64]>,
     ) -> Result<(Vec<Unknown>, Options), MathError> {
         let failure = |message: &str| MathError::Contract(message.into());
         if observed.len() != self.hints.len() {
             return Err(failure("implicit hint observation extent"));
+        }
+        if semantic_anchor.is_some_and(|anchor| anchor.len() != self.unknowns.len()) {
+            return Err(failure("implicit semantic anchor extent"));
         }
         let selected = self
             .hints
@@ -111,7 +115,7 @@ impl HintResolver for TrialHints {
         )?;
         let mut bounds = Vec::with_capacity(self.unknowns.len());
         let mut start = Vec::with_capacity(self.unknowns.len());
-        for id in &self.unknowns {
+        for (index, id) in self.unknowns.iter().enumerate() {
             let state = self.states.get(id);
             if state.is_some_and(|s| s.fixed == Some(true)) {
                 return Err(failure(
@@ -126,11 +130,15 @@ impl HintResolver for TrialHints {
                 .and_then(|s| s.upper)
                 .unwrap_or_else(|| hint(*id, ModelingHint::Upper))
                 .unwrap_or(f64::INFINITY);
-            let value = self
-                .values
-                .get(id)
+            let value = semantic_anchor
+                .and_then(|a| a.get(index))
                 .copied()
-                .or_else(|| hint(*id, ModelingHint::Start))
+                .or_else(|| {
+                    self.values
+                        .get(id)
+                        .copied()
+                        .or_else(|| hint(*id, ModelingHint::Start))
+                })
                 .ok_or_else(|| failure("missing deterministic start for implicit unknown"))?;
             if !value.is_finite()
                 || lower.is_nan()
@@ -241,6 +249,7 @@ impl ModelingPackage {
         numerical: &NumericalInputs,
         policy: &NumericalPolicy,
         controls: &pse_backend_native::solve::Controls,
+        requested_output: pse_kernels::DerivativeOrder,
         compiler: Profile,
         cancel: &crate::CancelSource,
         rows: Option<&BTreeSet<SemanticId>>,
@@ -252,7 +261,11 @@ impl ModelingPackage {
         controls
             .validate()
             .map_err(crate::math::MathRuntimeError::from)?;
-        let mut registrations = self.registrations();
+        let provider_demands = product
+            .admitted
+            .provider_demands_for(rows, requested_output)
+            .map_err(crate::math::MathRuntimeError::from)?;
+        let mut inputs = Vec::new();
         for inner in product
             .admitted
             .implicit_order_for(rows)
@@ -334,13 +347,14 @@ impl ModelingPackage {
                         "fixing a nested unknown requires inline realization",
                     ));
                 }
-                if inner.unknowns.iter().any(|id| {
-                    !values.contains_key(id)
-                        && !residual
-                            .hint_targets
-                            .iter()
-                            .any(|(target, _, kind)| target == id && *kind == ModelingHint::Start)
-                }) {
+                if inner.selection.anchors.is_none()
+                    && inner.unknowns.iter().any(|id| {
+                        !values.contains_key(id)
+                            && !residual.hint_targets.iter().any(|(target, _, kind)| {
+                                target == id && *kind == ModelingHint::Start
+                            })
+                    })
+                {
                     return Err(contract("missing deterministic start for implicit unknown"));
                 }
                 let mut hash =
@@ -394,23 +408,24 @@ impl ModelingPackage {
                     })),
                 );
             }
-            registrations = self
-                .runtime
-                .shared
-                .math()
-                .modeling_inner_providers(
-                    vec![ModelingInner {
-                        admitted: inner,
-                        configurations,
-                    }],
-                    self.accelerators.clone(),
-                    registrations,
-                    compiler,
-                    cancel,
-                )
-                .await?;
+            inputs.push(ModelingInner {
+                admitted: inner,
+                configurations,
+            });
         }
-        Ok(registrations)
+        Ok(self
+            .runtime
+            .shared
+            .math()
+            .modeling_inner_providers(
+                inputs,
+                self.accelerators.clone(),
+                self.registrations(),
+                provider_demands,
+                compiler,
+                cancel,
+            )
+            .await?)
     }
 }
 
@@ -471,7 +486,7 @@ mod tests {
             policy: NumericalPolicy::default(),
             controls: Default::default(),
         };
-        let (_, options) = resolver.resolve(&[3.], Some(&[9., -4., 0.])).unwrap();
+        let (_, options) = resolver.resolve(&[3.], Some(&[9., -4., 0.]), None).unwrap();
         assert_eq!(options.variable_nominals, vec![3.]);
         assert!((options.residual_tolerance[0] - 13e-8).abs() < 1e-20);
         resolver.declarations.push(cases::requirement(
@@ -483,9 +498,25 @@ mod tests {
             Some(7.),
             None,
         ));
-        let (_, options) = resolver.resolve(&[3.], Some(&[9., -4., 0.])).unwrap();
+        let (_, options) = resolver.resolve(&[3.], Some(&[9., -4., 0.]), None).unwrap();
         assert!((options.residual_tolerance[0] - 7e-8).abs() < 1e-20);
-        assert!(resolver.resolve(&[3.], Some(&[f64::NAN, 4., 0.])).is_err());
+        assert!(
+            resolver
+                .resolve(&[3.], Some(&[f64::NAN, 4., 0.]), None)
+                .is_err()
+        );
+        resolver.values.clear();
+        let (_, anchored) = resolver
+            .resolve(&[3.], Some(&[9., -4., 0.]), Some(&[4.]))
+            .unwrap();
+        assert_eq!(anchored.start, vec![4.]);
+        assert_eq!(anchored.variable_nominals, vec![3.]);
+        assert!(resolver.resolve(&[3.], Some(&[9., -4., 0.]), None).is_err());
+        assert!(
+            resolver
+                .resolve(&[3.], Some(&[9., -4., 0.]), Some(&[]))
+                .is_err()
+        );
     }
     #[tokio::test]
     async fn kernel_nested_observations_ignore_undemanded_missing_starts() {
@@ -624,6 +655,122 @@ mod tests {
                 .unwrap();
             assert!(result.accepted, "{:?}", result.validation_error);
         }
+    }
+    #[tokio::test]
+    async fn kernel_nested_value_observation_propagates_native_demand_without_promoting_hints() {
+        use pse_kernels::DerivativeOrder::{First, Second, Value};
+        let rt = super::super::super::tests::runtime();
+        let physical = super::super::super::tests::physical();
+        let rows=pse_authoring::language::parse(
+            "package p { def Root { var x:Scalar; implicit numerical select operational(w=1) settings(\"native.kinsol.v1\") {var w:Scalar;eq e:w*w==1;annotation bounds w(0.5,1.5);}realize n on numerical using nested;implicit outer {var y:Scalar;implicit child select branch(z>=0) {var z:Scalar;eq e:z*z==x;annotation start z(sqrt(x));annotation bounds z(0.1,10);}realize c on child using nested;eq e:y+child.z==x;annotation start y(numerical.w);annotation bounds y(0.1,10);}realize o on outer using nested;eq pin:outer.y==2;} }",
+            SemanticId::NIL,pse_authoring::language::IdentityPolicy::Named,pse_authoring::ParseBudget::default(),
+        ).unwrap();
+        let root = rows
+            .iter()
+            .find(|r| r.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let package = rt.modeling_package(rows, physical).unwrap();
+        let compiler = super::super::super::tests::compiler_profile();
+        let cancel = crate::CancelSource::new();
+        let model = package
+            .prepare(
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Bindings::default(),
+                Limits::default(),
+                &cancel,
+            )
+            .await
+            .unwrap();
+        let product = model.compiled();
+        let pin = product
+            .model
+            .equations
+            .iter()
+            .find(|r| r.lineage.path.rsplit('.').next() == Some("pin"))
+            .unwrap()
+            .id;
+        let selected = BTreeSet::from([pin]);
+        let ordered = product
+            .admitted
+            .implicit_order_for(Some(&selected))
+            .unwrap();
+        assert_eq!(ordered.len(), 3);
+        let numerical = ordered
+            .iter()
+            .find(|inner| {
+                matches!(
+                    inner.selection.meaning,
+                    pse_compiler::workspace::ImplicitMeaning::Operational(_)
+                )
+            })
+            .unwrap();
+        let parent = ordered
+            .iter()
+            .find(|inner| !inner.residuals[0].body.math.providers().is_empty())
+            .unwrap();
+        let child = ordered
+            .iter()
+            .find(|inner| {
+                inner.descriptor.spec().id != numerical.descriptor.spec().id
+                    && inner.descriptor.spec().id != parent.descriptor.spec().id
+            })
+            .unwrap();
+        assert_eq!(numerical.descriptor.spec().derivatives, Value);
+        assert_eq!(child.descriptor.spec().derivatives, Second);
+        let seeds = product
+            .admitted
+            .provider_demands_for(Some(&selected), Value)
+            .unwrap();
+        assert_eq!(seeds[&parent.descriptor.spec().key()], Value);
+        // Hint-only inputs may be captured by the original case body's provider call.
+        // Their presence is valid; the requested order must remain Value.
+        assert!(
+            seeds
+                .get(&numerical.descriptor.spec().key())
+                .is_none_or(|order| *order == Value)
+        );
+        // This calls the production MathService reverse walk. The native parent needs
+        // first partials in its residual even when the original observation asks for values.
+        let providers = package
+            .inner_registrations(
+                model.clone(),
+                &ModelingCaseBindings::default(),
+                &NumericalInputs::default(),
+                &NumericalPolicy::default(),
+                &pse_backend_native::solve::Controls::default(),
+                Value,
+                compiler,
+                &cancel,
+                Some(&selected),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            providers[&parent.descriptor.spec().key()]
+                .spec()
+                .derivatives,
+            Value
+        );
+        assert_eq!(
+            providers[&child.descriptor.spec().key()].spec().derivatives,
+            First
+        );
+        assert_eq!(
+            providers[&numerical.descriptor.spec().key()]
+                .spec()
+                .derivatives,
+            Value
+        );
+        let point = CaseValues {
+            scalars: BTreeMap::from([(product.admitted.inputs[0], 4.)]),
+        };
+        let observed = package
+            .observe_registered(model, selected, point, compiler, providers, &cancel)
+            .await
+            .unwrap();
+        assert!(observed[&pin].abs() < 1e-7, "{:?}", observed[&pin]);
     }
     #[tokio::test]
     async fn kernel_regime_selection_executes_branch_hints_and_refuses_ties() {
@@ -785,7 +932,7 @@ mod tests {
         let rt = super::super::super::tests::runtime();
         let physical = super::super::super::tests::physical();
         let rows=pse_authoring::language::parse(
-            "package p { def Root { var x: Scalar; implicit outer { var y: Scalar; implicit child { var z: Scalar; eq residual: z*z == y; annotation start z(sqrt(y)); annotation bounds z(sqrt(y)-0.01,sqrt(y)+0.01); annotation nominal z(sqrt(y)); annotation scale residual(inverseSum); } realize c on child using nested; eq residual: y+child.z == x; annotation start y(1); annotation bounds y(0.1,100); } realize p on outer using nested; eq pin: outer.y == 4; annotation start x(3); annotation report outer.child.z(\"child\"); } }",
+            "package p { def Root { var x: Scalar; implicit outer { var y: Scalar; implicit child select branch(z>=0) { var z: Scalar; eq residual: z*z == x; annotation start z(sqrt(x)); annotation bounds z(sqrt(x)-0.01,sqrt(x)+0.01); annotation nominal z(sqrt(x)); annotation scale residual(inverseSum); } realize c on child using nested; eq residual: y+child.z == x; annotation start y(1); annotation bounds y(0.1,100); } realize p on outer using nested; eq pin: outer.y == 2; annotation start x(3); annotation report outer.child.z(\"child\"); } }",
             SemanticId::NIL,pse_authoring::language::IdentityPolicy::Named,pse_authoring::ParseBudget::default()).unwrap();
         let root = rows
             .iter()
@@ -829,7 +976,7 @@ mod tests {
         assert_eq!(prepared.model.case.compiled().facts.variables, 1);
         let x = product.admitted.inputs[0];
         let mut values = prepared.model.values.clone();
-        values.scalars.insert(x, 6.);
+        values.scalars.insert(x, 4.);
         let assembly = rt
             .shared
             .math()
@@ -853,14 +1000,14 @@ mod tests {
             .unwrap();
         assert_eq!(jacobian.len(), 1);
         assert_eq!(hessian.len(), 1);
-        assert!((jacobian[0] - 0.8).abs() < 1e-6, "{jacobian:?}");
-        assert!((hessian[0] - 0.016).abs() < 1e-6, "{hessian:?}");
+        assert!((jacobian[0] - 0.75).abs() < 1e-6, "{jacobian:?}");
+        assert!((hessian[0] - 0.03125).abs() < 1e-6, "{hessian:?}");
         let result = package
             .solve_case(prepared, compiler, &cancel)
             .await
             .unwrap();
         assert!(result.accepted, "{:?}", result.validation_error);
-        assert!((result.values.scalars[&x] - 6.).abs() < 1e-6);
+        assert!((result.values.scalars[&x] - 4.).abs() < 1e-6);
         assert!(
             (result
                 .reports
@@ -878,7 +1025,7 @@ mod tests {
         let rt = super::super::super::tests::runtime();
         let physical = super::super::super::tests::physical();
         let rows=pse_authoring::language::parse(
-            "package p { def Root { var x: Scalar; implicit root { var y: Scalar; eq residual: y*y == x; annotation scale residual(inverseSum); annotation start y(1); annotation bounds y(0.5,3); annotation valid y(0.5,3); annotation nominal y(2); } realize policy on root using nested; eq pin: root.y == 2; annotation start x(2); annotation report root.y(\"root\"); } }",
+            "package p { def Root { var x: Scalar; implicit root select branch(y>=0) { var y: Scalar; eq residual: y*y == x; annotation scale residual(inverseSum); annotation start y(1); annotation bounds y(0.5,3); annotation valid y(0.5,3); annotation nominal y(2); } realize policy on root using nested; eq pin: root.y == 2; annotation start x(2); annotation report root.y(\"root\"); } }",
             SemanticId::NIL,pse_authoring::language::IdentityPolicy::Named,pse_authoring::ParseBudget::default()).unwrap();
         let root = rows
             .iter()

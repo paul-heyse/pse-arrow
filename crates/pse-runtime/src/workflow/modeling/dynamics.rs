@@ -913,6 +913,7 @@ impl ModelingPackage {
                 &crate::math::solves::NumericalInputs::default(),
                 &profile.numerics,
                 &pse_backend_native::solve::Controls::default(),
+                DerivativeOrder::First,
                 compiler,
                 cancel,
                 None,

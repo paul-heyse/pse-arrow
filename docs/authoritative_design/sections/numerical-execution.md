@@ -156,6 +156,10 @@ dependence. The generic profile/knowledge contract is proposed
 
 #### 15.5.1 KKT-point analysis and parametric sensitivity
 
+> Supplement: [ADR-0144](../../adr/0144-selected-mathematical-realizations-and-square-response.md) (proposed; authorized implementation).
+
+Regular-square Root response uses complete original equality matching and `F_x X_p = -F_p`, independently of optimizing KKT analysis. Existing sensitivity requests admit Root parameter derivatives, while Root reduced-Hessian and covariance-propagation requests refuse. Publication supplies physical primal state derivatives and explicit rank/cutoff/backward-error/neighborhood evidence; no objective, multiplier or KKT-only fields are fabricated. An unqualified local response is withheld independently of the base root.
+
 > Decision: [ADR-0118](../../adr/0118-one-kkt-point-analysis.md) — one KKT-point analysis
 > in original coordinates (Plan 22 S0, S1 and the advanced step Y5c2, implemented for the
 > NLP routes, which automatic routing prefers for a sensitivity request, N5).
@@ -1411,8 +1415,9 @@ gradients, IDAS in addition the second-order adjoint of an exact transient Hessi
 one parallel batch ([§19.3](workflows-and-results.md#section-19-3)); its record states its
 cancellation granularity, a solve-wide deadline with no interrupt, so a stop request is
 honoured before a solve or batch starts and a running solve stops at the deadline.
-`sensitivities` marks Ipopt, POUNCE and SCIP, whose candidates carry the multipliers the
-KKT-point analysis differentiates; automatic routing of a sensitivity request prefers them
+`sensitivities` marks Ipopt, POUNCE and SCIP for optimizing KKT analysis, whose candidates
+carry the required multipliers, and KINSOL for qualified regular-square Root response
+under ADR-0144. Automatic routing of a sensitivity request prefers contextual support
 ([§15.5](#section-15-5)). *Tested* by `pounce_convex_never_automatic` and
 `sensitivity_requests_route_to_multiplier_adapters` (native backend units).
 

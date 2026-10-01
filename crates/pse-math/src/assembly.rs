@@ -443,6 +443,7 @@ impl CasePlan {
     pub fn parametric(
         &self,
         parameters: &[SemanticId],
+        order: DerivativeOrder,
         registry: &QuantityRegistry,
         cancel: &Arc<AtomicBool>,
     ) -> Result<Self, MathError> {
@@ -462,7 +463,7 @@ impl CasePlan {
             self.structure.clone(),
             self.bodies.clone(),
             registry,
-            DerivativeOrder::Second,
+            order,
             AssemblyLimits {
                 worker_bytes: self.worker_bytes,
                 ..AssemblyLimits::default()

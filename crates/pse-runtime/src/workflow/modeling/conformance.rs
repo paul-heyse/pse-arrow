@@ -1129,11 +1129,7 @@ impl ModelingPackage {
                 break;
             }
             let fixture = row.declaration_id;
-            let solve_order = match policy.solver.controls.hessian {
-                pse_backend_native::solve::HessianMode::LimitedMemory => DerivativeOrder::First,
-                pse_backend_native::solve::HessianMode::Exact
-                | pse_backend_native::solve::HessianMode::GaussNewton => DerivativeOrder::Second,
-            };
+            let solve_order = policy.solver.derivative_order();
 
             let oracle = self.revision.oracle(fixture);
             report.note_oracle(oracle, |oracle| self.revision.release_of(oracle));

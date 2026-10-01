@@ -4,7 +4,7 @@
 use super::*;
 use crate::math::{
     modeling::ModelingCasePreparation,
-    solves::{NumericalInputs, PreparedSolve, SolverProfile},
+    solves::{NumericalInputs, ParametricPreparation, PreparedSolve, SolverProfile},
 };
 use pse_compiler::workspace::{
     ModelingCaseBindings, ModelingHint, ModelingOutput, ModelingVariableState, Profile,
@@ -96,7 +96,7 @@ pub(in crate::workflow) struct ModelingCaseResolution {
     pub solver: SolverProfile,
     pub numerics: std::sync::Arc<pse_model::numerics::ResolvedNumericalPolicy>,
     /// The parametric program of the solver's sensitivity request (Plan 22 S1).
-    pub parametric: Option<std::sync::Arc<crate::math::ExecutableCase>>,
+    pub parametric: Option<ParametricPreparation<std::sync::Arc<crate::math::ExecutableCase>>>,
 }
 impl ModelingPackage {
     /// Evaluate exactly the selected source observations through shared compiler artifacts.
@@ -115,6 +115,7 @@ impl ModelingPackage {
                 &NumericalInputs::default(),
                 &pse_model::numerics::NumericalPolicy::default(),
                 &pse_backend_native::solve::Controls::default(),
+                DerivativeOrder::Value,
                 profile,
                 cancel,
                 Some(&rows),
@@ -630,6 +631,7 @@ impl ModelingPackage {
                 &numerical,
                 &solver.numerics,
                 &solver.controls,
+                order.max(solver.derivative_order()),
                 compiler,
                 cancel,
                 None,
@@ -678,20 +680,63 @@ impl ModelingPackage {
                         "propagation output {output} is not a variable the case solves"
                     )));
                 }
-                let program = self
+                // Validate request roles before response compilation; malformed requests
+                // refuse rather than becoming an unavailable numerical quantity.
+                let declared = prepared
+                    .case
+                    .compiled()
+                    .plan
+                    .structure()
+                    .parameters()
+                    .iter()
+                    .map(|p| p.id)
+                    .collect::<BTreeSet<_>>();
+                if let Some(id) = request.parameters.iter().find(|id| {
+                    !declared.contains(id)
+                        || columns.contains(id)
+                        || values
+                            .scalars
+                            .get(id)
+                            .is_none_or(|value| !value.is_finite())
+                }) {
+                    return Err(contract(format!(
+                        "sensitivity parameter {id} is not a declared fixed parameter with a finite value"
+                    )));
+                }
+                let derivative_order =
+                    if solver.intent == pse_backend_native::solve::SolveIntent::Root {
+                        DerivativeOrder::First
+                    } else {
+                        DerivativeOrder::Second
+                    };
+                let result = self
                     .parametric_program(
                         &model,
                         &prepared,
                         &request.parameters,
-                        order,
+                        derivative_order,
                         compiler,
                         cancel,
                     )
-                    .await?;
-                numerical
-                    .targets
-                    .extend(program.assembly.parameter_targets());
-                Some(program)
+                    .await;
+                let preparation = match result {
+                    Ok(program) => {
+                        numerical
+                            .targets
+                            .extend(program.assembly.parameter_targets());
+                        ParametricPreparation::Available(program)
+                    }
+                    Err(WorkflowError::Math(cause))
+                        if solver.intent == pse_backend_native::solve::SolveIntent::Root =>
+                    {
+                        let Some(withheld) = root_parametric_failure(&cause) else {
+                            return Err(WorkflowError::Math(cause));
+                        };
+                        ParametricPreparation::Unavailable(withheld)
+                    }
+                    Err(cause) => return Err(cause),
+                };
+                Some(preparation)
             }
             None => None,
         };
@@ -1511,5 +1556,207 @@ mod native_tests {
         assert!(result.checks.iter().any(|c| c.kind
             == pse_model::generated::enums::ModelingCheckKind::Expectation
             && c.satisfied));
+    }
+}
+
+/// Separate optional response capability/resource failure from cancellation and
+/// infrastructure failure, which still stop the requested operation.
+fn root_parametric_failure(
+    cause: &crate::math::MathRuntimeError,
+) -> Option<pse_backend_native::square_response::Withheld> {
+    use crate::math::MathRuntimeError as E;
+    use pse_backend_native::square_response::Withheld;
+    match cause {
+        E::Shared(cause) => root_parametric_failure(cause),
+        E::Math(cause) | E::Solve(pse_backend_native::ProblemError::Math(cause)) => {
+            root_math_response_failure(cause)
+        }
+        E::Compile(pse_compiler::workspace::CompileError::Math(cause)) => {
+            root_math_response_failure(cause)
+        }
+        E::Cancelled
+        | E::Solve(pse_backend_native::ProblemError::Cancelled)
+        | E::Compile(pse_compiler::workspace::CompileError::Cancelled)
+        | E::Retiring
+        | E::Infrastructure(_) => None,
+        E::Limit(_)
+        | E::Pool(_)
+        | E::Compile(pse_compiler::workspace::CompileError::Limit(_))
+        | E::Solve(pse_backend_native::ProblemError::Limit { .. }) => Some(Withheld::Memory),
+        _ => Some(Withheld::Neighborhood(cause.to_string())),
+    }
+}
+
+fn root_math_response_failure(
+    cause: &pse_math::MathError,
+) -> Option<pse_backend_native::square_response::Withheld> {
+    use pse_backend_native::square_response::Withheld;
+    use pse_math::MathError;
+    match cause {
+        MathError::Instance { cause, .. } => root_math_response_failure(cause),
+        MathError::Cancelled => None,
+        MathError::Limit(_) | MathError::SlotLimit { .. } | MathError::WorkLimit { .. } => {
+            Some(Withheld::Memory)
+        }
+        _ => Some(Withheld::Neighborhood(cause.to_string())),
+    }
+}
+
+#[cfg(all(test, feature = "solver-kinsol"))]
+mod root_unavailable_tests {
+    use super::*;
+    use crate::math::settings::SensitivityRequest;
+    use crate::workflow::tests as fixture;
+    use pse_backend_native::solve::{Backend, SolveIntent, SolverSelection};
+    use pse_relations::{
+        columnar::RelationRow,
+        generated::{
+            enums::{NativeQualification, WithheldReason},
+            runtime::{local_validity, parametric_sensitivities, solve_runs},
+        },
+    };
+
+    async fn fixed_guard() -> (ModelingPackage, ModelingAnalysis, SemanticId) {
+        let text = "package p { def Root { param p: Scalar=0; var x: Scalar; eq root: x==(if p>0 then 1 else -1); annotation start x(-1); } }";
+        let rows = pse_authoring::language::parse(
+            text,
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            pse_authoring::ParseBudget::default(),
+        )
+        .unwrap();
+        let root = rows
+            .iter()
+            .find(|row| row.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let package = fixture::runtime_with(16 << 20, 1 << 20, 1 << 30)
+            .modeling_package(rows, fixture::physical())
+            .unwrap();
+        let mut solver = fixture::profile();
+        solver.intent = SolveIntent::Root;
+        solver.selection = SolverSelection::Explicit(Backend::Kinsol);
+        let mut analysis = ModelingAnalysis {
+            root,
+            instance: pse_modeling::specialize::root_instance(root),
+            bindings: Bindings::default(),
+            limits: Limits::default(),
+            case: Default::default(),
+            order: DerivativeOrder::First,
+            compiler: fixture::compiler_profile(),
+            solver,
+            numerical: NumericalInputs::default(),
+        };
+        analysis.bindings.demand.push("p".into());
+        let cancel = crate::CancelSource::new();
+        let prepared = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+        let parameter = prepared.model.model.compiled().model.paths["p"];
+        // A fixed parameter guard is valid for the base x derivative. Making p a
+        // derivative coordinate crosses a discontinuous selector and refuses compilation.
+        assert!(
+            package
+                .parametric_program(
+                    &prepared.model.model,
+                    &prepared.model,
+                    &[parameter],
+                    DerivativeOrder::First,
+                    analysis.compiler,
+                    &cancel
+                )
+                .await
+                .is_err()
+        );
+        (package, analysis, parameter)
+    }
+    #[tokio::test]
+    async fn unavailable_parametric_guard_keeps_public_base_root() {
+        let (package, mut analysis, parameter) = fixed_guard().await;
+        analysis.solver.sensitivity = Some(SensitivityRequest {
+            parameters: vec![parameter],
+            reduced_hessian: false,
+            propagation: None,
+        });
+        let result = package
+            .prepare_analysis(&analysis, &crate::CancelSource::new())
+            .await
+            .unwrap()
+            .start()
+            .unwrap()
+            .wait()
+            .await
+            .unwrap();
+        let validity =
+            local_validity::Row::rows(&result.table("runtime.local_validity").unwrap()).unwrap();
+        assert_eq!(validity.len(), 1);
+        assert!(!validity[0].validity.certified);
+        assert_eq!(
+            validity[0].validity.reason,
+            Some(WithheldReason::NeighborhoodUnavailable)
+        );
+        assert!(
+            parametric_sensitivities::Row::rows(
+                &result.table("runtime.parametric_sensitivities").unwrap()
+            )
+            .unwrap()
+            .is_empty()
+        );
+        assert!(
+            solve_runs::Row::rows(&result.table("runtime.solve_runs").unwrap())
+                .unwrap()
+                .iter()
+                .any(|run| run.qualification == NativeQualification::Feasible)
+        );
+    }
+    #[tokio::test]
+    async fn unavailable_response_memory_keeps_public_base_root() {
+        let (package, mut analysis, parameter) = fixed_guard().await;
+        analysis.solver.sensitivity = Some(SensitivityRequest {
+            parameters: vec![parameter],
+            reduced_hessian: false,
+            propagation: None,
+        });
+        let mut prepared = package
+            .prepare_analysis(&analysis, &crate::CancelSource::new())
+            .await
+            .unwrap();
+        // The common attachment also transports a typed resource refusal, rather than
+        // requiring a fabricated compiled program or dropping the requested quantity.
+        prepared.solve = prepared
+            .solve
+            .with_sensitivity(ParametricPreparation::Unavailable(
+                pse_backend_native::square_response::Withheld::Memory,
+            ))
+            .unwrap();
+        let result = prepared.start().unwrap().wait().await.unwrap();
+        let validity =
+            local_validity::Row::rows(&result.table("runtime.local_validity").unwrap()).unwrap();
+        assert_eq!(
+            validity[0].validity.reason,
+            Some(WithheldReason::AnalysisUnavailable)
+        );
+        assert!(!validity[0].validity.certified);
+        assert!(
+            solve_runs::Row::rows(&result.table("runtime.solve_runs").unwrap())
+                .unwrap()
+                .iter()
+                .any(|run| run.qualification == NativeQualification::Feasible)
+        );
+    }
+    #[tokio::test]
+    async fn malformed_root_parameter_request_still_refuses_preparation() {
+        let (package, mut analysis, parameter) = fixed_guard().await;
+        for parameters in [vec![SemanticId::NIL], vec![parameter, parameter]] {
+            analysis.solver.sensitivity = Some(SensitivityRequest {
+                parameters,
+                reduced_hessian: false,
+                propagation: None,
+            });
+            assert!(
+                package
+                    .prepare_analysis(&analysis, &crate::CancelSource::new())
+                    .await
+                    .is_err()
+            );
+        }
     }
 }

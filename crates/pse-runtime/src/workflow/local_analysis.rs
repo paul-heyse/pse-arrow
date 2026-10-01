@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Publication of the quantities derived from the KKT-point analysis (Plan 22 S1; ADR-0118
+//! Publication of qualified square responses and quantities derived from KKT-point analysis (Plan 22 S1; ADR-0118
 //! item 10; PS-12): one `local_validity` row per requested quantity, certified or withheld
 //! with its reason, and the data rows of the certified ones. The backend's typed reasons
 //! map onto the registry `WithheldReason` here, at the publication boundary.
@@ -70,6 +70,12 @@ pub(super) fn record<T>(
         weakly_active: point.and_then(|p| i64::try_from(p.weakly_active()).ok()),
         condition_1norm: point.and_then(|p| p.condition_1norm),
         residual: point.and_then(|p| p.residual),
+        root_rank: None,
+        root_rank_cutoff: None,
+        root_rank_relative_cutoff: None,
+        root_backward_error: None,
+        root_backward_error_limit: None,
+        root_neighborhood: None,
     }
 }
 
@@ -106,6 +112,9 @@ impl Rows {
     }
     /// The rows of one step that requested sensitivities.
     pub(super) fn push(&mut self, step: &Step<'_>) -> Result<(), WorkflowError> {
+        if let Some(root) = step.report.and_then(|r| r.evidence.root_response.as_ref()) {
+            return self.root_response(step, root);
+        }
         let evidence = step.report.and_then(|r| r.evidence.sensitivity.as_ref());
         // Quantities read from multipliers conditional on a discrete assignment hold under
         // that commitment, which the step's `solve_runs` row states (ADR-0118 items 4, 9).
@@ -191,6 +200,75 @@ impl Rows {
         }
         if let Some(Ok(h)) = hessian {
             self.hessian(step, parametric, h)?;
+        }
+        Ok(())
+    }
+    fn root_response(
+        &mut self,
+        step: &Step<'_>,
+        root: &Result<
+            pse_backend_native::square_response::Response,
+            pse_backend_native::square_response::Withheld,
+        >,
+    ) -> Result<(), WorkflowError> {
+        use pse_backend_native::square_response::Withheld as W;
+        let outcome = root.as_ref().map_err(|w| {
+            (
+                match w {
+                    W::NoCandidate => WithheldReason::NoCandidate,
+                    W::Infeasible(_) => WithheldReason::NotFeasible,
+                    W::Structural(_) => WithheldReason::StructuralUnavailable,
+                    W::Neighborhood(_) => WithheldReason::NeighborhoodUnavailable,
+                    W::Rank { .. } => WithheldReason::RankDeficient,
+                    W::Numerical(_) => WithheldReason::BacksolveFailed,
+                    W::Memory => WithheldReason::AnalysisUnavailable,
+                },
+                w.to_string(),
+            )
+        });
+        let mut validity = record(outcome.clone(), None, false);
+        if let Ok(response) = &outcome {
+            let e = &response.evidence;
+            validity.root_rank = i64::try_from(e.rank).ok();
+            validity.root_rank_cutoff = Some(e.cutoff);
+            validity.root_rank_relative_cutoff = Some(e.relative_cutoff);
+            validity.root_backward_error = Some(e.backward_error);
+            validity.root_backward_error_limit = Some(e.backward_error_limit);
+            validity.root_neighborhood = Some(e.neighborhood.to_owned());
+        }
+        if let Err(W::Rank { rank, cutoff, .. }) = root {
+            validity.root_rank = i64::try_from(*rank).ok();
+            validity.root_rank_cutoff = Some(*cutoff);
+            validity.root_rank_relative_cutoff =
+                Some(pse_backend_native::square_response::DEFAULT_RELATIVE_RANK_CUTOFF);
+        }
+        self.validity
+            .push(validity::Row {
+                run_id: step.run_id,
+                step: step.step,
+                quantity: DerivedQuantity::ParametricSensitivity,
+                validity,
+            })
+            .map_err(relation)?;
+        if let Ok(response) = root {
+            let units = Units::of(step)?;
+            for (j, parameter) in response.parameters.iter().enumerate() {
+                for (i, state) in response.states.iter().enumerate() {
+                    self.sensitivities
+                        .push(sensitivities::Row {
+                            run_id: step.run_id,
+                            step: step.step,
+                            parameter_id: *parameter,
+                            target_kind: NumericalTarget::Variable,
+                            target_id: *state,
+                            parameter_unit_id: units.parameter(*parameter)?,
+                            target_unit_id: units.variable(*state)?,
+                            primal: Some(response.values[(i, j)]),
+                            dual: None,
+                        })
+                        .map_err(relation)?;
+                }
+            }
         }
         Ok(())
     }

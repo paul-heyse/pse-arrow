@@ -66,6 +66,10 @@ in the workspace manifest ([§3](workspace-and-dependencies.md#section-3)).
 
 ### 7.2 Function vocabulary and admission
 
+> Supplement: [ADR-0144](../../adr/0144-selected-mathematical-realizations-and-square-response.md) (proposed; authorized implementation).
+
+The admitted implicit contract distinguishes a residual relation from a selected function. Expression use requires compiler-owned selection: a justified branch, an explicit operational anchor/settings, or library-established uniqueness. Ordinary starts remain numerical aids. Realizations preserve this selection or refuse; operational determinism without established neighborhood stability supports values only. A minimum-score margin establishes a stable winner among candidates; full derivative admission additionally needs established root selection within every alternative. Initial native regime derivative admission retains checked nondegenerate-affine alternatives; unsupported nonlinear alternatives remain value-only. Selected-function derivatives also require the declared unknown bounds to be inactive at their physical tolerance.
+
 The primitive vocabulary is the `pse_quantity::functions::Function` enum backed by
 library capabilities. Package functions compose those primitives with checked signatures,
 lexical immutable data and explicit runtime arguments. Smoothing, hyperbolic and activation
@@ -167,6 +171,10 @@ as constants, not model inputs.
 `crates/pse-compiler/src/typed_math.rs` (`literal_exponent`).
 
 ### 7.5 Rows, contributions and established facts
+
+> Supplement: [ADR-0144](../../adr/0144-selected-mathematical-realizations-and-square-response.md) (proposed; authorized implementation).
+
+Factorable transport retains original residuals, selection restrictions and graph fidelity. Exact means equivalent to the selected graph on its admitted domain; residual-only operational selection is Relaxed. An exact-only request refuses a relaxation. Symbolica Rational remains arbitrary precision through folding and export; binary64 conversion is an explicit backend boundary. Canonical normalized numerator/positive denominator and selection dependencies enter new identity frames; historical frames are not reinterpreted.
 
 > Decision: [ADR-0105](../../adr/0105-scip-factorable-backend.md) — `FactorableProgram`,
 > the library-neutral factorable projection with per-row fidelity, from which presolve
@@ -458,6 +466,10 @@ recursive-inference consumer needs its own reviewed contract.
 `crates/pse-rules/src/invariants.rs`.
 
 ### 14.3 The preparation engine and ownership
+
+> Supplement: [ADR-0144](../../adr/0144-selected-mathematical-realizations-and-square-response.md) (proposed; authorized implementation).
+
+Pure derivative-requirement algebra belongs to `pse-kernels`: residual availability, output smoothness, selector-neighborhood validity, inner minimum and requested output determine residual compilation. Native adapters supply their actual minimum; runtime resolves the effective profile and supplies demand. Provider descriptors and nested native oracle contracts consume this product.
 
 > Implemented amendment: [ADR-0140](../../adr/0140-scientific-knowledge-admission.md) and
 > [ADR-0141](../../adr/0141-applicability-evidence-and-permissions.md), Plan 25b.

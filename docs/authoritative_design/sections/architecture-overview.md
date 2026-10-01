@@ -286,11 +286,12 @@ gauge-for-absolute errors. See [§8](physical-semantics.md#section-8).
 ### D6. Mathematics is library-owned and derived from typed definitions
 
 > Decision: [ADR-0082](../../adr/0082-library-owned-process-mathematics.md)
+> Supplement: [ADR-0144](../../adr/0144-selected-mathematical-realizations-and-square-response.md) (proposed; authorized implementation).
 
 Symbolica atoms, evaluators and coefficient projections are derived specialization
 artifacts with explicit instance and case bindings. Real-algebra semantics apply on the
-admitted domain, after physical and original-domain obligations. There is no custom
-expression IR, evaluator or differentiator. *Because* library algorithms are more capable
+admitted domain, after physical and original-domain obligations. A derived, non-evaluating factorable graph is transport for a backend representation.
+There is no independent expression evaluator or differentiator. *Because* library algorithms are more capable
 and better tested than a bespoke engine, and one authority avoids competing mathematics.
 See [§7](mathematics-and-compilation.md#section-7) and
 [§14](mathematics-and-compilation.md#section-14).

@@ -26,6 +26,12 @@ class LocalValidity:
     weakly_active: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 4294967295)))
     condition_1norm: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     residual: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    root_rank: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 4294967295)))
+    root_rank_cutoff: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    root_rank_relative_cutoff: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    root_backward_error: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    root_backward_error_limit: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    root_neighborhood: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
 
 
 @attrs.frozen(kw_only=True)

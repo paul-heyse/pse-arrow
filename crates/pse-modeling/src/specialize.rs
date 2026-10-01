@@ -40,7 +40,7 @@ pub use fixture::{
     FixtureValue, IntegrationFixture, ScheduleControl, ScheduleFixture, ShootingFixture,
 };
 mod regimes;
-pub use regimes::{Regime, RegimeSelection};
+pub use regimes::{Regime, RegimeSelection, RootSelection};
 mod forms;
 pub use forms::{DEFAULT_BIG_M_MARGIN, Derived, DerivedRule, Equivalence, Lowering};
 mod objectives;
@@ -264,6 +264,8 @@ pub struct Expectation {
 /// Finite specialization product and its independent inspection/closure views.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct SpecializedModel {
+    /// Explicit function selectors for single-residual implicit occurrences.
+    pub root_selections: BTreeMap<InstanceId, RootSelection>,
     /// Immutable selected records and authored closure edges in this model scope.
     pub selection_closures: crate::scientific_selection::Selections,
     /// Alternative residual sets over one implicit block's shared unknowns, keyed by

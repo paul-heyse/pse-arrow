@@ -1,6 +1,6 @@
 ---
 title: "25c: Process composition and conservation"
-status: in-progress
+status: done
 date: 2026-09-30
 adrs: [ADR-0142]
 review_sources: [docs/design_review/reviews/design_review_codebase-domain-alignment_2026-09-30.md, docs/design_review/reviews/design_review_codebase-domain-alignment-follow-up_2026-09-30.md]
@@ -62,11 +62,11 @@ tear-selection, nonlinear-root and integration library owners.
 
 | Packet | Prerequisites | Responsibility | Status |
 |---|---|---|---|
-| <a id="c1"></a>C1 State and aggregate ports | A2/A4; H2 expression/admission contract | Declare independent state, transported observations and indexed groups | implemented; focused tests passed; final workspace compile pending |
-| <a id="c2"></a>C2 Connections and boundaries | C1; I1 identity framing | Lower one connection occurrence and its topology/transport obligations | implemented; focused tests passed; final workspace compile pending |
-| <a id="c3"></a>C3 Indexed control volumes and storage | C1/C2; B1 for element-total consumers; B2 for reactive consumers | Reuse balance operations across multi-port units; separate local storage from time route | implemented; focused tests passed; final workspace compile pending |
-| <a id="c4"></a>C4 Executable initialization | C2/C3; E1/E2; D1/D3 root capabilities | Admit conditional unit solves and connection tears; migrate recycle initialization | implemented; focused tests passed; final workspace compile pending |
-| <a id="c5"></a>C5 Temporal conservation and closure | C3; A4 | Lower conserved inventories, original flux and event transfers for both temporal realizations; export descriptors to E4 | implemented; focused tests passed; final workspace compile pending |
+| <a id="c1"></a>C1 State and aggregate ports | A2/A4; H2 expression/admission contract | Declare independent state, transported observations and indexed groups | done; focused tests passed; workspace compile passed |
+| <a id="c2"></a>C2 Connections and boundaries | C1; I1 identity framing | Lower one connection occurrence and its topology/transport obligations | done; focused tests passed; workspace compile passed |
+| <a id="c3"></a>C3 Indexed control volumes and storage | C1/C2; B1 for element-total consumers; B2 for reactive consumers | Reuse balance operations across multi-port units; separate local storage from time route | done; focused tests passed; workspace compile passed |
+| <a id="c4"></a>C4 Executable initialization | C2/C3; E1/E2; D1/D3 root capabilities | Admit conditional unit solves and connection tears; migrate recycle initialization | done; focused tests passed; workspace compile passed |
+| <a id="c5"></a>C5 Temporal conservation and closure | C3; A4 | Lower conserved inventories, original flux and event transfers for both temporal realizations; export descriptors to E4 | done; focused tests passed; workspace compile passed |
 
 C1 consumes H2's checked occurrence contract, not completion of every H packet. C4 consumes
 declared execution from E2; E2 does not depend on C4. E4 consumes C5 later. These are one-way
@@ -191,10 +191,11 @@ also migrate; counts of removed accumulators are not the acceptance criterion.
 
 ## Execution checkpoint
 
-Restart checkpoint, 2026-10-01. Implementation starts from the completed 25a/25b tree
-at `e38eaed6`. The maintainer authorized C1–C5 and only the required external prerequisite
-contract slices, including their complete affected consumer migrations. All agents have
-concluded; their source changes are integrated in the existing `main` checkout.
+Closure handoff, 2026-10-01. Implementation started from the completed 25a/25b tree
+at `e38eaed6`; the root resumed from `2c253c82` in the existing `main` checkout.
+The maintainer authorized C1–C5 and only the required external prerequisite contract
+slices, including their complete affected consumer migrations. Their source changes
+are integrated; no functional worker task or test command remains active.
 
 C1–C5 functional implementation, reference-consumer migration and deletion obligations
 are complete. Focused controls and full `just codegen` have passed with the composite
@@ -202,25 +203,19 @@ verification recorded below. The final affine boundary correction is implemented
 tested: the compiler owns the actual subtraction, the solver row is an interval, point
 inputs/outputs remain points, and explicit numerical magnitude policy is preserved.
 The scaled point-inventory and actual-reference controls also passed after test-only
-physical-type/resource repairs. No functional worker task or test command remains active.
+physical-type/resource repairs.
 
-The plan stays **in-progress** for the root's final workspace compilation and closure
-handoff. At the maintainer's restart request, no new full workspace build was started.
+Final workspace/all-target and native solver-contract compilation succeeded. The root
+scoped the p09 test's `RelationRow` import to its only consuming, Ipopt-gated test;
+no scientific equations or acceptance conditions changed. Verification below records
+the remaining dependency future-compatibility warning against the zero target.
 
-### Remaining work and resume order
-
-1. Run `source .envrc.local; just check` in this same checkout to compile the complete
-   workspace and all targets on the pinned toolchain. Repair actual compile failures,
-   if any, and rerun the affected targeted controls. Record the command and actual
-   warnings/errors against the zero target. The existing focused receipts need not
-   be repeated wholesale unless a repair changes their exercised contracts.
-2. Complete the root acceptance/handoff: update the coordinator's finding dispositions
-   for F02/F33/FU04/FU05 from this evidence, leave F16's E-owned obligations open, and
-   mark 25c done after the remaining compile check succeeds. Retain this record while
-   the active series and prerequisite plans depend on it.
-3. ADR-0142 remains proposed pending its decision PR; architecture revision 89 records
-   the maintainer-authorized implementation. Follow the decision route separately;
-   implementation evidence does not accept an ADR.
+The plan is **done**. The coordinator resolves F02/F33/FU04/FU05 from this scoped
+evidence, while F16 retains its E-owned structural and qualification obligations.
+Retain this record while the active series and prerequisite plans depend on it.
+ADR-0142 remains proposed pending its separate decision PR; architecture revision 89
+records the maintainer-authorized implementation. Implementation evidence does not
+accept an ADR.
 
 Full native/Python coupled journeys, integration/component/parity campaigns, performance
 measurements and manual static qualification remain 25k work. The wider D/E/F/H/I plans
@@ -231,8 +226,8 @@ consume retained AST occurrences; this checkpoint does not claim full parse elim
 
 ## Execution and evidence
 
-The target decisions are **Proposed** in ADR-0142; functional implementation and focused
-verification are complete; final workspace compilation and closure handoff remain. No series integration or new broad product qualification is claimed. The [series coordinator](25-design-remediation.md)
+The target decisions are **Proposed** in ADR-0142; functional implementation, focused
+verification, final workspace compilation and closure handoff are complete. No series integration or new broad product qualification is claimed. The [series coordinator](25-design-remediation.md)
 owns finding dispositions and decision dependencies. Packets compile affected owners, run focused
 behavioral checks with explicit force-validation, regenerate changed declarations, and immediately
 delete replaced code, callers, obsolete tests and fixtures. No shims or parallel production paths remain.
@@ -269,8 +264,25 @@ full recycle, thermodynamic, Python or scientific campaign.
 
 **Implemented:** `source .envrc.local; just codegen` passed after the final identity-frame
 changes: all six schema targets, generated physical operations, Python candidate validation
-and native bindings completed through their generators. **Not run:** Final `just check`
-workspace/all-target compilation remains the first restart step.
+and native bindings completed through their generators.
+
+**Interface-checked, 2026-10-01:** Root closure compilation ran locally on Linux from
+`2c253c82` and the final import correction, on the pinned toolchain in the existing
+checkout. The baseline is zero errors and warnings. These commands compile targets;
+they execute no tests and do not establish integrated qualification.
+
+| Command | Result against zero errors and warnings | Established scope |
+|---|---|---|
+| `source .envrc.local; just check` | Passed before and after the import correction; 0 errors, 0 project warnings, 1 dependency future-compatibility warning on each run | Complete workspace/all-target compilation with recipe-default features and locked dependencies |
+| `source .envrc.local; just check-solver-contracts` | Passed after the import correction; 0 errors, 0 project warnings, 1 dependency future-compatibility warning | Backend, runtime, compiler and relations all-target compilation with `pse-runtime/native-solvers,pse-relations/force-validate`; includes the Ipopt-gated consumer of the corrected import |
+
+`cargo report future-incompatibilities --id 1` identifies the remaining diagnostic as
+E0365 in `proc-macro-error2 v2.0.1`: it publicly re-exports its private `proc_macro`
+extern crate. This is an upstream dependency diagnostic, not a project compilation
+error. The zero-warning target is not met; no warning baseline or suppression was
+introduced. The dependency diagnostic remains a limit for 25k's K2 static qualification.
+The source correction only localizes a test trait import, so no behavioral control
+needed repeating and no declarations needed regeneration.
 
 The final compiler selection passed seven controls; its last reuse control could not start
 because its test executable disappeared during the run (ENOENT). The same licensed,
@@ -369,6 +381,14 @@ retain their continuing purpose.
 
 The focused verification above establishes these contracts under its stated conditions.
 It does not establish whole-product qualification or performance measurements.
+
+**Interface-checked:** Root closure passed workspace/all-target compilation and native
+solver-contract compilation using the commands and conditions in Verification. The
+p09 test trait import now belongs to its only Ipopt-gated consumer. No functional
+contract changed during closure. **Implemented:** C1–C5 are done and F02/F33/FU04/FU05
+are resolved in the coordinator with scoped evidence; F16's E-owned obligations and
+the dependency warning remain explicit. This closes 25c without claiming 25k qualification
+or accepting ADR-0142.
 
 ### A mistake made and corrected
 

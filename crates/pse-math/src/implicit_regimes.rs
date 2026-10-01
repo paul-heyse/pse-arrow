@@ -106,11 +106,20 @@ impl pse_kernels::ProviderFactory for RegimeFactory {
             spec: self.spec.clone(),
             selection,
             cancel,
+            requested_output: self
+                .alternatives
+                .iter()
+                .map(|r| r.residual.requirements.requested_output)
+                .min()
+                .ok_or_else(|| {
+                    pse_kernels::ProviderError::Contract("empty regime demand".into())
+                })?,
         }))
     }
 }
 #[derive(Debug)]
 struct SelectedProvider {
+    requested_output: DerivativeOrder,
     spec: pse_kernels::ProviderSpec,
     selection: RegimeSelection,
     cancel: Arc<AtomicBool>,
@@ -126,6 +135,11 @@ impl pse_kernels::Provider for SelectedProvider {
         context: &pse_kernels::EvaluationContext<'_>,
     ) -> Result<pse_kernels::ProviderValues, pse_kernels::ProviderError> {
         request.validate(&self.spec, context)?;
+        if request.order > self.requested_output {
+            return Err(pse_kernels::ProviderError::Contract(
+                "implicit regime output exceeds compiled demand".into(),
+            ));
+        }
         if !std::ptr::eq(context.cancelled, self.cancel.as_ref()) {
             return Err(pse_kernels::ProviderError::Contract(
                 "regime selection requires its admitted outer cancellation owner".into(),
@@ -196,6 +210,9 @@ mod tests {
         wrong: bool,
     }
     impl InnerSolver for Roots {
+        fn minimum_order(&self) -> DerivativeOrder {
+            DerivativeOrder::First
+        }
         fn identity(&self) -> pse_ids::ContentHash {
             crate::implicit::solver_identity("test.regime-roots.v1")
         }
@@ -534,7 +551,7 @@ impl RegimeSelection {
             let mut options =
                 regime
                     .configuration
-                    .resolve(&mut regime.problem, parameters, cancel)?;
+                    .resolve(&mut regime.problem, parameters, cancel, None)?;
             options.time_limit = options
                 .time_limit
                 .min(deadline.saturating_duration_since(Instant::now()));

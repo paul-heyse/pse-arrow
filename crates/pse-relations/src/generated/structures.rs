@@ -57,6 +57,30 @@ impl crate::columnar::ArrowValue for LocalValidity {
             &self.r#residual,
             children[9usize].as_mut(),
         )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#root_rank,
+            children[10usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#root_rank_cutoff,
+            children[11usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#root_rank_relative_cutoff,
+            children[12usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#root_backward_error,
+            children[13usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#root_backward_error_limit,
+            children[14usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#root_neighborhood,
+            children[15usize].as_mut(),
+        )?;
         output.append(true);
         Ok(())
     }
@@ -93,6 +117,24 @@ impl crate::columnar::ArrowValue for LocalValidity {
         <Option<
             f64,
         > as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
+        <Option<
+            i64,
+        > as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
+        <Option<
+            f64,
+        > as crate::columnar::ArrowValue>::append_null(children[11usize].as_mut())?;
+        <Option<
+            f64,
+        > as crate::columnar::ArrowValue>::append_null(children[12usize].as_mut())?;
+        <Option<
+            f64,
+        > as crate::columnar::ArrowValue>::append_null(children[13usize].as_mut())?;
+        <Option<
+            f64,
+        > as crate::columnar::ArrowValue>::append_null(children[14usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[15usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -157,6 +199,42 @@ impl crate::columnar::ArrowValue for LocalValidity {
                 f64,
             > as crate::columnar::ArrowValue>::read(
                 input.column(9usize).as_ref(),
+                index,
+            )?,
+            r#root_rank: <Option<
+                i64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(10usize).as_ref(),
+                index,
+            )?,
+            r#root_rank_cutoff: <Option<
+                f64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(11usize).as_ref(),
+                index,
+            )?,
+            r#root_rank_relative_cutoff: <Option<
+                f64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(12usize).as_ref(),
+                index,
+            )?,
+            r#root_backward_error: <Option<
+                f64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(13usize).as_ref(),
+                index,
+            )?,
+            r#root_backward_error_limit: <Option<
+                f64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(14usize).as_ref(),
+                index,
+            )?,
+            r#root_neighborhood: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(15usize).as_ref(),
                 index,
             )?,
         })

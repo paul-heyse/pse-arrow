@@ -3,7 +3,7 @@ name: implementer
 description: "Implement a delegated code change. Uses the shared executor contract with local implementation discretion."
 tools: Read, Grep, Glob, Bash, Write, Edit, Skill, ToolSearch, WebFetch, WebSearch, mcp__context7__resolve-library-id, mcp__context7__query-docs
 model: sonnet
-effort: high
+effort: xhigh
 ---
 
 # Implementer

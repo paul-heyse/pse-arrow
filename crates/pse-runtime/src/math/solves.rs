@@ -56,6 +56,33 @@ pub struct SolverProfile {
     /// solve prepares the parametric program they need.
     pub sensitivity: Option<super::settings::SensitivityRequest>,
 }
+impl SolverProfile {
+    /// Compilation demand from the chosen numerical capability. Auto roots resolve to
+    /// the root capability; other automatic callback consumers use the NLP capability
+    /// until representation admission selects a derivative-free projection.
+    pub fn derivative_order(&self) -> pse_kernels::DerivativeOrder {
+        let backend = match self.selection {
+            SolverSelection::Explicit(backend) => backend,
+            SolverSelection::Auto
+                if matches!(self.intent, SolveIntent::Root | SolveIntent::Initialize) =>
+            {
+                Backend::Kinsol
+            }
+            SolverSelection::Auto => Backend::Ipopt,
+        };
+        routing::derivative_demand(execution::adapter(backend).capability(), &self.controls)
+            .unwrap_or(pse_kernels::DerivativeOrder::Value)
+            .max(if self.sensitivity.is_some() {
+                if self.intent == SolveIntent::Root {
+                    pse_kernels::DerivativeOrder::First
+                } else {
+                    pse_kernels::DerivativeOrder::Second
+                }
+            } else {
+                pse_kernels::DerivativeOrder::Value
+            })
+    }
+}
 /// The one owner of request defaults: every boundary takes an omitted field from here
 /// rather than restating it (ADR-0113).
 impl Default for SolverProfile {
@@ -88,13 +115,29 @@ struct AlgebraicCase {
     )>,
     /// The parametric program of a sensitivity request (Plan 22 S1), attached by
     /// [`PreparedSolve::with_sensitivity`].
-    sensitivity: Option<SensitivityProgram>,
+    sensitivity: Option<ParametricPreparation<SensitivityProgram>>,
     /// A recognized convex program's cone form (ADR-0121), built only for a cone route
     /// over a program that is not a coefficient program, with its reservation.
     recognized: Option<(
         Arc<native::conic::Recognized>,
         Arc<pse_columnar::AllocationLease>,
     )>,
+}
+/// Availability of a requested parametric program, independent of its base solve.
+#[derive(Clone, Debug)]
+pub enum ParametricPreparation<T> {
+    /// A compiled program admitted for the requested derivative consumer.
+    Available(T),
+    /// A Root response cannot be prepared; its scientific base solve remains usable.
+    Unavailable(native::square_response::Withheld),
+}
+impl<T> ParametricPreparation<T> {
+    fn available(&self) -> Option<&T> {
+        match self {
+            Self::Available(value) => Some(value),
+            Self::Unavailable(_) => None,
+        }
+    }
 }
 /// The parametric program a sensitivity request differentiates, with the normalization of
 /// its columns and each parameter's value.
@@ -307,18 +350,19 @@ impl PreparedSolve {
         self.explicit_start = Some(seed);
         Ok(self)
     }
-    /// Attach the parametric program of the profile's sensitivity request (Plan 22 S1):
+    /// Attach the availability of the profile's parametric sensitivity program:
     /// the case's plan with the requested parameters appended as coordinates
     /// ([`pse_math::assembly::CasePlan::parametric`]). Its parameter columns are normalized
     /// by the step's resolved numerical policy, which must resolve each parameter's
-    /// coordinate scale.
+    /// coordinate scale. An unavailable Root response retains the base solve and later
+    /// publishes its typed withholding cause; optimization requires an available program.
     ///
     /// # Errors
-    /// No request in the profile, a conic representation, a program whose columns are not
+    /// No request in the profile, invalid parameter identities/values, a conic representation, a program whose columns are not
     /// the case's followed by the requested parameters, or an unresolved coordinate.
     pub fn with_sensitivity(
         mut self,
-        program: Arc<ExecutableCase>,
+        preparation: ParametricPreparation<Arc<ExecutableCase>>,
     ) -> Result<Self, MathRuntimeError> {
         let request = self.profile.sensitivity.clone().ok_or_else(|| {
             ProblemError::Contract("no sensitivity request to attach a program to".into())
@@ -331,6 +375,41 @@ impl PreparedSolve {
             .into());
         };
         let plan = &case.prepared.prepared.plan;
+        let declared = plan
+            .structure()
+            .parameters()
+            .iter()
+            .map(|p| p.id)
+            .collect::<std::collections::BTreeSet<_>>();
+        if request.parameters.iter().any(|id| {
+            !declared.contains(id)
+                || plan.columns().contains(id)
+                || case
+                    .values
+                    .scalars
+                    .get(id)
+                    .is_none_or(|value| !value.is_finite())
+        }) {
+            return Err(ProblemError::Contract(
+                "sensitivity parameters must be declared fixed inputs with finite values".into(),
+            )
+            .into());
+        }
+        let program = match preparation {
+            ParametricPreparation::Available(program) => program,
+            ParametricPreparation::Unavailable(cause)
+                if self.profile.intent == SolveIntent::Root =>
+            {
+                case.sensitivity = Some(ParametricPreparation::Unavailable(cause));
+                return Ok(self);
+            }
+            ParametricPreparation::Unavailable(_) => {
+                return Err(ProblemError::Contract(
+                    "only a Root response may be withheld during parametric preparation".into(),
+                )
+                .into());
+            }
+        };
         let columns = program.assembly.columns();
         if columns.len() != plan.columns().len() + request.parameters.len()
             || columns[..plan.columns().len()] != *plan.columns()
@@ -343,7 +422,16 @@ impl PreparedSolve {
             .into());
         }
         let rows: Vec<_> = plan.structure().rows().iter().map(|r| r.id).collect();
-        let normalization = Normalization::from_policy(&self.numerics, columns, &rows)?;
+        let normalization = match Normalization::from_policy(&self.numerics, columns, &rows) {
+            Ok(normalization) => normalization,
+            Err(cause) if self.profile.intent == SolveIntent::Root => {
+                case.sensitivity = Some(ParametricPreparation::Unavailable(
+                    native::square_response::Withheld::Numerical(cause.to_string()),
+                ));
+                return Ok(self);
+            }
+            Err(cause) => return Err(cause.into()),
+        };
         let parameters = request
             .parameters
             .iter()
@@ -355,13 +443,13 @@ impl PreparedSolve {
                     .ok_or_else(|| ProblemError::Contract(format!("no value for parameter {id}")))
             })
             .collect::<Result<_, _>>()?;
-        case.sensitivity = Some(SensitivityProgram {
+        case.sensitivity = Some(ParametricPreparation::Available(SensitivityProgram {
             program,
             normalization,
             parameters,
             reduced_hessian: request.reduced_hessian,
             retain: false,
-        });
+        }));
         Ok(self)
     }
     /// Keep the attached sensitivity request's pinned factor after the step, for an
@@ -374,7 +462,7 @@ impl PreparedSolve {
     pub fn retaining_factor(mut self) -> Result<Self, MathRuntimeError> {
         match &mut self.representation {
             Representation::Algebraic(AlgebraicCase {
-                sensitivity: Some(program),
+                sensitivity: Some(ParametricPreparation::Available(program)),
                 ..
             }) => {
                 program.retain = true;
@@ -918,7 +1006,7 @@ impl MathService {
             Some(execution::Representation::Roots) => {
                 native::structural::admit(prepared.structure(), native::structural::Mode::Roots)?
             }
-            Some(execution::Representation::Nlp) => {
+            Some(execution::Representation::Nlp | execution::Representation::Factorable) => {
                 native::structural::admit(prepared.structure(), native::structural::Mode::Nlp)?
             }
             _ => {}
@@ -1991,6 +2079,7 @@ impl MathService {
             budget,
         };
         let normalization = run.normalization.clone();
+        let tolerance = run.tolerances.clone();
         let cancel = run.execution.cancel.clone();
         // Executable owners and their budget charges outlive every re-solve oracle.
         let mut owners = Vec::new();
@@ -2010,11 +2099,20 @@ impl MathService {
             })()
             .map_err(MathRuntimeError::into_problem)
         };
+        // Root response uses the original postsolve system, never optimizing KKT
+        // callbacks from the optional continuous re-solve.
+        let optimizing_sensitivity = if profile.intent == SolveIntent::Root {
+            None
+        } else {
+            sensitivity
+                .as_ref()
+                .and_then(ParametricPreparation::available)
+        };
         // The re-solve's parametric callbacks under the same assignment (Plan 22 S1).
         let mut parametric_owners = Vec::new();
         let mut parametric = || {
             (|| -> Result<native::transform::Relaxed, MathRuntimeError> {
-                let request = sensitivity.as_ref().ok_or_else(|| {
+                let request = optimizing_sensitivity.ok_or_else(|| {
                     ProblemError::Internal("no sensitivity program to differentiate".into())
                 })?;
                 let ExecutionWorker {
@@ -2031,7 +2129,7 @@ impl MathService {
             })()
             .map_err(MathRuntimeError::into_problem)
         };
-        let report = execution::factorable(
+        let mut report = execution::factorable(
             run,
             retained,
             execution::Factorable {
@@ -2043,7 +2141,7 @@ impl MathService {
                     oracle: &mut relaxed,
                     presolve: &profile.presolve,
                     limit: self.policy.worker_bytes / 256,
-                    sensitivity: sensitivity.as_ref().map(|request| {
+                    sensitivity: optimizing_sensitivity.map(|request| {
                         execution::ResolveSensitivity {
                             oracle: &mut parametric,
                             parameters: request.parameters.clone(),
@@ -2055,6 +2153,19 @@ impl MathService {
         )?;
         drop(owners);
         drop(parametric_owners);
+        if profile.intent == SolveIntent::Root {
+            self.root_response(
+                &mut report,
+                &prepared,
+                sensitivity.as_ref(),
+                &values,
+                &providers,
+                &cancel,
+                &normalization,
+                &tolerance,
+                budget,
+            );
+        }
         Ok(report)
     }
     /// Callback oracle over the compiled case for an NLP or root-system adapter.
@@ -2078,11 +2189,15 @@ impl MathService {
         // The parametric callbacks of a sensitivity request (Plan 22 S1), with their
         // evaluator's owner and charge; callbacks that cannot be built withhold the
         // sensitivities and never refuse the solve.
-        let parametric = sensitivity.as_ref().map(|program| {
+        let available = sensitivity
+            .as_ref()
+            .and_then(ParametricPreparation::available);
+        let parametric_cancel = run.execution.cancel.clone();
+        let build_parametric = |program: &SensitivityProgram| {
             self.worker(
                 program.program.clone(),
                 &providers,
-                run.execution.cancel.clone(),
+                parametric_cancel.clone(),
                 budget,
             )
             .map_err(MathRuntimeError::into_problem)
@@ -2093,60 +2208,87 @@ impl MathService {
                      _charge,
                  }| { Ok((program.request(worker, &values)?, (_case, _charge))) },
             )
-        });
+        };
+        // Optional Root analysis must not consume the base solver's resource allowance.
+        // Construct its worker only after the original root is solved and qualified.
+        let parametric = if profile.intent == SolveIntent::Root {
+            None
+        } else {
+            available.map(&build_parametric)
+        };
         let ExecutionWorker {
             worker,
             _case,
             _charge,
-        } = self.case_worker(case, providers, &run.execution.cancel, budget)?;
+        } = self.case_worker(case, providers.clone(), &run.execution.cancel, budget)?;
         let plan = &prepared.prepared.plan;
         let initial: Vec<_> = plan.columns().iter().map(|id| values.scalars[id]).collect();
-        let mut oracle = native::assembled::AlgebraicOracle::new(worker, values)?
+        let mut oracle = native::assembled::AlgebraicOracle::new(worker, values.clone())?
             .with_structural_analysis(prepared.prepared.structure.clone())
             .with_presolve_facts(prepared.prepared.presolve.clone())?
             .with_normalization(run.normalization.clone())?;
         if let Some(c) = &prepared.prepared.coefficients {
             oracle = oracle.with_coefficient_facts(c)?;
         }
-        if kind == execution::Representation::Roots {
+        let sense = plan
+            .structure()
+            .objective()
+            .map_or(ObjectiveSense::Minimize, |o| o.sense);
+        let (request, unbuilt, parametric_owner) = match (parametric, available) {
+            (Some(Ok((request, owner))), _) => (Some(request), None, Some(owner)),
+            (Some(Err(cause)), Some(program)) => (None, Some(program.withheld(cause)), None),
+            _ => (None, None, None),
+        };
+        let normalization = run.normalization.clone();
+        let tolerance = run.tolerances.clone();
+        // A retained root session keeps the original evaluator's allocation owner.
+        let mut base_owner = Some((_case, _charge));
+        let mut report = if kind == execution::Representation::Roots {
             oracle.admit_nle()?;
-            // A retained root session keeps the evaluators' owner, and the evaluator's
-            // share of the job reservation, alive with it.
-            return Ok(execution::roots(
+            execution::roots(
                 run,
                 retained,
                 execution::Roots {
                     oracle: Box::new(oracle),
                     initial: &initial,
-                    owner: Some(Box::new((_case, _charge))),
+                    owner: base_owner
+                        .take()
+                        .map(|owner| -> Box<dyn std::any::Any> { Box::new(owner) }),
                 },
-            )?);
-        }
-        let sense = plan
-            .structure()
-            .objective()
-            .map_or(ObjectiveSense::Minimize, |o| o.sense);
-        let (request, unbuilt, parametric_owner) = match (parametric, &sensitivity) {
-            (Some(Ok((request, owner))), _) => (Some(request), None, Some(owner)),
-            (Some(Err(cause)), Some(program)) => (None, Some(program.withheld(cause)), None),
-            _ => (None, None, None),
+            )?
+        } else {
+            execution::nlp(
+                run,
+                retained,
+                execution::Nlp {
+                    oracle: Box::new(oracle),
+                    initial: &initial,
+                    presolve: &profile.presolve,
+                    intent: profile.intent,
+                    sense,
+                    limit: self.policy.worker_bytes / 256,
+                    analysis: execution::Analysis {
+                        sensitivity: request,
+                        ..execution::Analysis::for_intent(profile.intent)
+                    },
+                },
+            )?
         };
-        let mut report = execution::nlp(
-            run,
-            retained,
-            execution::Nlp {
-                oracle: Box::new(oracle),
-                initial: &initial,
-                presolve: &profile.presolve,
-                intent: profile.intent,
-                sense,
-                limit: self.policy.worker_bytes / 256,
-                analysis: execution::Analysis {
-                    sensitivity: request,
-                    ..execution::Analysis::for_intent(profile.intent)
-                },
-            },
-        )?;
+        // Response meaning follows Root intent, independently of the chosen base solver.
+        // NLP Root routes submit no optimizing KKT sensitivity request.
+        if profile.intent == SolveIntent::Root {
+            self.root_response(
+                &mut report,
+                &prepared,
+                sensitivity.as_ref(),
+                &values,
+                &providers,
+                &parametric_cancel,
+                &normalization,
+                &tolerance,
+                budget,
+            );
+        }
         if unbuilt.is_some() {
             report.evidence.sensitivity = unbuilt;
         }
@@ -2164,10 +2306,145 @@ impl MathService {
             }
         }
         // The case owner and enclosing job reservation outlive every native callback.
-        drop(_case);
-        drop(_charge);
+        drop(base_owner);
         drop(parametric_owner);
         Ok(report)
+    }
+    /// The common optional Root analysis after the selected adapter's original result
+    /// has been qualified; no parameter worker or response storage precedes the base solve.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the shared postsolve analysis consumes the original prepared case, values, providers and resolved execution budgets"
+    )]
+    fn root_response(
+        &self,
+        report: &mut SolveReport,
+        prepared: &Preparation,
+        sensitivity: Option<&ParametricPreparation<SensitivityProgram>>,
+        values: &CaseValues,
+        providers: &BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
+        cancel: &Arc<std::sync::atomic::AtomicBool>,
+        normalization: &Normalization,
+        tolerances: &Tolerances,
+        budget: &Arc<WorkerBudget>,
+    ) {
+        use native::square_response::{self, SquareScope, Withheld};
+        let plan = &prepared.prepared.plan;
+        if let Some(preparation) = sensitivity {
+            let result = (|| {
+                let candidate = report.candidate.as_ref().ok_or(Withheld::NoCandidate)?;
+                if report.quality.as_ref().is_none_or(|q| !q.feasible()) {
+                    return Err(Withheld::Infeasible(
+                        "base root is not independently qualified".into(),
+                    ));
+                }
+                let program = match preparation {
+                    ParametricPreparation::Available(program) => program,
+                    ParametricPreparation::Unavailable(cause) => return Err(cause.clone()),
+                };
+                let (mut request, _owner) = self
+                    .worker(program.program.clone(), providers, cancel.clone(), budget)
+                    .map_err(MathRuntimeError::into_problem)
+                    .and_then(
+                        |ExecutionWorker {
+                             worker,
+                             _case,
+                             _charge,
+                         }| {
+                            Ok((program.request(worker, values)?, (_case, _charge)))
+                        },
+                    )
+                    .map_err(|cause| match cause {
+                        ProblemError::Limit { .. } => Withheld::Memory,
+                        ProblemError::Math(
+                            pse_math::MathError::Limit(_)
+                            | pse_math::MathError::SlotLimit { .. }
+                            | pse_math::MathError::WorkLimit { .. },
+                        ) => Withheld::Memory,
+                        _ => Withheld::Neighborhood(cause.to_string()),
+                    })?;
+                let n = candidate.primal.len();
+                let np = program.parameters.len();
+                let bytes = square_response::workspace_bytes(n, np)
+                    .and_then(|b| {
+                        b.checked_add(
+                            request
+                                .oracle
+                                .jacobian_pattern()
+                                .row_idx()
+                                .len()
+                                .checked_mul(size_of::<f64>())?,
+                        )
+                    })
+                    .and_then(|b| b.checked_add(n.checked_add(np)?.checked_mul(size_of::<f64>())?))
+                    .and_then(|b| b.checked_add(np.checked_mul(size_of::<pse_ids::SemanticId>())?))
+                    .and_then(|b| b.checked_add(n.checked_mul(128)?.checked_add(256)?))
+                    .ok_or(Withheld::Memory)?;
+                let charge = budget.charge(bytes).map_err(|_| Withheld::Memory)?;
+                let contract = native::assembled::contract(plan);
+                let bounds = plan
+                    .structure()
+                    .rows()
+                    .iter()
+                    .map(|r| (r.lower, r.upper))
+                    .collect::<Vec<_>>();
+                request
+                    .admit(&contract)
+                    .map_err(|cause| Withheld::Numerical(cause.to_string()))?;
+                let scope = SquareScope::admit(
+                    &contract,
+                    plan.jacobian_pattern(),
+                    &bounds,
+                    Some(&prepared.prepared.structure),
+                )?;
+                let parameters = program
+                    .parameters
+                    .iter()
+                    .map(|(id, _)| *id)
+                    .collect::<Vec<_>>();
+                let scales = &program.normalization.variables[n..];
+                let values = report
+                    .observation
+                    .as_ref()
+                    .ok_or_else(|| Withheld::Infeasible("no fresh original observation".into()))?;
+                let mut point = candidate.primal.clone();
+                point.extend(program.parameters.iter().map(|(_, v)| *v));
+                let response = square_response::response(
+                    square_response::Request {
+                        scope: &scope,
+                        point: &candidate.primal,
+                        residual_values: &values.values,
+                        tolerances,
+                        normalization,
+                        parameters: &parameters,
+                        parameter_scales: scales,
+                        rank_tolerance: square_response::DEFAULT_RELATIVE_RANK_CUTOFF,
+                        bytes,
+                    },
+                    || {
+                        let entries = request.oracle.jacobian_pattern().row_idx().len();
+                        let mut jac = vec![0.; entries];
+                        request.oracle.jacobian(&point, &mut jac)?;
+                        let pattern = request.oracle.jacobian_pattern();
+                        let mut fx = faer::Mat::zeros(n, n);
+                        let mut fp = faer::Mat::zeros(n, np);
+                        for c in 0..n + np {
+                            for k in pattern.col_range(c) {
+                                let r = pattern.row_idx()[k];
+                                if c < n {
+                                    fx[(r, c)] = jac[k];
+                                } else {
+                                    fp[(r, c - n)] = jac[k];
+                                }
+                            }
+                        }
+                        Ok((fx, fp))
+                    },
+                )?;
+                Ok(response.with_owner(Arc::new(charge)))
+            })();
+            report.evidence.root_response = Some(result);
+        }
     }
     /// Worker-scoped providers and one attempt-local evaluator on this thread.
     fn case_worker(

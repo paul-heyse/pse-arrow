@@ -123,6 +123,14 @@ Version: 23. Snapshot class: `model`. Primary key: `declaration_id`.
 | `value.scope.selection` | `Struct` | true | `payload` | — | — |
 | `value.scope.selection.criterion` | `Utf8` | false | `payload` | — | — |
 | `value.scope.selection.tolerance` | `Utf8` | false | `payload` | — | — |
+| `value.scope.branch` | `Utf8` | true | `payload` | — | — |
+| `value.scope.operational` | `Struct` | true | `payload` | — | — |
+| `value.scope.operational.anchors` | `List` | false | `payload` | — | — |
+| `value.scope.operational.anchors.item` | `Struct` | false | `payload` | — | — |
+| `value.scope.operational.anchors.item.target` | `Utf8` | false | `payload` | — | — |
+| `value.scope.operational.anchors.item.expression` | `Utf8` | false | `payload` | — | — |
+| `value.scope.operational.settings` | `Utf8` | false | `payload` | — | — |
+| `value.scope.operational.neighborhood` | `Utf8` | true | `payload` | — | — |
 | `value.scope.eligibility` | `Utf8` | true | `payload` | — | — |
 | `value.scope.oracle` | `List` | true | `payload` | — | — |
 | `value.scope.oracle.item` | `Utf8` | false | `payload` | — | — |

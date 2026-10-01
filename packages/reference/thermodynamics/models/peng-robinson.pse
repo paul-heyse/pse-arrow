@@ -47,7 +47,7 @@
 @id("01a0e17a4587742dba37029b59248c6a") param density_lower:Scalar;
 @id("01a0e17a4587742dba37029c88c8eb09") param density_upper:Scalar;
 @id("01a0e17a4587742dba37029d8d49cec3") param density_start:Scalar;
-@id("01a0e17a4587742dba37029e28827903") implicit density {
+@id("01a0e17a4587742dba37029e28827903") implicit density select operational(coordinate=density_start*constants.density_unit) settings("native.kinsol.v1") {
 @id("01a0e17a4587742dba37029fb3c7f009") var coordinate:Density;
 @id("01a0e17a4587742dba3702a03f57d8c1") eq residual:density_residual(T,target_pressure,coordinate,amount,components,parameter_package,family)==0{Pa};
 @id("01a0e17a4587742dba3702a11464f97e") annotation start coordinate(density_start*constants.density_unit);

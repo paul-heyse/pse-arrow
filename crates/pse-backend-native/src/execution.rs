@@ -109,9 +109,9 @@ pub struct Capability {
     /// The adapter solves the independent points of a study that share one prepared
     /// structure as one parallel batch on the admitted threads (Plan 22 N5).
     pub batch: bool,
-    /// The adapter's candidate carries the original-coordinate multipliers the KKT-point
-    /// analysis differentiates: automatic routing of a parametric sensitivity request
-    /// prefers such an adapter (ADR-0118).
+    /// Supports contextual parameter analysis: original multipliers for optimizing KKT
+    /// sensitivity, or a qualified regular-square Root response. Automatic routing of a
+    /// sensitivity request prefers such an adapter (ADR-0118/ADR-0144).
     pub sensitivities: bool,
     /// Native allocation/data reuse boundary.
     pub reuse: &'static str,

@@ -169,6 +169,8 @@ frames! {
         MathEnvironmentV1 => "pse.math.environment.v1",
         /// A factorable decomposition.
         MathFactorableV1 => "pse.math.factorable.v1",
+        /// Exact arbitrary-precision constants and admitted implicit graph fidelity.
+        MathFactorableV2 => "pse.math.factorable.v2",
         /// A normalization, separate from native algorithmic scaling.
         MathNormalizationV1 => "pse.math.normalization.v1",
         /// Value and guard assumptions projected through a normalization.
@@ -185,6 +187,8 @@ frames! {
         NumericalResolvedV1 => "pse.numerical.resolved.v1",
         /// An implicit block's configuration.
         ImplicitConfigurationV1 => "pse.implicit.configuration.v1",
+        /// Implicit selection and resolved derivative requirements.
+        ImplicitConfigurationV2 => "pse.implicit.configuration.v2",
         /// An implicit block's fixed configuration.
         ImplicitFixedConfigurationV1 => "pse.implicit.fixed-configuration.v1",
         /// An implicit block's regime configuration.
@@ -244,6 +248,10 @@ frames! {
         /// validity and data-layer guards with their envelopes, policies and lineages included
         /// (ADR-0123 Outcomes 4 and 8, Plan 23 H5).
         ModelingImplicitResidualV4 => "pse.modeling.implicit-residual.v4",
+        /// Selected mathematical operation, excluding incidental numerical starts.
+        ModelingImplicitOperationV1 => "pse.modeling.implicit-operation.v1",
+        /// Admitted relation/function selector, anchor and derivative capabilities.
+        ModelingImplicitResidualV5 => "pse.modeling.implicit-residual.v5",
     }
 
     "modeling specialization" ("pse-modeling") {

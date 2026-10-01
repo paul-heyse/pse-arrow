@@ -106,6 +106,70 @@ pub enum DerivativeOrder {
     /// Values, first and second partials.
     Second,
 }
+#[cfg(test)]
+mod requirement_tests;
+/// Independent facts and demand for one selected implicit operation.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct DerivativeRequirements {
+    /// Available residual partials.
+    pub residual_available: DerivativeOrder,
+    /// Established output smoothness before selector restrictions.
+    pub output_smoothness: DerivativeOrder,
+    /// Established order on the selector's admitted neighborhood.
+    pub selector_neighborhood: DerivativeOrder,
+    /// Minimum residual order needed by the selected inner algorithm.
+    pub inner_minimum: DerivativeOrder,
+    /// Output partials requested by the outer consumer.
+    pub requested_output: DerivativeOrder,
+    /// Residual order compiled for this attempt.
+    pub residual_compilation: DerivativeOrder,
+}
+impl DerivativeRequirements {
+    /// Combine capabilities without promoting deterministic selection to smoothness.
+    pub fn new(
+        residual_available: DerivativeOrder,
+        output_smoothness: DerivativeOrder,
+        selector_neighborhood: DerivativeOrder,
+        inner_minimum: DerivativeOrder,
+        requested_output: DerivativeOrder,
+    ) -> Result<Self, ProviderError> {
+        if requested_output > residual_available {
+            return Err(ProviderError::Contract(
+                "implicit residual derivative order unavailable".into(),
+            ));
+        }
+        if requested_output > selector_neighborhood {
+            return Err(ProviderError::Contract(
+                "implicit selector neighborhood does not support requested derivatives".into(),
+            ));
+        }
+        if requested_output > output_smoothness {
+            return Err(ProviderError::Contract(
+                "implicit output smoothness does not support requested derivatives".into(),
+            ));
+        }
+        let residual_compilation = inner_minimum.max(requested_output);
+        if residual_compilation > residual_available {
+            return Err(ProviderError::Contract(
+                "implicit residual derivative order unavailable".into(),
+            ));
+        }
+        Ok(Self {
+            residual_available,
+            output_smoothness,
+            selector_neighborhood,
+            inner_minimum,
+            requested_output,
+            residual_compilation,
+        })
+    }
+    /// Available output order shared by provider descriptors and outer admission.
+    pub fn output_available(&self) -> DerivativeOrder {
+        self.residual_available
+            .min(self.output_smoothness)
+            .min(self.selector_neighborhood)
+    }
+}
 /// Complete scalar physical port.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Port {
@@ -139,6 +203,36 @@ pub struct ProviderSpec {
     pub smoothness: DerivativeOrder,
 }
 impl ProviderSpec {
+    /// Check a demand-specific executable capability against its admitted mathematical meaning.
+    /// Capability may narrow; all physical, data and implementation fields stay exact.
+    /// # Errors
+    /// Returns a contract error for changed meaning, widened capability or unavailable demand.
+    pub fn check_bound(
+        &self,
+        admitted: &Self,
+        order: DerivativeOrder,
+    ) -> Result<(), ProviderError> {
+        if self.shapes != admitted.shapes
+            || self.derivative_source != admitted.derivative_source
+            || self.id != admitted.id
+            || self.revision != admitted.revision
+            || self.data != admitted.data
+            || self.inputs != admitted.inputs
+            || self.outputs != admitted.outputs
+            || self.derivatives > admitted.derivatives
+            || self.smoothness > admitted.smoothness
+        {
+            return Err(ProviderError::Contract(
+                "provider worker changed its contract".into(),
+            ));
+        }
+        if order > self.derivatives || order > self.smoothness {
+            return Err(ProviderError::Contract(
+                "provider request exceeds bound derivative capability".into(),
+            ));
+        }
+        Ok(())
+    }
     /// Validate actual physical references and unique port identities.
     /// # Errors
     /// Missing references, duplicates or incompatible scalar ports.
@@ -479,6 +573,20 @@ impl AdmittedProvider {
     /// Complete descriptor, including implementation, phase and data identity.
     pub fn spec(&self) -> &ProviderSpec {
         &self.0
+    }
+    /// Derive the executable descriptor for a resolved output demand without changing meaning.
+    /// # Errors
+    /// Returns a contract error if the admitted capability cannot satisfy the demand.
+    pub fn restrict_order(&self, order: DerivativeOrder) -> Result<Self, ProviderError> {
+        if order > self.0.derivatives || order > self.0.smoothness {
+            return Err(ProviderError::Contract(
+                "provider request exceeds admitted derivative capability".into(),
+            ));
+        }
+        let mut spec = self.0.clone();
+        spec.derivatives = order;
+        spec.smoothness = order;
+        Ok(Self(spec))
     }
 }
 impl Registration {

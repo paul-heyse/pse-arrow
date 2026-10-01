@@ -137,6 +137,23 @@ class AuthoredModelingDeclarationsFieldValueScopeSelection:
 
 
 @attrs.frozen(kw_only=True)
+class AuthoredModelingDeclarationsFieldValueScopeOperationalAnchorsItem:
+    """Declared relation row or nested value."""
+
+    target: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    expression: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredModelingDeclarationsFieldValueScopeOperational:
+    """Declared relation row or nested value."""
+
+    anchors: b.tuple[AuthoredModelingDeclarationsFieldValueScopeOperationalAnchorsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueScopeOperationalAnchorsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    settings: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    neighborhood: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+
+
+@attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueScopeFixturePolicyNativeOptionsItem:
     """Declared relation row or nested value."""
 
@@ -325,6 +342,8 @@ class AuthoredModelingDeclarationsFieldValueScope:
     bases: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
     type_parameters: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
     selection: AuthoredModelingDeclarationsFieldValueScopeSelection | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueScopeSelection)))
+    branch: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    operational: AuthoredModelingDeclarationsFieldValueScopeOperational | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueScopeOperational)))
     eligibility: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     oracle: b.tuple[b.str, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple))))
     facets: b.tuple[e.ModelingKindFacet, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(e.ModelingKindFacet), iterable_validator=attrs.validators.instance_of(b.tuple)))

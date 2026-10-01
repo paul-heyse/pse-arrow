@@ -30,6 +30,18 @@ pub struct LocalValidity {
     pub r#condition_1norm: Option<f64>,
     ///residual
     pub r#residual: Option<f64>,
+    ///root_rank
+    pub r#root_rank: Option<i64>,
+    ///root_rank_cutoff
+    pub r#root_rank_cutoff: Option<f64>,
+    ///root_rank_relative_cutoff
+    pub r#root_rank_relative_cutoff: Option<f64>,
+    ///root_backward_error
+    pub r#root_backward_error: Option<f64>,
+    ///root_backward_error_limit
+    pub r#root_backward_error_limit: Option<f64>,
+    ///root_neighborhood
+    pub r#root_neighborhood: Option<String>,
 }
 impl crate::SemanticEq for LocalValidity {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -54,6 +66,27 @@ impl crate::SemanticEq for LocalValidity {
                 &self.r#condition_1norm,
                 &other.r#condition_1norm,
             ) && crate::SemanticEq::semantic_eq(&self.r#residual, &other.r#residual)
+            && crate::SemanticEq::semantic_eq(&self.r#root_rank, &other.r#root_rank)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#root_rank_cutoff,
+                &other.r#root_rank_cutoff,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#root_rank_relative_cutoff,
+                &other.r#root_rank_relative_cutoff,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#root_backward_error,
+                &other.r#root_backward_error,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#root_backward_error_limit,
+                &other.r#root_backward_error_limit,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#root_neighborhood,
+                &other.r#root_neighborhood,
+            )
     }
 }
 impl PartialEq for LocalValidity {
@@ -1348,6 +1381,18 @@ impl crate::SemanticFrame for LocalValidity {
         crate::SemanticFrame::frame(&self.r#condition_1norm, hash);
         hash.str(stringify!(r#residual));
         crate::SemanticFrame::frame(&self.r#residual, hash);
+        hash.str(stringify!(r#root_rank));
+        crate::SemanticFrame::frame(&self.r#root_rank, hash);
+        hash.str(stringify!(r#root_rank_cutoff));
+        crate::SemanticFrame::frame(&self.r#root_rank_cutoff, hash);
+        hash.str(stringify!(r#root_rank_relative_cutoff));
+        crate::SemanticFrame::frame(&self.r#root_rank_relative_cutoff, hash);
+        hash.str(stringify!(r#root_backward_error));
+        crate::SemanticFrame::frame(&self.r#root_backward_error, hash);
+        hash.str(stringify!(r#root_backward_error_limit));
+        crate::SemanticFrame::frame(&self.r#root_backward_error_limit, hash);
+        hash.str(stringify!(r#root_neighborhood));
+        crate::SemanticFrame::frame(&self.r#root_neighborhood, hash);
     }
 }
 impl crate::HeapUsage for LocalValidity {
@@ -1363,6 +1408,16 @@ impl crate::HeapUsage for LocalValidity {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#weakly_active))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#condition_1norm))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#residual))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#root_rank))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#root_rank_cutoff))
+            .saturating_add(
+                crate::HeapUsage::heap_bytes(&self.r#root_rank_relative_cutoff),
+            )
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#root_backward_error))
+            .saturating_add(
+                crate::HeapUsage::heap_bytes(&self.r#root_backward_error_limit),
+            )
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#root_neighborhood))
     }
 }
 impl crate::SemanticFrame for MemberDescriptorSelectionRevision {

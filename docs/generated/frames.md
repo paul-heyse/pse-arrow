@@ -62,6 +62,7 @@ Derived in: pse-math.
 | `MathConvexityFactV1` | `pse.math.convexity-fact.v1` | The convexity fact of a prepared problem (ADR-0121). |
 | `MathEnvironmentV1` | `pse.math.environment.v1` | The mathematics environment projection. |
 | `MathFactorableV1` | `pse.math.factorable.v1` | A factorable decomposition. |
+| `MathFactorableV2` | `pse.math.factorable.v2` | Exact arbitrary-precision constants and admitted implicit graph fidelity. |
 | `MathNormalizationV1` | `pse.math.normalization.v1` | A normalization, separate from native algorithmic scaling. |
 | `MathNormalizedFactsV1` | `pse.math.normalized-facts.v1` | Value and guard assumptions projected through a normalization. |
 | `SparsePatternV1` | `pse.sparse.pattern.v1` | A canonical sparse pattern, excluding values. |
@@ -70,6 +71,7 @@ Derived in: pse-math.
 | `NumericalDifferenceProjectionV1` | `pse.numerical.difference-projection.v1` | Resolved magnitudes projected to an admitted subtraction result. |
 | `NumericalResolvedV1` | `pse.numerical.resolved.v1` | Resolved numerical targets. |
 | `ImplicitConfigurationV1` | `pse.implicit.configuration.v1` | An implicit block's configuration. |
+| `ImplicitConfigurationV2` | `pse.implicit.configuration.v2` | Implicit selection and resolved derivative requirements. |
 | `ImplicitFixedConfigurationV1` | `pse.implicit.fixed-configuration.v1` | An implicit block's fixed configuration. |
 | `ImplicitRegimeConfigurationV1` | `pse.implicit.regime-configuration.v1` | An implicit block's regime configuration. |
 | `InnerSolverV1` | `pse.inner-solver.v1` | An inner solver implementation's versioned capability name. |
@@ -100,6 +102,8 @@ Derived in: pse-compiler.
 | `CompilerModelingParametricV1` | `pse.compiler.modeling-parametric.v1` | The parametric projection of a prepared modeling view over requested parameters. |
 | `ModelingConsumerBodyV2` | `pse.modeling.consumer-body.v2` | A grouped consumer body, its expressions and validity ranges in canonical spelling (ADR-0123 Outcome 8). |
 | `ModelingImplicitResidualV4` | `pse.modeling.implicit-residual.v4` | An implicit residual, its terms, hints and guards in canonical spelling, function validity and data-layer guards with their envelopes, policies and lineages included (ADR-0123 Outcomes 4 and 8, Plan 23 H5). |
+| `ModelingImplicitOperationV1` | `pse.modeling.implicit-operation.v1` | Selected mathematical operation, excluding incidental numerical starts. |
+| `ModelingImplicitResidualV5` | `pse.modeling.implicit-residual.v5` | Admitted relation/function selector, anchor and derivative capabilities. |
 
 ## Modeling specialization
 

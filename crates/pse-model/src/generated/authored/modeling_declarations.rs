@@ -141,6 +141,63 @@ impl PartialEq for AuthoredModelingDeclarationsFieldValueScopeSelection {
     clippy::struct_field_names,
     reason = "field names are the authoritative relation contract"
 )]
+pub struct AuthoredModelingDeclarationsFieldValueScopeOperationalAnchorsItem {
+    ///target
+    pub r#target: String,
+    ///expression
+    pub r#expression: String,
+}
+impl crate::SemanticEq
+for AuthoredModelingDeclarationsFieldValueScopeOperationalAnchorsItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#target, &other.r#target)
+            && crate::SemanticEq::semantic_eq(&self.r#expression, &other.r#expression)
+    }
+}
+impl PartialEq for AuthoredModelingDeclarationsFieldValueScopeOperationalAnchorsItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct AuthoredModelingDeclarationsFieldValueScopeOperational {
+    ///anchors
+    pub r#anchors: Vec<
+        AuthoredModelingDeclarationsFieldValueScopeOperationalAnchorsItem,
+    >,
+    ///settings
+    pub r#settings: String,
+    ///neighborhood
+    pub r#neighborhood: Option<String>,
+}
+impl crate::SemanticEq for AuthoredModelingDeclarationsFieldValueScopeOperational {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#anchors, &other.r#anchors)
+            && crate::SemanticEq::semantic_eq(&self.r#settings, &other.r#settings)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#neighborhood,
+                &other.r#neighborhood,
+            )
+    }
+}
+impl PartialEq for AuthoredModelingDeclarationsFieldValueScopeOperational {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
 pub struct AuthoredModelingDeclarationsFieldValueScopeFixturePolicyNativeOptionsItem {
     ///name
     pub r#name: String,
@@ -794,6 +851,10 @@ pub struct AuthoredModelingDeclarationsFieldValueScope {
     pub r#type_parameters: Vec<String>,
     ///selection
     pub r#selection: Option<AuthoredModelingDeclarationsFieldValueScopeSelection>,
+    ///branch
+    pub r#branch: Option<String>,
+    ///operational
+    pub r#operational: Option<AuthoredModelingDeclarationsFieldValueScopeOperational>,
     ///eligibility
     pub r#eligibility: Option<String>,
     ///oracle
@@ -811,6 +872,8 @@ impl crate::SemanticEq for AuthoredModelingDeclarationsFieldValueScope {
                 &self.r#type_parameters,
                 &other.r#type_parameters,
             ) && crate::SemanticEq::semantic_eq(&self.r#selection, &other.r#selection)
+            && crate::SemanticEq::semantic_eq(&self.r#branch, &other.r#branch)
+            && crate::SemanticEq::semantic_eq(&self.r#operational, &other.r#operational)
             && crate::SemanticEq::semantic_eq(&self.r#eligibility, &other.r#eligibility)
             && crate::SemanticEq::semantic_eq(&self.r#oracle, &other.r#oracle)
             && crate::SemanticEq::semantic_eq(&self.r#facets, &other.r#facets)
@@ -10347,6 +10410,41 @@ impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueScopeSelection {
     }
 }
 impl crate::SemanticFrame
+for AuthoredModelingDeclarationsFieldValueScopeOperationalAnchorsItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#target));
+        crate::SemanticFrame::frame(&self.r#target, hash);
+        hash.str(stringify!(r#expression));
+        crate::SemanticFrame::frame(&self.r#expression, hash);
+    }
+}
+impl crate::HeapUsage
+for AuthoredModelingDeclarationsFieldValueScopeOperationalAnchorsItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#target))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#expression))
+    }
+}
+impl crate::SemanticFrame for AuthoredModelingDeclarationsFieldValueScopeOperational {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#anchors));
+        crate::SemanticFrame::frame(&self.r#anchors, hash);
+        hash.str(stringify!(r#settings));
+        crate::SemanticFrame::frame(&self.r#settings, hash);
+        hash.str(stringify!(r#neighborhood));
+        crate::SemanticFrame::frame(&self.r#neighborhood, hash);
+    }
+}
+impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueScopeOperational {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#anchors))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#settings))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#neighborhood))
+    }
+}
+impl crate::SemanticFrame
 for AuthoredModelingDeclarationsFieldValueScopeFixturePolicyNativeOptionsItem {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(stringify!(r#name));
@@ -10777,6 +10875,10 @@ impl crate::SemanticFrame for AuthoredModelingDeclarationsFieldValueScope {
         crate::SemanticFrame::frame(&self.r#type_parameters, hash);
         hash.str(stringify!(r#selection));
         crate::SemanticFrame::frame(&self.r#selection, hash);
+        hash.str(stringify!(r#branch));
+        crate::SemanticFrame::frame(&self.r#branch, hash);
+        hash.str(stringify!(r#operational));
+        crate::SemanticFrame::frame(&self.r#operational, hash);
         hash.str(stringify!(r#eligibility));
         crate::SemanticFrame::frame(&self.r#eligibility, hash);
         hash.str(stringify!(r#oracle));
@@ -10794,6 +10896,8 @@ impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueScope {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#bases))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#type_parameters))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#selection))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#branch))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#operational))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#eligibility))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#oracle))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#facets))

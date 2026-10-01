@@ -54,6 +54,8 @@ pub enum Refusal {
     /// The objective has no projection, or depends on an unbounded opaque auxiliary, so no
     /// bound exists (ADR-0105 §2).
     ObjectiveUnavailable,
+    /// A backend closure relaxes the selected graph of an exact-only request.
+    ExactRequired,
     /// A variable or auxiliary inside a nonlinear term has no finite box; spatial
     /// branch-and-bound needs one.
     UnboundedNonlinear(MissingBound),
@@ -70,6 +72,9 @@ pub enum Refusal {
 impl std::fmt::Display for Refusal {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::ExactRequired => {
+                f.write_str("exact-only factorable transport cannot close an open selected graph")
+            }
             Self::ObjectiveUnavailable => {
                 f.write_str("the objective has no factorable projection, so no bound exists")
             }
@@ -326,6 +331,19 @@ fn binary(program: &FactorableProgram, operand: NativeOperand) -> bool {
     }
 }
 
+/// Open selected graph predicates lower to their sound closed superset. A finite
+/// positive margin would remove valid roots and invalidate global bound conclusions.
+fn selected_closure(c: &Constraint) -> (f64, f64, Fidelity) {
+    (
+        c.lower,
+        c.upper,
+        if c.strict {
+            Fidelity::Relaxed
+        } else {
+            Fidelity::Exact
+        },
+    )
+}
 fn close(c: &Constraint) -> (f64, f64) {
     let margin = |b: f64| STRICT_MARGIN * b.abs().max(1.0);
     let lower = if c.strict && c.lower.is_finite() {
@@ -574,7 +592,8 @@ pub(crate) fn plan(
             });
         }
         for (k, c) in block.bounds.iter().enumerate() {
-            let (lower, upper) = close(c);
+            let (lower, upper, closure_fidelity) = selected_closure(c);
+            fidelity = fidelity.max(closure_fidelity);
             constraints.push(Function {
                 expression: Expression::Node(c.expression),
                 lower,
@@ -715,6 +734,9 @@ pub(crate) fn plan(
     }
     for (lower, upper) in &boxes[columns..first] {
         h.u64(lower.to_bits()).u64(upper.to_bits());
+    }
+    if program.require_exact && fidelity != Fidelity::Exact {
+        return Err(vec![Refusal::ExactRequired]);
     }
     Ok(Plan {
         program,
@@ -1494,4 +1516,24 @@ fn adopt(
         observation.dual_error = local.dual_error;
     }
     true
+}
+
+#[cfg(test)]
+mod selected_graph_tests {
+    use super::*;
+    #[test]
+    fn strict_selected_graph_closure_keeps_arbitrarily_small_valid_roots() {
+        let c = Constraint {
+            expression: 0,
+            lower: 0.0,
+            upper: f64::INFINITY,
+            strict: true,
+        };
+        let (lower, upper, fidelity) = selected_closure(&c);
+        assert!(1e-12 >= lower && 1e-12 <= upper);
+        assert_eq!(lower, 0.0);
+        assert_eq!(fidelity, Fidelity::Relaxed);
+        let closed = Constraint { strict: false, ..c };
+        assert_eq!(selected_closure(&closed).2, Fidelity::Exact);
+    }
 }

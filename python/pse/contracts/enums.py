@@ -1813,6 +1813,9 @@ class WeightNormalization(StrEnum):
 class WithheldReason(StrEnum):
     """The declared WithheldReason enumeration."""
 
+    NOT_FEASIBLE = "not_feasible"
+    STRUCTURAL_UNAVAILABLE = "structural_unavailable"
+    NEIGHBORHOOD_UNAVAILABLE = "neighborhood_unavailable"
     NO_CANDIDATE = "no_candidate"
     NO_LOCAL_ANALYSIS = "no_local_analysis"
     MULTIPLIERS_UNRECOVERED = "multipliers_unrecovered"

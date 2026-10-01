@@ -144,6 +144,9 @@ impl pse_math::implicit::InnerSolver for MissingInnerSolver {
     fn identity(&self) -> pse_ids::ContentHash {
         pse_math::implicit::solver_identity("missing.inner-solver.v1")
     }
+    fn minimum_order(&self) -> pse_kernels::DerivativeOrder {
+        pse_kernels::DerivativeOrder::First
+    }
     fn solve(
         &self,
         _: Arc<pse_math::implicit::Problem>,
@@ -203,6 +206,7 @@ impl MathService {
         inner: Vec<ModelingInner>,
         accelerators: Arc<pse_math::implicit::accelerators::Accelerators>,
         external: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
+        mut provider_demands: BTreeMap<pse_kernels::ProviderKey, pse_kernels::DerivativeOrder>,
         profile: pse_compiler::workspace::Profile,
         driver: &crate::CancelSource,
     ) -> Result<BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>, MathRuntimeError>
@@ -218,9 +222,37 @@ impl MathService {
                     Arc::new(pse_backend_native::implicit::Kinsol);
                 #[cfg(not(feature = "solver-kinsol"))]
                 let solver: Arc<dyn pse_math::implicit::InnerSolver> = Arc::new(MissingInnerSolver);
+                // Inputs are in dependency order. Propagate the actual consumer demands
+                // backwards before compiling any provider, including the inner adapter's
+                // residual minimum and explicitly authored partial derivatives.
+                for item in inner.iter().rev() {
+                    let key = item.admitted.descriptor.spec().key();
+                    let requested = provider_demands
+                        .get(&key)
+                        .copied()
+                        .unwrap_or(pse_kernels::DerivativeOrder::Value);
+                    let requirements = item.admitted.requirements(
+                        requested,
+                        solver.minimum_order(),
+                        &accelerators,
+                        &flag,
+                        profile.evaluation,
+                    )?;
+                    for (dependency, required) in item.admitted.provider_demands(requirements)? {
+                        provider_demands
+                            .entry(dependency)
+                            .and_modify(|order| *order = (*order).max(required))
+                            .or_insert(required);
+                    }
+                }
                 let mut factories = Vec::new();
                 let mut retained = 0usize;
                 for item in inner {
+                    let source_key = item.admitted.descriptor.spec().key();
+                    let requested_output = provider_demands
+                        .get(&source_key)
+                        .copied()
+                        .unwrap_or(pse_kernels::DerivativeOrder::Value);
                     #[cfg(not(feature = "solver-kinsol"))]
                     if item.admitted.algorithm == pse_compiler::workspace::ImplicitAlgorithm::Native
                     {
@@ -231,6 +263,8 @@ impl MathService {
                     let factory = item.admitted.factory(
                         item.configurations,
                         solver.clone(),
+                        requested_output,
+                        solver.minimum_order(),
                         &accelerators,
                         flag.clone(),
                         profile.evaluation,
@@ -244,14 +278,19 @@ impl MathService {
                         .flat_map(|b| b.math.providers())
                         .map(pse_kernels::ProviderSpec::key)
                         .collect::<Vec<_>>();
-                    factories.push((item.admitted.descriptor.clone(), factory, dependencies));
+                    let descriptor = item
+                        .admitted
+                        .descriptor
+                        .restrict_order(requested_output)
+                        .map_err(|e| MathRuntimeError::Infrastructure(e.to_string()))?;
+                    factories.push((source_key, descriptor, factory, dependencies));
                 }
                 Ok((factories, retained))
             });
         tokio::pin!(operation);
         let (factories, owner) = tokio::select! {result=&mut operation=>result?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
         let mut registrations = external;
-        for (descriptor, mut factory, dependencies) in factories {
+        for (source_key, descriptor, mut factory, dependencies) in factories {
             let providers = dependencies
                 .into_iter()
                 .map(|key| {
@@ -269,10 +308,9 @@ impl MathService {
                 .collect::<Result<_, _>>()?;
             factory.set_providers(providers);
             factory.retain(owner.clone());
-            let key = descriptor.spec().key();
             let registration = pse_kernels::Registration::bind(descriptor, Arc::new(factory))
                 .map_err(|e| MathRuntimeError::Infrastructure(e.to_string()))?;
-            if registrations.insert(key, registration).is_some() {
+            if registrations.insert(source_key, registration).is_some() {
                 return Err(MathRuntimeError::Infrastructure(
                     "duplicate inner provider identity".into(),
                 ));
@@ -426,6 +464,7 @@ impl MathService {
         workspace: Workspace,
         view: super::Preparation,
         parameters: Vec<SemanticId>,
+        order: pse_kernels::DerivativeOrder,
         profile: pse_compiler::workspace::Profile,
         driver: &crate::CancelSource,
     ) -> Result<Arc<super::ExecutableCase>, MathRuntimeError> {
@@ -439,6 +478,7 @@ impl MathService {
                 let prepared = compiler.prepare_modeling_parametric(
                     view.compiled(),
                     &parameters,
+                    order,
                     profile,
                     &flag,
                 )?;

@@ -657,12 +657,28 @@ fn check_declarations(
         }
         if let Some(scope) = &row.value.scope {
             use pse_model::generated::enums::ModelingDeclarationKind as Kind;
-            if scope.selection.is_some() && row.value.kind != Kind::Implicit
+            if (scope.selection.is_some() || scope.branch.is_some() || scope.operational.is_some())
+                && row.value.kind != Kind::Implicit
                 || scope.eligibility.is_some() && row.value.kind != Kind::Regime
             {
                 return Err(invalid(
                     row.declaration_id,
                     "implicit selection or regime eligibility owner",
+                ));
+            }
+            if [
+                scope.selection.is_some(),
+                scope.branch.is_some(),
+                scope.operational.is_some(),
+            ]
+            .into_iter()
+            .filter(|v| *v)
+            .count()
+                > 1
+            {
+                return Err(invalid(
+                    row.declaration_id,
+                    "one implicit selection declaration required",
                 ));
             }
             let parent_kind = row
@@ -1786,6 +1802,11 @@ impl CheckedPackage {
                 if let Some(selection) = &v.selection {
                     texts.push(&selection.criterion);
                     texts.push(&selection.tolerance);
+                }
+                texts.extend(v.branch.as_deref());
+                if let Some(operation) = &v.operational {
+                    texts.extend(operation.anchors.iter().map(|a| a.expression.as_str()));
+                    texts.extend(operation.neighborhood.as_deref());
                 }
                 texts.extend(v.eligibility.as_deref());
                 // A test depends on its oracle source (ADR-0123 Outcome 5).
