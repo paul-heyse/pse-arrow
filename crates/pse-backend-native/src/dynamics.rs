@@ -501,6 +501,11 @@ pub enum Function {
     Output,
     /// Physical integrands evaluated by native output quadrature.
     QuadratureFlux,
+    /// Physical conserved inventories, in balance order, using the active mode definition.
+    Inventory,
+    /// Physical permitted transfers for one event, evaluated in the pre-event state and mode.
+    /// Values follow balance order; undeclared subjects must return zero.
+    Transfer(usize),
     /// Active guard functions, in stable event order.
     Roots,
     /// Complete post-event state for one event.
@@ -520,19 +525,19 @@ pub struct Event {
     /// Guard crossings that trigger the event; Diffsol detects every sign change.
     pub direction: EventDirection,
 }
-/// One conserved state whose signed flux is integrated by the native solver.
+/// One conserved subject with independently compiled physical inventory and original flux.
 #[derive(Clone, Debug)]
 pub struct Balance {
-    /// Original balance identity and flux output.
+    /// Stable conserved subject identity across modes.
     pub id: SemanticId,
-    /// Conserved differential state index.
-    pub state: usize,
-    /// Normalized coordinate to canonical conserved quantity scale.
-    pub scale: f64,
-    /// Absolute conserved quantity closure tolerance.
+    /// Authored inventory expression identity; its value is evaluated in balance order.
+    pub inventory: SemanticId,
+    /// Original signed flux quadrature identity, independent of the solved rates.
+    pub flux: SemanticId,
+    /// Absolute physical conserved quantity closure tolerance.
     pub tolerance: f64,
-    /// Explicit physical jumps keyed by authored event identity.
-    pub impulses: std::collections::BTreeMap<SemanticId, f64>,
+    /// Authored nonterminal events permitted to transfer this subject.
+    pub transfers: BTreeSet<SemanticId>,
 }
 /// Exact admitted layout. State coordinates are normalized; outputs are physical.
 #[derive(Clone, Debug)]
@@ -575,12 +580,15 @@ impl Contract {
         if !unique(&self.quadratures)
             || !unique(&self.balances.iter().map(|b| b.id).collect::<Vec<_>>())
             || self.balances.iter().any(|b| {
-                !self.quadratures.contains(&b.id)
-                    || b.state >= self.states.len()
-                    || !self.differential.get(b.state).copied().unwrap_or(false)
-                    || !positive(b.scale)
+                !self.quadratures.contains(&b.flux)
                     || !positive(b.tolerance)
-                    || b.impulses.values().any(|v| !v.is_finite())
+                    || b.transfers.iter().any(|id| {
+                        !self
+                            .events
+                            .iter()
+                            .flatten()
+                            .any(|e| e.id == *id && !e.terminal)
+                    })
             })
             || self.states.is_empty()
             || self.outputs.is_empty()
@@ -969,6 +977,22 @@ impl Profile {
             .checked_mul(c.outputs.len().saturating_add(n))
             .and_then(|v| v.checked_mul(width.checked_add(1)?))
             .and_then(|v| v.checked_add(self.max_events.checked_mul(n)?.checked_mul(2)?))
+            .and_then(|v| {
+                if c.balances.is_empty() {
+                    return Some(v);
+                }
+                let points = self
+                    .max_events
+                    .checked_mul(3)?
+                    .checked_add(self.samples.len())?
+                    .checked_add(2)?;
+                let width = c
+                    .balances
+                    .len()
+                    .checked_mul(3)?
+                    .checked_add(c.quadratures.len())?;
+                points.checked_mul(width)?.checked_add(v)
+            })
             .ok_or_else(|| contract("dynamic result extent overflow"))?;
         if cells > self.max_cells {
             return Err(contract("dynamic result cell allowance"));
@@ -1190,6 +1214,22 @@ impl Profile {
                     .checked_mul(2)?
                     .checked_add(v)
             })
+            .and_then(|v| {
+                if c.balances.is_empty() {
+                    return Some(v);
+                }
+                let points = self
+                    .max_events
+                    .checked_mul(3)?
+                    .checked_add(self.samples.len())?
+                    .checked_add(2)?;
+                let width = c
+                    .balances
+                    .len()
+                    .checked_mul(3)?
+                    .checked_add(c.quadratures.len())?;
+                points.checked_mul(width)?.checked_add(v)
+            })
             .ok_or_else(|| contract("dynamic result extent overflow"))?;
         if cells > self.max_cells {
             return Err(contract("dynamic result cell allowance"));
@@ -1333,6 +1373,24 @@ pub struct EventRecord {
 }
 /// Registry-owned integration outcome, independent of physical acceptance.
 pub use pse_model::generated::enums::TrajectoryTermination as Termination;
+/// Independent original-space conservation facts at an actual trajectory point.
+/// Inventories, transfers and defects follow the contract's balance order; integrals
+/// follow quadrature order. Result permission belongs to the caller's physical policy.
+#[derive(Clone, Debug)]
+pub struct ConservationPoint {
+    /// Actual physical observation time.
+    pub time: f64,
+    /// Mode whose inventory definition was evaluated.
+    pub mode: usize,
+    /// Physical inventory evaluated from the actual consistent state and input segment.
+    pub inventories: Vec<f64>,
+    /// Cumulative original signed flux quadratures.
+    pub integrals: Vec<f64>,
+    /// Cumulative evaluated permitted event transfers.
+    pub transfers: Vec<f64>,
+    /// I(t) - I(t0) - integral(original flux) - sum(permitted transfers).
+    pub defects: Vec<f64>,
+}
 /// Joined report retaining valid completed data even when a later callback fails.
 #[derive(Debug)]
 pub struct Report {
@@ -1348,6 +1406,8 @@ pub struct Report {
     pub samples: Vec<Sample>,
     /// Actual event transitions only.
     pub events: Vec<EventRecord>,
+    /// Original-space closure at the baseline, samples, segment endpoints and settled transitions.
+    pub conservation: Vec<ConservationPoint>,
     /// Native statistics for each finished segment, without invented counters.
     pub statistics: Vec<serde_json::Value>,
     /// Attributable failure; successful reports contain none.
@@ -1377,6 +1437,18 @@ impl Report {
                         * size_of::<f64>()
                 })
                 .sum::<usize>()
+            + self.conservation.capacity() * size_of::<ConservationPoint>()
+            + self
+                .conservation
+                .iter()
+                .map(|p| {
+                    (p.inventories.capacity()
+                        + p.integrals.capacity()
+                        + p.transfers.capacity()
+                        + p.defects.capacity())
+                        * size_of::<f64>()
+                })
+                .sum::<usize>()
             + self.events.capacity() * size_of::<EventRecord>()
             + self
                 .events
@@ -1396,6 +1468,7 @@ impl Report {
             consistent_initial: vec![],
             samples: vec![],
             events: vec![],
+            conservation: vec![],
             statistics: vec![],
             error: None,
             progress: vec![],
@@ -1461,35 +1534,116 @@ fn encoded<T: serde::Serialize>(value: &T) -> serde_json::Value {
     serde_json::to_value(value)
         .unwrap_or_else(|e| serde_json::Value::String(format!("unencodable: {e}")))
 }
-/// The typed trajectory transitions at `time` receive their post-transition state. A
-/// conserved state may jump only by its declared event impulse (shared by both
-/// integrators).
+/// Evaluated pre-transition facts, captured before a reset or an input segment change.
 #[cfg(any(feature = "diffsol", feature = "idas"))]
-pub(crate) fn settle_transitions(
+#[derive(Debug)]
+pub(crate) struct Transition {
+    pub record: usize,
+    pub inventories: Vec<f64>,
+    pub transfers: Vec<f64>,
+}
+/// Record physical closure without applying physical acceptance policy. Native algorithms
+/// integrate only the declared original flux; this calculation never reads the solved rates.
+#[cfg(any(feature = "diffsol", feature = "idas"))]
+pub(crate) fn observe_conservation(
     layout: &Contract,
-    events: &mut [EventRecord],
+    report: &mut Report,
     time: f64,
+    mode: usize,
+    inventories: Vec<f64>,
+    integrals: Vec<f64>,
+    transfers: Vec<f64>,
+) -> Result<(), ProblemError> {
+    if layout.balances.is_empty() {
+        return Ok(());
+    }
+    let n = layout.balances.len();
+    if inventories.len() != n || transfers.len() != n || integrals.len() != layout.quadratures.len()
+    {
+        return Err(ProblemError::internal("conservation function dimensions"));
+    }
+    let baseline = report
+        .conservation
+        .first()
+        .map_or(inventories.as_slice(), |p| p.inventories.as_slice());
+    let defects = layout
+        .balances
+        .iter()
+        .enumerate()
+        .map(|(i, b)| {
+            let q = layout
+                .quadratures
+                .iter()
+                .position(|id| *id == b.flux)
+                .ok_or_else(|| ProblemError::internal("conservation flux identity"))?;
+            Ok(inventories[i] - baseline[i] - integrals[q] - transfers[i])
+        })
+        .collect::<Result<Vec<_>, ProblemError>>()?;
+    if inventories
+        .iter()
+        .chain(&integrals)
+        .chain(&transfers)
+        .chain(&defects)
+        .any(|v| !v.is_finite())
+    {
+        return Err(ProblemError::numerical(
+            "nonfinite conservation observation",
+        ));
+    }
+    report.conservation.push(ConservationPoint {
+        time,
+        mode,
+        inventories,
+        integrals,
+        transfers,
+        defects,
+    });
+    Ok(())
+}
+#[cfg(any(feature = "diffsol", feature = "idas"))]
+pub(crate) fn cumulative_transfers(layout: &Contract, report: &Report) -> Vec<f64> {
+    report
+        .conservation
+        .last()
+        .map_or_else(|| vec![0.0; layout.balances.len()], |p| p.transfers.clone())
+}
+/// Both native routes settle the same independently evaluated inventory jump. Scheduled
+/// consistency changes transfer zero. Preserve the observed defect even when a reset refuses.
+#[cfg(any(feature = "diffsol", feature = "idas"))]
+pub(crate) fn settle_transition(
+    layout: &Contract,
+    report: &mut Report,
+    transition: Transition,
+    point: ConservationPoint,
     state: &[f64],
 ) -> Result<(), ProblemError> {
-    for event in events
-        .iter_mut()
-        .rev()
-        .take_while(|e| e.time == time && e.after.is_none())
-    {
-        for balance in &layout.balances {
-            let jump = (state[balance.state] - event.before[balance.state]) * balance.scale;
-            let declared = event
-                .event
-                .and_then(|id| balance.impulses.get(&id).copied())
-                .unwrap_or(0.0);
-            if !jump.is_finite() || (jump - declared).abs() > balance.tolerance {
-                return Err(contract(
-                    "conserved state jump differs from its declared event impulse",
-                ));
-            }
-        }
-        event.after = Some(state.to_vec());
+    let mut transfers = cumulative_transfers(layout, report);
+    let invalid = layout.balances.iter().enumerate().any(|(i, b)| {
+        (point.inventories[i] - transition.inventories[i] - transition.transfers[i]).abs()
+            > b.tolerance
+    });
+    for (total, jump) in transfers.iter_mut().zip(&transition.transfers) {
+        *total += jump;
     }
+    observe_conservation(
+        layout,
+        report,
+        point.time,
+        point.mode,
+        point.inventories,
+        point.integrals,
+        transfers,
+    )?;
+    if invalid {
+        return Err(contract(
+            "conserved inventory jump differs from its permitted event transfer",
+        ));
+    }
+    let record = report
+        .events
+        .get_mut(transition.record)
+        .ok_or_else(|| ProblemError::internal("conservation transition record"))?;
+    record.after = Some(state.to_vec());
     Ok(())
 }
 /// Number of guards within their declared ambiguity tolerance.

@@ -9,15 +9,34 @@
 @id("8135b961d007412b83d8f5594bdf5a44") override param outlet_package:equilibrium.ThermoPackage=outlet_pkg;
 @id("1c6e4eaddb90420cb62e23c6af17699a") override child outlet:equilibrium.EquilibriumThermoPackage=outlet_pkg;
 @id("a7a16ca75a1243cea690689a66b48465") eq no_work:work==0{W};
-@id("426f44f03457479baaa3a87a496262f9") port liquid_flow:Flow=outlet.liquid_flow;
-@id("fe014fa010fd444ca0ef504b9fd80f47") port liquid_temperature:Temperature=outlet.T;
-@id("db54896d3e8047bf8acb848069918ed1") port liquid_pressure:Pressure=outlet.pressure;
-@id("79f4b7f307ae42f49f391eb052b162ca") port liquid_composition[j in components]:MoleFraction=outlet.x[j];
-@id("f29b62e0a21a414fa9a5b5140d2abeec") port liquid_component_flow[j in components]:ComponentFlow=outlet.phase_component_flow[chemistry.liquid,j];
-@id("c402862afb984dd0b7f0defaec410919") port vapor_flow:Flow=outlet.vapor_flow;
-@id("090092554c75405bbca5e209904ece89") port vapor_temperature:Temperature=outlet.T;
-@id("a0972ef32c8b4ca1acc1c5a51fd07a93") port vapor_pressure:Pressure=outlet.pressure;
-@id("ed0119aedc65432a8346999928f6b9fa") port vapor_composition[j in components]:MoleFraction=outlet.y[j];
-@id("413945b85314456caa34c3eace0a4a0f") port vapor_component_flow[j in components]:ComponentFlow=outlet.phase_component_flow[chemistry.vapor,j];
+@id("426f44f03457479baaa3a87a496262f9") let liquid_flow:Flow=outlet.liquid_flow;
+@id("fe014fa010fd444ca0ef504b9fd80f47") let liquid_temperature:Temperature=outlet.T;
+@id("db54896d3e8047bf8acb848069918ed1") let liquid_pressure:Pressure=outlet.pressure;
+@id("79f4b7f307ae42f49f391eb052b162ca") let liquid_composition[j in components]:MoleFraction=outlet.x[j];
+@id("f29b62e0a21a414fa9a5b5140d2abeec") let liquid_component_flow[j in components]:ComponentFlow=outlet.phase_component_flow[chemistry.liquid,j];
+@id("c402862afb984dd0b7f0defaec410919") let vapor_flow:Flow=outlet.vapor_flow;
+@id("090092554c75405bbca5e209904ece89") let vapor_temperature:Temperature=outlet.T;
+@id("a0972ef32c8b4ca1acc1c5a51fd07a93") let vapor_pressure:Pressure=outlet.pressure;
+@id("ed0119aedc65432a8346999928f6b9fa") let vapor_composition[j in components]:MoleFraction=outlet.y[j];
+@id("413945b85314456caa34c3eace0a4a0f") let vapor_component_flow[j in components]:ComponentFlow=outlet.phase_component_flow[chemistry.vapor,j];
+@id("57016e5997b35b0da464e2617126110b") state liquid_state supplied(true) {
+coordinate component[j in components]=liquid_component_flow[j];
+coordinate temperature=outlet.T;
+coordinate pressure=outlet.pressure;
+transport component[j in components]=liquid_component_flow[j] tolerance 1e-7{mol/s};
+transport energy=outlet.phase_energy_flow[chemistry.liquid] tolerance 0.001{W};
+}
+@id("4c0d65c133bb57588554fbcd1efcb76b") material port liquid_port=liquid_state;
+@id("730c8661a7345e6aafd3449c52a28fd7") state vapor_state supplied(true) {
+coordinate component[j in components]=vapor_component_flow[j];
+coordinate temperature=outlet.T;
+coordinate pressure=outlet.pressure;
+transport component[j in components]=vapor_component_flow[j] tolerance 1e-7{mol/s};
+transport energy=outlet.phase_energy_flow[chemistry.vapor] tolerance 0.001{W};
+}
+@id("fa7d80e981775e8e8bfee0b6d535d16f") material port vapor_port=vapor_state;
+
+@id("9831058f431c593f9bc32b14157eea80") annotation connectivity liquid_port(0,1);
+@id("c621453b79875bb4820b432e350d5034") annotation connectivity vapor_port(0,1);
 }
 }

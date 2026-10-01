@@ -669,7 +669,32 @@ fn print_block(
             Selected::Requirement(v) => {
                 format!("require {} : {};", v.predicate, quoted(&v.message))
             }
-            Selected::Connection(v) => format!("connect {} -> {};", v.from, v.to),
+            Selected::Connection(v) => format!("connect {n}: {}{} -> {};",
+                indices(v.indices.iter().map(|i| (i.name.as_str(),i.domain.as_str()))), v.from, v.to),
+            Selected::StatePort(v) => format!("material port {n}{} = {};",
+                indices(v.indices.iter().map(|i| (i.name.as_str(),i.domain.as_str()))),v.specification),
+            Selected::StateSpecification(v) => {
+                let mut entries = Vec::new();
+                for c in &v.coordinates {
+                    entries.push(format!("coordinate {}{} = {};",name(&c.name),
+                        indices(c.indices.iter().map(|i| (i.name.as_str(),i.domain.as_str()))),c.target));
+                }
+                for c in &v.reconstructions {
+                    entries.push(format!("reconstruct {}{}: {} tolerance {};",name(&c.name),
+                        indices(c.indices.iter().map(|i| (i.name.as_str(),i.domain.as_str()))),c.equation,c.tolerance));
+                }
+                for c in &v.transports {
+                    entries.push(format!("transport {}{} = {} tolerance {};",name(&c.name),
+                        indices(c.indices.iter().map(|i| (i.name.as_str(),i.domain.as_str()))),c.expression,c.tolerance));
+                }
+                format!("state {n}{}{} supplied({}) {{ {} }}",
+                    indices(v.indices.iter().map(|i| (i.name.as_str(),i.domain.as_str()))),v.extends.as_ref().map_or_else(String::new,|base|format!(" extends {base}")),v.supplied,entries.join(" "))
+            }
+            Selected::InventoryBalance(v) => format!("conserve {n}{}: {} on {} inventory {} flux {} tolerance {}{};",
+                indices(v.indices.iter().map(|i| (i.name.as_str(),i.domain.as_str()))),ty(&v.r#type)?,v.axis,v.inventory,v.flux,v.tolerance,
+                if v.transfers.is_empty() { String::new() } else {
+                    format!(" transfers({})",v.transfers.iter().map(|t|format!("{} = {}",t.event,t.expression)).collect::<Vec<_>>().join(", "))
+                }),
             Selected::CoordinateMap(v) => {
                 block = true;
                 format!("coordinate map {n}{}{} {{", parameters(v.arguments.iter().map(|a| (a.name.as_str(), a.r#type.as_slice(), a.default_value.as_deref())))?, v.validity.as_ref().map_or_else(String::new, |p| format!(" valid({p})")))

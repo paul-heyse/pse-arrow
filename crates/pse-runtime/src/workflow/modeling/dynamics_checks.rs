@@ -56,6 +56,55 @@ impl ModelingSimulation {
             error: None,
         };
         let mut run = || -> Result<(), WorkflowError> {
+            for obligation in &self.modes[0].original_initial_conditions {
+                let actual = report
+                    .consistent_initial
+                    .get(obligation.coordinate)
+                    .ok_or_else(|| contract("original initial consistency state absent"))?;
+                let coordinate = &self.coordinates.state[obligation.coordinate];
+                let residual = actual * coordinate.scale + coordinate.offset - obligation.expected;
+                if !residual.is_finite() {
+                    return Err(contract("nonfinite original initial consistency residual"));
+                }
+                result.rows.push(results::temporal_initial_check(
+                    run_id,
+                    obligation.source,
+                    obligation.row,
+                    self.profile.start,
+                    residual,
+                    obligation.tolerance,
+                ));
+            }
+            for (index, point) in report.conservation.iter().enumerate() {
+                let mode = self
+                    .modes
+                    .get(point.mode)
+                    .ok_or_else(|| contract("conservation point mode absent"))?;
+                if point.defects.len() != self.contract.balances.len() {
+                    return Err(contract("conservation point descriptor extent"));
+                }
+                for (balance, residual) in self.contract.balances.iter().zip(&point.defects) {
+                    let descriptor = mode
+                        .model
+                        .compiled()
+                        .model
+                        .inventory_balances
+                        .get(&balance.id)
+                        .ok_or_else(|| contract("conserved subject absent in active mode"))?;
+                    if !residual.is_finite() {
+                        return Err(contract("nonfinite physical conservation residual"));
+                    }
+                    result.rows.push(results::temporal_closure_check(
+                        run_id,
+                        descriptor.lineage.declaration,
+                        balance.id,
+                        index,
+                        point.time,
+                        *residual,
+                        balance.tolerance,
+                    ));
+                }
+            }
             let create_worker =
                 |mode: &SimulationMode, program: &Option<Arc<crate::math::ExecutableCase>>| {
                     program
@@ -231,7 +280,16 @@ impl ModelingSimulation {
                         .samples
                         .iter()
                         .zip(&self.profile.samples)
-                        .all(|(s, t)| s.time == *t);
+                        .all(|(s, t)| s.time == *t)
+                    && (self.contract.balances.is_empty()
+                        || report
+                            .conservation
+                            .first()
+                            .is_some_and(|p| p.time == self.profile.start)
+                            && report
+                                .conservation
+                                .last()
+                                .is_some_and(|p| p.time == report.completed_time));
             }
             Err(error) => result.error = Some(error.boundary_diagnostic()),
         }

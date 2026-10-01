@@ -796,7 +796,7 @@ class ModelingPackage:
         request: Mapping[str, object],
         settings: SolveSettings,
     ) -> PreparedStrategy:
-        """Compile explicit causal directions from this immutable authored model."""
+        """Compile admitted causal directions from this immutable authored model."""
         return PreparedStrategy(
             self._handle.prepare_recycle(
                 case_id.to_hex(),

@@ -11,7 +11,12 @@ scenario_sources: [docs/design_review/reviews/design_review_codebase-domain-alig
 
 ## State, purpose and reading order
 
-**25a and 25b implementation are complete. Other lettered plans remain proposed.**
+**25a and 25b implementation are complete. 25c functional implementation and focused
+verification are complete; final workspace compilation and closure handoff remain.**
+The [25c restart checkpoint](25c-process-composition-and-conservation.md#execution-checkpoint)
+owns resume order and its composite evidence. Required D/E/F/H/I prerequisite slices are
+implemented and tested; their wider scope remains partial. Other lettered plans remain proposed.
+Finding dispositions below await the root closure handoff after workspace compilation.
 The [25a Outcome](25a-physical-values-and-contextual-contracts.md#outcome-recorded-after-implementation)
 records its implementation, focused verification and limits. It resolves the physical findings
 identified below; compound findings retain their remaining owners. Integrated qualification

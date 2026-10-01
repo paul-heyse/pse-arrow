@@ -2482,7 +2482,425 @@ impl PartialEq for AuthoredModelingDeclarationsFieldValueContribution {
     clippy::struct_field_names,
     reason = "field names are the authoritative relation contract"
 )]
+pub struct AuthoredModelingDeclarationsFieldValueStateSpecificationIndicesItem {
+    ///name
+    pub r#name: String,
+    ///domain
+    pub r#domain: String,
+}
+impl crate::SemanticEq
+for AuthoredModelingDeclarationsFieldValueStateSpecificationIndicesItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#name, &other.r#name)
+            && crate::SemanticEq::semantic_eq(&self.r#domain, &other.r#domain)
+    }
+}
+impl PartialEq for AuthoredModelingDeclarationsFieldValueStateSpecificationIndicesItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItemIndicesItem {
+    ///name
+    pub r#name: String,
+    ///domain
+    pub r#domain: String,
+}
+impl crate::SemanticEq
+for AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItemIndicesItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#name, &other.r#name)
+            && crate::SemanticEq::semantic_eq(&self.r#domain, &other.r#domain)
+    }
+}
+impl PartialEq
+for AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItemIndicesItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItem {
+    ///name
+    pub r#name: String,
+    ///indices
+    pub r#indices: Vec<
+        AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItemIndicesItem,
+    >,
+    ///target
+    pub r#target: String,
+}
+impl crate::SemanticEq
+for AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#name, &other.r#name)
+            && crate::SemanticEq::semantic_eq(&self.r#indices, &other.r#indices)
+            && crate::SemanticEq::semantic_eq(&self.r#target, &other.r#target)
+    }
+}
+impl PartialEq
+for AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItemIndicesItem {
+    ///name
+    pub r#name: String,
+    ///domain
+    pub r#domain: String,
+}
+impl crate::SemanticEq
+for AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItemIndicesItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#name, &other.r#name)
+            && crate::SemanticEq::semantic_eq(&self.r#domain, &other.r#domain)
+    }
+}
+impl PartialEq
+for AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItemIndicesItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItem {
+    ///name
+    pub r#name: String,
+    ///indices
+    pub r#indices: Vec<
+        AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItemIndicesItem,
+    >,
+    ///equation
+    pub r#equation: String,
+    ///tolerance
+    pub r#tolerance: String,
+}
+impl crate::SemanticEq
+for AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#name, &other.r#name)
+            && crate::SemanticEq::semantic_eq(&self.r#indices, &other.r#indices)
+            && crate::SemanticEq::semantic_eq(&self.r#equation, &other.r#equation)
+            && crate::SemanticEq::semantic_eq(&self.r#tolerance, &other.r#tolerance)
+    }
+}
+impl PartialEq
+for AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItemIndicesItem {
+    ///name
+    pub r#name: String,
+    ///domain
+    pub r#domain: String,
+}
+impl crate::SemanticEq
+for AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItemIndicesItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#name, &other.r#name)
+            && crate::SemanticEq::semantic_eq(&self.r#domain, &other.r#domain)
+    }
+}
+impl PartialEq
+for AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItemIndicesItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItem {
+    ///name
+    pub r#name: String,
+    ///indices
+    pub r#indices: Vec<
+        AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItemIndicesItem,
+    >,
+    ///expression
+    pub r#expression: String,
+    ///tolerance
+    pub r#tolerance: String,
+}
+impl crate::SemanticEq
+for AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#name, &other.r#name)
+            && crate::SemanticEq::semantic_eq(&self.r#indices, &other.r#indices)
+            && crate::SemanticEq::semantic_eq(&self.r#expression, &other.r#expression)
+            && crate::SemanticEq::semantic_eq(&self.r#tolerance, &other.r#tolerance)
+    }
+}
+impl PartialEq
+for AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct AuthoredModelingDeclarationsFieldValueStateSpecification {
+    ///indices
+    pub r#indices: Vec<
+        AuthoredModelingDeclarationsFieldValueStateSpecificationIndicesItem,
+    >,
+    ///extends
+    pub r#extends: Option<String>,
+    ///supplied
+    pub r#supplied: String,
+    ///coordinates
+    pub r#coordinates: Vec<
+        AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItem,
+    >,
+    ///reconstructions
+    pub r#reconstructions: Vec<
+        AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItem,
+    >,
+    ///transports
+    pub r#transports: Vec<
+        AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItem,
+    >,
+}
+impl crate::SemanticEq for AuthoredModelingDeclarationsFieldValueStateSpecification {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#indices, &other.r#indices)
+            && crate::SemanticEq::semantic_eq(&self.r#extends, &other.r#extends)
+            && crate::SemanticEq::semantic_eq(&self.r#supplied, &other.r#supplied)
+            && crate::SemanticEq::semantic_eq(&self.r#coordinates, &other.r#coordinates)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#reconstructions,
+                &other.r#reconstructions,
+            ) && crate::SemanticEq::semantic_eq(&self.r#transports, &other.r#transports)
+    }
+}
+impl PartialEq for AuthoredModelingDeclarationsFieldValueStateSpecification {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct AuthoredModelingDeclarationsFieldValueStatePortIndicesItem {
+    ///name
+    pub r#name: String,
+    ///domain
+    pub r#domain: String,
+}
+impl crate::SemanticEq for AuthoredModelingDeclarationsFieldValueStatePortIndicesItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#name, &other.r#name)
+            && crate::SemanticEq::semantic_eq(&self.r#domain, &other.r#domain)
+    }
+}
+impl PartialEq for AuthoredModelingDeclarationsFieldValueStatePortIndicesItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct AuthoredModelingDeclarationsFieldValueStatePort {
+    ///indices
+    pub r#indices: Vec<AuthoredModelingDeclarationsFieldValueStatePortIndicesItem>,
+    ///specification
+    pub r#specification: String,
+}
+impl crate::SemanticEq for AuthoredModelingDeclarationsFieldValueStatePort {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#indices, &other.r#indices)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#specification,
+                &other.r#specification,
+            )
+    }
+}
+impl PartialEq for AuthoredModelingDeclarationsFieldValueStatePort {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct AuthoredModelingDeclarationsFieldValueInventoryBalanceIndicesItem {
+    ///name
+    pub r#name: String,
+    ///domain
+    pub r#domain: String,
+}
+impl crate::SemanticEq
+for AuthoredModelingDeclarationsFieldValueInventoryBalanceIndicesItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#name, &other.r#name)
+            && crate::SemanticEq::semantic_eq(&self.r#domain, &other.r#domain)
+    }
+}
+impl PartialEq for AuthoredModelingDeclarationsFieldValueInventoryBalanceIndicesItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct AuthoredModelingDeclarationsFieldValueInventoryBalanceTransfersItem {
+    ///event
+    pub r#event: String,
+    ///expression
+    pub r#expression: String,
+}
+impl crate::SemanticEq
+for AuthoredModelingDeclarationsFieldValueInventoryBalanceTransfersItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#event, &other.r#event)
+            && crate::SemanticEq::semantic_eq(&self.r#expression, &other.r#expression)
+    }
+}
+impl PartialEq for AuthoredModelingDeclarationsFieldValueInventoryBalanceTransfersItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct AuthoredModelingDeclarationsFieldValueInventoryBalance {
+    ///indices
+    pub r#indices: Vec<
+        AuthoredModelingDeclarationsFieldValueInventoryBalanceIndicesItem,
+    >,
+    ///type
+    pub r#type: Vec<crate::generated::structures::ModelingTypeArenaNode>,
+    ///axis
+    pub r#axis: String,
+    ///inventory
+    pub r#inventory: String,
+    ///flux
+    pub r#flux: String,
+    ///tolerance
+    pub r#tolerance: String,
+    ///transfers
+    pub r#transfers: Vec<
+        AuthoredModelingDeclarationsFieldValueInventoryBalanceTransfersItem,
+    >,
+}
+impl crate::SemanticEq for AuthoredModelingDeclarationsFieldValueInventoryBalance {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#indices, &other.r#indices)
+            && crate::SemanticEq::semantic_eq(&self.r#type, &other.r#type)
+            && crate::SemanticEq::semantic_eq(&self.r#axis, &other.r#axis)
+            && crate::SemanticEq::semantic_eq(&self.r#inventory, &other.r#inventory)
+            && crate::SemanticEq::semantic_eq(&self.r#flux, &other.r#flux)
+            && crate::SemanticEq::semantic_eq(&self.r#tolerance, &other.r#tolerance)
+            && crate::SemanticEq::semantic_eq(&self.r#transfers, &other.r#transfers)
+    }
+}
+impl PartialEq for AuthoredModelingDeclarationsFieldValueInventoryBalance {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct AuthoredModelingDeclarationsFieldValueConnectionIndicesItem {
+    ///name
+    pub r#name: String,
+    ///domain
+    pub r#domain: String,
+}
+impl crate::SemanticEq for AuthoredModelingDeclarationsFieldValueConnectionIndicesItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#name, &other.r#name)
+            && crate::SemanticEq::semantic_eq(&self.r#domain, &other.r#domain)
+    }
+}
+impl PartialEq for AuthoredModelingDeclarationsFieldValueConnectionIndicesItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
 pub struct AuthoredModelingDeclarationsFieldValueConnection {
+    ///indices
+    pub r#indices: Vec<AuthoredModelingDeclarationsFieldValueConnectionIndicesItem>,
     ///from
     pub r#from: String,
     ///to
@@ -2490,7 +2908,8 @@ pub struct AuthoredModelingDeclarationsFieldValueConnection {
 }
 impl crate::SemanticEq for AuthoredModelingDeclarationsFieldValueConnection {
     fn semantic_eq(&self, other: &Self) -> bool {
-        crate::SemanticEq::semantic_eq(&self.r#from, &other.r#from)
+        crate::SemanticEq::semantic_eq(&self.r#indices, &other.r#indices)
+            && crate::SemanticEq::semantic_eq(&self.r#from, &other.r#from)
             && crate::SemanticEq::semantic_eq(&self.r#to, &other.r#to)
     }
 }
@@ -2891,6 +3310,16 @@ pub struct AuthoredModelingDeclarationsFieldValue {
     pub r#accumulator: Option<AuthoredModelingDeclarationsFieldValueAccumulator>,
     ///contribution
     pub r#contribution: Option<AuthoredModelingDeclarationsFieldValueContribution>,
+    ///state_specification
+    pub r#state_specification: Option<
+        AuthoredModelingDeclarationsFieldValueStateSpecification,
+    >,
+    ///state_port
+    pub r#state_port: Option<AuthoredModelingDeclarationsFieldValueStatePort>,
+    ///inventory_balance
+    pub r#inventory_balance: Option<
+        AuthoredModelingDeclarationsFieldValueInventoryBalance,
+    >,
     ///connection
     pub r#connection: Option<AuthoredModelingDeclarationsFieldValueConnection>,
     ///annotation
@@ -2967,6 +3396,14 @@ impl crate::SemanticEq for AuthoredModelingDeclarationsFieldValue {
             && crate::SemanticEq::semantic_eq(
                 &self.r#contribution,
                 &other.r#contribution,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#state_specification,
+                &other.r#state_specification,
+            ) && crate::SemanticEq::semantic_eq(&self.r#state_port, &other.r#state_port)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#inventory_balance,
+                &other.r#inventory_balance,
             ) && crate::SemanticEq::semantic_eq(&self.r#connection, &other.r#connection)
             && crate::SemanticEq::semantic_eq(&self.r#annotation, &other.r#annotation)
             && crate::SemanticEq::semantic_eq(&self.r#requirement, &other.r#requirement)
@@ -3071,6 +3508,8 @@ pub enum AuthoredModelingDeclarationsFieldValueSelected<'a> {
     Import(&'a AuthoredModelingDeclarationsFieldValueImport),
     ///interface
     Interface(&'a AuthoredModelingDeclarationsFieldValueScope),
+    ///inventory_balance
+    InventoryBalance(&'a AuthoredModelingDeclarationsFieldValueInventoryBalance),
     ///let
     Let(&'a AuthoredModelingDeclarationsFieldValueBinding),
     ///logic
@@ -3111,6 +3550,10 @@ pub enum AuthoredModelingDeclarationsFieldValueSelected<'a> {
     Sos2(&'a AuthoredModelingDeclarationsFieldValueOrderedSet),
     ///stage
     Stage(&'a AuthoredModelingDeclarationsFieldValueScope),
+    ///state_port
+    StatePort(&'a AuthoredModelingDeclarationsFieldValueStatePort),
+    ///state_specification
+    StateSpecification(&'a AuthoredModelingDeclarationsFieldValueStateSpecification),
     ///table
     Table(&'a AuthoredModelingDeclarationsFieldValueTable),
     ///temporal
@@ -3161,6 +3604,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -3172,6 +3616,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -3208,6 +3654,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -3219,6 +3666,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -3259,6 +3708,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -3270,6 +3720,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: Some(value),
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -3308,6 +3760,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -3319,6 +3772,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -3361,6 +3816,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -3372,6 +3828,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -3410,6 +3868,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -3421,6 +3880,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -3459,6 +3920,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -3470,6 +3932,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -3508,6 +3972,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -3519,6 +3984,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -3555,6 +4022,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -3566,6 +4034,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -3602,6 +4072,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -3613,6 +4084,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: Some(value),
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -3649,6 +4122,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -3660,6 +4134,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -3702,6 +4178,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -3713,6 +4190,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -3755,6 +4234,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -3766,6 +4246,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -3804,6 +4286,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -3815,6 +4298,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -3851,6 +4336,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -3862,6 +4348,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -3904,6 +4392,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -3915,6 +4404,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -3953,6 +4444,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -3964,6 +4456,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -4006,6 +4500,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -4017,6 +4512,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -4059,6 +4556,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -4070,6 +4568,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -4112,6 +4612,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -4123,6 +4624,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -4159,6 +4662,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -4170,6 +4674,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -4206,6 +4712,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -4217,6 +4724,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: Some(value),
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -4259,6 +4768,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -4270,6 +4780,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -4312,6 +4824,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -4323,6 +4836,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -4363,6 +4878,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -4374,6 +4890,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: Some(value),
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -4410,6 +4928,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -4421,6 +4940,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -4461,6 +4982,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -4472,6 +4994,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: Some(value),
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -4508,6 +5032,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -4519,6 +5044,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -4555,6 +5082,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -4566,6 +5094,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -4602,6 +5132,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -4613,6 +5144,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -4651,6 +5184,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -4662,6 +5196,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -4698,6 +5234,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -4709,6 +5246,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -4751,6 +5290,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -4762,6 +5302,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -4798,6 +5340,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: Some(value),
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -4809,6 +5352,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -4849,6 +5394,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -4860,6 +5406,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -4896,6 +5444,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -4907,6 +5456,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: Some(value),
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -4943,6 +5494,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: Some(value),
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -4954,6 +5506,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -4990,6 +5544,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -5001,6 +5556,64 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: Some(value),
+            r#state_port: None,
+            r#state_specification: None,
+            r#table: None,
+            r#temporal: None,
+        }
+    }
+    #[doc = concat!(
+        "Construct the ",
+        "inventory_balance",
+        " arm with every other arm absent.",
+    )]
+    pub fn from_inventory_balance(
+        value: AuthoredModelingDeclarationsFieldValueInventoryBalance,
+    ) -> Self {
+        Self {
+            r#kind: crate::generated::enums::ModelingDeclarationKind::InventoryBalance,
+            r#accumulator: None,
+            r#annotation: None,
+            r#applicability: None,
+            r#attribute: None,
+            r#binding: None,
+            r#boundary: None,
+            r#cardinality: None,
+            r#collocation_scheme: None,
+            r#complementarity: None,
+            r#connection: None,
+            r#constant: None,
+            r#continuation: None,
+            r#continuous: None,
+            r#contribution: None,
+            r#coordinate_map: None,
+            r#coordinate_slot: None,
+            r#dataset: None,
+            r#difference_scheme: None,
+            r#discretization: None,
+            r#entity: None,
+            r#enumeration: None,
+            r#envelope: None,
+            r#equation: None,
+            r#exchange: None,
+            r#expectation: None,
+            r#function: None,
+            r#guard: None,
+            r#import: None,
+            r#inventory_balance: Some(value),
+            r#logic: None,
+            r#ordered_set: None,
+            r#permission: None,
+            r#piecewise: None,
+            r#realization: None,
+            r#reconstruction: None,
+            r#reference_translation: None,
+            r#relaxation: None,
+            r#requirement: None,
+            r#response: None,
+            r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -5037,6 +5650,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -5048,6 +5662,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -5084,6 +5700,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: Some(value),
             r#ordered_set: None,
             r#permission: None,
@@ -5095,6 +5712,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -5131,6 +5750,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -5142,6 +5762,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: Some(value),
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -5178,6 +5800,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -5189,6 +5812,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -5227,6 +5852,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: Some(value),
@@ -5238,6 +5864,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -5276,6 +5904,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -5287,6 +5916,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -5323,6 +5954,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -5334,6 +5966,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -5370,6 +6004,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -5381,6 +6016,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -5423,6 +6060,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -5434,6 +6072,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -5476,6 +6116,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -5487,6 +6128,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -5529,6 +6172,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -5540,6 +6184,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -5576,6 +6222,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -5587,6 +6234,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: Some(value),
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -5625,6 +6274,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -5636,6 +6286,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -5678,6 +6330,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -5689,6 +6342,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: Some(value),
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -5725,6 +6380,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -5736,6 +6392,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: Some(value),
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -5778,6 +6436,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -5789,6 +6448,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -5825,6 +6486,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -5836,6 +6498,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -5872,6 +6536,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: Some(value),
             r#permission: None,
@@ -5883,6 +6548,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -5919,6 +6586,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: Some(value),
             r#permission: None,
@@ -5930,6 +6598,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -5966,6 +6636,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -5977,6 +6648,116 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: Some(value),
+            r#state_port: None,
+            r#state_specification: None,
+            r#table: None,
+            r#temporal: None,
+        }
+    }
+    #[doc = concat!("Construct the ", "state_port", " arm with every other arm absent.")]
+    pub fn from_state_port(
+        value: AuthoredModelingDeclarationsFieldValueStatePort,
+    ) -> Self {
+        Self {
+            r#kind: crate::generated::enums::ModelingDeclarationKind::StatePort,
+            r#accumulator: None,
+            r#annotation: None,
+            r#applicability: None,
+            r#attribute: None,
+            r#binding: None,
+            r#boundary: None,
+            r#cardinality: None,
+            r#collocation_scheme: None,
+            r#complementarity: None,
+            r#connection: None,
+            r#constant: None,
+            r#continuation: None,
+            r#continuous: None,
+            r#contribution: None,
+            r#coordinate_map: None,
+            r#coordinate_slot: None,
+            r#dataset: None,
+            r#difference_scheme: None,
+            r#discretization: None,
+            r#entity: None,
+            r#enumeration: None,
+            r#envelope: None,
+            r#equation: None,
+            r#exchange: None,
+            r#expectation: None,
+            r#function: None,
+            r#guard: None,
+            r#import: None,
+            r#inventory_balance: None,
+            r#logic: None,
+            r#ordered_set: None,
+            r#permission: None,
+            r#piecewise: None,
+            r#realization: None,
+            r#reconstruction: None,
+            r#reference_translation: None,
+            r#relaxation: None,
+            r#requirement: None,
+            r#response: None,
+            r#scope: None,
+            r#state_port: Some(value),
+            r#state_specification: None,
+            r#table: None,
+            r#temporal: None,
+        }
+    }
+    #[doc = concat!(
+        "Construct the ",
+        "state_specification",
+        " arm with every other arm absent.",
+    )]
+    pub fn from_state_specification(
+        value: AuthoredModelingDeclarationsFieldValueStateSpecification,
+    ) -> Self {
+        Self {
+            r#kind: crate::generated::enums::ModelingDeclarationKind::StateSpecification,
+            r#accumulator: None,
+            r#annotation: None,
+            r#applicability: None,
+            r#attribute: None,
+            r#binding: None,
+            r#boundary: None,
+            r#cardinality: None,
+            r#collocation_scheme: None,
+            r#complementarity: None,
+            r#connection: None,
+            r#constant: None,
+            r#continuation: None,
+            r#continuous: None,
+            r#contribution: None,
+            r#coordinate_map: None,
+            r#coordinate_slot: None,
+            r#dataset: None,
+            r#difference_scheme: None,
+            r#discretization: None,
+            r#entity: None,
+            r#enumeration: None,
+            r#envelope: None,
+            r#equation: None,
+            r#exchange: None,
+            r#expectation: None,
+            r#function: None,
+            r#guard: None,
+            r#import: None,
+            r#inventory_balance: None,
+            r#logic: None,
+            r#ordered_set: None,
+            r#permission: None,
+            r#piecewise: None,
+            r#realization: None,
+            r#reconstruction: None,
+            r#reference_translation: None,
+            r#relaxation: None,
+            r#requirement: None,
+            r#response: None,
+            r#scope: None,
+            r#state_port: None,
+            r#state_specification: Some(value),
             r#table: None,
             r#temporal: None,
         }
@@ -6013,6 +6794,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -6024,6 +6806,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: Some(value),
             r#temporal: None,
         }
@@ -6060,6 +6844,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -6071,6 +6856,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: Some(value),
         }
@@ -6107,6 +6894,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -6118,6 +6906,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: Some(value),
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -6154,6 +6944,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: None,
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -6165,6 +6956,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -6201,6 +6994,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#function: None,
             r#guard: Some(value),
             r#import: None,
+            r#inventory_balance: None,
             r#logic: None,
             r#ordered_set: None,
             r#permission: None,
@@ -6212,6 +7006,8 @@ impl AuthoredModelingDeclarationsFieldValue {
             r#requirement: None,
             r#response: None,
             r#scope: None,
+            r#state_port: None,
+            r#state_specification: None,
             r#table: None,
             r#temporal: None,
         }
@@ -6252,6 +7048,7 @@ impl AuthoredModelingDeclarationsFieldValue {
             self.r#function.as_ref(),
             self.r#guard.as_ref(),
             self.r#import.as_ref(),
+            self.r#inventory_balance.as_ref(),
             self.r#logic.as_ref(),
             self.r#ordered_set.as_ref(),
             self.r#permission.as_ref(),
@@ -6263,12 +7060,17 @@ impl AuthoredModelingDeclarationsFieldValue {
             self.r#requirement.as_ref(),
             self.r#response.as_ref(),
             self.r#scope.as_ref(),
+            self.r#state_port.as_ref(),
+            self.r#state_specification.as_ref(),
             self.r#table.as_ref(),
             self.r#temporal.as_ref(),
         ) {
             (
                 "accumulator",
                 Some(value),
+                None,
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -6353,6 +7155,9 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
+                None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Alias(value)),
             (
                 "alternative",
@@ -6394,7 +7199,10 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
                 Some(value),
+                None,
+                None,
                 None,
                 None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Alternative(value)),
@@ -6402,6 +7210,9 @@ impl AuthoredModelingDeclarationsFieldValue {
                 "annotation",
                 None,
                 Some(value),
+                None,
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -6485,6 +7296,9 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
+                None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Applicability(value)),
             (
                 "atleast",
@@ -6495,6 +7309,9 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 Some(value),
+                None,
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -6573,6 +7390,9 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
+                None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Atmost(value)),
             (
                 "attribute",
@@ -6580,6 +7400,9 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 Some(value),
+                None,
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -6661,6 +7484,9 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
+                None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Boundary(value)),
             (
                 "case",
@@ -6702,7 +7528,10 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
                 Some(value),
+                None,
+                None,
                 None,
                 None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Case(value)),
@@ -6713,6 +7542,9 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 Some(value),
+                None,
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -6760,6 +7592,9 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 Some(value),
+                None,
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -6843,6 +7678,9 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
+                None,
+                None,
             ) => {
                 Ok(
                     AuthoredModelingDeclarationsFieldValueSelected::Complementarity(
@@ -6862,6 +7700,9 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 Some(value),
+                None,
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -6937,6 +7778,9 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
+                None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Constant(value)),
             (
                 "continuation",
@@ -6952,6 +7796,9 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 Some(value),
+                None,
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -7025,6 +7872,9 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
+                None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Continuous(value)),
             (
                 "contribution",
@@ -7042,6 +7892,9 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 Some(value),
+                None,
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -7113,6 +7966,9 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
+                None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::CoordinateMap(value)),
             (
                 "coordinate_slot",
@@ -7132,6 +7988,9 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 Some(value),
+                None,
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -7203,6 +8062,9 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
+                None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Dataset(value)),
             (
                 "definition",
@@ -7244,7 +8106,10 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
                 Some(value),
+                None,
+                None,
                 None,
                 None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Definition(value)),
@@ -7268,6 +8133,9 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 Some(value),
+                None,
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -7341,6 +8209,9 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
+                None,
+                None,
             ) => {
                 Ok(AuthoredModelingDeclarationsFieldValueSelected::Discretization(value))
             }
@@ -7384,7 +8255,10 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
                 Some(value),
+                None,
+                None,
                 None,
                 None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Disjunction(value)),
@@ -7410,6 +8284,9 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 Some(value),
+                None,
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -7472,7 +8349,10 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
                 Some(value),
+                None,
+                None,
                 None,
                 None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::EntityKind(value)),
@@ -7499,6 +8379,9 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 Some(value),
+                None,
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -7563,6 +8446,9 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
+                None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Envelope(value)),
             (
                 "equation",
@@ -7607,6 +8493,9 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
+                None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Equation(value)),
             (
                 "exactly",
@@ -7617,6 +8506,9 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 Some(value),
+                None,
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -7695,6 +8587,9 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
+                None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Exchange(value)),
             (
                 "expectation",
@@ -7723,6 +8618,9 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 Some(value),
+                None,
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -7783,9 +8681,15 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
+                None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Function(value)),
             (
                 "identifier_scheme",
+                None,
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -7868,7 +8772,10 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
                 Some(value),
+                None,
+                None,
                 None,
                 None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Implicit(value)),
@@ -7902,6 +8809,9 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 Some(value),
+                None,
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -7956,10 +8866,66 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
                 Some(value),
                 None,
                 None,
+                None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Interface(value)),
+            (
+                "inventory_balance",
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(value),
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+            ) => {
+                Ok(
+                    AuthoredModelingDeclarationsFieldValueSelected::InventoryBalance(
+                        value,
+                    ),
+                )
+            }
             (
                 "let",
                 None,
@@ -7967,6 +8933,9 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 Some(value),
+                None,
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -8034,7 +9003,10 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
                 Some(value),
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -8088,7 +9060,10 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
                 Some(value),
+                None,
+                None,
                 None,
                 None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Package(value)),
@@ -8099,6 +9074,9 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 Some(value),
+                None,
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -8168,7 +9146,10 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
                 Some(value),
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -8213,7 +9194,10 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
                 Some(value),
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -8231,6 +9215,9 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 Some(value),
+                None,
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -8311,6 +9298,9 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
+                None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Preset(value)),
             (
                 "realization",
@@ -8346,7 +9336,10 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
                 Some(value),
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -8391,7 +9384,10 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
                 Some(value),
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -8438,7 +9434,10 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
                 Some(value),
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -8492,7 +9491,10 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
                 Some(value),
+                None,
+                None,
                 None,
                 None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Regime(value)),
@@ -8533,7 +9535,10 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
                 Some(value),
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -8578,7 +9583,10 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
                 Some(value),
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -8623,7 +9631,10 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
                 Some(value),
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -8635,6 +9646,9 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 Some(value),
+                None,
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -8715,6 +9729,9 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
+                None,
+                None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Set(value)),
             (
                 "sos1",
@@ -8747,7 +9764,10 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
                 Some(value),
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -8791,7 +9811,10 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
                 Some(value),
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -8844,12 +9867,118 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
                 Some(value),
+                None,
+                None,
                 None,
                 None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Stage(value)),
             (
+                "state_port",
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(value),
+                None,
+                None,
+                None,
+            ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::StatePort(value)),
+            (
+                "state_specification",
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(value),
+                None,
+                None,
+            ) => {
+                Ok(
+                    AuthoredModelingDeclarationsFieldValueSelected::StateSpecification(
+                        value,
+                    ),
+                )
+            }
+            (
                 "table",
+                None,
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -8934,6 +10063,9 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
+                None,
+                None,
                 Some(value),
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Temporal(value)),
             (
@@ -8976,7 +10108,10 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 None,
+                None,
                 Some(value),
+                None,
+                None,
                 None,
                 None,
             ) => Ok(AuthoredModelingDeclarationsFieldValueSelected::Test(value)),
@@ -8987,6 +10122,9 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 Some(value),
+                None,
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -9053,6 +10191,9 @@ impl AuthoredModelingDeclarationsFieldValue {
                 None,
                 None,
                 Some(value),
+                None,
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -10754,8 +11895,282 @@ impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueContribution {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#role))
     }
 }
+impl crate::SemanticFrame
+for AuthoredModelingDeclarationsFieldValueStateSpecificationIndicesItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#name));
+        crate::SemanticFrame::frame(&self.r#name, hash);
+        hash.str(stringify!(r#domain));
+        crate::SemanticFrame::frame(&self.r#domain, hash);
+    }
+}
+impl crate::HeapUsage
+for AuthoredModelingDeclarationsFieldValueStateSpecificationIndicesItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#name))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#domain))
+    }
+}
+impl crate::SemanticFrame
+for AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItemIndicesItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#name));
+        crate::SemanticFrame::frame(&self.r#name, hash);
+        hash.str(stringify!(r#domain));
+        crate::SemanticFrame::frame(&self.r#domain, hash);
+    }
+}
+impl crate::HeapUsage
+for AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItemIndicesItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#name))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#domain))
+    }
+}
+impl crate::SemanticFrame
+for AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#name));
+        crate::SemanticFrame::frame(&self.r#name, hash);
+        hash.str(stringify!(r#indices));
+        crate::SemanticFrame::frame(&self.r#indices, hash);
+        hash.str(stringify!(r#target));
+        crate::SemanticFrame::frame(&self.r#target, hash);
+    }
+}
+impl crate::HeapUsage
+for AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#name))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#indices))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#target))
+    }
+}
+impl crate::SemanticFrame
+for AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItemIndicesItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#name));
+        crate::SemanticFrame::frame(&self.r#name, hash);
+        hash.str(stringify!(r#domain));
+        crate::SemanticFrame::frame(&self.r#domain, hash);
+    }
+}
+impl crate::HeapUsage
+for AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItemIndicesItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#name))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#domain))
+    }
+}
+impl crate::SemanticFrame
+for AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#name));
+        crate::SemanticFrame::frame(&self.r#name, hash);
+        hash.str(stringify!(r#indices));
+        crate::SemanticFrame::frame(&self.r#indices, hash);
+        hash.str(stringify!(r#equation));
+        crate::SemanticFrame::frame(&self.r#equation, hash);
+        hash.str(stringify!(r#tolerance));
+        crate::SemanticFrame::frame(&self.r#tolerance, hash);
+    }
+}
+impl crate::HeapUsage
+for AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#name))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#indices))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#equation))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#tolerance))
+    }
+}
+impl crate::SemanticFrame
+for AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItemIndicesItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#name));
+        crate::SemanticFrame::frame(&self.r#name, hash);
+        hash.str(stringify!(r#domain));
+        crate::SemanticFrame::frame(&self.r#domain, hash);
+    }
+}
+impl crate::HeapUsage
+for AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItemIndicesItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#name))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#domain))
+    }
+}
+impl crate::SemanticFrame
+for AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#name));
+        crate::SemanticFrame::frame(&self.r#name, hash);
+        hash.str(stringify!(r#indices));
+        crate::SemanticFrame::frame(&self.r#indices, hash);
+        hash.str(stringify!(r#expression));
+        crate::SemanticFrame::frame(&self.r#expression, hash);
+        hash.str(stringify!(r#tolerance));
+        crate::SemanticFrame::frame(&self.r#tolerance, hash);
+    }
+}
+impl crate::HeapUsage
+for AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#name))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#indices))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#expression))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#tolerance))
+    }
+}
+impl crate::SemanticFrame for AuthoredModelingDeclarationsFieldValueStateSpecification {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#indices));
+        crate::SemanticFrame::frame(&self.r#indices, hash);
+        hash.str(stringify!(r#extends));
+        crate::SemanticFrame::frame(&self.r#extends, hash);
+        hash.str(stringify!(r#supplied));
+        crate::SemanticFrame::frame(&self.r#supplied, hash);
+        hash.str(stringify!(r#coordinates));
+        crate::SemanticFrame::frame(&self.r#coordinates, hash);
+        hash.str(stringify!(r#reconstructions));
+        crate::SemanticFrame::frame(&self.r#reconstructions, hash);
+        hash.str(stringify!(r#transports));
+        crate::SemanticFrame::frame(&self.r#transports, hash);
+    }
+}
+impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueStateSpecification {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#indices))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#extends))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#supplied))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#coordinates))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#reconstructions))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#transports))
+    }
+}
+impl crate::SemanticFrame
+for AuthoredModelingDeclarationsFieldValueStatePortIndicesItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#name));
+        crate::SemanticFrame::frame(&self.r#name, hash);
+        hash.str(stringify!(r#domain));
+        crate::SemanticFrame::frame(&self.r#domain, hash);
+    }
+}
+impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueStatePortIndicesItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#name))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#domain))
+    }
+}
+impl crate::SemanticFrame for AuthoredModelingDeclarationsFieldValueStatePort {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#indices));
+        crate::SemanticFrame::frame(&self.r#indices, hash);
+        hash.str(stringify!(r#specification));
+        crate::SemanticFrame::frame(&self.r#specification, hash);
+    }
+}
+impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueStatePort {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#indices))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#specification))
+    }
+}
+impl crate::SemanticFrame
+for AuthoredModelingDeclarationsFieldValueInventoryBalanceIndicesItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#name));
+        crate::SemanticFrame::frame(&self.r#name, hash);
+        hash.str(stringify!(r#domain));
+        crate::SemanticFrame::frame(&self.r#domain, hash);
+    }
+}
+impl crate::HeapUsage
+for AuthoredModelingDeclarationsFieldValueInventoryBalanceIndicesItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#name))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#domain))
+    }
+}
+impl crate::SemanticFrame
+for AuthoredModelingDeclarationsFieldValueInventoryBalanceTransfersItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#event));
+        crate::SemanticFrame::frame(&self.r#event, hash);
+        hash.str(stringify!(r#expression));
+        crate::SemanticFrame::frame(&self.r#expression, hash);
+    }
+}
+impl crate::HeapUsage
+for AuthoredModelingDeclarationsFieldValueInventoryBalanceTransfersItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#event))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#expression))
+    }
+}
+impl crate::SemanticFrame for AuthoredModelingDeclarationsFieldValueInventoryBalance {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#indices));
+        crate::SemanticFrame::frame(&self.r#indices, hash);
+        hash.str(stringify!(r#type));
+        crate::SemanticFrame::frame(&self.r#type, hash);
+        hash.str(stringify!(r#axis));
+        crate::SemanticFrame::frame(&self.r#axis, hash);
+        hash.str(stringify!(r#inventory));
+        crate::SemanticFrame::frame(&self.r#inventory, hash);
+        hash.str(stringify!(r#flux));
+        crate::SemanticFrame::frame(&self.r#flux, hash);
+        hash.str(stringify!(r#tolerance));
+        crate::SemanticFrame::frame(&self.r#tolerance, hash);
+        hash.str(stringify!(r#transfers));
+        crate::SemanticFrame::frame(&self.r#transfers, hash);
+    }
+}
+impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueInventoryBalance {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#indices))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#type))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#axis))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#inventory))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#flux))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#tolerance))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#transfers))
+    }
+}
+impl crate::SemanticFrame
+for AuthoredModelingDeclarationsFieldValueConnectionIndicesItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#name));
+        crate::SemanticFrame::frame(&self.r#name, hash);
+        hash.str(stringify!(r#domain));
+        crate::SemanticFrame::frame(&self.r#domain, hash);
+    }
+}
+impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueConnectionIndicesItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#name))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#domain))
+    }
+}
 impl crate::SemanticFrame for AuthoredModelingDeclarationsFieldValueConnection {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#indices));
+        crate::SemanticFrame::frame(&self.r#indices, hash);
         hash.str(stringify!(r#from));
         crate::SemanticFrame::frame(&self.r#from, hash);
         hash.str(stringify!(r#to));
@@ -10765,6 +12180,7 @@ impl crate::SemanticFrame for AuthoredModelingDeclarationsFieldValueConnection {
 impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueConnection {
     fn heap_bytes(&self) -> usize {
         0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#indices))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#from))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#to))
     }
@@ -11045,6 +12461,12 @@ impl crate::SemanticFrame for AuthoredModelingDeclarationsFieldValue {
         crate::SemanticFrame::frame(&self.r#accumulator, hash);
         hash.str(stringify!(r#contribution));
         crate::SemanticFrame::frame(&self.r#contribution, hash);
+        hash.str(stringify!(r#state_specification));
+        crate::SemanticFrame::frame(&self.r#state_specification, hash);
+        hash.str(stringify!(r#state_port));
+        crate::SemanticFrame::frame(&self.r#state_port, hash);
+        hash.str(stringify!(r#inventory_balance));
+        crate::SemanticFrame::frame(&self.r#inventory_balance, hash);
         hash.str(stringify!(r#connection));
         crate::SemanticFrame::frame(&self.r#connection, hash);
         hash.str(stringify!(r#annotation));
@@ -11101,6 +12523,9 @@ impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValue {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#guard))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#accumulator))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#contribution))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#state_specification))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#state_port))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#inventory_balance))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#connection))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#annotation))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#requirement))

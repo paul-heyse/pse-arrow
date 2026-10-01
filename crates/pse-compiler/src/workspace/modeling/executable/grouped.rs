@@ -11,6 +11,14 @@ impl ModelingOutput {
     /// Stable output-row identity; presentation order is independent of assembly order.
     pub fn row_id(&self) -> SemanticId {
         match self {
+            Self::ConditionalBoundary(id) => {
+                pse_ids::named_id(*id, "conditional-boundary-residual")
+            }
+            Self::Inventory(id) => pse_ids::named_id(*id, "conserved-inventory-output"),
+            Self::InventoryTransfer { balance, event } => pse_ids::named_id(
+                pse_ids::named_id(*balance, &format!("event-{event}")),
+                "conserved-transfer-output",
+            ),
             Self::InitialState { state, equation } => {
                 pse_ids::named_id(*state, &format!("initial-state-{equation}"))
             }
@@ -43,6 +51,7 @@ impl ModelingOutput {
     /// or a generated objective bound. Every other output is an observation.
     pub fn constraint(&self) -> Option<(SemanticId, EquationSense)> {
         match self {
+            Self::ConditionalBoundary(_) => Some((self.row_id(), EquationSense::Eq)),
             Self::Equation { id, sense } => Some((*id, *sense)),
             Self::LevelBound { row, sense, .. } => Some((*row, *sense)),
             _ => None,

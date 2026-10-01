@@ -140,6 +140,7 @@ pub struct FiniteReduction {
 /// Checked package inventory. Every map is keyed by semantic identity, never backend handles.
 #[derive(Clone, Debug, PartialEq)]
 pub struct CheckedPackage {
+    pub(crate) expressions: crate::expression::occurrences::Occurrences,
     pub(crate) selection_closures: crate::scientific_selection::Selections,
     pub(crate) physical_admissions:
         BTreeMap<DeclarationId, crate::expression::admission::ExpressionAdmissions>,
@@ -349,7 +350,7 @@ impl CheckedPackage {
                 .ok_or_else(|| invalid(id, "preset definition absent"))?;
         }
     }
-    /// A unique source member, including guarded contracts without activating them.
+    /// A source member with one physical contract, without activating guards.
     pub(crate) fn declared_member(
         &self,
         owner: DeclarationId,
@@ -388,11 +389,28 @@ impl CheckedPackage {
         {
             visit(self, *member, name, &mut found);
         }
+        let first = found.first().copied()?;
         if found.len() == 1 {
-            found.first().copied()
-        } else {
-            None
+            return Some(first);
         }
+        let first_row = &self.declarations[&first];
+        let ty = self.types.get(&first)?;
+        ty.quantity_scheme()?;
+        let indices = crate::expression::member_indices(first_row);
+        // A representative supplies only the common source type and coordinate
+        // contract. Effective member identity still comes from the active guard.
+        found
+            .iter()
+            .all(|id| {
+                let row = &self.declarations[id];
+                row.value.kind == first_row.value.kind
+                    && self.types.get(id) == Some(ty)
+                    && crate::expression::member_indices(row)
+                        .iter()
+                        .map(|(_, domain)| *domain)
+                        .eq(indices.iter().map(|(_, domain)| *domain))
+            })
+            .then_some(first)
     }
 
     /// Resolve lexical names, explicit imports, and names within the owning package.
@@ -558,6 +576,7 @@ fn check_declarations(
     documents: &dyn crate::document::Documents,
 ) -> Result<CheckedPackage> {
     let mut p = CheckedPackage {
+        expressions: crate::expression::occurrences::collect(rows)?,
         selection_closures: BTreeMap::new(),
         physical_admissions: BTreeMap::new(),
         quantities: Arc::new(context.quantities.clone()),
@@ -1293,6 +1312,13 @@ fn check_declarations(
             p.types
                 .insert(id, context.resolve(&v.r#type, &variables, &names, id)?);
         }
+        if let Some(v) = &row.value.inventory_balance {
+            let ty = context.resolve(&v.r#type, &variables, &names, id)?;
+            if ty.quantity_scheme().is_none() {
+                return Err(invalid(id, "inventory balance requires a physical type"));
+            }
+            p.types.insert(id, ty);
+        }
         // ADR-0123 Outcome 2: attributes belong to entity kinds; a binding takes its
         // inherited attribute's type when the kind's members are known.
         if let Some(v) = &row.value.attribute {
@@ -1350,7 +1376,7 @@ fn check_declarations(
             let body = v
                 .body
                 .as_ref()
-                .map(|b| dsl::parse_expr(b).map_err(|e| invalid(id, e.to_string())))
+                .map(|b| p.expression(id, b).cloned())
                 .transpose()?;
             p.types.insert(
                 id,
@@ -1365,7 +1391,7 @@ fn check_declarations(
                     applicability: v
                         .applicability
                         .iter()
-                        .map(|e| dsl::parse_expr(e).map_err(|e| invalid(id, e.to_string())))
+                        .map(|e| p.expression(id, e).cloned())
                         .collect::<Result<_>>()?,
                     applicability_uses: Vec::new(),
                     prerequisites: Vec::new(),
@@ -1375,7 +1401,7 @@ fn check_declarations(
                     validity: v
                         .validity
                         .as_ref()
-                        .map(|p| dsl::parse_predicate(p).map_err(|e| invalid(id, e.to_string())))
+                        .map(|source| p.predicate(id, source).cloned())
                         .transpose()?,
                     // Resolved once tables and kinds are admitted (`envelope::admit`).
                     envelopes: Vec::new(),
@@ -1568,12 +1594,14 @@ fn check_declarations(
                         .and_then(|members| members.get(&name))
                         .copied()
                         .ok_or_else(|| invalid(member, "stage override target absent"))?;
-                    if p.declarations[&base].value.equation.is_none()
-                        || p.declarations[&member].value.equation.is_none()
+                    let original = &p.declarations[&base].value;
+                    let replacement = &p.declarations[&member].value;
+                    if !((original.equation.is_some() && replacement.equation.is_some())
+                        || (original.connection.is_some() && replacement.connection.is_some()))
                     {
                         return Err(invalid(
                             member,
-                            "stage overrides replace equations; variable identities remain stable",
+                            "stage overrides replace equations or connections of the same kind; variable identities remain stable",
                         ));
                     }
                 } else {
@@ -1693,6 +1721,7 @@ fn check_declarations(
     crate::envelope::admit(&mut p, context)?;
     crate::applicability::admit(&p, context)?;
     crate::expression::check_all(&mut p, context)?;
+    crate::expression::occurrences::bind(&mut p);
     Ok(p)
 }
 
@@ -1712,6 +1741,12 @@ impl CheckedPackage {
                 continue;
             }
             let row = &self.declarations[&id];
+            pending.extend(
+                self.expressions
+                    .iter()
+                    .filter(|(key, _)| key.declaration == id)
+                    .flat_map(|(_, expression)| expression.dependencies.iter().copied()),
+            );
             if let Some(parent) = row.parent_id {
                 pending.push(parent);
             }
@@ -2085,6 +2120,8 @@ impl CheckedPackage {
         p.declarations.retain(|id, _| selected.contains(id));
         p.names.retain(|_, id| selected.contains(id));
         p.types.retain(|id, _| selected.contains(id));
+        p.expressions
+            .retain(|key, _| selected.contains(&key.declaration));
         p.functions.retain(|id, _| selected.contains(id));
         p.physical_admissions.retain(|id, _| selected.contains(id));
         p.tables.retain(|id, _| selected.contains(id));

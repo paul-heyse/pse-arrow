@@ -204,7 +204,8 @@ impl Runtime {
 mod conditional;
 #[cfg(feature = "solver-kinsol")]
 pub use conditional::{
-    CausalUnitRequest, PreparedInitializationStrategy, PreparedRecycle, RecycleRequest,
+    CausalUnitRealization, CausalUnitRequest, PreparedInitializationStrategy, PreparedRecycle,
+    RecycleRequest,
 };
 
 #[cfg(test)]

@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 88
+revision: 89
 date: 2026-10-01
 ---
 
@@ -61,6 +61,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | 87 | 2026-09-30 | ADR-0139 accepted: §24.4 adopts task-dependent delegation, task-specific context, explicit escalation and stronger review defaults. Shared contracts retain root acceptance and local executor discretion; canonical skills and separate adapters remain. AGENTS reference material moves to existing task and qualification guides to fit the instruction budget. The independent governance review returned Accept at static policy level; configuration/discovery checks passed and model quality is unmeasured. | maintainer-authorized implementation; `PSE_DESIGN_EDIT=1` |
 | 88 | 2026-10-01 | Plan 25b implemented contract amendment: complete/unknown composition, concrete reaction/material projection and explicit extent convention (§9.1/§9.7/§9.9); parameterization/family/subjects/variant selection and coherence (§9.3); claim-specific applicability and named data-use permissions (§9.10); retained selection/claim/permission preparation identities (§14.3); typed authoring and record-reference transport (§6.15.2); full applicability observation transport (§19.3); costing evidence and independent permissions (§19.5). | ADR-0140/0141 remain proposed; bounded target review and maintainer-authorized implementation; focused acceptance belongs to Plan 25b and assembled qualification to Plan 25k; `PSE_DESIGN_EDIT=1`. |
+| 89 | 2026-10-01 | ADR-0142 process composition target amendment: independent state/transport contracts and one material connection occurrence (§12), indexed boundaries and local storage (§10), original inventory/flux/event-transfer conservation (§13), admitted conditional unit recycle execution (§17.4), and its retained checked-occurrence/context-complete document-reuse prerequisites (§7.7/§22.2). | Maintainer-authorized Plan 25c implementation; ADR remains proposed; focused evidence is owned by 25c and assembled qualification by 25k; `PSE_DESIGN_EDIT=1`. |
 
 ## Former anchors
 

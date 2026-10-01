@@ -13,6 +13,8 @@ and retains results. The old template and scientific workflow constructors are r
 
 ## 10. Conservation laws and control volumes
 
+> Decision: ADR-0142 (proposed; maintainer-authorized implementation).
+
 > Decision: [ADR-0100](../../adr/0100-modeling-functions-and-accounting.md)
 > (proposed; implementation authorized).
 
@@ -22,11 +24,11 @@ the assembler and independent checks consume those original contributions.
 
 ### 10.1 Accumulators over contributions
 
-An accumulator declares a physical type, conservation or accounting mode, index domains
+An accumulator declares a physical type, conservation, observation or accounting mode, index domains
 and an explicit physical tolerance. Contributions target actual accumulator occurrences.
 Specialization checks ownership, complete physical compatibility and selected membership.
-Conservation produces a zero residual; accounting produces a reported sum without claiming
-a physical balance. Signed terms remain separate sparse-assembly contributions, preserving
+Conservation produces a zero residual. Observation assesses required physical closure without
+adding a redundant equation; accounting produces a reported sum without claiming a physical balance. Signed terms remain separate sparse-assembly contributions, preserving
 local derivative coordinates and independent original-term closure observations.
 There is no law-binding registry or hard-coded material/energy/charge subject vocabulary.
 
@@ -41,10 +43,21 @@ Independent checks remain distinct from a solver's scaled residual or convergenc
 
 ### 10.3 Lumped control volumes, steady and dynamic
 
+Control-volume balance operations consume indexed inlet/outlet boundaries and unit-owned
+sources. Local storage, independent of the global temporal route, adds inventories and required
+initial conditions; memoryless units contribute algebraic balances during dynamics. Pressure,
+splitting and equilibrium laws remain unit-owned.
+
 The process bundle's `ControlVolume0D` composes declared inlet/outlet state contracts with
 component-phase, component-total, element-total or total material balances, enthalpy and
-pressure equations. Optional holdup adds material and energy inventories and accumulation
-under analysis-mode facts. Unit definitions add their actual heat, work and reaction terms.
+pressure equations. The shared `IndexedBalances` operation supplies indexed transport and
+source contributions to Mixer, Separator and ControlVolume0D. Optional holdup adds material
+and energy inventories; `conserve` relates each inventory to its original signed flux.
+Memoryless balances remain algebraic during dynamics. Stored component-total and
+component-phase configurations require a declared single-phase allocation; stored element
+and total projections refuse until a concrete inventory contract is supplied. Element-total
+balances consume complete declared compositions. Unit definitions retain their heat, work,
+reaction, pressure and partition laws.
 
 The vessel is authored knowledge over amount/internal-energy inventories, PC-SAFT/DIPPR
 properties and a directional-valve function. Integrated and simultaneous analyses consume
@@ -99,22 +112,39 @@ kernel with synthetic controls before its scientific caller is accepted.
 
 ## 12. Connectivity
 
-A modeling port exposes an existing typed coordinate with its own declaration identity and
-owning instance. Directed connection occurrences produce mathematical equality constraints.
-An explicitly selected topology can also feed structural and recycle analyses.
+> Decision: ADR-0142 (proposed; maintainer-authorized implementation).
+
+A scalar port exposes an existing typed coordinate. A material state specification declares
+independent coordinates, dependent reconstruction and transported observations with semantic
+index identity and complete physical contracts. A material port aliases that specification at
+its owning boundary. One directed connection occurrence binds independent state, retains
+transport-agreement obligations and supplies topology, tears and internal cancellation.
+Receiving replaces supplied-state responsibility; reconstruction is emitted once by its
+specification rather than duplicated by each connection. Fully supplied states retain independent
+consistency observations. Compatible contracts admit direct connections regardless of property
+package identity; unlike state/transport contracts require an explicitly authored translator.
 
 ### 12.1 Typed ports
 
-Ports bind scalar or indexed members already present in the specialized model. They retain
+Scalar ports bind scalar or indexed members already present in the specialized model. They retain
 source and instance lineage independently of the underlying symbol identity. Their declared
 physical contract must equal the target coordinate's complete type. Package interfaces
 compose sets of these ports; the kernel has no closed material/heat/work/signal vocabulary.
-An alias does not duplicate numerical storage.
+An alias does not duplicate numerical storage. A `state` declaration identifies independent
+coordinate slots and semantic index values, dependent `reconstruct` equalities, and derived
+`transport` expressions with physical tolerances. An extension shares the original base
+coordinates and reconstruction identities. `material port` aliases one actual state
+specification, including indexed boundaries; fixed parameters retain their original member
+identities. Full displayed composition and energy remain observations rather than additional
+independent coordinates.
 
 ### 12.2 Connection admission
 
-Every connection endpoint must resolve to a declared active port. Both coordinates must
-have the same complete physical type, including kind, basis, datum, scale and subject.
+Every connection endpoint must resolve to a declared active port of the same role. Scalar
+coordinates must have the same complete physical type, including kind, basis, datum, scale
+and subject. Material states require exact semantic slot/species coverage and compatible
+coordinate and transported types. Binder spelling and enumeration position cannot map
+species; an unlike contract requires an explicitly authored translator.
 Source names resolve before equation generation. Missing or incompatible endpoints are
 attributed to the connection declaration.
 
@@ -133,9 +163,13 @@ structural/original-equation checks remain independently applicable.
 
 ### 12.3 Connection expansion during selected lowering
 
-Specialization creates an equality from each admitted connection using the existing typed
-mathematical path. Its identity is the connection occurrence's identity, with source lineage
-retained. Native layouts are derived coordinates only. Removing a coupling for initialization
+Specialization retains one connection occurrence and creates only its independent-coordinate
+equalities through the existing typed mathematical path. Material transport agreement is
+independently assessed in original physical expressions. Reconstruction belongs to the state
+specification and is emitted once for an unsupplied or receiving state; a supplied boundary
+retains consistency observations. Indexed row identities derive from the connection and
+semantic slot, while stage overrides retain the original connection identity with current
+source lineage. Native layouts are derived coordinates only. Removing a coupling for initialization
 uses an explicit prepared strategy or immutable case overlay; it does not mutate a package.
 
 ### 12.4 Values across connections
@@ -212,7 +246,15 @@ the manifest depends on the declaring package.
 
 Document ID assignment uses parser ranges and emits reviewable replacements with exact
 before-images. Explicit declaration IDs survive renaming; source byte ranges and content
-hashes are separate facts. Unchanged documents can reuse immutable parser owners.
+hashes are separate facts. Unchanged documents can reuse immutable parser owners only when
+the consumed document specification, identity policy and package interpretation context also
+agree. An interpretation change rebinds identity-bearing declarations and matches clean loading
+of the final sources. Binary bytes may retain their owner while the wrapper receives the
+current document identity; decoded compiler reuse obeys the same interpretation context.
+Unrelated descriptive manifest fields do not invalidate that reuse.
+
+> Decision: [ADR-0142](../../adr/0142-process-state-connections-and-temporal-conservation.md)
+> (required process-admission reuse slice implemented; decision remains proposed).
 
 A modeling package exposes immutable generated declarations. `with_declarations` admits a
 new revision against the same retained physical context; it cannot mutate the old checked

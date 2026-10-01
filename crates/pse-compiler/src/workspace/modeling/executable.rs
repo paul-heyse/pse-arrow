@@ -177,6 +177,17 @@ pub enum ModelingTestValue {
 /// Meaning of an output, independent of execution slots and source names.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ModelingOutput {
+    /// Compiler-owned supplied-boundary equality residual, distinct from its point observation.
+    ConditionalBoundary(SemanticId),
+    /// Original conserved inventory, independent of the generated accumulation coordinate.
+    Inventory(SemanticId),
+    /// Original pre-event transfer for a conserved subject and guard occurrence.
+    InventoryTransfer {
+        /// Stable conserved subject identity.
+        balance: SemanticId,
+        /// Resolved scalar guard member occurrence.
+        event: SemanticId,
+    },
     /// Rate expression derived from an original time-derivative equation.
     DynamicRate {
         /// Differential state whose rate this output evaluates.
@@ -674,6 +685,17 @@ fn projection(
             );
         }
     }
+    for balance in model.inventory_balances.values() {
+        p.outputs.push(ModelingOutput::Inventory(balance.id));
+        p.expressions.push(balance.inventory.clone());
+        for (event, expression) in &balance.transfers {
+            p.outputs.push(ModelingOutput::InventoryTransfer {
+                balance: balance.id,
+                event: *event,
+            });
+            p.expressions.push(expression.clone());
+        }
+    }
     for closure in model.closures.values() {
         for term in &closure.terms {
             p.outputs.push(ModelingOutput::Contribution {
@@ -831,6 +853,10 @@ fn projection(
     }
     for output in &p.outputs {
         let declaration = match output {
+            ModelingOutput::Inventory(id)
+            | ModelingOutput::InventoryTransfer { balance: id, .. } => {
+                Some(model.inventory_balances[id].lineage.declaration)
+            }
             ModelingOutput::Test { id, .. } => Some(model.expectations[id].lineage.declaration),
             ModelingOutput::Hint { declaration, .. } => Some(*declaration),
             ModelingOutput::DynamicRate { state, .. } => {
@@ -844,7 +870,9 @@ fn projection(
                 .iter()
                 .find(|r| r.id == *id)
                 .map(|r| r.lineage.declaration),
-            ModelingOutput::Member(id) | ModelingOutput::LevelBound { parameter: id, .. } => {
+            ModelingOutput::ConditionalBoundary(id)
+            | ModelingOutput::Member(id)
+            | ModelingOutput::LevelBound { parameter: id, .. } => {
                 model.symbols.get(id).map(|s| s.lineage.declaration)
             }
             ModelingOutput::Contribution {
@@ -933,14 +961,35 @@ fn projection(
         } else {
             None
         };
+        let transfer_type = if let ModelingOutput::InventoryTransfer { balance, .. } = output {
+            let scheme = model.inventory_balances[balance]
+                .ty
+                .quantity_scheme()
+                .ok_or_else(|| CompileError::Missing("inventory transfer physical type".into()))?;
+            Some(Type::Quantity(pse_quantity::scheme::Scheme::Concrete(
+                pse_quantity::scheme::Scheme::Delta(Box::new(scheme.clone()))
+                    .resolve_with_evidence(
+                        registry,
+                        &Substitution::new(),
+                        inventory.preconditions(db).as_ref(),
+                    )
+                    .map_err(|e| CompileError::Missing(e.to_string()))?,
+            )))
+        } else {
+            None
+        };
         let expected = match output {
+            ModelingOutput::Inventory(id) => Some(&model.inventory_balances[id].ty),
+            ModelingOutput::InventoryTransfer { .. } => transfer_type.as_ref(),
             ModelingOutput::InitialState { state, .. } => Some(&model.symbols[state].ty),
             ModelingOutput::DynamicRate { state, .. } => {
                 Some(&model.symbols[&model.derivatives[state].rate].ty)
             }
             ModelingOutput::Test { .. } => test_type.as_ref(),
             ModelingOutput::Hint { .. } => hint_type.as_ref(),
-            ModelingOutput::OriginalEquation(_) | ModelingOutput::Penalty(_) => None,
+            ModelingOutput::ConditionalBoundary(_)
+            | ModelingOutput::OriginalEquation(_)
+            | ModelingOutput::Penalty(_) => None,
             ModelingOutput::Term { .. } => term_type.as_ref(),
             ModelingOutput::Member(id) | ModelingOutput::LevelBound { parameter: id, .. } => {
                 Some(&model.symbols[id].ty)
@@ -1137,6 +1186,7 @@ impl CompilerWorkspace {
 /// Finite kernel preparation and post-specialization structural evidence.
 #[derive(Clone, Debug)]
 pub struct PreparedModeling {
+    projection: Arc<Projection>,
     /// Instantiated members, demand chains, values and original closure terms.
     pub model: Arc<SpecializedModel>,
     /// Typed finite math with stable semantic input/output coordinates.
@@ -1231,6 +1281,7 @@ impl CompilerWorkspace {
             let admitted = admitted(&self.db, self.inventory, catalog, request)?;
             let structure = structure(&self.db, self.inventory, catalog, request)?;
             Ok(PreparedModeling {
+                projection: projection(&self.db, self.inventory, catalog, request)?,
                 model,
                 admitted,
                 structure,
@@ -1247,8 +1298,114 @@ impl PreparedModeling {
     /// product is retained.
     pub fn retained_bytes(&self) -> usize {
         self.model.retained_bytes()
+            + projection_heap(&Ok(self.projection.clone()))
             + admitted_heap(&Ok(self.admitted.clone()))
             + structure_heap(&Ok(self.structure.clone()))
+    }
+}
+
+impl CompilerWorkspace {
+    /// Compile supplied-boundary differences through the existing typed consumer owner.
+    pub(super) fn prepare_conditional_boundary_functions(
+        &self,
+        model: &PreparedModeling,
+        symbols: &BTreeSet<SemanticId>,
+        coordinates: Vec<SemanticId>,
+        profile: Profile,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<PreparedFunctions> {
+        let mut p = model.projection.as_ref().clone();
+        let mut selected = Vec::new();
+        for symbol in symbols {
+            let index = p
+                .outputs
+                .iter()
+                .position(|o| matches!(o, ModelingOutput::Member(id) if id == symbol))
+                .ok_or_else(|| {
+                    CompileError::Missing("conditional boundary member projection absent".into())
+                })?;
+            let quantity = p.quantities[index];
+            let point = pse_quantity::ResolvedPhysicalContract::named(
+                quantity,
+                pse_quantity::IndexSet::default(),
+                &self.inputs.quantities,
+            )
+            .map_err(MathError::from)?;
+            let admission = pse_quantity::resolved::infer_operation(
+                &pse_quantity::infer::OpRequest::Sub,
+                &[point.clone(), point],
+                None,
+                &self.inputs.quantities,
+                &pse_quantity::infer::NoInvariantFacts,
+            )
+            .map_err(MathError::from)?;
+            let difference = admission.result.require_named().map_err(MathError::from)?;
+            if admission.operand_scales != [1.0, 1.0] || admission.result_scale != 1.0 {
+                return Err(CompileError::Missing(
+                    "conditional boundary requires canonical difference coordinates".into(),
+                ));
+            }
+            let parameter = pse_ids::named_id(*symbol, "conditional-boundary-value");
+            let path = symbol_name(parameter);
+            p.inputs.push(parameter);
+            p.formals.push(Formal {
+                path: path.clone(),
+                quantity,
+            });
+            p.local_quantities.insert(path.clone(), quantity);
+            let rhs = Expr {
+                span: p.expressions[index].span,
+                kind: ExprKind::Path(dsl::Path {
+                    segments: vec![dsl::PathSegment {
+                        name: path,
+                        indices: Vec::new(),
+                    }],
+                }),
+            };
+            let expression = Expr {
+                span: p.expressions[index].span,
+                kind: ExprKind::Binary {
+                    op: BinaryOp::Sub,
+                    lhs: Box::new(p.expressions[index].clone()),
+                    rhs: Box::new(rhs),
+                },
+            };
+            selected.push((
+                ModelingOutput::ConditionalBoundary(*symbol),
+                expression,
+                difference,
+                p.declarations[index],
+            ));
+        }
+        p.objectives = Default::default();
+        p.conservation.clear();
+        p.outputs = selected.iter().map(|x| x.0.clone()).collect();
+        p.expressions = selected.iter().map(|x| x.1.clone()).collect();
+        p.quantities = selected.iter().map(|x| x.2).collect();
+        p.declarations = selected.iter().map(|x| x.3).collect();
+        let admitted = grouped::admit(&self.db, self.inventory, &p)?;
+        let source = admitted.plan(
+            &self.inputs.quantities,
+            DerivativeOrder::Value,
+            AssemblyLimits::default(),
+            cancel,
+        )?;
+        let plan = Arc::new(
+            source.functions(
+                &p.outputs
+                    .iter()
+                    .map(ModelingOutput::row_id)
+                    .collect::<Vec<_>>(),
+                coordinates,
+                &self.inputs.quantities,
+                DerivativeOrder::First,
+                cancel,
+            )?,
+        );
+        Ok(PreparedFunctions {
+            artifacts: artifact_requests(&plan, profile, self.inventory.environment(&self.db)),
+            plan,
+        })
     }
 }
 

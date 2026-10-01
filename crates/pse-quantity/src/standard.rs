@@ -88,6 +88,111 @@ mod tests {
     use crate::{IndexSet, QuantityTypeId, infer::infer_with_evidence};
 
     #[test]
+    fn component_flow_time_integrals_keep_species_and_molar_contracts() {
+        use crate::{
+            BasisKind, PhysicalName, ResolvedPhysicalContract, infer::OperationSelection,
+            resolved::infer_operation,
+        };
+        let registry = standard_registry().unwrap();
+        let quantity = |name| match registry.physical_name(name).unwrap() {
+            PhysicalName::QuantityType(id) => id,
+            PhysicalName::ReferenceState(_) => panic!("expected a quantity"),
+        };
+        let component = quantity("ComponentFlow");
+        let amount = quantity("Amount");
+        let total = quantity("TotalAmount");
+        let time = quantity("Time");
+        let original = registry.quantity_type(component).unwrap();
+        let inventory = registry.quantity_type(amount).unwrap();
+        assert!(inventory.key.subject_kind.is_some());
+        assert_eq!(inventory.key.subject_kind, original.key.subject_kind);
+        assert_eq!(inventory.key.basis, original.key.basis);
+        assert_eq!(
+            registry.basis(inventory.key.basis.unwrap()).unwrap().kind,
+            BasisKind::Molar
+        );
+        let mut builder = registry.to_builder();
+        let mut wrong_basis = original.clone();
+        wrong_basis.id = QuantityTypeId::from_id(pse_ids::named_id(
+            component.as_id(),
+            "integral-mass-basis-control",
+        ));
+        wrong_basis.name = None;
+        wrong_basis.key.basis = Some(
+            registry
+                .bases()
+                .find(|basis| basis.kind == BasisKind::Mass)
+                .unwrap()
+                .id,
+        );
+        let mut wrong_subject = original.clone();
+        wrong_subject.id = QuantityTypeId::from_id(pse_ids::named_id(
+            component.as_id(),
+            "integral-other-subject-control",
+        ));
+        wrong_subject.name = None;
+        wrong_subject.key.subject_kind = Some(
+            registry
+                .entity_kinds()
+                .find(|kind| Some(kind.id) != original.key.subject_kind)
+                .unwrap()
+                .id,
+        );
+        builder
+            .quantity_type(wrong_basis.clone())
+            .quantity_type(wrong_subject.clone());
+        let registry = builder.build().unwrap();
+        let resolved =
+            |id| ResolvedPhysicalContract::named(id, IndexSet::new(), &registry).unwrap();
+        for (flow, expected) in [(component, amount), (quantity("Flow"), total)] {
+            for operands in [
+                [resolved(flow), resolved(time)],
+                [resolved(time), resolved(flow)],
+            ] {
+                let product = infer_operation(
+                    &OpRequest::Mul,
+                    &operands,
+                    None,
+                    &registry,
+                    &StandardInvariantChecker,
+                )
+                .unwrap();
+                assert!(matches!(
+                    product.selected,
+                    OperationSelection::Registered { .. }
+                ));
+                assert_eq!(product.result.require_named().unwrap(), expected);
+                assert_eq!(
+                    registry
+                        .quantity_type(product.result.require_named().unwrap())
+                        .unwrap()
+                        .key,
+                    registry.quantity_type(expected).unwrap().key
+                );
+                if expected == total {
+                    assert!(product.result.at_boundary(amount, &registry).is_err());
+                }
+            }
+        }
+        for wrong in [wrong_basis.id, wrong_subject.id] {
+            for operands in [
+                [resolved(wrong), resolved(time)],
+                [resolved(time), resolved(wrong)],
+            ] {
+                if let Ok(product) = infer_operation(
+                    &OpRequest::Mul,
+                    &operands,
+                    None,
+                    &registry,
+                    &StandardInvariantChecker,
+                ) {
+                    assert!(product.result.at_boundary(amount, &registry).is_err());
+                }
+            }
+        }
+    }
+
+    #[test]
     fn component_responses_keep_distinct_meanings_and_species_context() {
         use crate::{PhysicalName, ResolvedPhysicalContract, resolved::infer_operation};
         let registry = standard_registry().unwrap();

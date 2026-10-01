@@ -261,6 +261,26 @@ fn square_root(f: &ProblemFacts) -> bool {
 const fn root_intent(intent: SolveIntent) -> bool {
     matches!(intent, SolveIntent::Root | SolveIntent::Initialize)
 }
+/// Conservative compilation demand of one adapter's declared derivative capability.
+/// Numerical callers and eligibility consume this same operation.
+pub fn derivative_demand(
+    capability: &Capability,
+    controls: &crate::solve::Controls,
+) -> Option<DerivativeOrder> {
+    match capability.derivatives {
+        DerivativeCapability::ExactHessianOrLimitedMemory
+            if controls.hessian != HessianMode::LimitedMemory =>
+        {
+            Some(DerivativeOrder::Second)
+        }
+        DerivativeCapability::ExactHessianOrLimitedMemory
+        | DerivativeCapability::JacobianOrProduct
+        | DerivativeCapability::ForwardAndAdjointSensitivities
+        | DerivativeCapability::SecondOrderAdjointSensitivities => Some(DerivativeOrder::First),
+        DerivativeCapability::Coefficients | DerivativeCapability::Factorable => None,
+    }
+}
+
 /// The mathematical classes the facts and intent establish (ADR-0106 §7), most specific
 /// first: a square root system, then the coefficient, cone or discrete class, then smooth
 /// NLP. Root intents make a square problem a root system; coefficient, cone and discrete
@@ -336,18 +356,7 @@ pub fn admit(
     }
     // Every mode other than the library's quasi-Newton approximation is a supplied
     // Hessian: exact, or the Gauss–Newton Gram with constraint curvature.
-    let required = match capability.derivatives {
-        DerivativeCapability::ExactHessianOrLimitedMemory
-            if r.controls.hessian != HessianMode::LimitedMemory =>
-        {
-            Some(DerivativeOrder::Second)
-        }
-        DerivativeCapability::ExactHessianOrLimitedMemory
-        | DerivativeCapability::JacobianOrProduct
-        | DerivativeCapability::ForwardAndAdjointSensitivities
-        | DerivativeCapability::SecondOrderAdjointSensitivities => Some(DerivativeOrder::First),
-        DerivativeCapability::Coefficients | DerivativeCapability::Factorable => None,
-    };
+    let required = derivative_demand(capability, r.controls);
     if let Some(required) = required
         && f.derivatives.min(f.prepared_derivatives) < required
     {
@@ -590,6 +599,26 @@ mod tests {
             sensitivity: false,
         }
         .select(selection)
+    }
+    #[test]
+    fn conditional_unit_derivative_demand_comes_from_adapter_capability() {
+        let mut controls = crate::solve::Controls::default();
+        let root = adapter(Backend::Kinsol).capability();
+        assert_eq!(
+            derivative_demand(root, &controls),
+            Some(DerivativeOrder::First)
+        );
+        let nlp = adapter(Backend::Ipopt).capability();
+        controls.hessian = HessianMode::Exact;
+        assert_eq!(
+            derivative_demand(nlp, &controls),
+            Some(DerivativeOrder::Second)
+        );
+        controls.hessian = HessianMode::LimitedMemory;
+        assert_eq!(
+            derivative_demand(nlp, &controls),
+            Some(DerivativeOrder::First)
+        );
     }
     fn root_facts() -> ProblemFacts {
         ProblemFacts {

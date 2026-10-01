@@ -175,7 +175,7 @@ impl DynamicProgram {
             .saturating_add(
                 c.balances
                     .iter()
-                    .map(|b| 1 + b.impulses.len())
+                    .map(|b| 3 + b.transfers.len())
                     .sum::<usize>(),
             )
             .saturating_add(self.coordinates.state.len())

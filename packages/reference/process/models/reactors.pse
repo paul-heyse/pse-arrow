@@ -69,9 +69,11 @@
 @id("4a54526c0701428b8e50134e16308634") contribute [i in x,r in reaction_set,j in components] material_source[i,j] role positive=reaction_extent[i,r]*reaction[i].coefficient[r,j];
 @id("6c859f627f434a3a86917b0251b4cb93") contribute [i in x,r in reaction_set] energy_source[i] role directed=transfer(-reaction_extent[i,r]*reaction[i].heat[r],energy_boundary[i],Into);
 @id("01a0ee4526767673ae25bd155abea012") let heat_of_reaction:EnergyTransferRate=integral(i in x | -sum(r in reaction_set | reaction_extent[i,r]*reaction[i].heat[r]));
-@id("16913b65237d40508baef2f64ebd3ecd") port outlet_temperature:Temperature=state[1].T;
-@id("7d6ba7238ab54574b592568d2932ab62") port outlet_pressure:Pressure=state[1].pressure;
-@id("577ef29f5d1c4668a1dc9acc4d89d584") port outlet_concentration[j in components]:MolarDensity=state[1].concentration[j];
+@id("16913b65237d40508baef2f64ebd3ecd") let outlet_temperature:Temperature=state[1].T;
+@id("7d6ba7238ab54574b592568d2932ab62") let outlet_pressure:Pressure=state[1].pressure;
+@id("577ef29f5d1c4668a1dc9acc4d89d584") let outlet_concentration[j in components]:MolarDensity=state[1].concentration[j];
+@id("3bf101e621ac5318b87f1e95108c300c") material port outlet_port=state[1].material_state;
+@id("1ab10c0dad7154d5ab03f5ef1c5c471a") annotation connectivity outlet_port(0,1);
 @id("bd5c2658282d4c9a9f91556d45f295a3") annotation report outlet_temperature("PFR outlet temperature");
 @id("8920443ceb884fe088617d900f2324c1") annotation report outlet_concentration("PFR outlet concentration");
 }

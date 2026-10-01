@@ -14,6 +14,39 @@ fn parse_named(s: &str) -> Vec<Declaration> {
     .unwrap()
 }
 #[test]
+fn process_contract_state_material_port_connection_and_inventory_roundtrip() {
+    let source = r#"package process {
+     def Root {
+      state s[j in species] supplied(false) {
+       coordinate temperature=T[j];
+       reconstruct normalization:sum(k in members | fraction[j,k])==1 tolerance 1e-8;
+       transport energy=enthalpy[j] tolerance 1e-6{J/mol};
+      }
+      state enhanced[j in species] extends s[j] supplied(false) {transport audit=enthalpy[j] tolerance 1e-6{J/mol};}
+      material port inlet[j in species]=enhanced[j];
+      material port outlet[j in species]=s[j];
+      connect stream: [j in species] inlet[j]->outlet[j];
+      conserve total[j in species]:Amount on time inventory amount[j] flux rate[j] tolerance 1e-6{mol} transfers(root.switched[0{s}]=step[j]);
+     }
+    }"#;
+    let original = parse_named(source);
+    let rendered = render(&original).unwrap();
+    let reparsed = parse_named(&rendered);
+    let normalize = |rows: Vec<Declaration>| {
+        rows.into_iter()
+            .map(|mut row| {
+                row.source_start = 0;
+                row.source_end = 0;
+                row
+            })
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(normalize(original), normalize(reparsed));
+    assert!(rendered.contains("material port"));
+    assert!(rendered.contains("root.switched[0{s}]"));
+    assert!(rendered.contains("conserve total"));
+}
+#[test]
 fn physical_maps_responses_translations_and_transfers_roundtrip() {
     let text = r#"package physical_forms {
  coordinate map reduced(T: Temperature, V: Volume, n: Amount[species], members: Set<species>) valid(V > 0{m^3}) {

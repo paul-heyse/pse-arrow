@@ -165,7 +165,8 @@ impl Engine<'_, '_> {
         let mut counts = std::collections::BTreeMap::<SemanticId, (usize, usize)>::new();
         for connection in self.model.connections.values() {
             for port in [connection.from, connection.to] {
-                if !self.model.ports.contains_key(&port)
+                if !(self.model.ports.contains_key(&port)
+                    || self.model.material_ports.contains_key(&port))
                     || !self.model.connectivity.contains_key(&port)
                 {
                     return Err(invalid(
@@ -178,7 +179,9 @@ impl Engine<'_, '_> {
             counts.entry(connection.to).or_default().0 += 1;
         }
         for (port, policy) in &self.model.connectivity {
-            if !self.model.ports.contains_key(port) {
+            if !(self.model.ports.contains_key(port)
+                || self.model.material_ports.contains_key(port))
+            {
                 return Err(invalid(
                     policy.lineage.declaration,
                     "connectivity target is not an active port",

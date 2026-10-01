@@ -7,6 +7,7 @@
 @id("01a0f042b660738c8ffef70c2d80ce5a") use chemistry @"1.0.0";
 @id("01a0f042b660738c8ffef70d328b3561") use chem @"1.0.0";
 @id("01a0f042b660738c8ffef70e64611647") use units @"1.0.0";
+@id("5e0a664f217943b2a3928b86b9bdb4a4") use equilibrium @"1.0.0";
 @id("01a0f042b660738c8ffef70fdd8951af") use mixing @"1.0.0";
 @id("01a0f042b660738c8ffef710a3aa2e90") use flashing @"1.0.0";
 @id("01a0f042b660738c8ffef711ad128262") use separation @"1.0.0";
@@ -17,77 +18,121 @@
 @id("01a0f042b660738c8ffef71512501cdc") entity kinds.port_set purged {}
 @id("01a0f042b660738c8ffef71697e2af80") set mixer_inlets:Set<kinds.port_set>={fresh,recycled};
 @id("01a0f042b660738c8ffef717a4ad6bb4") set liquid_outlets:Set<kinds.port_set>={recycled,purged};
+@id("3f86e78525fb4c41bcedc24aa318262b") def RecycleMixer(inlet_pkg:equilibrium.ThermoPackage,outlet_pkg:equilibrium.ThermoPackage,inlets:Set<kinds.port_set>,momentum_mixing:compatibility.MomentumMixingType) {
+@id("685af2727e424e229eb56b878d2eff6b") child unit:mixing.Mixer=mixing.Mixer(inlet_pkg=inlet_pkg,outlet_pkg=outlet_pkg,inlets=inlets,momentum_mixing=momentum_mixing);
+@id("a1a1cf897fc54736ad310856d8c7ce15") eq fresh_pressure_selection:unit.outlet.pressure==unit.inlet[fresh].pressure;
+@id("4ac41154da6a4184b56c884904bf0a44") material port inlet_ports[i in inlets]=unit.inlet[i].material_state;
+@id("ac07559d3cff434086f53e0cb1971ae1") annotation connectivity inlet_ports(1,0);
+@id("4341b0ddc29c4b7eb4bd371f7e8672ca") material port outlet_port=unit.outlet.material_state;
+@id("d671c81d2acc47d78467e296b2c30b51") annotation connectivity outlet_port(0,1);
+}
+@id("64c30fc87c274cd3a0adc4365da6dc18") def RecycleHeater(inlet_pkg:equilibrium.ThermoPackage,outlet_pkg:equilibrium.ThermoPackage,target_value:Temperature) {
+@id("3619b0c179164dc7880e25c2c7f98a18") param target:Temperature=target_value;
+@id("2be70be382964271a45967c60cd9a40b") child unit:units.Heater=units.Heater(inlet_pkg=inlet_pkg,outlet_pkg=outlet_pkg);
+@id("800edba3a5404ea1b5b61eda7f984d46") eq target_temperature:unit.outlet.T==target;
+@id("06068da57f2c4faaa5ccfffb9f247d89") eq isobaric:unit.delta_pressure==0{Pa};
+@id("c8cab308b04640c580f89b6865cb3b73") material port inlet_port=unit.inlet.material_state;
+@id("83153df032134cee94239fc602bfe116") annotation connectivity inlet_port(1,0);
+@id("aab074d8f7034a63b871638ecb79566d") material port outlet_port=unit.outlet.material_state;
+@id("a4a14d17ede14ad6a27fe1af431e4950") annotation connectivity outlet_port(0,1);
+}
+@id("dcee096f47864df997c6d030f6bb76ae") def RecycleEquilibriumFlash(inlet_pkg:equilibrium.ThermoPackage,outlet_pkg:equilibrium.EquilibriumThermoPackage) {
+@id("cb515e2f8f4d49c8aa7315c123c5a65d") child unit:flashing.Flash=flashing.Flash(inlet_pkg=inlet_pkg,outlet_pkg=outlet_pkg);
+@id("7fd95259f33b4abc99358264c607c268") eq adiabatic:unit.heat==0{W};
+@id("f706c7869a3f4acabafb3a92ff5b811f") eq isobaric:unit.delta_pressure==0{Pa};
+@id("b45580fc20f34cddba8be67453668093") material port inlet_port=unit.inlet.material_state;
+@id("d796a2470314492ab51805d5eef56e55") annotation connectivity inlet_port(1,0);
+@id("38f1f263700142b8a4a8ab31e3b7acc9") material port outlet_port=unit.outlet.material_state;
+@id("d3a2e4434441444d80dc3be072d862e6") annotation connectivity outlet_port(0,1);
+@id("396d3aae78c741be92111eeecc098b9a") material port liquid_port=unit.liquid_state;
+@id("9b2e7647d11a4f4ea29b77fe5fea567c") annotation connectivity liquid_port(0,1);
+@id("6c8148ad7ec44892a1c3ce93b17abe05") material port vapor_port=unit.vapor_state;
+@id("f329ce3bfda647b486f64457006fb3c8") annotation connectivity vapor_port(0,1);
+}
+@id("d66a8ab7eb09400eba4ab13df023280d") def RecycleSplitter(pkg:equilibrium.ThermoPackage,outlets:Set<kinds.port_set>,component_enthalpy:Fn(T:Temperature,p:chemistry.phase,j:chemistry.species)->MolarEnthalpy,purge_value:Scalar) {
+@id("28efbcbf1db845a5922a1525c489fe11") param purge:Scalar=purge_value;
+@id("f1177332ad2d46cca98d86ad29169460") child unit:separation.Separator=separation.Separator(pkg=pkg,outlets=outlets,component_enthalpy=component_enthalpy);
+@id("9d4d5e94836940289f858c51cc5f4d2f") eq purge_fraction:unit.split_total[purged]==purge;
+@id("a1c1bdecc6084ea5ad0a8f122df82395") material port inlet_port=unit.inlet.material_state;
+@id("bdfdb1a1ae8f45b98f8ddbd8a28b5d71") annotation connectivity inlet_port(1,0);
+@id("5d4bc67f5e05488db0bf974ee51954ca") material port outlet_ports[o in outlets]=unit.outlet_state[o];
+@id("126b00885c3b4a82a05a8cda72d32fe5") annotation connectivity outlet_ports(0,1);
+}
 // A flash whose liquid is split between a purge and a recycle to its feed mixer. The heater
 // sets the flash temperature; the flash is adiabatic and, like the heater, isobaric. The
 // mixer states no pressure relation, since a closed isobaric loop has no minimum to select:
 // the loop runs at the fresh feed's pressure. The streams are the flowsheet's equations, so
-// the recycle closure is a named set of members an initialization stage can tear.
+// the recycle closure is one named material connection an initialization stage can tear.
 @id("01a0f053c2807589b9b24cdcf3747f60") interface RecycleLoop {
-@id("01a0f053c2807589b9b24cdda52461b5") param purge:Scalar;
-@id("01a0f053c2807589b9b24cdea005f07d") param flash_temperature:Temperature;
+@id("01a0f053c2807589b9b24cdda52461b5") let purge:Scalar=splitter.purge;
+@id("01a0f053c2807589b9b24cdea005f07d") let flash_temperature:Temperature=heater.target;
 @id("01a0f042b660738c8ffef7191e27e353") param components:Set<chemistry.species>=bt_ideal.aromatics;
 @id("01a0f042b660738c8ffef71a3a3b632a") child feed:units.Feed=units.Feed(pkg=bt_ideal.BTIdeal(defined_state=true));
-@id("01a0f042b660738c8ffef71b7e420960") child mixer:mixing.Mixer=mixing.Mixer(inlet_pkg=bt_ideal.BTIdeal(defined_state=true),outlet_pkg=bt_ideal.BTIdeal(defined_state=false),inlets=mixer_inlets,momentum_mixing=compatibility.MomentumMixingType.none);
-@id("01a0f042b660738c8ffef71c32a65c83") child heater:units.Heater=units.Heater(inlet_pkg=bt_ideal.BTIdeal(defined_state=true),outlet_pkg=bt_ideal.BTIdeal(defined_state=false));
-@id("01a0f042b660738c8ffef71d9e72f633") child flash:flashing.Flash=flashing.Flash(inlet_pkg=bt_ideal.BTIdeal(defined_state=true),outlet_pkg=bt_ideal.BTIdeal(defined_state=false));
-@id("01a0f042b660738c8ffef71e6f3bb4a9") child splitter:separation.Separator=separation.Separator(pkg=bt_ideal.BTIdeal(defined_state=true),outlets=liquid_outlets,component_enthalpy=bt_ideal.component_enthalpy);
-@id("01a0f042b660738c8ffef71fca8c39d5") eq fresh_flow:mixer.inlet[fresh].flow==feed.flow;
-@id("01a0f042b660738c8ffef720bd597e1f") eq fresh_temperature:mixer.inlet[fresh].T==feed.temperature;
-@id("01a0f042b660738c8ffef721a98a4863") eq fresh_pressure:mixer.inlet[fresh].pressure==feed.pressure;
-@id("01a0f042b660738c8ffef7221b6c5d4a") eq fresh_composition[j in components]:mixer.inlet[fresh].z[j]==feed.composition[j];
-@id("01a0f042b660738c8ffef7233e980bc9") eq mixed_flow:heater.inlet.flow==mixer.outlet.flow;
-@id("01a0f042b660738c8ffef7245935302e") eq mixed_temperature:heater.inlet.T==mixer.outlet.T;
-@id("01a0f042b660738c8ffef72546ef00bc") eq mixed_pressure:heater.inlet.pressure==mixer.outlet.pressure;
-@id("01a0f042b660738c8ffef72639424cd5") eq mixed_composition[j in components]:heater.inlet.z[j]==mixer.outlet.z[j];
-@id("01a0f042b660738c8ffef72767268e99") eq heated_flow:flash.inlet.flow==heater.outlet.flow;
-@id("01a0f042b660738c8ffef72816a922d6") eq heated_temperature:flash.inlet.T==heater.outlet.T;
-@id("01a0f042b660738c8ffef729f1527c0a") eq heated_pressure:flash.inlet.pressure==heater.outlet.pressure;
-@id("01a0f042b660738c8ffef72adc4ae370") eq heated_composition[j in components]:flash.inlet.z[j]==heater.outlet.z[j];
-@id("01a0f042b660738c8ffef72b31336cb1") eq liquid_flow:splitter.inlet.flow==flash.liquid_flow;
-@id("01a0f042b660738c8ffef72c18d57080") eq liquid_temperature:splitter.inlet.T==flash.liquid_temperature;
-@id("01a0f042b660738c8ffef72daeb3feff") eq liquid_pressure:splitter.inlet.pressure==flash.liquid_pressure;
-@id("01a0f042b660738c8ffef72e8e58f497") eq liquid_composition[j in components]:splitter.inlet.z[j]==flash.liquid_composition[j];
-@id("01a0f042b660738c8ffef72f68485efa") eq recycle_flow:mixer.inlet[recycled].flow==splitter.flow[recycled];
-@id("01a0f042b660738c8ffef730bf97c6ef") eq recycle_temperature:mixer.inlet[recycled].T==splitter.temperature;
-@id("01a0f042b660738c8ffef7310fa8092e") eq recycle_pressure:mixer.inlet[recycled].pressure==splitter.pressure;
-@id("01a0f042b660738c8ffef732fd5b2e47") eq recycle_composition[j in components]:mixer.inlet[recycled].z[j]==splitter.composition[recycled,j];
-@id("01a0f04b2146776f9e058f9bf4821e89") eq loop_pressure:mixer.outlet.pressure==feed.pressure;
-@id("01a0f042b660738c8ffef733e3fab052") eq flash_temperature_spec:heater.outlet.T==flash_temperature;
-@id("01a0f042b660738c8ffef7348b00e616") eq heater_isobaric:heater.delta_pressure==0{Pa};
-@id("01a0f042b660738c8ffef735a74b1e9a") eq adiabatic_flash:flash.heat==0{W};
-@id("01a0f042b660738c8ffef736e2bf4d97") eq isobaric_flash:flash.delta_pressure==0{Pa};
-@id("01a0f042b660738c8ffef737b6e8cce5") eq purge_fraction:splitter.split_total[purged]==purge;
-@id("01a0f053c2807589b9b24cdf3a92e89f") accumulate overall[j in components]:ComponentFlow accounting tolerance 1e-7{mol/s};
-@id("01a0f053c2807589b9b24ce0f90adaaf") contribute [j in components] overall[j] role inflow=feed.component_flow[j];
-@id("01a0f053c2807589b9b24ce1f9b44029") contribute [j in components] overall[j] role outflow=flash.vapor_component_flow[j];
-@id("01a0f053c2807589b9b24ce294e518a3") contribute [j in components] overall[j] role outflow=splitter.component_flow[purged,j];
-@id("01a0f053c2807589b9b24ce40f579e61") annotation report flash.vapor_flow("vapor product");
-@id("01a0f053c2807589b9b24ce535dd8351") annotation report mixer.inlet[recycled].flow("liquid recycle");
+@id("01a0f042b660738c8ffef71b7e420960") child mixer:RecycleMixer=RecycleMixer(inlet_pkg=bt_ideal.BTIdeal(defined_state=true),outlet_pkg=bt_ideal.BTIdeal(defined_state=false),inlets=mixer_inlets,momentum_mixing=compatibility.MomentumMixingType.none);
+@id("01a0f042b660738c8ffef71c32a65c83") child heater:RecycleHeater;
+@id("01a0f042b660738c8ffef71d9e72f633") child flash:RecycleEquilibriumFlash=RecycleEquilibriumFlash(inlet_pkg=bt_ideal.BTIdeal(defined_state=true),outlet_pkg=bt_ideal.BTIdeal(defined_state=false));
+@id("01a0f042b660738c8ffef71e6f3bb4a9") child splitter:RecycleSplitter;
+@id("94e0a3c0f56941eca2d680229bf27b11") connect fresh_feed:feed.material -> mixer.inlet_ports[fresh];
+@id("691b9062866c49b88f7459bd9e0f67f3") connect mixed:mixer.outlet_port -> heater.inlet_port;
+@id("13f0fa4ef0cb4d55bd7e762fe9b8856d") connect heated:heater.outlet_port -> flash.inlet_port;
+@id("d8a5f9228650494288916c171913ce7d") connect liquid:flash.liquid_port -> splitter.inlet_port;
+@id("86064b2612844614b40eb36cf6b085a5") connect recycle:splitter.outlet_ports[recycled] -> mixer.inlet_ports[recycled];
+@id("017a9b0ca6c1430e9470624599a5792f") let tear_component[j in components]:ComponentFlow=feed.state.component_flow[j]*0.01;
+@id("c386789179564f778ead8ad0072a81d0") let tear_temperature:Temperature=feed.state.T;
+@id("0e80a2fb8a904cf0b86e6228f97903f6") let tear_pressure:Pressure=feed.state.pressure;
+@id("3721bbebec294b25806dc437157b1bd6") let tear_energy:Power=feed.state.energy_flow*0.01;
+@id("76dc17d0b1d8478c9181cfe430939355") state tear_state supplied(true) {
+coordinate component[j in components]=tear_component[j];
+coordinate temperature=tear_temperature;
+coordinate pressure=tear_pressure;
+transport component[j in components]=tear_component[j] tolerance 1e-7{mol/s};
+transport energy=tear_energy tolerance 0.001{W};
 }
-// The recycle torn at the fresh feed: the tear stage holds the recycle empty at the feed's
+@id("0f0d8d61c18c4667be4e199499d519ad") material port tear_port=tear_state;
+@id("f821edcb22604724930ee3e554eaefd6") annotation connectivity tear_port(0,1);
+@id("01a0f053c2807589b9b24cdf3a92e89f") accumulate overall[j in components]:ComponentFlow accounting tolerance 1e-7{mol/s};
+@id("01a0f053c2807589b9b24ce0f90adaaf") contribute [j in components] overall[j] role inflow=feed.state.component_flow[j];
+@id("01a0f053c2807589b9b24ce1f9b44029") contribute [j in components] overall[j] role outflow=flash.unit.vapor_component_flow[j];
+@id("01a0f053c2807589b9b24ce294e518a3") contribute [j in components] overall[j] role outflow=splitter.unit.component_flow[purged,j];
+@id("01a0f053c2807589b9b24ce40f579e61") annotation report flash.unit.vapor_flow("vapor product");
+@id("01a0f053c2807589b9b24ce535dd8351") annotation report mixer.unit.inlet[recycled].flow("liquid recycle");
+}
+// Numeric specifications belong to their unit problems. The existing constructor
+// formals supply their initial values; the loop's lets only expose observations.
+// The recycle torn at the fresh feed: the tear stage holds a small positive recycle at the feed's
 // temperature, pressure and composition, so the loop solves once through; the original
 // specification then closes the recycle from that start.
 @id("01a0f042b660738c8ffef718e014a1d0") def RecycleFlash(purge_fraction:Scalar=0.25,temperature:Temperature=368{K}):RecycleLoop {
-@id("01a0f053c2807589b9b24ce64f6d1616") override param purge:Scalar=purge_fraction;
-@id("01a0f053c2807589b9b24ce7d54a0389") override param flash_temperature:Temperature=temperature;
+@id("e961fb6db2b2497ab1cc6223b1d3cc7c") override child heater:RecycleHeater=RecycleHeater(inlet_pkg=bt_ideal.BTIdeal(defined_state=true),outlet_pkg=bt_ideal.BTIdeal(defined_state=false),target_value=temperature);
+@id("aee77b64111544c68411d1b564a873b1") override child splitter:RecycleSplitter=RecycleSplitter(pkg=bt_ideal.BTIdeal(defined_state=true),outlets=liquid_outlets,component_enthalpy=bt_ideal.component_enthalpy,purge_value=purge_fraction);
 @id("01a0f042b660738c8ffef738c8c09b09") stage "tear" {
-@id("01a0f042b660738c8ffef7394412dbc0") override eq recycle_flow:mixer.inlet[recycled].flow==0{mol/s};
-@id("01a0f042b660738c8ffef73a81d37217") override eq recycle_temperature:mixer.inlet[recycled].T==feed.temperature;
-@id("01a0f042b660738c8ffef73b44c11dda") override eq recycle_pressure:mixer.inlet[recycled].pressure==feed.pressure;
-@id("01a0f042b660738c8ffef73c2c859469") override eq recycle_composition[j in components]:mixer.inlet[recycled].z[j]==feed.composition[j];
+@id("84f1b782717b4b09adbed4740223f8fd") override connect recycle:tear_port -> mixer.inlet_ports[recycled];
 }
+}
+// An original-specification owner for the typed conditional request handoff. It
+// retains the fixture-only parameter provenance; coupled execution belongs to the
+// conditional campaign rather than this declaration of its inputs.
+@id("8c8789c68c014b9b8535a9b820ee0337") test recycle_flash_conditional_handoff fixture {dof 0; run steady; fix root.feed.state.flow=1{mol/s}; fix root.feed.state.T=368{K}; fix root.feed.state.pressure=101325{Pa}; fix root.feed.state.z[chem.benzene]=0.5{1}; fix root.feed.state.z[chem.toluene]=0.5{1};} {
+@id("c530dc52bb2343f1998b47845aab59d6") child root:RecycleFlash=RecycleFlash;
 }
 // A tear whose recycle temperature estimate, 500 K, lies above the 450 K upper bound of the
 // BTIdeal states: its stage cannot be solved, while the original specification is that of
 // RecycleFlash.
 @id("01a0f053c2807589b9b24ce8ecb9eca4") def OverheatedTear:RecycleLoop {
-@id("01a0f053c2807589b9b24ce94c7a1003") override param purge:Scalar=0.25;
-@id("01a0f053c2807589b9b24ceadf737004") override param flash_temperature:Temperature=368{K};
+@id("d3432b271c7a49eaaa9e8a5096060a45") override child heater:RecycleHeater=RecycleHeater(inlet_pkg=bt_ideal.BTIdeal(defined_state=true),outlet_pkg=bt_ideal.BTIdeal(defined_state=false),target_value=368{K});
+@id("a1d5e8336cdf4a5cb79df1278297b815") override child splitter:RecycleSplitter=RecycleSplitter(pkg=bt_ideal.BTIdeal(defined_state=true),outlets=liquid_outlets,component_enthalpy=bt_ideal.component_enthalpy,purge_value=0.25);
+@id("2fa918deb9bc4303851fc00d659879a0") let overheated_temperature:Temperature=500{K};
+@id("cad6a49dd3c74881881584e68aaa1180") state overheated_state supplied(true) {
+coordinate component[j in components]=tear_component[j];
+coordinate temperature=overheated_temperature;
+coordinate pressure=tear_pressure;
+transport component[j in components]=tear_component[j] tolerance 1e-7{mol/s};
+transport energy=tear_energy tolerance 0.001{W};
+}
+@id("5506ce7e0177411ca5e38f1bfca3463c") material port overheated_port=overheated_state;
+@id("e1f802bc921643edbd9b4132ec50a0e3") annotation connectivity overheated_port(0,1);
 @id("01a0f053c2807589b9b24cebe964d6ce") stage "overheated_tear" {
-@id("01a0f053c2807589b9b24cec47e1d9f3") override eq recycle_flow:mixer.inlet[recycled].flow==0{mol/s};
-@id("01a0f053c2807589b9b24ced0b455cf9") override eq recycle_temperature:mixer.inlet[recycled].T==500{K};
-@id("01a0f053c2807589b9b24cee2b8a954d") override eq recycle_pressure:mixer.inlet[recycled].pressure==feed.pressure;
-@id("01a0f053c2807589b9b24cef9eaa2b2e") override eq recycle_composition[j in components]:mixer.inlet[recycled].z[j]==feed.composition[j];
+@id("981dcc6d34ce415587c0b6d1b2da18c6") override connect recycle:overheated_port -> mixer.inlet_ports[recycled];
 }
 }
 @id("01a0f04cffc170d5aad0ed18309baff9") entity kind feed_sample {}
@@ -125,22 +170,22 @@
 // truncation on the smoothing both stay below 1 %.
 @id("01a0f053c2807589b9b24cf0b26a07c9") test recycle_flash_converges_from_defaults oracle campaign_references.analytic_recycle_flash fixture {dof 0; run initialized; stages("tear"); initialize homotopy(false) step(0.5) minimum(1e-6) growth(2) attempts(4) seconds(600); policy { derivatives step(1e-7) tolerance(1e-2); }} {
 @id("01a0f053c2807589b9b24cf1e6db2076") child root:RecycleFlashStudy=RecycleFlashStudy;
-@id("01a0f053c2807589b9b24cf202b31e73") expect root.point[cold_lean].flash.vapor_composition[chem.benzene]==0.633977{1} tolerance 0.00001{1};
-@id("01a0f053c2807589b9b24cf3b9a99eb9") expect root.point[cold_lean].flash.liquid_composition[chem.benzene]==0.412118{1} tolerance 0.00001{1};
-@id("01a0f053c2807589b9b24cf4b5c93839") expect root.point[cold_lean].flash.vapor_flow==8.53742566{mol/s} tolerance 0.000001{mol/s} relative 0.0005;
-@id("01a0f053c2807589b9b24cf5c1c7fbaa") expect root.point[cold_lean].mixer.inlet[recycled].flow==373.163169{mol/s} tolerance 0.000001{mol/s} relative 0.0005;
-@id("01a0f053c2807589b9b24cf6c60e55b0") expect root.point[saturated_equimolar].flash.vapor_composition[chem.benzene]==0.633977{1} tolerance 0.00001{1};
-@id("01a0f053c2807589b9b24cf78c453a65") expect root.point[saturated_equimolar].flash.liquid_composition[chem.benzene]==0.412118{1} tolerance 0.00001{1};
-@id("01a0f053c2807589b9b24cf86af3e9f8") expect root.point[saturated_equimolar].flash.vapor_flow==0.396116832{mol/s} tolerance 0.000001{mol/s} relative 0.0005;
-@id("01a0f053c2807589b9b24cf9911b7f09") expect root.point[saturated_equimolar].mixer.inlet[recycled].flow==5.43494852{mol/s} tolerance 0.000001{mol/s} relative 0.0005;
-@id("01a0f053c28176ea84d8ee3dea45d640") expect root.point[warm_rich].flash.vapor_composition[chem.benzene]==0.633977{1} tolerance 0.00001{1};
-@id("01a0f053c28176ea84d8ee3e5b21e575") expect root.point[warm_rich].flash.liquid_composition[chem.benzene]==0.412118{1} tolerance 0.00001{1};
-@id("01a0f053c28176ea84d8ee3f30f1ec71") expect root.point[warm_rich].flash.vapor_flow==12.429703{mol/s} tolerance 0.000001{mol/s} relative 0.0005;
-@id("01a0f053c28176ea84d8ee405e8561e9") expect root.point[warm_rich].mixer.inlet[recycled].flow==68.132673{mol/s} tolerance 0.000001{mol/s} relative 0.0005;
-@id("01a0f053c28176ea84d8ee41685a64a0") expect root.point[vapor_rich].flash.vapor_composition[chem.benzene]==0.633977{1} tolerance 0.00001{1};
-@id("01a0f053c28176ea84d8ee42c8e9d78d") expect root.point[vapor_rich].flash.liquid_composition[chem.benzene]==0.412118{1} tolerance 0.00001{1};
-@id("01a0f053c28176ea84d8ee432bd7870f") expect root.point[vapor_rich].flash.vapor_flow==0.423426734{mol/s} tolerance 0.000001{mol/s} relative 0.0005;
-@id("01a0f053c28176ea84d8ee440f2ba107") expect root.point[vapor_rich].mixer.inlet[recycled].flow==0.689159392{mol/s} tolerance 0.000001{mol/s} relative 0.0005;
+@id("01a0f053c2807589b9b24cf202b31e73") expect root.point[cold_lean].flash.unit.vapor_composition[chem.benzene]==0.633977{1} tolerance 0.00001{1};
+@id("01a0f053c2807589b9b24cf3b9a99eb9") expect root.point[cold_lean].flash.unit.liquid_composition[chem.benzene]==0.412118{1} tolerance 0.00001{1};
+@id("01a0f053c2807589b9b24cf4b5c93839") expect root.point[cold_lean].flash.unit.vapor_flow==8.53742566{mol/s} tolerance 0.000001{mol/s} relative 0.0005;
+@id("01a0f053c2807589b9b24cf5c1c7fbaa") expect root.point[cold_lean].mixer.unit.inlet[recycled].flow==373.163169{mol/s} tolerance 0.000001{mol/s} relative 0.0005;
+@id("01a0f053c2807589b9b24cf6c60e55b0") expect root.point[saturated_equimolar].flash.unit.vapor_composition[chem.benzene]==0.633977{1} tolerance 0.00001{1};
+@id("01a0f053c2807589b9b24cf78c453a65") expect root.point[saturated_equimolar].flash.unit.liquid_composition[chem.benzene]==0.412118{1} tolerance 0.00001{1};
+@id("01a0f053c2807589b9b24cf86af3e9f8") expect root.point[saturated_equimolar].flash.unit.vapor_flow==0.396116832{mol/s} tolerance 0.000001{mol/s} relative 0.0005;
+@id("01a0f053c2807589b9b24cf9911b7f09") expect root.point[saturated_equimolar].mixer.unit.inlet[recycled].flow==5.43494852{mol/s} tolerance 0.000001{mol/s} relative 0.0005;
+@id("01a0f053c28176ea84d8ee3dea45d640") expect root.point[warm_rich].flash.unit.vapor_composition[chem.benzene]==0.633977{1} tolerance 0.00001{1};
+@id("01a0f053c28176ea84d8ee3e5b21e575") expect root.point[warm_rich].flash.unit.liquid_composition[chem.benzene]==0.412118{1} tolerance 0.00001{1};
+@id("01a0f053c28176ea84d8ee3f30f1ec71") expect root.point[warm_rich].flash.unit.vapor_flow==12.429703{mol/s} tolerance 0.000001{mol/s} relative 0.0005;
+@id("01a0f053c28176ea84d8ee405e8561e9") expect root.point[warm_rich].mixer.unit.inlet[recycled].flow==68.132673{mol/s} tolerance 0.000001{mol/s} relative 0.0005;
+@id("01a0f053c28176ea84d8ee41685a64a0") expect root.point[vapor_rich].flash.unit.vapor_composition[chem.benzene]==0.633977{1} tolerance 0.00001{1};
+@id("01a0f053c28176ea84d8ee42c8e9d78d") expect root.point[vapor_rich].flash.unit.liquid_composition[chem.benzene]==0.412118{1} tolerance 0.00001{1};
+@id("01a0f053c28176ea84d8ee432bd7870f") expect root.point[vapor_rich].flash.unit.vapor_flow==0.423426734{mol/s} tolerance 0.000001{mol/s} relative 0.0005;
+@id("01a0f053c28176ea84d8ee440f2ba107") expect root.point[vapor_rich].mixer.unit.inlet[recycled].flow==0.689159392{mol/s} tolerance 0.000001{mol/s} relative 0.0005;
 @id("01a0f05b4c437594b6148a160c3a0a98") expect root.point[cold_lean].overall[chem.benzene]==0{mol/s} tolerance 0.000001{mol/s};
 @id("01a0f05b4c437594b6148a179bd9f7ba") expect root.point[cold_lean].overall[chem.toluene]==0{mol/s} tolerance 0.000001{mol/s};
 @id("01a0f05b4c437594b6148a18351142d7") expect root.point[saturated_equimolar].overall[chem.benzene]==0{mol/s} tolerance 0.000001{mol/s};
@@ -154,12 +199,12 @@
 // attempt commits nothing, and the unchanged specification, RecycleFlash's at the IDAES
 // test_BTIdeal feed (1 mol/s, equimolar, 368 K, 101325 Pa) with a quarter purged, is solved
 // from its own starts and answers to the same steady state.
-@id("01a0f053f157702a825ee1acc5a50f11") test recycle_flash_failure_restores_specification oracle campaign_references.analytic_recycle_flash fixture {dof 0; run initialized; stages("overheated_tear"); initialize homotopy(false) step(0.5) minimum(1e-6) growth(2) attempts(4) seconds(600); failure trial_rejected members(root.recycle_temperature); fix root.feed.state.flow=1{mol/s}; fix root.feed.state.T=368{K}; fix root.feed.state.pressure=101325{Pa}; fix root.feed.state.z[chem.benzene]=0.5{1}; fix root.feed.state.z[chem.toluene]=0.5{1};} {
+@id("01a0f053f157702a825ee1acc5a50f11") test recycle_flash_failure_restores_specification oracle campaign_references.analytic_recycle_flash fixture {dof 0; run initialized; stages("overheated_tear"); initialize homotopy(false) step(0.5) minimum(1e-6) growth(2) attempts(4) seconds(600); failure trial_rejected members(root.recycle); fix root.feed.state.flow=1{mol/s}; fix root.feed.state.T=368{K}; fix root.feed.state.pressure=101325{Pa}; fix root.feed.state.z[chem.benzene]=0.5{1}; fix root.feed.state.z[chem.toluene]=0.5{1};} {
 @id("01a0f05f996477f09a4b59bf39131cec") child root:OverheatedTear=OverheatedTear;
-@id("01a0f05f996477f09a4b59c0cd740ceb") expect root.flash.vapor_composition[chem.benzene]==0.633977{1} tolerance 0.00001{1};
-@id("01a0f05f996477f09a4b59c1a7dff362") expect root.flash.liquid_composition[chem.benzene]==0.412118{1} tolerance 0.00001{1};
-@id("01a0f05f996477f09a4b59c24aec69da") expect root.flash.vapor_flow==0.396116832{mol/s} tolerance 0.000001{mol/s} relative 0.0005;
-@id("01a0f05f996477f09a4b59c362ff95ff") expect root.mixer.inlet[recycled].flow==1.81164951{mol/s} tolerance 0.000001{mol/s} relative 0.0005;
+@id("01a0f05f996477f09a4b59c0cd740ceb") expect root.flash.unit.vapor_composition[chem.benzene]==0.633977{1} tolerance 0.00001{1};
+@id("01a0f05f996477f09a4b59c1a7dff362") expect root.flash.unit.liquid_composition[chem.benzene]==0.412118{1} tolerance 0.00001{1};
+@id("01a0f05f996477f09a4b59c24aec69da") expect root.flash.unit.vapor_flow==0.396116832{mol/s} tolerance 0.000001{mol/s} relative 0.0005;
+@id("01a0f05f996477f09a4b59c362ff95ff") expect root.mixer.unit.inlet[recycled].flow==1.81164951{mol/s} tolerance 0.000001{mol/s} relative 0.0005;
 @id("01a0f05f996477f09a4b59c433047fe6") expect root.overall[chem.benzene]==0{mol/s} tolerance 0.000001{mol/s};
 @id("01a0f05f996477f09a4b59c51c020a51") expect root.overall[chem.toluene]==0{mol/s} tolerance 0.000001{mol/s};
 }

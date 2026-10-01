@@ -253,10 +253,10 @@ fn anchored_contract_limits() {
     let mut balanced = Tank::new();
     balanced.0.balances = vec![Balance {
         id: SemanticId::from_bytes([90; 16]),
-        state: 0,
-        scale: 1.0,
+        inventory: SemanticId::from_bytes([91; 16]),
+        flux: SemanticId::from_bytes([90; 16]),
         tolerance: 1e-8,
-        impulses: Default::default(),
+        transfers: Default::default(),
     }];
     assert!(matches!(
         Anchored::new(balanced, true),

@@ -226,6 +226,368 @@ pub struct DeclaredRootReport {
     pub report: SolveReport,
     _owner: Arc<pse_columnar::AllocationLease>,
 }
+
+/// One admitted original-equation unit execution. The profile is interpreted once,
+/// before iteration, and each evaluation owns a fresh temporary boundary binding.
+#[cfg(feature = "solver-kinsol")]
+#[derive(Clone, Debug)]
+pub(crate) struct PreparedConditionalUnit {
+    pub(crate) view: pse_compiler::workspace::PreparedBlock,
+    pub(crate) executable: Arc<ExecutableCase>,
+    profile: SolverProfile,
+    backend: Backend,
+    normalization: pse_math::normalization::Normalization,
+    tolerances: Tolerances,
+    accuracy: ResolvedAccuracy,
+    profile_key: pse_ids::ContentHash,
+}
+
+#[cfg(feature = "solver-kinsol")]
+impl PreparedConditionalUnit {
+    #[cfg(test)]
+    pub(crate) fn row_magnitudes(&self, id: SemanticId) -> Option<(f64, f64)> {
+        let index = self
+            .view
+            .boundary
+            .members
+            .rows
+            .iter()
+            .position(|row| *row == id)?;
+        Some((self.normalization.rows[index], self.tolerances.rows[index]))
+    }
+    pub(crate) const fn route(&self) -> native::routing::Route {
+        native::routing::Route::Native(self.backend)
+    }
+}
+
+#[cfg(feature = "solver-kinsol")]
+impl MathService {
+    /// Compile the admitted local submodel on the compiler's existing job owner.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "a unit preparation binds ownership, boundary, selected residuals, compiler and resolved numerical policy"
+    )]
+    pub(crate) async fn prepare_conditional_unit(
+        self: &Arc<Self>,
+        workspace: Workspace,
+        model: super::modeling::ModelingPreparation,
+        source: Preparation,
+        node: SemanticId,
+        quantities: Arc<pse_quantity::QuantityRegistry>,
+        inputs: BTreeSet<SemanticId>,
+        outputs: BTreeSet<SemanticId>,
+        rows: BTreeSet<SemanticId>,
+        unknowns: BTreeSet<SemanticId>,
+        compiler_profile: Profile,
+        profile: SolverProfile,
+        numerics: Arc<pse_model::numerics::ResolvedNumericalPolicy>,
+        driver: &crate::CancelSource,
+    ) -> Result<PreparedConditionalUnit, MathRuntimeError> {
+        admit_unit_profile(&profile, &numerics)?;
+        let control = FlightCancellation::default();
+        let operation =
+            self.job_retained(1, super::WITHIN_WORKSPACE, control.clone(), move |flag| {
+                let _lease = workspace.lease;
+                let compiler = workspace.compiler.lock().map_err(|_| {
+                    MathRuntimeError::Infrastructure("compiler lock poisoned".into())
+                })?;
+                let view = compiler.prepare_modeling_conditional_unit(
+                    model.compiled(),
+                    source.compiled(),
+                    node,
+                    &inputs,
+                    &outputs,
+                    &rows,
+                    &unknowns,
+                    compiler_profile,
+                    &flag,
+                )?;
+                let bytes = view.plan.retained_bytes();
+                Ok((view, bytes))
+            });
+        tokio::pin!(operation);
+        let (view, lease) = tokio::select! {
+            result = &mut operation => result?,
+            () = driver.cancelled() => { control.cancel(); let _ = operation.await; return Err(MathRuntimeError::Cancelled); }
+        };
+        let boundaries: Vec<_> = view
+            .plan
+            .structure()
+            .rows()
+            .iter()
+            .enumerate()
+            .filter_map(|(index, row)| {
+                // Typed difference rows retain the original supplied-member identity.
+                view.boundary
+                    .inputs
+                    .iter()
+                    .find(|id| {
+                        pse_compiler::workspace::ModelingOutput::ConditionalBoundary(**id).row_id()
+                            == row.id
+                    })
+                    .map(|id| (index, *id))
+            })
+            .collect();
+        let mut effective_numerics = numerics.as_ref().clone();
+        if !boundaries.is_empty() {
+            use pse_model::generated::enums::NumericalTarget;
+            let mut projections = Vec::new();
+            let mut defaults = Vec::new();
+            for (index, _) in &boundaries {
+                let row = &view.plan.structure().rows()[*index];
+                let target = pse_math::numerics::TargetSpec {
+                    id: row.id,
+                    kind: NumericalTarget::Row,
+                    quantity: row.quantity,
+                    unit: quantities
+                        .quantity_type(row.quantity)
+                        .map_err(pse_math::MathError::from)?
+                        .canonical_unit,
+                    integer: false,
+                    declared_tolerance: None,
+                };
+                let original = view.boundary.inputs.iter().find(|id| {
+                    pse_compiler::workspace::ModelingOutput::ConditionalBoundary(**id).row_id()
+                        == row.id
+                });
+                if let Some(source) = original.and_then(|id| {
+                    numerics
+                        .targets
+                        .iter()
+                        .find(|t| t.id == *id && t.kind == NumericalTarget::Observable)
+                }) {
+                    projections.push(pse_math::numerics::TargetProjection {
+                        source: source.id,
+                        source_kind: source.kind,
+                        target,
+                    });
+                } else {
+                    defaults.push(target);
+                }
+            }
+            let mut h = pse_ids::FramedHasher::new(pse_ids::Frame::NumericalProjectionV1);
+            h.hash(&numerics.key);
+            if !projections.is_empty() {
+                let projected =
+                    pse_math::numerics::project_difference(&quantities, &numerics, &projections)?;
+                h.hash(&projected.key);
+                effective_numerics.targets.extend(projected.targets);
+            }
+            if !defaults.is_empty() {
+                let additional =
+                    pse_math::numerics::resolve(&quantities, &defaults, &[], &numerics.policy)?;
+                h.hash(&additional.key);
+                effective_numerics.targets.extend(additional.targets);
+            }
+            effective_numerics.key = h.finish_hash();
+        }
+        let numerics = Arc::new(effective_numerics);
+        native::structural::admit(&view.structure, native::structural::Mode::Roots)?;
+        let executable = self
+            .assemble_functions(
+                pse_compiler::workspace::PreparedFunctions {
+                    plan: view.plan.clone(),
+                    artifacts: view.artifacts.clone(),
+                },
+                lease,
+                driver,
+            )
+            .await?;
+        let contract = native::assembled::contract(&executable.assembly);
+        let mut facts = native::routing::oracle_facts(&contract, false, true);
+        facts.domains = view
+            .plan
+            .columns()
+            .iter()
+            .map(|id| {
+                view.plan
+                    .structure()
+                    .variables()
+                    .iter()
+                    .find(|v| v.port.id == *id)
+                    .map_or(
+                        pse_model::generated::enums::ModelingVariableDomain::Continuous,
+                        |v| v.domain,
+                    )
+            })
+            .collect();
+        let route = native::routing::Requirements {
+            table: &execution::LINKED,
+            facts: &facts,
+            intent: profile.intent,
+            numerical_psd: false,
+            least_squares: false,
+            controls: &profile.controls,
+            settings: &profile.backend,
+            sensitivity: false,
+        }
+        .select(profile.selection)?;
+        let native::routing::Route::Native(backend) = route else {
+            return Err(native::ProblemError::Unsupported(
+                "conditional unit needs a native root capability".into(),
+            )
+            .into());
+        };
+        let adapter = execution::adapter(backend);
+        if adapter.representation() != execution::Representation::Roots {
+            return Err(native::ProblemError::Unsupported("conditional unit requires a selected root representation; request an explicit simultaneous strategy".into()).into());
+        }
+        let demand = native::routing::derivative_demand(adapter.capability(), &profile.controls)
+            .unwrap_or(pse_kernels::DerivativeOrder::Value);
+        if executable.assembly.order() < demand {
+            return Err(native::ProblemError::Unsupported(
+                "conditional residual compilation does not meet selected root derivative demand"
+                    .into(),
+            )
+            .into());
+        }
+        adapter.admit_settings(&profile.backend, &profile.controls)?;
+        let normalization = pse_math::normalization::Normalization::from_policy(
+            &numerics,
+            &view.boundary.members.columns,
+            &view.boundary.members.rows,
+        )?;
+        let tolerances = Tolerances::from_policy(
+            &numerics,
+            &view.boundary.members.columns,
+            &view.boundary.members.rows,
+        )?;
+        let accuracy = ResolvedAccuracy::resolve(&numerics.policy, &tolerances, &normalization)?;
+        adapter.admit_contract(
+            &contract,
+            &BTreeMap::new(),
+            &profile.backend,
+            execution::Budgets {
+                tolerances: &tolerances,
+                normalization: &normalization,
+                feasibility: accuracy.feasibility,
+            },
+        )?;
+        let profile_key = super::solves::profile_key(&profile)?;
+        Ok(PreparedConditionalUnit {
+            view,
+            executable,
+            profile,
+            backend,
+            normalization,
+            tolerances,
+            accuracy,
+            profile_key,
+        })
+    }
+
+    /// A nested unit solve on the already admitted causal-map worker. No second CPU
+    /// permit is acquired, and temporary inputs/coordinates never modify the original.
+    pub(crate) fn evaluate_conditional_unit(
+        &self,
+        prepared: &PreparedConditionalUnit,
+        values: CaseValues,
+        providers: &BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
+        execution: &Execution,
+        budget: &Arc<WorkerBudget>,
+    ) -> Result<CaseValues, native::ProblemError> {
+        if let Some(stop) = execution.stopped() {
+            return Err(native::ProblemError::stopped(
+                stop,
+                "conditional causal unit stopped",
+            ));
+        }
+        let super::ExecutionWorker {
+            worker,
+            _case,
+            _charge,
+        } = self
+            .worker(
+                prepared.executable.clone(),
+                providers,
+                execution.cancel.clone(),
+                budget,
+            )
+            .map_err(MathRuntimeError::into_problem)?;
+        let initial: Vec<_> = prepared
+            .view
+            .boundary
+            .members
+            .columns
+            .iter()
+            .map(|id| {
+                values.scalars.get(id).copied().ok_or_else(|| {
+                    native::ProblemError::Contract("missing conditional unit start".into())
+                })
+            })
+            .collect::<Result<_, _>>()?;
+        let oracle = native::assembled::AlgebraicOracle::new(worker, values.clone())?
+            .with_structural_analysis(prepared.view.structure.clone())
+            .with_normalization(prepared.normalization.clone())?;
+        oracle.admit_nle()?;
+        let mut nested = execution.clone();
+        // Bound the local attempt by both its declared allowance and the inherited
+        // enclosing deadline. Cancellation and progress retain the enclosing owner.
+        nested.time_limit = nested.time_limit.min(
+            nested
+                .started
+                .elapsed()
+                .saturating_add(prepared.profile.controls.time_limit),
+        );
+        let mut retained = execution::Retained::default();
+        let report = execution::roots(
+            execution::Step {
+                adapter: execution::adapter(prepared.backend),
+                settings: &prepared.profile.backend,
+                controls: &prepared.profile.controls,
+                accuracy: &prepared.accuracy,
+                execution: nested,
+                tolerances: &prepared.tolerances,
+                normalization: &prepared.normalization,
+                compatibility: Compatibility {
+                    layout: prepared.view.plan.structure().key(),
+                    profile: prepared.profile_key,
+                    data: values.identity(),
+                    backend: prepared.backend,
+                },
+                warm: None,
+            },
+            &mut retained,
+            execution::Roots {
+                oracle: Box::new(oracle),
+                initial: &initial,
+                owner: Some(Box::new((_case, _charge))),
+            },
+        )?;
+        let mut candidate = values;
+        if !commit_block(&mut candidate, &prepared.view.boundary, Some(&report)) {
+            return Err(native::ProblemError::Contract(format!(
+                "conditional unit refused unqualified result: {:?}",
+                report.qualification
+            )));
+        }
+        // Teardown releases native state, temporary evaluator values and its budget
+        // charge on every return path, including callback refusal and cancellation.
+        drop(retained);
+        Ok(candidate)
+    }
+}
+
+#[cfg(feature = "solver-kinsol")]
+fn admit_unit_profile(
+    profile: &SolverProfile,
+    numerics: &pse_model::numerics::ResolvedNumericalPolicy,
+) -> Result<(), MathRuntimeError> {
+    profile.controls.validate()?;
+    if !matches!(profile.intent, SolveIntent::Root | SolveIntent::Initialize)
+        || profile.controls.threads != 1
+        || profile.controls.start != StartPolicy::NoPriorStart
+        || profile.controls.reuse == ReusePolicy::RequireReuse
+        || profile.sensitivity.is_some()
+        || matches!(profile.presolve, native::presolve::Policy::Explicit { .. })
+        || profile.convexity != pse_math::convexity::ConvexityPolicy::Exact
+        || profile.numerics.key() != numerics.policy.key()
+    {
+        return Err(native::ProblemError::Contract("conditional unit needs one serial declared-root execution with original guesses, shared physical numerical policy and no optimization/required reuse procedure".into()).into());
+    }
+    Ok(())
+}
+
 impl MathService {
     /// Execute a declared root/map factory on its owning admitted worker. Causal
     /// sweeps may use nested native unit calculations on this same admission; they

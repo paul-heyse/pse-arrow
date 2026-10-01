@@ -10,7 +10,7 @@ use pse_modeling::{
 };
 use salsa::Setter;
 
-/// One package data document (ADR-0125), set only when its bytes change.
+/// One interpreted package data document (ADR-0125), set when its admitted value changes.
 #[salsa::input]
 pub(super) struct DataDocumentInput {
     document: Arc<DataDocument>,
@@ -359,8 +359,8 @@ impl CompilerWorkspace {
         self.publish_modeling_revision(revision.clone())?;
         Ok(revision)
     }
-    /// Check `rows` with their data documents, each document an input set only when its
-    /// bytes change, so equal plans reuse their admitted rows.
+    /// Check `rows` with their data documents, updating each input when its interpreted
+    /// identity or rows change, so equal plans reuse their admitted rows.
     fn check_modeling(
         &mut self,
         rows: &[Declaration],
@@ -372,7 +372,9 @@ impl CompilerWorkspace {
         let retained_bytes = self.retention_usage().1;
         for (id, document) in &documents.documents {
             match self.documents.get(id) {
-                Some(input) if input.document(&self.db).content_hash == document.content_hash => {}
+                Some(input)
+                    if Arc::ptr_eq(input.document(&self.db), document)
+                        || input.document(&self.db).as_ref() == document.as_ref() => {}
                 Some(input) => {
                     input.set_document(&mut self.db).to(Arc::clone(document));
                 }
@@ -590,6 +592,8 @@ impl CompilerWorkspace {
     }
 }
 
+mod conditional;
+pub use conditional::ConditionalUnitInventory;
 mod executable;
 mod flow;
 pub use executable::{

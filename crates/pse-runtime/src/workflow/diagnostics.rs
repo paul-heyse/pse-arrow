@@ -10,6 +10,9 @@ use std::error::Error as _;
 impl super::WorkflowError {
     /// Structured preparation/execution failure, retaining native source identities.
     pub fn boundary_diagnostic(&self) -> BoundaryDiagnostic {
+        if let Self::ConditionalAdmission { diagnostic, .. } = self {
+            return diagnostic.as_ref().clone();
+        }
         observed(self, "workflow")
     }
 }
@@ -327,6 +330,9 @@ pub(super) fn observed(
         current = if let Some(workflow) = error.downcast_ref::<super::WorkflowError>() {
             match workflow {
                 super::WorkflowError::Boundary(error) => Some(error.as_ref()),
+                super::WorkflowError::ConditionalAdmission { diagnostic, .. } => {
+                    Some(diagnostic.as_ref())
+                }
                 super::WorkflowError::Math(error) => Some(error),
                 super::WorkflowError::Engine(error) => Some(error),
                 super::WorkflowError::Authoring(error) => Some(error),

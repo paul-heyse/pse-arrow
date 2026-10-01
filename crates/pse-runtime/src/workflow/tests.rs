@@ -63,7 +63,7 @@ pub(super) fn job_runtime() -> Runtime {
         },
     )
 }
-fn runtime_on(memory: usize, math: crate::math::MathPolicy) -> Runtime {
+pub(super) fn runtime_on(memory: usize, math: crate::math::MathPolicy) -> Runtime {
     let n = |v| NonZeroUsize::new(v).unwrap();
     let shared = SharedRuntime::build(crate::ResourceBudget {
         memory_limit_bytes: n(memory),

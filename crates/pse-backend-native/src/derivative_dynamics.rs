@@ -45,6 +45,8 @@ pub fn analyze_dynamic(
         Function::Rhs | Function::Initial | Function::Reset(_) => contract.states.clone(),
         Function::Output => contract.outputs.clone(),
         Function::QuadratureFlux => contract.quadratures.clone(),
+        Function::Inventory => contract.balances.iter().map(|b| b.inventory).collect(),
+        Function::Transfer(_) => contract.balances.iter().map(|b| b.id).collect(),
         Function::Roots => contract
             .events
             .get(sample.mode)
@@ -320,6 +322,52 @@ mod tests {
             let report = sample(polynomial(wrong, missing, FREE), 3., vec![FREE; 2]);
             assert!(report.complete);
             assert_eq!(report.passed(), !wrong && !missing, "{:?}", report.sample);
+        }
+    }
+    #[test]
+    fn conservation_functions_share_original_derivative_diagnostics() {
+        let id = |n| SemanticId::from_bytes([n; 16]);
+        for function in [Function::Inventory, Function::Transfer(0)] {
+            let mut oracle = polynomial(false, false, FREE);
+            oracle.contract.quadratures = vec![id(80)];
+            oracle.contract.events[0].push(dynamics::Event {
+                id: id(84),
+                terminal: false,
+                next_mode: 0,
+                tolerance: 1e-8,
+                direction: dynamics::EventDirection::Either,
+            });
+            oracle.contract.balances = vec![dynamics::Balance {
+                id: id(81),
+                inventory: id(82),
+                flux: id(80),
+                tolerance: 1e-6,
+                transfers: [id(84)].into_iter().collect(),
+            }];
+            let report = analyze_dynamic(
+                Box::new(oracle),
+                DynamicSample {
+                    mode: 0,
+                    function,
+                    time: 0.5,
+                    state: vec![2.],
+                    parameters: vec![3.],
+                    bounds: vec![FREE; 2],
+                },
+                pse_math::normalization::Normalization::identity(2, 1),
+                Policy {
+                    perturbation: 1e-6,
+                    relative_tolerance: 1e-4,
+                    maximum_cells: 100,
+                },
+                Execution::new(
+                    Arc::new(AtomicBool::new(false)),
+                    &crate::solve::Controls::default(),
+                ),
+            )
+            .unwrap();
+            assert!(report.complete);
+            assert!(report.passed(), "{function:?}: {:?}", report.sample);
         }
     }
     /// An input held at the edge of the range its guard admits is differenced into the

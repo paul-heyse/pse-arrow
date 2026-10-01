@@ -601,6 +601,29 @@ staged-sequence primitive and retains original-specification acceptance
 
 ### 17.4 Flowsheet recycles and dynamic starts
 
+> Decision: ADR-0142 (proposed; maintainer-authorized implementation).
+
+A scheduled unit is admitted as an explicit map or a conditional equation problem with
+supplied boundary inputs, owned residuals, local unknowns and required outputs. Admission
+checks dependency locality, mode-qualified structure and selected solver capability before
+iteration; topology only supplies tear candidates. A conditional solve fixes boundary inputs
+under scoped ownership and returns independently qualified outputs or typed refusal.
+A simultaneously solved initialization is an explicit alternative, never a failed-unit fallback.
+`CausalUnitRequest.realization` selects `ExplicitMap` or a `Conditional` problem carrying
+owned residual/unknown identities and one `SolveSettings` profile. Aggregate material ports
+resolve to their authoritative independent coordinate ports. A derived input fixes its
+original member observation through a typed boundary residual and solves its constituent
+unknowns; fixing a fabricated value symbol would not constrain that state. The compiled
+residual is the admitted difference of two observations: temperature inputs and outputs
+remain points while their residual is an interval. Resolved numerical magnitudes and
+provenance project through that subtraction without affine offsets or renewed defaults;
+characteristic normalization magnitudes scale with the target representation. Admission retains
+the complete structural witness and selected derivative demand. Native constraint handlers
+whose locality cannot be proved, undeclared parent coupling and bounds outside the root
+adapter capability refuse before iteration. The affected workflow diagnostic retains the
+unit/source identities and original mathematical cause. Each evaluation uses an immutable
+original-case overlay, so temporary inputs and starts cannot escape into another call.
+
 `pse-structural::flowsheet::FlowGraph` is the admitted physical flow projection:
 explicit connection occurrences (parallel occurrences are never merged), node isolates,
 declared decision groups with finite nonnegative costs and `Free`/`Mandatory`/`Forbidden`

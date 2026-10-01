@@ -4950,6 +4950,9 @@ pub enum ModelingAccumulatorMode {
     ///accounting
     #[serde(rename = "accounting")]
     Accounting,
+    ///observation
+    #[serde(rename = "observation")]
+    Observation,
 }
 impl crate::SemanticEq for ModelingAccumulatorMode {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -4958,12 +4961,17 @@ impl crate::SemanticEq for ModelingAccumulatorMode {
 }
 impl ModelingAccumulatorMode {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Conservation, Self::Accounting];
+    pub const ALL: [Self; 3usize] = [
+        Self::Conservation,
+        Self::Accounting,
+        Self::Observation,
+    ];
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Conservation => "conservation",
             Self::Accounting => "accounting",
+            Self::Observation => "observation",
         }
     }
     /// The presentation ordinal, never a semantic identity.
@@ -4971,6 +4979,7 @@ impl ModelingAccumulatorMode {
         match self {
             Self::Conservation => 0usize,
             Self::Accounting => 1usize,
+            Self::Observation => 2usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -4983,6 +4992,7 @@ impl ModelingAccumulatorMode {
         match self {
             Self::Conservation => None,
             Self::Accounting => None,
+            Self::Observation => None,
         }
     }
 }
@@ -4999,7 +5009,7 @@ impl schemars::JsonSchema for ModelingAccumulatorMode {
     }
     fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
         schemars::json_schema!(
-            { "type" : "string", "enum" : ["conservation", "accounting"] }
+            { "type" : "string", "enum" : ["conservation", "accounting", "observation"] }
         )
     }
 }
@@ -5009,6 +5019,7 @@ impl core::str::FromStr for ModelingAccumulatorMode {
         match value {
             "conservation" => Ok(Self::Conservation),
             "accounting" => Ok(Self::Accounting),
+            "observation" => Ok(Self::Observation),
             _ => {
                 Err(crate::ModelError::EnumMember {
                     field: stringify!(ModelingAccumulatorMode).to_owned(),
@@ -6696,6 +6707,15 @@ pub enum ModelingDeclarationKind {
     ///contribution
     #[serde(rename = "contribution")]
     Contribution,
+    ///state_specification
+    #[serde(rename = "state_specification")]
+    StateSpecification,
+    ///state_port
+    #[serde(rename = "state_port")]
+    StatePort,
+    ///inventory_balance
+    #[serde(rename = "inventory_balance")]
+    InventoryBalance,
     ///connection
     #[serde(rename = "connection")]
     Connection,
@@ -6734,7 +6754,7 @@ impl crate::SemanticEq for ModelingDeclarationKind {
 }
 impl ModelingDeclarationKind {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 63usize] = [
+    pub const ALL: [Self; 66usize] = [
         Self::Temporal,
         Self::Relaxation,
         Self::Continuation,
@@ -6788,6 +6808,9 @@ impl ModelingDeclarationKind {
         Self::When,
         Self::Accumulator,
         Self::Contribution,
+        Self::StateSpecification,
+        Self::StatePort,
+        Self::InventoryBalance,
         Self::Connection,
         Self::Annotation,
         Self::Requirement,
@@ -6855,6 +6878,9 @@ impl ModelingDeclarationKind {
             Self::When => "when",
             Self::Accumulator => "accumulator",
             Self::Contribution => "contribution",
+            Self::StateSpecification => "state_specification",
+            Self::StatePort => "state_port",
+            Self::InventoryBalance => "inventory_balance",
             Self::Connection => "connection",
             Self::Annotation => "annotation",
             Self::Requirement => "requirement",
@@ -6923,16 +6949,19 @@ impl ModelingDeclarationKind {
             Self::When => 50usize,
             Self::Accumulator => 51usize,
             Self::Contribution => 52usize,
-            Self::Connection => 53usize,
-            Self::Annotation => 54usize,
-            Self::Requirement => 55usize,
-            Self::Expectation => 56usize,
-            Self::Continuous => 57usize,
-            Self::DifferenceScheme => 58usize,
-            Self::CollocationScheme => 59usize,
-            Self::Discretization => 60usize,
-            Self::Realization => 61usize,
-            Self::IdentifierScheme => 62usize,
+            Self::StateSpecification => 53usize,
+            Self::StatePort => 54usize,
+            Self::InventoryBalance => 55usize,
+            Self::Connection => 56usize,
+            Self::Annotation => 57usize,
+            Self::Requirement => 58usize,
+            Self::Expectation => 59usize,
+            Self::Continuous => 60usize,
+            Self::DifferenceScheme => 61usize,
+            Self::CollocationScheme => 62usize,
+            Self::Discretization => 63usize,
+            Self::Realization => 64usize,
+            Self::IdentifierScheme => 65usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -6996,6 +7025,9 @@ impl ModelingDeclarationKind {
             Self::When => None,
             Self::Accumulator => None,
             Self::Contribution => None,
+            Self::StateSpecification => None,
+            Self::StatePort => None,
+            Self::InventoryBalance => None,
             Self::Connection => None,
             Self::Annotation => None,
             Self::Requirement => None,
@@ -7031,9 +7063,10 @@ impl schemars::JsonSchema for ModelingDeclarationKind {
             "atmost", "atleast", "exactly", "piecewise", "logic", "complementarity",
             "table", "applicability", "permission", "envelope", "attribute", "dataset",
             "entity", "enum", "constant", "import", "when", "accumulator",
-            "contribution", "connection", "annotation", "requirement", "expectation",
-            "continuous", "difference_scheme", "collocation_scheme", "discretization",
-            "realization", "identifier_scheme"] }
+            "contribution", "state_specification", "state_port", "inventory_balance",
+            "connection", "annotation", "requirement", "expectation", "continuous",
+            "difference_scheme", "collocation_scheme", "discretization", "realization",
+            "identifier_scheme"] }
         )
     }
 }
@@ -7094,6 +7127,9 @@ impl core::str::FromStr for ModelingDeclarationKind {
             "when" => Ok(Self::When),
             "accumulator" => Ok(Self::Accumulator),
             "contribution" => Ok(Self::Contribution),
+            "state_specification" => Ok(Self::StateSpecification),
+            "state_port" => Ok(Self::StatePort),
+            "inventory_balance" => Ok(Self::InventoryBalance),
             "connection" => Ok(Self::Connection),
             "annotation" => Ok(Self::Annotation),
             "requirement" => Ok(Self::Requirement),

@@ -107,7 +107,12 @@ def test_authored_recycle_uses_declared_ports_and_owned_results(
     request: dict[str, object] = {
         "tears": selected["decisions"],
         "units": [
-            {"node": case.to_hex(), "inputs": [inlet["id"]], "outputs": [outlet["id"]]}
+            {
+                "node": case.to_hex(),
+                "realization": {"kind": "explicit_map"},
+                "inputs": [inlet["id"]],
+                "outputs": [outlet["id"]],
+            }
         ],
         "anderson": 1,
         "damping": 1.0,

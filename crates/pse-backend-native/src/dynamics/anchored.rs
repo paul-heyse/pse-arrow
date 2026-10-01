@@ -284,7 +284,10 @@ impl<O: Oracle> Oracle for Anchored<O> {
                 );
                 entries
             }
-            Function::QuadratureFlux | Function::Roots => self.inner_support(mode, function, 0),
+            Function::QuadratureFlux
+            | Function::Roots
+            | Function::Inventory
+            | Function::Transfer(_) => self.inner_support(mode, function, 0),
         }
     }
     fn evaluate(
@@ -389,7 +392,10 @@ impl<O: Oracle> Oracle for Anchored<O> {
                 }
                 (values, n + quadratures)
             }
-            Function::QuadratureFlux | Function::Roots => {
+            Function::QuadratureFlux
+            | Function::Roots
+            | Function::Inventory
+            | Function::Transfer(_) => {
                 let v =
                     self.evaluate_inner(mode, function, time, state, parameters, derivatives)?;
                 if derivatives {
@@ -435,7 +441,10 @@ impl<O: Oracle> Oracle for Anchored<O> {
             }
             Function::Output => vec![(Function::Output, weights[..self.m].to_vec())],
             Function::Reset(e) => vec![(Function::Reset(e), weights[..n].to_vec())],
-            Function::QuadratureFlux | Function::Roots => vec![(function, weights.to_vec())],
+            Function::QuadratureFlux
+            | Function::Roots
+            | Function::Inventory
+            | Function::Transfer(_) => vec![(function, weights.to_vec())],
         };
         for (f, w) in terms {
             if w.iter().all(|v| *v == 0.0) {

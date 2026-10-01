@@ -16,6 +16,19 @@ this page states the contracts and limits that guide relies on.
 
 ## 13. Flowsheets, time and dynamics
 
+> Decision: ADR-0142 (proposed; maintainer-authorized implementation).
+
+An authored conservation descriptor declares a conserved subject, inventory expression,
+original signed flux/source, physical tolerance and permitted event transfers. The same meaning
+formulates rates and independently assesses inventory change minus accumulated original flux
+and transfers. Checks do not integrate the solved accumulation derivative. Inventories and
+state-dependent transfers are evaluated in the actual mode and input segment. Subject identity
+persists across mode definitions. Terminal events apply no reset/impulse and retain terminating
+mode and active input at their endpoint, including coincident scheduled changes. Continuous
+checks apply to integrated and simultaneous realizations; event-bearing simultaneous requests
+refuse under the admitted scope. Closure observations and coverage are handed to the result
+qualification owner (§19.2); missing evidence never becomes NotRequired.
+
 > Decision: [ADR-0084](../../adr/0084-physical-provider-and-dynamic-contracts.md),
 > [ADR-0093](../../adr/0093-qualified-native-strategies.md)
 
@@ -63,10 +76,27 @@ or production FeOS provider remains.
 Quantity inference admits each derivative against the actual axis type. Authored integrals
 become native quadratures for causal terminal integrated outputs or scheme-weighted sums
 for simultaneous realization. Integral sensitivities are not exposed; ordinary state/output
-sensitivities may coexist with terminal quadratures. Missing quadrature tolerances refuse.
+sensitivities may coexist with terminal quadratures. Conservation-generated flux quadratures
+derive their absolute budget as one tenth of the tightest consuming physical closure tolerance
+and inherit the integration relative budget unless an explicit quadrature budget is supplied.
+Unrelated authored integrals still require explicit quadrature tolerances.
 
-Conservation checks consume original contributions or accumulation-minus-integrated-flux
-with declared impulses and tolerances. They remain distinct from numerical feasibility.
+A conserved descriptor retains the original inventory and flux expression, physical tolerance
+and permitted event transfers. Direct stocks supply their rate equation. Composite stocks
+without existing differential coordinates introduce a derived stock equation and project
+explicit coordinate initial conditions into its initial inventory. The original coordinate
+initial values retain their source identities and required initial-consistency checks; start
+guesses cannot replace those obligations. A composite observation over
+an already authored differential system adds an independent audit without another rate
+system. Transfer paths bind to actual guard member identities in their owning instance, so
+nesting or renaming a child does not change the permitted event. Transfers use the inventory
+difference convention and evaluate in the pre-event state.
+Algebraic-coordinate resets refuse before integration because consistency recovery cannot
+provide a declared stock reset mapping. Shooting stitches original inventory, flux and transfer
+facts against one global baseline and retains continuity defects.
+
+Conservation checks consume original contributions or inventory-minus-integrated-flux
+with declared transfers and tolerances. They remain distinct from numerical feasibility.
 Original authored checks, validity envelopes and sampled expectations survive into retained
 trajectory results. An unavailable or incomplete check cannot become a pass.
 

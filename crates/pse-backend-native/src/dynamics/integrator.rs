@@ -37,6 +37,7 @@ struct Shared<'o> {
     mode: Cell<usize>,
     integrals: RefCell<Vec<f64>>,
     seed: RefCell<Option<Vec<f64>>>,
+    transition: RefCell<Option<Transition>>,
     seed_sens: RefCell<Option<Vec<V>>>,
     failure: RefCell<Option<(Termination, ProblemError)>>,
     cancel: Cancellation,
@@ -131,10 +132,72 @@ impl Shared<'_> {
             Err(e) => self.abort(Termination::Failed, e),
         }
     }
+    fn inventories(&self, time: f64, state: &[f64]) -> Vec<f64> {
+        if self.contract.balances.is_empty() {
+            vec![]
+        } else {
+            self.evaluate(Function::Inventory, time, state, false)
+                .values
+        }
+    }
+    fn conserve(
+        &self,
+        report: &mut Report,
+        time: f64,
+        state: &[f64],
+        integrals: Vec<f64>,
+    ) -> Result<(), ProblemError> {
+        let transfers = cumulative_transfers(&self.contract, report);
+        observe_conservation(
+            &self.contract,
+            report,
+            time,
+            self.mode.get(),
+            self.inventories(time, state),
+            integrals,
+            transfers,
+        )
+    }
+    fn transition(
+        &self,
+        report: &Report,
+        event: Option<usize>,
+        time: f64,
+        state: &[f64],
+    ) -> Result<(), ProblemError> {
+        let mut transfers = vec![0.0; self.contract.balances.len()];
+        if let Some(index) = event {
+            let id = self.contract.events[self.mode.get()][index].id;
+            if self
+                .contract
+                .balances
+                .iter()
+                .any(|b| b.transfers.contains(&id))
+            {
+                transfers = self
+                    .evaluate(Function::Transfer(index), time, state, false)
+                    .values;
+                for (value, balance) in transfers.iter_mut().zip(&self.contract.balances) {
+                    if !balance.transfers.contains(&id) && *value != 0.0 {
+                        return Err(contract(
+                            "event transfer supplied for an unauthorized conserved subject",
+                        ));
+                    }
+                }
+            }
+        }
+        *self.transition.borrow_mut() = Some(Transition {
+            record: report.events.len() - 1,
+            inventories: self.inventories(time, state),
+            transfers,
+        });
+        Ok(())
+    }
     fn nout_mode(&self, mode: usize, f: Function) -> usize {
         match f {
             Function::QuadratureFlux => self.contract.quadratures.len(),
             Function::Output => self.contract.outputs.len(),
+            Function::Inventory | Function::Transfer(_) => self.contract.balances.len(),
             Function::Roots => self.contract.events[mode].len(),
             _ => self.contract.states.len(),
         }
@@ -704,6 +767,7 @@ impl<'o> Shared<'o> {
             parameters: RefCell::new(parameters.to_vec()),
             mode: Cell::new(0),
             seed: RefCell::new(None),
+            transition: RefCell::new(None),
             seed_sens: RefCell::new(None),
             failure: RefCell::new(None),
             cancel,
@@ -843,11 +907,14 @@ fn run<LS: LinearSolver<M>>(
             ($solver:expr, sensitivities) => {{
                 let mut solver = $solver.map_err(native)?;
                 record_start(&shared, &solver, p, r, time)?;
-                if time >= p.end {
+                if time >= p.end && boundaries.get(segment) != Some(&time) {
                     r.termination = Termination::Completed;
                     return Ok(());
                 }
                 let attempt = catch_unwind(AssertUnwindSafe(|| {
+                    if stop == time {
+                        return Ok((None, solver.state().y.as_slice().to_vec()));
+                    }
                     drive(&shared, &mut solver, p, r, (stop, &boundaries), &mut steps)
                 }));
                 r.statistics
@@ -876,11 +943,14 @@ fn run<LS: LinearSolver<M>>(
             ($solver:expr) => {{
                 let mut solver = $solver.map_err(native)?;
                 record_start(&shared, &solver, p, r, time)?;
-                if time >= p.end {
+                if time >= p.end && boundaries.get(segment) != Some(&time) {
                     r.termination = Termination::Completed;
                     return Ok(());
                 }
                 let attempt = catch_unwind(AssertUnwindSafe(|| {
+                    if stop == time {
+                        return Ok((None, solver.state().y.as_slice().to_vec()));
+                    }
                     drive(&shared, &mut solver, p, r, (stop, &boundaries), &mut steps)
                 }));
                 r.statistics
@@ -912,6 +982,7 @@ fn run<LS: LinearSolver<M>>(
             return Ok(());
         }
         time = r.completed_time;
+        shared.conserve(r, time, &state, shared.integrals.borrow().clone())?;
         if let Some(index) = event {
             let guards = shared.evaluate(Function::Roots, time, &state, false).values;
             let events = &shared.contract.events[shared.mode.get()];
@@ -950,6 +1021,7 @@ fn run<LS: LinearSolver<M>>(
                 r.termination = Termination::Event;
                 return Ok(());
             }
+            shared.transition(r, Some(index), time, &state)?;
             if !p.forward() {
                 *shared.seed.borrow_mut() = Some(
                     shared
@@ -958,6 +1030,9 @@ fn run<LS: LinearSolver<M>>(
                 );
             }
             shared.mode.set(e.next_mode);
+            // Settle the reset under its active input segment before any coincident
+            // schedule changes are consistently initialized.
+            continue;
         } else {
             *shared.seed.borrow_mut() = Some(state);
         }
@@ -974,6 +1049,12 @@ fn run<LS: LinearSolver<M>>(
                 before: shared.seed.borrow().clone().unwrap_or_default(),
                 after: None,
             });
+            shared.transition(
+                r,
+                None,
+                time,
+                &shared.seed.borrow().clone().unwrap_or_default(),
+            )?;
             // The integration parameters stay; the next intervals' columns take effect.
             *shared.columns.borrow_mut() = p.columns_at(np, time);
             segment += 1;
@@ -1075,14 +1156,44 @@ fn record_start<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>>>(
     if r.consistent_initial.is_empty() {
         r.consistent_initial = state.clone();
     }
-    settle_transitions(&shared.contract, &mut r.events, time, &state)?;
+    let inventories = shared.inventories(time, &state);
+    let integrals = shared.integrals.borrow().clone();
+    if let Some(transition) = shared.transition.borrow_mut().take() {
+        settle_transition(
+            &shared.contract,
+            r,
+            transition,
+            ConservationPoint {
+                time,
+                mode: shared.mode.get(),
+                inventories,
+                integrals,
+                transfers: vec![],
+                defects: vec![],
+            },
+            &state,
+        )?;
+    } else {
+        let transfers = cumulative_transfers(&shared.contract, r);
+        observe_conservation(
+            &shared.contract,
+            r,
+            time,
+            shared.mode.get(),
+            inventories,
+            integrals,
+            transfers,
+        )?;
+    }
     {
         let roots = shared.evaluate(Function::Roots, time, &state, false).values;
         if guards_at_zero(&roots, &shared.contract.events[shared.mode.get()]) > 0 {
             return Err(contract("initial or post-reset root is ambiguous"));
         }
     }
-    if p.samples.get(r.samples.len()).is_some_and(|t| *t == time) {
+    if p.samples.get(r.samples.len()).is_some_and(|t| *t == time)
+        && *shared.columns.borrow() == p.columns_at(shared.contract.parameters.len(), time)
+    {
         r.samples.push(sample(shared, s, time, p.forward())?);
     }
     r.completed_time = time;
@@ -1114,7 +1225,9 @@ fn drive<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>>>(
             if t > time || (t == time && (root.is_some() || boundaries.contains(&t))) {
                 break;
             }
-            r.samples.push(sample(shared, s, t, p.forward())?);
+            let point = sample(shared, s, t, p.forward())?;
+            shared.conserve(r, t, &point.state, point.integrals.clone())?;
+            r.samples.push(point);
         }
         r.completed_time = time;
         shared.progress.push(crate::solve::Event {

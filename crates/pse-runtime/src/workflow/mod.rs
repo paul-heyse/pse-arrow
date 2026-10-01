@@ -39,7 +39,8 @@ mod time;
 pub use strategies::{AnalysisPort, ConicRequest, PreparedConic};
 #[cfg(feature = "solver-kinsol")]
 pub use strategies::{
-    CausalUnitRequest, PreparedInitializationStrategy, PreparedRecycle, RecycleRequest,
+    CausalUnitRealization, CausalUnitRequest, PreparedInitializationStrategy, PreparedRecycle,
+    RecycleRequest,
 };
 #[cfg_attr(
     not(feature = "solver-diffsol"),
@@ -124,6 +125,16 @@ pub enum WorkflowError {
     /// Source-attributed selected-model or execution-boundary failure.
     #[error(transparent)]
     Boundary(#[from] Box<pse_model::diagnostic::BoundaryDiagnostic>),
+    /// A causal unit admission refusal preserves both requested source identities
+    /// and the original compiler, policy or selected solver cause.
+    #[error("{diagnostic}")]
+    ConditionalAdmission {
+        /// Structured selected-unit boundary attribution.
+        diagnostic: Box<pse_model::diagnostic::BoundaryDiagnostic>,
+        /// Original typed failure before any unit iteration.
+        #[source]
+        cause: MathRuntimeError,
+    },
     /// Invalid model, preparation, runtime or solver state.
     #[error(transparent)]
     Math(#[from] MathRuntimeError),
@@ -198,7 +209,7 @@ impl From<pse_model::diagnostic::BoundaryDiagnostic> for WorkflowError {
 pse_diagnostics::impl_diagnostic! {
     WorkflowError,
     code(this) {match this {Self::Contract(_)=>Some(pse_diagnostics::DiagnosticCode::CompileMath),Self::EphemeralPublication{..}|Self::UnknownPayloadVersion{..}=>Some(pse_diagnostics::DiagnosticCode::ConfigInvalid),Self::PublicationUnresolved{..}|Self::ExportLeaseExpired{..}=>Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),Self::LegacyWorkspace{..}=>Some(pse_diagnostics::DiagnosticCode::SchemaInvalidDeclaration),_=>None}},
-    forward(this) {match this {Self::Boundary(e)=>Some(e.as_ref()),Self::Math(e)=>Some(e),Self::Engine(e)=>Some(e),Self::Authoring(e)=>Some(e),Self::Shared(e)=>Some(e.as_ref()),Self::Operations(e)=>Some(e),_=>None}},
+    forward(this) {match this {Self::Boundary(e)=>Some(e.as_ref()),Self::ConditionalAdmission{diagnostic,..}=>Some(diagnostic.as_ref()),Self::Math(e)=>Some(e),Self::Engine(e)=>Some(e),Self::Authoring(e)=>Some(e),Self::Shared(e)=>Some(e.as_ref()),Self::Operations(e)=>Some(e),_=>None}},
     help(_this){None},related(_this){None},source(_this){None}
 }
 fn contract(message: impl Into<String>) -> WorkflowError {

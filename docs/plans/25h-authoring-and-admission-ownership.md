@@ -1,6 +1,6 @@
 ---
 title: "25h: Authoring and admission ownership"
-status: draft
+status: in-progress
 date: 2026-09-30
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_codebase-domain-alignment_2026-09-30.md, docs/design_review/reviews/design_review_codebase-domain-alignment-follow-up_2026-09-30.md]
@@ -62,8 +62,8 @@ the resulting context-complete products; it owns caching and source/mathematical
 
 | Packet | Prerequisites | Responsibility | Status |
 |---|---|---|---|
-| <a id="h1"></a>H1 Context-complete document reuse | Current document owner | Make incremental and clean loading equivalent, including identity-bearing binary wrappers | planned |
-| <a id="h2"></a>H2 Checked occurrences and grammar | H1 | Parse once at check with complete attribution; migrate consumers and logic | planned |
+| <a id="h1"></a>H1 Context-complete document reuse | Current document owner | Make incremental and clean loading equivalent, including identity-bearing binary wrappers | partial: 25c prerequisite slice |
+| <a id="h2"></a>H2 Checked occurrences and grammar | H1 | Parse once at check with complete attribution; migrate consumers and logic | partial: 25c prerequisite slice |
 | <a id="h3"></a>H3 Explicit validation context | Current composition roots | Eliminate ambient installation and lock-held implementation construction | planned |
 | <a id="h4"></a>H4 Predicates and dead mechanisms | H2/H3; A1 | Share real boundary predicates/facet projections and remove unused front doors/enforcement claims | planned |
 
@@ -172,10 +172,15 @@ Hand I complete interpretation dependencies and occurrence attribution; hand A/C
 expressions and context; hand G shared witness predicates. J's generated request shapes remain
 separate from source-authoring and hydrated-document schemas.
 
+## Consumed 25c prerequisite slice
+
+**Implemented/Tested, 2026-10-01; scoped focused verification recorded in [25c Verification](25c-process-composition-and-conservation.md#verification):** Context-sensitive document/parser reuse and identity-bearing binary wrappers are migrated in their runtime/compiler consumers. Checked declaration/field occurrences retain ASTs, physical admissions, dependency and index context. C1/C5 consume precise retained process fields. General prior specialization/body consumers and the remaining grammar/validation migration are still H2/H3/H4 work. The maintainer authorized only this required slice and its complete affected consumer migration. This packet remains partial; [25c](25c-process-composition-and-conservation.md) owns the slice evidence.
+
 ## Execution and evidence
 
-All changes and expected benefits here are **Proposed**. Packet status is planning state;
-no implementation or new product qualification is claimed. The [series coordinator](25-design-remediation.md)
+The consumed 25c prerequisite slice above is **Implemented**; its focused evidence is owned
+by 25c. The remaining packet scope and expected benefits are **Proposed**. No full-packet
+completion or new broad product qualification is claimed. The [series coordinator](25-design-remediation.md)
 owns finding dispositions and decision dependencies. Packets compile affected owners, run focused
 behavioral checks with explicit force-validation, regenerate changed declarations, and immediately
 delete replaced code, callers, obsolete tests and fixtures. No shims or parallel production paths remain.
@@ -193,7 +198,8 @@ record actual commands, conditions and failures against zero in the final qualif
 
 ### What was built
 
-Not implemented; record actual behavior and evidence labels at closure.
+Full-plan closure remains outstanding. The implemented 25c prerequisite slice and its
+remaining boundaries are recorded above; 25c owns its focused execution evidence.
 
 ### A mistake made and corrected
 

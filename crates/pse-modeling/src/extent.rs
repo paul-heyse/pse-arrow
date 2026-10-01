@@ -13,6 +13,15 @@ fn map<K, V>(values: &BTreeMap<K, V>, mut value: impl FnMut(&K, &V) -> usize) ->
             .saturating_add(value(k, v))
     })
 }
+fn state_key(value: &crate::specialize::StateKey) -> usize {
+    value.name.capacity()
+        + value.indices.capacity() * size_of::<Value>()
+        + value
+            .indices
+            .iter()
+            .map(Value::retained_bytes)
+            .sum::<usize>()
+}
 fn selections(values: &crate::scientific_selection::Selections) -> usize {
     map(values, |occurrence, closure| {
         occurrence.expression.capacity()
@@ -53,7 +62,7 @@ pub(crate) fn scheme(value: &Scheme) -> usize {
         }
     }
 }
-fn ty(value: &Type) -> usize {
+pub(crate) fn ty(value: &Type) -> usize {
     match value {
         Type::Function { arguments, result } => {
             arguments.capacity() * size_of::<(String, Type)>()
@@ -85,7 +94,7 @@ fn path(value: &Path) -> usize {
             })
             .sum::<usize>()
 }
-fn predicate(value: &Predicate) -> usize {
+pub(crate) fn predicate(value: &Predicate) -> usize {
     size_of::<Predicate>()
         + match &value.kind {
             PredicateKind::Compare { lhs, rhs, .. } => expression(lhs) + expression(rhs),
@@ -167,7 +176,7 @@ pub(crate) fn expression(value: &Expr) -> usize {
             }
         }
 }
-fn equation(value: &Equation) -> usize {
+pub(crate) fn equation(value: &Equation) -> usize {
     size_of::<Equation>()
         + match &value.kind {
             EquationKind::Relation { lhs, rhs, .. } => expression(lhs) + expression(rhs),
@@ -266,6 +275,7 @@ impl CheckedPackage {
     pub fn retained_bytes(&self) -> usize {
         size_of::<Self>()
             + selections(&self.selection_closures)
+            + crate::expression::occurrences::retained_bytes(&self.expressions)
             + self
                 .preconditions
                 .declarations()
@@ -415,7 +425,7 @@ impl SpecializedModel {
                                 + m.events.capacity() * size_of::<crate::specialize::FixtureEvent>()
                                 + m.events
                                     .iter()
-                                    .map(|e| map(&e.reset, |_, _| 0))
+                                    .map(|e| e.name.capacity() + map(&e.reset, |_, _| 0))
                                     .sum::<usize>()
                         })
                         .sum::<usize>()
@@ -528,7 +538,45 @@ impl SpecializedModel {
                     + v.body.equations.iter().map(equation).sum::<usize>()
             })
             + map(&self.ports, |_, v| lineage(&v.lineage))
-            + map(&self.connections, |_, v| lineage(&v.lineage))
+            + map(&self.state_specifications, |_, v| {
+                map(&v.coordinates, |key, _| state_key(key))
+                    + v.reconstructions.capacity() * size_of::<(crate::specialize::Row, Value)>()
+                    + v.reconstructions
+                        .iter()
+                        .map(|(row, tolerance)| {
+                            equation(&row.equation)
+                                + lineage(&row.lineage)
+                                + tolerance.retained_bytes()
+                        })
+                        .sum::<usize>()
+                    + map(&v.transports, |key, observation| {
+                        state_key(key)
+                            + expression(&observation.expression)
+                            + ty(&observation.ty)
+                            + observation.tolerance.retained_bytes()
+                    })
+                    + lineage(&v.lineage)
+            })
+            + map(&self.material_ports, |_, v| {
+                map(&v.coordinates, |key, _| state_key(key)) + lineage(&v.lineage)
+            })
+            + map(&self.inventory_balances, |_, v| {
+                expression(&v.inventory)
+                    + expression(&v.flux)
+                    + ty(&v.ty)
+                    + v.tolerance.retained_bytes()
+                    + map(&v.transfers, |_, transfer| expression(transfer))
+                    + lineage(&v.lineage)
+            })
+            + map(&self.inventory_initial_conditions, |_, v| {
+                lineage(&v.lineage)
+            })
+            + map(&self.connections, |_, v| {
+                lineage(&v.lineage)
+                    + v.bindings.capacity()
+                        * size_of::<(pse_ids::SemanticId, pse_ids::SemanticId)>()
+                    + v.rows.capacity() * size_of::<pse_ids::SemanticId>()
+            })
             + map(&self.connectivity, |_, v| lineage(&v.lineage))
             + map(&self.functions, |n, v| n.capacity() + function(v))
             + self.objectives.members.capacity() * size_of::<crate::specialize::ObjectiveMember>()

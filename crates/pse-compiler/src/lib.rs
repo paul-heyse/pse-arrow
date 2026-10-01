@@ -20,6 +20,8 @@ mod physical_potential_tests;
 mod scientific_witness_tests;
 
 #[cfg(test)]
+mod process_composition_tests;
+#[cfg(test)]
 mod scientific_reaction_tests;
 
 #[cfg(test)]

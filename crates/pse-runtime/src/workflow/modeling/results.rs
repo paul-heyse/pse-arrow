@@ -15,6 +15,65 @@ use pse_model::generated::enums::{ModelingCheckBasis as Basis, ModelingCheckKind
 pub use pse_model::generated::runtime::modeling_checks::Row as ModelingCheck;
 pub use pse_model::generated::runtime::modeling_reports::Row as ModelingReport;
 
+/// Native temporal closure is evaluated in the original physical inventory space.
+/// The native report retains the corresponding point's actual mode and segment facts.
+pub(super) fn temporal_closure_check(
+    run_id: RunId,
+    source: DeclarationId,
+    target: SemanticId,
+    point_index: usize,
+    time: f64,
+    residual: f64,
+    tolerance: f64,
+) -> ModelingCheck {
+    ModelingCheck {
+        step: 0,
+        run_id,
+        sample_index: point_index as i64,
+        time: Some(time),
+        target_id: target,
+        source_id: source,
+        kind: CheckKind::Closure,
+        value: residual,
+        tolerance: Some(tolerance),
+        satisfied: residual.abs() <= tolerance,
+        within_validity: None,
+        extrapolation_allowed: None,
+        basis: Basis::Point,
+        layer: None,
+        claim_id: None,
+        claim_owner: None,
+        claim_owner_lineage: Vec::new(),
+        coverage_id: None,
+        evidence_id: None,
+        form_id: None,
+        call_id: None,
+        selected_records: Vec::new(),
+        dependencies: Vec::new(),
+        input_values: Vec::new(),
+        applicability_outcome: None,
+        applicability_basis: None,
+        permission_ids: Vec::new(),
+        unknown_allowed: None,
+        observation_instance: None,
+        applicability_required: None,
+        applicability_reason: None,
+        applicability_permissions: Vec::new(),
+    }
+}
+/// An original coordinate initial row remains required after composite stock lowering.
+pub(super) fn temporal_initial_check(
+    run_id: RunId,
+    source: DeclarationId,
+    target: SemanticId,
+    time: f64,
+    residual: f64,
+    tolerance: f64,
+) -> ModelingCheck {
+    let mut check = temporal_closure_check(run_id, source, target, 0, time, residual, tolerance);
+    check.kind = CheckKind::OriginalEquation;
+    check
+}
 fn report_transfer_context(
     ty: &pse_modeling::Type,
 ) -> Result<Option<pse_model::generated::structures::ModelingTransferContext>, WorkflowError> {

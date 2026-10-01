@@ -1,6 +1,6 @@
 ---
 title: "25i: Identity, reuse and resource ownership"
-status: draft
+status: in-progress
 date: 2026-09-30
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_codebase-domain-alignment_2026-09-30.md, docs/design_review/reviews/design_review_codebase-domain-alignment-follow-up_2026-09-30.md]
@@ -60,7 +60,7 @@ persistent Salsa identity or a cache-container-only repair was rejected.
 
 | Packet | Prerequisites | Responsibility | Status |
 |---|---|---|---|
-| <a id="i1"></a>I1 Canonical framing and roles | Existing identity contract; hashing decision route | Centralize framing, role types and small hex utilities | planned |
+| <a id="i1"></a>I1 Canonical framing and roles | Existing identity contract; hashing decision route | Centralize framing, role types and small hex utilities | partial: 25c prerequisite slice |
 | <a id="i2"></a>I2 Immutable/binding allocation ownership | Existing prepared-product owner | Share immutable/provenance payload; charge new allocations; retain escaped owners | planned |
 | <a id="i3"></a>I3 Complete bounded reuse | I1/I2; H1/H2/H4; A3 | Body-level queries, immutable bindings and service-scoped view/package retention | planned |
 | <a id="i4"></a>I4 Completion-owned native admission | Existing staged/session owner | Transfer guards with work and release at actual completion | planned |
@@ -202,10 +202,15 @@ H supplies complete admitted context and occurrence attribution. A supplies phys
 D/E semantic capabilities, F occurrence/binding policy and G durable identity transitions.
 J consumes typed identities in generated boundaries without exposing Salsa/cache internals.
 
+## Consumed 25c prerequisite slice
+
+**Implemented/Tested, 2026-10-01; scoped focused verification recorded in [25c Verification](25c-process-composition-and-conservation.md#verification):** New state slots frame owner, role and canonical semantic index values under the identity owner's ModelingProcessSlotV1 frame, without changing historical member preimages; corrected numerical coordinate projection uses NumericalProjectionV2 and admitted difference-policy projection uses NumericalDifferenceProjectionV1, with historical frame spellings unchanged; connection overrides retain original occurrence identity while retaining current source attribution. No binder-position species mapping is introduced. The full role-typed framing, historical frame migration, cache/allocation and native-completion work remains open. The maintainer authorized only this required slice and its complete affected consumer migration. This packet remains partial; [25c](25c-process-composition-and-conservation.md) owns the slice evidence.
+
 ## Execution and evidence
 
-All changes and expected benefits here are **Proposed**. Packet status is planning state;
-no implementation or new product qualification is claimed. The [series coordinator](25-design-remediation.md)
+The consumed 25c prerequisite slice above is **Implemented**; its focused evidence is owned
+by 25c. The remaining packet scope and expected benefits are **Proposed**. No full-packet
+completion or new broad product qualification is claimed. The [series coordinator](25-design-remediation.md)
 owns finding dispositions and decision dependencies. Packets compile affected owners, run focused
 behavioral checks with explicit force-validation, regenerate changed declarations, and immediately
 delete replaced code, callers, obsolete tests and fixtures. No shims or parallel production paths remain.
@@ -223,7 +228,8 @@ record actual commands, conditions and failures against zero in the final qualif
 
 ### What was built
 
-Not implemented; record actual behavior and evidence labels at closure.
+Full-plan closure remains outstanding. The implemented 25c prerequisite slice and its
+remaining boundaries are recorded above; 25c owns its focused execution evidence.
 
 ### A mistake made and corrected
 

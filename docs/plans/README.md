@@ -12,7 +12,10 @@ finding dispositions; the linked plans own packet progress.
 with focused verification recorded in its Outcome.
 [25b is complete](25b-scientific-knowledge-and-applicability.md#outcome-recorded-after-implementation),
 with its scientific contracts, composite focused verification and handoff recorded in its
-Outcome. Other lettered plans remain proposed.
+Outcome. [25c](25c-process-composition-and-conservation.md#execution-checkpoint) has completed
+functional implementation and focused verification; its restart checkpoint owns the remaining
+workspace compile and closure handoff. Required 25d/25e/25f/25h/25i prerequisite slices are
+implemented and tested, with their wider scope still partial. Other lettered plans remain proposed.
 The series reserves full integration and qualification for 25k after all functional
 work, with focused checks and immediate deletion of replaced mechanisms during the pivot.
 

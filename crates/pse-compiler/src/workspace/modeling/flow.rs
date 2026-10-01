@@ -67,18 +67,16 @@ impl PreparedModeling {
         let mut connections = Vec::new();
         let mut decisions = BTreeMap::new();
         for c in self.model.connections.values() {
-            let source = self
-                .model
-                .ports
-                .get(&c.from)
-                .ok_or_else(|| CompileError::Missing("source port topology".into()))?;
-            let target = self
-                .model
-                .ports
-                .get(&c.to)
-                .ok_or_else(|| CompileError::Missing("destination port topology".into()))?;
-            let from = source.lineage.instance;
-            let to = target.lineage.instance;
+            let owner = |id: SemanticId| {
+                self.model
+                    .material_ports
+                    .get(&id)
+                    .map(|p| p.lineage.instance)
+                    .or_else(|| self.model.ports.get(&id).map(|p| p.lineage.instance))
+                    .ok_or_else(|| CompileError::Missing("connection endpoint topology".into()))
+            };
+            let from = owner(c.from)?;
+            let to = owner(c.to)?;
             if !selection.nodes.contains(&from) && !selection.nodes.contains(&to) {
                 continue;
             }
@@ -104,7 +102,7 @@ impl PreparedModeling {
                 from: from.as_id(),
                 to: to.as_id(),
                 decision: decision.id,
-                bindings: vec![(c.from, c.to)],
+                bindings: c.bindings.clone(),
             });
         }
         if connections.len() != selection.connections.len() {

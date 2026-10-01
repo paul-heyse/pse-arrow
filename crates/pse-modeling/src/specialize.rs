@@ -10,6 +10,10 @@ mod fold;
 mod functions;
 mod group;
 mod physical_operations;
+mod process;
+pub use process::{
+    InventoryBalance, InventoryInitialCondition, MaterialPort, StateKey, StateSpecification,
+};
 mod rewrite;
 mod transformations;
 pub use transformations::{Continuation, Elastic};
@@ -192,6 +196,8 @@ pub struct Closure {
     pub id: SemanticId,
     /// Conservation or accounting semantics.
     pub mode: Mode,
+    /// Independent physical obligation, without an additional solved equation.
+    pub observation_only: bool,
     /// Complete physical type.
     pub ty: Type,
     /// Actual energy boundary consumed by directed transfer contributions.
@@ -303,6 +309,14 @@ pub struct SpecializedModel {
     pub ports: BTreeMap<SemanticId, Port>,
     /// Authored incidence limits, independent of scientific port names.
     pub connectivity: BTreeMap<SemanticId, crate::annotation::Connectivity>,
+    /// Admitted independent state and transport contracts.
+    pub state_specifications: BTreeMap<SemanticId, StateSpecification>,
+    /// Material boundary occurrences, each aliasing one state specification.
+    pub material_ports: BTreeMap<SemanticId, MaterialPort>,
+    /// Original inventory/flux/event-transfer conservation meaning.
+    pub inventory_balances: BTreeMap<SemanticId, InventoryBalance>,
+    /// Retired coordinate initial rows remain required original consistency observations.
+    pub inventory_initial_conditions: BTreeMap<SemanticId, InventoryInitialCondition>,
     /// Original directed connection occurrences.
     pub connections: BTreeMap<SemanticId, Connection>,
     /// Selected pure function bodies keyed by resolved semantic call identity.
@@ -344,6 +358,10 @@ pub struct Connection {
     pub from: SemanticId,
     /// Destination port identity.
     pub to: SemanticId,
+    /// Independent scalar coordinate bindings in this single occurrence.
+    pub bindings: Vec<(SemanticId, SemanticId)>,
+    /// Equality identities generated from those independent bindings.
+    pub rows: Vec<SemanticId>,
     /// Original connection declaration.
     pub lineage: Lineage,
 }
@@ -406,6 +424,9 @@ pub(crate) struct Engine<'a, 'b> {
     /// was replicated; their stencils read sibling replicas, so they are realized once
     /// every replica exists.
     replicated: Vec<ReplicatedEquation>,
+    pending_inventories: Vec<(InstanceId, Declaration, Environment)>,
+    /// Original integrated initial rows captured before any inventory lowers them.
+    inventory_initial_sources: BTreeMap<SemanticId, (SemanticId, Expr, Lineage)>,
     relaxations: BTreeMap<SemanticId, (Type, Value, Lineage)>,
     /// Form realizations by the instance and form they realize: every instance of a
     /// definition realizes its own occurrences of that definition's forms.
@@ -528,6 +549,8 @@ pub fn specialize_with_discretizer(
         local_serial: 0,
         continuity_done: BTreeSet::new(),
         replicated: Vec::new(),
+        pending_inventories: Vec::new(),
+        inventory_initial_sources: BTreeMap::new(),
         relaxations: BTreeMap::new(),
         form_realizations: BTreeMap::new(),
         facts: ambient.clone(),
@@ -681,6 +704,31 @@ impl Engine<'_, '_> {
         }
         if let Some(member) = family {
             let row = self.p.declarations[&member].clone();
+            if ports && row.value.kind == Kind::StatePort {
+                let indices = row
+                    .value
+                    .state_port
+                    .as_ref()
+                    .ok_or_else(|| invalid(at, "material port payload missing"))?;
+                return self
+                    .coordinates(
+                        member,
+                        &self.states[&owner].env,
+                        indices
+                            .indices
+                            .iter()
+                            .map(|i| (i.name.as_str(), i.domain.as_str())),
+                    )?
+                    .into_iter()
+                    .map(|coordinates| {
+                        Ok((
+                            member_id(owner, member, &coordinates),
+                            Type::Boolean,
+                            coordinates_env(env, &coordinates),
+                        ))
+                    })
+                    .collect();
+            }
             let indices = if let Some(e) = &row.value.equation {
                 e.indices
                     .iter()
@@ -738,12 +786,15 @@ impl Engine<'_, '_> {
                 return Err(invalid(at, "connectivity target must name a port"));
             };
             let (owner, member, coordinates) = self.resolve_path(instance, at, path, env, true)?;
-            if self.p.declarations[&member].value.kind != Kind::Port {
+            if !matches!(
+                self.p.declarations[&member].value.kind,
+                Kind::Port | Kind::StatePort
+            ) {
                 return Err(invalid(at, "connectivity target must be a declared port"));
             }
             return Ok(vec![(
                 member_id(owner, member, &coordinates),
-                self.p.types[&member].clone(),
+                self.p.types.get(&member).cloned().unwrap_or(Type::Boolean),
                 env.clone(),
             )]);
         }
@@ -1407,6 +1458,7 @@ impl Engine<'_, '_> {
                         Closure {
                             id: key,
                             mode: a.mode,
+                            observation_only: false,
                             ty,
                             boundary,
                             tolerance,
@@ -1780,60 +1832,17 @@ impl Engine<'_, '_> {
                         self.contribution(id, &r, &coordinates)?;
                     }
                 }
-                Selected::Connection(c) => {
-                    let a =
-                        dsl::parse_expr(&c.from).map_err(|e| invalid(*member, e.to_string()))?;
-                    let b = dsl::parse_expr(&c.to).map_err(|e| invalid(*member, e.to_string()))?;
-                    let endpoint = |e: &Expr| -> Result<SemanticId> {
-                        let ExprKind::Path(path) = &e.kind else {
-                            return Err(invalid(
-                                *member,
-                                "connection endpoint must name a declared port",
-                            ));
-                        };
-                        let (owner, declaration, coordinates) =
-                            self.resolve_path(id, *member, path, &env, true)?;
-                        if self.p.declarations[&declaration].value.kind != Kind::Port {
-                            return Err(invalid(
-                                *member,
-                                "connection endpoint must name a declared port",
-                            ));
-                        }
-                        Ok(member_id(owner, declaration, &coordinates))
-                    };
-                    let from = endpoint(&a)?;
-                    let to = endpoint(&b)?;
-                    let a = self.rewrite(id, &a, &env, &[*member])?;
-                    let b = self.rewrite(id, &b, &env, &[*member])?;
-                    let sa = symbol_reference(&a)
-                        .ok_or_else(|| invalid(*member, "connection symbol"))?;
-                    let sb = symbol_reference(&b)
-                        .ok_or_else(|| invalid(*member, "connection symbol"))?;
-                    if self.model.symbols[&sa].ty != self.model.symbols[&sb].ty {
-                        return Err(invalid(*member, "connection physical types differ"));
-                    }
-                    let connection = member_id(id, *member, &[]);
-                    self.model.connections.insert(
-                        connection,
-                        Connection {
-                            id: connection,
-                            from,
-                            to,
-                            lineage: self.lineage(id, &r, &[*member]),
-                        },
-                    );
-                    self.model.equations.push(Row {
-                        id: connection,
-                        equation: Equation {
-                            kind: EquationKind::Relation {
-                                lhs: a,
-                                sense: EquationSense::Eq,
-                                rhs: b,
-                            },
-                            span: Span::default(),
-                        },
-                        lineage: self.lineage(id, &r, &[*member]),
-                    });
+                Selected::StateSpecification(_) => {
+                    self.state_specification(id, &r, &env)?;
+                }
+                Selected::StatePort(_) => {
+                    self.material_port(id, &r, &env)?;
+                }
+                Selected::InventoryBalance(_) => {
+                    self.pending_inventories.push((id, r.clone(), env.clone()));
+                }
+                Selected::Connection(_) => {
+                    self.process_connection(id, &r, &env)?;
                 }
                 Selected::Expectation(test) => {
                     let mut rewrite = |source: &str| -> Result<Expr> {
@@ -2074,7 +2083,7 @@ impl Engine<'_, '_> {
             return Ok(*id);
         }
         if let Some(accumulator) = &row.value.accumulator {
-            if accumulator.mode != Mode::Accounting {
+            if accumulator.mode == Mode::Conservation {
                 return Err(invalid(
                     member,
                     "a conservation accumulator is an equation, not an accounting value",
@@ -2414,6 +2423,7 @@ impl Engine<'_, '_> {
                 }
             }
         }
+        self.finish_process_states()?;
         for closure in self.model.closures.values() {
             let zero = self.typed_zero(&closure.ty, closure.lineage.declaration)?;
             let mut sum = zero.clone();
@@ -2432,7 +2442,7 @@ impl Engine<'_, '_> {
                     span: Span::default(),
                 };
             }
-            if closure.mode == Mode::Conservation {
+            if closure.mode == Mode::Conservation && !closure.observation_only {
                 self.model.equations.push(Row {
                     id: pse_ids::named_id(closure.id, "conservation"),
                     equation: Equation {
@@ -2445,7 +2455,7 @@ impl Engine<'_, '_> {
                     },
                     lineage: closure.lineage.clone(),
                 });
-            } else {
+            } else if matches!(closure.mode, Mode::Accounting | Mode::Observation) {
                 self.model.symbols.insert(
                     closure.id,
                     Symbol {
@@ -2459,6 +2469,46 @@ impl Engine<'_, '_> {
                     },
                 );
             }
+        }
+        if !self.pending_inventories.is_empty() {
+            for source in &self.model.equations {
+                if !self.model.initial_equations.contains(&source.id) {
+                    continue;
+                }
+                if let EquationKind::Relation {
+                    lhs,
+                    rhs,
+                    sense: EquationSense::Eq,
+                } = &source.equation.kind
+                {
+                    for (target, value) in [(lhs, rhs), (rhs, lhs)] {
+                        let Some(symbol) = symbol_reference(target) else {
+                            continue;
+                        };
+                        if !self
+                            .model
+                            .symbols
+                            .get(&symbol)
+                            .is_some_and(|s| s.role == Kind::Variable)
+                        {
+                            continue;
+                        }
+                        if self
+                            .inventory_initial_sources
+                            .insert(symbol, (source.id, value.clone(), source.lineage.clone()))
+                            .is_some()
+                        {
+                            return Err(invalid(
+                                source.lineage.declaration,
+                                "competing original inventory coordinate initial conditions",
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+        for (instance, declaration, env) in std::mem::take(&mut self.pending_inventories) {
+            self.inventory_balance(instance, &declaration, &env)?;
         }
         self.validate_contextual_equations()?;
         self.select_formulation(formulation)?;
@@ -2728,8 +2778,7 @@ impl SpecializedModel {
                     accumulator: closure.id,
                     net,
                     tolerance,
-                    satisfied: (closure.mode == Mode::Conservation)
-                        .then_some(net.abs() <= tolerance),
+                    satisfied: (closure.mode != Mode::Accounting).then_some(net.abs() <= tolerance),
                 })
             })
             .collect()

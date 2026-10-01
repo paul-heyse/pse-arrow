@@ -66,6 +66,8 @@ Derived in: pse-math.
 | `MathNormalizedFactsV1` | `pse.math.normalized-facts.v1` | Value and guard assumptions projected through a normalization. |
 | `SparsePatternV1` | `pse.sparse.pattern.v1` | A canonical sparse pattern, excluding values. |
 | `NumericalProjectionV1` | `pse.numerical.projection.v1` | Projected numerical magnitudes. |
+| `NumericalProjectionV2` | `pse.numerical.projection.v2` | Projected magnitudes with characteristic scales in target unit coordinates. |
+| `NumericalDifferenceProjectionV1` | `pse.numerical.difference-projection.v1` | Resolved magnitudes projected to an admitted subtraction result. |
 | `NumericalResolvedV1` | `pse.numerical.resolved.v1` | Resolved numerical targets. |
 | `ImplicitConfigurationV1` | `pse.implicit.configuration.v1` | An implicit block's configuration. |
 | `ImplicitFixedConfigurationV1` | `pse.implicit.fixed-configuration.v1` | An implicit block's fixed configuration. |
@@ -127,6 +129,7 @@ Derived in: pse-modeling.
 | `ModelingFiniteReductionV2` | `pse.modeling.finite-reduction.v2` | Checked expression occurrences and complete contextual admission products. |
 | `ModelingKeyedEntityV1` | `pse.modeling.keyed-entity.v1` | A keyed entity's identity: its key-declaring kind and its ordered, typed key values, defaults included. The concrete refinement is content, not identity (ADR-0123 Outcome 2). |
 | `ModelingMemberV1` | `pse.modeling.member.v1` | A specialized member. |
+| `ModelingProcessSlotV1` | `pse.modeling.process-slot.v1` | A process state slot: its owner, declared role and canonical typed semantic indices. |
 | `ModelingMeshCoordinateV1` | `pse.modeling.mesh-coordinate.v1` | A realized mesh coordinate. |
 | `ModelingTableRowV1` | `pse.modeling.table-row.v1` | A table row's identity: its table and its ordered, canonical typed key values (Plan 23 H5), framed as a keyed entity's are. |
 | `ModelingTypedConstantV1` | `pse.modeling.typed-constant.v1` | A typed constant. |

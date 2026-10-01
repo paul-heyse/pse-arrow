@@ -66,17 +66,11 @@
 @id("260992401567437bbd66e7e4350be75b") contribute [i in t] energy_rate[i] role inflow=inflow*inlet_enthalpy;
 @id("f0018b8d97bb4f1dafe5dc14ae8a2007") contribute [i in t] energy_rate[i] role outflow=outflow[i]*cell[i].enthalpy;
 @id("2213bec65dca412396186f0103b9483a") contribute [i in t] energy_rate[i] role directed=transfer(heat,energy_boundary[i],Into);
-@id("88d8f985c7be49988c7612fd0ac051df") eq amount_balance[i in t]:d(cell[i].amount)/di==amount_rate[i];
-@id("1d549832b88f490b8be2c494c7448cad") eq energy_balance[i in t]:d(cell[i].energy)/di==energy_rate[i];
+@id("88d8f985c7be49988c7612fd0ac051df") conserve amount_balance[i in t]:TotalAmount on t inventory cell[i].amount flux amount_rate[i] tolerance 1e-6{mol};
+@id("1d549832b88f490b8be2c494c7448cad") conserve energy_balance[i in t]:Energy on t inventory cell[i].energy flux energy_rate[i] tolerance 0.001{J};
 @id("b940f28b773b4a2d9a8cc69d711ec871") eq amount_initial:cell[0{s}].amount==initial_amount;
 @id("b8985d9cef2942e1b039e67761699e40") eq energy_initial:cell[0{s}].energy==initial_energy;
 @id("848d4d8b34f64405b8d89cca63de00cf") let accumulated_amount:TotalAmount=integral(i in t | amount_rate[i]);
 @id("5ce3aafc64a84e74b62a2121b82ecd68") let accumulated_energy:Energy=integral(i in t | energy_rate[i]);
-@id("f8b3d34398dc49e09f76589d2f5d9b43") let amount_closure[i in t]:TotalAmount=cell[i].amount-initial_amount-accumulated_amount;
-@id("bc786b796fd94bd6a447e73ea7627d0f") let energy_closure[i in t]:Energy=cell[i].energy-initial_energy-accumulated_energy;
-@id("9cfdb87014a144a996f6ea94bb80ca91") annotation check amount_closure(i!=horizon or abs(amount_closure[i])<1e-6{mol});
-@id("ae1839bf78eb480f86d96616dbfe30e6") annotation check energy_closure(i!=horizon or abs(energy_closure[i])<0.001{J});
-@id("e06ff2673faf480c800eb13b545b4605") annotation report amount_closure("integrated amount closure");
-@id("cdf4f89d62ab462ba37a697da4bfde11") annotation report energy_closure("integrated energy closure");
 }
 }

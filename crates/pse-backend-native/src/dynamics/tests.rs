@@ -60,6 +60,7 @@ impl Oracle for Toy {
                 s
             }
             Function::QuadratureFlux => vec![(0, 0), (0, n)],
+            Function::Inventory | Function::Transfer(_) => vec![(0, 0)],
             Function::Output => vec![(0, 0), (0, n)],
             Function::Roots => vec![],
             Function::Reset(_) => (0..n).map(|i| (i, i)).collect(),
@@ -96,6 +97,7 @@ impl Oracle for Toy {
                 (v, j)
             }
             Function::QuadratureFlux => (vec![-p[0] * x[0]], vec![(0, 0, -p[0]), (0, n, -x[0])]),
+            Function::Inventory | Function::Transfer(_) => (vec![x[0]], vec![(0, 0, 1.0)]),
             Function::Output => (vec![x[0] + p[0]], vec![(0, 0, 1.0), (0, n, 1.0)]),
             Function::Roots => (
                 if self.c.events[mode].is_empty() {
@@ -449,24 +451,24 @@ fn native_quadrature_does_not_invent_a_conservation_claim() {
     let mut invalid = oracle.c.clone();
     invalid.balances = vec![Balance {
         id: id(42),
-        state: 0,
-        scale: 1.,
+        inventory: id(9),
+        flux: id(42),
         tolerance: 1e-6,
-        impulses: Default::default(),
+        transfers: Default::default(),
     }];
     assert!(invalid.validate().is_err());
 }
 
 #[test]
-fn integrated_balances_carry_segments_and_refuse_undeclared_jumps() {
+fn integrated_inventories_carry_segments_and_refuse_undeclared_transfers() {
     let mut oracle = Toy::new(false, false);
     oracle.c.quadratures = vec![id(8)];
     oracle.c.balances = vec![Balance {
         id: id(8),
-        state: 0,
-        scale: 1.0,
+        inventory: id(9),
+        flux: id(8),
         tolerance: 1e-6,
-        impulses: Default::default(),
+        transfers: Default::default(),
     }];
     let mut profile = Profile {
         samples: vec![0.0, 0.2, 0.4, 0.7, 1.0],
@@ -488,8 +490,8 @@ fn integrated_balances_carry_segments_and_refuse_undeclared_jumps() {
     )
     .unwrap();
     assert_eq!(r.termination, Termination::Completed, "{:?}", r.error);
-    for s in &r.samples {
-        assert!((s.state[0] - r.consistent_initial[0] - s.integrals[0]).abs() < 1e-6);
+    for point in &r.conservation {
+        assert!(point.defects[0].abs() < 1e-6, "{point:?}");
     }
     let mut event = Toy::new(false, true);
     event.c.quadratures = oracle.c.quadratures.clone();
@@ -503,9 +505,9 @@ fn integrated_balances_carry_segments_and_refuse_undeclared_jumps() {
     )
     .unwrap();
     assert_eq!(r.termination, Termination::Failed);
-    assert!(r.error.unwrap().to_string().contains("impulse"));
+    assert!(r.error.unwrap().to_string().contains("transfer"));
     let impulse = (-0.25f64).exp();
-    event.c.balances[0].impulses.insert(id(5), impulse);
+    event.c.balances[0].transfers.insert(id(5));
     let r = integrate(
         &mut event,
         &profile,
@@ -514,10 +516,10 @@ fn integrated_balances_carry_segments_and_refuse_undeclared_jumps() {
     )
     .unwrap();
     assert_eq!(r.termination, Termination::Completed, "{:?}", r.error);
-    for s in &r.samples {
-        let jump = if s.time >= 0.25 { impulse } else { 0.0 };
-        assert!((s.state[0] - r.consistent_initial[0] - s.integrals[0] - jump).abs() < 1e-6);
+    for point in &r.conservation {
+        assert!(point.defects[0].abs() < 1e-6, "{point:?}");
     }
+    assert!((r.conservation.last().unwrap().transfers[0] - impulse).abs() < 1e-6);
     profile.out_rtol = None;
     assert!(profile.validate(&oracle.c, &[1.0]).is_err());
 }
@@ -918,6 +920,8 @@ fn idas_conv_fail_is_numerical() {
 
 #[path = "adjoint_tests.rs"]
 mod adjoint;
+#[path = "conservation_tests.rs"]
+mod conservation;
 #[path = "extension_tests.rs"]
 mod extension;
 #[path = "process_tests.rs"]

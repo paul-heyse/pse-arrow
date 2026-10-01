@@ -1169,6 +1169,7 @@ impl ShootingProblem {
                 requested_initial: point.reports[0].requested_initial.clone(),
                 consistent_initial: point.reports[0].consistent_initial.clone(),
                 samples: Vec::with_capacity(self.samples.len()),
+                conservation: Vec::new(),
                 events: point
                     .reports
                     .iter()
@@ -1198,6 +1199,12 @@ impl ShootingProblem {
                         .collect(),
                 );
             }
+            stitched.conservation = stitch_conservation(
+                &self.experiment.program.contract,
+                &point.reports,
+                &before,
+                self.experiment.profile.max_cells,
+            )?;
             for (k, local) in &self.samples {
                 let mut sample = point.reports[*k].samples[*local].clone();
                 sample.state_sensitivities.clear();
@@ -1217,6 +1224,205 @@ impl ShootingProblem {
             report.parameters = Some(integration);
         }
         Ok(report)
+    }
+}
+
+/// Rebase independent window facts onto the horizon's original inventory baseline.
+/// Keeping both facts at a shooting node exposes its physical continuity jump.
+fn stitch_conservation(
+    layout: &native::dynamics::Contract,
+    reports: &[native::dynamics::Report],
+    integral_offsets: &[Vec<f64>],
+    max_cells: usize,
+) -> Result<Vec<native::dynamics::ConservationPoint>, ProblemError> {
+    let n = layout.balances.len();
+    if n == 0 {
+        if reports.iter().any(|r| !r.conservation.is_empty()) {
+            return Err(ProblemError::internal("shooting conserved subject layout"));
+        }
+        return Ok(vec![]);
+    }
+    if reports.is_empty() {
+        return Err(ProblemError::internal(
+            "shooting conservation window coverage",
+        ));
+    }
+    let extent = reports
+        .iter()
+        .try_fold(0usize, |count, report| {
+            count.checked_add(report.conservation.len())
+        })
+        .ok_or_else(|| ProblemError::Contract("shooting conservation extent overflow".into()))?;
+    let cells = n
+        .checked_mul(3)
+        .and_then(|width| width.checked_add(layout.quadratures.len()))
+        .and_then(|width| width.checked_mul(extent));
+    if cells.is_none_or(|cells| cells > max_cells) {
+        return Err(ProblemError::Contract(
+            "shooting conservation cell allowance".into(),
+        ));
+    }
+    if integral_offsets.len() != reports.len() + 1 {
+        return Err(ProblemError::internal(
+            "shooting conservation integral offsets",
+        ));
+    }
+    let fluxes = layout
+        .balances
+        .iter()
+        .map(|balance| {
+            layout
+                .quadratures
+                .iter()
+                .position(|id| *id == balance.flux)
+                .ok_or_else(|| ProblemError::internal("shooting conservation flux identity"))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let mut baseline = None::<Vec<f64>>;
+    let mut transfers = vec![0.; n];
+    let mut points = Vec::with_capacity(extent);
+    for (window, report) in reports.iter().enumerate() {
+        if report.conservation.is_empty()
+            || integral_offsets[window].len() != layout.quadratures.len()
+        {
+            return Err(ProblemError::internal(
+                "shooting conservation window coverage",
+            ));
+        }
+        for local in &report.conservation {
+            if local.mode >= layout.events.len()
+                || local.inventories.len() != n
+                || local.transfers.len() != n
+                || local.defects.len() != n
+                || local.integrals.len() != layout.quadratures.len()
+            {
+                return Err(ProblemError::internal(
+                    "shooting conservation subject or mode layout",
+                ));
+            }
+            let initial = baseline.get_or_insert_with(|| local.inventories.clone());
+            let mut point = local.clone();
+            for (integral, offset) in point.integrals.iter_mut().zip(&integral_offsets[window]) {
+                *integral += offset;
+            }
+            for (transfer, offset) in point.transfers.iter_mut().zip(&transfers) {
+                *transfer += offset;
+            }
+            for (index, flux) in fluxes.iter().enumerate() {
+                point.defects[index] = point.inventories[index]
+                    - initial[index]
+                    - point.integrals[*flux]
+                    - point.transfers[index];
+            }
+            if !point.time.is_finite()
+                || point
+                    .inventories
+                    .iter()
+                    .chain(&point.integrals)
+                    .chain(&point.transfers)
+                    .chain(&point.defects)
+                    .any(|v| !v.is_finite())
+            {
+                return Err(ProblemError::numerical(
+                    "nonfinite shooting conservation fact",
+                ));
+            }
+            points.push(point);
+        }
+        let last = report
+            .conservation
+            .last()
+            .ok_or_else(|| ProblemError::internal("shooting conservation window coverage"))?;
+        for (total, local) in transfers.iter_mut().zip(&last.transfers) {
+            *total += local;
+        }
+    }
+    Ok(points)
+}
+
+#[cfg(test)]
+mod conservation_tests {
+    use super::*;
+    fn window(start: f64, inventory: f64) -> native::dynamics::Report {
+        let fact = |time, inventory, integral, transfer| native::dynamics::ConservationPoint {
+            time,
+            mode: 0,
+            inventories: vec![inventory],
+            integrals: vec![integral],
+            transfers: vec![transfer],
+            defects: vec![0.],
+        };
+        native::dynamics::Report {
+            termination: native::dynamics::Termination::Completed,
+            completed_time: start + 1.,
+            requested_initial: vec![],
+            consistent_initial: vec![],
+            samples: vec![],
+            conservation: vec![
+                fact(start, inventory, 0., 0.),
+                fact(start + 1., inventory + 3., 1., 2.),
+            ],
+            events: vec![],
+            statistics: vec![],
+            error: None,
+            progress: vec![],
+            dropped_progress: 0,
+        }
+    }
+    fn layout() -> native::dynamics::Contract {
+        let flux = pse_ids::named_id(SemanticId::NIL, "flux");
+        native::dynamics::Contract {
+            identity: ContentHash::from_bytes([0; 32]),
+            states: vec![],
+            differential: vec![],
+            parameters: vec![],
+            outputs: vec![],
+            events: vec![vec![]],
+            quadratures: vec![flux],
+            balances: vec![native::dynamics::Balance {
+                id: pse_ids::named_id(SemanticId::NIL, "subject"),
+                inventory: pse_ids::named_id(SemanticId::NIL, "inventory"),
+                flux,
+                tolerance: 1e-6,
+                transfers: Default::default(),
+            }],
+            signs: vec![],
+            derivatives: DerivativeOrder::First,
+        }
+    }
+    #[test]
+    fn conservation_stitch_preserves_flux_transfers_and_exposes_node_jump() {
+        let offsets = vec![vec![0.], vec![1.], vec![2.]];
+        for (jump, expected) in [(0., 0.), (0.25, 0.25)] {
+            let points = stitch_conservation(
+                &layout(),
+                &[window(0., 2.), window(1., 5. + jump)],
+                &offsets,
+                100,
+            )
+            .unwrap();
+            assert_eq!(points.len(), 4);
+            assert_eq!(points[2].inventories, vec![5. + jump]);
+            assert_eq!(points[2].defects, vec![expected]);
+            assert_eq!(points[3].integrals, vec![2.]);
+            assert_eq!(points[3].transfers, vec![4.]);
+            assert_eq!(points[3].defects, vec![expected]);
+        }
+    }
+    #[test]
+    fn conservation_stitch_refuses_missing_subject_or_mode_facts_and_unbounded_extent() {
+        let offsets = vec![vec![0.], vec![1.]];
+        let mut report = window(0., 2.);
+        assert!(
+            stitch_conservation(&layout(), std::slice::from_ref(&report), &offsets, 0).is_err()
+        );
+        report.conservation[0].mode = 1;
+        assert!(
+            stitch_conservation(&layout(), std::slice::from_ref(&report), &offsets, 100).is_err()
+        );
+        report.conservation[0].mode = 0;
+        report.conservation[0].inventories.clear();
+        assert!(stitch_conservation(&layout(), &[report], &offsets, 100).is_err());
     }
 }
 

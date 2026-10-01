@@ -50,6 +50,15 @@ struct SimulationMode {
     check_program: Option<Arc<crate::math::ExecutableCase>>,
     terminal_check_program: Option<Arc<crate::math::ExecutableCase>>,
     sample_scope: Option<results::AssessmentScope>,
+    original_initial_conditions: Vec<OriginalInitialCondition>,
+}
+#[derive(Clone, Debug)]
+struct OriginalInitialCondition {
+    coordinate: usize,
+    row: SemanticId,
+    source: DeclarationId,
+    expected: f64,
+    tolerance: f64,
 }
 /// The native trajectory and all partial outcomes retain their resource owner.
 #[derive(Clone, Debug)]
@@ -132,6 +141,7 @@ impl ModelingTrajectory {
                 let bounds = p.worker(flag.clone())?.coordinate_box(sample.mode, sample.time, &sample.state, &parameters)?;
                 let mut functions = vec![(Function::Rhs, p.contract.states.len()), (Function::Output, p.contract.outputs.len())];
                 if !p.contract.quadratures.is_empty() { functions.push((Function::QuadratureFlux, p.contract.quadratures.len())); }
+                if !p.contract.balances.is_empty() { functions.push((Function::Inventory, p.contract.balances.len())); }
                 let mut complete = true; let mut passed = true; let mut checked = 0; let mut suspicious = 0; let mut missing = 0; let mut details = Vec::new();
                 for (function, rows) in functions {
                     let mut normalization = pse_math::normalization::Normalization::identity(p.contract.states.len() + p.contract.parameters.len(), rows);
@@ -554,6 +564,20 @@ impl ModelingPackage {
             .scale_to_canonical;
         let case = ModelingCaseBindings::from(data);
         let (states, parameters) = dynamic_ports(product, &case)?;
+        // Allocate a tenth of the physical closure budget to its independent flux
+        // quadrature. This is the canonical integration adapter policy for generated
+        // conserved fluxes; ordinary authored integrals still require their controls.
+        let mut conserved_tolerances = BTreeMap::<SemanticId, f64>::new();
+        for balance in product.model.inventory_balances.values() {
+            let pse_modeling::specialize::Value::Number { bits, .. } = balance.tolerance else {
+                return Err(contract("conservation tolerance must be a physical number"));
+            };
+            let tolerance = f64::from_bits(bits) * 0.1;
+            conserved_tolerances
+                .entry(balance.flux_id)
+                .and_modify(|current| *current = current.min(tolerance))
+                .or_insert(tolerance);
+        }
         let profile = pse_backend_native::dynamics::Profile {
             start: axis.lower * time_scale,
             end: integration
@@ -564,7 +588,9 @@ impl ModelingPackage {
                 * time_scale,
             samples: integration.samples.iter().map(|t| t * time_scale).collect(),
             rtol: integration.relative_tolerance,
-            out_rtol: integration.quadrature_relative_tolerance,
+            out_rtol: integration.quadrature_relative_tolerance.or_else(|| {
+                (!conserved_tolerances.is_empty()).then_some(integration.relative_tolerance)
+            }),
             out_atol: product
                 .model
                 .integrals
@@ -574,6 +600,7 @@ impl ModelingPackage {
                         .quadratures
                         .get(id)
                         .copied()
+                        .or_else(|| conserved_tolerances.get(id).copied())
                         .ok_or_else(|| contract("integral tolerance absent"))
                 })
                 .collect::<Result<_, _>>()?,
@@ -846,6 +873,30 @@ impl ModelingPackage {
         for (state, _, row) in &initial_outputs {
             values.scalars.insert(*state, initial_values[row]);
         }
+        // Evaluate the original isolated RHS projection, independently of case Start overrides.
+        let original_initial_rows = product
+            .model
+            .inventory_initial_conditions
+            .iter()
+            .map(|(target, obligation)| {
+                ModelingOutput::Hint {
+                    target: *target,
+                    declaration: obligation.lineage.declaration,
+                    kind: ModelingHint::Start,
+                }
+                .row_id()
+            })
+            .collect::<Vec<_>>();
+        let original_initial_values = self
+            .observe_registered(
+                model.clone(),
+                original_initial_rows.iter().copied().collect(),
+                values.clone(),
+                compiler,
+                self.registrations(),
+                cancel,
+            )
+            .await?;
         if let Some(id) = states
             .iter()
             .chain(&parameters)
@@ -1092,6 +1143,41 @@ impl ModelingPackage {
             .chain(&parameters)
             .copied()
             .collect::<Vec<_>>();
+        let original_initial_conditions = product
+            .model
+            .inventory_initial_conditions
+            .iter()
+            .zip(&original_initial_rows)
+            .map(|((target, obligation), row)| {
+                let coordinate = coordinates
+                    .state
+                    .iter()
+                    .position(|c| c.id == *target)
+                    .ok_or_else(|| contract("original initial coordinate absent"))?;
+                let binding = &coordinates.state[coordinate];
+                let expected = *original_initial_values
+                    .get(row)
+                    .ok_or_else(|| contract("original initial RHS projection absent"))?;
+                let normalized = (expected - binding.offset) / binding.scale;
+                let absolute = *profile
+                    .atol
+                    .get(coordinate)
+                    .ok_or_else(|| contract("original initial absolute tolerance absent"))?;
+                let tolerance = binding.scale.abs() * (absolute + profile.rtol * normalized.abs());
+                if !expected.is_finite() || !tolerance.is_finite() || tolerance <= 0. {
+                    return Err(contract(
+                        "original initial physical value or tolerance invalid",
+                    ));
+                }
+                Ok(OriginalInitialCondition {
+                    coordinate,
+                    row: obligation.row,
+                    source: obligation.lineage.declaration,
+                    expected,
+                    tolerance,
+                })
+            })
+            .collect::<Result<Vec<_>, WorkflowError>>()?;
         let mut programs = Vec::new();
         let (event_contracts, event_roles) =
             events::resolve_events(product, instance, mode, &states)?;
@@ -1108,6 +1194,18 @@ impl ModelingPackage {
         ];
         if !quadrature_rows.is_empty() {
             roles.push((Function::QuadratureFlux, quadrature_rows, BTreeMap::new()));
+        }
+        if !product.model.inventory_balances.is_empty() {
+            roles.push((
+                Function::Inventory,
+                product
+                    .model
+                    .inventory_balances
+                    .keys()
+                    .map(|id| ModelingOutput::Inventory(*id).row_id())
+                    .collect(),
+                BTreeMap::new(),
+            ));
         }
         roles.extend(event_roles);
         for (function, rows, mut constants) in roles {
@@ -1389,6 +1487,14 @@ impl ModelingPackage {
             }
         }
         hash.str(&mode_names[mode]);
+        for obligation in &original_initial_conditions {
+            hash.str("original-coordinate-initial")
+                .id(&obligation.row)
+                .id(&obligation.source.into())
+                .u64(obligation.coordinate as u64)
+                .u64(obligation.expected.to_bits())
+                .u64(obligation.tolerance.to_bits());
+        }
         for event in &event_contracts {
             hash.id(&event.id)
                 .bool(event.terminal)
@@ -1399,6 +1505,67 @@ impl ModelingPackage {
         for sign in &signs {
             hash.str(sign.as_str());
         }
+        let event_layout = (0..mode_names.len())
+            .map(|index| {
+                events::resolve_events(product, instance, index, &states).map(|(events, _)| events)
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let fixture_events = product
+            .model
+            .fixtures
+            .get(&instance)
+            .map(|f| f.modes.iter().flat_map(|m| &m.events).collect::<Vec<_>>())
+            .unwrap_or_default();
+        let balances = product
+            .model
+            .inventory_balances
+            .values()
+            .map(|balance| {
+                let pse_modeling::specialize::Value::Number { bits, .. } = balance.tolerance else {
+                    return Err(contract_error("physical inventory tolerance required"));
+                };
+                let mut transfers = BTreeSet::new();
+                for guard in balance.transfers.keys() {
+                    let matching = fixture_events
+                        .iter()
+                        .filter(|event| event.guard == *guard)
+                        .collect::<Vec<_>>();
+                    if matching.is_empty() || matching.iter().any(|e| e.next.is_none()) {
+                        let mut refusal = pse_model::diagnostic::BoundaryDiagnostic::new(
+                            pse_model::diagnostic::BoundaryClass::Unsupported,
+                            "modeling-conservation-transfer",
+                            [balance.id, balance.lineage.declaration.into(), *guard],
+                            "modeling.dynamic.inventory_transfer.event.unsupported",
+                        );
+                        refusal.observations.insert("capability".into(), pse_model::diagnostic::Observation::Text(
+                            "a permitted inventory transfer requires the same resolved guard occurrence as a nonterminal authored event".into(),
+                        ));
+                        return Err(Box::new(refusal).into());
+                    }
+                    for event in matching {
+                        transfers.insert(event.guard);
+                    }
+                }
+                Ok(native::Balance {
+                    id: balance.id,
+                    inventory: balance.inventory_id,
+                    flux: balance.flux_id,
+                    tolerance: f64::from_bits(bits),
+                    transfers,
+                })
+            })
+            .collect::<Result<Vec<_>, WorkflowError>>()?;
+        hash.u64(balances.len() as u64);
+        for balance in &balances {
+            hash.id(&balance.id)
+                .id(&balance.inventory)
+                .id(&balance.flux)
+                .u64(balance.tolerance.to_bits())
+                .u64(balance.transfers.len() as u64);
+            for event in &balance.transfers {
+                hash.id(event);
+            }
+        }
         let key = hash.finish_hash();
         let contract = native::Contract {
             identity: key,
@@ -1406,11 +1573,9 @@ impl ModelingPackage {
             differential,
             parameters,
             outputs,
-            events: std::iter::once(event_contracts)
-                .chain((1..mode_names.len()).map(|_| vec![]))
-                .collect(),
+            events: event_layout,
             quadratures: product.model.integrals.keys().copied().collect(),
-            balances: vec![],
+            balances,
             signs,
             derivatives,
         };
@@ -1439,10 +1604,31 @@ impl ModelingPackage {
             .checked_add(product.model.annotations.len())
             .and_then(|n| n.checked_add(product.model.closures.len()))
             .and_then(|n| n.checked_mul(profile.samples.len()))
+            .and_then(|n| n.checked_add(original_initial_conditions.len()))
+            .and_then(|n| {
+                if contract.balances.is_empty() {
+                    return Some(n);
+                }
+                profile
+                    .max_events
+                    .checked_mul(3)?
+                    .checked_add(profile.samples.len())?
+                    .checked_add(2)?
+                    .checked_mul(contract.balances.len())?
+                    .checked_add(n)
+            })
             .ok_or_else(|| contract_error("dynamic check extent"))?;
         if maximum_checks > profile.max_cells {
             return Err(contract_error("dynamic check cell budget"));
         }
+        let bytes = bytes
+            .checked_add(
+                original_initial_conditions
+                    .len()
+                    .checked_mul(size_of::<OriginalInitialCondition>())
+                    .ok_or_else(|| contract_error("dynamic original initial storage"))?,
+            )
+            .ok_or_else(|| contract_error("dynamic original initial storage"))?;
         let bytes = bytes
             .checked_add(
                 maximum_checks
@@ -1494,6 +1680,7 @@ impl ModelingPackage {
                 check_program,
                 terminal_check_program,
                 sample_scope,
+                original_initial_conditions,
             }],
             contract,
             profile,
@@ -1865,6 +2052,898 @@ mod tests {
             &physical.preconditions,
         );
         physical
+    }
+    #[tokio::test]
+    async fn authored_conservation_derives_only_its_generated_flux_quadrature_controls() {
+        let runtime = super::super::super::tests::runtime();
+        let cancel = crate::CancelSource::new();
+        for unrelated_integral in [false, true] {
+            let extra = if unrelated_integral {
+                "let area:Time=integral(i in t | 2); annotation check area(area>1.9{s});"
+            } else {
+                ""
+            };
+            let source = format!(
+                "package p {{ def Root {{ domain t: Time from 0{{s}} to 1{{s}}; discretize grid on t using integrated(elements=1,order=1); param p: Scalar = 0.5; var x[i in t]: Time; conserve stock[i in t]: Time on t inventory x[i] flux p tolerance 1e-6{{s}}; eq initial: x[0{{s}}] == 1{{s}}; {extra} }} test dynamic fixture {{ dof 0; run integrated; integrate samples(0{{s}},0.5{{s}},1{{s}}) relative(1e-8) normalized_absolute(1e-10) step(1e-4{{s}}); }} {{ child root: Root = Root(); }} }}"
+            );
+            let rows = pse_authoring::language::parse(
+                &source,
+                SemanticId::NIL,
+                pse_authoring::language::IdentityPolicy::Named,
+                pse_authoring::ParseBudget::default(),
+            )
+            .unwrap();
+            let root = rows
+                .iter()
+                .find(|r| r.name == "dynamic")
+                .unwrap()
+                .declaration_id;
+            let package = runtime.modeling_package(rows, physical()).unwrap();
+            let prepared = package
+                .declared_simulation(
+                    root,
+                    super::super::super::tests::compiler_profile(),
+                    None,
+                    Limits::default(),
+                    &cancel,
+                )
+                .await;
+            if unrelated_integral {
+                let error = prepared.err().unwrap();
+                assert!(
+                    error.to_string().contains(
+                        "each integrated quadrature requires an explicit physical tolerance"
+                    ),
+                    "{error:?}"
+                );
+            } else {
+                let prepared = prepared.unwrap();
+                assert_eq!(prepared.profile.out_rtol, Some(1e-8));
+                assert_eq!(prepared.profile.out_atol, vec![1e-6 * 0.1]);
+                let trajectory = prepared.run(&cancel).await.unwrap();
+                assert!(trajectory.accepted, "{:?}", trajectory.validation_error);
+            }
+        }
+    }
+    #[tokio::test]
+    async fn authored_conservation_inventory_and_original_flux_reach_native_closure_reports() {
+        let runtime = super::super::super::tests::runtime();
+        let physical = physical();
+        let compiler = super::super::super::tests::compiler_profile();
+        let cancel = crate::CancelSource::new();
+        let mut methods = vec![native::Method::Diffsol];
+        #[cfg(feature = "solver-idas")]
+        methods.push(native::Method::Idas);
+        for method in methods {
+            let source = "package p { def Root { domain t: Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); param p: Scalar = 0.5; var x[i in t]: Time; conserve stock[i in t]: Time on t inventory x[i] flux p tolerance 1e-6{s}; eq initial: x[0{s}] == 1{s}; } }";
+            let rows = pse_authoring::language::parse(
+                source,
+                SemanticId::NIL,
+                pse_authoring::language::IdentityPolicy::Named,
+                pse_authoring::ParseBudget::default(),
+            )
+            .unwrap();
+            let root = rows
+                .iter()
+                .find(|r| r.name == "Root")
+                .unwrap()
+                .declaration_id;
+            let package = runtime.modeling_package(rows, physical.clone()).unwrap();
+            let prepared = package
+                .prepare_simulation(
+                    root,
+                    pse_modeling::specialize::root_instance(root),
+                    Bindings::default(),
+                    Limits::default(),
+                    ModelingCaseBindings::default(),
+                    compiler,
+                    native::Profile {
+                        method,
+                        samples: vec![0.0, 0.5, 1.0],
+                        parameter_scales: vec![1.0],
+                        rtol: 1e-9,
+                        atol: vec![1e-11],
+                        out_rtol: Some(1e-9),
+                        out_atol: vec![1e-11],
+                        ..Default::default()
+                    },
+                    DerivativeOrder::First,
+                    &cancel,
+                )
+                .await
+                .unwrap();
+            let descriptor = prepared
+                .model()
+                .compiled()
+                .model
+                .inventory_balances
+                .values()
+                .next()
+                .unwrap();
+            assert_eq!(prepared.contract.balances.len(), 1);
+            assert_eq!(prepared.contract.balances[0].id, descriptor.id);
+            assert_eq!(
+                prepared.contract.balances[0].inventory,
+                descriptor.inventory_id
+            );
+            assert_eq!(prepared.contract.balances[0].flux, descriptor.flux_id);
+            assert!(
+                prepared
+                    .model()
+                    .compiled()
+                    .admitted
+                    .outputs
+                    .contains(&ModelingOutput::Inventory(descriptor.id))
+            );
+            let trajectory = prepared.run(&cancel).await.unwrap();
+            assert_eq!(
+                trajectory.report.termination,
+                native::Termination::Completed,
+                "{:?}",
+                trajectory.report.error
+            );
+            assert!(trajectory.accepted, "{:?}", trajectory.validation_error);
+            assert!((trajectory.report.samples.last().unwrap().state[0] - 1.5).abs() < 1e-7);
+            let checks = trajectory
+                .checks
+                .iter()
+                .filter(|c| c.kind == pse_model::generated::enums::ModelingCheckKind::Closure)
+                .collect::<Vec<_>>();
+            assert!(!checks.is_empty());
+            assert!(checks.iter().all(|c| c.target_id == descriptor.id
+                && c.satisfied
+                && c.time.is_some()
+                && c.tolerance == Some(1e-6)));
+            assert!(
+                trajectory
+                    .report
+                    .conservation
+                    .iter()
+                    .all(|p| p.defects[0].abs() < 1e-6)
+            );
+        }
+    }
+    #[tokio::test]
+    async fn authored_conservation_general_inventory_audits_original_coordinates_and_exposes_flux_drift()
+     {
+        let runtime = super::super::super::tests::runtime();
+        let physical = physical();
+        let compiler = super::super::super::tests::compiler_profile();
+        let cancel = crate::CancelSource::new();
+        let mut methods = vec![native::Method::Diffsol];
+        #[cfg(feature = "solver-idas")]
+        methods.push(native::Method::Idas);
+        for method in methods {
+            for (flux, closes) in [("p*exp(x[i]/1{s})", true), ("0", false)] {
+                // Diffsol's original nonlinear flux quadrature has about 3.6e-6 s error
+                // under these fixed controls; the physical 1e-5 s budget admits that
+                // independently observed error while zero authored flux misses by 0.649 s.
+                let source = format!(
+                    "package p {{ def Root {{ domain t: Time from 0{{s}} to 1{{s}}; discretize grid on t using integrated(elements=1,order=1); param p: Scalar = 0.5; var x[i in t]: Time; eq rate[i in t]: d(x[i])/di == p; eq initial: x[0{{s}}] == 0{{s}}; conserve stock[i in t]: Time on t inventory 1{{s}}*exp(x[i]/1{{s}}) flux {flux} tolerance 1e-5{{s}}; }} }}"
+                );
+                let rows = pse_authoring::language::parse(
+                    &source,
+                    SemanticId::NIL,
+                    pse_authoring::language::IdentityPolicy::Named,
+                    pse_authoring::ParseBudget::default(),
+                )
+                .unwrap();
+                let root = rows
+                    .iter()
+                    .find(|r| r.name == "Root")
+                    .unwrap()
+                    .declaration_id;
+                let package = runtime.modeling_package(rows, physical.clone()).unwrap();
+                let prepared = package
+                    .prepare_simulation(
+                        root,
+                        pse_modeling::specialize::root_instance(root),
+                        Bindings::default(),
+                        Limits::default(),
+                        ModelingCaseBindings::default(),
+                        compiler,
+                        native::Profile {
+                            method,
+                            samples: vec![0.0, 0.5, 1.0],
+                            parameter_scales: vec![1.0],
+                            initial_step: 1e-3,
+                            rtol: 1e-9,
+                            atol: vec![1e-11],
+                            out_rtol: Some(1e-9),
+                            out_atol: vec![1e-11],
+                            ..Default::default()
+                        },
+                        DerivativeOrder::First,
+                        &cancel,
+                    )
+                    .await
+                    .unwrap();
+                assert_eq!(
+                    prepared.contract.states.len(),
+                    1,
+                    "original independent differential coordinate remains"
+                );
+                let trajectory = prepared.run(&cancel).await.unwrap();
+                assert_eq!(
+                    trajectory.report.termination,
+                    native::Termination::Completed,
+                    "{:?}",
+                    trajectory.report.error
+                );
+                assert_eq!(
+                    trajectory.accepted,
+                    closes,
+                    "{:?} complete={} conservation={:?}",
+                    trajectory.validation_error,
+                    trajectory.checks_complete,
+                    trajectory.report.conservation
+                );
+                let assessment = crate::workflow::numerics::complete(
+                    trajectory.candidate_use(),
+                    &trajectory.checks,
+                    trajectory.checks_complete && trajectory.validation_error.is_none(),
+                    prepared.numerics().policy.closure,
+                );
+                assert_eq!(
+                    assessment.closure,
+                    if closes {
+                        pse_model::generated::enums::ClosureAssessment::Closed
+                    } else {
+                        pse_model::generated::enums::ClosureAssessment::Unclosed
+                    }
+                );
+                assert!((trajectory.report.conservation[0].inventories[0] - 1.0).abs() < 1e-8);
+                let last = trajectory.report.conservation.last().unwrap();
+                assert!((last.inventories[0] - 0.5_f64.exp()).abs() < 1e-7);
+                if closes {
+                    assert!(last.defects[0].abs() < 1e-5);
+                } else {
+                    assert!((last.defects[0] - (0.5_f64.exp() - 1.0)).abs() < 1e-7);
+                }
+                assert!(
+                    trajectory
+                        .checks
+                        .iter()
+                        .any(|c| c.kind == pse_model::generated::enums::ModelingCheckKind::Closure)
+                );
+            }
+        }
+    }
+    #[tokio::test]
+    async fn authored_conservation_auxiliary_inventory_initializes_original_algebraic_coordinates()
+    {
+        let runtime = super::super::super::tests::runtime();
+        let cancel = crate::CancelSource::new();
+        let mut methods = vec![native::Method::Diffsol];
+        #[cfg(feature = "solver-idas")]
+        methods.push(native::Method::Idas);
+        for method in methods {
+            for initial_y_value in [Some(2), Some(4), None] {
+                let initial_y = initial_y_value
+                    .map(|value| format!("eq initial_y:y[0{{s}}]=={value}{{s}};"))
+                    .unwrap_or_default();
+                let source = format!(
+                    "package p {{ def Root {{ domain t:Time from 0{{s}} to 1{{s}}; discretize grid on t using integrated(elements=1,order=1); var x[i in t]:Time; var y[i in t]:Time; eq definition[i in t]:y[i]==2*x[i]; eq initial_x:x[0{{s}}]==1{{s}}; {initial_y} conserve stock[i in t]:Time on t inventory x[i]+y[i] flux 3 tolerance 1e-6{{s}}; }} }}"
+                );
+                let rows = pse_authoring::language::parse(
+                    &source,
+                    SemanticId::NIL,
+                    pse_authoring::language::IdentityPolicy::Named,
+                    pse_authoring::ParseBudget::default(),
+                )
+                .unwrap();
+                let root = rows
+                    .iter()
+                    .find(|r| r.name == "Root")
+                    .unwrap()
+                    .declaration_id;
+                let package = runtime.modeling_package(rows, physical()).unwrap();
+                let prepared = package
+                    .prepare_simulation(
+                        root,
+                        pse_modeling::specialize::root_instance(root),
+                        Bindings::default(),
+                        Limits::default(),
+                        ModelingCaseBindings::default(),
+                        super::super::super::tests::compiler_profile(),
+                        native::Profile {
+                            method,
+                            samples: vec![0., 0.5, 1.],
+                            rtol: 1e-9,
+                            atol: vec![1e-11; 3],
+                            out_rtol: Some(1e-9),
+                            out_atol: vec![1e-11],
+                            ..Default::default()
+                        },
+                        DerivativeOrder::First,
+                        &cancel,
+                    )
+                    .await;
+                if initial_y_value.is_none() {
+                    assert!(
+                        prepared
+                            .err()
+                            .unwrap()
+                            .to_string()
+                            .contains("explicit initial conditions")
+                    );
+                    continue;
+                }
+                let prepared = prepared.unwrap();
+                assert_eq!(prepared.contract.states.len(), 3);
+                assert_eq!(
+                    prepared
+                        .contract
+                        .differential
+                        .iter()
+                        .filter(|value| **value)
+                        .count(),
+                    1
+                );
+                let descriptor = prepared
+                    .model()
+                    .compiled()
+                    .model
+                    .inventory_balances
+                    .values()
+                    .next()
+                    .unwrap();
+                assert!(descriptor.state.is_some());
+                let trajectory = prepared.run(&cancel).await.unwrap();
+                assert_eq!(
+                    trajectory.report.termination,
+                    native::Termination::Completed,
+                    "{:?}",
+                    trajectory.report.error
+                );
+                if initial_y_value == Some(4) {
+                    assert!(
+                        !trajectory.accepted,
+                        "inconsistent original coordinate initial rows must refuse result use"
+                    );
+                    assert!(trajectory.checks_complete && trajectory.validation_error.is_none());
+                    let original_sources = prepared
+                        .model()
+                        .compiled()
+                        .model
+                        .inventory_initial_conditions
+                        .values()
+                        .map(|condition| condition.lineage.declaration)
+                        .collect::<BTreeSet<_>>();
+                    assert!(trajectory.checks.iter().any(|check| {
+                        check.kind
+                            == pse_model::generated::enums::ModelingCheckKind::OriginalEquation
+                            && original_sources.contains(&check.source_id)
+                            && !check.satisfied
+                            && check.time == Some(0.)
+                            && check.tolerance.is_some()
+                    }));
+                    assert!(
+                        trajectory
+                            .report
+                            .conservation
+                            .iter()
+                            .all(|point| point.defects[0].abs() < 1e-6)
+                    );
+                    continue;
+                }
+                assert!(trajectory.accepted, "{:?}", trajectory.validation_error);
+                assert!((trajectory.report.conservation[0].inventories[0] - 3.).abs() < 1e-7);
+                assert!(
+                    (trajectory.report.conservation.last().unwrap().inventories[0] - 6.).abs()
+                        < 1e-7
+                );
+                assert!(
+                    trajectory
+                        .report
+                        .conservation
+                        .iter()
+                        .all(|point| point.defects[0].abs() < 1e-6)
+                );
+            }
+        }
+    }
+    #[tokio::test]
+    async fn authored_conservation_shared_coordinates_keep_each_original_initial_source() {
+        let runtime = super::super::super::tests::runtime();
+        let cancel = crate::CancelSource::new();
+        let source = "package p { def Root { domain t:Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); var x[i in t]:Time; var y[i in t]:Time; eq initial_x:x[0{s}]==1{s}; eq initial_y:y[0{s}]==2{s}; conserve sum[i in t]:Time on t inventory x[i]+y[i] flux 3 tolerance 1e-6{s}; conserve difference[i in t]:Time on t inventory x[i]-y[i] flux -1 tolerance 1e-6{s}; } }";
+        let rows = pse_authoring::language::parse(
+            source,
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            pse_authoring::ParseBudget::default(),
+        )
+        .unwrap();
+        let root = rows
+            .iter()
+            .find(|row| row.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let initial_sources = rows
+            .iter()
+            .filter(|row| row.name.starts_with("initial_"))
+            .map(|row| row.declaration_id)
+            .collect::<BTreeSet<_>>();
+        let package = runtime.modeling_package(rows, physical()).unwrap();
+        let mut methods = vec![native::Method::Diffsol];
+        #[cfg(feature = "solver-idas")]
+        methods.push(native::Method::Idas);
+        for method in methods {
+            let prepared = package
+                .prepare_simulation(
+                    root,
+                    pse_modeling::specialize::root_instance(root),
+                    Bindings::default(),
+                    Limits::default(),
+                    ModelingCaseBindings::default(),
+                    super::super::super::tests::compiler_profile(),
+                    native::Profile {
+                        method,
+                        samples: vec![0., 0.5, 1.],
+                        rtol: 1e-9,
+                        atol: vec![1e-11; 4],
+                        out_rtol: Some(1e-9),
+                        out_atol: vec![1e-11; 2],
+                        ..Default::default()
+                    },
+                    DerivativeOrder::First,
+                    &cancel,
+                )
+                .await
+                .unwrap();
+            assert_eq!(prepared.contract.balances.len(), 2);
+            assert_eq!(
+                prepared
+                    .contract
+                    .differential
+                    .iter()
+                    .filter(|value| **value)
+                    .count(),
+                2
+            );
+            assert_eq!(
+                prepared
+                    .model()
+                    .compiled()
+                    .model
+                    .annotations
+                    .iter()
+                    .filter(|hint| initial_sources.contains(&hint.lineage.declaration)
+                        && matches!(
+                            hint.value,
+                            pse_modeling::annotation::AnnotationValue::Start(_)
+                        ))
+                    .count(),
+                2
+            );
+            let trajectory = prepared.run(&cancel).await.unwrap();
+            assert_eq!(
+                trajectory.report.termination,
+                native::Termination::Completed,
+                "{:?}",
+                trajectory.report.error
+            );
+            assert!(trajectory.accepted, "{:?}", trajectory.validation_error);
+            let mut initial = trajectory.report.conservation[0].inventories.clone();
+            let mut last = trajectory
+                .report
+                .conservation
+                .last()
+                .unwrap()
+                .inventories
+                .clone();
+            initial.sort_by(f64::total_cmp);
+            last.sort_by(f64::total_cmp);
+            for (observed, expected) in initial.iter().zip([-1., 3.]) {
+                assert!((observed - expected).abs() < 1e-7);
+            }
+            for (observed, expected) in last.iter().zip([-2., 6.]) {
+                assert!((observed - expected).abs() < 1e-7);
+            }
+            assert!(
+                trajectory
+                    .report
+                    .conservation
+                    .iter()
+                    .all(|point| point.defects.iter().all(|defect| defect.abs() < 1e-6))
+            );
+        }
+    }
+    #[tokio::test]
+    async fn authored_conservation_transfers_resolve_guard_names_and_preserve_state_dependence() {
+        let runtime = super::super::super::tests::runtime();
+        let physical = physical();
+        let compiler = super::super::super::tests::compiler_profile();
+        let cancel = crate::CancelSource::new();
+        let mut methods = vec![native::Method::Diffsol];
+        #[cfg(feature = "solver-idas")]
+        methods.push(native::Method::Idas);
+        for method in methods {
+            for (expression, matches, guard_matches) in [
+                ("x[i]", true, true),
+                ("0.5*x[i]", false, true),
+                ("x[i]", true, false),
+            ] {
+                let event_guard = if guard_matches { "hit" } else { "other" };
+                let source = format!(
+                    "package p {{ def Root {{ domain t: Time from 0{{s}} to 1{{s}}; discretize grid on t using integrated(elements=1,order=1); param p: Scalar = 1; var x[i in t]: Time; conserve stock[i in t]: Time on t inventory x[i] flux p tolerance 1e-6{{s}} transfers(hit[0{{s}}] = {expression}); eq initial: x[0{{s}}] == 1{{s}}; let hit[i in t]: Time = x[i]-1.5{{s}}; let other[i in t]: Time = x[i]-1.5{{s}}; let jump[i in t]: Time = 2*x[i]; }} def Assembly {{ child renamed: Root = Root(); }} test evented fixture {{ dof 0; run integrated; integrate samples(0{{s}},0.25{{s}},0.75{{s}},1{{s}}) relative(1e-9) normalized_absolute(1e-11) step(1e-4{{s}}); mode before; event plant.renamed.{event_guard}[0{{s}}] direction(either) tolerance(1e-8{{s}}) reset(plant.renamed.x[0{{s}}] = plant.renamed.jump[0{{s}}]) next(after); mode after; }} {{ child plant: Assembly = Assembly(); }} }}"
+                );
+                let rows = pse_authoring::language::parse(
+                    &source,
+                    SemanticId::NIL,
+                    pse_authoring::language::IdentityPolicy::Named,
+                    pse_authoring::ParseBudget::default(),
+                )
+                .unwrap();
+                let root = rows
+                    .iter()
+                    .find(|r| r.name == "evented")
+                    .unwrap()
+                    .declaration_id;
+                let stock_source = rows
+                    .iter()
+                    .find(|row| row.name == "stock")
+                    .unwrap()
+                    .declaration_id;
+                let package = runtime.modeling_package(rows, physical.clone()).unwrap();
+                let prepared = package
+                    .declared_simulation(
+                        root,
+                        compiler,
+                        Some(native::Profile {
+                            method,
+                            samples: vec![0.0, 0.25, 0.75, 1.0],
+                            parameter_scales: vec![1.0],
+                            rtol: 1e-9,
+                            atol: vec![1e-11],
+                            out_rtol: Some(1e-9),
+                            out_atol: vec![1e-11],
+                            ..Default::default()
+                        }),
+                        Limits::default(),
+                        &cancel,
+                    )
+                    .await;
+                if !guard_matches {
+                    let WorkflowError::Boundary(refusal) = prepared.unwrap_err() else {
+                        panic!("a foreign guard permission must retain an attributable refusal");
+                    };
+                    assert_eq!(
+                        refusal.rule,
+                        "modeling.dynamic.inventory_transfer.event.unsupported"
+                    );
+                    assert_eq!(refusal.sources.len(), 3);
+                    assert!(refusal.sources.contains(&stock_source.into()));
+                    continue;
+                }
+                let prepared = prepared.unwrap();
+                assert_eq!(prepared.contract.balances[0].transfers.len(), 1);
+                assert!(
+                    prepared.contract.balances[0]
+                        .transfers
+                        .contains(&prepared.contract.events[0][0].id)
+                );
+                let descriptor = prepared
+                    .model()
+                    .compiled()
+                    .model
+                    .inventory_balances
+                    .values()
+                    .next()
+                    .unwrap();
+                assert_eq!(
+                    descriptor
+                        .transfers
+                        .keys()
+                        .copied()
+                        .collect::<BTreeSet<_>>(),
+                    prepared.contract.balances[0].transfers
+                );
+                assert!(
+                    descriptor.lineage.path.contains("plant")
+                        && descriptor.lineage.path.contains("renamed")
+                );
+                assert!(
+                    prepared
+                        .programs
+                        .iter()
+                        .any(|p| p.function == Function::Transfer(0))
+                );
+                let trajectory = prepared.run(&cancel).await.unwrap();
+                assert_eq!(
+                    trajectory.accepted, matches,
+                    "{:?} {:?}",
+                    trajectory.report.error, trajectory.validation_error
+                );
+                if matches {
+                    assert_eq!(
+                        trajectory.report.termination,
+                        native::Termination::Completed
+                    );
+                    assert!(
+                        (trajectory.report.conservation.last().unwrap().transfers[0] - 1.5).abs()
+                            < 1e-7
+                    );
+                    assert!(
+                        trajectory
+                            .report
+                            .conservation
+                            .iter()
+                            .all(|p| p.defects[0].abs() < 1e-6)
+                    );
+                } else {
+                    assert_eq!(trajectory.report.termination, native::Termination::Failed);
+                    assert!(
+                        trajectory
+                            .report
+                            .error
+                            .as_ref()
+                            .unwrap()
+                            .to_string()
+                            .contains("permitted event transfer")
+                    );
+                    assert!(trajectory.checks.iter().any(|c| c.kind
+                        == pse_model::generated::enums::ModelingCheckKind::Closure
+                        && c.source_id == descriptor.lineage.declaration
+                        && c.target_id == descriptor.id
+                        && !c.satisfied));
+                }
+            }
+        }
+    }
+    #[tokio::test]
+    async fn authored_conservation_point_inventory_uses_difference_transfer_convention() {
+        let runtime = super::super::super::tests::runtime();
+        let cancel = crate::CancelSource::new();
+        let mut physical = physical();
+        // A named physical rate boundary is required independently of conservation.
+        // Extend the fixture registry through ordinary atomic admission, preserving its rules.
+        let delta = physical
+            .quantities
+            .quantity_types()
+            .find(|q| q.name.as_deref() == Some("DeltaTemperature"))
+            .unwrap()
+            .clone();
+        let time = physical
+            .quantities
+            .quantity_types()
+            .find(|q| q.name.as_deref() == Some("Time"))
+            .unwrap()
+            .clone();
+        let reciprocal = pse_quantity::Ratio::new(-1, 1).unwrap();
+        let mut builder = physical.quantities.to_builder();
+        builder.unit(pse_quantity::Unit {
+            id: pse_quantity::UnitId::from_id(pse_ids::named_id(
+                SemanticId::NIL,
+                "fixture-minute-unit",
+            )),
+            symbol: "fixture_min".into(),
+            dimension: physical
+                .quantities
+                .unit(time.canonical_unit)
+                .unwrap()
+                .dimension,
+            scale_to_canonical: 60.,
+            offset_to_canonical: 0.,
+            is_affine: false,
+            reference_state: None,
+            definition: None,
+        });
+        let with_minute = builder.build().unwrap();
+        let rate_unit = with_minute
+            .compose(
+                &pse_quantity::UnitProduct::from_factors([
+                    ("K".into(), pse_quantity::Ratio::ONE),
+                    ("fixture_min".into(), reciprocal),
+                ])
+                .unwrap(),
+            )
+            .unwrap();
+        let mut builder = with_minute.to_builder();
+        if with_minute.unit(rate_unit.id).is_err() {
+            builder.defined_unit(pse_quantity::unit::DefinedUnit {
+                id: rate_unit.id,
+                symbol: "K/fixture_min".into(),
+                composition: rate_unit.definition.clone().unwrap(),
+            });
+        }
+        let rate_kind = pse_quantity::QuantityKindId::from_id(pse_ids::named_id(
+            SemanticId::NIL,
+            "fixture-temperature-rate-kind",
+        ));
+        let rate_type = pse_quantity::QuantityTypeId::from_id(pse_ids::named_id(
+            SemanticId::NIL,
+            "fixture-temperature-rate-type",
+        ));
+        let rate_contract = pse_quantity::InvariantId::from_id(pse_ids::named_id(
+            SemanticId::NIL,
+            "fixture-temperature-rate-operand",
+        ));
+        let interval_contract = pse_quantity::InvariantId::from_id(pse_ids::named_id(
+            SemanticId::NIL,
+            "fixture-temperature-interval-operand",
+        ));
+        builder
+            .derived_kind(pse_quantity::DerivedKind {
+                id: rate_kind,
+                extensive: false,
+                addition_kind: pse_quantity::QuantityAdditionKind::Additive,
+                definition: pse_quantity::KindDefinition {
+                    monomial: vec![
+                        pse_quantity::KindFactor {
+                            kind: delta.key.kind,
+                            exponent: pse_quantity::Ratio::ONE,
+                        },
+                        pse_quantity::KindFactor {
+                            kind: time.key.kind,
+                            exponent: reciprocal,
+                        },
+                    ],
+                    canonical_unit: rate_unit.id,
+                    basis: None,
+                    reference_state: None,
+                    scale_kind: pse_quantity::ScaleKind::Point,
+                    subject_kind: None,
+                },
+            })
+            .quantity_type(pse_quantity::QuantityType {
+                id: rate_type,
+                name: Some("TemperatureRate".into()),
+                key: pse_quantity::QuantityTypeKey {
+                    kind: rate_kind,
+                    scale_kind: pse_quantity::ScaleKind::Point,
+                    ..delta.key.clone()
+                },
+                canonical_unit: rate_unit.id,
+                nominal_magnitude: None,
+            });
+        // An origin-sensitive temperature increment requires an explicitly admitted
+        // inverse operation, with both complete operand contracts retained.
+        builder.operation(pse_quantity::QuantityOperation {
+            id: pse_quantity::OperationId::from_id(pse_ids::named_id(
+                SemanticId::NIL,
+                "fixture-temperature-rate-integral",
+            )),
+            opcode: pse_quantity::Opcode::Mul,
+            input_kinds: vec![rate_kind, time.key.kind],
+            result_kind: delta.key.kind,
+            basis_rule: pse_quantity::BasisRule::DeclaredResult,
+            reference_rule: pse_quantity::ReferenceRule::DeclaredResult,
+            scale_rule: pse_quantity::QuantityScaleRule::Difference,
+            shape_rule: pse_quantity::QuantityShapeRule::SameIndices,
+            basis_source: None,
+            reference_source: None,
+            scale_source: None,
+            shape_source: None,
+            subject_rule: pse_quantity::SubjectRule::DeclaredResult,
+            subject_source: None,
+            result_subject_kind: delta.key.subject_kind,
+            result_basis: delta.key.basis,
+            result_reference_state: delta.key.reference_state,
+            input_conversions: vec![],
+            precondition_invariants: vec![rate_contract, interval_contract],
+        });
+        physical.quantities = Arc::new(builder.build().unwrap());
+        let mut preconditions = physical.preconditions.declarations().to_vec();
+        for (id, position, required) in [
+            (rate_contract, 0, rate_type),
+            (interval_contract, 1, time.id),
+        ] {
+            preconditions.push(pse_quantity::PhysicalPrecondition {
+                id,
+                operand_positions: vec![position],
+                requirement: pse_quantity::PhysicalRequirement::OperandQuantityContract {
+                    required,
+                    match_shape: false,
+                },
+            });
+        }
+        preconditions.sort_by_key(|declaration| declaration.id);
+        physical.preconditions =
+            Arc::new(pse_quantity::PhysicalPreconditions::new(preconditions).unwrap());
+        physical.key = pse_compiler::workspace::physical_identity(
+            &physical.quantities,
+            &physical.preconditions,
+        );
+        let source = "package p { def Root { domain t:Time from 0{s} to 2{s}; discretize grid on t using integrated(elements=1,order=1); param base:Temperature=300{K}; param step:DeltaTemperature=1{K}; var x[i in t]:Temperature; let rate[i in t]:TemperatureRate=0.5*step/1{s}; conserve stock[i in t]:Temperature on t inventory x[i] flux rate[i] tolerance 1e-6{K} transfers(hit[0{s}]=x[i]-base); eq initial:x[0{s}]==base; let hit[i in t]:DeltaTemperature=x[i]-base-0.5*step; let jump[i in t]:Temperature=x[i]+(x[i]-base); } test evented fixture { dof 0; run integrated; integrate samples(0{s},0.5{s},1.5{s},2{s}) relative(1e-9) normalized_absolute(1e-10) step(1e-4{s}); mode before; event root.hit[0{s}] direction(either) tolerance(1e-8{K}) reset(root.x[0{s}]=root.jump[0{s}]) next(after); mode after; } { child root:Root=Root(); } }";
+        let rows = pse_authoring::language::parse(
+            source,
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            pse_authoring::ParseBudget::default(),
+        )
+        .unwrap();
+        let root = rows
+            .iter()
+            .find(|row| row.name == "evented")
+            .unwrap()
+            .declaration_id;
+        let package = runtime.modeling_package(rows, physical).unwrap();
+        let mut methods = vec![native::Method::Diffsol];
+        #[cfg(feature = "solver-idas")]
+        methods.push(native::Method::Idas);
+        for method in methods {
+            let prepared = package
+                .declared_simulation(
+                    root,
+                    super::super::super::tests::compiler_profile(),
+                    Some(native::Profile {
+                        method,
+                        end: 2.,
+                        samples: vec![0., 0.5, 1.5, 2.],
+                        parameter_scales: vec![1.; 2],
+                        rtol: 1e-9,
+                        atol: vec![1e-10],
+                        out_rtol: Some(1e-9),
+                        out_atol: vec![1e-11],
+                        ..Default::default()
+                    }),
+                    Limits::default(),
+                    &cancel,
+                )
+                .await
+                .unwrap();
+            let trajectory = prepared.run(&cancel).await.unwrap();
+            assert_eq!(
+                trajectory.report.termination,
+                native::Termination::Completed,
+                "{:?}",
+                trajectory.report.error
+            );
+            assert!(trajectory.accepted, "{:?}", trajectory.validation_error);
+            let last = trajectory.report.conservation.last().unwrap();
+            assert!((last.inventories[0] - 301.5).abs() < 1e-7);
+            assert!((last.transfers[0] - 0.5).abs() < 1e-7);
+            assert!(last.defects[0].abs() < 1e-6);
+        }
+    }
+    #[tokio::test]
+    async fn authored_conservation_refuses_algebraic_resets_before_native_consistency() {
+        let runtime = super::super::super::tests::runtime();
+        let physical = physical();
+        let source = "package p { def Root { domain t: Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); param p: Scalar = 1; var x[i in t]: Time; var y[i in t]: Time; conserve stock[i in t]: Time on t inventory x[i] flux p tolerance 1e-6{s}; eq initial: x[0{s}] == 1{s}; eq definition[i in t]: y[i] == 2*x[i]; annotation start y(2{s}); let hit[i in t]: Time = x[i]-1.5{s}; let jump[i in t]: Time = 2*y[i]; } test evented fixture { dof 0; run integrated; integrate samples(0{s},1{s}) relative(1e-9) normalized_absolute(1e-11) step(1e-4{s}); mode before; event root.hit[0{s}] direction(either) tolerance(1e-8{s}) reset(root.y[0{s}] = root.jump[0{s}]) next(after); mode after; } { child root: Root = Root(); } }";
+        let rows = pse_authoring::language::parse(
+            source,
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            pse_authoring::ParseBudget::default(),
+        )
+        .unwrap();
+        let root = rows
+            .iter()
+            .find(|r| r.name == "evented")
+            .unwrap()
+            .declaration_id;
+        let package = runtime.modeling_package(rows, physical).unwrap();
+        let error = package
+            .declared_simulation(
+                root,
+                super::super::super::tests::compiler_profile(),
+                Some(native::Profile {
+                    samples: vec![0.0, 1.0],
+                    parameter_scales: vec![1.0],
+                    atol: vec![1e-11; 2],
+                    out_rtol: Some(1e-9),
+                    out_atol: vec![1e-11],
+                    ..Default::default()
+                }),
+                Limits::default(),
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap_err();
+        let diagnostic = error.boundary_diagnostic();
+        assert_eq!(
+            diagnostic.class,
+            pse_model::diagnostic::BoundaryClass::Unsupported,
+            "{error}"
+        );
+        assert_eq!(
+            diagnostic.rule,
+            "modeling.dynamic.algebraic_reset.unsupported"
+        );
+        assert_eq!(diagnostic.sources.len(), 2);
     }
     #[tokio::test]
     async fn kernel_conformance_integrates_authored_samples_and_retains_each_check() {

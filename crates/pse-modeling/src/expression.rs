@@ -3,6 +3,7 @@
 
 //! Source expression checking; executable arithmetic remains in pse-math.
 pub mod admission;
+pub mod occurrences;
 
 use crate::{
     DeclarationId, Result,
@@ -1191,6 +1192,15 @@ pub(crate) fn declaration_environment(
                 env.insert(a.name.clone(), context.resolve(&a.r#type, &vars, &env, id)?);
             }
         }
+        if let Some(map) = &p.declarations[&current].value.coordinate_map {
+            for argument in &map.arguments {
+                let ty = context.resolve(&argument.r#type, &vars, &env, current)?;
+                env.insert(argument.name.clone(), ty);
+            }
+        }
+        if let Some(function) = p.functions.get(&current) {
+            env.extend(function.arguments.iter().cloned());
+        }
     }
     Ok(env)
 }
@@ -1204,8 +1214,8 @@ fn check_forms(
     context: &TypeContext<'_>,
 ) -> Result<()> {
     let typed = |source: &str, env: &BTreeMap<String, Type>| -> Result<Type> {
-        let e = dsl::parse_expr(source).map_err(|e| invalid(id, e.to_string()))?;
-        infer(&e, env, p, context, id, None)
+        let e = p.expression(id, source)?;
+        infer(e, env, p, context, id, None)
     };
     let indicator = || crate::indicator_type(context.quantities, id);
     if let Some(condition) = row
@@ -1235,8 +1245,7 @@ fn check_forms(
             return Err(invalid(id, "a piecewise function has one breakpoint index"));
         };
         let mut local = outer.clone();
-        let domain = dsl::parse_expr(&index.domain).map_err(|e| invalid(id, e.to_string()))?;
-        let Type::Set(element) = infer(&domain, outer, p, context, id, None)? else {
+        let Type::Set(element) = index_domain_type(&index.domain, outer, p, context, id)? else {
             return Err(invalid(id, "breakpoints range over a finite set"));
         };
         local.insert(index.name.clone(), *element);
@@ -1291,102 +1300,47 @@ fn check_declarations(p: &CheckedPackage, context: &TypeContext<'_>) -> Result<(
         }
         for owner in ancestors.into_iter().rev() {
             if let Some(guard) = &p.declarations[&owner].value.guard {
-                let predicate = dsl::parse_predicate(&guard.predicate)
-                    .map_err(|e| invalid(owner, e.to_string()))?;
-                env = refine(&predicate, &env, p, context, owner)?;
+                let predicate = p.predicate(owner, &guard.predicate)?;
+                env = refine(predicate, &env, p, context, owner)?;
             }
         }
-        let indices = row
-            .value
-            .binding
-            .as_ref()
-            .map(|b| {
-                b.indices
-                    .iter()
-                    .map(|i| (&i.name, &i.domain))
-                    .collect::<Vec<_>>()
-            })
-            .or_else(|| {
-                row.value
-                    .equation
-                    .as_ref()
-                    .map(|v| v.indices.iter().map(|i| (&i.name, &i.domain)).collect())
-            })
-            .or_else(|| {
-                row.value
-                    .accumulator
-                    .as_ref()
-                    .map(|v| v.indices.iter().map(|i| (&i.name, &i.domain)).collect())
-            })
-            .or_else(|| {
-                row.value
-                    .contribution
-                    .as_ref()
-                    .map(|v| v.indices.iter().map(|i| (&i.name, &i.domain)).collect())
-            })
-            .or_else(|| {
-                row.value
-                    .ordered_set
-                    .as_ref()
-                    .map(|v| v.indices.iter().map(|i| (&i.name, &i.domain)).collect())
-            })
-            .or_else(|| {
-                row.value
-                    .cardinality
-                    .as_ref()
-                    .map(|v| v.indices.iter().map(|i| (&i.name, &i.domain)).collect())
-            })
-            .or_else(|| {
-                row.value
-                    .logic
-                    .as_ref()
-                    .map(|v| v.indices.iter().map(|i| (&i.name, &i.domain)).collect())
-            })
-            .or_else(|| {
-                row.value
-                    .complementarity
-                    .as_ref()
-                    .map(|v| v.indices.iter().map(|i| (&i.name, &i.domain)).collect())
-            })
-            .unwrap_or_default();
+        let indices = member_indices(row);
         let outer = env.clone();
         for (name, domain) in indices {
-            let expr = dsl::parse_expr(domain).map_err(|e| invalid(*id, e.to_string()))?;
             let (Type::Set(element) | Type::Continuous(_, element)) =
-                infer(&expr, &env, p, context, *id, None)?
+                index_domain_type(domain, &env, p, context, *id)?
             else {
                 return Err(invalid(*id, "indexed member requires a finite set"));
             };
             env.insert(name.clone(), *element);
         }
         check_forms(row, *id, &outer, &env, p, context)?;
+        check_process_contracts(row, *id, &env, p, context)?;
         if let Some(axis) = &row.value.continuous {
             let Type::Continuous(_, target) = &p.types[id] else {
                 return Err(invalid(*id, "continuous type absent"));
             };
             for source in [&axis.lower, &axis.upper] {
-                let e = dsl::parse_expr(source).map_err(|e| invalid(*id, e.to_string()))?;
-                if infer(&e, &env, p, context, *id, Some(target))? != **target {
+                let e = p.expression(*id, source)?;
+                if infer(e, &env, p, context, *id, Some(target))? != **target {
                     return Err(invalid(*id, "continuous bound type differs"));
                 }
             }
         }
         if let Some(scope) = &row.value.scope {
             if let Some(selection) = &scope.selection {
-                let score = dsl::parse_expr(&selection.criterion)
-                    .map_err(|e| invalid(*id, e.to_string()))?;
-                let Type::Quantity(quantity) = infer(&score, &env, p, context, *id, None)? else {
+                let score = p.expression(*id, &selection.criterion)?;
+                let Type::Quantity(quantity) = infer(score, &env, p, context, *id, None)? else {
                     return Err(invalid(
                         *id,
                         "regime score requires a complete physical quantity",
                     ));
                 };
-                let tolerance = dsl::parse_expr(&selection.tolerance)
-                    .map_err(|e| invalid(*id, e.to_string()))?;
+                let tolerance = p.expression(*id, &selection.tolerance)?;
                 let expected = Type::Quantity(Scheme::Delta(Box::new(quantity)));
-                if infer(&tolerance, &env, p, context, *id, Some(&expected))? != expected {
+                if infer(tolerance, &env, p, context, *id, Some(&expected))? != expected {
                     // Concrete types and delta schemes can name the same physical type.
-                    let actual = infer(&tolerance, &env, p, context, *id, Some(&expected))?;
+                    let actual = infer(tolerance, &env, p, context, *id, Some(&expected))?;
                     let (Type::Quantity(a), Type::Quantity(b)) = (actual, expected) else {
                         return Err(invalid(*id, "regime tie tolerance units"));
                     };
@@ -1408,13 +1362,7 @@ fn check_declarations(p: &CheckedPackage, context: &TypeContext<'_>) -> Result<(
                 }
             }
             if let Some(eligible) = &scope.eligibility {
-                predicate(
-                    &dsl::parse_predicate(eligible).map_err(|e| invalid(*id, e.to_string()))?,
-                    &env,
-                    p,
-                    context,
-                    *id,
-                )?;
+                predicate(p.predicate(*id, eligible)?, &env, p, context, *id)?;
             }
         }
         if let Some(scheme) = &row.value.difference_scheme {
@@ -1434,8 +1382,8 @@ fn check_declarations(p: &CheckedPackage, context: &TypeContext<'_>) -> Result<(
                 crate::continuous::scheme(p, *id, &grid.scheme)?;
             }
             for source in [&grid.elements, &grid.order] {
-                let e = dsl::parse_expr(source).map_err(|e| invalid(*id, e.to_string()))?;
-                if infer(&e, &env, p, context, *id, Some(&Type::Integer))? != Type::Integer {
+                let e = p.expression(*id, source)?;
+                if infer(e, &env, p, context, *id, Some(&Type::Integer))? != Type::Integer {
                     return Err(invalid(*id, "mesh sizes must be exact integers"));
                 }
             }
@@ -1480,8 +1428,8 @@ fn check_declarations(p: &CheckedPackage, context: &TypeContext<'_>) -> Result<(
                 return Err(invalid(*id, "elastic target must be an equation"));
             }
             let ty = crate::annotation::target_type(p, context, *id, &v.target, &env)?;
-            let e = dsl::parse_expr(&v.nominal).map_err(|e| invalid(*id, e.to_string()))?;
-            if infer(&e, &env, p, context, *id, Some(&ty))? != ty {
+            let e = p.expression(*id, &v.nominal)?;
+            if infer(e, &env, p, context, *id, Some(&ty))? != ty {
                 return Err(invalid(*id, "elastic nominal must have residual units"));
             }
         }
@@ -1502,8 +1450,8 @@ fn check_declarations(p: &CheckedPackage, context: &TypeContext<'_>) -> Result<(
                 return Err(invalid(*id, "continuation cannot change structural facts"));
             }
             for text in [&v.start, &v.end] {
-                let e = dsl::parse_expr(text).map_err(|e| invalid(*id, e.to_string()))?;
-                if infer(&e, &env, p, context, *id, Some(&ty))? != ty {
+                let e = p.expression(*id, text)?;
+                if infer(e, &env, p, context, *id, Some(&ty))? != ty {
                     return Err(invalid(*id, "continuation endpoint physical type differs"));
                 }
             }
@@ -1701,8 +1649,8 @@ fn check_declarations(p: &CheckedPackage, context: &TypeContext<'_>) -> Result<(
             && expected.quantity_scheme().is_some()
         {
             for source in b.expression.iter() {
-                let expr = dsl::parse_expr(source).map_err(|e| invalid(*id, e.to_string()))?;
-                let actual = infer(&expr, &env, p, context, *id, Some(expected))?;
+                let expr = p.expression(*id, source)?;
+                let actual = infer(expr, &env, p, context, *id, Some(expected))?;
                 if &actual != expected {
                     return Err(invalid(
                         *id,
@@ -1719,39 +1667,31 @@ fn check_declarations(p: &CheckedPackage, context: &TypeContext<'_>) -> Result<(
             let mut env = env.clone();
             let target_declaration =
                 crate::annotation::target_declaration(p, context, *id, &a.target, &env)?;
+            if crate::annotation::shape(a, *id)? == Shape::Connectivity {
+                crate::annotation::connectivity_limits(a, *id)?;
+                let target = match target_declaration {
+                    Some(target) => target,
+                    None => indexed_declaration_reference(
+                        p.expression(*id, &a.target)?,
+                        &env,
+                        p,
+                        context,
+                        *id,
+                    )?,
+                };
+                use pse_model::generated::enums::ModelingDeclarationKind as K;
+                if !matches!(p.declarations[&target].value.kind, K::Port | K::StatePort) {
+                    return Err(invalid(*id, "connectivity target must be a declared port"));
+                }
+                continue;
+            }
             if let Some(target) = target_declaration {
                 let declaration = &p.declarations[&target];
-                let indices = declaration
-                    .value
-                    .binding
-                    .as_ref()
-                    .map(|b| {
-                        b.indices
-                            .iter()
-                            .map(|i| (&i.name, &i.domain))
-                            .collect::<Vec<_>>()
-                    })
-                    .or_else(|| {
-                        declaration
-                            .value
-                            .equation
-                            .as_ref()
-                            .map(|e| e.indices.iter().map(|i| (&i.name, &i.domain)).collect())
-                    })
-                    .or_else(|| {
-                        declaration
-                            .value
-                            .accumulator
-                            .as_ref()
-                            .map(|a| a.indices.iter().map(|i| (&i.name, &i.domain)).collect())
-                    })
-                    .unwrap_or_default();
+                let indices = member_indices(declaration);
                 let mut target_env = declaration_environment(p, context, target)?;
                 for (name, domain) in indices {
-                    let expression =
-                        dsl::parse_expr(domain).map_err(|e| invalid(*id, e.to_string()))?;
                     let (Type::Set(element) | Type::Continuous(_, element)) =
-                        infer(&expression, &target_env, p, context, target, None)?
+                        index_domain_type(domain, &target_env, p, context, target)?
                     else {
                         return Err(invalid(*id, "annotation index domain must be a set"));
                     };
@@ -1798,36 +1738,25 @@ fn check_declarations(p: &CheckedPackage, context: &TypeContext<'_>) -> Result<(
                 }
                 Shape::Scheme => 0,
                 Shape::Predicate => {
-                    predicate(
-                        &dsl::parse_predicate(&a.arguments[0])
-                            .map_err(|e| invalid(*id, e.to_string()))?,
-                        &env,
-                        p,
-                        context,
-                        *id,
-                    )?;
+                    predicate(p.predicate(*id, &a.arguments[0])?, &env, p, context, *id)?;
                     0
                 }
             };
             for argument in &a.arguments[..numeric] {
-                let expression =
-                    dsl::parse_expr(argument).map_err(|e| invalid(*id, e.to_string()))?;
-                if infer(&expression, &env, p, context, *id, Some(&target))? != target {
+                let expression = p.expression(*id, argument)?;
+                if infer(expression, &env, p, context, *id, Some(&target))? != target {
                     return Err(invalid(*id, "annotation type differs from target"));
                 }
             }
         }
         if let Some(expectation) = &row.value.expectation {
-            let actual =
-                dsl::parse_expr(&expectation.actual).map_err(|e| invalid(*id, e.to_string()))?;
-            let expected =
-                dsl::parse_expr(&expectation.expected).map_err(|e| invalid(*id, e.to_string()))?;
-            let actual = infer(&actual, &env, p, context, *id, None)?;
-            if infer(&expected, &env, p, context, *id, Some(&actual))? != actual {
+            let actual = p.expression(*id, &expectation.actual)?;
+            let expected = p.expression(*id, &expectation.expected)?;
+            let actual = infer(actual, &env, p, context, *id, None)?;
+            if infer(expected, &env, p, context, *id, Some(&actual))? != actual {
                 return Err(invalid(*id, "test expectation types differ"));
             }
-            let tolerance =
-                dsl::parse_expr(&expectation.tolerance).map_err(|e| invalid(*id, e.to_string()))?;
+            let tolerance = p.expression(*id, &expectation.tolerance)?;
             let delta = Scheme::Delta(Box::new(
                 actual
                     .quantity_scheme()
@@ -1843,24 +1772,23 @@ fn check_declarations(p: &CheckedPackage, context: &TypeContext<'_>) -> Result<(
                     )
                     .map_err(|e| invalid(*id, e.to_string()))?,
             ));
-            if infer(&tolerance, &env, p, context, *id, Some(&delta))? != delta {
+            if infer(tolerance, &env, p, context, *id, Some(&delta))? != delta {
                 return Err(invalid(*id, "expectation tolerance type differs"));
             }
             if let Some(relative) = &expectation.relative_tolerance {
-                let relative =
-                    dsl::parse_expr(relative).map_err(|e| invalid(*id, e.to_string()))?;
+                let relative = p.expression(*id, relative)?;
                 let scalar = Type::Quantity(Scheme::Concrete(
                     context.quantities.neutral_dimensionless().ok_or_else(|| {
                         invalid(*id, "relative tolerance requires a neutral scalar type")
                     })?,
                 ));
-                if infer(&relative, &env, p, context, *id, Some(&scalar))? != scalar {
+                if infer(relative, &env, p, context, *id, Some(&scalar))? != scalar {
                     return Err(invalid(*id, "relative tolerance must be dimensionless"));
                 }
             }
         }
         let check_eq = |source: &str| -> Result<()> {
-            let e = dsl::parse_equation(source).map_err(|e| invalid(*id, e.to_string()))?;
+            let e = p.equation(*id, source)?;
             fn eq(
                 e: &dsl::Equation,
                 env: &BTreeMap<String, Type>,
@@ -1888,7 +1816,7 @@ fn check_declarations(p: &CheckedPackage, context: &TypeContext<'_>) -> Result<(
                 }
                 Ok(())
             }
-            eq(&e, &env, p, context, *id)
+            eq(e, &env, p, context, *id)
         };
         if let Some(e) = &row.value.equation {
             check_eq(&e.expression)?;
@@ -1920,53 +1848,377 @@ fn check_declarations(p: &CheckedPackage, context: &TypeContext<'_>) -> Result<(
                     .map(|r| &r.predicate),
             )
         {
-            let pred = dsl::parse_predicate(source).map_err(|e| invalid(*id, e.to_string()))?;
-            predicate(&pred, &env, p, context, *id)?;
+            let pred = p.predicate(*id, source)?;
+            predicate(pred, &env, p, context, *id)?;
         }
     }
     Ok(())
 }
 
-fn member_indices(row: &crate::Declaration) -> Vec<(&String, &String)> {
-    row.value
-        .binding
-        .as_ref()
-        .map(|value| {
-            value
-                .indices
-                .iter()
-                .map(|index| (&index.name, &index.domain))
-                .collect()
-        })
-        .or_else(|| {
-            row.value.accumulator.as_ref().map(|value| {
-                value
-                    .indices
-                    .iter()
-                    .map(|index| (&index.name, &index.domain))
-                    .collect()
-            })
-        })
-        .or_else(|| {
-            row.value.boundary.as_ref().map(|value| {
-                value
-                    .indices
-                    .iter()
-                    .map(|index| (&index.name, &index.domain))
-                    .collect()
-            })
-        })
-        .or_else(|| {
-            row.value.exchange.as_ref().map(|value| {
-                value
-                    .indices
-                    .iter()
-                    .map(|index| (&index.name, &index.domain))
-                    .collect()
-            })
-        })
-        .unwrap_or_default()
+pub(crate) fn member_indices(row: &crate::Declaration) -> Vec<(&String, &String)> {
+    macro_rules! indices {
+        ($field:ident) => {
+            if let Some(value) = &row.value.$field {
+                return value.indices.iter().map(|i| (&i.name, &i.domain)).collect();
+            }
+        };
+    }
+    indices!(binding);
+    indices!(equation);
+    indices!(accumulator);
+    indices!(contribution);
+    indices!(boundary);
+    indices!(exchange);
+    indices!(coordinate_slot);
+    indices!(ordered_set);
+    indices!(cardinality);
+    indices!(logic);
+    indices!(complementarity);
+    indices!(state_specification);
+    indices!(state_port);
+    indices!(inventory_balance);
+    indices!(connection);
+    Vec::new()
 }
+
+fn index_domain_type(
+    source: &str,
+    env: &BTreeMap<String, Type>,
+    p: &CheckedPackage,
+    c: &TypeContext<'_>,
+    at: DeclarationId,
+) -> Result<Type> {
+    fn syntax(
+        value: &pse_authoring::language::StaticValue,
+        env: &BTreeMap<String, Type>,
+        p: &CheckedPackage,
+        c: &TypeContext<'_>,
+        at: DeclarationId,
+    ) -> Result<Type> {
+        use pse_authoring::language::StaticValue as S;
+        match value {
+            S::Expression(expression) => infer(expression, env, p, c, at, None),
+            S::Text(_) => Ok(Type::Text),
+            S::Tuple(values) => Ok(Type::Tuple(
+                values
+                    .iter()
+                    .map(|value| syntax(value, env, p, c, at))
+                    .collect::<Result<Vec<_>>>()?,
+            )),
+            S::Set(values) => {
+                let first = values.first().ok_or_else(|| {
+                    invalid(
+                        at,
+                        "empty index membership requires a typed set declaration",
+                    )
+                })?;
+                let element = syntax(first, env, p, c, at)?;
+                for value in &values[1..] {
+                    let actual = syntax(value, env, p, c, at)?;
+                    if !p.subsumes(&element, &actual) {
+                        return Err(invalid(at, "index membership element types differ"));
+                    }
+                }
+                Ok(Type::Set(Box::new(element)))
+            }
+            S::Comprehension {
+                body,
+                bindings,
+                filter,
+            } => {
+                let mut local = env.clone();
+                for (name, domain) in bindings {
+                    let Type::Set(element) = syntax(domain, &local, p, c, at)? else {
+                        return Err(invalid(at, "comprehension index domain must be a set"));
+                    };
+                    local.insert(name.clone(), *element);
+                }
+                if let Some(filter) = filter {
+                    predicate(filter, &local, p, c, at)?;
+                }
+                Ok(Type::Set(Box::new(syntax(body, &local, p, c, at)?)))
+            }
+            S::Apply { name, .. } => p
+                .resolve(at, name)
+                .and_then(|id| p.types.get(&id))
+                .cloned()
+                .ok_or_else(|| invalid(at, "unknown index domain constructor")),
+        }
+    }
+    syntax(p.static_source(at, source)?, env, p, c, at)
+}
+
+fn process_index_environment(
+    indices: impl IntoIterator<Item = (String, String)>,
+    env: &BTreeMap<String, Type>,
+    p: &CheckedPackage,
+    c: &TypeContext<'_>,
+    at: DeclarationId,
+) -> Result<BTreeMap<String, Type>> {
+    let mut local = env.clone();
+    let mut bound = member_indices(&p.declarations[&at])
+        .into_iter()
+        .map(|(name, _)| name.clone())
+        .collect::<BTreeSet<_>>();
+    for (name, domain) in indices {
+        if !bound.insert(name.clone()) {
+            return Err(invalid(
+                at,
+                "process slot index shadows an existing binding",
+            ));
+        }
+        let Type::Set(element) = index_domain_type(&domain, &local, p, c, at)? else {
+            return Err(invalid(at, "process slot indices require finite sets"));
+        };
+        local.insert(name, *element);
+    }
+    Ok(local)
+}
+
+fn same_process_type(
+    actual: &Type,
+    expected: &Type,
+    c: &TypeContext<'_>,
+    at: DeclarationId,
+) -> Result<bool> {
+    if actual == expected {
+        return Ok(true);
+    }
+    let (Some(actual), Some(expected)) = (actual.quantity_scheme(), expected.quantity_scheme())
+    else {
+        return Ok(false);
+    };
+    let actual = actual
+        .resolve_contract_with_evidence(c.quantities, &Substitution::new(), c.preconditions)
+        .map_err(|e| invalid(at, e.to_string()))?;
+    let expected = expected
+        .resolve_contract_with_evidence(c.quantities, &Substitution::new(), c.preconditions)
+        .map_err(|e| invalid(at, e.to_string()))?;
+    Ok(actual.same_meaning(&expected))
+}
+
+fn process_value(
+    source: &str,
+    expected: &Type,
+    env: &BTreeMap<String, Type>,
+    p: &CheckedPackage,
+    c: &TypeContext<'_>,
+    at: DeclarationId,
+) -> Result<()> {
+    let actual = infer(p.expression(at, source)?, env, p, c, at, Some(expected))?;
+    if !same_process_type(&actual, expected, c, at)? {
+        return Err(invalid(
+            at,
+            "process expression physical type differs from its contract",
+        ));
+    }
+    Ok(())
+}
+
+fn check_process_contracts(
+    row: &crate::Declaration,
+    at: DeclarationId,
+    env: &BTreeMap<String, Type>,
+    p: &CheckedPackage,
+    c: &TypeContext<'_>,
+) -> Result<()> {
+    if let Some(state) = &row.value.state_specification {
+        let mut ancestors = BTreeSet::from([at]);
+        let mut owner = at;
+        let mut local = env.clone();
+        while let Some(source) = p.declarations[&owner]
+            .value
+            .state_specification
+            .as_ref()
+            .and_then(|state| state.extends.as_ref())
+        {
+            let base =
+                indexed_declaration_reference(p.expression(owner, source)?, &local, p, c, owner)?;
+            if p.declarations[&base].value.state_specification.is_none() {
+                return Err(invalid(
+                    at,
+                    "state extension requires a state specification",
+                ));
+            }
+            if !ancestors.insert(base) {
+                return Err(invalid(at, "recursive state specification extension"));
+            }
+            local = declaration_environment(p, c, base)?;
+            for (name, domain) in member_indices(&p.declarations[&base]) {
+                let (Type::Set(element) | Type::Continuous(_, element)) =
+                    index_domain_type(domain, &local, p, c, base)?
+                else {
+                    return Err(invalid(base, "state index requires a set"));
+                };
+                local.insert(name.clone(), *element);
+            }
+            owner = base;
+        }
+        process_value(&state.supplied, &Type::Boolean, env, p, c, at)?;
+        let mut names = BTreeSet::new();
+        for slot in &state.coordinates {
+            if !names.insert(slot.name.as_str()) {
+                return Err(invalid(at, "duplicate state coordinate"));
+            }
+            let local = process_index_environment(
+                slot.indices
+                    .iter()
+                    .map(|i| (i.name.clone(), i.domain.clone())),
+                env,
+                p,
+                c,
+                at,
+            )?;
+            let target = infer(p.expression(at, &slot.target)?, &local, p, c, at, None)?;
+            if target.quantity_scheme().is_none() {
+                return Err(invalid(
+                    at,
+                    "state coordinates require physical numeric values",
+                ));
+            }
+        }
+        names.clear();
+        for slot in &state.reconstructions {
+            if !names.insert(slot.name.as_str()) {
+                return Err(invalid(at, "duplicate state reconstruction"));
+            }
+            let local = process_index_environment(
+                slot.indices
+                    .iter()
+                    .map(|i| (i.name.clone(), i.domain.clone())),
+                env,
+                p,
+                c,
+                at,
+            )?;
+            fn relation(
+                e: &dsl::Equation,
+                tolerance: &str,
+                env: &BTreeMap<String, Type>,
+                p: &CheckedPackage,
+                c: &TypeContext<'_>,
+                at: DeclarationId,
+            ) -> Result<()> {
+                match &e.kind {
+                    dsl::EquationKind::Relation { lhs, rhs, .. } => {
+                        let left = infer(lhs, env, p, c, at, None)?;
+                        let right = infer(rhs, env, p, c, at, Some(&left))?;
+                        if !same_process_type(&left, &right, c, at)? {
+                            return Err(invalid(
+                                at,
+                                "state reconstruction side physical types differ",
+                            ));
+                        }
+                        let tolerance_type = Type::Quantity(delta(scheme(&left, at)?));
+                        process_value(tolerance, &tolerance_type, env, p, c, at)
+                    }
+                    dsl::EquationKind::Conditional {
+                        guard,
+                        then,
+                        otherwise,
+                    } => {
+                        predicate(guard, env, p, c, at)?;
+                        relation(then, tolerance, env, p, c, at)?;
+                        relation(otherwise, tolerance, env, p, c, at)
+                    }
+                }
+            }
+            relation(
+                p.equation(at, &slot.equation)?,
+                &slot.tolerance,
+                &local,
+                p,
+                c,
+                at,
+            )?;
+        }
+        names.clear();
+        for slot in &state.transports {
+            if !names.insert(slot.name.as_str()) {
+                return Err(invalid(at, "duplicate state transported observation"));
+            }
+            let local = process_index_environment(
+                slot.indices
+                    .iter()
+                    .map(|i| (i.name.clone(), i.domain.clone())),
+                env,
+                p,
+                c,
+                at,
+            )?;
+            let target = infer(p.expression(at, &slot.expression)?, &local, p, c, at, None)?;
+            let tolerance_type = Type::Quantity(delta(scheme(&target, at)?));
+            process_value(&slot.tolerance, &tolerance_type, &local, p, c, at)?;
+        }
+    }
+    if let Some(port) = &row.value.state_port {
+        let target =
+            indexed_declaration_reference(p.expression(at, &port.specification)?, env, p, c, at)?;
+        if p.declarations[&target].value.state_specification.is_none() {
+            return Err(invalid(at, "state port requires a state specification"));
+        }
+    }
+    if let Some(balance) = &row.value.inventory_balance {
+        let expected = p
+            .types
+            .get(&at)
+            .ok_or_else(|| invalid(at, "inventory contract type absent"))?;
+        process_value(&balance.inventory, expected, env, p, c, at)?;
+        let axis = infer(p.expression(at, &balance.axis)?, env, p, c, at, None)?;
+        let (Type::Continuous(_, axis) | Type::Set(axis)) = axis else {
+            return Err(invalid(at, "inventory balance requires a continuous axis"));
+        };
+        let inventory = scheme(expected, at)?;
+        let flux = Type::Quantity(Scheme::Quotient(
+            Box::new(delta(inventory.clone())),
+            Box::new(delta(scheme(&axis, at)?)),
+        ));
+        process_value(&balance.flux, &flux, env, p, c, at)?;
+        let difference = Type::Quantity(delta(inventory));
+        process_value(&balance.tolerance, &difference, env, p, c, at)?;
+        let mut events = BTreeSet::new();
+        for (position, transfer) in balance.transfers.iter().enumerate() {
+            let event = p.expression_at(at, "inventory_balance.transfers.event", position)?;
+            let target = indexed_declaration_reference(event, env, p, c, at)?;
+            let ExprKind::Path(path) = &event.kind else {
+                return Err(invalid(
+                    at,
+                    "inventory event transfer requires a guard member path",
+                ));
+            };
+            if infer(event, env, p, c, at, None)?
+                .quantity_scheme()
+                .is_none()
+            {
+                return Err(invalid(
+                    at,
+                    "inventory event guard requires a physical numeric member",
+                ));
+            }
+            if !events.insert((target, dsl::render_path(path))) {
+                return Err(invalid(at, "duplicate inventory event transfer"));
+            }
+            process_value(&transfer.expression, &difference, env, p, c, at)?;
+        }
+    }
+    if let Some(connection) = &row.value.connection {
+        let endpoints = [&connection.from, &connection.to]
+            .map(|source| indexed_declaration_reference(p.expression(at, source)?, env, p, c, at));
+        let from = endpoints[0].as_ref().map_err(Clone::clone)?;
+        let to = endpoints[1].as_ref().map_err(Clone::clone)?;
+        let source = &p.declarations[from].value;
+        let target = &p.declarations[to].value;
+        // Legacy aggregate instance ports still use their existing specialization owner.
+        if source.state_port.is_some() != target.state_port.is_some() {
+            return Err(invalid(
+                at,
+                "connection endpoints require the same port contract family",
+            ));
+        }
+    }
+    Ok(())
+}
+
 /// Resolve a declaration reference that is consumed by a contextual intrinsic rather
 /// than an ordinary value type, validating each actual coordinate in its path.
 pub(crate) fn indexed_declaration_reference(
@@ -2028,9 +2280,8 @@ fn check_member_indices(
     }
     let mut local = declaration_environment(p, c, id)?;
     for (index, (name, domain)) in segment.indices.iter().zip(indices) {
-        let domain = dsl::parse_expr(domain).map_err(|e| invalid(id, e.to_string()))?;
         let (Type::Set(element) | Type::Continuous(_, element)) =
-            infer(&domain, &local, p, c, id, None)?
+            index_domain_type(domain, &local, p, c, id)?
         else {
             return Err(invalid(id, "index domain must be a set"));
         };
@@ -2178,9 +2429,8 @@ fn path_type(
                 let mut axes = Vec::new();
                 let mut local = declaration_environment(p, c, id)?;
                 for (name, domain) in &indices {
-                    let domain = dsl::parse_expr(domain).map_err(|e| invalid(id, e.to_string()))?;
                     let (Type::Set(element) | Type::Continuous(_, element)) =
-                        infer(&domain, &local, p, c, id, None)?
+                        index_domain_type(domain, &local, p, c, id)?
                     else {
                         return Err(invalid(id, "index domain must be a set"));
                     };
@@ -2367,8 +2617,8 @@ fn objective_members(
         (&members.relative_tolerance, &scalar),
     ] {
         if let Some(source) = source {
-            let expression = dsl::parse_expr(source).map_err(|e| invalid(id, e.to_string()))?;
-            if infer(&expression, env, p, context, id, Some(expected))? != *expected {
+            let expression = p.expression(id, source)?;
+            if infer(expression, env, p, context, id, Some(expected))? != *expected {
                 return Err(invalid(id, "objective member type differs"));
             }
         }

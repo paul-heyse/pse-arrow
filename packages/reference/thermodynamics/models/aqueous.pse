@@ -37,9 +37,6 @@
 @id("01a0e1db89d8722baac398c429ae852c") eq molar_flow:flow==volume_flow*total_density;
 @id("01a0e1db89d8722baac398c5163c1dcd") eq composition[j in components]:z[j]==concentration[j]/total_density;
 @id("01a0e1db89d8722baac398c61801dabe") eq caloric:h==constants.standard_enthalpy_datum+(solvent_density/total_density)*solvent_cp*(T-reference_temperature);
-@id("01a0e1db89d8722baac398c7627f5f04") when not defined {
-@id("01a0e1db89d8722baac398c8f8bbe9d9") eq solvent_concentration:concentration[solvent]==aqueous.solvent_concentration(solvent_density,solvent);
-}
 @id("01a0e1db89d8722baac398c9a449c86d") annotation bounds concentration(0{mol/m^3},100000{mol/m^3});
 @id("01a0e1db89d8722baac398cabd7cb5cd") annotation start concentration(100{mol/m^3});
 @id("01a0e1db89d8722baac398cb1a73c790") annotation nominal concentration(100{mol/m^3});
@@ -57,5 +54,15 @@
 @id("01a0e1db89d8722baac398d78a1d3ca6") annotation start h(0{J/mol});
 @id("01a0e1db89d8722baac398d8cc3204d1") annotation nominal h(1000{J/mol});
 @id("01a0e1db89d8722baac398d91690a3db") annotation check total_density(total_density>0{mol/m^3});
+@id("f4325b6526075a538dd90c35f7eebec5") param solutes:Set<chemistry.species>={j for j in components where j!=solvent};
+@id("6ffdc857ec8b50039c6e86608b9a0838") override state component_state supplied(defined) {
+coordinate volumetric=volume_flow;
+coordinate temperature=T;
+coordinate pressure=pressure;
+coordinate concentration[j in solutes]=concentration[j];
+reconstruct solvent:concentration[solvent]==aqueous.solvent_concentration(solvent_density,solvent) tolerance 1e-7{mol/m^3};
+transport component[j in components]=component_flow[j] tolerance 1e-7{mol/s};
+}
+
 }
 }

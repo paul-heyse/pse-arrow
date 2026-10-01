@@ -177,6 +177,10 @@ frames! {
         SparsePatternV1 => "pse.sparse.pattern.v1",
         /// Projected numerical magnitudes.
         NumericalProjectionV1 => "pse.numerical.projection.v1",
+        /// Projected magnitudes with characteristic scales in target unit coordinates.
+        NumericalProjectionV2 => "pse.numerical.projection.v2",
+        /// Resolved magnitudes projected to an admitted subtraction result.
+        NumericalDifferenceProjectionV1 => "pse.numerical.difference-projection.v1",
         /// Resolved numerical targets.
         NumericalResolvedV1 => "pse.numerical.resolved.v1",
         /// An implicit block's configuration.
@@ -294,6 +298,8 @@ frames! {
         ModelingKeyedEntityV1 => "pse.modeling.keyed-entity.v1",
         /// A specialized member.
         ModelingMemberV1 => "pse.modeling.member.v1",
+        /// A process state slot: its owner, declared role and canonical typed semantic indices.
+        ModelingProcessSlotV1 => "pse.modeling.process-slot.v1",
         /// A realized mesh coordinate.
         ModelingMeshCoordinateV1 => "pse.modeling.mesh-coordinate.v1",
         /// A table row's identity: its table and its ordered, canonical typed key values

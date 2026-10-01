@@ -225,7 +225,7 @@ impl Evaluator<'_, '_> {
         }
         Ok(value)
     }
-    fn syntax(
+    pub(crate) fn syntax(
         &mut self,
         syntax: &StaticValue,
         expected: Option<&Type>,

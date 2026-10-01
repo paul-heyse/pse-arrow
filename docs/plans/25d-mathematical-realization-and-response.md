@@ -1,6 +1,6 @@
 ---
 title: "25d: Mathematical realization and response"
-status: draft
+status: in-progress
 date: 2026-09-30
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_codebase-domain-alignment_2026-09-30.md, docs/design_review/reviews/design_review_codebase-domain-alignment-follow-up_2026-09-30.md]
@@ -65,9 +65,9 @@ when stronger selection evidence is unavailable.
 
 | Packet | Prerequisites | Responsibility | Status |
 |---|---|---|---|
-| <a id="d1"></a>D1 Admitted implicit meaning | A3; H2; I1 | Own relation/function selection, domain and capability declarations across realizations | planned |
+| <a id="d1"></a>D1 Admitted implicit meaning | A3; H2; I1 | Own relation/function selection, domain and capability declarations across realizations | partial: 25c prerequisite slice |
 | <a id="d2"></a>D2 Faithful export and exact constants | D1; E1 | Carry selection restrictions/fidelity; replace bounded custom rational arithmetic | planned |
-| <a id="d3"></a>D3 Demand-aware physical derivatives | D1/A3 | Compile inner and outer requirements consistently across compiler, provider and native oracle | planned |
+| <a id="d3"></a>D3 Demand-aware physical derivatives | D1/A3 | Compile inner and outer requirements consistently across compiler, provider and native oracle | partial: 25c prerequisite slice |
 | <a id="d4"></a>D4 Qualified square response | D3; E1 | Extract one reusable root-response operation and migrate fitting; expose it to E2 | planned |
 
 E1's structural contract is independent of D4; E2 later consumes D4. This ordering breaks the
@@ -175,10 +175,15 @@ E1 owns structural admission by representation, E2 declared execution, F the exh
 projections and J the generated public boundary. This plan hands them mathematical meanings and
 qualified responses, not scheduler or serialization policy.
 
+## Consumed 25c prerequisite slice
+
+**Implemented/Tested, 2026-10-01; scoped focused verification recorded in [25c Verification](25c-process-composition-and-conservation.md#verification):** Conditional unit problems select explicit-map or owned square root realization before execution. The required native derivative order is derived from the selected adapter capability and consumed by the conditional compiler/runner. Full implicit relation selection, exports and root response remain open. The maintainer authorized only this required slice and its complete affected consumer migration. This packet remains partial; [25c](25c-process-composition-and-conservation.md) owns the slice evidence.
+
 ## Execution and evidence
 
-All changes and expected benefits here are **Proposed**. Packet status is planning state;
-no implementation or new product qualification is claimed. The [series coordinator](25-design-remediation.md)
+The consumed 25c prerequisite slice above is **Implemented**; its focused evidence is owned
+by 25c. The remaining packet scope and expected benefits are **Proposed**. No full-packet
+completion or new broad product qualification is claimed. The [series coordinator](25-design-remediation.md)
 owns finding dispositions and decision dependencies. Packets compile affected owners, run focused
 behavioral checks with explicit force-validation, regenerate changed declarations, and immediately
 delete replaced code, callers, obsolete tests and fixtures. No shims or parallel production paths remain.
@@ -196,7 +201,8 @@ record actual commands, conditions and failures against zero in the final qualif
 
 ### What was built
 
-Not implemented; record actual behavior and evidence labels at closure.
+Full-plan closure remains outstanding. The implemented 25c prerequisite slice and its
+remaining boundaries are recorded above; 25c owns its focused execution evidence.
 
 ### A mistake made and corrected
 

@@ -5,11 +5,11 @@
 @id("01a0ede58ecb740c9dfc7a1c08fa33a6") use chemistry @"1.0.0";
 @id("b3e046733e624badab90577f49b10991") use equilibrium @"1.0.0";
 @id("2986feb642324507bed40668b933e2d0") enum SplitBasis {@id("01a0eec94a7f71fb8cde1b0614ad8840") totalFlow, @id("01a0eec94a7f71fb8cde1b07c497d149") componentFlow, @id("01a0eec94a7f71fb8cde1b084aaa6105") phaseFlow, @id("01a0eec94a7f71fb8cde1b09f1112f67") phaseComponentFlow}
-@id("1a28803f01a340b2bd9417a4c7011b05") def Separator(pkg:equilibrium.ThermoPackage,outlets:Set<kinds.port_set>,component_enthalpy:Fn(T:Temperature,p:chemistry.phase,j:chemistry.species)->MolarEnthalpy,basis:SplitBasis=SplitBasis.totalFlow) {
-@id("b4821433ccd74fc8b927aed1e79e3d4f") param components:Set<chemistry.species>=pkg.components;
-@id("0b31b11e765246b2bee57d7c34f09533") param phases:Set<chemistry.phase>=pkg.phases;
+@id("71a6b018a07e575c8c7c1ed782b1fceb") use control_volumes @"1.0.0";
+@id("1a28803f01a340b2bd9417a4c7011b05") def Separator(pkg:equilibrium.ThermoPackage,outlets:Set<kinds.port_set>,component_enthalpy:Fn(T:Temperature,p:chemistry.phase,j:chemistry.species)->MolarEnthalpy,basis:SplitBasis=SplitBasis.totalFlow):control_volumes.IndexedBalances {
+@id("b4821433ccd74fc8b927aed1e79e3d4f") override param components:Set<chemistry.species>=pkg.components;
+@id("0b31b11e765246b2bee57d7c34f09533") override param phases:Set<chemistry.phase>=pkg.phases;
 @id("5196ab83b91842c88a135ad704c00277") require pkg.defined : "the separator inlet supplies a defined state";
-@id("a2dc653ba6e540aebb867bcc551dcf56") require not analysis.dynamic : "an instantaneous partition has no dynamic holdup";
 @id("f0bffe824be14ec58d347f0e23f8f047") require sum(o in outlets | 1)>0 : "a separator requires at least one outlet";
 @id("64914107bb764141a646c043638bd53d") child inlet:equilibrium.ThermoPackage=pkg;
 @id("efbdb4959008479596fddefd177f3589") var outlet_phase_component_flow[o in outlets,p in phases,j in components]:ComponentFlow;
@@ -48,19 +48,33 @@
 @id("d40ad127970e416891e7ad7e59ac94f1") let outlet_component_flow[o in outlets,j in components]:ComponentFlow=sum(p in phases | outlet_phase_component_flow[o,p,j]);
 @id("42767530fa1e4fc8ac5dabc10812fd31") let outlet_composition[o in outlets,j in components]:MoleFraction=outlet_component_flow[o,j]/outlet_flow[o];
 @id("dd06b51bee5947158a5b0e69ce991a36") let outlet_energy_flow[o in outlets]:Power=sum(p in phases | sum(j in components | outlet_phase_component_flow[o,p,j]*component_enthalpy(inlet.T,p,j)));
-@id("b04c23f792874a16a8b4545adc9a4842") port flow[o in outlets]:Flow=outlet_flow[o];
-@id("795f0e47bb52456e8f6b98bcbfcabf2a") port composition[o in outlets,j in components]:MoleFraction=outlet_composition[o,j];
-@id("a47a68dc0a4d4c1f93c0ef63df5d46bb") port component_flow[o in outlets,j in components]:ComponentFlow=outlet_component_flow[o,j];
-@id("e5f184ca806748eb96a830b9c87b8fdd") port temperature:Temperature=inlet.T;
-@id("5091cde299514a38b2689ee97d1b4921") port pressure:Pressure=inlet.pressure;
-@id("2625b8b1cc244a4f9fdd5b7a94b8bc5c") port energy_flow[o in outlets]:Power=outlet_energy_flow[o];
-@id("c0e7526c46a24880b91af9dfb7486a73") accumulate material_net[j in components]:ComponentFlow accounting tolerance 1e-7{mol/s};
-@id("860b607a17334d1c9bce00b6e8fcbd83") contribute [j in components] material_net[j] role inflow=inlet.component_flow[j];
-@id("218d1405ae2345ccad5bde5eb6b38629") contribute [o in outlets,j in components] material_net[j] role outflow=outlet_component_flow[o,j];
-@id("c963154e04184a22af3c7d1fc32518e3") annotation check material_net(abs(material_net[j])<1e-7{mol/s});
-@id("ad3ea213ea554847bbba56b996a49d6b") accumulate energy_net:Power accounting tolerance 0.001{W};
-@id("ac1dab6112da4c6bad5323cdc7b49293") contribute energy_net role inflow=inlet.energy_flow;
-@id("16353ae6a4b54776b9dbf5af9b00a2fe") contribute [o in outlets] energy_net role outflow=outlet_energy_flow[o];
-@id("b303688fd0d94a14bbcb0bda7faf224b") annotation check energy_net(abs(energy_net)<0.001{W});
+@id("b04c23f792874a16a8b4545adc9a4842") let flow[o in outlets]:Flow=outlet_flow[o];
+@id("795f0e47bb52456e8f6b98bcbfcabf2a") let composition[o in outlets,j in components]:MoleFraction=outlet_composition[o,j];
+@id("a47a68dc0a4d4c1f93c0ef63df5d46bb") let component_flow[o in outlets,j in components]:ComponentFlow=outlet_component_flow[o,j];
+@id("e5f184ca806748eb96a830b9c87b8fdd") let temperature:Temperature=inlet.T;
+@id("5091cde299514a38b2689ee97d1b4921") let pressure:Pressure=inlet.pressure;
+@id("2625b8b1cc244a4f9fdd5b7a94b8bc5c") let energy_flow[o in outlets]:Power=outlet_energy_flow[o];
+@id("1fc4ce2e536f5526a8b5985a4d52baeb") override param inlet_boundaries:Set<kinds.port_set>={control_volumes.inlet_boundary};
+@id("eca00a48d31f4e9aa4c4bdbd3ef1c8e2") override param outlet_boundaries:Set<kinds.port_set>=outlets;
+@id("8162fff9ffe25da1bacd67762f220ed4") override param observe_balances:Boolean=true;
+@id("f778216617ab5725822685c1dbac8a9d") override let in_component[i in inlet_boundaries,j in components]:ComponentFlow=inlet.component_flow[j];
+@id("cbbea289697c511288b1eb8db546b441") override let out_component[o in outlet_boundaries,j in components]:ComponentFlow=outlet_component_flow[o,j];
+@id("3962c2acb5d055559ee5b56f9b02bcaa") override let in_phase_component[i in inlet_boundaries,p in phases,j in components]:ComponentFlow=inlet.phase_component_flow[p,j];
+@id("aac6cfb5f8a95a34a9d61613594ba168") override let out_phase_component[o in outlet_boundaries,p in phases,j in components]:ComponentFlow=outlet_phase_component_flow[o,p,j];
+@id("217e36074afe5180b49a208bc1e15306") override let in_energy[i in inlet_boundaries]:Power=inlet.energy_flow;
+@id("55f8b81696ae5ed99d2790032593825d") override let out_energy[o in outlet_boundaries]:Power=outlet_energy_flow[o];
+@id("b44efebe107b5548beefd1f1b6187975") override let in_total[i in inlet_boundaries]:Flow=inlet.flow;
+@id("ca868c5ffd8a5fb981f636b0af5a767d") override let out_total[o in outlet_boundaries]:Flow=outlet_flow[o];
+@id("a47ba7249ef150609200fc5cbe26165f") material port inlet_port=inlet.material_state;
+@id("b89310258c845b1b90cabf28c5eb8dc1") state outlet_state[o in outlets] supplied(true) {
+coordinate component[j in components]=outlet_component_flow[o,j];
+coordinate temperature=inlet.T;
+coordinate pressure=inlet.pressure;
+transport component[j in components]=outlet_component_flow[o,j] tolerance 1e-7{mol/s};
+transport energy=outlet_energy_flow[o] tolerance 0.001{W};
+}
+@id("cb257078db22593ca92573bdd423eff8") material port outlet_ports[o in outlets]=outlet_state[o];
+@id("20ea60fd45da555a8817d46adc1c22b5") annotation connectivity inlet_port(1,0);
+@id("4f1987f704e151aca4386893a9db75f7") annotation connectivity outlet_ports(0,1);
 }
 }

@@ -142,6 +142,31 @@ fn unchanged_dataset_reuses_admitted_table() {
     assert_eq!(value(&replanned, "p.first", "p.a"), 1.0);
 }
 
+#[test]
+fn document_reuse_decoded_interpretation_changes_match_clean_admission() {
+    let mut workspace =
+        CompilerWorkspace::new(super::super::tests::inputs(), WorkspaceLimits::default()).unwrap();
+    let old_inventory = inventory(&[1., 2.], &[3., 4.]);
+    let original = workspace
+        .publish_modeling_with(rows(TEXT), PhysicalScope::default(), old_inventory.clone())
+        .unwrap();
+    let mut edited = (*inventory(&[1., 2.], &[3., 5.])).clone();
+    let id = pse_ids::named_id(PACKAGE, "data/second.parquet");
+    Arc::make_mut(edited.documents.get_mut(&id).unwrap()).content_hash =
+        old_inventory.documents[&id].content_hash;
+    let edited = Arc::new(edited);
+    let incremental = workspace
+        .publish_modeling_with(rows(TEXT), PhysicalScope::default(), edited.clone())
+        .unwrap();
+    let clean = CompilerWorkspace::new(super::super::tests::inputs(), WorkspaceLimits::default())
+        .unwrap()
+        .publish_modeling_with(rows(TEXT), PhysicalScope::default(), edited)
+        .unwrap();
+    assert_eq!(value(&original, "p.second", "p.b"), 4.);
+    assert_eq!(value(&incremental, "p.second", "p.b"), 5.);
+    assert_eq!(incremental.checked, clean.checked);
+}
+
 /// A document's decoded rows and its admitted table are charged to the workspace's input
 /// limit: the same declarations admit a small document and refuse a large one.
 #[test]

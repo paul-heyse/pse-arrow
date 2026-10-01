@@ -350,10 +350,20 @@ variable box. Admission follows the evaluator's obligations:
 
 ### 7.7 The expression DSL
 
+> Decision: [ADR-0142](../../adr/0142-process-state-connections-and-temporal-conservation.md)
+> (checked process occurrences implemented; decision remains proposed).
+
 Modeling documents use `pse-authoring::language`; embedded expressions use
 `pse-authoring::dsl`. The registry-generated declaration IR retains each source occurrence,
 identity and span. The checked package owns resolved types, visibility and physical context;
 consumers cannot mutate a checked product or substitute a foreign physical revision.
+
+Checking retains expression, predicate, equation and static-domain syntax by declaration,
+field role and ordinal. Each occurrence keeps its declaration range, lexical/import context,
+physical admission and dependencies; indexed obligations remain explicit until specialization.
+Process states, indexed connections and inventory balances consume these retained occurrences
+with their actual bindings. Earlier general specialization and body consumers still require
+the remaining checked-occurrence migration; this slice does not establish its completion.
 
 The language admits packages, entity kinds/entities, enumerations, sets, tables, functions,
 interfaces, definitions, presets, children, equations, accumulators, contributions, ports,

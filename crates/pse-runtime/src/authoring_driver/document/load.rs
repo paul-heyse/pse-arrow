@@ -46,11 +46,20 @@ pub struct Document {
     /// Exact original syntax node locations.
     pub spans: SpanIndex,
     pub(super) declaration: DocumentSpec,
+    interpretation: InterpretationContext,
     pub(super) value: value::Value,
     pub(super) syntax: Arc<value::Value>,
     /// Columnar projection of this exact parsed document.
     pub batches: Batches,
     lease: Option<Arc<pse_columnar::AllocationLease>>,
+}
+
+/// The inputs consumed by identity-bearing parsing and resource admission.
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct InterpretationContext {
+    document: SemanticId,
+    identity_policy: pse_relations::generated::enums::IdPolicy,
+    budget: ParseBudget,
 }
 
 /// A parsed package. Cross-package closure belongs to P0/P1 before publication.
@@ -201,11 +210,17 @@ pub(super) fn load_reusing(
         let declaration = select(registry, &path)?.clone();
         let id = pse_ids::named_id(package.package_id.as_id(), &path);
         let content_hash = pse_ids::encoding_checksum(&bytes).content_hash();
+        let interpretation = InterpretationContext {
+            document: id,
+            identity_policy: package.id_policy,
+            budget,
+        };
         let prior = previous.and_then(|bundle| {
             bundle.documents.iter().find(|document| {
                 document.path == path
                     && document.bytes() == bytes.as_slice()
                     && document.declaration == declaration
+                    && document.interpretation == interpretation
             })
         });
         if declaration.kind == DocumentKind::Data {
@@ -233,6 +248,7 @@ pub(super) fn load_reusing(
                 content_hash,
                 spans: SpanIndex::default(),
                 declaration,
+                interpretation,
                 value: value::Value::Map(Vec::new()),
                 syntax: value,
                 batches: Batches::new(),
@@ -294,6 +310,7 @@ pub(super) fn load_reusing(
             content: Content::Text(text),
             spans,
             declaration,
+            interpretation,
             value,
             syntax,
             batches: source_batches,
@@ -576,7 +593,9 @@ fn reuse_header(
 ) -> Result<(authored::packages::Row, value::Value, SpanIndex), DriverError> {
     let prior_header = previous.and_then(|bundle| {
         bundle.documents.iter().find(|document| {
-            document.path == "package.toml" && document.text() == Some(header_text)
+            document.path == "package.toml"
+                && document.text() == Some(header_text)
+                && document.interpretation.budget == *budget
         })
     });
     let (package, header_value, header_spans) = if let Some(prior) = prior_header {
@@ -633,6 +652,167 @@ fn append_source_inventory(
 #[cfg(test)]
 mod kernel_document_tests {
     use super::*;
+    fn named_sources(model: &[u8]) -> BTreeMap<String, Vec<u8>> {
+        BTreeMap::from([
+            (
+                "package.toml".into(),
+                include_bytes!(
+                    "../../../../../tests/fixtures/packages/minimal_explicit/package.toml"
+                )
+                .to_vec(),
+            ),
+            ("models/kernel.pse".into(), model.to_vec()),
+        ])
+        .into_iter()
+        .map(|(path, bytes)| {
+            if path == "package.toml" {
+                (
+                    path,
+                    String::from_utf8(bytes)
+                        .unwrap()
+                        .replace("id_policy = \"explicit\"", "id_policy = \"named\"")
+                        .into_bytes(),
+                )
+            } else {
+                (path, bytes)
+            }
+        })
+        .collect()
+    }
+    fn modeling_rows(bundle: &DocumentBundle) -> Vec<authored::modeling_declarations::Row> {
+        authored::modeling_declarations::View::from_checked(
+            &bundle.batches[&authored::modeling_declarations::RELATION_ID],
+        )
+        .unwrap()
+        .rows()
+        .unwrap()
+    }
+    #[test]
+    fn document_reuse_policy_changes_match_clean_admission() {
+        let registry = pse_schema::shared_registry().unwrap();
+        let budget = ParseBudget::default();
+        let mut sources = named_sources(b"package q { def D { var x: Scalar; } }");
+        let old = load_package_documents(sources.clone(), &registry, budget).unwrap();
+        let header = String::from_utf8(sources["package.toml"].clone())
+            .unwrap()
+            .replace("id_policy = \"named\"", "id_policy = \"explicit\"");
+        sources.insert("package.toml".into(), header.into_bytes());
+        let incremental =
+            load_reusing(sources.clone(), Some(&old), &registry, budget, None).unwrap_err();
+        let clean = load_package_documents(sources, &registry, budget).unwrap_err();
+        assert_eq!(incremental.to_string(), clean.to_string());
+        let mut explicit = named_sources(b"@id(\"00000000000000000000000000000031\") package q { @id(\"00000000000000000000000000000032\") def D {} }");
+        let header = String::from_utf8(explicit["package.toml"].clone())
+            .unwrap()
+            .replace("id_policy = \"named\"", "id_policy = \"explicit\"");
+        explicit.insert("package.toml".into(), header.into_bytes());
+        let old = load_package_documents(explicit.clone(), &registry, budget).unwrap();
+        let header = String::from_utf8(explicit["package.toml"].clone())
+            .unwrap()
+            .replace("id_policy = \"explicit\"", "id_policy = \"named\"");
+        explicit.insert("package.toml".into(), header.into_bytes());
+        let incremental =
+            load_reusing(explicit.clone(), Some(&old), &registry, budget, None).unwrap();
+        let clean = load_package_documents(explicit, &registry, budget).unwrap();
+        assert_eq!(modeling_rows(&incremental), modeling_rows(&clean));
+        let original = old
+            .documents
+            .iter()
+            .find(|d| d.path == "models/kernel.pse")
+            .unwrap();
+        let next = incremental
+            .documents
+            .iter()
+            .find(|d| d.path == "models/kernel.pse")
+            .unwrap();
+        assert!(!Arc::ptr_eq(&original.syntax, &next.syntax));
+    }
+    #[test]
+    fn document_reuse_unrelated_manifest_edits_keep_parser_owner() {
+        let registry = pse_schema::shared_registry().unwrap();
+        let budget = ParseBudget::default();
+        let mut sources = named_sources(b"package q { def D {} }");
+        let old = load_package_documents(sources.clone(), &registry, budget).unwrap();
+        let header = String::from_utf8(sources["package.toml"].clone())
+            .unwrap()
+            .replace("Minimal explicit identity fixture.", "Updated description.");
+        sources.insert("package.toml".into(), header.into_bytes());
+        let next = load_reusing(sources.clone(), Some(&old), &registry, budget, None).unwrap();
+        let clean = load_package_documents(sources, &registry, budget).unwrap();
+        let original = old
+            .documents
+            .iter()
+            .find(|d| d.path == "models/kernel.pse")
+            .unwrap();
+        let reused = next
+            .documents
+            .iter()
+            .find(|d| d.path == "models/kernel.pse")
+            .unwrap();
+        assert!(Arc::ptr_eq(&original.syntax, &reused.syntax));
+        assert_eq!(modeling_rows(&next), modeling_rows(&clean));
+    }
+    #[test]
+    fn document_reuse_identity_changes_rebind_rows_and_binary_wrappers() {
+        use datafusion::arrow::{
+            array::{Int64Array, RecordBatch},
+            datatypes::{DataType, Field, Schema},
+        };
+        let registry = pse_schema::shared_registry().unwrap();
+        let budget = ParseBudget::default();
+        let mut sources = named_sources(b"package q { def D { var x: Scalar; } }");
+        let schema = Arc::new(Schema::new(vec![Field::new(
+            "value",
+            DataType::Int64,
+            false,
+        )]));
+        let batch =
+            RecordBatch::try_new(schema.clone(), vec![Arc::new(Int64Array::from(vec![1, 2]))])
+                .unwrap();
+        let mut bytes = Vec::new();
+        let mut writer = parquet::arrow::ArrowWriter::try_new(&mut bytes, schema, None).unwrap();
+        writer.write(&batch).unwrap();
+        writer.close().unwrap();
+        sources.insert("data/bank.parquet".into(), bytes);
+        let old = load_package_documents(sources.clone(), &registry, budget).unwrap();
+        let header = String::from_utf8(sources["package.toml"].clone())
+            .unwrap()
+            .replace(
+                "01991d6a-13a0-7000-8000-000000000001",
+                "01991d6a-13a0-7000-8000-000000000002",
+            );
+        sources.insert("package.toml".into(), header.into_bytes());
+        let incremental =
+            load_reusing(sources.clone(), Some(&old), &registry, budget, None).unwrap();
+        let clean = load_package_documents(sources, &registry, budget).unwrap();
+        assert_eq!(modeling_rows(&incremental), modeling_rows(&clean));
+        assert_ne!(
+            modeling_rows(&old)[0].declaration_id,
+            modeling_rows(&incremental)[0].declaration_id
+        );
+        let binary = incremental
+            .documents
+            .iter()
+            .find(|d| d.path == "data/bank.parquet")
+            .unwrap();
+        assert_eq!(binary.id, binary.data().unwrap().id);
+        let clean_binary = clean
+            .documents
+            .iter()
+            .find(|d| d.path == "data/bank.parquet")
+            .unwrap();
+        assert_eq!(binary.data(), clean_binary.data());
+        let tighter = ParseBudget {
+            max_data_rows: 1,
+            ..budget
+        };
+        let sources = incremental
+            .documents
+            .iter()
+            .map(|d| (d.path.clone(), d.bytes().to_vec()))
+            .collect();
+        assert!(load_reusing(sources, Some(&incremental), &registry, tighter, None).is_err());
+    }
     #[test]
     fn pse_source_uses_generated_rows_and_original_ranges() {
         let registry = pse_schema::shared_registry().unwrap();

@@ -191,6 +191,20 @@ impl ModelingPackage {
                     || result.contract.differential != next.contract.differential
                     || result.contract.signs != next.contract.signs
                     || result.contract.quadratures != next.contract.quadratures
+                    || result.contract.balances.len() != next.contract.balances.len()
+                    || result
+                        .contract
+                        .balances
+                        .iter()
+                        .zip(&next.contract.balances)
+                        .any(|(a, b)| {
+                            a.id != b.id
+                                || a.inventory != b.inventory
+                                || a.flux != b.flux
+                                || a.tolerance != b.tolerance
+                                || result.model().compiled().model.inventory_balances[&a.id].ty
+                                    != next.model().compiled().model.inventory_balances[&b.id].ty
+                        })
                     || result.coordinates != next.coordinates
                     || result.parameters != next.parameters
                 {
@@ -212,7 +226,15 @@ impl ModelingPackage {
                     }))
                     .collect::<Vec<_>>();
                 result.programs = programs.into();
-                result.contract.events[index] = std::mem::take(&mut next.contract.events[0]);
+                result.contract.events[index] = std::mem::take(&mut next.contract.events[index]);
+                for (balance, next_balance) in result
+                    .contract
+                    .balances
+                    .iter_mut()
+                    .zip(next.contract.balances)
+                {
+                    balance.transfers.extend(next_balance.transfers);
+                }
                 result.modes.extend(next.modes);
             } else {
                 prepared = Some(next);
@@ -264,6 +286,18 @@ pub(super) fn resolve_events(
                 .map(|id| ModelingOutput::Member(*id).row_id())
                 .collect::<Vec<_>>();
             for (state, value) in &event.reset {
+                if !product.model.derivatives.contains_key(state) {
+                    let mut refusal = pse_model::diagnostic::BoundaryDiagnostic::new(
+                        pse_model::diagnostic::BoundaryClass::Unsupported,
+                        "modeling-event-reset",
+                        [event.guard, *state],
+                        "modeling.dynamic.algebraic_reset.unsupported",
+                    );
+                    refusal.observations.insert("capability".into(), pse_model::diagnostic::Observation::Text(
+                        "an authored algebraic-coordinate reset needs a precise inventory-preserving reset transformation".into(),
+                    ));
+                    return Err(Box::new(refusal).into());
+                }
                 let at = states
                     .iter()
                     .position(|id| id == state)
@@ -271,6 +305,24 @@ pub(super) fn resolve_events(
                 rows[at] = ModelingOutput::Member(*value).row_id();
             }
             roles.push((Function::Reset(index), rows, BTreeMap::new()));
+            let mut transfer_rows = Vec::new();
+            let mut constants = BTreeMap::new();
+            for balance in product.model.inventory_balances.values() {
+                let row = if balance.transfers.contains_key(&event.guard) {
+                    ModelingOutput::InventoryTransfer {
+                        balance: balance.id,
+                        event: event.guard,
+                    }
+                    .row_id()
+                } else {
+                    constants.insert(transfer_rows.len(), 0.0);
+                    SemanticId::NIL
+                };
+                transfer_rows.push(row);
+            }
+            if constants.len() != transfer_rows.len() {
+                roles.push((Function::Transfer(index), transfer_rows, constants));
+            }
         }
     }
     if !roots.is_empty() {

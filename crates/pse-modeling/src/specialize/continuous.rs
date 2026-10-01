@@ -449,6 +449,7 @@ impl Engine<'_, '_> {
         wrt: &Path,
         env: &Environment,
         chain: &[DeclarationId],
+        boundary: Option<&Type>,
     ) -> Result<Expr> {
         // As in `rewrite`: attribution falls back to the instance's definition.
         let at = chain
@@ -463,7 +464,14 @@ impl Engine<'_, '_> {
         if self.model.integrated.contains_key(&mesh.id) {
             let axis_id = mesh.id;
             let axis = self.model.integrated[&axis_id].clone();
-            let original = self.rewrite(instance, body, env, chain)?;
+            let original =
+                if symbol_reference(body).is_some_and(|id| self.model.symbols.contains_key(&id)) {
+                    // Derived inventories already name their admitted generated stock.
+                    // It has no authored lexical member to resolve a second time.
+                    body.clone()
+                } else {
+                    self.rewrite(instance, body, env, chain)?
+                };
             let state = symbol_reference(&original).ok_or_else(|| {
                 invalid(at, "integrated derivative must select a scalar variable")
             })?;
@@ -491,8 +499,7 @@ impl Engine<'_, '_> {
                 ))),
             ));
             let quantity = if let Type::Quantity(q) = &ty {
-                q.resolve_with_evidence(self.c.quantities, &BTreeMap::new(), self.c.preconditions)
-                    .map_err(|e| invalid(at, e.to_string()))?
+                self.integrated_quantity_boundary(q, boundary, at, "integrated derivative")?
             } else {
                 return Err(invalid(at, "integrated derivative physical type"));
             };
@@ -660,7 +667,7 @@ impl Engine<'_, '_> {
         clippy::too_many_arguments,
         reason = "one stencil term: instance, body, scope, coordinate, point, replica and attribution"
     )]
-    fn shifted(
+    pub(super) fn shifted(
         &mut self,
         instance: InstanceId,
         body: &Expr,
@@ -786,6 +793,7 @@ impl Engine<'_, '_> {
         body: &Expr,
         env: &Environment,
         chain: &[DeclarationId],
+        boundary: Option<&Type>,
     ) -> Result<Expr> {
         // As in `rewrite`: attribution falls back to the instance's definition.
         let at = chain
@@ -832,14 +840,18 @@ impl Engine<'_, '_> {
             let value_type = value_type
                 .resolve_with_evidence(self.c.quantities, &BTreeMap::new(), self.c.preconditions)
                 .map_err(|e| invalid(at, e.to_string()))?;
-            let result_type = pse_quantity::scheme::Scheme::Product(
+            let result_scheme = pse_quantity::scheme::Scheme::Product(
                 Box::new(pse_quantity::scheme::Scheme::Concrete(value_type)),
                 Box::new(pse_quantity::scheme::Scheme::Delta(Box::new(
                     pse_quantity::scheme::Scheme::Concrete(axis.quantity),
                 ))),
-            )
-            .resolve_with_evidence(self.c.quantities, &BTreeMap::new(), self.c.preconditions)
-            .map_err(|e| invalid(at, e.to_string()))?;
+            );
+            let result_type = self.integrated_quantity_boundary(
+                &result_scheme,
+                boundary,
+                at,
+                "integrated integral",
+            )?;
             let mut identity = FramedHasher::new(pse_ids::Frame::ModelingDefiniteIntegralV2);
             identity
                 .id(&instance.as_id())
@@ -889,6 +901,12 @@ impl Engine<'_, '_> {
             return Ok(symbol_expr(result));
         }
         let weights = mesh.integral.clone();
+        let replica = self.replica(instance, first.identity());
+        let points = if replica.is_some() {
+            mesh.points.clone()
+        } else {
+            points.clone()
+        };
         let Type::Quantity(axis) = value_type(first).ok_or_else(|| invalid(at, "axis type"))?
         else {
             return Err(invalid(at, "axis type"));
@@ -901,7 +919,15 @@ impl Engine<'_, '_> {
             }
             let mut local = env.clone();
             local.insert(binder.var.clone(), point);
-            let value = self.rewrite(instance, body, &local, chain)?;
+            let value = self.shifted(
+                instance,
+                body,
+                &local,
+                &binder.var,
+                &local[&binder.var].clone(),
+                replica.as_ref(),
+                chain,
+            )?;
             terms.push(binary(
                 BinaryOp::Mul,
                 self.constant(weight, &coefficient, at)?,
@@ -909,6 +935,40 @@ impl Engine<'_, '_> {
             ));
         }
         sum(terms, at)
+    }
+    /// Conservation supplies an already checked named physical result boundary.
+    /// Generic derivatives and integrals still require their own named result.
+    fn integrated_quantity_boundary(
+        &self,
+        scheme: &pse_quantity::scheme::Scheme,
+        boundary: Option<&Type>,
+        at: DeclarationId,
+        operation: &str,
+    ) -> Result<pse_quantity::QuantityTypeId> {
+        let actual = scheme
+            .resolve_contract_with_evidence(
+                self.c.quantities,
+                &BTreeMap::new(),
+                self.c.preconditions,
+            )
+            .map_err(|e| invalid(at, e.to_string()))?;
+        let Some(Type::Quantity(expected)) = boundary else {
+            return actual
+                .require_named()
+                .map_err(|e| invalid(at, e.to_string()));
+        };
+        let expected = expected
+            .resolve_with_evidence(self.c.quantities, &BTreeMap::new(), self.c.preconditions)
+            .map_err(|e| invalid(at, e.to_string()))?;
+        let (named, _coordinate_scale) = actual
+            .at_boundary(expected, self.c.quantities)
+            .map_err(|e| invalid(at, format!("{operation}: {e}")))?;
+        // Generated rate variables and integrals use this named canonical unit.
+        // The native program's rate/state and flux/inventory unit ratios retain the
+        // conversion; multiplying the original physical source again would double it.
+        named
+            .require_named()
+            .map_err(|e| invalid(at, e.to_string()))
     }
 }
 fn binary(op: BinaryOp, lhs: Expr, rhs: Expr) -> Expr {

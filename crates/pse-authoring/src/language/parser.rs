@@ -1337,16 +1337,26 @@ impl Cursor<'_> {
         if keyword == "reference" && self.eat("translation") {
             keyword = "reference_translation".into();
         }
-        let anonymous = matches!(
-            keyword.as_str(),
-            "when" | "require" | "connect" | "contribute" | "expect" | "annotation"
-        );
+        if keyword == "material" {
+            self.expect("port")?;
+            keyword = "state_port".into();
+        }
+        let named_connection = keyword == "connect" && self.peek_at(1) == ":";
+        let anonymous = !named_connection
+            && matches!(
+                keyword.as_str(),
+                "when" | "require" | "connect" | "contribute" | "expect" | "annotation"
+            );
         let entity_kind = if keyword == "entity" {
             Some(self.path()?)
         } else {
             None
         };
-        let name = if anonymous {
+        let name = if named_connection {
+            let name = self.word()?;
+            self.expect(":")?;
+            name
+        } else if anonymous {
             format!("{keyword}#{ordinal}")
         } else if let Some(name) = bound {
             name
@@ -2793,14 +2803,165 @@ impl Cursor<'_> {
                 })
             }
             "connect" => {
+                let indices = self
+                    .indices()?
+                    .into_iter()
+                    .map(|(name, domain)| {
+                        AuthoredModelingDeclarationsFieldValueConnectionIndicesItem { name, domain }
+                    })
+                    .collect();
                 let from = self.until(&["->"])?;
                 self.expect("->")?;
                 let to = self.until(&[";"])?;
                 self.expect(";")?;
                 Value::from_connection(AuthoredModelingDeclarationsFieldValueConnection {
+                    indices,
                     from,
                     to,
                 })
+            }
+            "state" => {
+                let indices = self
+                    .indices()?
+                    .into_iter()
+                    .map(|(name, domain)| {
+                        AuthoredModelingDeclarationsFieldValueStateSpecificationIndicesItem {
+                            name,
+                            domain,
+                        }
+                    })
+                    .collect();
+                let extends = if self.eat("extends") {
+                    Some(self.until(&["supplied"])?)
+                } else {
+                    None
+                };
+                self.expect("supplied")?;
+                self.expect("(")?;
+                let supplied = self.until(&[")"])?;
+                self.expect(")")?;
+                self.expect("{")?;
+                let mut coordinates = Vec::new();
+                let mut reconstructions = Vec::new();
+                let mut transports = Vec::new();
+                while !self.eat("}") {
+                    let role = self.word()?;
+                    let name = self.word()?;
+                    let indices = self.indices()?;
+                    match role.as_str() {
+                        "coordinate" => {
+                            self.expect("=")?;
+                            let target = self.until(&[";"])?;
+                            coordinates.push(AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItem {
+                                name, target, indices: indices.into_iter().map(|(name, domain)|
+                                    AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItemIndicesItem {name,domain}).collect(),
+                            });
+                        }
+                        "reconstruct" => {
+                            self.expect(":")?;
+                            let equation = self.until(&["tolerance"])?;
+                            self.expect("tolerance")?;
+                            let tolerance = self.until(&[";"])?;
+                            reconstructions.push(AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItem {
+                                name, equation, tolerance, indices: indices.into_iter().map(|(name, domain)|
+                                    AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItemIndicesItem {name,domain}).collect(),
+                            });
+                        }
+                        "transport" => {
+                            self.expect("=")?;
+                            let expression = self.until(&["tolerance"])?;
+                            self.expect("tolerance")?;
+                            let tolerance = self.until(&[";"])?;
+                            transports.push(AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItem {
+                                name, expression, tolerance, indices: indices.into_iter().map(|(name, domain)|
+                                    AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItemIndicesItem {name,domain}).collect(),
+                            });
+                        }
+                        _ => return Err(self.error("state coordinate, reconstruct or transport")),
+                    }
+                    self.expect(";")?;
+                }
+                self.eat(";");
+                Value::from_state_specification(
+                    AuthoredModelingDeclarationsFieldValueStateSpecification {
+                        indices,
+                        extends,
+                        supplied,
+                        coordinates,
+                        reconstructions,
+                        transports,
+                    },
+                )
+            }
+            "state_port" => {
+                let indices = self
+                    .indices()?
+                    .into_iter()
+                    .map(|(name, domain)| {
+                        AuthoredModelingDeclarationsFieldValueStatePortIndicesItem { name, domain }
+                    })
+                    .collect();
+                self.expect("=")?;
+                let specification = self.until(&[";"])?;
+                self.expect(";")?;
+                Value::from_state_port(AuthoredModelingDeclarationsFieldValueStatePort {
+                    indices,
+                    specification,
+                })
+            }
+            "conserve" => {
+                let indices = self
+                    .indices()?
+                    .into_iter()
+                    .map(|(name, domain)| {
+                        AuthoredModelingDeclarationsFieldValueInventoryBalanceIndicesItem {
+                            name,
+                            domain,
+                        }
+                    })
+                    .collect();
+                self.expect(":")?;
+                let r#type = self.type_expr()?;
+                self.expect("on")?;
+                let axis = self.path()?;
+                self.expect("inventory")?;
+                let inventory = self.until(&["flux"])?;
+                self.expect("flux")?;
+                let flux = self.until(&["tolerance"])?;
+                self.expect("tolerance")?;
+                let tolerance = self.until(&["transfers", ";"])?;
+                let mut transfers = Vec::new();
+                if self.eat("transfers") {
+                    self.expect("(")?;
+                    while !self.eat(")") {
+                        // Match fixture event guard paths, including authored indices.
+                        let event = self.until(&["="])?;
+                        self.expect("=")?;
+                        let expression = self.until(&[",", ")"])?;
+                        transfers.push(
+                            AuthoredModelingDeclarationsFieldValueInventoryBalanceTransfersItem {
+                                event,
+                                expression,
+                            },
+                        );
+                        if self.eat(")") {
+                            break;
+                        }
+                        self.expect(",")?;
+                    }
+                }
+                self.expect(";")?;
+                Value::from_inventory_balance(
+                    AuthoredModelingDeclarationsFieldValueInventoryBalance {
+                        indices,
+                        r#type,
+                        axis,
+                        inventory,
+                        flux,
+                        tolerance,
+                        transfers,
+                    },
+                )
             }
             "accumulate" => {
                 let indices = self
@@ -2816,14 +2977,14 @@ impl Cursor<'_> {
                 self.expect(":")?;
                 let r#type = self.type_expr()?;
                 let boundary = if self.eat("boundary") {
-                    Some(self.until(&["conservation", "accounting"])?)
+                    Some(self.until(&["conservation", "accounting", "observation"])?)
                 } else {
                     None
                 };
                 let mode = self
                     .word()?
                     .parse()
-                    .map_err(|_| self.error("conservation or accounting"))?;
+                    .map_err(|_| self.error("conservation, accounting or observation"))?;
                 self.expect("tolerance")?;
                 let tolerance = self.until(&[";"])?;
                 self.expect(";")?;

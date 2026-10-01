@@ -3,8 +3,10 @@
 
 # Authored process models
 
-This package is under active Plan 21 construction. The execution packet owns progress
-and verification; declarations here do not establish qualification of every configuration.
+The process models use the generic checked language and shared indexed balance operations.
+Focused Plan 25c controls establish its migrated composition and conservation contracts;
+assembled native and Python journeys remain Plan 25k qualification. Earlier fixture evidence
+retains its original scope and does not qualify every new configuration.
 
 Control-volume material equations sum signed component molar transport. The energy balance
 uses the state's declared molar-enthalpy reference, with heat and work positive into the
@@ -12,20 +14,24 @@ volume. Outlet pressure equals inlet pressure plus the declared pressure change.
 zero-dimensional contract selects component-total, phase-component, element-total or
 total-molar balances. Element balances use declared atom counts and an element-flow
 quantity; the selected basis determines closure, not an extra set of redundant equations.
-Optional holdup exposes phase-component amount and phase energy inventories plus their
-accumulation rates. Steady use sets those rates to zero; dynamic use requires holdup and
-binds time derivatives in the enclosing timeline. The same signed balances consume the
-rates under every material-balance selection. A concrete unit owns the inventory closure.
+`IndexedBalances` owns the indexed transport/source sums shared by control volumes,
+Mixer and Separator. Optional holdup exposes phase-component amount and phase energy
+inventories. A dynamic stored configuration relates these inventories to the original signed
+flux through `conserve`; memoryless units keep algebraic balances during dynamics. The
+current stored configuration requires a single-phase allocation and component-total or
+component-phase inventory basis. A concrete unit owns its constitutive inventory equations;
+element-total and total storage need an explicit inventory projection before admission.
 
-Feed and Product expose the selected state through typed ports. Heater specializes the
+Feed and Product expose one independent state specification through a material port. Heater specializes the
 control volume with zero mechanical work. Mixer admits an indexed inlet set, sums component
 and enthalpy transport, and sets its pressure with the authored finite smooth-min fold.
 The smoothing parameter is an explicit pressure difference. The inlet states are defined;
-the outlet property binding supplies its own normalization equation.
+the outlet property binding owns its reconstruction once.
 
 Flash uses the same control-volume balances. Its outlet child refines the thermodynamic
 interface to expose the equilibrium split. Liquid and vapor ports refer directly to that
-state's phase inventory, temperature and pressure, without creating duplicate state models.
+state's independent phase component flows, temperature and pressure, with original energy
+transport observations and without creating duplicate state models.
 
 Separator partitions an inlet's phase-component inventory by total, component, phase or
 phase-component fractions. Fractions sum to one over the declared outlets. Each outlet's
@@ -38,7 +44,7 @@ component calorics; Saponification supplies its solvent-only caloric approximati
 Nonadditive mixture calorics require a different explicit energy strategy and are not
 qualified by this partition model. It preserves the inlet's phase inventory and thermal state; connecting the
 result to another equilibrium package is an explicit subsequent model operation. Composition
-is defined only at nonzero outlet flow. Material and energy accounting checks verify the
+is defined only at nonzero outlet flow. Shared material and energy observation accumulators require physical closure and verify the
 partition independently without adding redundant conservation equations to the fraction
 normalization. No holdup is claimed for this instantaneous partition.
 
@@ -120,6 +126,8 @@ component inventory. For fixed composition, `N = rho V`, `U = N h - P V`,
 use the sensible 298.15 K datum; initial values retain the frozen homogeneous PC-SAFT
 comparison. The directional valve uses the shared verified C² characteristic with a
 declared pressure width and flow at that width. Its parameters are data, not a native
-factory. Terminal quadrature checks compare the original amount and energy changes to
-their integrated fluxes. This replacement is authored and remains under verification;
-the legacy production consumer has not yet been retired.
+factory. Authored conservation descriptors compare the original amount and energy changes
+to independently accumulated original fluxes in integrated and simultaneous realizations.
+Focused original-space controls exercise the replacement; the bespoke vessel closure copies
+are removed. The accumulated amount/energy observations remain for their continuing authored
+fixture comparisons. Complete native scientific journeys remain Plan 25k qualification.

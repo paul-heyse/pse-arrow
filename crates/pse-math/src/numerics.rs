@@ -56,7 +56,37 @@ pub fn project(
     source: &ResolvedNumericalPolicy,
     projections: &[TargetProjection],
 ) -> Result<ResolvedNumericalPolicy, MathError> {
-    let mut key = FramedHasher::new(pse_ids::Frame::NumericalProjectionV1);
+    project_with(registry, source, projections, ProjectionMeaning::Coordinate)
+}
+/// Preserve resolved magnitude policy on the difference of two source observations.
+/// The physical owner must admit subtraction to the requested target contract;
+/// affine origins never enter nominal, tolerance or scaling magnitudes.
+/// # Errors
+/// Refuses a target other than the admitted subtraction result, malformed unit
+/// representations and all invalid projections also refused by [`project`].
+pub fn project_difference(
+    registry: &QuantityRegistry,
+    source: &ResolvedNumericalPolicy,
+    projections: &[TargetProjection],
+) -> Result<ResolvedNumericalPolicy, MathError> {
+    project_with(registry, source, projections, ProjectionMeaning::Difference)
+}
+#[derive(Clone, Copy)]
+enum ProjectionMeaning {
+    Coordinate,
+    Difference,
+}
+fn project_with(
+    registry: &QuantityRegistry,
+    source: &ResolvedNumericalPolicy,
+    projections: &[TargetProjection],
+    meaning: ProjectionMeaning,
+) -> Result<ResolvedNumericalPolicy, MathError> {
+    let frame = match meaning {
+        ProjectionMeaning::Coordinate => pse_ids::Frame::NumericalProjectionV2,
+        ProjectionMeaning::Difference => pse_ids::Frame::NumericalDifferenceProjectionV1,
+    };
+    let mut key = FramedHasher::new(frame);
     key.hash(&source.key);
     let mut ordered = projections.iter().collect::<Vec<_>>();
     ordered.sort_by_key(|p| (p.target.id, p.target.kind.as_str()));
@@ -78,8 +108,27 @@ pub fn project(
             .iter()
             .find(|t| t.id == projection.source && t.kind == projection.source_kind)
             .ok_or_else(|| failure(projection.source, "projection source was not resolved"))?;
+        let projected_quantity = match meaning {
+            ProjectionMeaning::Coordinate => original.quantity.into(),
+            ProjectionMeaning::Difference => {
+                let value = pse_quantity::ResolvedPhysicalContract::named(
+                    original.quantity.into(),
+                    pse_quantity::IndexSet::default(),
+                    registry,
+                )?;
+                pse_quantity::resolved::infer_operation(
+                    &pse_quantity::infer::OpRequest::Sub,
+                    &[value.clone(), value],
+                    None,
+                    registry,
+                    &pse_quantity::infer::NoInvariantFacts,
+                )?
+                .result
+                .require_named()?
+            }
+        };
         pse_quantity::admission::require_same_contract(
-            original.quantity.into(),
+            projected_quantity,
             target.quantity,
             registry,
         )?;
@@ -96,7 +145,7 @@ pub fn project(
         result.quantity = target.quantity.as_id();
         result.unit = target.unit.as_id();
         result.nominal *= scale;
-        result.coordinate_scale /= scale;
+        result.coordinate_scale *= scale;
         result.absolute *= scale;
         result.budget *= scale;
         if [result.nominal, result.coordinate_scale, result.budget]
@@ -621,6 +670,17 @@ mod tests {
         assert_eq!(result.coordinate_scale, source.targets[0].coordinate_scale);
         assert_eq!(result.provenance, source.targets[0].provenance);
         assert_ne!(projected.key, source.key);
+        let mut fahrenheit = projection.clone();
+        fahrenheit.target.unit = ids::unit("degF");
+        let converted = project(&registry, &source, &[fahrenheit]).unwrap();
+        let converted = &converted.targets[0];
+        assert!((converted.nominal - 36.0).abs() < 1e-12);
+        assert!((converted.coordinate_scale - 36.0).abs() < 1e-12);
+        assert!((converted.budget - 1.26).abs() < 1e-12);
+        assert!(
+            (0.9 / converted.coordinate_scale - 0.5 / source.targets[0].coordinate_scale).abs()
+                < 1e-12
+        );
         assert!(
             project(
                 &registry,
@@ -634,6 +694,72 @@ mod tests {
         projection.source = id(1);
         projection.target.quantity = ids::quantity("neutral");
         assert!(project(&registry, &source, &[projection]).is_err());
+    }
+    #[test]
+    fn numerical_difference_projection_preserves_affine_policy_and_refuses_wrong_contracts() {
+        let registry = standard_registry().unwrap();
+        let point = ids::quantity("temperature.point");
+        let difference = ids::quantity("temperature.difference");
+        let kelvin = ids::unit("K");
+        let fahrenheit = ids::unit("degF");
+        let original = TargetSpec {
+            kind: NumericalTarget::Observable,
+            quantity: point,
+            unit: kelvin,
+            ..target()
+        };
+        let mut authored = requirement(2, NumericalSource::Model, 8.0);
+        authored.declaration.target_kind = NumericalTarget::Observable;
+        authored.declaration.unit_id = Some(fahrenheit.as_id());
+        authored.declaration.absolute_tolerance = Some(0.08);
+        authored.declaration.scaling_factor = Some(0.125);
+        let source = resolve(&registry, &[original], &[authored], &Default::default()).unwrap();
+        let mut projection = TargetProjection {
+            source: id(1),
+            source_kind: NumericalTarget::Observable,
+            target: TargetSpec {
+                id: id(3),
+                kind: NumericalTarget::Row,
+                quantity: difference,
+                unit: fahrenheit,
+                integer: false,
+                declared_tolerance: None,
+            },
+        };
+        let projected = project_difference(&registry, &source, &[projection.clone()]).unwrap();
+        let result = &projected.targets[0];
+        assert_eq!(result.quantity, difference.as_id());
+        assert!((result.nominal - 8.0).abs() < 1e-12);
+        assert!((result.coordinate_scale - 8.0).abs() < 1e-12);
+        assert!((result.absolute - 0.08).abs() < 1e-12);
+        assert!((result.budget - 0.16).abs() < 1e-12);
+        assert_eq!(result.relative, 0.01);
+        assert!(result.required_scale);
+        for (actual, original) in result.provenance.iter().zip(&source.targets[0].provenance) {
+            assert_eq!(actual.declaration, original.declaration);
+            assert_eq!(actual.source, original.source);
+            assert_eq!(actual.selected, original.selected);
+            let scale = if actual.field == NumericalProvenanceField::RelativeTolerance {
+                1.0
+            } else {
+                9.0 / 5.0
+            };
+            assert!((actual.value - original.value * scale).abs() < 1e-12);
+        }
+        assert!(project(&registry, &source, &[projection.clone()]).is_err());
+        assert!(
+            project_difference(
+                &registry,
+                &source,
+                &[projection.clone(), projection.clone()]
+            )
+            .is_err()
+        );
+        projection.target.quantity = point;
+        assert!(project_difference(&registry, &source, &[projection.clone()]).is_err());
+        projection.target.quantity = difference;
+        projection.target.unit = ids::unit("s");
+        assert!(project_difference(&registry, &source, &[projection]).is_err());
     }
     /// Each provenance entry names its field by the registry enumeration, never by text,
     /// and the resolution key frames the member's registry spelling, as it framed the text

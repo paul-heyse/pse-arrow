@@ -63,10 +63,17 @@ not a purchase price.
 `models/recycle-flash.pse` holds `RecycleFlash`: Feed, Mixer, Heater, Flash and a liquid
 Separator on the BTIdeal package, whose flash liquid is split between a purge and a recycle
 to the mixer. The heater sets the flash temperature; the flash is adiabatic and isobaric.
+The heater's runtime `target` parameter and splitter's runtime `purge` parameter
+own those local specifications. `RecycleFlash` retains its `temperature` and
+`purge_fraction` constructor inputs; the loop exposes their unit values as observations.
 The mixer states no pressure relation (`MomentumMixingType.none`): a closed isobaric loop
 has no minimum inlet pressure to select, and the loop runs at the feed pressure. The
-recycle closure is a set of named flowsheet equations, so the `tear` stage replaces it with
-an empty recycle at the feed's state; the original specification then closes the loop.
+recycle closure is one named material connection. The `tear` stage replaces its source
+with a small positive recycle at the feed's state; the original connection then closes the loop.
+`recycle_flash_conditional_handoff` owns the original 1 mol/s equimolar fresh-feed
+specification for the typed request fixture, retaining the BTIdeal parameters' test-only
+provenance. Its request selects the named recycle connection and four conditional unit
+procedures; coupled execution remains a separate campaign qualification.
 `recycle_flash_converges_from_defaults` solves four synthetic feeds (0.5 to 50 mol/s,
 300 to 400 K, 0.45 to 0.6 benzene) with 90 % of the liquid recycled, from start annotations
 and the tear stage only, and compares with the analytic steady state: the vapor product is

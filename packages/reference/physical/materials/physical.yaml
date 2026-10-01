@@ -6000,6 +6000,60 @@
         "d033af0a3fcd4330b20acb4c7ca094b9",
         "5130f4946bf244b993add131eae3799b"
       ]
+    },
+    {
+      "operation_id": "29b9b816c4bb41ec8f2f08b6b52aef7b",
+      "opcode": "Mul",
+      "input_kind_ids": [
+        "9ed4576374b1809385f72b1f33d17ee6",
+        "46e7ff5d8b2e4a00b21e0b5c2ae28296"
+      ],
+      "result_kind_id": "4ae5c1106e204702a2fe6cb653624850",
+      "basis_rule": "declared_result",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "declared_result",
+      "subject_source": null,
+      "result_subject_kind": "1c998211e5d74955863f377662f56526",
+      "result_basis_id": "04d4600b17cbfb717ec549e688ea3503",
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "1888775f51f84156b76cc4d7e57db2d3",
+        "61b7a5e5b52a4d8e9f6a44f3a0df0f25"
+      ]
+    },
+    {
+      "operation_id": "d0446fa6243c46c5939919b4d57fa335",
+      "opcode": "Mul",
+      "input_kind_ids": [
+        "46e7ff5d8b2e4a00b21e0b5c2ae28296",
+        "9ed4576374b1809385f72b1f33d17ee6"
+      ],
+      "result_kind_id": "4ae5c1106e204702a2fe6cb653624850",
+      "basis_rule": "declared_result",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "declared_result",
+      "subject_source": null,
+      "result_subject_kind": "1c998211e5d74955863f377662f56526",
+      "result_basis_id": "04d4600b17cbfb717ec549e688ea3503",
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "64428d3d91014e2b9c34a9dfe9a5c631",
+        "0d9e62fd7c15458d8c52d07b59b4b48c"
+      ]
     }
   ],
   "quantity_types": [
@@ -10908,6 +10962,46 @@
       ],
       "required_basis_id": null,
       "required_quantity_type_id": "8193343e102747128772c4662d3b8137",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "1888775f51f84156b76cc4d7e57db2d3",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "8ce2f0977877ae56c3712f710201be89",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "61b7a5e5b52a4d8e9f6a44f3a0df0f25",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        1
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "e2ccf6d0a394403db967f4f35b83cb7c",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "64428d3d91014e2b9c34a9dfe9a5c631",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "e2ccf6d0a394403db967f4f35b83cb7c",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "0d9e62fd7c15458d8c52d07b59b4b48c",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        1
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "8ce2f0977877ae56c3712f710201be89",
       "match_shape": false
     }
   ],

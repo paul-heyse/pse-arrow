@@ -209,10 +209,11 @@ impl From<MathError> for CompileError {
 type Result<T> = std::result::Result<T, CompileError>;
 mod modeling;
 pub use modeling::{
-    AdmittedImplicit, AdmittedModeling, BoundStructure, Derivation, Derived, ImplicitAlgorithm,
-    ImplicitScale, ModelingCaseBindings, ModelingExpectationResult, ModelingFlowSelection,
-    ModelingHint, ModelingOutput, ModelingPointChecks, ModelingRevision, ModelingTestValue,
-    ModelingValidityResult, ModelingVariableState, ObjectiveBound, PreparedModeling,
+    AdmittedImplicit, AdmittedModeling, BoundStructure, ConditionalUnitInventory, Derivation,
+    Derived, ImplicitAlgorithm, ImplicitScale, ModelingCaseBindings, ModelingExpectationResult,
+    ModelingFlowSelection, ModelingHint, ModelingOutput, ModelingPointChecks, ModelingRevision,
+    ModelingTestValue, ModelingValidityResult, ModelingVariableState, ObjectiveBound,
+    PreparedModeling,
 };
 #[salsa::db]
 trait CompilerDb: Database {

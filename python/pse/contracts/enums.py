@@ -584,6 +584,7 @@ class ModelingAccumulatorMode(StrEnum):
 
     CONSERVATION = "conservation"
     ACCOUNTING = "accounting"
+    OBSERVATION = "observation"
 
 
 class ModelingAnalysisRoute(StrEnum):
@@ -770,6 +771,9 @@ class ModelingDeclarationKind(StrEnum):
     WHEN = "when"
     ACCUMULATOR = "accumulator"
     CONTRIBUTION = "contribution"
+    STATE_SPECIFICATION = "state_specification"
+    STATE_PORT = "state_port"
+    INVENTORY_BALANCE = "inventory_balance"
     CONNECTION = "connection"
     ANNOTATION = "annotation"
     REQUIREMENT = "requirement"

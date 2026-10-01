@@ -1,6 +1,6 @@
 ---
 title: "25e: Declared analyses and qualification"
-status: draft
+status: in-progress
 date: 2026-09-30
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_codebase-domain-alignment_2026-09-30.md, docs/design_review/reviews/design_review_codebase-domain-alignment-follow-up_2026-09-30.md]
@@ -76,11 +76,11 @@ consistent post-reset successor state, with before/after transfer qualification.
 
 | Packet | Prerequisites | Responsibility | Status |
 |---|---|---|---|
-| <a id="e1"></a>E1 Structural and capability facts | F1 diagnostic contract | Own mode-qualified structure, representation admission, lexicographic choice and route facts | planned |
-| <a id="e2"></a>E2 Authoritative declared execution | E1; D4 | Separate route/procedure, centralize defaults/demand/start choices; expose root sensitivity | planned |
+| <a id="e1"></a>E1 Structural and capability facts | F1 diagnostic contract | Own mode-qualified structure, representation admission, lexicographic choice and route facts | partial: 25c prerequisite slice |
+| <a id="e2"></a>E2 Authoritative declared execution | E1; D4 | Separate route/procedure, centralize defaults/demand/start choices; expose root sensitivity | partial: 25c prerequisite slice |
 | <a id="e3"></a>E3 Composed scientific acceptance | E1/F1; B4; C5 | Apply incumbent, closure and applicability policy once with typed qualifying reasons | planned |
 | <a id="e4"></a>E4 Actual trajectory endpoints | E3; C5 | Evaluate declared endpoint and observation/integral obligations | planned |
-| <a id="e5"></a>E5 Admitted shooting and result consumers | E2/E3/E4; I4; G3 for persisted facts | Remove bypasses; publish truthful route/structure/qualification facts; migrate all consumers | planned |
+| <a id="e5"></a>E5 Admitted shooting and result consumers | E2/E3/E4; I4; G3 for persisted facts | Remove bypasses; publish truthful route/structure/qualification facts; migrate all consumers | partial: 25c prerequisite slice |
 
 D3 implements numerical demand independently of E2's eventual caller migration. E1 is available
 before D4, preventing a cycle. E2 precedes C4's initialization consumer; it does not require
@@ -212,10 +212,15 @@ F consumes scientific decisions and supplies detailed diagnostic projections. G 
 typed meaning; J exposes it; K qualifies the assembled behavior. F16 closes only after C's
 conservation descriptors and every structural/closure consumer here are migrated.
 
+## Consumed 25c prerequisite slice
+
+**Implemented/Tested, 2026-10-01; scoped focused verification recorded in [25c Verification](25c-process-composition-and-conservation.md#verification):** Conditional admission retains complete owned rows/unknowns and dependency/structural witness, selects solver capability before iteration, and routes work through the existing runner. C5 supplies original physical Closure facts and stable inventory descriptors; shooting consumers stitch these facts against one baseline. Unified analysis/route, result permission and actual endpoint policy remain open; F16 is not closed by C5. The maintainer authorized only this required slice and its complete affected consumer migration. This packet remains partial; [25c](25c-process-composition-and-conservation.md) owns the slice evidence.
+
 ## Execution and evidence
 
-All changes and expected benefits here are **Proposed**. Packet status is planning state;
-no implementation or new product qualification is claimed. The [series coordinator](25-design-remediation.md)
+The consumed 25c prerequisite slice above is **Implemented**; its focused evidence is owned
+by 25c. The remaining packet scope and expected benefits are **Proposed**. No full-packet
+completion or new broad product qualification is claimed. The [series coordinator](25-design-remediation.md)
 owns finding dispositions and decision dependencies. Packets compile affected owners, run focused
 behavioral checks with explicit force-validation, regenerate changed declarations, and immediately
 delete replaced code, callers, obsolete tests and fixtures. No shims or parallel production paths remain.
@@ -233,7 +238,8 @@ record actual commands, conditions and failures against zero in the final qualif
 
 ### What was built
 
-Not implemented; record actual behavior and evidence labels at closure.
+Full-plan closure remains outstanding. The implemented 25c prerequisite slice and its
+remaining boundaries are recorded above; 25c owns its focused execution evidence.
 
 ### A mistake made and corrected
 

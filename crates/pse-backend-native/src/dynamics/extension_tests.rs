@@ -234,10 +234,10 @@ fn idas_events_without_sensitivities() {
     event.c.quadratures = vec![id(8)];
     event.c.balances = vec![Balance {
         id: id(8),
-        state: 0,
-        scale: 1.0,
+        inventory: id(9),
+        flux: id(8),
         tolerance: 1e-6,
-        impulses: Default::default(),
+        transfers: Default::default(),
     }];
     let mut p = Profile {
         method: Method::Idas,
@@ -250,9 +250,9 @@ fn idas_events_without_sensitivities() {
     };
     let r = integrate(&mut event, &p, &[1.0], Arc::default()).unwrap();
     assert_eq!(r.termination, Termination::Failed);
-    assert!(r.error.unwrap().to_string().contains("impulse"));
+    assert!(r.error.unwrap().to_string().contains("transfer"));
     let impulse = (-0.25f64).exp();
-    event.c.balances[0].impulses.insert(id(5), impulse);
+    event.c.balances[0].transfers.insert(id(5));
     let r = integrate(&mut event, &p, &[1.0], Arc::default()).unwrap();
     assert_eq!(r.termination, Termination::Completed, "{:?}", r.error);
     for s in &r.samples {

@@ -48,13 +48,7 @@
 @id("1f580ca25341424a9568e932a196f76a") permission solvent_parameter_use records(correlations.constant[chem.water,properties.heat_capacity,compatibility.PhaseType.liquidPhase,references.saponification_caloric_fit],correlations.constant_density[chem.water,properties.liquid_molar_density,compatibility.PhaseType.liquidPhase,references.saponification_density_fit]) allow_unknown true allow_extrapolation false;
 @id("cc6285e697d34b1eaf6544fc74b8faa2") child feed:units.Feed=units.Feed(pkg=saponification.Saponification(defined_state=true));
 @id("e5383e58311a4fb8b4693e991d741612") child product:units.Product=units.Product(pkg=saponification.Saponification(defined_state=false));
-@id("2a86fc8a32f841f3a692399f295c8b74") connect feed.temperature -> product.temperature;
-@id("2ea26f7b520f4c91be751165d06db940") connect feed.pressure -> product.pressure;
-@id("f4a8e48aa76248a2b5e95bbcc043e9bd") connect feed.component_flow[chem.water] -> product.component_flow[chem.water];
-@id("81a5974dc9664e6c9d63e41e9abee0cb") connect feed.component_flow[chem.sodium_hydroxide] -> product.component_flow[chem.sodium_hydroxide];
-@id("a51c8a668260440aa6f38fc366cbc11a") connect feed.component_flow[chem.ethyl_acetate] -> product.component_flow[chem.ethyl_acetate];
-@id("a85e7afd03d44a9aa595722efcb8ac79") connect feed.component_flow[chem.sodium_acetate] -> product.component_flow[chem.sodium_acetate];
-@id("ccdd3e12a3564208bbb5630fa3b311fd") connect feed.component_flow[chem.ethanol] -> product.component_flow[chem.ethanol];
+@id("2a86fc8a32f841f3a692399f295c8b74") connect stream: feed.material -> product.material;
 @id("5d337425ab94408d85efb526cc1814c5") expect product.state.T==303.15{K} tolerance 1e-8{K};
 @id("4d30d90a53644a1890234081c2ecf60c") expect product.state.pressure==101325{Pa} tolerance 1e-6{Pa};
 @id("a855ee6c4da747299c3374d2e5ac0537") expect product.state.flow==55.588{mol/s} tolerance 1e-6{mol/s};

@@ -1,8 +1,8 @@
 ---
 title: "25c: Process composition and conservation"
-status: draft
+status: in-progress
 date: 2026-09-30
-adrs: []
+adrs: [ADR-0142]
 review_sources: [docs/design_review/reviews/design_review_codebase-domain-alignment_2026-09-30.md, docs/design_review/reviews/design_review_codebase-domain-alignment-follow-up_2026-09-30.md]
 scenario_sources: [docs/design_review/reviews/design_review_codebase-domain-alignment_2026-09-30.md#s02]
 ---
@@ -62,11 +62,11 @@ tear-selection, nonlinear-root and integration library owners.
 
 | Packet | Prerequisites | Responsibility | Status |
 |---|---|---|---|
-| <a id="c1"></a>C1 State and aggregate ports | A2/A4; H2 expression/admission contract | Declare independent state, transported observations and indexed groups | planned |
-| <a id="c2"></a>C2 Connections and boundaries | C1; I1 identity framing | Lower one connection occurrence and its topology/transport obligations | planned |
-| <a id="c3"></a>C3 Indexed control volumes and storage | C1/C2; B1 for element-total consumers; B2 for reactive consumers | Reuse balance operations across multi-port units; separate local storage from time route | planned |
-| <a id="c4"></a>C4 Executable initialization | C2/C3; E1/E2; D1/D3 root capabilities | Admit conditional unit solves and connection tears; migrate recycle initialization | planned |
-| <a id="c5"></a>C5 Temporal conservation and closure | C3; A4 | Lower conserved inventories, original flux and event transfers for both temporal realizations; export descriptors to E4 | planned |
+| <a id="c1"></a>C1 State and aggregate ports | A2/A4; H2 expression/admission contract | Declare independent state, transported observations and indexed groups | implemented; focused tests passed; final workspace compile pending |
+| <a id="c2"></a>C2 Connections and boundaries | C1; I1 identity framing | Lower one connection occurrence and its topology/transport obligations | implemented; focused tests passed; final workspace compile pending |
+| <a id="c3"></a>C3 Indexed control volumes and storage | C1/C2; B1 for element-total consumers; B2 for reactive consumers | Reuse balance operations across multi-port units; separate local storage from time route | implemented; focused tests passed; final workspace compile pending |
+| <a id="c4"></a>C4 Executable initialization | C2/C3; E1/E2; D1/D3 root capabilities | Admit conditional unit solves and connection tears; migrate recycle initialization | implemented; focused tests passed; final workspace compile pending |
+| <a id="c5"></a>C5 Temporal conservation and closure | C3; A4 | Lower conserved inventories, original flux and event transfers for both temporal realizations; export descriptors to E4 | implemented; focused tests passed; final workspace compile pending |
 
 C1 consumes H2's checked occurrence contract, not completion of every H packet. C4 consumes
 declared execution from E2; E2 does not depend on C4. E4 consumes C5 later. These are one-way
@@ -189,10 +189,50 @@ Hand off one physical connection/conservation meaning to structure, initializati
 generated APIs and results. F16 closes only when 25e's verdict/reporting and structural consumers
 also migrate; counts of removed accumulators are not the acceptance criterion.
 
+## Execution checkpoint
+
+Restart checkpoint, 2026-10-01. Implementation starts from the completed 25a/25b tree
+at `e38eaed6`. The maintainer authorized C1–C5 and only the required external prerequisite
+contract slices, including their complete affected consumer migrations. All agents have
+concluded; their source changes are integrated in the existing `main` checkout.
+
+C1–C5 functional implementation, reference-consumer migration and deletion obligations
+are complete. Focused controls and full `just codegen` have passed with the composite
+verification recorded below. The final affine boundary correction is implemented and
+tested: the compiler owns the actual subtraction, the solver row is an interval, point
+inputs/outputs remain points, and explicit numerical magnitude policy is preserved.
+The scaled point-inventory and actual-reference controls also passed after test-only
+physical-type/resource repairs. No functional worker task or test command remains active.
+
+The plan stays **in-progress** for the root's final workspace compilation and closure
+handoff. At the maintainer's restart request, no new full workspace build was started.
+
+### Remaining work and resume order
+
+1. Run `source .envrc.local; just check` in this same checkout to compile the complete
+   workspace and all targets on the pinned toolchain. Repair actual compile failures,
+   if any, and rerun the affected targeted controls. Record the command and actual
+   warnings/errors against the zero target. The existing focused receipts need not
+   be repeated wholesale unless a repair changes their exercised contracts.
+2. Complete the root acceptance/handoff: update the coordinator's finding dispositions
+   for F02/F33/FU04/FU05 from this evidence, leave F16's E-owned obligations open, and
+   mark 25c done after the remaining compile check succeeds. Retain this record while
+   the active series and prerequisite plans depend on it.
+3. ADR-0142 remains proposed pending its decision PR; architecture revision 89 records
+   the maintainer-authorized implementation. Follow the decision route separately;
+   implementation evidence does not accept an ADR.
+
+Full native/Python coupled journeys, integration/component/parity campaigns, performance
+measurements and manual static qualification remain 25k work. The wider D/E/F/H/I plans
+remain partial. In particular, broader H2 still owns legacy parse-at-use consumers,
+shared continuous/domain/rewrite helpers, prior authored-body consumers and full
+role/position propagation of A3 admissions. Required checked process fields already
+consume retained AST occurrences; this checkpoint does not claim full parse elimination.
+
 ## Execution and evidence
 
-All changes and expected benefits here are **Proposed**. Packet status is planning state;
-no implementation or new product qualification is claimed. The [series coordinator](25-design-remediation.md)
+The target decisions are **Proposed** in ADR-0142; functional implementation and focused
+verification are complete; final workspace compilation and closure handoff remain. No series integration or new broad product qualification is claimed. The [series coordinator](25-design-remediation.md)
 owns finding dispositions and decision dependencies. Packets compile affected owners, run focused
 behavioral checks with explicit force-validation, regenerate changed declarations, and immediately
 delete replaced code, callers, obsolete tests and fixtures. No shims or parallel production paths remain.
@@ -201,21 +241,160 @@ Full integration, formatting, lint and performance qualification run once in
 
 Use current recipe-owned checks such as `just check-package <pkg>` and
 `just unit-package <pkg> <filter>`; select isolated tests rather than broad suites hidden under
-a unit label. The acceptance scenarios above define what those tests must establish, not claims
-that tests with particular names already exist. Cross-owner scientific/storage journeys are authored
+a unit label. The acceptance scenarios above define the behavioral scope; Verification records the
+focused checks actually executed and their limits. Cross-owner scientific/storage journeys are authored
 with the functional work and executed in 25k. Record state, decisions and next steps during work;
 record actual commands, conditions and failures against zero in the final qualification evidence.
+
+## Verification
+
+**Tested, 2026-10-01:** Focused controls run locally on Linux with the pinned toolchain;
+every test recipe explicitly enables `pse-relations/force-validate`. The failure baseline
+is zero. Licensed mathematical controls silently load `.envrc.local`. Native recipes apply
+the repository's 120 GiB process memory cap; compiler/modeling mathematical selections
+use `bash scripts/memory-cap.sh` as shown below. Numeric selections use one test thread.
+These controls exercise individual admission/lowering/execution mechanisms rather than a
+full recycle, thermodynamic, Python or scientific campaign.
+
+| Command | Result against zero failures | Established scope |
+|---|---|---|
+| `just unit-package pse-authoring 'test(process_contract_state_material_port_connection_and_inventory_roundtrip)'` | **Tested:** 1/1 passed | Parser/render round trip for the new declarations; no licensed mathematics |
+| `source .envrc.local; bash scripts/memory-cap.sh just unit-package pse-modeling 'test(checked_occurrences) \| test(process_contract)' --test-threads 1` | **Tested:** 22/22 passed | Checked lexical/index/physical occurrences, independent state and semantic correspondence, connection overrides, translators and refusal controls |
+| `source .envrc.local; bash scripts/memory-cap.sh just unit-package pse-quantity 'test(component_flow_time_integrals_keep_species_and_molar_contracts)' --test-threads 1` | **Tested:** 1/1 passed | Both ComponentFlow × Time orders preserve species/molar Amount; TotalAmount stays distinct and wrong basis/subject cannot cross the Amount boundary |
+| `source .envrc.local; bash scripts/memory-cap.sh just unit-package pse-math 'test(numerical_projection_preserves_precedence_and_affine_magnitudes) \| test(numerical_difference_projection_preserves_affine_policy_and_refuses_wrong_contracts)' --test-threads 1` | **Tested:** 2/2 passed | Explicit Fahrenheit numerical magnitude policy and provenance survive coordinate/difference projection; normalized physical residual is invariant and wrong target contracts refuse |
+| `source .envrc.local; bash scripts/memory-cap.sh just unit-package pse-compiler 'test(conditional_unit) \| test(document_reuse_decoded_interpretation_changes_match_clean_admission) \| test(indexed_process_composition) \| test(authored_vessel_temporal_) \| test(indexed_balance_)' --test-threads 1` | **Tested:** 8/8 composite passed on the final affine snapshot (7 plus the reuse retry) | Mixer → stored CSTR → memoryless Separator in steady/integrated/simultaneous routes; four material bases; original vessel closure and drift; local conditional inventory, original recycle graph and decoded-context reuse |
+| `source .envrc.local; just unit-native-package pse-backend-native pse-backend-native/diffsol,pse-backend-native/idas 'test(conservation::) \| test(conservation_functions_share_original_derivative_diagnostics) \| test(dynamics::anchored::tests::) \| test(dynamics::tests::process::) \| test(idas_scheduled_inputs_with_recoverable_trials) \| test(state_triggered_reset_sensitivity_includes_moving_event_and_dae_consistency) \| test(scheduled_input_sensitivity)' --test-threads 1` | **Tested:** 18/18 passed | Independent continuous closure, wrong/matching impulses, drift, mode changes, terminal/coincident scheduled settlement and continuing reset sensitivities on both native adapters |
+| `source .envrc.local; just unit-native-package pse-backend-native pse-backend-native/diffsol,pse-backend-native/idas 'test(conditional_unit_derivative_demand_comes_from_adapter_capability)' --test-threads 1` | **Tested:** 1/1 passed | Conditional derivative demand comes from the selected adapter capability |
+| `source .envrc.local; just unit-native-package pse-runtime pse-runtime/solver-diffsol,pse-runtime/solver-idas,pse-runtime/solver-kinsol 'test(authored_conservation_) \| test(conservation_stitch) \| test(document_reuse) \| test(conditional_unit)' --test-threads 1` | **Tested:** 20/20 composite passed (18 plus two repaired fixture controls) | Eight authored conservation controls on Diffsol/IDAS, two shooting controls, four document-reuse controls and six conditional-unit controls, including affine policy preservation and actual-reference admission |
+
+**Implemented:** `source .envrc.local; just codegen` passed after the final identity-frame
+changes: all six schema targets, generated physical operations, Python candidate validation
+and native bindings completed through their generators. **Not run:** Final `just check`
+workspace/all-target compilation remains the first restart step.
+
+The final compiler selection passed seven controls; its last reuse control could not start
+because its test executable disappeared during the run (ENOENT). The same licensed,
+memory-capped recipe with filter
+`test(document_reuse_decoded_interpretation_changes_match_clean_admission)` passed 1/1
+after recreating artifacts. This is a composite 8/8 result, not an initially clean run.
+The final runtime selection passed 18/20. Its two failures were test-fixture admission:
+an additive rate incorrectly declared Difference, and insufficient reference evaluator
+storage. After correcting the fixture rate to Point while retaining the explicit
+TemperatureRate × Time → DeltaTemperature operation, and declaring 256 MiB evaluator
+storage, the same native recipe with filter
+`test(authored_conservation_point_inventory_) | test(conditional_unit_reference_request_)`
+passed 2/2. No production acceptance condition was relaxed. The final native run also
+reported an unused `RelationRow` import in the p09 test and a `proc-macro-error2` future
+compatibility warning; no warning-free workspace claim is made.
+
+Earlier focused selections exposed initial-coordinate, semantic guard, lexical/index scope,
+physical inverse and reference-fixture defects; they were repaired under their owning
+contracts. The eventual focused evidence is composite, not a claim that the first run passed.
+The nonlinear original-flux control uses a physical closure tolerance of `1e-5 s` and
+initial step `0.001`; a tighter `1e-6 s` request exposed a Diffsol defect and is not claimed
+as qualified. The affine inventory control uses a named rate with canonical K/min and an
+authored K/s flux, testing one conversion while retaining temperature-point inventory and
+interval-valued transfer meaning. The reference recycle admission control retains the
+original source and coherent binding selection with synthetic test-only property data;
+it has 256 MiB evaluator storage, a 1 GiB workspace and 4 GiB runtime pool and establishes structure/capability
+refusal before iteration, not a scientific oracle or a converged recycle.
+
+**Not run:** Full native/Python coupled journeys, integration/component suites, parity,
+performance measurements and manual static qualification remain assigned to 25k. Formatting
+and hygiene remain the end-of-turn hooks' responsibility. No new whole-product qualification
+or **Measured** claim is made. ADR-0142 remains **Proposed** pending its decision PR.
 
 ## Outcome (recorded after implementation)
 
 ### What was built
 
-Not implemented; record actual behavior and evidence labels at closure.
+**Implemented:** State specifications declare semantic-indexed independent coordinates,
+one dependent reconstruction and original transported observations. Material ports consume
+these specifications. One connection occurrence supplies coordinate bindings, physical
+transport obligations and graph/tear identity; connection overrides retain the occurrence
+identity. Direct admission checks full physical contracts and complete species/role coverage.
+An ordinary authored translator owns its separate state contracts and conservation laws.
+The reference thermodynamic, aqueous, Feed/Product, control-volume, Mixer, Separator, Flash,
+PFR and recycle consumers have migrated to aggregate material boundaries. Scalar signal
+connections retain their existing purpose.
+
+**Implemented:** Shared indexed balance operations cover component-total, component-phase,
+element-total and total material bases, retaining unit-owned reaction, pressure, equilibrium
+and partition laws. Memoryless units remain algebraic in every time route. Storage adds
+original inventories and initial conditions. The current control-volume storage projection
+supports single-phase component-total/component-phase inventories; element-total/total
+storage refuses with an attributable request for an explicit inventory projection. Separator
+observations independently require physical closure without adding redundant equations.
+
+**Implemented:** Each causal unit request declares an explicit map or an owned conditional
+root problem. The compiler derives one inventory of local residuals and unknowns, checks
+external dependencies and structural matching, and consumes the selected adapter's derivative
+requirement. The existing native root runner executes conditional problems with temporary
+input overlays restored after every call. Derived member inputs retain their original
+constituents and physical conversion. Their boundary residual is an actual compiled typed
+subtraction, so affine point observations retain point inputs/outputs and an interval
+residual. Numerical projection preserves resolved tolerances, characteristic magnitudes
+and provenance, including noncanonical representations. Typed diagnostic envelopes preserve source identities,
+the mathematical cause and its actual boundary class. Two-sided bounds and model-level
+implicit handlers currently refuse local conditional realization before iteration, with
+simultaneous initialization available as an explicit alternative. RecycleFlash uses five
+aggregate stream occurrences and an authored, typed conditional handoff fixture; the coupled
+solve is reserved for 25k.
+
+**Implemented:** `conserve` lowers original inventory, signed flux, physical tolerance and
+allowed guard-bound transfers to integrated and simultaneous descriptors. Diffsol and IDAS
+evaluate actual original inventory and flux, independently accumulate flux, and assess actual
+mode/input/event boundaries. Transfer declarations bind semantic guard members in the owning
+instance, including nested reuse. Composite inventories preserve original coordinate initial
+conditions as required original-space checks. Continuous drift, unauthorized/wrong transfers
+and inconsistent original initialization cannot become accepted closure. Shooting retains one
+global baseline and rebases cumulative flux/transfers when stitching windows. Terminal events
+retain the terminating mode/input side and perform no reset; event-bearing simultaneous
+requests refuse in this scope. Required Closure facts are supplied to the existing result
+consumer without claiming completion of E's unified qualification policy.
+
+**Implemented:** Required H/I prerequisites retain checked process expression occurrences
+with lexical/physical/index context, reuse document interpretation under the complete consumed
+context, and frame new process slots through the identity owner. The consumed D/E/F/H/I
+slices and their remaining scope are recorded in their own plans. All registry, Rust, Python and documentation surfaces were regenerated through
+`just codegen`, including the species/molar ComponentFlow × Time → Amount operations.
+Those operations retain full operand contracts; ordinary Flow × Time remains TotalAmount.
+No compatibility production path is retained.
+
+**Implemented:** Replaced scalar material connection families, duplicate receiver
+normalizations, generic balance copies, blanket dynamic-without-holdup refusals,
+equation-name recycle tears and bespoke vessel closure expressions/checks/reports are
+deleted. Unit-owned constitutive laws and scientific accumulated-flux fixture observations
+retain their continuing purpose.
+
+The focused verification above establishes these contracts under its stated conditions.
+It does not establish whole-product qualification or performance measurements.
 
 ### A mistake made and corrected
 
-Record an actual implementation correction, not a hypothetical planning example.
+A derived stock's initial value was initially treated as enough evidence for a composite
+inventory's original coordinate initial conditions. That could accept a closed inventory while
+the consistent native state violated an authored coordinate value. The implementation now
+captures the original initial rows before lowering and assesses their original coordinates
+after consistency initialization. A two-coordinate control refuses the inconsistent case
+even when its composite inventory closes. Likewise, transfer matching initially used an
+authored path string; resolving the actual guard member in the owning instance corrected
+nested reuse and preserved source attribution.
+
+The affine boundary control also exposed a reversed representation scale in numerical
+projection. Normalization divides a physical residual by its characteristic magnitude,
+so the magnitude must multiply by the representation scale. The corrected owner versions
+coordinate projection as NumericalProjectionV2 and separately frames admitted difference
+projection. Explicit Fahrenheit magnitude/tolerance controls retain policy provenance and
+refuse an incorrect point/difference target; historical frame spellings are unchanged.
 
 ### Deviations from the plan, deliberate
 
-None recorded. A changed architectural decision follows its owning ADR/design route.
+Only required external prerequisite slices were implemented, as authorized by the maintainer;
+the wider D/E/F/H/I plans remain partial. Existing explicit maps and simultaneous initialization
+remain their distinct declared realizations. General translators are ordinary authored units,
+so physical conversion/reconstruction laws stay with their scientific owner rather than a
+second built-in translator language. Full native/Python coupled journeys, integrated checks
+and performance measurements remain 25k by the series' execution decision. ADR-0142 and
+architecture revision 89 record the new contracts; the ADR remains proposed pending its
+decision PR.

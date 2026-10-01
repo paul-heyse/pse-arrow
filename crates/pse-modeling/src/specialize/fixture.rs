@@ -224,6 +224,8 @@ pub struct FixtureMode {
 /// A zero crossing of an authored scalar member.
 #[derive(Clone, Debug, PartialEq)]
 pub struct FixtureEvent {
+    /// Authored event name: the guard member path as declared by the fixture.
+    pub name: String,
     /// The member whose zero crossing triggers the event.
     pub guard: SemanticId,
     /// The crossings that trigger it.
@@ -269,9 +271,18 @@ impl Engine<'_, '_> {
             }
         };
         let mut modes = Vec::with_capacity(contract.modes.len());
+        let mut event_ordinal = 0;
         for mode in &contract.modes {
             let mut events = Vec::with_capacity(mode.events.len());
             for event in &mode.events {
+                let expression =
+                    self.p
+                        .expression_at(at, "scope.fixture.modes.events.guard", event_ordinal)?;
+                event_ordinal += 1;
+                let ExprKind::Path(path) = &expression.kind else {
+                    return Err(invalid(at, "an event guard names a member path"));
+                };
+                let name = dsl::render_path(path);
                 let (guard, ty, local) = member(self, &event.guard)?;
                 if !matches!(ty, Type::Quantity(_)) {
                     return Err(invalid(at, "an event guard requires a physical type"));
@@ -307,6 +318,7 @@ impl Engine<'_, '_> {
                     })
                     .transpose()?;
                 events.push(FixtureEvent {
+                    name,
                     guard,
                     direction: event.direction,
                     tolerance,

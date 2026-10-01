@@ -230,6 +230,7 @@ async fn authored_causal_recycle_retains_topology_and_refuses_hidden_inputs() {
             node: root.as_id(),
             inputs: BTreeSet::from([input]),
             outputs: BTreeSet::from([output]),
+            realization: CausalUnitRealization::ExplicitMap,
         }],
         anderson: 1,
         damping: pse_model::scalars::Fraction::try_new(1.0).unwrap(),

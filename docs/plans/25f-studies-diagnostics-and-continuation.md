@@ -1,6 +1,6 @@
 ---
 title: "25f: Studies, diagnostics and continuation"
-status: draft
+status: in-progress
 date: 2026-09-30
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_codebase-domain-alignment_2026-09-30.md, docs/design_review/reviews/design_review_codebase-domain-alignment-follow-up_2026-09-30.md]
@@ -73,7 +73,7 @@ Unsupported operation/dependency combinations refuse before scheduling.
 
 | Packet | Prerequisites | Responsibility | Status |
 |---|---|---|---|
-| <a id="f1"></a>F1 Detailed failures and projections | Existing diagnostic/operation owners | Establish typed failure envelopes, closed rules and exhaustive projections | planned |
+| <a id="f1"></a>F1 Detailed failures and projections | Existing diagnostic/operation owners | Establish typed failure envelopes, closed rules and exhaustive projections | partial: 25c prerequisite slice |
 | <a id="f2"></a>F2 Contextual typed bindings | A1; I1; H1 | Resolve and physically admit overlays once, with deterministic composition | planned |
 | <a id="f3"></a>F3 Pure occurrence policy | F1/F2; E2/E3/E4 | One study definition and pure dependency/start/conclusion operation | planned |
 | <a id="f4"></a>F4 Executor and durable cutover | F3; G3 | Both executors apply the same policy; retain every terminal typed failure and occurrence | planned |
@@ -205,10 +205,15 @@ The public output is a shared study definition, admitted binding, diagnostic env
 purpose-specific projections. E owns scientific truth, G durable interpretation, I hash/resource
 identity and J generation. This document does not duplicate their authorities.
 
+## Consumed 25c prerequisite slice
+
+**Implemented/Tested, 2026-10-01; scoped focused verification recorded in [25c Verification](25c-process-composition-and-conservation.md#verification):** Conditional-unit admission uses a typed WorkflowError envelope with a closed modeling.conditional_unit.admission rule family, source identities and retained mathematical cause. The affected workflow diagnostic traversal migrates with it. General failure envelopes, projections, studies, bindings and retry policy remain open. The maintainer authorized only this required slice and its complete affected consumer migration. This packet remains partial; [25c](25c-process-composition-and-conservation.md) owns the slice evidence.
+
 ## Execution and evidence
 
-All changes and expected benefits here are **Proposed**. Packet status is planning state;
-no implementation or new product qualification is claimed. The [series coordinator](25-design-remediation.md)
+The consumed 25c prerequisite slice above is **Implemented**; its focused evidence is owned
+by 25c. The remaining packet scope and expected benefits are **Proposed**. No full-packet
+completion or new broad product qualification is claimed. The [series coordinator](25-design-remediation.md)
 owns finding dispositions and decision dependencies. Packets compile affected owners, run focused
 behavioral checks with explicit force-validation, regenerate changed declarations, and immediately
 delete replaced code, callers, obsolete tests and fixtures. No shims or parallel production paths remain.
@@ -226,7 +231,8 @@ record actual commands, conditions and failures against zero in the final qualif
 
 ### What was built
 
-Not implemented; record actual behavior and evidence labels at closure.
+Full-plan closure remains outstanding. The implemented 25c prerequisite slice and its
+remaining boundaries are recorded above; 25c owns its focused execution evidence.
 
 ### A mistake made and corrected
 

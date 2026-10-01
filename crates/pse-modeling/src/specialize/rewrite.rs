@@ -3,7 +3,7 @@
 use super::*;
 use pse_authoring::dsl::{Predicate, PredicateKind, ReduceKind};
 /// The owning instance, the member declaration and the member's index coordinates.
-type ResolvedPath = (InstanceId, DeclarationId, Vec<(String, Value)>);
+pub(super) type ResolvedPath = (InstanceId, DeclarationId, Vec<(String, Value)>);
 impl Engine<'_, '_> {
     fn set_source_origin(
         &self,
@@ -213,6 +213,16 @@ impl Engine<'_, '_> {
         } else if let Some(exchange) = &declaration.value.exchange {
             exchange
                 .indices
+                .iter()
+                .map(|i| (i.name.as_str(), i.domain.as_str()))
+                .collect()
+        } else if let Some(v) = &declaration.value.state_specification {
+            v.indices
+                .iter()
+                .map(|i| (i.name.as_str(), i.domain.as_str()))
+                .collect()
+        } else if let Some(v) = &declaration.value.state_port {
+            v.indices
                 .iter()
                 .map(|i| (i.name.as_str(), i.domain.as_str()))
                 .collect()
@@ -471,7 +481,7 @@ impl Engine<'_, '_> {
             }
             ExprKind::Reduce { kind, binder, body } => {
                 if *kind == ReduceKind::Integral {
-                    return self.integral(instance, binder, body, &env, chain);
+                    return self.integral(instance, binder, body, &env, chain, None);
                 }
                 let types = self.source_types(at, &env)?;
                 let domain_type = crate::expression::infer(
@@ -729,7 +739,7 @@ impl Engine<'_, '_> {
                 }
             }
             ExprKind::Derivative { body, wrt } => {
-                return self.derivative(instance, body, wrt, &env, chain);
+                return self.derivative(instance, body, wrt, &env, chain, None);
             }
             ExprKind::Kernel { .. } => {
                 return Err(ModelingError::Unsupported {

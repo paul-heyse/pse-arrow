@@ -585,6 +585,7 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 |---|---|---|
 | `conservation` | `` | false |
 | `accounting` | `` | false |
+| `observation` | `` | false |
 
 ## `ModelingAnalysisRoute`
 
@@ -771,6 +772,9 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `when` | `` | false |
 | `accumulator` | `` | false |
 | `contribution` | `` | false |
+| `state_specification` | `` | false |
+| `state_port` | `` | false |
+| `inventory_balance` | `` | false |
 | `connection` | `` | false |
 | `annotation` | `` | false |
 | `requirement` | `` | false |

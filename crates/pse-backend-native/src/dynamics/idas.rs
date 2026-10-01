@@ -84,6 +84,7 @@ impl Context<'_> {
             let rows = match f {
                 Function::Output => c.outputs.len(),
                 Function::QuadratureFlux => c.quadratures.len(),
+                Function::Inventory | Function::Transfer(_) => c.balances.len(),
                 Function::Roots => c.events[*mode].len(),
                 _ => c.states.len(),
             };
@@ -1229,6 +1230,7 @@ struct Session<'a> {
     /// Output quadratures of finished segments; IDAS restarts its quadrature at each
     /// reinitialization.
     totals: Vec<f64>,
+    transition: Option<Transition>,
     /// The adjoint route's checkpoints and backward problems.
     adjoint: Option<Backward>,
     callback: Box<Context<'a>>,
@@ -1337,6 +1339,7 @@ impl<'a> Session<'a> {
             sens: vec![],
             dsens: vec![],
             totals: vec![0.0; c.quadratures.len()],
+            transition: None,
             adjoint: None,
             callback: Box::new(Context {
                 oracle,
@@ -1801,6 +1804,18 @@ impl<'a> Session<'a> {
                 .map(|(row, k)| product[(row, k)])
                 .collect();
         }
+        let integrals = self.integrals(t, stepped)?;
+        Ok(Sample {
+            mode: self.callback.mode,
+            time: t,
+            state: x,
+            outputs: e.values,
+            state_sensitivities,
+            output_sensitivities,
+            integrals,
+        })
+    }
+    fn integrals(&mut self, t: f64, stepped: bool) -> Result<Vec<f64>, ProblemError> {
         let integrals = if self.quad.is_null() {
             vec![]
         } else {
@@ -1818,15 +1833,74 @@ impl<'a> Session<'a> {
                 .map(|(v, total)| v + total)
                 .collect()
         };
-        Ok(Sample {
-            mode: self.callback.mode,
-            time: t,
-            state: x,
-            outputs: e.values,
-            state_sensitivities,
-            output_sensitivities,
+        Ok(integrals)
+    }
+    fn inventories(&mut self, time: f64, state: &[f64]) -> Result<Vec<f64>, ProblemError> {
+        if self.callback.contract.balances.is_empty() {
+            return Ok(vec![]);
+        }
+        self.callback
+            .evaluate(Function::Inventory, time, state, false)
+            .map(|v| v.values)
+            .ok_or_else(|| self.callback.failed("conserved inventory"))
+    }
+    fn conserve(
+        &mut self,
+        report: &mut Report,
+        time: f64,
+        state: &[f64],
+        stepped: bool,
+    ) -> Result<(), ProblemError> {
+        let inventories = self.inventories(time, state)?;
+        let integrals = self.integrals(time, stepped)?;
+        let transfers = cumulative_transfers(&self.callback.contract, report);
+        observe_conservation(
+            &self.callback.contract,
+            report,
+            time,
+            self.callback.mode,
+            inventories,
             integrals,
-        })
+            transfers,
+        )
+    }
+    fn transition(
+        &mut self,
+        report: &Report,
+        event: Option<usize>,
+        time: f64,
+        state: &[f64],
+    ) -> Result<(), ProblemError> {
+        let mut transfers = vec![0.0; self.callback.contract.balances.len()];
+        if let Some(index) = event {
+            let id = self.callback.contract.events[self.callback.mode][index].id;
+            if self
+                .callback
+                .contract
+                .balances
+                .iter()
+                .any(|b| b.transfers.contains(&id))
+            {
+                transfers = self
+                    .callback
+                    .evaluate(Function::Transfer(index), time, state, false)
+                    .map(|v| v.values)
+                    .ok_or_else(|| self.callback.failed("event transfer"))?;
+                for (value, balance) in transfers.iter_mut().zip(&self.callback.contract.balances) {
+                    if !balance.transfers.contains(&id) && *value != 0.0 {
+                        return Err(contract(
+                            "event transfer supplied for an unauthorized conserved subject",
+                        ));
+                    }
+                }
+            }
+        }
+        self.transition = Some(Transition {
+            record: report.events.len() - 1,
+            inventories: self.inventories(time, state)?,
+            transfers,
+        });
+        Ok(())
     }
     /// One forward `IDASolve` call, or `IDASolveF` on the adjoint route, which stores
     /// checkpoints: more than `max_checkpoints` at once is a typed memory limit.
@@ -1967,7 +2041,19 @@ impl<'a> Session<'a> {
             // A sample at a scheduled change observes the post-change state.
             let deferred = target >= stop && changing;
             if !deferred && p.samples.get(r.samples.len()) == Some(&time) {
-                r.samples.push(self.sample(time, true)?);
+                let point = self.sample(time, true)?;
+                let inventories = self.inventories(time, &point.state)?;
+                let transfers = cumulative_transfers(&self.callback.contract, r);
+                observe_conservation(
+                    &self.callback.contract,
+                    r,
+                    time,
+                    point.mode,
+                    inventories,
+                    point.integrals.clone(),
+                    transfers,
+                )?;
+                r.samples.push(point);
             }
             if target >= stop {
                 return Ok((None, steps));
@@ -1992,7 +2078,55 @@ impl<'a> Session<'a> {
         loop {
             // SAFETY: the session's state vector holds the `n` states.
             let state = unsafe { read(self.y, n) };
-            settle_transitions(&self.callback.contract, &mut r.events, time, &state)?;
+            let inventories = self.inventories(time, &state)?;
+            let integrals = self.integrals(time, false)?;
+            if let Some(transition) = self.transition.take() {
+                settle_transition(
+                    &self.callback.contract,
+                    r,
+                    transition,
+                    ConservationPoint {
+                        time,
+                        mode: self.callback.mode,
+                        inventories,
+                        integrals,
+                        transfers: vec![],
+                        defects: vec![],
+                    },
+                    &state,
+                )?;
+            } else {
+                let transfers = cumulative_transfers(&self.callback.contract, r);
+                observe_conservation(
+                    &self.callback.contract,
+                    r,
+                    time,
+                    self.callback.mode,
+                    inventories,
+                    integrals,
+                    transfers,
+                )?;
+            }
+            // A coincident event reset settles first under the terminating segment.
+            // Only then does the scheduled segment become active and initialize consistently.
+            if boundaries.get(segment) == Some(&time) {
+                if r.events.len() >= p.max_events {
+                    r.termination = Termination::EventLimit;
+                    return Ok(());
+                }
+                r.events.push(EventRecord {
+                    event: None,
+                    time,
+                    before: state.clone(),
+                    after: None,
+                });
+                self.transition(r, None, time, &state)?;
+                self.callback.map = p.columns_at(np, time);
+                self.callback.parameters = p.parameters_at(&self.callback.integration, time);
+                segment += 1;
+                self.restart(time, &state, p, false)?;
+                continue;
+            }
             if !self.callback.contract.events[self.callback.mode].is_empty() {
                 let Some(guards) = self.callback.evaluate(Function::Roots, time, &state, false)
                 else {
@@ -2048,6 +2182,7 @@ impl<'a> Session<'a> {
             // SAFETY: the session's state vector holds the `n` states.
             let state = unsafe { read(self.y, n) };
             let mut seed = state.clone();
+            self.conserve(r, time, &state, true)?;
             if let Some(index) = root {
                 let mode = self.callback.mode;
                 let Some(guards) = self.callback.evaluate(Function::Roots, time, &state, false)
@@ -2070,11 +2205,24 @@ impl<'a> Session<'a> {
                 });
                 if event.terminal {
                     if p.samples.get(r.samples.len()) == Some(&time) {
-                        r.samples.push(self.sample(time, true)?);
+                        let point = self.sample(time, true)?;
+                        let inventories = self.inventories(time, &point.state)?;
+                        let transfers = cumulative_transfers(&self.callback.contract, r);
+                        observe_conservation(
+                            &self.callback.contract,
+                            r,
+                            time,
+                            point.mode,
+                            inventories,
+                            point.integrals.clone(),
+                            transfers,
+                        )?;
+                        r.samples.push(point);
                     }
                     r.termination = Termination::Event;
                     return Ok(());
                 }
+                self.transition(r, Some(index), time, &state)?;
                 let Some(reset) =
                     self.callback
                         .evaluate(Function::Reset(index), time, &state, false)
@@ -2084,22 +2232,10 @@ impl<'a> Session<'a> {
                 seed = reset.values;
                 self.callback.mode = event.next_mode;
             }
-            // Roots precede a scheduled change at the same native stop time.
-            let changed = boundaries.get(segment).is_some_and(|b| *b == time);
-            if changed {
-                if r.events.len() >= p.max_events {
-                    r.termination = Termination::EventLimit;
-                    return Ok(());
-                }
-                r.events.push(EventRecord {
-                    event: None,
-                    time,
-                    before: seed.clone(),
-                    after: None,
-                });
-                self.callback.map = p.columns_at(np, time);
-                self.callback.parameters = p.parameters_at(&self.callback.integration, time);
-                segment += 1;
+            let changed = boundaries.get(segment) == Some(&time);
+            if root.is_none() && changed {
+                // The next loop captures the old-segment inventory before restart.
+                continue;
             }
             if time >= p.end && root.is_none() && !changed {
                 r.termination = Termination::Completed;

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Revision-bound initialization and explicitly declared compiled causal unit maps.
+//! Revision-bound initialization and admitted explicit or conditional causal units.
 use super::*;
 use crate::math::{
     ExecutableCase,
@@ -49,7 +49,23 @@ impl PreparedInitializationStrategy {
     }
 }
 
-/// Explicit causal direction for one unit; outputs name authored function rows, never residual-to-map inference.
+/// One declared mathematical realization of a causal unit.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum CausalUnitRealization {
+    /// Authored output functions with every free dependency declared at the boundary.
+    ExplicitMap,
+    /// Original owned residuals, local solved coordinates and one declared root procedure.
+    Conditional {
+        /// Complete selected original unit equality identities.
+        residuals: BTreeSet<SemanticId>,
+        /// Remaining local free coordinates after boundary inputs are fixed.
+        unknowns: BTreeSet<SemanticId>,
+        /// The canonical solver settings document; defaults resolve in its existing owner.
+        solver: crate::math::settings::SolveSettings,
+    },
+}
+/// Explicit causal direction and admitted mathematical realization for one unit.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CausalUnitRequest {
@@ -59,6 +75,8 @@ pub struct CausalUnitRequest {
     pub inputs: BTreeSet<SemanticId>,
     /// Output ports; their expressions are owned by the authored port declarations.
     pub outputs: BTreeSet<SemanticId>,
+    /// A unit equation solve is declared independently of an explicit function map.
+    pub realization: CausalUnitRealization,
 }
 /// Concrete tear witness and causal directions; native KINSOL owns all recycle iteration.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -66,7 +84,7 @@ pub struct CausalUnitRequest {
 pub struct RecycleRequest {
     /// Exact selected tear decision groups, obtainable through select_tears.
     pub tears: BTreeSet<SemanticId>,
-    /// Complete explicit causal unit inventory.
+    /// Complete admitted causal unit inventory.
     pub units: Vec<CausalUnitRequest>,
     /// Native Anderson history; zero means unaccelerated fixed point.
     pub anderson: usize,
@@ -80,6 +98,7 @@ struct UnitProgram {
     values: CaseValues,
     inputs: Vec<(SemanticId, SemanticId, pse_quantity::UnitConvertSpec)>,
     outputs: Vec<(SemanticId, usize, pse_quantity::UnitConvertSpec)>,
+    conditional: Option<crate::math::initialization::PreparedConditionalUnit>,
 }
 #[derive(Debug)]
 struct UnitWorker {
@@ -88,6 +107,9 @@ struct UnitWorker {
     worker: crate::math::ExecutionWorker,
     input_ids: Vec<SemanticId>,
     output_ids: Vec<SemanticId>,
+    service: Arc<crate::math::MathService>,
+    providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
+    budget: Arc<crate::math::WorkerBudget>,
 }
 impl CausalUnit for UnitWorker {
     fn id(&self) -> SemanticId {
@@ -104,25 +126,47 @@ impl CausalUnit for UnitWorker {
         inputs: &BTreeMap<SemanticId, f64>,
         execution: &Execution,
     ) -> Result<BTreeMap<SemanticId, f64>, native::ProblemError> {
-        if execution.stopped().is_some() {
-            return Err(pse_math::MathError::Cancelled.into());
+        if let Some(stop) = execution.stopped() {
+            return Err(native::ProblemError::stopped(
+                stop,
+                "conditional causal unit stopped",
+            ));
         }
+        // An evaluation is an immutable-original overlay. Every exit drops the
+        // temporary inputs and solved coordinates, including a native refusal.
+        let mut trial = self.program.values.clone();
         for (port, symbol, conversion) in &self.program.inputs {
             let value = inputs
                 .get(port)
                 .ok_or_else(|| native::ProblemError::Contract("missing causal input".into()))?;
-            self.program
-                .values
-                .scalars
-                .insert(*symbol, value * conversion.scale + conversion.offset);
+            let value = value * conversion.scale + conversion.offset;
+            if !value.is_finite() {
+                return Err(native::ProblemError::numerical(
+                    "nonfinite causal boundary input",
+                ));
+            }
+            trial.scalars.insert(*symbol, value);
         }
-        let values = self.worker.worker().constraints(&self.program.values)?;
-        Ok(self
+        if let Some(conditional) = &self.program.conditional {
+            trial = self.service.evaluate_conditional_unit(
+                conditional,
+                trial,
+                &self.providers,
+                execution,
+                &self.budget,
+            )?;
+        }
+        let values = self.worker.worker().constraints(&trial)?;
+        let outputs: BTreeMap<_, _> = self
             .program
             .outputs
             .iter()
             .map(|(port, row, c)| (*port, values[*row] * c.scale + c.offset))
-            .collect())
+            .collect();
+        if outputs.values().any(|v| !v.is_finite()) {
+            return Err(native::ProblemError::numerical("nonfinite causal output"));
+        }
+        Ok(outputs)
     }
 }
 /// Compiled immutable causal functions and the independently checked selected tear graph.
@@ -152,6 +196,29 @@ impl PreparedRecycle {
     /// Exact causal directions and tear decisions selected by the caller.
     pub fn request(&self) -> &RecycleRequest {
         &self.request
+    }
+    /// Admitted internal scalar-coordinate directions. Aggregate request ports expand
+    /// here through their authoritative state specification, while `request` retains
+    /// the caller's original material-boundary identities.
+    pub fn resolved_units(&self) -> impl Iterator<Item = &CausalUnitRequest> {
+        self.programs.iter().map(|p| &p.declaration)
+    }
+    /// Original local boundaries, compiler matching witnesses and selected root routes,
+    /// inspectable before native iteration begins.
+    pub fn conditional_units(
+        &self,
+    ) -> impl Iterator<
+        Item = (
+            SemanticId,
+            &pse_compiler::workspace::PreparedBlock,
+            native::routing::Route,
+        ),
+    > {
+        self.programs.iter().filter_map(|p| {
+            p.conditional
+                .as_ref()
+                .map(|c| (p.declaration.node, &c.view, c.route()))
+        })
     }
     /// Independent prerequisite-first acyclic witness.
     pub fn order(&self) -> Result<Vec<SemanticId>, WorkflowError> {
@@ -190,6 +257,9 @@ impl PreparedRecycle {
                         output_ids: program.outputs.iter().map(|x| x.0).collect(),
                         program,
                         worker,
+                        service: prepared.runtime.native().clone(),
+                        providers: prepared.providers.clone(),
+                        budget: budget.clone(),
                     };
                     units.insert(unit.id(), Box::new(unit));
                 }
@@ -206,7 +276,7 @@ impl PreparedRecycle {
     }
 }
 impl ModelingPackage {
-    /// Compile explicitly directed units from this revision, retaining physical port conversions.
+    /// Admit explicitly directed units from this revision, retaining physical port conversions.
     pub async fn prepare_recycle(
         &self,
         analysis: &ModelingAnalysis,
@@ -277,13 +347,31 @@ impl ModelingPackage {
         let mut programs = Vec::new();
         let mut all_inputs = BTreeMap::new();
         let mut all_outputs = BTreeSet::new();
-        for unit in &request.units {
+        let units = request
+            .units
+            .iter()
+            .map(|unit| {
+                let model = &resolved.model.model.compiled().model;
+                Ok(CausalUnitRequest {
+                    node: unit.node,
+                    inputs: expand_unit_ports(model, &unit.inputs)
+                        .map_err(|e| unit_preparation_error(unit, &request, e))?,
+                    outputs: expand_unit_ports(model, &unit.outputs)
+                        .map_err(|e| unit_preparation_error(unit, &request, e))?,
+                    realization: unit.realization.clone(),
+                })
+            })
+            .collect::<Result<Vec<_>, WorkflowError>>()?;
+        for unit in &units {
+            let quantity_error = |cause: pse_quantity::QuantityError| {
+                unit_preparation_error(unit, &request, pse_math::MathError::from(cause).into())
+            };
             let node = graph
                 .declaration()
                 .nodes
                 .iter()
                 .find(|n| n.id == unit.node)
-                .ok_or_else(|| contract("unknown causal node"))?;
+                .ok_or_else(|| unit_contract(unit, &request, "unknown causal node"))?;
             let inventory: BTreeSet<_> = unit
                 .inputs
                 .iter()
@@ -296,7 +384,9 @@ impl ModelingPackage {
                     .iter()
                     .any(|p: &UnitProgram| p.declaration.node == unit.node)
             {
-                return Err(contract(
+                return Err(unit_contract(
+                    unit,
+                    &request,
                     "causal direction must cover every port once and every node once",
                 ));
             }
@@ -309,43 +399,101 @@ impl ModelingPackage {
                 .collect();
             let mut inputs = Vec::new();
             let source_ports = &resolved.model.model.compiled().model.ports;
+            let input_program = self
+                .runtime
+                .native()
+                .prepare_modeling_functions(
+                    self.workspace.clone(),
+                    resolved.model.model.clone(),
+                    unit.inputs
+                        .iter()
+                        .map(|p| ModelingOutput::Member(source_ports[p].symbol).row_id())
+                        .collect(),
+                    Vec::new(),
+                    DerivativeOrder::Value,
+                    compiler,
+                    cancel,
+                )
+                .await
+                .map_err(|cause| unit_preparation_error(unit, &request, cause))?;
+            let initial_values = resolved.model.values.clone();
+            let initial_inputs = self
+                .runtime
+                .native()
+                .with_owned_worker(
+                    input_program.clone(),
+                    resolved.providers.clone(),
+                    cancel,
+                    move |mut worker| Ok(worker.constraints(&initial_values)?),
+                )
+                .await
+                .map_err(|cause| unit_preparation_error(unit, &request, cause))?;
             for port in &unit.inputs {
-                let symbol = &source_ports[port].symbol;
-                let bound = symbols
-                    .get(symbol)
-                    .ok_or_else(|| contract("unknown causal input symbol"))?;
-                if source.variables().iter().any(|v| {
-                    v.port.id == *symbol
-                        && (v.lower.is_some() || v.upper.is_some() || v.domain.is_integer())
-                }) {
+                let symbol = source_ports[port].symbol;
+                let (index, row) = input_program
+                    .assembly
+                    .structure()
+                    .rows()
+                    .iter()
+                    .enumerate()
+                    .find(|(_, r)| r.id == ModelingOutput::Member(symbol).row_id())
+                    .ok_or_else(|| {
+                        unit_contract(unit, &request, "unknown causal input observation")
+                    })?;
+                let canonical = q
+                    .quantity_type(row.quantity)
+                    .map_err(&quantity_error)?
+                    .canonical_unit;
+                let bound = symbols.get(&symbol);
+                if bound.is_none() && matches!(unit.realization, CausalUnitRealization::ExplicitMap)
+                {
                     return Err(contract(
-                        "KINSOL fixed point cannot enforce causal input bounds or integrality; request a constrained simultaneous strategy",
+                        "an expression input requires a declared conditional unit boundary",
                     ));
                 }
-                pse_quantity::admission::require_same_contract(
-                    ports[port].quantity,
-                    bound.quantity,
-                    q,
-                )
-                .map_err(crate::workflow::math)?;
+                if source.variables().iter().any(|v| {
+                    v.port.id == symbol
+                        && (v.lower.is_some() || v.upper.is_some() || v.domain.is_integer())
+                }) {
+                    return Err(unit_preparation_error(
+                        unit,
+                        &request,
+                        native::ProblemError::Unsupported("KINSOL fixed point cannot enforce causal input bounds or integrality; request a constrained simultaneous strategy".into()).into(),
+                    ));
+                }
+                let quantity = bound.map_or(row.quantity, |b| b.quantity);
+                let unit_id = bound.map_or(canonical, |b| b.unit);
+                pse_quantity::admission::require_same_contract(ports[port].quantity, quantity, q)
+                    .map_err(&quantity_error)?;
                 let conversion = pse_quantity::convert_spec_for_type(
-                    q.unit(ports[port].unit).map_err(crate::workflow::math)?,
-                    q.unit(bound.unit).map_err(crate::workflow::math)?,
-                    &q.quantity_type(bound.quantity)
-                        .map_err(crate::workflow::math)?
-                        .key,
+                    q.unit(ports[port].unit).map_err(&quantity_error)?,
+                    q.unit(unit_id).map_err(&quantity_error)?,
+                    &q.quantity_type(quantity).map_err(&quantity_error)?.key,
                 )
-                .map_err(crate::workflow::math)?;
-                inputs.push((*port, *symbol, conversion));
+                .map_err(&quantity_error)?;
+                inputs.push((
+                    *port,
+                    if bound.is_some() {
+                        symbol
+                    } else {
+                        pse_ids::named_id(symbol, "conditional-boundary-value")
+                    },
+                    conversion,
+                ));
+                let to_port = pse_quantity::convert_spec_for_type(
+                    q.unit(canonical).map_err(&quantity_error)?,
+                    q.unit(ports[port].unit).map_err(&quantity_error)?,
+                    &q.quantity_type(row.quantity).map_err(&quantity_error)?.key,
+                )
+                .map_err(&quantity_error)?;
                 if all_inputs
                     .insert(
                         *port,
-                        (resolved.model.values.scalars[symbol] - conversion.offset)
-                            / conversion.scale,
+                        initial_inputs[index] * to_port.scale + to_port.offset,
                     )
                     .is_some()
                 {
-                    return Err(contract("duplicate causal input port"));
+                    return Err(unit_contract(unit, &request, "duplicate causal input port"));
                 }
             }
             let outputs: Vec<_> = unit
@@ -353,7 +501,44 @@ impl ModelingPackage {
                 .iter()
                 .map(|port| ModelingOutput::Member(source_ports[port].symbol).row_id())
                 .collect();
-            let coordinates = unit.inputs.iter().map(|p| source_ports[p].symbol).collect();
+            let declared: BTreeSet<_> =
+                unit.inputs.iter().map(|p| source_ports[p].symbol).collect();
+            let required: BTreeSet<_> = unit
+                .outputs
+                .iter()
+                .map(|p| source_ports[p].symbol)
+                .collect();
+            let conditional = match &unit.realization {
+                CausalUnitRealization::ExplicitMap => None,
+                CausalUnitRealization::Conditional {
+                    residuals,
+                    unknowns,
+                    solver,
+                } => Some(
+                    self.runtime
+                        .native()
+                        .prepare_conditional_unit(
+                            self.workspace.clone(),
+                            resolved.model.model.clone(),
+                            resolved.model.case.clone(),
+                            unit.node,
+                            self.quantities.clone(),
+                            declared.clone(),
+                            required,
+                            residuals.clone(),
+                            unknowns.clone(),
+                            compiler,
+                            solver
+                                .clone()
+                                .profile()
+                                .map_err(|cause| conditional_admission(unit, &request, cause))?,
+                            resolved.numerics.clone(),
+                            cancel,
+                        )
+                        .await
+                        .map_err(|cause| conditional_admission(unit, &request, cause))?,
+                ),
+            };
             let program = self
                 .runtime
                 .native()
@@ -361,28 +546,31 @@ impl ModelingPackage {
                     self.workspace.clone(),
                     resolved.model.model.clone(),
                     outputs,
-                    coordinates,
-                    DerivativeOrder::First,
+                    Vec::new(),
+                    DerivativeOrder::Value,
                     compiler,
                     cancel,
                 )
-                .await?;
+                .await
+                .map_err(|cause| unit_preparation_error(unit, &request, cause))?;
             // Every free dependency of each explicit function must be a declared input.
-            let declared: BTreeSet<_> =
-                unit.inputs.iter().map(|p| source_ports[p].symbol).collect();
             let free: BTreeSet<_> = source
                 .variables()
                 .iter()
                 .filter(|v| !v.fixed)
                 .map(|v| v.port.id)
                 .collect();
-            if program
-                .assembly
-                .structure()
-                .instances()
-                .iter()
-                .flat_map(|i| &i.slots)
-                .any(|s| free.contains(&s.source()) && !declared.contains(&s.source()))
+            if conditional.is_none()
+                && program.assembly.structure().instances().iter().any(|i| {
+                    i.contributions.iter().any(|c| {
+                        program.assembly.bodies()[&i.body].support().first[c.output]
+                            .iter()
+                            .any(|slot| {
+                                let id = i.slots[*slot].source();
+                                free.contains(&id) && !declared.contains(&id)
+                            })
+                    })
+                })
             {
                 return Err(contract(
                     "causal function depends on an undeclared free input",
@@ -398,25 +586,25 @@ impl ModelingPackage {
                     .iter()
                     .enumerate()
                     .find(|(_, r)| r.id == ModelingOutput::Member(row).row_id())
-                    .ok_or_else(|| contract("unknown causal output row"))?;
+                    .ok_or_else(|| unit_contract(unit, &request, "unknown causal output row"))?;
                 pse_quantity::admission::require_same_contract(
                     source_row.quantity,
                     ports[port].quantity,
                     q,
                 )
-                .map_err(crate::workflow::math)?;
+                .map_err(&quantity_error)?;
                 let canonical = q
                     .quantity_type(source_row.quantity)
-                    .map_err(crate::workflow::math)?
+                    .map_err(&quantity_error)?
                     .canonical_unit;
                 let conversion = pse_quantity::convert_spec_for_type(
-                    q.unit(canonical).map_err(crate::workflow::math)?,
-                    q.unit(ports[port].unit).map_err(crate::workflow::math)?,
+                    q.unit(canonical).map_err(&quantity_error)?,
+                    q.unit(ports[port].unit).map_err(&quantity_error)?,
                     &q.quantity_type(source_row.quantity)
-                        .map_err(crate::workflow::math)?
+                        .map_err(&quantity_error)?
                         .key,
                 )
-                .map_err(crate::workflow::math)?;
+                .map_err(&quantity_error)?;
                 mapped.push((*port, index, conversion));
                 all_outputs.insert(*port);
             }
@@ -426,6 +614,7 @@ impl ModelingPackage {
                 values: resolved.model.values.clone(),
                 inputs,
                 outputs: mapped,
+                conditional,
             });
         }
         if programs.len() != graph.declaration().nodes.len() {
@@ -477,6 +666,37 @@ impl ModelingPackage {
             derivatives: DerivativeOrder::Value,
             smoothness: DerivativeOrder::Value,
         };
+        let mut projection_source = resolved.numerics.as_ref().clone();
+        let missing: BTreeMap<_, _> = tears
+            .iter()
+            .filter_map(|p| {
+                let symbol = resolved.model.model.compiled().model.ports[p].symbol;
+                (!projection_source.targets.iter().any(|t| t.id == symbol)).then_some((
+                    symbol,
+                    pse_math::numerics::TargetSpec {
+                        id: symbol,
+                        kind: pse_model::generated::enums::NumericalTarget::Observable,
+                        quantity: ports[p].quantity,
+                        unit: ports[p].unit,
+                        integer: false,
+                        declared_tolerance: None,
+                    },
+                ))
+            })
+            .collect();
+        if !missing.is_empty() {
+            let additional = pse_math::numerics::resolve(
+                q,
+                &missing.into_values().collect::<Vec<_>>(),
+                &[],
+                &projection_source.policy,
+            )
+            .map_err(crate::workflow::math)?;
+            projection_source.targets.extend(additional.targets);
+            let mut h = FramedHasher::new(pse_ids::Frame::NumericalProjectionV1);
+            h.hash(&projection_source.key).hash(&additional.key);
+            projection_source.key = h.finish_hash();
+        }
         let targets: Vec<_> = tears
             .iter()
             .zip(&contract.rows)
@@ -487,7 +707,14 @@ impl ModelingPackage {
                 ]
                 .map(|(kind, id)| pse_math::numerics::TargetProjection {
                     source: resolved.model.model.compiled().model.ports[p].symbol,
-                    source_kind: pse_model::generated::enums::NumericalTarget::Variable,
+                    source_kind: if projection_source.targets.iter().any(|t| {
+                        t.id == resolved.model.model.compiled().model.ports[p].symbol
+                            && t.kind == pse_model::generated::enums::NumericalTarget::Variable
+                    }) {
+                        pse_model::generated::enums::NumericalTarget::Variable
+                    } else {
+                        pse_model::generated::enums::NumericalTarget::Observable
+                    },
                     target: pse_math::numerics::TargetSpec {
                         id,
                         kind,
@@ -500,7 +727,7 @@ impl ModelingPackage {
             })
             .collect();
         let numerics = Arc::new(
-            pse_math::numerics::project(q, &resolved.numerics, &targets)
+            pse_math::numerics::project(q, &projection_source, &targets)
                 .map_err(crate::workflow::math)?,
         );
         let ids: Vec<_> = tears.into_iter().collect();
@@ -543,5 +770,124 @@ impl ModelingPackage {
             tolerances,
             numerics,
         })
+    }
+}
+
+fn expand_unit_ports(
+    model: &pse_modeling::SpecializedModel,
+    requested: &BTreeSet<SemanticId>,
+) -> Result<BTreeSet<SemanticId>, MathRuntimeError> {
+    let mut coordinates = BTreeSet::new();
+    for id in requested {
+        if let Some(port) = model.material_ports.get(id) {
+            if port.coordinates.is_empty()
+                || port.coordinates.values().any(|p| !coordinates.insert(*p))
+            {
+                return Err(pse_math::MathError::Contract(
+                    "causal material-boundary inventory has empty or overlapping independent coordinates".into(),
+                ).into());
+            }
+        } else if !model.ports.contains_key(id) || !coordinates.insert(*id) {
+            return Err(pse_math::MathError::Contract(
+                "causal unit names an unknown or overlapping boundary coordinate".into(),
+            )
+            .into());
+        }
+    }
+    Ok(coordinates)
+}
+
+#[cfg(test)]
+pub(in crate::workflow) mod reference_fixture;
+#[cfg(test)]
+mod tests;
+
+/// The execution boundary supplies identities; callers never parse formatted IDs
+/// from the compiler or adapter's message to recover a selected-unit witness.
+fn conditional_admission(
+    unit: &CausalUnitRequest,
+    request: &RecycleRequest,
+    cause: MathRuntimeError,
+) -> WorkflowError {
+    use pse_model::diagnostic::{BoundaryClass as C, Observation};
+    let mut diagnostic =
+        crate::workflow::diagnostics::observed(&cause, "modeling.conditional_unit.admission");
+    if matches!(
+        cause,
+        MathRuntimeError::Compile(pse_compiler::workspace::CompileError::Missing(_))
+    ) {
+        diagnostic.class = C::InvalidModel;
+    }
+    diagnostic.stage = "modeling.conditional_unit.admission".into();
+    diagnostic.rule = match diagnostic.class {
+        C::InvalidModel => "modeling.conditional_unit.admission.invalid_model",
+        C::Unsupported => "modeling.conditional_unit.admission.unsupported",
+        C::Cancelled => "modeling.conditional_unit.admission.cancelled",
+        C::ResourceLimit => "modeling.conditional_unit.admission.resource_limit",
+        C::TrialRejected => "modeling.conditional_unit.admission.trial_rejected",
+        C::Nonfinite => "modeling.conditional_unit.admission.nonfinite",
+        C::Infrastructure => "modeling.conditional_unit.admission.infrastructure",
+        C::Conflict => "modeling.conditional_unit.admission.conflict",
+        C::Incompatible => "modeling.conditional_unit.admission.incompatible",
+        C::Internal => "modeling.conditional_unit.admission.internal",
+        C::Numerical => "modeling.conditional_unit.admission.numerical",
+        C::Inconclusive => "modeling.conditional_unit.admission.inconclusive",
+    }
+    .into();
+    diagnostic.sources.push(unit.node);
+    diagnostic
+        .sources
+        .extend(unit.inputs.iter().chain(&unit.outputs).copied());
+    if let Some(public) = request.units.iter().find(|u| u.node == unit.node) {
+        diagnostic
+            .sources
+            .extend(public.inputs.iter().chain(&public.outputs).copied());
+    }
+    if let CausalUnitRealization::Conditional {
+        residuals,
+        unknowns,
+        ..
+    } = &unit.realization
+    {
+        diagnostic
+            .sources
+            .extend(residuals.iter().chain(unknowns).copied());
+    }
+    diagnostic.sources.sort_unstable();
+    diagnostic.sources.dedup();
+    diagnostic
+        .observations
+        .insert("cause".into(), Observation::Text(cause.to_string()));
+    WorkflowError::ConditionalAdmission {
+        diagnostic: Box::new(diagnostic),
+        cause,
+    }
+}
+
+fn unit_preparation_error(
+    unit: &CausalUnitRequest,
+    request: &RecycleRequest,
+    cause: MathRuntimeError,
+) -> WorkflowError {
+    if matches!(unit.realization, CausalUnitRealization::Conditional { .. }) {
+        conditional_admission(unit, request, cause)
+    } else {
+        cause.into()
+    }
+}
+
+fn unit_contract(
+    unit: &CausalUnitRequest,
+    request: &RecycleRequest,
+    message: &str,
+) -> WorkflowError {
+    if matches!(unit.realization, CausalUnitRealization::Conditional { .. }) {
+        conditional_admission(
+            unit,
+            request,
+            MathRuntimeError::Math(pse_math::MathError::Contract(message.into())),
+        )
+    } else {
+        contract(message)
     }
 }
