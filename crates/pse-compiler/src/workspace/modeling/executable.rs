@@ -438,11 +438,6 @@ fn projection(
         declarations: Vec::new(),
         implicit: Vec::new(),
     };
-    for f in p.functions.values_mut() {
-        if let Some(body) = &mut f.body {
-            body.strip_spans();
-        }
-    }
     let mut graph = DiGraph::<SemanticId, ()>::new();
     let nodes = model
         .symbols

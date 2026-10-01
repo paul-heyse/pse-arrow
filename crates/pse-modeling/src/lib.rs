@@ -553,7 +553,7 @@ pub(crate) fn invalid(id: impl Into<SemanticId>, message: impl Into<String>) -> 
 mod kernel_types;
 
 #[cfg(test)]
-mod kernel_chains;
+mod caloric_contract_tests;
 
 #[cfg(test)]
 mod domain_schema;

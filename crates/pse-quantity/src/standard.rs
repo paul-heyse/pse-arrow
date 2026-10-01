@@ -179,6 +179,17 @@ mod tests {
             total.result.require_named().unwrap(),
             quantity("TotalAmount")
         );
+        for (density, amount) in [("Density", "TotalAmount"), ("MolarDensity", "Amount")] {
+            let product = infer_operation(
+                &OpRequest::Mul,
+                &[resolved("Volume"), resolved(density)],
+                None,
+                &registry,
+                &StandardInvariantChecker,
+            )
+            .unwrap();
+            assert_eq!(product.result.require_named().unwrap(), quantity(amount));
+        }
     }
 
     #[test]

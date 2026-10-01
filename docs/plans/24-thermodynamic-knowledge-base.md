@@ -3,7 +3,7 @@ title: Thermodynamic knowledge base — target domain model, source procurement 
 status: in-progress
 date: 2026-09-30
 adrs: []
-review_sources: [docs/design_review/reviews/design_review_thermo-knowledge-core_2026-09-30.md]
+review_sources: [docs/design_review/reviews/design_review_thermo-knowledge-core_2026-09-30.md, docs/design_review/reviews/design_review_thermo-knowledge-code_2026-09-30.md]
 scenario_sources: []
 ---
 
@@ -292,13 +292,15 @@ construct that does not render to valid `.pse`, with the hard case that needs it
 | `tk-resolve` | identity assertions to resolutions | rule-derived matches recomputed; curated decisions read from `identity/`; ambiguity preserved |
 | `tk-map` | `src_<id>` and mapping spec to `.store/canonical/*.parquet` | each mapping states what it preserves, loses and assumes; unit conversion is a recorded transformation |
 | `tk-build` | DDL and canonical Parquet to a fresh database, then swap | the database is a derived artifact rebuilt from lock, declaration and mappings; no migrations; schema fingerprint recorded |
-| `tk-verify` | database to reports | constraints, semantic invariants, round trips, cross-source agreement |
+| `tk-verify` | database to reports | constraints, semantic invariants, round trips; cross-carrier identity agreement is not checked yet (code review C04, [24a ID1](24a-knowledge-base-code-remediation.md#id1)) |
 | `tk-qualify` | forms and oracle harnesses to qualification records | differential evaluation within declared envelopes and tolerances |
 | `tk-project` | database to `.pse` rendering, snapshot export, coverage and gap reports | read-only projections |
 
-Reuse is keyed on the inputs of each stage: resolved pin, reader version, declaration
-fingerprint, mapping version. The keys do not yet cover provider versions, framework code,
-harness scripts or environment locks (core review F08).
+Reuse is keyed on the inputs of each stage by one key builder (`thermo-knowledge/docs/pipeline.md`
+section 6), covering framework code, provider versions, harness scripts and environment locks
+(core review F08). Two inputs are still missing: the source manifest that supplies a carrier's
+rights, and the resolution a source's records were mapped against, which the build does not
+check (code review C11, C02; [24a ST1](24a-knowledge-base-code-remediation.md#st1)).
 
 | Schema | Holds |
 |---|---|
@@ -381,6 +383,7 @@ report, and adds that wave's libraries to the capability inventory.
 | W6 | evidence at scale: ThermoML, ISODB, scoped WebBook | same | none | not started |
 | W7 | transport and reaction kinetics | same | none | not started |
 | W8 | petroleum characterisation, polymers, adsorption models, interfaces, liquid-state theory | form inventory complete; residue explained | none | not started |
+| 24a Code remediation | the code review's findings C01–C22: corpus-checked identity, one stage lifecycle, qualification readiness, typed causes, mapping operations, meta-model closed types, the set read model, bounded resources; packets interleave with W1–W6 as [24a sequencing](24a-knowledge-base-code-remediation.md#sequencing) states. Depends on the code review | each packet's targeted tests; QF | the mechanisms each packet names | lifecycle and packet progress in [24a](24a-knowledge-base-code-remediation.md#packets) |
 | TK9 Consolidate and qualify | clean rebuild from the lock; coverage, kernel-gap and schema-delta reports; snapshot export reproducing the repository's current seed; formatting, lint and the full check set; final design review | the checks under Verification | none | not started |
 
 ## Finding dispositions
@@ -389,27 +392,49 @@ This table owns adopted finding status; link packet evidence instead of copying 
 
 | Finding reference | Scenario reference | Disposition | Decision / work owner | Evidence or revisit trigger |
 |---|---|---|---|---|
-| core review F01: a stale qualification pass can be loaded by the build | S08 | resolved | TK2c | Tested: the currency tests of `tests/test_build.py` and `tests/test_qualify_run.py` (a changed slot value, family row or envelope bound skips the stored run; an unchanged rebuild keeps it); suite run by the coordinator, `just -f thermo-knowledge/justfile tk-test`, 1727 passed, 2026-09-30 |
+| core review F01: a stale qualification pass can be loaded by the build | S08 | resolved | TK2c | Tested: the currency tests of `tests/test_build.py` and `tests/test_qualify_run.py` (a changed slot value, family row or envelope bound skips the stored run; an unchanged rebuild keeps it); suite run by the coordinator, `just -f thermo-knowledge/justfile tk-test`, 1727 passed, 2026-09-30. Continued by code review C05: the currency read set misses redirect targets, policy defaults and constituent positions ([24a MM2](24a-knowledge-base-code-remediation.md#mm2)) |
 | core review F02: a parameter set shared by several parents cannot be represented | S06, C1, C2 | resolved | TK2b: a slot that references an independently identified set by contract; a named model component as its subject; a per-subject sub-form choice | Tested: `tests/test_shared_sets.py` (a departure set referenced by three pair sets and evaluated through each; a named temperature function referenced from two family rows); suite run by the coordinator, `just -f thermo-knowledge/justfile tk-test`, 1531 passed, 2026-09-30 |
 | core review F03: canonical orientation rewrites asserted values | S07, C1, C2 | resolved | TK2b: values are stored as asserted with an orientation state, and the rule is applied on reading; a constituent array keeps its asserted order as part of its identity | Tested: `tests/test_orientation_as_asserted.py` (stored values unchanged; bitwise read-back in the asserted orientation; exchanged identifiers flip only the arrangement); suite run by the coordinator, `just -f thermo-knowledge/justfile tk-test`, 1531 passed, 2026-09-30 |
 | core review F04: resolution yields only species | C0 | resolved | TK2c: a scope declares the class of its entities and each class has its rules | Tested: `tests/test_resolve_classes.py`, `tests/test_mapping_classes.py`. Measured on the built database: Air, R404A, R407C, R410A and R507A are unique defined mixtures by composition; SES36 is a provisional defined mixture (its source gives no composition); no pseudo-pure fluid is a species; suite run by the coordinator, `just -f thermo-knowledge/justfile tk-test`, 1727 passed, 2026-09-30 |
 | core review F05: standard states keyed by aggregation | C3 | resolved | TK2b: standard states keyed by the role a member plays in its chemical system | Tested: `tests/test_standard_states.py` (solvent and solute standard states in one convention set); suite run by the coordinator, `just -f thermo-knowledge/justfile tk-test`, 1531 passed, 2026-09-30 |
 | core review F06: conventions bind nothing and repeat facts | — | resolved | TK2b: a form declares the convention facts it reads and reads them from the convention set; one home per fact; verify requires them; the evaluator refuses to combine differing convention sets | Tested: `tests/test_conventions.py` (a parameterization without a gas constant fails verify and evaluation; differing gas constants refused); suite run by the coordinator, `just -f thermo-knowledge/justfile tk-test`, 1531 passed, 2026-09-30 |
 | core review F07: a known zero of an absolute quantity is refused | — | resolved | TK2b: `absolute` means non-negative | Tested: `tests/test_requirements.py` (zero accepted, negative refused); suite run by the coordinator, `just -f thermo-knowledge/justfile tk-test`, 1531 passed, 2026-09-30 |
-| core review F08: reuse keys are incomplete | S09 | resolved | TK2c: one key builder for all stages covering framework code, provider versions, harness scripts and environment locks | Tested: `tests/test_reuse.py` (a provider version, a framework file, an oracle script or a lock change marks the dependent stage stale); suite run by the coordinator, `just -f thermo-knowledge/justfile tk-test`, 1727 passed, 2026-09-30 |
+| core review F08: reuse keys are incomplete | S09 | resolved | TK2c: one key builder for all stages covering framework code, provider versions, harness scripts and environment locks | Tested: `tests/test_reuse.py` (a provider version, a framework file, an oracle script or a lock change marks the dependent stage stale); suite run by the coordinator, `just -f thermo-knowledge/justfile tk-test`, 1727 passed, 2026-09-30. Continued by code review C11: the map key omits the source manifest ([24a ST1](24a-knowledge-base-code-remediation.md#st1)) |
 | core review F09: the envelope is narrower than the sources and binds nothing | — | resolved | TK2d: validity regions made of clauses on any record, with a coverage state; contract arguments name their observable; the evaluator reports inside or outside | Tested: `tests/test_validity_regions.py` (a two-clause region and a component clause load and verify; union of regions; inside, outside, undetermined and not-stated reported; points beyond the range recorded as outside under `compare` and excluded under `exclude`). Measured: the CoolProp case records 3,075 points inside its fitted ranges; suite run by the coordinator, `just -f thermo-knowledge/justfile tk-test`, 1783 passed, 2026-09-30 |
 | core review F10: relations cannot declare invariants | S04 | resolved | TK2b: `requires` on relations; each stated rule becomes a declared requirement or is removed | Tested: `tests/test_requirements.py`, `tests/test_verify.py` (relation requirements at all three enforcement points); suite run by the coordinator, `just -f thermo-knowledge/justfile tk-test`, 1531 passed, 2026-09-30 |
-| core review F11: the declaration-to-code shape contract is undeclared | S03 | resolved | TK2b: a declared pipeline contract the loader checks | Tested: `tests/test_pipeline_contract.py` (a renamed contract attribute is refused at load); suite run by the coordinator, `just -f thermo-knowledge/justfile tk-test`, 1531 passed, 2026-09-30 |
+| core review F11: the declaration-to-code shape contract is undeclared | S03 | resolved | TK2b: a declared pipeline contract the loader checks | Tested: `tests/test_pipeline_contract.py` (a renamed contract attribute is refused at load); suite run by the coordinator, `just -f thermo-knowledge/justfile tk-test`, 1531 passed, 2026-09-30. Continued by code review C17: framework roles and the pipeline contract are not reconciled ([24a MM2](24a-knowledge-base-code-remediation.md#mm2)) |
 | core review F12: typed holes in physical semantics | — | resolved | TK2b: covariance as typed standard uncertainties and a correlation relation; a contract argument's basis is a declared composition basis, compared at calls; the dimension-only check is a stated limit | Tested: `tests/test_fit_uncertainty.py`, the expression check tests (basis mismatch at a call refused); suite run by the coordinator, `just -f thermo-knowledge/justfile tk-test`, 1531 passed, 2026-09-30 |
 | core review F13: evidence uncertainty is single and one-sided | C5 | resolved | TK2d: uncertainty assessments as a child relation with two-sided magnitudes; censoring has a side; reference-state presentation on columns | Tested: `tests/test_evidence_uncertainty.py` (a value with a standard, an expanded and a repeatability uncertainty loads as three typed rows; asymmetric and censored values; a constraint's uncertainty); suite run by the coordinator, `just -f thermo-knowledge/justfile tk-test`, 1783 passed, 2026-09-30 |
 | core review F14: survey losses are not dispositioned | — | resolved | TK2e: every surveyed construct with a stated loss has one disposition, generated into the residue report; the model changes they require are scheduled as alignment items and packets TK2f and TK2g | Tested: `tests/test_survey_loader.py`, `test_survey_dispositions.py`, `test_survey_report.py`, `test_survey_real.py` (120 passed, `just -f thermo-knowledge/justfile tk-test`). Measured: `tk survey --report --strict` exits 0 with 945 of 945 constructs dispositioned (65 model change, all scheduled; 621 mapping loss; 80 out of scope; 179 held by the model), 2026-09-30 |
-| core review F15: role obligations are prose and a SQL list | — | resolved | TK2b: enum members carry declared facets that checks read | Tested: `tests/test_requirements.py` (a new member with a facet is checked with no SQL change); suite run by the coordinator, `just -f thermo-knowledge/justfile tk-test`, 1531 passed, 2026-09-30 |
+| core review F15: role obligations are prose and a SQL list | — | resolved | TK2b: enum members carry declared facets that checks read | Tested: `tests/test_requirements.py` (a new member with a facet is checked with no SQL change); suite run by the coordinator, `just -f thermo-knowledge/justfile tk-test`, 1531 passed, 2026-09-30. Continued by code review C05: value-state member names are still literals in three modules ([24a MM2](24a-knowledge-base-code-remediation.md#mm2)) |
 | core review F16: identity text without a tying invariant | C3, C6 | resolved | TK2b (tying requirements, declared canonical encodings with exact rational coefficients); TK2c (publications resolved across carriers) | Tested: `tests/test_requirements.py` (tied keys), `tests/test_publications.py` (two carriers citing one DOI yield one publication); suite run by the coordinator, `just -f thermo-knowledge/justfile tk-test`, 1727 passed, 2026-09-30 |
-| core review F17: reasons are prose | — | resolved | TK2c: typed reasons for held rows and blocked runs | Tested: the typed-reason assertions in `tests/test_mapping.py` and `tests/test_qualify_run.py`; suite run by the coordinator, `just -f thermo-knowledge/justfile tk-test`, 1727 passed, 2026-09-30 |
+| core review F17: reasons are prose | — | resolved | TK2c: typed reasons for held rows and blocked runs | Tested: the typed-reason assertions in `tests/test_mapping.py` and `tests/test_qualify_run.py`; suite run by the coordinator, `just -f thermo-knowledge/justfile tk-test`, 1727 passed, 2026-09-30. Continued by code review C07: held reasons drift from their declared meanings ([24a DX1](24a-knowledge-base-code-remediation.md#dx1)) |
 | core review F18: field rules are not proven applied | — | resolved | TK2c: rule use is counted and an unused value rule is reported | Tested: `tests/test_rule_use.py` (a mapping that stops emitting a declared target is refused); suite run by the coordinator, `just -f thermo-knowledge/justfile tk-test`, 1727 passed, 2026-09-30 |
 | core review F19: library consideration is not recorded | — | resolved | TK2c, with F08: the reasons for the bespoke declaration language, stage reuse and acquisition are recorded in their contract pages | Implemented: the notes in `thermo-knowledge/docs/meta-model.md`, `pipeline.md` section 6 and `acquisition.md`, and the comment in `expression/implicit.py` |
 | core review F20: non-numeric slots cannot be evaluated | S02 | deferred | decision: a form whose mathematics needs a tabulated, enumerated or reference-valued slot stays `structure_declared_equation_external`; an interpolation construct is added when the first form is blocked only by it | trigger: a surveyed form whose only obstacle to `expressed` is a tabulated slot. Candidate: `cosmosac_2010` (HC2) is catalogued because an expression cannot read the profile's series; W3 decides whether that is its only obstacle |
 | core review F21: adoption is not yet a projection | — | scheduled | TK9: the production reference packages are read as a carrier so production entities resolve by the ordinary rules; the snapshot contract states how envelopes and convention sets render; gap marks applied | the seed-slice export equals the shipped seed values with production identifiers |
+| code review C01: the formula-scope rule joins different substances across carriers | R1 | scheduled | [24a ID1](24a-knowledge-base-code-remediation.md#id1): listing condition, corpus link, conventional join | C2H4O isomers not joined; one water species; RS1 change diff explains every change |
+| code review C02: the build omits the resolution edge; stage currency is copied per stage | R7 | scheduled | [24a ST1](24a-knowledge-base-code-remediation.md#st1) | the build refuses records mapped against a superseded resolution and names the source |
+| code review C03: a derived identity rule is stored as curated, positional rejects | R7 | scheduled | [24a ID1](24a-knowledge-base-code-remediation.md#id1) | `identity/decisions.toml` holds only human decisions; a Cantera reorder leaves keys and resolution identical |
+| code review C04: nothing checks identity agreement across carriers | — | scheduled | [24a ID1](24a-knowledge-base-code-remediation.md#id1) | verify check `species.formula_duplicates_structure` at zero; listing-collision and multi-carrier reports |
+| code review C05: the stored parameter-set read model has no owner | R5, R9 | scheduled | [24a MM2](24a-knowledge-base-code-remediation.md#mm2) | one owner of derived names; a redirect-target change retires a run; `withheld` and `not_applicable` stay distinct |
+| code review C06: check-rule forms have no single behavioural owner | R4 | scheduled | [24a MM1](24a-knowledge-base-code-remediation.md#mm1) | one case table drives the Python and PostgreSQL tests; a dummy variant fails type checking in both renderers |
+| code review C07: no typed cause model below the declaration | — | scheduled | [24a DX1](24a-knowledge-base-code-remediation.md#dx1), [24a DX2](24a-knowledge-base-code-remediation.md#dx2) | residue grouped by (reason, rule) without detail text; stage refusals carry codes; tests assert codes |
+| code review C08: form-level operations are written per mapping | R1, R2 | scheduled | [24a EM](24a-knowledge-base-code-remediation.md#em) | canonical Parquet byte-identical after the change; a Shomate mapping states its unit convention once |
+| code review C09: mapping memory and deferred foreign-key validation are unbounded | R2 | scheduled | [24a BD1](24a-knowledge-base-code-remediation.md#bd1), [24a BD2](24a-knowledge-base-code-remediation.md#bd2) | JANAF mapping memory flat at ten times its size; build time and memory of both foreign-key variants measured |
+| code review C10: the qualification library key assumes one source entity per subject | R8 | scheduled | [24a QL1](24a-knowledge-base-code-remediation.md#ql1) | a gri30 case selects H2O and the harness receives (file, name) |
+| code review C11: the map reuse key omits the source manifest | — | scheduled | [24a ST1](24a-knowledge-base-code-remediation.md#st1) | a rights edit re-runs phase 1 |
+| code review C12: qualification grids drop relative validity bounds | R10 | scheduled | [24a QL1](24a-knowledge-base-code-remediation.md#ql1) | pure policy tests; a relative clause is resolved or blocked with `no_grid` |
+| code review C13: quadrature status is discarded | — | scheduled | [24a QL2](24a-knowledge-base-code-remediation.md#ql2) | an unresolvable integrand is refused naming the form and point |
+| code review C14: no type checker runs on the tree | — | scheduled | [24a TY](24a-knowledge-base-code-remediation.md#ty) | `tk-types` exits 0 over src, tests, mappings and oracles |
+| code review C15: recurring set-level invariants are copied SQL | R4 | scheduled | [24a VF](24a-knowledge-base-code-remediation.md#vf) | set-level forms generate their verify SQL |
+| code review C16: `Field` conflates column and contract parameters | — | scheduled | [24a MM2](24a-knowledge-base-code-remediation.md#mm2) | contract parameters are a separate record |
+| code review C17: framework roles and the pipeline contract are not reconciled | — | scheduled | [24a MM2](24a-knowledge-base-code-remediation.md#mm2) | a role bound to another kind is refused at load |
+| code review C18: the DDL IR keeps constraint bodies as text | — | scheduled | [24a MM1](24a-knowledge-base-code-remediation.md#mm1) | primary keys read from the IR; no regex |
+| code review C19: per-class resolution facets are scattered | R3 | scheduled | [24a ID2](24a-knowledge-base-code-remediation.md#id2) | a class is added through one table entry |
+| code review C20: disagreeing structural identifiers make an entity ambiguous | — | deferred | decision [24a DC20](24a-knowledge-base-code-remediation.md#dc20) | trigger: chemicals resolved as a carrier in W1-M2a, with the in-source and cross-source ambiguity counts from ID1's report |
+| code review C21: verify SQL binds vocabulary through text literals | R9 | scheduled | [24a VF](24a-knowledge-base-code-remediation.md#vf) | an undeclared enum or facet name raises in `meta.member()` |
+| code review C22: ambient defaults, no database marker, repeated fingerprint | — | scheduled | [24a ST2](24a-knowledge-base-code-remediation.md#st2) | the harness runs in the injected tree; no `config` fallback in library code |
 
 ## Verification
 
@@ -454,15 +479,21 @@ recipe in `thermo-knowledge/justfile`:
 - Formula-scope identity (found by W1-M1): the formula-scope rule joins species across sources by
   formula, charge and aggregation. 1,478 curated rejects in `identity/decisions.toml` cover formulas
   a source itself lists several species under, but a formula that two sources each use for a single,
-  different isomer is joined unchecked. When M2a brings chemicals' structural identifiers, restrict the
-  formula-scope rule to formulas with one known structure and re-resolve.
+  different isomer is joined unchecked. The code review measured the consequence (C01: JANAF oxirane
+  and Cantera acetaldehyde are one species form; water exists twice). The fix no longer waits for
+  M2a: [24a ID1](24a-knowledge-base-code-remediation.md#id1) replaces the rule with a listing condition, a link through
+  chemicals' staged structure table and a narrowed conventional join, before the W1-M1 equivalence
+  assessments.
 - Electrons stay provisional in Cantera, NASA CEA and JANAF: an identity assertion cannot carry an
-  empty formula.
+  empty formula. [24a ID1](24a-knowledge-base-code-remediation.md#id1) gives the electron a declared conventional key or a
+  curated decision.
 - W1-M1 held rows that need a decision before W1 closes: Cantera 1,463 rows for missing conventions
   (condensed phases no phase includes; phases that state no aggregation) and 1,070 unknown subjects;
   JANAF 862 missing-convention rows (13 reference-form tables with no single phase, the electron table)
   and 66 pattern mismatches (fused numbers); CEA 53, 80 and 34 (propellant names without a phase
-  suffix, element placeholders, 11 records whose first interval the source writes reversed).
+  suffix, element placeholders, 11 records whose first interval the source writes reversed). Most
+  missing-convention rows are other causes under that reason (code review C07); decide them after
+  [24a DX1](24a-knowledge-base-code-remediation.md#dx1) splits the reasons.
 - Left by HC1: slots have no integer type, so term exponents (IF97 I and J, Helmholtz d and l) are
   held as `Scalar`; whether an integral exponent is a declared slot type or a check is decided in W2.
 - Left by HC3: `position(t, s)` refuses a species that one array places on more than one site class
@@ -519,7 +550,8 @@ above owns packet status; this section summarises what exists and what remains.
   JANAF through identity, resolution, records, build and verify: 2,578 NASA-7, 22 NASA-9, 11 Shomate, 25 constant-cp and 4 piecewise-Gibbs sets from Cantera;
   2,035 NASA-9 and 37 assigned-enthalpy sets from CEA; the 2,073 JANAF tables as evaluated datasets
   (84,507 points). No staged row is unexplained (held rows carry typed reasons, listed in Open
-  items), `tk verify` passes all 80 checks, and these forms are not yet qualified.
+  items), though 65 % of them sit under a reason whose declared meaning is not their cause (code
+  review C07); `tk verify` passes all 80 checks, and these forms are not yet qualified.
 - **Tests.** The tree's suite last ran whole at 2,665 passed after W1-M0 (`just -f
   thermo-knowledge/justfile tk-test`); W1-M1 ran its targeted tests (92 passed at the checkpoint:
   the three mapping test files, the framework, identity-decision, resolution and CoolProp mapping
@@ -527,19 +559,23 @@ above owns packet status; this section summarises what exists and what remains.
 
 ### Remaining
 
-In dependency order:
+In dependency order. The [24a placement table](24a-knowledge-base-code-remediation.md#sequencing) says which remediation
+packets land before each step: TY, ID1, QL1 and ST1 before the W1-M1 equivalence assessments,
+QL1 and QL2 before its qualification cases, DX1 before its held-row decisions.
 
 1. **W1, rest of mapping.**
    - *W1-M1 completion:* `oracles/cantera.py` and a CEA oracle (the `cantera` 3.2.0 and `cea` 3.3.4
      libraries are installed and match the data pins); qualification cases for NASA-7, NASA-9 and
-     Shomate (the case's library-key lookup needs a key-prefix filter for per-file cases; Cantera
-     assigns a tie at the mid temperature to the lower piece; the Shomate oracle reads `test/data`
+     Shomate (the library key comes from the evaluated set's origin, [24a QL1](24a-knowledge-base-code-remediation.md#ql1),
+     not from a key-prefix filter; Cantera assigns a tie at the mid temperature to the lower piece; the Shomate oracle reads `test/data`
      from the raw tree, since the wheel bundles only `data/`); the JANAF equivalence assessments
-     against the NASA fits, computed by the pipeline with a tolerance from JANAF's printed rounding;
-     JANAF formation reactions; decisions for the held rows listed in Open items.
+     against the NASA fits, computed by the pipeline with a tolerance from JANAF's printed rounding,
+     each recording the identity rule that joined its two sides (after 24a ID1 and ST1); JANAF
+     formation reactions; decisions for the held rows listed in Open items (after 24a DX1).
    - *W1-M2a, chemicals:* the identifier tables as the identity backbone (76,500 compounds; InChIKeys
-     computed with RDKit, CAS as registry cross-reference; profile `tk resolve` at this scale), then
-     restrict the formula-scope rule (Open items); pure-component constants and every
+     computed with RDKit, CAS as registry cross-reference; profile `tk resolve` at this scale; links
+     computed from the mapped chemicals entities equal those 24a ID1 computes from the staged corpus;
+     24a DC20 decides in-source identifier disagreement); pure-component constants and every
      temperature-dependent correlation table, one form per equation in `forms/`; qualification
      against the `chemicals` library (1.5.2, the data pin) through `oracles/chemicals.py`; its JANAF
      and Shomate point sets as second carriers with equivalence assessments; psi4 results as computed
@@ -622,6 +658,11 @@ The design review of the core model (`review_sources`) returned Revise: the arch
 open-world store with a closed-world export, forms as data, qualification derived from runs), and
 a set of model concepts and four pipeline contracts must change before the hard-case fixtures and
 Wave 1. Every finding is dispositioned above.
+
+The code review of 2026-09-30 (the second `review_sources` entry) assessed the code's own domain
+model and returned Revise: cross-carrier identity is wrong in the built database (C01) and the build
+can load records mapped against a superseded resolution (C02), among 22 findings. Its findings are
+dispositioned above; [24a](24a-knowledge-base-code-remediation.md) designs and sequences their remediation.
 
 ## Outcome (recorded after implementation)
 

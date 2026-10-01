@@ -5973,6 +5973,33 @@
         "9a0e7b0c397e42eba317b7650f9ef90d",
         "185ac33b8b8040c9a3d898a98d61c29c"
       ]
+    },
+    {
+      "operation_id": "1350eece771e4c55b7f149810b818688",
+      "opcode": "Mul",
+      "input_kind_ids": [
+        "3b9239e54a9a4983bb444216f72daaaa",
+        "46119e9ebe9b4158bbb2a508865fdc73"
+      ],
+      "result_kind_id": "c9f5ceb86a0c4842b220055099696f74",
+      "basis_rule": "declared_result",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "declared_result",
+      "subject_source": null,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "d033af0a3fcd4330b20acb4c7ca094b9",
+        "5130f4946bf244b993add131eae3799b"
+      ]
     }
   ],
   "quantity_types": [
@@ -10861,6 +10888,26 @@
       ],
       "required_basis_id": null,
       "required_quantity_type_id": "b6edcb08fc072d81a9f99b45f7f9c90a",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "d033af0a3fcd4330b20acb4c7ca094b9",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "ed48fb533422432e9d81340da141da2e",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "5130f4946bf244b993add131eae3799b",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        1
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "8193343e102747128772c4662d3b8137",
       "match_shape": false
     }
   ],

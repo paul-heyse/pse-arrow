@@ -884,12 +884,13 @@ pub(crate) fn call_type(
                 .exchange
                 .as_ref()
                 .ok_or_else(|| invalid(at, "reflection names an exchange"))?;
-            let mut endpoint_env = env.clone();
+            let mut endpoint_env =
+                crate::expression::declaration_environment(package, context, id)?;
             for index in &exchange.indices {
                 let domain = dsl::parse_expr(&index.domain)
                     .map_err(|error| invalid(at, error.to_string()))?;
                 let (Type::Set(element) | Type::Continuous(_, element)) =
-                    crate::expression::infer(&domain, &endpoint_env, package, context, at, None)?
+                    crate::expression::infer(&domain, &endpoint_env, package, context, id, None)?
                 else {
                     return Err(invalid(at, "exchange index domain must be a set"));
                 };
@@ -897,7 +898,7 @@ pub(crate) fn call_type(
             }
             let endpoint = |text: &str| -> Result<DeclarationId> {
                 let expr = dsl::parse_expr(text).map_err(|error| invalid(at, error.to_string()))?;
-                match crate::expression::infer(&expr, &endpoint_env, package, context, at, None)? {
+                match crate::expression::infer(&expr, &endpoint_env, package, context, id, None)? {
                     Type::Boundary(id) => Ok(id),
                     _ => Err(invalid(at, "exchange endpoint requires a boundary")),
                 }
@@ -1080,6 +1081,39 @@ mod tests {
         );
     }
     #[test]
+    fn conservation_zero_retains_material_energy_type_with_directed_transfer() {
+        let text = r#"package p { def Root {
+          boundary wall;
+          var material:Power;
+          var heat:EnergyTransferRate;
+          accumulate energy:Power boundary wall conservation tolerance 0.001{W};
+          contribute energy role inflow=material;
+          contribute energy role directed=transfer(heat,wall,Into);
+        }}"#;
+        let prepared = model(text, "p.Root").unwrap();
+        let closure = prepared.closures.values().next().unwrap();
+        assert_eq!(closure.terms.len(), 2);
+        assert!(
+            prepared
+                .equations
+                .iter()
+                .any(|row| { row.id == pse_ids::named_id(closure.id, "conservation") })
+        );
+        assert!(
+            model(
+                &text.replace("transfer(heat,wall,Into)", "transfer(heat,wall,OutOf)"),
+                "p.Root"
+            )
+            .is_err()
+        );
+        // The generated equation context does not grant a type to an authored free zero.
+        let untyped = text.replace(
+            "var material:Power;",
+            "var material:Power; eq free_zero:0{W}==transfer(heat,wall,Into);",
+        );
+        assert!(model(&untyped, "p.Root").is_err());
+    }
+    #[test]
     fn inherited_transfer_boundary_resolves_from_effective_interface_members() {
         let text = r#"package p {
           interface Base { boundary wall; }
@@ -1156,6 +1190,68 @@ mod tests {
             text.replace("reflect(pair[j]", "reflect(pair[j,j]"),
             text.replace("reflect(pair[j]", "reflect(pair[wrong]"),
             text.replace("reflect(pair[j]", "reflect(pair[a]"),
+        ] {
+            assert!(model(&invalid, "p.Root").is_err(), "{invalid}");
+        }
+    }
+    #[test]
+    fn child_inherited_exchanges_use_the_declaration_namespace() {
+        let text = r#"package p {
+          entity kind position {} entity position a {} entity position b {}
+          set members:Set<position>={a,b};
+          interface Base {
+            set positions:Set<position>={a,b};
+            boundary wall[i in positions]; boundary opposite[i in positions];
+            exchange pair[i in positions] between wall[i] and opposite[i];
+          }
+          def Cell:Base {}
+          def Root {
+            entity kind other {} entity other wrong {}
+            set positions:Set<other>={wrong}; boundary wall[i in positions];
+            child cell:Cell=Cell(); child other_cell:Cell=Cell(); var q:EnergyTransferRate;
+            eq reflected[j in members]:transfer(q,cell.opposite[j],Into)==reflect(cell.pair[j],transfer(q,cell.wall[j],Into),Into);
+          }
+        }"#;
+        let prepared = model(text, "p.Root").unwrap();
+        assert_eq!(prepared.exchanges.len(), 4);
+        let reflected = prepared
+            .functions
+            .values()
+            .filter_map(|function| match &function.physical_operation {
+                Some(crate::PhysicalOperation::Transfer {
+                    result: PhysicalRefinement::Transfer { boundary, .. },
+                    factor: -1,
+                    exchange: Some(_),
+                    ..
+                }) => Some(boundary),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(reflected.len(), 2);
+        for boundary in reflected {
+            let BoundaryRef::Bound {
+                instance,
+                coordinates,
+                ..
+            } = boundary
+            else {
+                panic!("child reflection target must be bound");
+            };
+            assert_ne!(*instance, InstanceId::from_bytes([7; 16]));
+            assert_eq!(coordinates.len(), 1);
+            assert!(
+                prepared
+                    .exchanges
+                    .values()
+                    .any(|exchange| boundary == &exchange.second)
+            );
+        }
+        for invalid in [
+            text.replace("reflect(cell.pair[j]", "reflect(cell.pair"),
+            text.replace("reflect(cell.pair[j]", "reflect(cell.pair[wrong]"),
+            text.replace("reflect(cell.pair[j]", "reflect(cell.pair[a]"),
+            text.replace("transfer(q,cell.wall[j]", "transfer(q,wall[wrong]"),
+            text.replace("transfer(q,cell.wall[j]", "transfer(q,other_cell.wall[j]"),
         ] {
             assert!(model(&invalid, "p.Root").is_err(), "{invalid}");
         }

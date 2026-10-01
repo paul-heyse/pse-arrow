@@ -286,6 +286,8 @@ fn authored_vessel_amount_and_energy_equations_evaluate_without_adapters() {
                     0.5
                 } else if path.ends_with(".amount") {
                     1.0
+                } else if path.ends_with(".root.volume") {
+                    0.1
                 } else if path.ends_with(".energy") {
                     energy
                 } else {
@@ -632,13 +634,13 @@ fn ideal_h(T:Temperature,j:chemistry.species)->DeltaH=2000{J/mol};
 def InventoryPoint {
 child root:vessels.HomogeneousInventory=vessels.HomogeneousInventory(selected=bt_ideal.aromatics,law=helmholtz.ideal,ideal_h=ideal_h,composition=composition,V=0.1{m^3});
 }
-def CstrPoint {
+test CstrPoint {
 child root:reactors.CSTR=reactors.CSTR(inlet_pkg=saponification.Saponification(defined_state=true),outlet_pkg=saponification.Saponification(defined_state=false),reaction_pkg=saponification.SaponificationReactions);
 }
-def ExchangerPoint {
+test ExchangerPoint {
 child root:heat_exchange.HeatExchanger=heat_exchange.HeatExchanger(hot_inlet_pkg=saponification.Saponification(defined_state=true),hot_outlet_pkg=saponification.Saponification(defined_state=false),cold_inlet_pkg=saponification.Saponification(defined_state=true),cold_outlet_pkg=saponification.Saponification(defined_state=false));
 }
-def DistributedPoint {
+test DistributedPoint {
 child root:reactors.PFR=reactors.PFR(inlet_pkg=saponification.Saponification(defined_state=true),outlet_pkg=saponification.Saponification(defined_state=false),reaction_pkg=saponification.SaponificationReactions,elements=1,use_radau=false);
 annotation report root.heat("distributed heat");
 }

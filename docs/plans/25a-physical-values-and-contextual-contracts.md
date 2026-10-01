@@ -1,6 +1,6 @@
 ---
 title: "25a: Physical values and contextual contracts"
-status: in-progress
+status: done
 date: 2026-09-30
 adrs: [ADR-0135, ADR-0136]
 review_sources: [docs/design_review/reviews/design_review_codebase-domain-alignment_2026-09-30.md, docs/design_review/reviews/design_review_codebase-domain-alignment-follow-up_2026-09-30.md]
@@ -67,9 +67,9 @@ burden. No new quantity library or crate is required.
 | Packet | Prerequisites | Responsibility | Status |
 |---|---|---|---|
 | <a id="a1"></a>A1 Canonical values and facets | Existing quantity/schema owners | Establish checked conversion and purpose-specific physical projections; export the overlay value contract | implemented; focused checks passed |
-| <a id="a2"></a>A2 Semantic intermediate algebra | A1; physical ADR decision | Extend one inference authority and migrate ordinary intermediate consumers | in progress |
-| <a id="a3"></a>A3 Mapped laws and derivatives | A2; I1 framing contract | Admit coordinate mappings and migrate physical law boundaries | in progress |
-| <a id="a4"></a>A4 Transfers and datum operations | A2 | Admit direction/reference operations and migrate energy bindings | in progress |
+| <a id="a2"></a>A2 Semantic intermediate algebra | A1; physical ADR decision | Extend one inference authority and migrate ordinary intermediate consumers | implemented; focused checks passed |
+| <a id="a3"></a>A3 Mapped laws and derivatives | A2; I1 framing contract | Admit coordinate mappings and migrate physical law boundaries | implemented; focused checks passed |
+| <a id="a4"></a>A4 Transfers and datum operations | A2 | Admit direction/reference operations and migrate energy bindings | implemented; focused checks passed |
 
 ### A1 — Canonical values and facets
 
@@ -256,9 +256,10 @@ record actual commands, conditions and failures against zero in the final qualif
 
 ### Execution checkpoint
 
-Implementation resumed on 2026-09-30 under the maintainer's instruction to implement this plan.
-The work remains in the current checkout. Concurrent Plan 24 work is preserved. No commit,
-push, Python-extension refresh or integrated qualification is implied.
+Implementation completed on 2026-09-30 under the maintainer's instruction to implement this plan.
+The work is integrated in the current checkout; concurrent Plan 24 and governance work is
+preserved. The Outcome owns the focused verification and its limits. No publication,
+Python-extension refresh or integrated qualification is implied.
 
 A1's canonical-value and facet cutover is implemented. A2 records and consumes physical
 admission by exact expression occurrence, including anonymous finite-reduction prototypes.
@@ -271,7 +272,9 @@ polynomial front doors. Source consumers retain distinct species fugacity/activi
 A4's stored-energy, material/element, separator, reaction-rate, selected-solvent and entropy
 consumers use physical algebra or declared maps. Obsolete unit-adapter helpers are removed.
 Transfer source admission exposed missing indexed-boundary and inherited-boundary handling;
-the narrow core corrections and actual process controls remain under verification.
+the core now resolves actual indexed, inherited and child-instance boundaries. Generated
+conservation rows retain the admitted accumulator type at their initial zero. Executable
+preparation preserves the checked body and its occurrence spans together.
 
 Targeted source controls retain production scientific declarations, excluding external dataset
 transport and supplying explicitly synthetic keyed data. They do not establish a full
@@ -281,12 +284,13 @@ The architectural amendment, blueprint revision and R-51 trigger widening are pr
 ADR-0135/0136. Those records remain proposed; accepting or superseding decision records follows
 the decision-PR route. The implementation amendment does not claim that route has completed.
 
-### Remaining acceptance work
+### Handoff
 
-Finish indexed/inherited boundary admission, rerun the affected source and process controls,
-and compile the cross-crate consumers. Record final commands and zero-target results in Outcome,
-then update series finding dispositions only within this plan's ownership. Full integration,
-solver/Python journeys, lint and performance qualification remain in 25k.
+No functional work remains in A1–A4. The series coordinator records the resolved physical
+findings and the completed contributions to findings with other owners. Other lettered plans
+remain proposed and require their own authorization. Full integration, solver/Python journeys,
+lint and performance qualification remain in 25k. This completed record remains linked while
+the active series depends on its evidence; enduring contracts live in the architecture sections.
 
 ### Bounded consumer inventory
 
@@ -299,7 +303,7 @@ solver/Python journeys, lint and performance qualification remain in 25k.
 | Material and element projections, separator | ComponentFlow/Flow composition, physical energy-flow products and indexed totals; explicit elemental-count map | Element counts are scientific coordinates; no component-flow/total-flow/pressure-difference unit helpers remain |
 | Reaction and dilute-liquid laws | Declared Arrhenius, second-order and selected-solvent maps; physical reaction-extent reports | Calibrated coefficient, concentration and activation-energy references occur inside maps/reconstruction |
 
-The obsolete `ChainTree`/`BodyBuilder::chain` inference path, dependency-presence witness walk,
+The obsolete `ChainTree`/`BodyBuilder::chain` inference path, syntactic-only witness acceptance,
 and migrated stripping/re-dressing callers are removed. The existing library differentiation
 and numeric lowering remain the sole execution path.
 
@@ -307,8 +311,80 @@ and numeric lowering remain the sole execution path.
 
 ### What was built
 
-Partial implementation is recorded in the execution checkpoint. This section will record the
-completed behavior and final evidence labels when the packet exits are satisfied.
+**Implemented:** canonical-magnitude admission checks source and converted finiteness, preserves
+multiply-then-add rounding and carries row/source attribution. Declared field-purpose projections
+replace consumer-owned metadata allowlists; resolved selected physical definitions govern unit
+compatibility, including composite and affine representations.
+
+**Implemented:** physical inference preserves semantic kind factors, basis, datum, subjects and
+indices. Checked function occurrences retain admitted operations through specialization and
+lowering, including anonymous finite reductions. Public named boundaries remain explicit; the
+registered geometry and total/species-density products do not grant dimensional casts.
+
+**Implemented:** declared coordinate maps and reconstructions serve the physical potential,
+activity, cubic-root, reaction, caloric and selected-solvent consumers in the inventory above.
+Physical partials use the composed wrapper and the existing library differentiation. Normalized
+abstract scientific witnesses reject zero coefficients and cancellation while admitting a lawful
+zero implementation and coincident actual arguments.
+
+**Implemented:** datum-free transfer rates retain actual boundary owner, ordered coordinates and
+direction through reflection, conservation and report projection. Scientific enthalpy/entropy
+reference translation retains composition and paired anchor provenance. The architectural owners
+and R-51 trigger are amended; ADR-0135/0136 remain proposed pending their decision-PR route.
+
+**Tested, 2026-09-30:** the following focused controls pass against a **zero-failure baseline**.
+Each table row uses `just unit-package <package> '<filter>' --test-threads 1`; that recipe
+uses the pinned toolchain, the optimized test profile and explicit
+`--features pse-relations/force-validate`. Filters deliberately exclude unrelated tests.
+
+| Package | Exact filter | Result |
+|---|---|---|
+| pse-quantity | `test(chain_tests) \| test(contextual_tests) \| test(canonical_admission_) \| test(standard::tests)` | passed: 19; failed: 0 |
+| pse-modeling | `test(canonical_numeric_) \| test(physical_operations::tests) \| test(contextual::tests) \| test(physical_admissions_) \| test(generic_physical_admission_) \| test(inherited) \| test(override) \| test(caloric_contract_tests)` | passed: 24; failed: 0, before the additional conservation control below |
+| pse-modeling | `test(conservation_zero_retains_material_energy_type_with_directed_transfer)` | passed: 1; failed: 0 |
+| pse-columnar | `test(native_field::tests) \| test(physical_execution_and_value_metadata_projections_answer_different_questions)` | passed: 5; failed: 0 |
+| pse-relations | `test(validate::obligations::quantities::tests)` | passed: 5; failed: 0 |
+| pse-math | `test(retained_physical_admission_) \| test(retained_finite_reduction_) \| test(normalized_scientific_witness) \| test(integral_power_growth_is_bounded)` | passed: 5; failed: 0 |
+| pse-runtime | `test(report_transfer_context_retains_actual_owner_order_and_direction)` | passed: 1; failed: 0 |
+| pse-authoring | `test(physical_maps_responses_translations_and_transfers_roundtrip)` | passed: 1; failed: 0 |
+
+**Tested:** compiler verification is a composite result, not an initially clean run. All
+commands below use the same test profile, explicit force-validation and zero-failure baseline.
+
+```sh
+just unit-package pse-compiler 'test(physical_potential_tests) | test(scientific_witness) | test(authored_transfer_tests) | test(checked_occurrence_handoff) | test(checked_compound_guards) | test(checked_finite_reduction) | test(direct_powers) | test(physical_inventory_identity_frames)' --test-threads 1
+just unit-package pse-compiler 'test(authored_bt_ideal_translation) | test(authored_bt_pr_translations) | test(authored_cstr_extent_report) | test(authored_distributed_energy) | test(authored_exchanger_reflection) | test(authored_vessel_amount)' --test-threads 1
+just unit-package pse-compiler 'test(physical_potential_tests) | test(scientific_witness) | test(authored_bt_ideal_translation) | test(authored_bt_pr_translations) | test(authored_cstr_extent_report) | test(authored_exchanger_reflection) | test(checked_occurrence_handoff) | test(checked_compound_guards) | test(checked_finite_reduction) | test(direct_powers) | test(physical_inventory_identity_frames)' --test-threads 1
+```
+
+The initial selection had 21 passed and 6 failed. Fixture-root and input-binding repairs
+made the distributed-boundary and vessel controls pass; that six-test rerun had 2 passed
+and 4 failed. Preserving checked function spans and the generated conservation zero's
+type corrected the remaining failures. The final 19-test run passed all 19 with 0 failures,
+including the shared physical-law, witness and retained-admission controls. The composite
+selection therefore covers **27 distinct compiler controls with no unresolved failures**.
+The other package controls above cover 61 distinct tests, for **88 focused controls** overall.
+
+The scientific controls exercise ideal, asymmetric PR, PC-SAFT and NRTL values/partials;
+composition-dependent direct and reciprocal maps; independent frozen cubic-polynomial values;
+coincident arguments; and erased-witness refusals. Source controls exercise physical reaction
+rates, stored energy, material/element projections, datum translations, actual CSTR report
+quantity/unit, two distributed boundary coordinates, opposite exchanger owners and vessel
+residuals. They retain authored scientific bodies while using explicit synthetic keyed data.
+They do not run a native solve or qualify the complete packaged dataset.
+
+**Implemented / passed:** `just codegen` regenerated all six schema targets and confirmed the
+workspace-hack required no change. This is generation evidence, not a hygiene result.
+
+**Interface-checked / passed:** `just check` (`cargo check --keep-going --workspace --all-targets
+--locked`, pinned toolchain, optimized dev profile) compiled all workspace targets with
+0 errors against a zero-error baseline. Cargo emitted an upstream future-incompatibility
+warning for `proc-macro-error2 v2.0.1`; this is not a warning-free result.
+
+**Not run:** full integration, native-solver, Python and performance campaigns remain 25k work.
+Manual hygiene was not run; the automatic end-of-turn hooks own formatting and static checks.
+No performance or complete-product qualification is claimed. ADR-0135/0136 acceptance and
+supersession remain the separate decision-PR route.
 
 ### A mistake made and corrected
 
@@ -317,10 +393,17 @@ case, although multiplication and division did; the registered Add/Sub admission
 The first residual molar response declarations accidentally copied a derived stock-datum
 definition; they were corrected to distinct datum-free physical kinds. Scientific anchor
 evaluation was moved out of the static selector into the ordinary composed mathematical path.
+Translation execution then exposed post-admission span clearing, which broke exact occurrence
+lookup; preparation now preserves the checked function unchanged. Generated energy conservation
+also needed its existing accumulator contract when inferring the initial zero: a bare watt
+literal is ambiguous among distinct physical meanings. That context is supplied only to the
+derived conservation row, with authored ambiguity and wrong-direction refusals retained.
 
 ### Deviations from the plan, deliberate
 
 The physical inventory framing and metadata comparator prerequisites were implemented with A1–A4
 because leaving them until 25i/25h would create ambiguous identities or drop the new context.
-The scope remains the minimal prerequisite described by this plan. The restart checkpoint is a
-pause in execution, not a reduced completion criterion or a claim of integrated acceptance.
+The scope remains the minimal prerequisite described by this plan. Focused compiler controls
+load actual scientific source declarations with explicit synthetic parameter rows and omit
+external dataset transport. Full package-data, solver and Python execution remains in 25k;
+these focused controls make no integrated qualification or performance claim.

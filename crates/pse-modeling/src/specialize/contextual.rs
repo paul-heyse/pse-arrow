@@ -19,6 +19,7 @@ impl Engine<'_, '_> {
             functions: &CheckedPackage,
             context: &TypeContext<'_>,
             at: DeclarationId,
+            expected: Option<&Type>,
         ) -> Result<()> {
             match &equation.kind {
                 EquationKind::Relation { lhs, rhs, .. } => {
@@ -46,7 +47,7 @@ impl Engine<'_, '_> {
                     }
                     if contextual {
                         let left =
-                            crate::expression::infer(lhs, types, functions, context, at, None)?;
+                            crate::expression::infer(lhs, types, functions, context, at, expected)?;
                         let right = crate::expression::infer(
                             rhs,
                             types,
@@ -66,12 +67,21 @@ impl Engine<'_, '_> {
                 EquationKind::Conditional {
                     then, otherwise, ..
                 } => {
-                    check(then, types, functions, context, at)?;
-                    check(otherwise, types, functions, context, at)?;
+                    check(then, types, functions, context, at, expected)?;
+                    check(otherwise, types, functions, context, at, expected)?;
                 }
             }
             Ok(())
         }
+        // The synthesized conservation row owns the admitted accumulator type.
+        // Its initial zero retains that type even when several meanings use one unit.
+        let conservation_types = self
+            .model
+            .closures
+            .values()
+            .filter(|closure| closure.mode == Mode::Conservation)
+            .map(|closure| (pse_ids::named_id(closure.id, "conservation"), &closure.ty))
+            .collect::<BTreeMap<_, _>>();
         for row in &self.model.equations {
             check(
                 &row.equation,
@@ -79,6 +89,7 @@ impl Engine<'_, '_> {
                 &functions,
                 self.c,
                 row.lineage.declaration,
+                conservation_types.get(&row.id).copied(),
             )?;
         }
         Ok(())

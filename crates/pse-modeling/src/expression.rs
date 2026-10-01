@@ -1021,7 +1021,7 @@ pub(crate) fn predicate(
     }
     Ok(())
 }
-fn declaration_environment(
+pub(crate) fn declaration_environment(
     p: &CheckedPackage,
     context: &TypeContext<'_>,
     id: DeclarationId,
@@ -1544,7 +1544,12 @@ fn check_declarations(p: &CheckedPackage, context: &TypeContext<'_>) -> Result<(
                 let expr = dsl::parse_expr(source).map_err(|e| invalid(*id, e.to_string()))?;
                 let actual = infer(&expr, &env, p, context, *id, Some(expected))?;
                 if &actual != expected {
-                    return Err(invalid(*id, "member physical type differs"));
+                    return Err(invalid(
+                        *id,
+                        format!(
+                            "member physical type differs: expected {expected:?}, got {actual:?}"
+                        ),
+                    ));
                 }
             }
         }
@@ -1819,14 +1824,22 @@ pub(crate) fn indexed_declaration_reference(
     };
     let mut prefix = String::new();
     let mut selected = None;
+    let mut current_type = None;
     for segment in &path.segments {
         if !prefix.is_empty() {
             prefix.push('.');
         }
         prefix.push_str(&segment.name);
-        let id = p
-            .resolve(at, &prefix)
-            .ok_or_else(|| invalid(at, "unknown contextual declaration reference"))?;
+        let id = if let Some(ty) = &current_type {
+            member_declaration(ty, &segment.name, p, at)?
+        } else if let Some(id) = p.resolve(at, &prefix) {
+            id
+        } else if let Some(ty) = env.get(&prefix).filter(|_| segment.indices.is_empty()) {
+            current_type = Some(ty.clone());
+            continue;
+        } else {
+            return Err(invalid(at, "unknown contextual declaration reference"));
+        };
         check_member_indices(
             segment,
             member_indices(&p.declarations[&id]),
@@ -1836,6 +1849,7 @@ pub(crate) fn indexed_declaration_reference(
             at,
             id,
         )?;
+        current_type = env.get(&prefix).or_else(|| p.types.get(&id)).cloned();
         selected = Some(id);
     }
     selected.ok_or_else(|| invalid(at, "empty contextual declaration reference"))
@@ -2044,6 +2058,18 @@ fn coordinate_of(actual: &Type, kind: DeclarationId, p: &CheckedPackage) -> bool
         _ => false,
     }
 }
+fn member_declaration(
+    ty: &Type,
+    name: &str,
+    p: &CheckedPackage,
+    at: DeclarationId,
+) -> Result<DeclarationId> {
+    let (Type::Entity(id) | Type::Definition(id) | Type::Interface(id)) = ty else {
+        return Err(invalid(at, "value has no declaration members"));
+    };
+    p.declared_member(*id, name)
+        .ok_or_else(|| invalid(at, format!("type has no member {name}")))
+}
 fn member_type(
     ty: &Type,
     name: &str,
@@ -2066,10 +2092,8 @@ fn member_type(
             .and_then(|t| t.columns.iter().find(|c| c.name == name))
             .map(|c| (c.ty.clone(), None))
             .ok_or_else(|| invalid(at, "unknown table column")),
-        Type::Entity(id) | Type::Definition(id) | Type::Interface(id) => {
-            let member = p
-                .declared_member(*id, name)
-                .ok_or_else(|| invalid(at, format!("type has no member {name}")))?;
+        Type::Entity(_) | Type::Definition(_) | Type::Interface(_) => {
+            let member = member_declaration(ty, name, p, at)?;
             p.types
                 .get(&member)
                 .cloned()

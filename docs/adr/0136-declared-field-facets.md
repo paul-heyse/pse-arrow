@@ -8,7 +8,7 @@ level: decision
 principles: [AP-02, AP-04, AP-06, DP-01, DP-03, DP-04, PS-01]
 blueprint: [§4.4, §5.3, §8.2]
 review: docs/design_review/reviews/design_review_plan25a-contracts_2026-09-30.md
-evidence: Proposed
+evidence: Implemented
 supersedes: []
 superseded-by: null
 revisit: A new facet requires a consumer-owned key allowlist, or a valid selected physical definition cannot be admitted without a second unit resolver.
@@ -94,7 +94,7 @@ Numeric admission controls are owned by the common quantity operation.
 ### Confirmation
 
 Implemented mechanism scope is recorded in blueprint §4.4, §5.3 and §8.2. Plan 25a owns
-focused evidence, with actual commands and zero-target results. This decision remains
+focused [evidence](../plans/25a-physical-values-and-contextual-contracts.md#outcome-recorded-after-implementation), with actual commands and zero-target results. This decision remains
 Proposed; acceptance requires the decision route, and full integration remains Plan 25k
 work. No qualification follows from schema consistency or documentation alone.
 

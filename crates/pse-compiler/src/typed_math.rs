@@ -487,7 +487,10 @@ impl Lower<'_, '_> {
                 })?;
             let admission = scope.admissions.get(occurrence).cloned().ok_or_else(|| {
                 MathError::Contract(
-                    "checked function operation occurrence is missing its admission".into(),
+                    format!(
+                        "checked function operation occurrence is missing its admission: function {:?}, occurrence {occurrence:?}, request {request:?}",
+                        self.calls.last(),
+                    ),
                 )
             })?;
             if let pse_quantity::infer::OpRequest::Reduce { kind, bound } = request {

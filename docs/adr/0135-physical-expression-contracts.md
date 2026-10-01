@@ -8,7 +8,7 @@ level: decision
 principles: [AP-02, AP-04, AP-06, DP-01, DP-04, PS-01, PS-07]
 blueprint: [§8.1, §8.2, §8.3, §8.4, §9.8, §14.3]
 review: docs/design_review/reviews/design_review_plan25a-contracts_2026-09-30.md
-evidence: Proposed
+evidence: Implemented
 supersedes: []
 superseded-by: null
 revisit: A supported scientific law requires erasing physical meaning, or an admitted coordinate/reference change leaves preparation identity unchanged.
@@ -163,10 +163,10 @@ datum translation. Scientific oracles detect type-correct but wrong formulas.
 ### Confirmation
 
 Implemented contract scope is recorded in blueprint §8, §9.8 and §14.3. The owning plan
-records the actual focused commands and outcomes. Selected scientific-declaration controls
+records the [actual focused commands and outcomes](../plans/25a-physical-values-and-contextual-contracts.md#outcome-recorded-after-implementation). Selected scientific-declaration controls
 retain current scientific bodies and use small synthetic parameter rows; external dataset
 transport and full package journeys remain Plan 25k scope. This proposed decision does not
-claim runtime qualification or acceptance.
+claim integrated product qualification or decision acceptance.
 
 ## Pros and cons
 
