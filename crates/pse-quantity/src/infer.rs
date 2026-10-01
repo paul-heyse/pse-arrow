@@ -283,10 +283,6 @@ pub fn infer(
 ///
 /// # Errors
 /// Rejects incompatible contracts, ambiguous rules, or unestablished prerequisites.
-#[expect(
-    clippy::too_many_lines,
-    reason = "exhaustive request dispatch preserves visible operator-family contracts"
-)]
 pub fn infer_with_evidence(
     request: &OpRequest<'_>,
     operands: &[Operand<'_>],

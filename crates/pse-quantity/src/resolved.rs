@@ -638,6 +638,12 @@ pub struct ResolvedPhysicalContract {
     pure_number: bool,
     formula: Option<Box<FormulaEvidence>>,
 }
+/// The common basis, reference state and subject kind of a contract's qualified factors.
+type Qualifiers = (
+    Option<crate::BasisId>,
+    Option<crate::ReferenceStateId>,
+    Option<EntityKindId>,
+);
 impl ResolvedPhysicalContract {
     /// Conservative owned extent of the retained contract, excluding its inline value.
     pub fn heap_bytes(&self) -> usize {
@@ -936,16 +942,7 @@ impl ResolvedPhysicalContract {
         Ok(key.scale_kind == expected_scale)
     }
 
-    fn qualifiers(
-        &self,
-    ) -> Result<
-        (
-            Option<crate::BasisId>,
-            Option<crate::ReferenceStateId>,
-            Option<EntityKindId>,
-        ),
-        QuantityError,
-    > {
+    fn qualifiers(&self) -> Result<Qualifiers, QuantityError> {
         fn common<T: Copy + Eq>(
             values: impl Iterator<Item = Option<T>>,
             rule: &'static str,

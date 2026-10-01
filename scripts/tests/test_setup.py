@@ -417,9 +417,9 @@ class ConfigurationTests(unittest.TestCase):
                 self.assertEqual(agents.synchronize(root, check=False), [])
             self.assertTrue((root / ".agents/skills/adr/SKILL.md").is_file())
             self.assertEqual(agents.synchronize(root, check=True), [])
-            for directory in (".claude", ".agents"):
+            for runtime in (".claude", ".agents"):
                 self.assertTrue(
-                    (root / directory / "skills/library-example").is_symlink()
+                    (root / runtime / "skills/library-example").is_symlink()
                 )
             self.assertEqual(native.read_bytes(), native_before)
             self.assertEqual(claude.read_bytes(), claude_before)

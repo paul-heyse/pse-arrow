@@ -35,16 +35,15 @@ pub(super) async fn compatibility(
     );
     let mut selected = BTreeMap::new();
     let reconciliation = pse_relations::physical::reconcile_units(inputs, registry)?;
-    if let Some(plans) = &reconciliation {
-        if execute(plans.conflicts.clone(), state)
+    if let Some(plans) = &reconciliation
+        && execute(plans.conflicts.clone(), state)
             .await?
             .iter()
             .any(|batch| batch.num_rows() != 0)
-        {
-            return Err(super::invalid(
-                "selected physical unit definitions conflict or repeat a source key",
-            ));
-        }
+    {
+        return Err(super::invalid(
+            "selected physical unit definitions conflict or repeat a source key",
+        ));
     }
     for name in pse_relations::physical::VALUE_INPUTS {
         if *name == "normalized.units" {

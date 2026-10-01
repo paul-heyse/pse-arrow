@@ -333,8 +333,13 @@ fn canonical_coordinates_reject_affine_storage_and_retain_difference_scale() {
     .unwrap();
     assert_eq!(delta.result.require_named().unwrap(), q(87));
     assert_eq!(delta.operand_scales, [2.0, 2.0]);
-    let derivative =
-        resolved::infer_partial(&point, &[point.clone()], &registry, &NoInvariantFacts).unwrap();
+    let derivative = resolved::infer_partial(
+        &point,
+        std::slice::from_ref(&point),
+        &registry,
+        &NoInvariantFacts,
+    )
+    .unwrap();
     assert!(derivative.result.is_pure_number());
     assert_eq!(derivative.result_scale, 1.0);
 }

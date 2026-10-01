@@ -33,14 +33,13 @@ impl Engine<'_, '_> {
                                     contextual = true;
                                 }
                             }
-                            ExprKind::NamedCall { name, .. } => {
+                            ExprKind::NamedCall { name, .. }
                                 if functions
                                     .resolve(at, name)
                                     .and_then(|id| functions.functions.get(&id))
-                                    .is_some_and(|f| f.result.physical_refinement().is_some())
-                                {
-                                    contextual = true;
-                                }
+                                    .is_some_and(|f| f.result.physical_refinement().is_some()) =>
+                            {
+                                contextual = true;
                             }
                             _ => {}
                         });
@@ -354,6 +353,10 @@ impl Engine<'_, '_> {
             .map(Some)
     }
 
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the translation descriptor travels with its instance, declaration, call arguments, environment and dependency chain as independent inputs"
+    )]
     fn reference_translation_call(
         &mut self,
         instance: InstanceId,
@@ -555,8 +558,8 @@ impl Engine<'_, '_> {
         let position = usize::from(!source);
         let reference = translation.anchors[0].values[position].clone();
         let mut terms = Vec::new();
-        for index in 0..weights.len() {
-            let selected = &translation.anchors[index].values[position];
+        for (index, anchor) in translation.anchors[..weights.len()].iter().enumerate() {
+            let selected = &anchor.values[position];
             terms.push(format!(
                 "weight_{index}*(({})-({}))",
                 dsl::render_expr(selected),
@@ -601,6 +604,10 @@ impl Engine<'_, '_> {
         )
     }
 
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the synthesized function's signature, physical operation, body, guard and actual arguments are independent inputs"
+    )]
     fn contextual_function(
         &mut self,
         at: DeclarationId,

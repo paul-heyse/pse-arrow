@@ -290,7 +290,7 @@ impl<'a> BodyBuilder<'a> {
     ) -> Result<TypedValue, MathError> {
         let (contract, scale) = value.quantity.at_boundary(expected, self.registry)?;
         if scale != 1.0 {
-            value.atom = value.atom * Atom::num(scale);
+            value.atom *= Atom::num(scale);
         }
         value.quantity = contract;
         Ok(value)
@@ -305,7 +305,7 @@ impl<'a> BodyBuilder<'a> {
             .quantity
             .at_contract_boundary(expected, self.registry)?;
         if scale != 1.0 {
-            value.atom = value.atom * Atom::num(scale);
+            value.atom *= Atom::num(scale);
         }
         value.quantity = contract;
         Ok(value)
@@ -318,7 +318,7 @@ impl<'a> BodyBuilder<'a> {
     ) -> Result<TypedValue, MathError> {
         let (contract, scale) = authorization.apply_contract(&value.quantity)?;
         if scale != 1.0 {
-            value.atom = value.atom * Atom::num(scale);
+            value.atom *= Atom::num(scale);
         }
         value.quantity = contract;
         self.output_authorizations.push(authorization.clone());

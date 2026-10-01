@@ -16,6 +16,8 @@ extend-exclude = [
   "external/",
   "vendor/",
   "build/",
+  # rustc internal-compiler-error dumps: compiler-mangled symbols, not prose.
+  "rustc-ice-*.txt",
   "docs/book/",
   "docs/generated/",
   "docs/capability-maps/evidence/**/*.log",
@@ -83,5 +85,7 @@ CHECKs = "CHECKs"
 # Deliberate misspellings in tests that assert a misspelled literal or key is refused.
 runing = "runing"
 methd = "methd"
+# Review text showing a misspelled literal that type checking cannot catch.
+sucess = "sucess"
 # Accepted spelling variant.
 requeueing = "requeueing"

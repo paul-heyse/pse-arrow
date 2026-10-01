@@ -199,7 +199,7 @@ path, and the module is gone. DP-13, DP-16, G8."
 
 **Inadequate.** "The design is validated end to end — see the integration tests."
 
-**Adequate.** "Round trip is *Tested* for the structural case (`tests/roundtrip.rs::schema_roundtrip`,
+**Adequate.** "Round trip is *Tested* for the structural case (`tests/roundtrip.rs::schema_roundtrip`, <!-- agent-config: ignore -->
 14 fixtures, exact structural equality) and *Proposed* for metadata, which §3 claims is preserved
 but nothing exercises. Narrow the claim or add the metadata case. DP-22, DP-23."
 

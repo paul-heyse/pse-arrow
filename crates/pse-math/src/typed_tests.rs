@@ -60,7 +60,7 @@ fn physical_intermediates_lower_ua_delta_t_and_qualified_cancellation() {
         .unwrap();
     assert_eq!(rate.quantity().unwrap(), named("EnergyTransferRate"));
     let partial = builder
-        .partial(scope, rate.clone(), &[delta.clone()], source())
+        .partial(scope, rate.clone(), std::slice::from_ref(&delta), source())
         .unwrap();
     assert!(partial.physical_contract().named_id().is_none());
     let partial = builder
