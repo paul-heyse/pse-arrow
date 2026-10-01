@@ -1,6 +1,6 @@
 ---
 title: "24a: Knowledge-base code remediation"
-status: draft
+status: in-progress
 date: 2026-09-30
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_thermo-knowledge-code_2026-09-30.md]
@@ -11,7 +11,8 @@ scenario_sources: [docs/design_review/reviews/design_review_thermo-knowledge-cod
 
 ## State, purpose and ownership
 
-**Draft, 2026-09-30. Implementation is not authorized yet.** This is the companion plan of
+**In progress. Written 2026-09-30; execution of every packet through QF authorized
+2026-10-01.** This is the companion plan of
 [Plan 24](24-thermodynamic-knowledge-base.md). It designs and sequences the remediation of the
 [code review](../design_review/reviews/design_review_thermo-knowledge-code_2026-09-30.md) of
 `thermo-knowledge/`. That review found 22 defects (C01–C22) and returned the verdict Revise.
@@ -190,9 +191,9 @@ species, with rule `formula_structure`, except in three cases:
 
 A cell with several structures yields `unresolved` with reason
 `formula_has_several_structures`. A cell whose structures differ only in stereo yields
-`stereo_unspecified` and waits for a human decision. One open question (#2 under
-[Open decisions](#open-decisions)) is whether entities in a several-structure cell join within
-their own listing unit.
+`stereo_unspecified` and waits for a human decision. Entities in a several-structure cell join
+within their own listing unit through a listing-scoped formula key, never across carriers
+([decision #2](#decisions)).
 
 **Conventional join (rule 6).** A formula with no structure in the corpus keeps a formula key,
 and so a cross-carrier join, only when its composition fixes the constitution:
@@ -202,7 +203,7 @@ and so a cross-carrier join, only when its composition fixes the constitution:
 - one non-hydrogen atom with only H, D or T.
 
 In each case the composition must be integral and the species must not be on a surface.
-Everything else is `unresolved` with reason `formula_not_identifying` (open decision #1).
+Everything else is `unresolved` with reason `formula_not_identifying` ([decision #1](#decisions)).
 *Measured* on the 350 multi-carrier "no structure" formulas, 184 keep the join and 166 become
 provisional, among them Al₂Cl₆, C2H5 and Jet-A.
 
@@ -339,7 +340,7 @@ which `tk project` needs.
 - **Derived vocabularies.** The `generate/meta_tables.py` vocabularies are derived from those
   types (`typing.get_args` or the enum), not restated.
 - **Root configuration.** The root `pyproject.toml` comment that the tree "checks itself" is
-  made true or corrected. Strictness and hygiene wiring are open decision #3.
+  made true. Strictness and hygiene wiring follow [decision #3](#decisions).
 
 **Check rules (MM1).**
 
@@ -431,7 +432,7 @@ canonical writer, stage errors and `Blocked` all use it.
 `ReuseError` is no longer reported as `harness_failed`.
 
 **Tests assert codes, not message text.** DX1 converts the tests for held rows. DX2 converts
-the rest of the 360 `match=` assertions (open decision #4).
+the rest of the 360 `match=` assertions ([decision #4](#decisions)).
 
 ### 6. Mapping operations
 
@@ -577,21 +578,27 @@ prove. Run them with `just -f thermo-knowledge/justfile tk-test <file>`.
 ### TY — Typing baseline
 
 - **Changes:**
-  - `pyrefly.toml` includes `mappings` and `oracles`. The strictness settings follow open
-    decision #3.
+  - `ruff format` and `ruff check` reach zero over the tree (2,000 lint errors and 130 files to
+    reformat at the start, *Measured* 2026-10-01). No rule ignores are added.
+  - `pyrefly.toml` includes `mappings` and `oracles`, at the default error set (decision #3).
   - The closed sets listed in [§3](#3-meta-model-closed-types) become `Literal` or
     `StrEnum`, in `declaration/model.py`, `expression/tree.py` and `expression/scope.py`.
   - `generate/meta_tables.py` derives its vocabularies from them.
   - The 335 test errors and the 2 `src` errors are fixed, and every ignore marker is either
     removed or given a code and a reason.
   - The root `pyproject.toml` comment is corrected.
+  - Last, once everything above is at zero: tree recipes `tk-fmt` and `tk-lint`, and root
+    wrapper recipes in `fmt` and `hygiene`. The format wrapper skips when the tree has no
+    `.venv`, and uses the tree's own ruff.
 - **Deletes:** the hand-restated vocabularies (`SHAPES` and its siblings) and unused ignore
   markers.
 - **Acceptance:**
-  - `just -f thermo-knowledge/justfile tk-types` exits 0, with no warnings.
+  - `just -f thermo-knowledge/justfile tk-types` and `tk-lint` exit 0, with no warnings, and
+    the format check passes.
   - `test_meta_vocabularies_follow_model_types`
   - `tk generate --check` is unchanged.
-  - Re-run RS0 (see [Sequencing](#sequencing)) leaves every table's content hash unchanged.
+  - Re-run RS0 (see [Sequencing](#sequencing)) leaves every table equal in Arrow content to the
+    baseline built at `33261206`.
 - **Docs:** `thermo-knowledge/README.md` (the `tk-types` recipe); `docs/meta-model.md` §3.1 and
   §7, where vocabularies are listed.
 
@@ -854,7 +861,7 @@ prove. Run them with `just -f thermo-knowledge/justfile tk-test <file>`.
   - Map, canonical, resolve, build, staging and acquire errors carry codes.
   - `Blocked` maps codes, including `qualify/run.py`'s handling of `ReuseError`.
   - The remaining `match=` assertions are converted. This may be split into separate packets by
-    test area (open decision #4).
+    test area ([decision #4](#decisions)).
 - **Deletes:** message-text assertions.
 - **Acceptance:** `test_stage_refusals_carry_codes` and `test_reuse_error_not_harness_failed`.
   Refusal tests assert through one helper that compares codes; an AST test refuses
@@ -924,11 +931,10 @@ Then the Plan 24 rows C01–C22 are updated with evidence labels, and *Outcome* 
 | W1-M1 held-row decisions | DX1, then RS2 |
 | W1-M2a mapping (chemicals) | EM (RS3), ID2 |
 | W1 residue report | DX1 |
-| W2 (including the integer slot type) | MM1, BD1, MM2 (RS4), VF, ST2, DX2 |
-| W6 (ThermoML) | BD2 |
+| W2 (including the integer slot type) | MM1, BD1, MM2, VF, ST2 (RS4), BD2 (RS5), DX2, then QF |
 
-DC20 is decided during W1-M2a. QF runs after the last packet: before W2 if BD2 is pulled forward,
-otherwise before W6 (open decision #6). Chemicals' scale does not need BD2: at JANAF's measured
+DC20 is decided during W1-M2a. QF runs after the last packet, before W2: BD2 runs in this pass
+([decision #6](#decisions)). Chemicals' scale does not need BD2: at JANAF's measured
 1.45 kB per canonical row, a few million rows fit the memory cap.
 
 ```
@@ -941,9 +947,9 @@ TY ─┬─> ID1 ──┬─> ST1 ──> RS1 ──> [W1-M1 equivalence]
     └─> MM1 ─┬─> BD1 ──────────────────────────> [W2]
              └─> MM2 (after EM, QL1) ─┬─> VF ──> [W2]
                                       ├─> ST2 ──> DX2 ──> [W2]
-                                      └─> BD2 ──> [W6]
+                                      └─> BD2 ──> [W2]
 QL1, QL2 ──> [W1-M1 qualification cases]
-every packet ──> QF   (before W2 or before W6: open decision #6)
+every packet ──> QF ──> [W2]
 ```
 
 **Shared files.** Packets that edit the same file merge in this order:
@@ -1033,32 +1039,50 @@ The status of each finding stays in [Plan 24](24-thermodynamic-knowledge-base.md
 | C21 Verify vocabulary literals | VF | — |
 | C22 Ambient defaults, markers, fingerprint | ST2 | — |
 
-## Open decisions
+## Decisions
 
-1. **Conventional-join condition (constrains ID1).** The design narrows "no corpus structure
-   keeps the formula join" to compositions that fix the constitution: 184 keep the join and
-   166 go provisional. This refines the maintainer's decision and needs confirmation before
-   ID1.
-2. **Several-structure formulas (constrains ID1).** The alternatives:
-   - **Recommended:** a formula key scoped to the listing unit, so one source's phases of one
-     substance still join each other.
-   - A provisional entity per source entity.
-3. **pyrefly strictness and wiring (constrains TY).**
-   - Which error kinds are enabled beyond the default.
-   - **Recommended:** `tk-types` joins the root `just hygiene` and the end-of-turn checks. That
-     is a change to shared configuration.
-4. **DX2 split (constrains DX2).** One packet, or one per test area: stages; readers, staging
-   and acquire; declaration and expression; mechanisms.
-5. **DC20 (decided in W1-M2a).** In-source identifier disagreement: ambiguity, or a declared
-   precedence.
-6. **Where 24a closes.** QF runs before W2 only if BD2 is pulled forward. Otherwise QF waits
-   for BD2, before W6.
+Decided by the maintainer on 2026-10-01; they were open questions when the plan was written.
+
+1. **Conventional join (ID1).** A formula without a corpus structure keeps a cross-carrier join
+   only where its composition fixes the constitution: one atom (ions included), any diatomic, or
+   one non-hydrogen atom with only H, D or T; integral and not on a surface. Everything else is
+   `formula_not_identifying`.
+2. **Several-structure formulas (ID1).** A formula key scoped to the listing unit, so one source's
+   phases of one substance still join each other; never across carriers.
+3. **Typing and lint (TY).** pyrefly's default error set at zero errors and warnings over `src`,
+   `tests`, `mappings` and `oracles`. The tree's ruff lint and format also reach zero, and the
+   tree's format, lint and type checks are wired into the root `fmt` and `hygiene`, so the
+   end-of-turn pipeline keeps them there.
+4. **DX2 split.** The coordinator's call during execution: sub-commits by test area.
+5. **DC20.** Still deferred: decided in W1-M2a from ID1's report.
+6. **Where 24a closes.** BD2 runs in this pass, so QF runs before W2.
+
+**Deliberate deviations from the sequencing above**, recorded before execution:
+
+- The whole `tk-test` runs once after TY, after RS0 has made the store current: TY changes the
+  entire tree, so the whole suite is its targeted check.
+- ID1 and MM1 run in parallel although both touch the projection: MM1 leaves `schema.sql`
+  unchanged, so only ID1 regenerates it, after MM1 is integrated.
+- BD1 runs after ST1, not in parallel with it: both edit `build/plan.py` and `build/database.py`.
+- Every packet after TY is implemented in a worktree and integrated into `main` as one commit,
+  because once TY wires the tree into the end-of-turn hooks, a stop in `main` (from either
+  session) formats the tree and may run the fixer over half-finished edits.
+- Each store re-run starts from `tk read` whenever the packet edited `staging/`, `acquire/` or
+  `config.py` (ST1, ST2, BD2, DX2), since the `read` key hashes them.
 
 ## Execution checkpoint
 
-Not started. During execution this section records current state, decisions made, the
-measurements the packets name (BD1, BD2, MM1's dummy variant, the RS comparisons) and the next
-dependency-ordered step. It is not a log of commands.
+Records current state, decisions made, the measurements the packets name (BD1, BD2, MM1's dummy
+variant, the RS comparisons) and the next dependency-ordered step. It is not a log of commands.
+
+**2026-10-01, started.** Baseline: HEAD `33261206`, the tree unchanged since `35ed87ee`. The
+store predates `ece085d7` and `35ed87ee`, so a fresh baseline is built at `33261206` before TY
+(staged, mapped, resolved, built, verified and qualified) and snapshotted under
+`.store/_baseline/33261206/`; RS0 and RS1 compare against it. Plan 24's W1 work waits for QF,
+because later packets rewrite the mappings and the store is rebuilt at each RS.
+
+Order: TY → (ID1 ‖ QL1 ‖ MM1, then QL2) → ST1 (with ID2 alongside) → RS1 → BD1 → DX1 → RS2 →
+EM → RS3 → MM2 → (VF ‖ ST2) → RS4 → BD2 → RS5 → DX2 → QF.
 
 ## Outcome (recorded after implementation)
 
