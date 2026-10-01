@@ -8,6 +8,7 @@
 @id("92532849340053ea9d4413d9a5afbced") use compatibility @"1.0.0";
 @id("331ed014c84b59d3ae205f7c14b81f4d") entity properties.property kinetic_parameters {quantity=VolumetricReactionRate,shape=properties.IndexShape.group,applies={}}
 @id("4ff4acf6bb374d99a3d6faa8356a3ad0") entity kind reaction_set extends properties.parameter_set abstract {
+@id("accbffa35e514517a85e148d503dc805") require slot(self)==reaction_slot(self) : "the scientific slot is the owned reaction key projection";
 @id("f2af978bc94557bf91b3bbf091b09d7d") slot=reaction_slot;
 @id("f88ee2d0540254e39bed3f452c208cf7") key parameterization:properties.parameterization;
 @id("246065c4a5dc56ecabd614cef7f9ae87") key family:properties.property;

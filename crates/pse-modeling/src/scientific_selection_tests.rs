@@ -269,3 +269,12 @@ entity properties.property_package model"#,1);
     assert_eq!(chosen.len(),1);
     assert!(records(&p,"selection_fixture.selected").contains(&chosen[0]));
 }
+
+
+#[test]
+fn record_subtype_cannot_relabel_its_owned_scientific_slot() {
+    let fixture=BASE.replacen("dataset x:interactions.symmetric_scalar",r#"entity kind relabeled extends interactions.symmetric_scalar {slot=wrong_slot;}
+fn wrong_slot(r:relabeled)->Tuple<properties.property,Tuple<chemistry.species?,chemistry.species?>,compatibility.PhaseType?,chemistry.reaction?>=tuple(r.family,tuple(r.first,r.first),missing,missing);
+dataset x:relabeled"#,1);
+    refuses(&fixture,"owned symmetric record key projection");
+}

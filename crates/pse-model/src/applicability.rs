@@ -171,8 +171,7 @@ impl Node {
             // Nonwinning fit regions are retained, but do not individually gate a union.
             let winner=children.iter().position(|n|n.effective_classification(predicates)==outcome);
             for (i,child) in children.iter().enumerate() {
-                child.observe(predicates,values,false,assessment);
-                if required && winner==Some(i) {for dep in &child.dependencies {dep.observe(predicates,values,true,assessment);}}
+                child.observe(predicates,values,required && winner==Some(i),assessment);
             }
         }
         for dependency in &self.dependencies {dependency.observe(predicates,values,required,assessment);}

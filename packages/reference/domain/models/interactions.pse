@@ -8,6 +8,7 @@
 // Symmetric identity is indexed once by the declared canonical relation.
 @id("e5af1f18a0484f9eaf3ebbe17f7a66a5") use compatibility @"1.0.0";
 @id("09f20dee98784180aad69140b5370c00") entity kind symmetric_scalar extends properties.parameter_set {
+@id("b8aacacc07e14203bcc23d5f8f3b2081") require slot(self)==symmetric_slot(self) : "the scientific slot is the owned symmetric record key projection";
 @id("41dc85caea51425ab2772ece27bbe630") key parameterization:properties.parameterization;
 @id("47f5691be76c4bbb887dd0c9d5fc6378") key family:properties.property;
 @id("bfa2bfa9e3304e31b50671369dbd07dd") key first:chemistry.species by chemistry.cas;

@@ -270,6 +270,7 @@ frames! {
         ModelingFiniteFunctionV8 => "pse.modeling.finite-function.v8",
         /// Declared claim, form, actual selected identities and numerical arguments.
         ModelingApplicabilityCallV1 => "pse.modeling.applicability-call.v1",
+        ModelingApplicabilityObservationV1 => "pse.modeling.applicability-observation.v1",
         /// Explicit whole-interval coverage of the same declared interval claim.
         ModelingApplicabilityCoverageV1 => "pse.modeling.applicability-coverage.v1",
         /// A finite reduction rewrite.

@@ -846,7 +846,6 @@ pub(super) fn project(
             h.u64(function.envelopes.len() as u64);
             for guard in &function.envelopes {
                 h.id(&guard.envelope.owner.as_id())
-                    .str(guard.policy.as_str())
                     .str(&dsl::render_predicate(&guard.predicate));
                 reads(&mut h, &guard.reads);
             }

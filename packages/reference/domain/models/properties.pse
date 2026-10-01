@@ -45,6 +45,7 @@
 @id("4542a624e8424da493f89abbd52be2e9") derived fit_groups:Set<fit_group>=fold(acc,value; g in fit_group | if self in g.members then set_of(g) else {};union(acc,value));
 }
 @id("de5011656be14f8c94ac223816155f08") entity kind pure_parameter extends parameter_set abstract {
+@id("076ea90a9c6d44218d1c546fd9f29733") require slot(self)==pure_slot(self) : "the scientific slot is the owned pure_parameter key projection";
 @id("2fef32bf6bf14354853fabb4f24f8e11") slot=pure_slot;
 @id("92cbe17390994e25a7e9b2320c52a9a2") key subject:chemistry.species by chemistry.cas;
 @id("85e67c09fa3b4cdaaaf6c057fd1b014f") key property:property;
@@ -53,6 +54,7 @@
 @id("537b730951d649e2ac288f1dd7d8f904") require property.shape==IndexShape.pure : "a pure record has a species contract";
 }
 @id("61a751f71b114946809befa54484f5c0") entity kind phased_parameter extends parameter_set abstract {
+@id("a50daa21244b497e898164df011f7415") require slot(self)==phased_slot(self) : "the scientific slot is the owned phased_parameter key projection";
 @id("32a5cd144006479499fc611b7940286a") slot=phased_slot;
 @id("42bf5168f80b4d11bc44b528553e9316") key subject:chemistry.species by chemistry.cas;
 @id("24f43b49447c45499b66c0767d3de28e") key property:property;
@@ -62,6 +64,7 @@
 @id("a1bd6feff2954a038d47ec0e566a48a5") require property.shape==IndexShape.pure and phase_type in property.applies : "a phased record has a relevant phase and species contract";
 }
 @id("14b73d4ef7a74177888399934a7a79e3") entity kind ordered_pair extends parameter_set abstract {
+@id("74865550ba8340c7b5d68c00a12723cb") require slot(self)==ordered_slot(self) : "the scientific slot is the owned ordered_pair key projection";
 @id("a4d8fbc4cbe04f11b1f306ddadd77f49") slot=ordered_slot;
 @id("ecd7a9fcbedc4bb28847f750ba3428d1") key parameterization:parameterization;
 @id("0a96e8f7f7f449a4acec0fcd21b911a8") key family:property;
