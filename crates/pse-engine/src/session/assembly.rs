@@ -29,6 +29,7 @@ impl super::EngineSession {
 #[derive(Clone)]
 pub(super) struct ModelAssembly {
     pub planning: Arc<()>,
+    pub validation: std::sync::OnceLock<Arc<pse_relations::validate::ValidationContext>>,
     pub registry: Arc<pse_schema::Registry>,
     pub context: datafusion::execution::context::SessionContext,
     pub function_bindings: Arc<super::functions::Functions>,
@@ -69,6 +70,7 @@ pub(super) struct Selection {
     policies: Arc<Vec<pse_schema::model::provider::ProviderPolicy>>,
     purpose: pse_schema::model::provider::OperationPurpose,
     pub effective: Arc<super::policy::EffectivePolicy>,
+    pub validation: std::sync::OnceLock<Arc<pse_relations::validate::ValidationContext>>,
     pub config: datafusion::execution::context::SessionConfig,
     pub catalogs: Arc<crate::provider::list::SnapshotCatalogList>,
 }
@@ -127,6 +129,7 @@ impl super::EngineSession {
             policies: self.policies.clone(),
             purpose: self.purpose,
             effective: Arc::new(effective),
+            validation: Default::default(),
             config,
             catalogs: Arc::new(catalogs),
         });

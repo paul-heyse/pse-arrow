@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Study descriptors preserve admission through the existing general operation owners.
+#![allow(
+    clippy::unwrap_used,
+    clippy::panic,
+    reason = "native admission controls fail on invalid setup or unexpected operation variants"
+)]
 use super::super::{
     BindingQuantity, PointOverlay, PreparedStudyOperation, StudyPoint, StudyPointPolicy,
 };
@@ -227,7 +232,7 @@ async fn admitted_horizon_normalizes_inputs_once_and_refuses_wrong_physical_mean
         .admit_study_points(
             ContentHash::from_bytes([0; 32]),
             vec![],
-            &[point(OperationRequest::Horizon(request.clone()))],
+            &[point(OperationRequest::Horizon(Box::new(request.clone())))],
             &CancelSource::new(),
         )
         .await
@@ -249,7 +254,7 @@ async fn admitted_horizon_normalizes_inputs_once_and_refuses_wrong_physical_mean
         .admit_study_points(
             ContentHash::from_bytes([0; 32]),
             vec![],
-            &[point(OperationRequest::Horizon(equivalent))],
+            &[point(OperationRequest::Horizon(Box::new(equivalent)))],
             &CancelSource::new(),
         )
         .await
@@ -270,7 +275,7 @@ async fn admitted_horizon_normalizes_inputs_once_and_refuses_wrong_physical_mean
         .admit_study_points(
             ContentHash::from_bytes([0; 32]),
             vec![],
-            &[point(OperationRequest::Horizon(wrong))],
+            &[point(OperationRequest::Horizon(Box::new(wrong)))],
             &CancelSource::new(),
         )
         .await
@@ -324,8 +329,8 @@ async fn horizon_priors_and_trajectories_retain_canonical_target_correspondence(
     let mut operation = StudyOperation {
         version: Version,
         source: OperationSource::of(&package),
-        preparation: point(OperationRequest::Horizon(request.clone())).preparation,
-        operation: OperationRequest::Horizon(request),
+        preparation: point(OperationRequest::Horizon(Box::new(request.clone()))).preparation,
+        operation: OperationRequest::Horizon(Box::new(request)),
         admitted_horizon: None,
     };
     operation

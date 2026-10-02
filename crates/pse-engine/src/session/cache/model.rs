@@ -36,13 +36,7 @@ impl Selection {
         session: &EngineSession,
         admission: &Arc<super::admission::Admission>,
     ) -> Result<Option<Arc<Self>>> {
-        if !session
-            .effective_policy()
-            .map_err(pse_columnar::external)?
-            .requirements
-            .is_empty()
-            || !admission.retention_eligible()
-        {
+        if !admission.retention_eligible() {
             return Ok(None);
         }
         let reservation = pse_columnar::MemoryConsumer::new("native:model-result-selection")

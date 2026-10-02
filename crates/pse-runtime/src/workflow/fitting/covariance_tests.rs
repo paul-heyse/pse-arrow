@@ -57,7 +57,7 @@ async fn linear_regression_covariance_analytic() {
         assert_eq!(exported.len(), 2);
         for (cell, expected) in exported.iter().zip(estimate) {
             assert!(close(cell.value, expected, 1e-6));
-            assert_eq!(cell.source_revision, package.revision.identity());
+            assert_eq!(cell.source_revision, package.revision.identity().as_id());
             assert_eq!(cell.run_id, result.run_id);
         }
         let covariance = report.covariance.as_ref().unwrap();
@@ -269,7 +269,16 @@ async fn profile_likelihood_matches_wald_on_linear_model() {
             .unwrap()
             .unwrap()
     };
-    assert_eq!(chains(1), chains(4));
+    let serial = chains(1);
+    let mut parallel = chains(4);
+    assert!(serial.iter().all(|chain| chain.actual_parallelism == 1));
+    assert!(parallel.iter().all(|chain| chain.actual_parallelism == 4));
+    // Compare every scientific and failure field after separately asserting the
+    // actual execution parallelism; the worker count is not an interval result.
+    for chain in &mut parallel {
+        chain.actual_parallelism = 1;
+    }
+    assert_eq!(serial, parallel);
     let result = fit(&package, profile).await;
     let report = report(&result);
     let wald = report.wald.as_ref().unwrap().as_ref().unwrap();

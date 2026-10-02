@@ -15,8 +15,8 @@ pub struct RuntimeOperationalAttemptsRow {
     pub r#run_id: crate::generated::identities::RunId,
     ///kind
     pub r#kind: crate::generated::enums::AttemptKind,
-    ///request_identity
-    pub r#request_identity: pse_ids::ContentHash,
+    ///operational_job_identity
+    pub r#operational_job_identity: pse_ids::ContentHash,
     ///preparation_identity
     pub r#preparation_identity: Option<pse_ids::ContentHash>,
     ///state
@@ -57,6 +57,8 @@ pub struct RuntimeOperationalAttemptsRow {
     pub r#started_at: Option<i64>,
     ///finished_at
     pub r#finished_at: Option<i64>,
+    ///operational_job_frame
+    pub r#operational_job_frame: Option<String>,
 }
 impl crate::SemanticEq for RuntimeOperationalAttemptsRow {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -64,8 +66,8 @@ impl crate::SemanticEq for RuntimeOperationalAttemptsRow {
             && crate::SemanticEq::semantic_eq(&self.r#run_id, &other.r#run_id)
             && crate::SemanticEq::semantic_eq(&self.r#kind, &other.r#kind)
             && crate::SemanticEq::semantic_eq(
-                &self.r#request_identity,
-                &other.r#request_identity,
+                &self.r#operational_job_identity,
+                &other.r#operational_job_identity,
             )
             && crate::SemanticEq::semantic_eq(
                 &self.r#preparation_identity,
@@ -126,6 +128,10 @@ impl crate::SemanticEq for RuntimeOperationalAttemptsRow {
             && crate::SemanticEq::semantic_eq(&self.r#updated_at, &other.r#updated_at)
             && crate::SemanticEq::semantic_eq(&self.r#started_at, &other.r#started_at)
             && crate::SemanticEq::semantic_eq(&self.r#finished_at, &other.r#finished_at)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#operational_job_frame,
+                &other.r#operational_job_frame,
+            )
     }
 }
 impl PartialEq for RuntimeOperationalAttemptsRow {
@@ -143,8 +149,8 @@ impl crate::SemanticFrame for RuntimeOperationalAttemptsRow {
         crate::SemanticFrame::frame(&self.r#run_id, hash);
         hash.str(stringify!(r#kind));
         crate::SemanticFrame::frame(&self.r#kind, hash);
-        hash.str(stringify!(r#request_identity));
-        crate::SemanticFrame::frame(&self.r#request_identity, hash);
+        hash.str(stringify!(r#operational_job_identity));
+        crate::SemanticFrame::frame(&self.r#operational_job_identity, hash);
         hash.str(stringify!(r#preparation_identity));
         crate::SemanticFrame::frame(&self.r#preparation_identity, hash);
         hash.str(stringify!(r#state));
@@ -185,6 +191,8 @@ impl crate::SemanticFrame for RuntimeOperationalAttemptsRow {
         crate::SemanticFrame::frame(&self.r#started_at, hash);
         hash.str(stringify!(r#finished_at));
         crate::SemanticFrame::frame(&self.r#finished_at, hash);
+        hash.str(stringify!(r#operational_job_frame));
+        crate::SemanticFrame::frame(&self.r#operational_job_frame, hash);
     }
 }
 impl crate::HeapUsage for RuntimeOperationalAttemptsRow {
@@ -193,7 +201,9 @@ impl crate::HeapUsage for RuntimeOperationalAttemptsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#attempt_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#run_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#kind))
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#request_identity))
+            .saturating_add(
+                crate::HeapUsage::heap_bytes(&self.r#operational_job_identity),
+            )
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#preparation_identity))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#state))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#state_version))
@@ -214,5 +224,6 @@ impl crate::HeapUsage for RuntimeOperationalAttemptsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#updated_at))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#started_at))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#finished_at))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#operational_job_frame))
     }
 }

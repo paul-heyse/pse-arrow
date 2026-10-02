@@ -34,6 +34,9 @@ pub struct EnumSpec {
     /// a second enum (ADR-0115 Outcome 3). It is a generation fact, not part of the
     /// registry's self-description, so it does not enter the fingerprint.
     pub source: Option<&'static str>,
+    /// The member used by Rust's derived `Default`, if explicitly declared. Like
+    /// `source`, this is generation metadata and does not enter the fingerprint.
+    pub default_member: Option<&'static str>,
     /// The members, in declaration order. The ordinal is the position and is presentation
     /// only: a dictionary code never carries identity (blueprint §4.5).
     pub members: Vec<EnumMember>,
@@ -84,6 +87,8 @@ pub struct EnumDecl {
     pub idaes_source: Option<&'static str>,
     /// See [`EnumSpec::source`].
     pub source: Option<&'static str>,
+    /// See [`EnumSpec::default_member`].
+    pub default_member: Option<&'static str>,
     /// See [`EnumSpec::members`].
     pub members: Vec<EnumMember>,
 }
@@ -95,6 +100,7 @@ impl EnumDecl {
             name,
             idaes_source: None,
             source: None,
+            default_member: None,
             members,
         }
     }
@@ -108,6 +114,7 @@ impl EnumDecl {
             name: path.rsplit_once("::").map_or(path, |(_, name)| name),
             idaes_source: None,
             source: Some(path),
+            default_member: None,
             members,
         }
     }
@@ -118,7 +125,15 @@ impl EnumDecl {
             name,
             idaes_source: Some(source),
             source: None,
+            default_member: None,
             members,
         }
+    }
+
+    /// Derive Rust's `Default` from one explicitly named member. Sourced types own
+    /// their own defaults and cannot use this generation option.
+    pub const fn with_default(mut self, member: &'static str) -> Self {
+        self.default_member = Some(member);
+        self
     }
 }

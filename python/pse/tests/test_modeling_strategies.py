@@ -3,11 +3,11 @@
 """Public declared topology, causal functions and owned native strategy reports."""
 
 from pathlib import Path
-from typing import cast
 
 import pytest
 
 import pse
+from pse import codec
 from pse.contracts.enums import (
     NativeBackend,
     NativeSolveIntent,
@@ -68,55 +68,56 @@ def test_authored_recycle_uses_declared_ports_and_owned_results(
         presolve=PresolvePolicyKind.OFF,
     )
     inspected = package.inspect(case, settings)
-    connections = cast("list[dict[str, object]]", inspected["connections"])
-    ports = cast("list[dict[str, object]]", inspected["ports"])
-    inlet = next(
-        p
-        for p in ports
-        if cast("str", cast("dict[str, object]", p["lineage"])["path"]).endswith(
-            ".inlet"
-        )
-    )
-    outlet = next(
-        p
-        for p in ports
-        if cast("str", cast("dict[str, object]", p["lineage"])["path"]).endswith(
-            ".outlet"
-        )
-    )
-    selection: dict[str, object] = {
-        "nodes": [case.to_hex()],
-        "connections": [
+    connections = inspected.connections
+    inlet = next(p for p in inspected.ports if p.lineage.path.endswith(".inlet"))
+    outlet = next(p for p in inspected.ports if p.lineage.path.endswith(".outlet"))
+    selection = codec.decode_json(
+        codec.encode_json(
             {
-                "connection": c["id"],
-                "group": c["id"],
-                "cost": 2.0,
-                "policy": "mandatory",
+                "nodes": [case.to_hex()],
+                "connections": [
+                    {
+                        "connection": c.id,
+                        "group": c.id,
+                        "cost": 2.0,
+                        "policy": "mandatory",
+                    }
+                    for c in connections
+                ],
             }
-            for c in connections
-        ],
-    }
+        ),
+        pse.FlowSelectionDocument,
+    )
     flow = package.prepare_flow(case, selection, settings)
     with pytest.raises(pse.InspectionError, match="duplicate selected flow node"):
         package.prepare_flow(
-            case, {**selection, "nodes": [case.to_hex(), case.to_hex()]}, settings
+            case,
+            pse.FlowSelectionDocument(
+                nodes=(case.to_hex(), case.to_hex()), connections=selection.connections
+            ),
+            settings,
         )
     selected = flow.select_tears(TearMethod.UNWEIGHTED_HEURISTIC, settings).tears()
     assert selected is not None
-    assert selected["cost"] == 2.0
-    request: dict[str, object] = {
-        "tears": selected["decisions"],
-        "units": [
+    assert selected.cost == 2.0
+    request = codec.decode_json(
+        codec.encode_json(
             {
-                "node": case.to_hex(),
-                "realization": {"kind": "explicit_map"},
-                "inputs": [inlet["id"]],
-                "outputs": [outlet["id"]],
+                "tears": selected.decisions,
+                "units": [
+                    {
+                        "node": case.to_hex(),
+                        "realization": {"kind": "explicit_map"},
+                        "inputs": [inlet.id],
+                        "outputs": [outlet.id],
+                    }
+                ],
+                "anderson": 1,
+                "damping": 1.0,
             }
-        ],
-        "anderson": 1,
-        "damping": 1.0,
-    }
+        ),
+        pse.RecycleRequest,
+    )
     prepared = package.prepare_recycle(case, selection, request, settings)
     assert [route.backend for route in prepared.routes] == ["kinsol"]
     result = prepared.run()
@@ -127,6 +128,4 @@ def test_authored_recycle_uses_declared_ports_and_owned_results(
     assert attempt is not None
     assert row.failure is None
     assert attempt.qualification == "feasible"
-    assert dict(attempt.primal())[cast("str", inlet["id"])] == pytest.approx(
-        4.0, abs=1e-6
-    )
+    assert dict(attempt.primal())[inlet.id] == pytest.approx(4.0, abs=1e-6)

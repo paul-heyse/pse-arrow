@@ -13,7 +13,7 @@ use crate::native::arrow::{
 use datafusion::prelude::SessionContext;
 use pse_schema::{RegistryBuilder, model::IntegerRange};
 fn report(registry: &Registry, field: &Field, array: ArrayRef, limit: usize) -> ValidationReport {
-    let context = ValidationContext::for_registry(registry).unwrap();
+    let context = ValidationContext::local(registry).unwrap();
     let prepared = context.column(registry, field).unwrap();
     let batch = RecordBatch::try_new(Arc::clone(prepared.schema()), vec![array]).unwrap();
     prepared
@@ -24,10 +24,10 @@ fn report(registry: &Registry, field: &Field, array: ArrayRef, limit: usize) -> 
 fn preparation_reuses_exact_owner_and_schema_and_rejects_foreign_registry() {
     let registry = RegistryBuilder::new().build().unwrap();
     let other = RegistryBuilder::new().build().unwrap();
-    let context = ValidationContext::for_registry(&registry).unwrap();
+    let context = ValidationContext::local(&registry).unwrap();
     assert!(Arc::ptr_eq(
         &context,
-        &ValidationContext::for_registry(&registry).unwrap()
+        &ValidationContext::local(&registry).unwrap()
     ));
     let field = Field::new("a.b", DataType::Float32, false);
     let first = context.column(&registry, &field).unwrap();
@@ -146,7 +146,7 @@ fn encoded_values_use_visible_logical_occurrences_and_cancel_never_certifies() {
         report(&registry, &field, Arc::new(run.clone()), 8).violations,
         1
     );
-    let context = ValidationContext::for_registry(&registry).unwrap();
+    let context = ValidationContext::local(&registry).unwrap();
     let prepared = context.column(&registry, &field).unwrap();
     let batch = RecordBatch::try_new(Arc::clone(prepared.schema()), vec![Arc::new(run)]).unwrap();
     let cancel = pse_columnar::CancellationToken::new();
@@ -165,7 +165,7 @@ fn local_masks_and_delta_expression_lowering_agree_without_storage_execution() {
         Some(NullBuffer::from(vec![true, false, true])),
     ));
     let field = Field::new("values", array.data_type().clone(), true);
-    let context = ValidationContext::for_registry(&registry).unwrap();
+    let context = ValidationContext::local(&registry).unwrap();
     let prepared = context.column(&registry, &field).unwrap();
     let batch = RecordBatch::try_new(Arc::clone(prepared.schema()), vec![array]).unwrap();
     let report = prepared
@@ -285,16 +285,13 @@ fn sql_checks_require_an_explicit_native_binding() {
     );
     let registry = builder.build().unwrap();
     let spec = registry.relation("authored.checked").unwrap();
-    let error = ValidationContext::for_registry(&registry)
+    let error = ValidationContext::local(&registry)
         .unwrap()
         .relation(&registry, spec)
         .unwrap_err();
     assert!(error.to_string().contains("engine-bound ValidationContext"));
-    ValidationContext::install_default(&registry, SessionContext::new().state()).unwrap();
-    let prepared = ValidationContext::for_registry(&registry)
-        .unwrap()
-        .relation(&registry, spec)
-        .unwrap();
+    let context = ValidationContext::new(&registry, SessionContext::new().state());
+    let prepared = context.relation(&registry, spec).unwrap();
     let batch = RecordBatch::try_new(
         prepared.schema().clone(),
         vec![Arc::new(Int64Array::from(vec![-1]))],
@@ -307,4 +304,107 @@ fn sql_checks_require_an_explicit_native_binding() {
             .violations,
         1
     );
+}
+
+#[derive(Clone, Debug)]
+struct ReentrantPlanner {
+    context: Arc<Mutex<std::sync::Weak<ValidationContext>>>,
+    registry: Arc<Registry>,
+    schemas: Arc<HashMap<String, SchemaRef>>,
+    edges: Arc<HashMap<String, String>>,
+    barrier: Option<Arc<std::sync::Barrier>>,
+    state: datafusion::execution::session_state::SessionState,
+}
+impl super::super::planner::ValidationPlanner for ReentrantPlanner {
+    fn snapshot(&self) -> Arc<dyn super::super::planner::ValidationPlanner> {
+        Arc::new(self.clone())
+    }
+    fn create_logical_expr(
+        &self,
+        sql: &str,
+        schema: &DFSchema,
+    ) -> datafusion::common::Result<Expr> {
+        if let Some(next) = self.edges.get(sql) {
+            if let Some(barrier) = &self.barrier {
+                barrier.wait();
+            }
+            let context = self.context.lock().unwrap().upgrade().unwrap();
+            context
+                .prepare(&self.registry, self.schemas[next].clone())
+                .map_err(pse_columnar::external)?;
+        }
+        self.state.create_logical_expr("true", schema)
+    }
+    fn prepare(
+        &self,
+        expression: Expr,
+        schema: &DFSchema,
+    ) -> datafusion::common::Result<Arc<dyn PhysicalExpr>> {
+        super::super::planner::ValidationPlanner::prepare(&self.state, expression, schema)
+    }
+}
+fn reentrant_context(
+    edges: &[(&str, &str)],
+    workers: bool,
+) -> (
+    Arc<Registry>,
+    Arc<ValidationContext>,
+    Arc<HashMap<String, SchemaRef>>,
+) {
+    let registry = Arc::new(RegistryBuilder::new().build().unwrap());
+    let schemas = Arc::new(
+        ["a", "b"]
+            .into_iter()
+            .map(|name| {
+                (
+                    name.to_owned(),
+                    Arc::new(Schema::new_with_metadata(
+                        vec![Field::new("id", DataType::Int64, false)],
+                        HashMap::from([(
+                            pse_schema::arrow::KEY_CHECKS.into(),
+                            serde_json::to_string(&HashMap::from([("check", name)])).unwrap(),
+                        )]),
+                    )),
+                )
+            })
+            .collect(),
+    );
+    let owner = Arc::new(Mutex::new(std::sync::Weak::new()));
+    let planner = ReentrantPlanner {
+        context: owner.clone(),
+        registry: registry.clone(),
+        schemas: Arc::clone(&schemas),
+        edges: Arc::new(
+            edges
+                .iter()
+                .map(|(from, to)| ((*from).into(), (*to).into()))
+                .collect(),
+        ),
+        barrier: workers.then(|| Arc::new(std::sync::Barrier::new(2))),
+        state: SessionContext::new().state(),
+    };
+    let context = Arc::new(ValidationContext::new(&registry, planner));
+    *owner.lock().unwrap() = Arc::downgrade(&context);
+    (registry, context, schemas)
+}
+#[test]
+fn schema_preparation_nested_slots_complete_and_reentrant_cycle_refuses() {
+    let (registry, context, schemas) = reentrant_context(&[("a", "b")], false);
+    context.prepare(&registry, schemas["a"].clone()).unwrap();
+    assert_eq!(context.prepared_count().unwrap(), 2);
+    let (registry, context, schemas) = reentrant_context(&[("a", "b"), ("b", "a")], false);
+    let error = context
+        .prepare(&registry, schemas["a"].clone())
+        .unwrap_err();
+    assert!(error.to_string().contains("cycle"), "{error}");
+}
+#[test]
+fn schema_preparation_cross_worker_cycle_refuses_without_waiting_forever() {
+    let (registry, context, schemas) = reentrant_context(&[("a", "b"), ("b", "a")], true);
+    std::thread::scope(|scope| {
+        let a = scope.spawn(|| context.prepare(&registry, schemas["a"].clone()));
+        let b = scope.spawn(|| context.prepare(&registry, schemas["b"].clone()));
+        assert!(a.join().unwrap().unwrap_err().to_string().contains("cycle"));
+        assert!(b.join().unwrap().unwrap_err().to_string().contains("cycle"));
+    });
 }

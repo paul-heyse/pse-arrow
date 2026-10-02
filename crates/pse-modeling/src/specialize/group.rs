@@ -160,7 +160,7 @@ impl Engine<'_, '_> {
             let mut calls = |e: &Expr| {
                 e.walk(|e| match &e.kind {
                     ExprKind::NamedCall { name, .. } | ExprKind::Partial { function: name, .. } => {
-                        pending.insert(name.clone());
+                        pending.insert(dsl::render_path(name));
                     }
                     _ => {}
                 });
@@ -190,7 +190,7 @@ impl Engine<'_, '_> {
                         expression.walk(|e| match &e.kind {
                             ExprKind::NamedCall { name, .. }
                             | ExprKind::Partial { function: name, .. } => {
-                                pending.insert(name.clone());
+                                pending.insert(dsl::render_path(name));
                             }
                             _ => {}
                         });

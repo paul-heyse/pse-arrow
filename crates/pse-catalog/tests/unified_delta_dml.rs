@@ -280,7 +280,11 @@ async fn seed_declared(
     use pse_relations::generated::{authored::entities, enums::EntityKind};
     let registry = pse_schema::shared_registry().unwrap();
     let check = DeclaredCheck::new(&registry, entities::RELATION_ID).unwrap();
-    let mut builder = entities::Builder::new().unwrap();
+    let mut builder = entities::Builder::new(&pse_relations::validate::ValidationContext::new(
+        &registry,
+        pse_engine::validation::NativeValidation(context.state()),
+    ))
+    .unwrap();
     builder
         .push(entities::Row {
             entity_id: pse_ids::SemanticId::from_bytes([1; 16]),
@@ -414,7 +418,11 @@ async fn cold_mapped_checks_bind_from_the_stored_execution_descriptor() {
     let location = url::Url::from_directory_path(root.path()).unwrap();
     let (context, _) = context();
     let check = seed_declared(&context, &location).await;
-    assert!(check.properties().contains_key("pse.check.field.encoding"));
+    assert!(
+        check
+            .properties()
+            .contains_key(pse_schema::compatibility::KEY_ENCODING)
+    );
     let cold = SessionStateBuilder::new()
         .with_default_features()
         .with_query_planner(DeltaPlanner::new())

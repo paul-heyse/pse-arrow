@@ -3,6 +3,7 @@
 //! Instantiated physical boundary operations; numerical lowering remains ordinary functions.
 use super::*;
 use crate::{BoundaryRef, PhysicalOperation, PhysicalRefinement, TransferDirection};
+use pse_authoring::dsl::{CompareOp, Number, Predicate, PredicateKind};
 
 impl Engine<'_, '_> {
     pub(super) fn validate_contextual_equations(&self) -> Result<()> {
@@ -36,7 +37,7 @@ impl Engine<'_, '_> {
                             }
                             ExprKind::NamedCall { name, .. }
                                 if functions
-                                    .resolve(at, name)
+                                    .resolve_segments(at, &name.segments)
                                     .and_then(|id| functions.functions.get(&id))
                                     .is_some_and(|f| f.result.physical_refinement().is_some()) =>
                             {
@@ -98,18 +99,17 @@ impl Engine<'_, '_> {
         &self,
         instance: InstanceId,
         at: DeclarationId,
-        text: &str,
+        expression: &Expr,
         env: &Environment,
     ) -> Result<BoundaryRef> {
-        let expression = dsl::parse_expr(text).map_err(|error| invalid(at, error.to_string()))?;
-        let ExprKind::Path(path) = expression.kind else {
+        let ExprKind::Path(path) = &expression.kind else {
             return Err(invalid(
                 at,
                 "a boundary must name its actual owner and coordinates",
             ));
         };
         let (instance, declaration, coordinates) =
-            self.resolve_path(instance, at, &path, env, true)?;
+            self.resolve_path(instance, at, path, env, true)?;
         if self.p.declarations[&declaration].value.kind != Kind::Boundary {
             return Err(invalid(
                 at,
@@ -305,8 +305,7 @@ impl Engine<'_, '_> {
                         "a transfer requires a datum-free extensive rate",
                     ));
                 }
-                let boundary =
-                    self.resolve_boundary(instance, at, &dsl::render_expr(&args[1]), env)?;
+                let boundary = self.resolve_boundary(instance, at, &args[1], env)?;
                 (
                     PhysicalRefinement::Transfer {
                         boundary,
@@ -400,12 +399,8 @@ impl Engine<'_, '_> {
                 return Err(invalid(at, "reference translation actual contract differs"));
             }
         }
-        let Value::Set(members) = self.eval(
-            at,
-            env,
-            &dsl::render_expr(&args[2]),
-            Some(&contract.arguments[2].1),
-        )?
+        let Value::Set(members) =
+            self.eval_ast_with(at, env, &args[2], Some(&contract.arguments[2].1))?
         else {
             return Err(invalid(
                 at,
@@ -446,10 +441,10 @@ impl Engine<'_, '_> {
             ("translation_pressure", &descriptor.pressure, "pressure"),
         ] {
             let quantity = self.p.reference_attribute_type(attribute, function)?;
-            let value = self.eval(
+            let value = self.eval_ast_with(
                 function,
                 &anchor_env,
-                &dsl::render_expr(expression),
+                expression,
                 Some(&Type::Quantity(Scheme::Concrete(quantity))),
             )?;
             let Value::Number { bits, quantity } = value else {
@@ -481,8 +476,11 @@ impl Engine<'_, '_> {
                 "translation_component",
             ]
             .iter()
-            .map(|name| dsl::parse_expr(name).map_err(|error| invalid(at, error.to_string())))
-            .collect::<Result<Vec<_>>>()?;
+            .map(|name| Expr {
+                kind: ExprKind::Path(Path::single(*name)),
+                span: Span::default(),
+            })
+            .collect::<Vec<_>>();
             for anchor in [descriptor.source_anchor, descriptor.target_anchor] {
                 let kind =
                     self.function_call(instance, anchor, &actual, &[], &anchor_env, chain)?;
@@ -535,16 +533,66 @@ impl Engine<'_, '_> {
             },
             span: Span::default(),
         };
-        let delta = binary(BinaryOp::Sub, value, source_mean);
         let input = Type::Quantity(Scheme::Delta(Box::new(Scheme::Concrete(descriptor.source))));
         let output = Type::Quantity(Scheme::Delta(Box::new(Scheme::Concrete(descriptor.target))));
+        // Preserve both datum-point operands at the ordinary subtraction boundary.
+        // A result expectation for a difference must not retype a rewritten literal
+        // point before subtracting its same-datum anchor.
+        self.reserve(1)?;
+        let mut hash = FramedHasher::new(pse_ids::Frame::ModelingPhysicalOperationV1);
+        hash.str("reference-source-difference")
+            .id(&descriptor.source.as_id());
+        let difference_id = DeclarationId::from(hash.finish_id());
+        let difference_name = format!("f_{}", difference_id.as_id().to_hex());
+        let point = Type::Quantity(Scheme::Concrete(descriptor.source));
+        self.model
+            .functions
+            .entry(difference_name.clone())
+            .or_insert(crate::Function {
+                applicability: Vec::new(),
+                applicability_uses: Vec::new(),
+                prerequisites: Vec::new(),
+                physical_admissions: BTreeMap::new(),
+                physical_operation: None,
+                reduction: None,
+                validity: None,
+                envelopes: Vec::new(),
+                validity_reads: crate::envelope::Reads::default(),
+                external: None,
+                continuity: None,
+                id: difference_id,
+                variables: BTreeSet::new(),
+                arguments: vec![("value".into(), point.clone()), ("anchor".into(), point)],
+                result: input.clone(),
+                body: Some(binary(
+                    BinaryOp::Sub,
+                    Expr {
+                        kind: ExprKind::Path(Path::single("value")),
+                        span: Span::default(),
+                    },
+                    Expr {
+                        kind: ExprKind::Path(Path::single("anchor")),
+                        span: Span::default(),
+                    },
+                )),
+            });
+        let delta = Expr {
+            kind: ExprKind::NamedCall {
+                name: Path::single(difference_name),
+                args: vec![value, source_mean],
+            },
+            span: Span::default(),
+        };
         let operation = PhysicalOperation::ReferenceTranslation(descriptor);
         let converted = self.contextual_function(
             at,
             vec![("value".into(), input)],
             output,
             operation,
-            "value",
+            &Expr {
+                kind: ExprKind::Path(Path::single("value")),
+                span: Span::default(),
+            },
             None,
             vec![delta],
         )?;
@@ -568,31 +616,69 @@ impl Engine<'_, '_> {
         let point = Type::Quantity(Scheme::Concrete(quantity));
         let position = usize::from(!source);
         let reference = translation.anchors[0].values[position].clone();
-        let mut terms = Vec::new();
-        for (index, anchor) in translation.anchors[..weights.len()].iter().enumerate() {
-            let selected = &anchor.values[position];
-            terms.push(format!(
-                "weight_{index}*(({})-({}))",
-                dsl::render_expr(selected),
-                dsl::render_expr(&reference)
-            ));
-        }
-        let total = (0..weights.len())
-            .map(|index| format!("weight_{index}"))
-            .collect::<Vec<_>>()
-            .join("+");
-        let body = format!(
-            "({})+({})/({total})",
-            dsl::render_expr(&reference),
-            terms.join("+")
+        let binary = |op, lhs, rhs| Expr {
+            kind: ExprKind::Binary {
+                op,
+                lhs: Box::new(lhs),
+                rhs: Box::new(rhs),
+            },
+            span: Span::default(),
+        };
+        let variable = |index| Expr {
+            kind: ExprKind::Path(Path::single(format!("weight_{index}"))),
+            span: Span::default(),
+        };
+        let sum = |values: Vec<Expr>| {
+            values
+                .into_iter()
+                .reduce(|lhs, rhs| binary(BinaryOp::Add, lhs, rhs))
+                .ok_or_else(|| invalid(at, "reference mean requires actual weights"))
+        };
+        let terms = translation.anchors[..weights.len()]
+            .iter()
+            .enumerate()
+            .map(|(index, anchor)| {
+                binary(
+                    BinaryOp::Mul,
+                    variable(index),
+                    binary(
+                        BinaryOp::Sub,
+                        anchor.values[position].clone(),
+                        reference.clone(),
+                    ),
+                )
+            })
+            .collect();
+        let total = sum((0..weights.len()).map(variable).collect())?;
+        let body = binary(
+            BinaryOp::Add,
+            reference,
+            binary(BinaryOp::Div, sum(terms)?, total.clone()),
         );
-        let guard = format!(
-            "{} and ({total})>0",
-            (0..weights.len())
-                .map(|index| format!("weight_{index}>=0"))
-                .collect::<Vec<_>>()
-                .join(" and ")
-        );
+        let zero = || Expr {
+            kind: ExprKind::Number(Number {
+                value: 0.,
+                exact_integer: Some(0),
+                unit: None,
+            }),
+            span: Span::default(),
+        };
+        let comparison = |op, lhs| Predicate {
+            kind: PredicateKind::Compare {
+                op,
+                lhs: Box::new(lhs),
+                rhs: Box::new(zero()),
+            },
+            span: Span::default(),
+        };
+        let guard = (0..weights.len())
+            .map(|index| comparison(CompareOp::Ge, variable(index)))
+            .chain(std::iter::once(comparison(CompareOp::Gt, total)))
+            .reduce(|lhs, rhs| Predicate {
+                kind: PredicateKind::And(Box::new(lhs), Box::new(rhs)),
+                span: Span::default(),
+            })
+            .ok_or_else(|| invalid(at, "reference mean requires actual weights"))?;
         let coefficient = self
             .c
             .quantities
@@ -625,17 +711,17 @@ impl Engine<'_, '_> {
         arguments: Vec<(String, Type)>,
         result: Type,
         operation: PhysicalOperation,
-        body: &str,
-        guard: Option<&str>,
+        body: &Expr,
+        guard: Option<&Predicate>,
         actual: Vec<Expr>,
     ) -> Result<Expr> {
         self.reserve(1)?;
         let mut hash = FramedHasher::new(pse_ids::Frame::ModelingPhysicalOperationV1);
         hash.id(&at.as_id());
         operation.frame(&mut hash);
-        hash.str(body).bool(guard.is_some());
+        hash.str(&dsl::render_expr(body)).bool(guard.is_some());
         if let Some(guard) = guard {
-            hash.str(guard);
+            hash.str(&dsl::render_predicate(guard));
         }
         let id = DeclarationId::from(hash.finish_id());
         let name = format!("f_{}", id.as_id().to_hex());
@@ -649,10 +735,7 @@ impl Engine<'_, '_> {
                 physical_admissions: BTreeMap::new(),
                 physical_operation: Some(operation),
                 reduction: None,
-                validity: guard
-                    .map(dsl::parse_predicate)
-                    .transpose()
-                    .map_err(|error| invalid(at, error.to_string()))?,
+                validity: guard.cloned(),
                 envelopes: vec![],
                 validity_reads: crate::envelope::Reads::default(),
                 external: None,
@@ -661,10 +744,13 @@ impl Engine<'_, '_> {
                 variables: BTreeSet::new(),
                 arguments,
                 result,
-                body: Some(dsl::parse_expr(body).map_err(|error| invalid(at, error.to_string()))?),
+                body: Some(body.clone()),
             });
         Ok(Expr {
-            kind: ExprKind::NamedCall { name, args: actual },
+            kind: ExprKind::NamedCall {
+                name: Path::single(name),
+                args: actual,
+            },
             span: Span::default(),
         })
     }
@@ -705,8 +791,18 @@ impl Engine<'_, '_> {
         }
         let id = DeclarationId::from(h.finish_id());
         let name = format!("f_{}", id.as_id().to_hex());
-        let body = dsl::parse_expr(if factor < 0 { "-value" } else { "value" })
-            .map_err(|error| invalid(at, error.to_string()))?;
+        let formal = Expr {
+            kind: ExprKind::Path(Path::single("value")),
+            span: Span::default(),
+        };
+        let body = if factor < 0 {
+            Expr {
+                kind: ExprKind::Neg(Box::new(formal)),
+                span: Span::default(),
+            }
+        } else {
+            formal
+        };
         self.model
             .functions
             .entry(name.clone())
@@ -730,7 +826,7 @@ impl Engine<'_, '_> {
             });
         Ok(Expr {
             kind: ExprKind::NamedCall {
-                name,
+                name: Path::single(name),
                 args: vec![value],
             },
             span: Span::default(),

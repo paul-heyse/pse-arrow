@@ -48,6 +48,7 @@ fn fixture(domain: ModelingVariableDomain) -> (Arc<CaseAssembly>, CaseValues) {
             }],
             vec![],
             vec![InstanceBinding {
+                checked_members: Default::default(),
                 instance: id(4),
                 body: key,
                 slots: vec![SlotBinding::new(&port, &port, &registry).unwrap()],

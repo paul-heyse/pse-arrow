@@ -36,7 +36,27 @@ impl Environment {
         &self,
         bundles: &[pse_runtime::authoring_driver::document::DocumentBundle],
     ) -> Result<ArtifactPlan> {
-        let rows = pse_runtime::authoring_driver::p1::source_batches(bundles, &self.registry)?;
+        let validation = self.sessions.validation_context(&self.registry)?;
+        let headers = bundles
+            .iter()
+            .map(|bundle| bundle.package.clone())
+            .collect::<Vec<_>>();
+        let edges = headers
+            .iter()
+            .try_fold(0usize, |sum, header| {
+                sum.checked_add(header.dependencies.len())
+            })
+            .context("package dependency extent overflow")?;
+        let limits = pse_authoring::p0::GraphLimits {
+            nodes: headers.len(),
+            edges,
+        };
+        let rows = pse_runtime::authoring_driver::p1::source_batches(
+            bundles,
+            &self.registry,
+            &headers,
+            limits,
+        )?;
         let mut rows = rows
             .into_iter()
             .map(|(id, batch)| {
@@ -60,6 +80,8 @@ impl Environment {
                     &self.registry,
                     spec,
                     batch.clone(),
+                    &validation,
+                    &self.cancel,
                 )?,
             );
         }
@@ -131,9 +153,13 @@ impl Environment {
             batch.num_rows() == 1,
             "publication did not return one record"
         );
-        let record =
-            publication_manifests::View::try_from_batch_with_registry(&self.registry, batch)
-                .and_then(|view| view.row(0))?;
+        let validation = self.sessions.validation_context(&self.registry)?;
+        let record = publication_manifests::View::try_from_batch_with_registry(
+            &self.registry,
+            batch,
+            &validation,
+        )
+        .and_then(|view| view.row(0))?;
         let now = i64::try_from(
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)?

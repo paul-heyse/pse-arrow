@@ -1,0 +1,19 @@
+{
+  "invariant": "runtime.artifact_migration_lineage:unique:pk",
+  "rows": {
+    "runtime.artifact_migration_lineage": [
+      {
+        "declaration": "[\"text\",\"value-1\"]",
+        "output_catalog": "[\"text\",\"value-1\"]",
+        "output_schema": "[\"text\",\"value-1\"]",
+        "output_table": "[\"text\",\"value-1\"]",
+        "source_member": "[\"struct\",[[\"text\",\"value-1\"],[\"text\",\"value-1\"],[\"text\",\"value-1\"],[\"id\",\"01010101010101010101010101010101\"],[\"i64\",1],[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"],[\"text\",\"value-1\"],[\"i64\",1],[\"struct\",[[\"enum\",\"full\"],[\"null\",null]]]]]",
+        "source_publication_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "target_relation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "target_relation_version": "[\"i64\",1]",
+        "transformation_digest": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

@@ -15,27 +15,9 @@ use std::{
     sync::Arc,
 };
 
-/// Actual implementation that lowers required invariant IDs to a native violation plan.
-/// A zero-row successful execution discharges the selected requirements for its exact
-/// captured sources. It does not validate unrelated bundle/publication obligations.
-#[async_trait::async_trait]
-pub trait RequirementPlanner: std::fmt::Debug + Send + Sync {
-    /// Lower all selected requirements. Missing declarations/dependencies must fail.
-    /// # Errors
-    /// Unsupported requirement, invalid dependency or native planning failure.
-    async fn plan(
-        &self,
-        session: &EngineSession,
-        requirements: &BTreeSet<SemanticId>,
-        cancel: &pse_columnar::CancellationToken,
-    ) -> Result<LogicalPlan, EngineError>;
-}
-
 /// Immutable effective policy. Values and their origins are derived together.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct EffectivePolicy {
-    /// Actual invariant requirements, conjunctive across applicable scopes.
-    pub requirements: BTreeSet<SemanticId>,
     /// Purpose and scoped effect ceilings intersect; implementation support is separate.
     pub effects: BTreeSet<OperationEffect>,
     /// Resolved native configuration values.
@@ -49,13 +31,12 @@ pub struct EffectivePolicy {
 impl EffectivePolicy {
     /// Compose already applicable declarations; no provider-specific interpretation.
     /// # Errors
-    /// Incompatible requirements/defaults, conflicting declaration identities or zero limit.
+    /// Incompatible defaults, conflicting declaration identities or zero limit.
     pub fn compose<'a>(
         purpose: OperationPurpose,
         policies: impl IntoIterator<Item = &'a ProviderPolicy>,
     ) -> Result<Self, EngineError> {
         let mut result = Self {
-            requirements: BTreeSet::new(),
             effects: purpose.effects(),
             settings: BTreeMap::new(),
             setting_origins: BTreeMap::new(),
@@ -72,7 +53,6 @@ impl EffectivePolicy {
             {
                 return Err(invalid("one policy identity has conflicting declarations"));
             }
-            result.requirements.extend(&policy.requirements);
             result
                 .effects
                 .retain(|effect| policy.effects.contains(effect));
@@ -144,23 +124,6 @@ impl EffectivePolicy {
 }
 
 impl EngineSession {
-    /// Execute effective declared requirements through the bound native preparation.
-    /// # Errors
-    /// A required declaration is absent or its native validation fails.
-    pub async fn check_requirements(
-        &self,
-        cancel: &pse_columnar::CancellationToken,
-    ) -> Result<(), EngineError> {
-        if let Some(requirements) = self.prepare_requirements(cancel).await? {
-            let mut stream = Box::pin(requirements.execute_stream(cancel)).await?;
-            while let Some(batch) = stream.next_batch(cancel).await? {
-                if batch.num_rows() != 0 {
-                    return Err(invalid("result violates scoped invariant requirements"));
-                }
-            }
-        }
-        Ok(())
-    }
     /// Bind a canonical policy in a new generation; existing preparations remain unchanged.
     /// # Errors
     /// Repeated identity or an incompatible effective policy.
@@ -202,7 +165,7 @@ impl EngineSession {
 
     /// Explain the exact combined policy over the currently captured binding scopes.
     /// # Errors
-    /// Incompatible defaults or requirements across participating scopes.
+    /// Incompatible defaults across participating scopes.
     pub fn effective_policy(&self) -> Result<EffectivePolicy, EngineError> {
         Ok(self.selection()?.effective.as_ref().clone())
     }
@@ -300,28 +263,6 @@ impl EngineSession {
         policy.admit(&effects)?;
         Ok(effects)
     }
-
-    pub(super) async fn prepare_requirements(
-        &self,
-        cancel: &pse_columnar::CancellationToken,
-    ) -> Result<Option<super::PreparedComputation>, EngineError> {
-        let requirements = self.effective_policy()?.requirements;
-        if requirements.is_empty() {
-            return Ok(None);
-        }
-        let planner = self
-            .requirement_planner
-            .as_ref()
-            .ok_or_else(|| invalid("required invariants have no bound native implementation"))?;
-        let mut diagnostic = self.clone();
-        // Only the internal discharge preparation omits its own recursive obligations.
-        for policy in Arc::make_mut(&mut diagnostic.policies) {
-            policy.requirements.clear();
-        }
-        diagnostic.purpose = OperationPurpose::Inspect;
-        let plan = planner.plan(&diagnostic, &requirements, cancel).await?;
-        Ok(Some(diagnostic.prepare_rule_plan(plan, cancel)?))
-    }
 }
 
 fn invalid(reason: &str) -> EngineError {
@@ -343,10 +284,9 @@ pub(super) fn policies_extent(policies: &[ProviderPolicy]) -> Result<usize, Engi
                 .saturating_add(t.capacity()),
         };
         let nodes = policy
-            .requirements
+            .effects
             .len()
-            .checked_add(policy.effects.len())
-            .and_then(|count| count.checked_mul(128))
+            .checked_mul(128)
             .ok_or_else(|| invalid("policy allocation extent overflows"))?;
         let base = total
             .checked_add(512)

@@ -47,6 +47,438 @@ fn block(expressions: Vec<Atom>, outputs: Vec<usize>) -> Stage {
     }
 }
 
+// A branch keeps an affine sum opaque without manufacturing a dense Hessian.
+fn wide_opaque_stages(n: usize, nonlinear: bool) -> Vec<Stage> {
+    let sum = (0..n).fold(Atom::num(0), |sum, i| sum + library::formal(i).unwrap());
+    let opaque = library::formal(n + 2).unwrap();
+    vec![
+        block(vec![Atom::num(0)], vec![n + 1]),
+        Stage::Branch {
+            continuity: DerivativeOrder::Value,
+            comparison: Comparison::Lt,
+            left: n + 1,
+            right: n,
+            then: vec![block(vec![sum.clone()], vec![n + 2])],
+            otherwise: vec![block(vec![sum + Atom::num(1)], vec![n + 2])],
+        },
+        block(
+            vec![if nonlinear { &opaque * &opaque } else { opaque }],
+            vec![n + 3],
+        ),
+    ]
+}
+
+#[test]
+fn wide_opaque_affine_support_retains_sparse_derivatives() {
+    crate::initialize().unwrap();
+    let n = 300;
+    let body = PreparedBody::new(
+        n + 1,
+        n + 4,
+        vec![n + 3],
+        wide_opaque_stages(n, false),
+        DerivativeOrder::Second,
+    )
+    .unwrap();
+    assert_eq!(body.support().first[0], (0..n).collect());
+    assert!(body.support().second[0].is_empty());
+    let mut worker = body
+        .compile(
+            &[0],
+            &[0, n - 1],
+            DerivativeOrder::Second,
+            Optimization::default(),
+            EvaluationLimits::default(),
+            &Arc::new(AtomicBool::new(false)),
+        )
+        .unwrap()
+        .worker();
+    for guard in [-1.0, 1.0] {
+        let mut inputs = vec![1.0; n + 1];
+        inputs[n] = guard;
+        let result = worker
+            .evaluate(
+                &inputs,
+                DerivativeOrder::Second,
+                &mut BTreeMap::new(),
+                &Arc::new(AtomicBool::new(false)),
+            )
+            .unwrap();
+        assert_eq!(
+            result.values,
+            vec![n as f64 + if guard < 0.0 { 1.0 } else { 0.0 }]
+        );
+        assert_eq!(result.jacobian, vec![1.0, 1.0]);
+        assert_eq!(result.hessians, vec![0.0; 4]);
+    }
+}
+
+#[test]
+fn shared_branch_snapshots_keep_distinct_alternatives_isolated() {
+    crate::initialize().unwrap();
+    let x = library::formal(0).unwrap();
+    let y = library::formal(1).unwrap();
+    let body = PreparedBody::new(
+        3,
+        5,
+        vec![4],
+        vec![
+            block(vec![Atom::num(0)], vec![3]),
+            Stage::Branch {
+                continuity: DerivativeOrder::Value,
+                comparison: Comparison::Lt,
+                left: 3,
+                right: 2,
+                then: vec![block(vec![&x * &x], vec![4])],
+                otherwise: vec![block(vec![&y * &y * &y], vec![4])],
+            },
+        ],
+        DerivativeOrder::Second,
+    )
+    .unwrap();
+    assert_eq!(body.support().first[0], [0, 1].into_iter().collect());
+    assert_eq!(
+        body.support().second[0],
+        [(0, 0), (1, 1)].into_iter().collect()
+    );
+    assert!(body.expression(0).is_none());
+    let cancel = Arc::new(AtomicBool::new(false));
+    let mut worker = body
+        .compile(
+            &[0],
+            &[0, 1],
+            DerivativeOrder::Second,
+            Optimization::default(),
+            EvaluationLimits::default(),
+            &cancel,
+        )
+        .unwrap()
+        .worker();
+    for (guard, value, jacobian, hessian) in [
+        (1.0, 4.0, vec![4.0, 0.0], vec![2.0, 0.0, 0.0, 0.0]),
+        (-1.0, 27.0, vec![0.0, 27.0], vec![0.0, 0.0, 0.0, 18.0]),
+    ] {
+        let result = worker
+            .evaluate(
+                &[2.0, 3.0, guard],
+                DerivativeOrder::Second,
+                &mut BTreeMap::new(),
+                &cancel,
+            )
+            .unwrap();
+        assert_eq!(result.values, vec![value]);
+        assert_eq!(result.jacobian, jacobian);
+        assert_eq!(result.hessians, hessian);
+    }
+}
+
+#[test]
+fn separately_reconstructed_equal_branch_facts_remain_symbolic() {
+    crate::initialize().unwrap();
+    let x = library::formal(0).unwrap();
+    let y = library::formal(1).unwrap();
+    let expression = (&x + &y) * (&x + &y);
+    let body = PreparedBody::new(
+        3,
+        5,
+        vec![4],
+        vec![
+            block(vec![Atom::num(0)], vec![3]),
+            Stage::Branch {
+                continuity: DerivativeOrder::Value,
+                comparison: Comparison::Lt,
+                left: 3,
+                right: 2,
+                then: vec![Stage::Block {
+                    expressions: vec![expression.clone()],
+                    outputs: vec![4],
+                    source: id(11),
+                }],
+                otherwise: vec![Stage::Block {
+                    expressions: vec![(&y + &x) * (&y + &x)],
+                    outputs: vec![4],
+                    source: id(12),
+                }],
+            },
+        ],
+        DerivativeOrder::Second,
+    )
+    .unwrap();
+    assert_eq!(body.expression(0), Some(&expression));
+    assert_eq!(body.support().first[0], [0, 1].into_iter().collect());
+    assert_eq!(
+        body.support().second[0],
+        [(0, 0), (0, 1), (1, 1)].into_iter().collect()
+    );
+    let cancel = Arc::new(AtomicBool::new(false));
+    let mut worker = body
+        .compile(
+            &[0],
+            &[0, 1],
+            DerivativeOrder::Second,
+            Optimization::default(),
+            EvaluationLimits::default(),
+            &cancel,
+        )
+        .unwrap()
+        .worker();
+    for guard in [-1.0, 1.0] {
+        let result = worker
+            .evaluate(
+                &[2.0, 3.0, guard],
+                DerivativeOrder::Second,
+                &mut BTreeMap::new(),
+                &cancel,
+            )
+            .unwrap();
+        assert_eq!(result.values, vec![25.0]);
+        assert_eq!(result.jacobian, vec![10.0, 10.0]);
+        assert_eq!(result.hessians, vec![2.0; 4]);
+    }
+}
+
+#[test]
+fn shared_domain_snapshots_preserve_dense_support_and_local_isolation() {
+    crate::initialize().unwrap();
+    let n = 12;
+    let guards = 16;
+    let sum = (0..n).fold(Atom::num(0), |sum, i| sum + library::formal(i).unwrap());
+    let mut stages = vec![block(vec![&sum * &sum], vec![n])];
+    let lineage = form_lineage(id(13));
+    for guard in 0..guards {
+        stages.push(Stage::Domain {
+            stages: vec![block(vec![library::formal(0).unwrap()], vec![n + 1])],
+            argument: n + 1,
+            token: n + 2 + guard,
+            lineage: lineage.clone(),
+        });
+    }
+    // The domains' private producers leave this outer destination unassigned.
+    stages.push(block(vec![library::formal(1).unwrap()], vec![n + 1]));
+    // This finite allowance covers new supports and handle snapshots, but cannot
+    // cover sixteen deep copies of the already accumulated dense Hessian support.
+    let mut remaining = 1200;
+    let body = PreparedBody::new_with_allowance(
+        n,
+        n + 2 + guards,
+        vec![n, n + 1],
+        stages,
+        DerivativeOrder::Second,
+        &mut remaining,
+    )
+    .unwrap();
+    assert!(remaining > 0 && remaining < 1200);
+    assert_eq!(body.support().first[0], (0..n).collect());
+    assert_eq!(body.support().second[0].len(), n * (n + 1) / 2);
+    assert_eq!(body.support().first[1], [1].into_iter().collect());
+    assert!(body.support().second[1].is_empty());
+    let cancel = Arc::new(AtomicBool::new(false));
+    let mut worker = body
+        .compile(
+            &[0, 1],
+            &[0, 1],
+            DerivativeOrder::Second,
+            Optimization::default(),
+            EvaluationLimits::default(),
+            &cancel,
+        )
+        .unwrap()
+        .worker();
+    let mut inputs = vec![1.0; n];
+    inputs[1] = 2.0;
+    let result = worker
+        .evaluate(
+            &inputs,
+            DerivativeOrder::Second,
+            &mut BTreeMap::new(),
+            &cancel,
+        )
+        .unwrap();
+    assert_eq!(result.values, vec![169.0, 2.0]);
+    assert_eq!(result.jacobian, vec![26.0, 26.0, 0.0, 1.0]);
+    assert_eq!(
+        result.hessians,
+        vec![2.0, 2.0, 2.0, 2.0, 0.0, 0.0, 0.0, 0.0]
+    );
+    inputs[0] = -1.0;
+    assert!(matches!(worker.evaluate(
+        &inputs, DerivativeOrder::Second, &mut BTreeMap::new(), &cancel,
+    ), Err(MathError::Validity(actual)) if actual.as_ref() == lineage.as_ref()));
+}
+
+#[test]
+fn opaque_nonlinear_support_refuses_actual_work_and_preserves_complete_pairs() {
+    crate::initialize().unwrap();
+    let n = 300;
+    let mut remaining = crate::typed::BodyLimits::default().occurrences;
+    let error = PreparedBody::new_with_allowance(
+        n + 1,
+        n + 4,
+        vec![n + 3],
+        wide_opaque_stages(n, true),
+        DerivativeOrder::Second,
+        &mut remaining,
+    )
+    .unwrap_err();
+    assert!(matches!(error, MathError::WorkLimit {
+        source_id, resource: "derivative support construction", required: 1, available: 0, ..
+    } if source_id == id(1)));
+    let mut remaining = 300_000;
+    let body = PreparedBody::new_with_allowance(
+        n + 1,
+        n + 4,
+        vec![n + 3],
+        wide_opaque_stages(n, true),
+        DerivativeOrder::Second,
+        &mut remaining,
+    )
+    .unwrap();
+    assert!(remaining < 300_000);
+    assert_eq!(body.support().second[0].len(), n * (n + 1) / 2);
+    assert!(body.support().second[0].contains(&(0, n - 1)));
+    let result = body
+        .compile(
+            &[0],
+            &[0, n - 1],
+            DerivativeOrder::Second,
+            Optimization::default(),
+            EvaluationLimits::default(),
+            &Arc::new(AtomicBool::new(false)),
+        )
+        .unwrap()
+        .worker()
+        .evaluate(
+            &vec![1.0; n + 1],
+            DerivativeOrder::Second,
+            &mut BTreeMap::new(),
+            &Arc::new(AtomicBool::new(false)),
+        )
+        .unwrap();
+    assert_eq!(result.values, vec![(n * n) as f64]);
+    assert_eq!(result.jacobian, vec![(2 * n) as f64; 2]);
+    assert_eq!(result.hessians, vec![2.0; 4]);
+}
+
+#[test]
+fn dense_provider_support_checks_cardinality_before_allocation() {
+    crate::initialize().unwrap();
+    let n = 64;
+    let (mut spec, _, _) = provider();
+    let port = spec.inputs[0].clone();
+    spec.inputs = (0..n)
+        .map(|i| Port {
+            id: pse_ids::named_id(spec.id, &i.to_string()),
+            ..port.clone()
+        })
+        .collect();
+    let stages = vec![Stage::Provider {
+        spec,
+        partial: vec![],
+        inputs: (0..n).collect(),
+        outputs: vec![n],
+        source: id(1),
+    }];
+    let mut remaining = 1000;
+    let error = PreparedBody::new_with_allowance(
+        n,
+        n + 1,
+        vec![n],
+        stages.clone(),
+        DerivativeOrder::Second,
+        &mut remaining,
+    )
+    .unwrap_err();
+    assert!(matches!(error, MathError::WorkLimit {
+        source_id, resource: "derivative support construction", required, available, ..
+    } if source_id == id(1) && required == n * (n + 1) / 2 && available < required));
+    let mut remaining = 10_000;
+    let body = PreparedBody::new_with_allowance(
+        n,
+        n + 1,
+        vec![n],
+        stages,
+        DerivativeOrder::Second,
+        &mut remaining,
+    )
+    .unwrap();
+    assert_eq!(body.support().second[0].len(), n * (n + 1) / 2);
+}
+
+#[test]
+fn support_construction_consumes_the_remaining_authored_body_allowance() {
+    use crate::typed::{Binary, BodyBuilder, BodyLimits};
+    use pse_quantity::{IndexSet, standard::StandardInvariantChecker};
+    let registry = pse_quantity::standard::standard_registry().unwrap();
+    let prepare = |occurrences| {
+        let mut builder = BodyBuilder::new(
+            crate::initialize().unwrap(),
+            &registry,
+            &StandardInvariantChecker,
+            1,
+            BodyLimits {
+                occurrences,
+                ..BodyLimits::default()
+            },
+        )
+        .unwrap();
+        let x = builder
+            .input(
+                0,
+                pse_quantity::standard::ids::quantity("neutral"),
+                IndexSet::new(),
+                id(1),
+            )
+            .unwrap();
+        let value = builder
+            .binary(Binary::Mul, x.clone(), x, None, id(1))
+            .unwrap();
+        builder.prepare(&[value])
+    };
+    // Two authored occurrences, schedule validation, two initial slot handles,
+    // one empty fact, an input fact/support entry, two constructed first supports,
+    // one derivative, one Hessian pair, the output fact and two exports: fifteen.
+    assert!(matches!(
+        prepare(14),
+        Err(MathError::WorkLimit {
+            resource: "derivative support construction",
+            required: 1,
+            available: 0,
+            ..
+        })
+    ));
+    let body = prepare(15).unwrap();
+    assert_eq!(body.occurrence_count(), 2);
+    assert_eq!(body.support().second[0], [(0, 0)].into_iter().collect());
+}
+
+#[test]
+fn failed_builder_cannot_prepare_a_retained_valid_input_after_exhaustion() {
+    use crate::typed::{BodyBuilder, BodyLimits};
+    use pse_quantity::{IndexSet, standard::StandardInvariantChecker};
+    let registry = pse_quantity::standard::standard_registry().unwrap();
+    let quantity = pse_quantity::standard::ids::quantity("neutral");
+    let mut builder = BodyBuilder::new(
+        crate::initialize().unwrap(),
+        &registry,
+        &StandardInvariantChecker,
+        1,
+        BodyLimits {
+            occurrences: 1,
+            ..BodyLimits::default()
+        },
+    )
+    .unwrap();
+    let retained = builder.input(0, quantity, IndexSet::new(), id(1)).unwrap();
+    assert!(matches!(
+        builder.input(0, quantity, IndexSet::new(), id(2)),
+        Err(MathError::Limit("body occurrences")),
+    ));
+    assert!(matches!(
+        builder.prepare(&[retained]),
+        Err(MathError::Limit("body occurrences")),
+    ));
+}
+
 /// An evaluator's retained storage counts its instruction stream beside its numeric stack:
 /// the library storage a retained program's reservation covers now that no foreign
 /// allowance is retained with it (H9).
@@ -775,6 +1207,7 @@ fn typed_output_demand_coalesces_calls_and_keeps_canceled_obligations() {
             }],
             vec![],
             vec![InstanceBinding {
+                checked_members: Default::default(),
                 instance: id(5),
                 body: body_key,
                 slots: vec![SlotBinding::new(&port, &port, &registry).unwrap()],
@@ -837,7 +1270,7 @@ fn typed_output_demand_coalesces_calls_and_keeps_canceled_obligations() {
     };
     let error = worker.hessian(&bad, 1.0, &[0.0]).unwrap_err();
     assert!(
-        matches!(error,MathError::Instance{instance,cause} if instance==id(5) && matches!(*cause,MathError::Provider{source_id,..} if source_id==id(2)))
+        matches!(error,MathError::Instance{instance,cause,..} if instance==id(5) && matches!(*cause,MathError::Provider{source_id,..} if source_id==id(2)))
     );
 }
 

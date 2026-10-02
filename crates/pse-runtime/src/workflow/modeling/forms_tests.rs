@@ -148,11 +148,43 @@ async fn optimal_on<const N: usize>(
 }
 /// The typed routing refusal of a native realization, with the forms it names.
 fn native_refusal(error: &WorkflowError) -> String {
-    match error {
-        WorkflowError::Math(crate::math::MathRuntimeError::Solve(ProblemError::Unsupported(
-            message,
-        ))) => message.clone(),
-        other => panic!("expected a typed unsupported refusal, got {other:?}"),
+    let cause = match error {
+        WorkflowError::Math(cause) => cause,
+        WorkflowError::ModelingAdmission { diagnostic, cause } => {
+            assert_eq!(
+                diagnostic.code,
+                pse_diagnostics::DiagnosticCode::NativeStructural
+            );
+            assert_eq!(
+                diagnostic.stage,
+                pse_diagnostics::DiagnosticStage::ModelingAdmission
+            );
+            cause
+        }
+        other => panic!("expected a typed routing refusal, got {other}"),
+    };
+    match cause {
+        crate::math::MathRuntimeError::Solve(ProblemError::RouteRefused(decision)) => {
+            let SolverSelection::Explicit(backend) = decision.selection else {
+                panic!("expected an explicit backend refusal: {decision}");
+            };
+            assert!(decision.selected.is_none());
+            assert!(matches!(
+                decision.refusal.as_ref(),
+                Some(pse_backend_native::routing::Refusal::Ineligible(refused)) if *refused == backend
+            ));
+            decision
+                .eligibility
+                .iter()
+                .find(|assessment| assessment.backend == backend)
+                .unwrap()
+                .reasons
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+                .join("; ")
+        }
+        other => panic!("expected a preserved typed routing refusal, got {other}"),
     }
 }
 
@@ -582,6 +614,10 @@ async fn authored_gdp_fixture_selects_the_enumerated_alternative() {
         include_str!("../../../../../packages/reference/seed-data/models/gdp.pse"),
         include_str!("../../../../../packages/reference/data/references/models/references.pse"),
         include_str!("../../../../../packages/reference/domain/models/provenance.pse"),
+        include_str!("../../../../../packages/reference/domain/models/properties.pse"),
+        include_str!("../../../../../packages/reference/domain/models/constants.pse"),
+        include_str!("../../../../../packages/reference/physical/models/chemistry.pse"),
+        include_str!("../../../../../packages/reference/physical/models/compatibility.pse"),
     ]
     .into_iter()
     .flat_map(|text| {
@@ -595,7 +631,11 @@ async fn authored_gdp_fixture_selects_the_enumerated_alternative() {
     })
     .collect::<Vec<_>>();
     let physical = fixture::physical();
-    let package = fixture::runtime().modeling_package(rows, physical).unwrap();
+    // The full imported schema closure coexists with source indexing and checked
+    // declarations during admission; this is larger than the local toy fixtures.
+    let package = fixture::runtime_with_workspace(64 << 20)
+        .modeling_package(rows, physical)
+        .unwrap();
     let mut policy = ModelingConformancePolicy {
         compiler: fixture::compiler_profile(),
         solver: profile(SolverSelection::Auto),

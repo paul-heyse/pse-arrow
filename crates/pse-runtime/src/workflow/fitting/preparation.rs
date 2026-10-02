@@ -174,29 +174,33 @@ impl PreparedExperiments {
         h.hash(&source_identity);
         d.frame(&mut h);
         let source = h.finish_hash();
-        let mut h = FramedHasher::new(pse_ids::Frame::FitProfileV3);
+        let mut h = FramedHasher::new(pse_ids::Frame::FitProfileV4);
         h.hash(
             &crate::math::solves::profile_key(&profile.solver)
-                .map_err(crate::math::MathRuntimeError::from)?,
+                .map_err(crate::math::MathRuntimeError::from)?
+                .as_id(),
         );
-        h.u64(profile.rank_tolerance.to_bits())
+        h.f64(profile.rank_tolerance)
             .u64(profile.max_cells as u64)
             .str(profile.derivatives.as_str());
         for (id, p) in &profile.simulations {
-            h.id(&id.as_id())
-                .hash(&crate::workflow::dynamics::profile_identity(p));
+            h.id(&id.as_id()).hash(
+                &crate::workflow::dynamics::profile_identity(p)
+                    .map_err(crate::math::MathRuntimeError::from)?
+                    .as_id(),
+            );
         }
         // The requested intervals change what the fit derives and publishes, not how it
         // solves; a profile without them keeps its identity.
         if let Some(uncertainty) = &profile.uncertainty {
-            let encoded = serde_json::to_string(uncertainty)
+            h.str("uncertainty");
+            pse_ids::document::frame(&mut h, uncertainty)
                 .map_err(|e| contract(format!("fit uncertainty encoding: {e}")))?;
-            h.str("uncertainty").str(&encoded);
         }
-        let profile_key = h.finish_hash();
+        let profile_key = pse_ids::roles::ProfileHash::from_id(h.finish_hash());
         let mut h = FramedHasher::new(pse_ids::Frame::FitPreparedV1);
         h.hash(&source)
-            .hash(&profile_key)
+            .hash(&profile_key.as_id())
             .hash(&numerics.key)
             .hash(&execution_identity);
         let contract = OracleContract {

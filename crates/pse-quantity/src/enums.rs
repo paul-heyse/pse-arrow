@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
+#![allow(
+    missing_docs,
+    reason = "strum's generated const into_str method is exposed through documented as_str contracts"
+)]
 
 //! The closed enumerations of the physical-typing registry (blueprint §6.2, §6.3, §7.2).
 //!
@@ -61,6 +65,9 @@
 macro_rules! closed_enum {
     (@impls $name:ident { $($variant:ident => $text:literal),+ }) => {
         impl $name {
+            fn unknown_member(value: &str) -> ::pse_diagnostics::VocabularyError {
+                ::pse_diagnostics::VocabularyError::UnknownMember { vocabulary: stringify!($name), value: value.to_owned() }
+            }
             #[doc = concat!("Every member of [`", stringify!($name), "`], in registry order.")]
             ///
             /// Declaration order is the order the registry relation, the generated Arrow
@@ -73,9 +80,7 @@ macro_rules! closed_enum {
             /// This is the only textual form of the member: `Display` and `serde` both
             /// route through it.
             pub const fn as_str(self) -> &'static str {
-                match self {
-                    $(Self::$variant => $text,)+
-                }
+                self.into_str()
             }
 
             #[doc = concat!("The [`", stringify!($name), "`] member with this spelling, if any.")]
@@ -136,7 +141,8 @@ macro_rules! closed_enum {
         }
     ) => {
         $(#[$meta])*
-        #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, ::strum::EnumString, ::strum::Display, ::strum::VariantArray)]
+        #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, ::strum::EnumString, ::strum::Display, ::strum::VariantArray, ::strum::IntoStaticStr)]
+        #[strum(const_into_str, parse_err_ty = ::pse_diagnostics::VocabularyError, parse_err_fn = Self::unknown_member)]
         #[repr($repr)]
         $vis enum $name {
             $(
@@ -169,7 +175,8 @@ macro_rules! closed_enum {
         }
     ) => {
         $(#[$meta])*
-        #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, ::strum::EnumString, ::strum::Display, ::strum::VariantArray)]
+        #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, ::strum::EnumString, ::strum::Display, ::strum::VariantArray, ::strum::IntoStaticStr)]
+        #[strum(const_into_str, parse_err_ty = ::pse_diagnostics::VocabularyError, parse_err_fn = Self::unknown_member)]
         $vis enum $name {
             $(
                 $(#[$vmeta])*

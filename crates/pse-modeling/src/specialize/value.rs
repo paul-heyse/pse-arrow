@@ -3,8 +3,8 @@
 //! Bounded compile-time values. This interpreter selects structure; runtime math uses pse-math.
 use crate::{CheckedPackage, DeclarationId, Result, Type, TypeContext, invalid};
 use pse_authoring::{
-    dsl::{self, BinaryOp, CompareOp, Expr, ExprKind, Predicate, PredicateKind},
-    language::{StaticValue, parse_static},
+    dsl::{self, BinaryOp, CompareOp, Expr, ExprKind, Path, Predicate, PredicateKind, Span},
+    language::StaticValue,
 };
 use pse_ids::{FramedHasher, SemanticId};
 use pse_model::generated::enums::ModelingDeclarationKind as Kind;
@@ -203,28 +203,23 @@ pub(crate) struct Evaluator<'a, 'b> {
     pub reader: crate::provenance::Reader<'a>,
 }
 impl Evaluator<'_, '_> {
-    pub(crate) fn text(&mut self, text: &str, expected: Option<&Type>) -> Result<Value> {
-        let value = if matches!(expected, Some(Type::Integer)) && text.trim().parse::<i64>().is_ok()
-        {
-            Value::Integer(
-                text.trim()
-                    .parse::<i64>()
-                    .map_err(|e| invalid(self.at, e.to_string()))?,
-            )
-        } else {
-            let syntax = parse_static(text).map_err(|e| invalid(self.at, e.to_string()))?;
-            self.syntax(&syntax, expected, 0)?
-        };
-        if let Some(expected) = expected
-            && !conforms(&value, expected, self.package)
-        {
+    pub(crate) fn field(
+        &mut self,
+        role: &str,
+        position: usize,
+        expected: Option<&Type>,
+    ) -> Result<Value> {
+        let syntax = self.package.static_at(self.at, role, position)?;
+        let value = self.syntax(syntax, expected, 0)?;
+        if expected.is_some_and(|expected| !conforms(&value, expected, self.package)) {
             return Err(invalid(
                 self.at,
-                format!("static value does not satisfy {expected:?}"),
+                "static value does not satisfy its checked expected type",
             ));
         }
         Ok(value)
     }
+
     pub(crate) fn syntax(
         &mut self,
         syntax: &StaticValue,
@@ -472,12 +467,18 @@ impl Evaluator<'_, '_> {
                 id,
                 bindings: BTreeMap::new(),
             }),
-            crate::Selected::Set(b) | crate::Selected::ScopeValue(b) => {
-                let source = b
-                    .expression
-                    .as_ref()
-                    .ok_or_else(|| invalid(id, "static value requires a definition"))?;
-                self.text(source, self.package.types.get(&id))
+            crate::Selected::Set(_) | crate::Selected::ScopeValue(_) => {
+                let mut evaluator = Evaluator {
+                    at: id,
+                    package: self.package,
+                    physical: self.physical,
+                    env: self.env,
+                    limit: self.limit,
+                    stack: self.stack.clone(),
+                    reader: self.reader,
+                    selections: self.selections,
+                };
+                evaluator.field("binding.expression", 0, self.package.types.get(&id))
             }
             _ => Err(invalid(
                 id,
@@ -669,7 +670,7 @@ impl Evaluator<'_, '_> {
         let mut presence_paths = BTreeSet::new();
         e.walk(|node| {
             if let ExprKind::NamedCall { name, args } = &node.kind
-                && matches!(name.as_str(), "present" | "require_present")
+                && matches!(name.ident().unwrap_or(""), "present" | "require_present")
                 && let [
                     Expr {
                         kind: ExprKind::Path(path),
@@ -688,7 +689,7 @@ impl Evaluator<'_, '_> {
                     && let Ok(value) = self.expr(
                         &Expr {
                             kind: ExprKind::Path(path.clone()),
-                            span: dsl::Span::default(),
+                            span: Span::default(),
                         },
                         None,
                         0,
@@ -1092,7 +1093,7 @@ impl Evaluator<'_, '_> {
                 let Value::Set(values) = self.expr(
                     &Expr {
                         kind: ExprKind::Path(binder.domain.clone()),
-                        span: dsl::Span::default(),
+                        span: Span::default(),
                     },
                     None,
                     depth + 1,
@@ -1120,7 +1121,7 @@ impl Evaluator<'_, '_> {
                 let Type::Set(element) = crate::expression::infer(
                     &Expr {
                         kind: ExprKind::Path(binder.domain.clone()),
-                        span: dsl::Span::default(),
+                        span: Span::default(),
                     },
                     &types,
                     self.package,
@@ -1232,7 +1233,7 @@ impl Evaluator<'_, '_> {
                 let Value::Set(members) = self.expr(
                     &Expr {
                         kind: ExprKind::Path(binder.domain.clone()),
-                        span: dsl::Span::default(),
+                        span: Span::default(),
                     },
                     None,
                     depth + 1,
@@ -1304,7 +1305,7 @@ impl Evaluator<'_, '_> {
                         matches!(&e.kind,ExprKind::Path(p)
                         if p.segments.len()==1 && p.segments[0].name==n && p.segments[0].indices.is_empty())
                     };
-                    if name == "union"
+                    if name.is_ident("union")
                         && args.len() == 2
                         && plain(&args[0], accumulator)
                         && plain(&args[1], item)
@@ -1348,7 +1349,46 @@ impl Evaluator<'_, '_> {
                 otherwise,
             } => {
                 let selected = self.predicate(guard)?;
-                self.expr(if selected { then } else { otherwise }, expected, depth + 1)
+                let result = if let Some(expected) = expected {
+                    expected.clone()
+                } else {
+                    let mut types = self.named_types();
+                    // A present or absent row cell still has its declared optional
+                    // type. Values alone cannot recover absence or an empty set's
+                    // element contract, so retain the admitted row/function context.
+                    if let Some(table) = self.package.tables.get(&self.at) {
+                        types.extend(
+                            table
+                                .keys
+                                .iter()
+                                .map(|key| (key.name.clone(), key.ty.clone())),
+                        );
+                        types.extend(
+                            table
+                                .columns
+                                .iter()
+                                .map(|column| (column.name.clone(), column.ty.clone())),
+                        );
+                        if table.columns.is_empty() {
+                            types.insert("value".into(), table.result.clone());
+                        }
+                    }
+                    for (name, value) in self.env {
+                        if let Some(ty) = value_type(value) {
+                            types.entry(name.clone()).or_insert(ty);
+                        }
+                    }
+                    crate::expression::infer(e, &types, self.package, self.physical, self.at, None)?
+                };
+                let branch_type = match &result {
+                    Type::Optional(inner) => inner.as_ref(),
+                    other => other,
+                };
+                self.expr(
+                    if selected { then } else { otherwise },
+                    Some(branch_type),
+                    depth + 1,
+                )
             }
             ExprKind::NamedCall { name, args } => self.builtin(name, args, depth + 1),
             _ => Err(invalid(
@@ -1357,7 +1397,9 @@ impl Evaluator<'_, '_> {
             )),
         }
     }
-    fn builtin(&mut self, name: &str, args: &[Expr], depth: usize) -> Result<Value> {
+    fn builtin(&mut self, path: &Path, args: &[Expr], depth: usize) -> Result<Value> {
+        let name = path.ident().unwrap_or("");
+        let rendered = dsl::render_path(path);
         if matches!(name, "implements" | "provides") {
             if args.len() != 2 {
                 return Err(invalid(self.at, "capability query arity"));
@@ -1525,7 +1567,12 @@ impl Evaluator<'_, '_> {
             };
             let id = self
                 .package
-                .resolve(self.at, &dsl::render_path(path))
+                .resolve_segments(self.at, &path.segments)
+                .filter(|_| {
+                    path.segments
+                        .iter()
+                        .all(|segment| segment.indices.is_empty())
+                })
                 .ok_or_else(|| invalid(self.at, "unknown table"))?;
             let table = self
                 .package
@@ -1605,18 +1652,19 @@ impl Evaluator<'_, '_> {
                 ))
             }
             _ => {
-                if let Ok(function @ Value::Function(_)) = self.reference(name, depth + 1) {
+                if let Ok(function @ Value::Function(_)) = self.reference(&rendered, depth + 1) {
                     return self.structural_call(function, &values, depth + 1);
                 }
-                if let Ok(path) = dsl::parse_expr(name)
-                    && matches!(path.kind, ExprKind::Path(_))
-                    && let Ok(function @ Value::Function(_)) = self.expr(&path, None, depth + 1)
-                {
+                let expression = Expr {
+                    kind: ExprKind::Path(path.clone()),
+                    span: Span::default(),
+                };
+                if let Ok(function @ Value::Function(_)) = self.expr(&expression, None, depth + 1) {
                     return self.structural_call(function, &values, depth + 1);
                 }
                 let id = self
                     .package
-                    .resolve(self.at, name)
+                    .resolve(self.at, &rendered)
                     .ok_or_else(|| invalid(self.at, format!("unknown static operation {name}")))?;
                 if values.is_empty()
                     && matches!(
@@ -1738,7 +1786,7 @@ impl Evaluator<'_, '_> {
                 let domain = self.expr(
                     &Expr {
                         kind: ExprKind::Path(domain.clone()),
-                        span: dsl::Span::default(),
+                        span: Span::default(),
                     },
                     None,
                     0,

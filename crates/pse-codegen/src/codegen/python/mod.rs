@@ -54,6 +54,8 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
                     Some(identity) => {
                         typed_ids = true;
                         types::Type {
+                            equality_key: "v.scalar_key".into(),
+                            item_key: None,
                             annotation: format!(
                                 "i.{}",
                                 super::rust::identities::type_name(identity.name)
@@ -150,46 +152,37 @@ fn nested_names(contract: &crate::model::FieldContract, out: &mut Vec<String>) {
 }
 
 /// Named structures in dependency order: each after every named structure it nests, and
-/// otherwise by name. A class body evaluates its annotations and validators when it is
+/// with deterministic ties from sorted graph insertion. A class body evaluates its annotations and validators when it is
 /// defined, so a structure declared before one it nests raises a `NameError` on import.
 fn dependency_order(
     structures: &std::collections::BTreeMap<String, crate::model::FieldContract>,
 ) -> Result<Vec<&str>, SchemaError> {
-    fn visit<'a>(
-        name: &'a str,
-        structures: &'a std::collections::BTreeMap<String, crate::model::FieldContract>,
-        visiting: &mut Vec<&'a str>,
-        order: &mut Vec<&'a str>,
-    ) -> Result<(), SchemaError> {
-        if order.contains(&name) {
-            return Ok(());
-        }
-        if visiting.contains(&name) {
-            return Err(error(format!("named structure {name} nests itself")));
-        }
-        let (name, contract) = structures
-            .get_key_value(name)
-            .ok_or_else(|| error(format!("named structure {name} is not declared")))?;
-        visiting.push(name);
+    let mut graph = petgraph::graph::DiGraph::<&str, ()>::new();
+    // Sorted insertion makes ties independent of declaration traversal order.
+    let nodes = structures
+        .keys()
+        .map(|name| (name.as_str(), graph.add_node(name.as_str())))
+        .collect::<std::collections::BTreeMap<_, _>>();
+    for (name, contract) in structures {
         let mut nested = Vec::new();
         nested_names(&contract.clone().unnamed(), &mut nested);
         nested.sort();
         nested.dedup();
-        for dependency in &nested {
-            let (dependency, _) = structures
-                .get_key_value(dependency.as_str())
+        for dependency in nested {
+            let from = nodes
+                .get(dependency.as_str())
                 .ok_or_else(|| error(format!("named structure {dependency} is not declared")))?;
-            visit(dependency, structures, visiting, order)?;
+            graph.add_edge(*from, nodes[name.as_str()], ());
         }
-        visiting.pop();
-        order.push(name);
-        Ok(())
     }
-    let mut order = Vec::new();
-    for name in structures.keys() {
-        visit(name, structures, &mut Vec::new(), &mut order)?;
-    }
-    Ok(order)
+    petgraph::algo::toposort(&graph, None)
+        .map(|order| order.into_iter().map(|node| graph[node]).collect())
+        .map_err(|cycle| {
+            error(format!(
+                "named structure {} participates in a nesting cycle",
+                graph[cycle.node_id()]
+            ))
+        })
 }
 
 /// Every registry named structure, declared once (Plan 22 X11) and in dependency order;
@@ -393,5 +386,47 @@ mod tests {
             !source.contains("s.Zulu") && source.contains("instance_of(Zulu)"),
             "{source}"
         );
+    }
+    #[test]
+    fn dependency_cycles_and_missing_declarations_are_attributable() {
+        let reference =
+            F::structure(vec![F::native(DataType::Utf8).with_name("value")]).named("Alpha");
+        let recursive = F::structure(vec![reference.with_name("child")]).named("Alpha");
+        let structures = std::collections::BTreeMap::from([("Alpha".to_owned(), recursive)]);
+        assert!(
+            super::dependency_order(&structures)
+                .unwrap_err()
+                .to_string()
+                .contains("Alpha")
+        );
+        let missing = F::structure(vec![
+            F::structure(vec![F::native(DataType::Utf8).with_name("value")])
+                .named("Missing")
+                .with_name("child"),
+        ])
+        .named("Root");
+        let structures = std::collections::BTreeMap::from([("Root".to_owned(), missing)]);
+        assert!(
+            super::dependency_order(&structures)
+                .unwrap_err()
+                .to_string()
+                .contains("Missing")
+        );
+    }
+
+    #[test]
+    fn independent_dependency_ties_are_deterministic() {
+        let structures = ["Zulu", "Alpha", "Middle"]
+            .into_iter()
+            .map(|name| {
+                (
+                    name.to_owned(),
+                    F::structure(vec![F::native(DataType::Utf8).with_name("value")]).named(name),
+                )
+            })
+            .collect();
+        let first = super::dependency_order(&structures).unwrap();
+        assert_eq!(first, super::dependency_order(&structures).unwrap());
+        assert_eq!(first.len(), 3);
     }
 }

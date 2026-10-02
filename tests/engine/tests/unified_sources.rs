@@ -91,6 +91,7 @@ async fn exact_source_text_reopens_and_reparses_from_delta_alone() {
     let registry = pse_schema::shared_registry().unwrap();
     let sources = texts();
     let fixture = native_fixture();
+    let validation = fixture.factory.validation_context(&registry).unwrap();
     let budget = fixture.resources.pool.clone();
     let cancel = CancellationToken::default();
     let loaded = load_package_documents_owned(
@@ -99,6 +100,7 @@ async fn exact_source_text_reopens_and_reparses_from_delta_alone() {
         ParseBudget::default(),
         &budget,
         &cancel,
+        &validation,
     )
     .unwrap();
     let expected = loaded.bundle().batches.clone();
@@ -146,6 +148,7 @@ async fn exact_source_text_reopens_and_reparses_from_delta_alone() {
                     ParseBudget::default(),
                     budget.clone(),
                     cancel.clone(),
+                    validation.clone(),
                 )
                 .unwrap(),
             },
@@ -162,6 +165,7 @@ async fn exact_source_text_reopens_and_reparses_from_delta_alone() {
     let record = publication_manifests::View::try_from_batch_with_registry(
         &registry,
         &admitted.batches()[0],
+        &validation,
     )
     .unwrap()
     .row(0)
@@ -171,6 +175,7 @@ async fn exact_source_text_reopens_and_reparses_from_delta_alone() {
     let cold = native_fixture();
     let budget = cold.resources.pool.clone();
     let factory = cold.factory.clone();
+    let validation = factory.validation_context(&registry).unwrap();
     let publication =
         Publication::open(selection(&record), Arc::clone(&registry), &factory, &cancel)
             .await
@@ -202,7 +207,7 @@ async fn exact_source_text_reopens_and_reparses_from_delta_alone() {
     }
     let mut recovered = BTreeMap::new();
     for batch in batches {
-        let view = documents::View::try_from_batch(&batch).unwrap();
+        let view = documents::View::try_from_batch(&batch, &validation).unwrap();
         for row in view.rows().unwrap() {
             recovered.insert(row.path, row.source_text.unwrap().into_bytes());
         }
@@ -214,6 +219,7 @@ async fn exact_source_text_reopens_and_reparses_from_delta_alone() {
         ParseBudget::default(),
         &budget,
         &cancel,
+        &validation,
     )
     .unwrap();
     assert_eq!(reparsed.bundle().batches.len(), expected.len());

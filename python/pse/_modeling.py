@@ -2,11 +2,10 @@
 # Copyright (c) 2026 Paul Heyse
 """Owned generic modeling operations over registry-generated source and result rows."""
 
-from collections.abc import Collection, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, overload
 
 import attrs
-import msgspec
 
 from pse import codec
 from pse._build import (
@@ -32,37 +31,48 @@ from pse._build import (
 )
 from pse._inspection import TableStream
 from pse._runs import PreparedOperation, RunResult, StudyHandle, Workspace
-from pse._strategies import PreparedFlow, PreparedStrategy, _AnalysisDocument
+from pse._strategies import PreparedFlow, PreparedStrategy
 from pse.contracts.authored import (
     AuthoredFitCasesRow,
     AuthoredModelingDeclarationsRow,
 )
 from pse.contracts.documents import (
     Conclusion,
-    FitUncertainty,
+    ConformanceControls,
+    DeclarationEdit,
+    DeclarationInventory,
+    DiagnosticSamplesControls,
+    FitDeclarations,
+    FitPreparationDocument,
+    FlowSelectionDocument,
+    InitializationOverrides,
+    JacobianDiagnosticControls,
+    KnowledgeControls,
+    LinearDiagnosticControls,
+    ModelingInspection,
+    ModelingNonlinearPolicy,
     PointOutcome,
     PreparationCounts,
+    PureConformanceControls,
+    RecycleRequest,
     SolveSettings,
     StudyDefinition,
     StudyRequest,
+    StudyRunControls,
+    StudySubmitControls,
 )
 from pse.contracts.enums import (
-    FitDerivatives,
-    ModelingDiscreteInitialization,
+    ModelingDiagnosticSampleStop,
+    ModelingElasticObservation,
+    ModelingInitializationStep,
+    NativeRunState,
+    TrajectoryTermination,
 )
-from pse.contracts.identities import DeclarationId, FitId, InstanceId, RunId
+from pse.contracts.identities import DeclarationId, FitId, RunId
 from pse.contracts.values import ContentHash, SemanticId
 
 if TYPE_CHECKING:
     from pse._workflow import Runtime
-
-
-class _DeclarationEdit(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
-    declarations: tuple[dict[str, object], ...]
-
-
-class _FitDeclarations(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
-    fits: tuple[dict[str, object], ...]
 
 
 @attrs.frozen
@@ -80,7 +90,7 @@ class ModelingResult:
         return RunId(SemanticId.from_hex(self._handle.run_id))
 
     @property
-    def outcome_kind(self) -> str:
+    def outcome_kind(self) -> NativeRunState:
         return self._handle.outcome_kind
 
     @property
@@ -130,7 +140,7 @@ class ModelingElasticAttempt:
     _handle: _NativeModelingElasticAttempt
 
     @property
-    def observation(self) -> str:
+    def observation(self) -> ModelingElasticObservation:
         return self._handle.observation
 
     @property
@@ -185,11 +195,6 @@ class ModelingNonlinearExplanation:
         return tuple(ModelingElasticAttempt(v) for v in self._handle.attempts())
 
 
-def _selection(fixtures: Collection[DeclarationId] | None) -> list[str] | None:
-    """A fixture selection crosses the native boundary as declaration identities."""
-    return None if fixtures is None else [fixture.to_hex() for fixture in fixtures]
-
-
 @attrs.frozen
 class ModelingConformance:
     """Shared checks and completed fixture solves, including explicit coverage gaps."""
@@ -203,25 +208,17 @@ class ModelingConformance:
         physical: Mapping[str, str | bytes],
         settings: EngineSettings,
         *,
-        maximum_fixtures: int = 1024,
-        maximum_checks: int = 16384,
+        controls: PureConformanceControls | None = None,
         limits: ModelingLimits | None = None,
-        fixtures: Collection[DeclarationId] | None = None,
     ) -> "ModelingConformance":
-        """Run explicit pure fixtures without creating a workflow Runtime.
-
-        ``fixtures`` selects test declarations by identity;
-        see ``ModelingPackage.conform``.
-        """
+        """Run native pure conformance with source-owned limits and selection."""
         return cls(
             _NativeModelingConformance.pure(
                 [dict(bundle) for bundle in documents],
                 dict(physical),
                 settings,
-                maximum_fixtures=maximum_fixtures,
-                maximum_checks=maximum_checks,
+                controls=None if controls is None else codec.encode_json(controls),
                 limits=limits,
-                fixtures=_selection(fixtures),
             )
         )
 
@@ -288,7 +285,7 @@ class ModelingInitializationAttempt:
     _handle: _NativeModelingInitializationAttempt
 
     @property
-    def kind(self) -> str:
+    def kind(self) -> ModelingInitializationStep:
         return self._handle.kind
 
     @property
@@ -460,7 +457,7 @@ class ModelingTrajectory:
         return self._handle.validation_error
 
     @property
-    def termination(self) -> str:
+    def termination(self) -> TrajectoryTermination:
         return self._handle.termination
 
     @property
@@ -497,7 +494,7 @@ class ModelingDiagnosticSamples:
         return self._handle.unattempted
 
     @property
-    def stop(self) -> str:
+    def stop(self) -> ModelingDiagnosticSampleStop:
         return self._handle.stop
 
     def ids(self) -> tuple[SemanticId, ...]:
@@ -543,15 +540,13 @@ class ModelingPackage:
         self,
         owner_id: DeclarationId | None = None,
         *,
-        maximum_cells: int = 100000,
-        maximum_bytes: int = 64 << 20,
+        controls: KnowledgeControls | None = None,
     ) -> ModelingKnowledge:
-        """Inspect admitted records, constants and tables."""
+        """Inspect admitted records, constants and tables under native limits."""
         return ModelingKnowledge(
             self._handle.knowledge(
                 None if owner_id is None else owner_id.to_hex(),
-                maximum_cells=maximum_cells,
-                maximum_bytes=maximum_bytes,
+                controls=None if controls is None else codec.encode_json(controls),
             )
         )
 
@@ -562,44 +557,22 @@ class ModelingPackage:
         converter = codec.converter()
         converter.register_unstructure_hook(SemanticId, SemanticId.to_hex)
         converter.register_unstructure_hook(ContentHash, ContentHash.to_prefixed)
-        data = _FitDeclarations(tuple(converter.unstructure(row) for row in fits))
+        data = codec.decode_json(
+            codec.encode_json(
+                {"fits": tuple(converter.unstructure(row) for row in fits)}
+            ),
+            FitDeclarations,
+        )
         return ModelingPackage(
             self._handle.with_fit_declarations(codec.encode_json(data))
         )
 
     def prepare_fit(
-        self,
-        fit_id: FitId,
-        settings: SolveSettings,
-        simulations: Mapping[InstanceId, SimulationSettings] | None = None,
-        *,
-        rank_tolerance: float = 1e-8,
-        max_cells: int = 1000000,
-        derivatives: FitDerivatives = FitDerivatives.RESPONSES,
-        uncertainty: FitUncertainty | None = None,
+        self, fit_id: FitId, request: FitPreparationDocument
     ) -> "PreparedOperation":
-        """Compile shared parameters over authored algebraic or integrated experiments.
-
-        Experiment settings are keyed by the experiment's instance, its
-        ``experiment_id``; an experiment's modes and events are those its authored case
-        declares. ``derivatives`` selects the response Jacobian or, with the
-        limited-memory Hessian, the adjoint gradient alone. Every fit with free
-        parameters derives their covariance; ``uncertainty`` also requests Wald and,
-        optionally, profile-likelihood intervals.
-        """
-        profiles = [(key.to_hex(), value) for key, value in (simulations or {}).items()]
+        """Admit owned fit settings against the selected model and experiments."""
         return PreparedOperation(
-            self._handle.prepare_fit(
-                fit_id.to_hex(),
-                codec.encode_json(settings),
-                profiles,
-                rank_tolerance=rank_tolerance,
-                max_cells=max_cells,
-                derivatives=derivatives.value,
-                uncertainty=(
-                    None if uncertainty is None else codec.encode_json(uncertainty)
-                ),
-            )
+            self._handle.prepare_fit(fit_id.to_hex(), codec.encode_json(request))
         )
 
     def with_limits(self, limits: ModelingLimits) -> "ModelingPackage":
@@ -613,10 +586,9 @@ class ModelingPackage:
         diagnostics: ModelingDiagnosticSettings,
         samples: tuple[tuple[SemanticId, dict[SemanticId, float]], ...],
         *,
-        maximum_samples: int = 128,
-        time_limit: float = 60.0,
+        controls: DiagnosticSamplesControls | None = None,
     ) -> ModelingDiagnosticSamples:
-        """Inspect explicit candidate overrides while preserving frozen case inputs."""
+        """Inspect overrides while preserving the prepared case's frozen inputs."""
         return ModelingDiagnosticSamples(
             self._handle.diagnose_samples(
                 case_id.to_hex(),
@@ -629,8 +601,7 @@ class ModelingPackage:
                     )
                     for name, point in samples
                 ],
-                maximum_samples,
-                time_limit,
+                controls=None if controls is None else codec.encode_json(controls),
             )
         )
 
@@ -638,21 +609,12 @@ class ModelingPackage:
         self,
         case_id: DeclarationId,
         settings: SolveSettings,
-        nominals: dict[SemanticId, float],
-        *,
-        penalty_tolerance: float,
-        maximum_attempts: int,
-        time_limit: float,
+        policy: ModelingNonlinearPolicy,
     ) -> ModelingNonlinearExplanation:
-        """Explain local infeasibility by bounded deletion on the l1 exact penalty."""
+        """Explain local infeasibility using the actual native penalty policy."""
         return ModelingNonlinearExplanation(
             self._handle.explain_nonlinear(
-                case_id.to_hex(),
-                codec.encode_json(settings),
-                {key.to_hex(): value for key, value in nominals.items()},
-                penalty_tolerance=penalty_tolerance,
-                maximum_attempts=maximum_attempts,
-                time_limit=time_limit,
+                case_id.to_hex(), codec.encode_json(settings), codec.encode_json(policy)
             )
         )
 
@@ -691,41 +653,14 @@ class ModelingPackage:
         case_id: DeclarationId,
         settings: SolveSettings,
         *,
-        rays: bool = False,
-        iis: bool = False,
-        ranging: bool = False,
-        relaxation: tuple[float, float, float] | None = None,
-        lower_penalties: dict[SemanticId, float] | None = None,
-        upper_penalties: dict[SemanticId, float] | None = None,
-        row_penalties: dict[SemanticId, float] | None = None,
-        maximum_entries: int = 100_000,
+        controls: LinearDiagnosticControls | None = None,
     ) -> ModelingNativeAnalysis:
-        """Run native affine-model analyses, retaining MIP relaxation scope explicitly.
-
-        Relaxation penalties name lower bounds, upper bounds and rows, in that order.
-        Negative penalties forbid violation. Each optional local map must name every
-        coordinate in its family; no physical weight is inferred.
-        """
-
-        def encoded(values: dict[SemanticId, float] | None) -> dict[str, float] | None:
-            return (
-                None
-                if values is None
-                else {key.to_hex(): value for key, value in values.items()}
-            )
-
+        """Run native affine diagnostics with explicit physical penalties."""
         return ModelingNativeAnalysis(
             self._handle.diagnose_linear(
                 case_id.to_hex(),
                 codec.encode_json(settings),
-                rays=rays,
-                iis=iis,
-                ranging=ranging,
-                relaxation=relaxation,
-                lower_penalties=encoded(lower_penalties),
-                upper_penalties=encoded(upper_penalties),
-                row_penalties=encoded(row_penalties),
-                maximum_entries=maximum_entries,
+                controls=None if controls is None else codec.encode_json(controls),
             )
         )
 
@@ -734,27 +669,14 @@ class ModelingPackage:
         case_id: DeclarationId,
         settings: SolveSettings,
         *,
-        maximum_rows: int = 32,
-        maximum_entries: int = 100_000,
-        maximum_attempts: int = 64,
-        multiplier_bound: float = 10.0,
-        tolerance: float = 1e-7,
-        rank_relative: float = 1e-8,
+        controls: JacobianDiagnosticControls | None = None,
     ) -> ModelingNativeAnalysis:
-        """Bounded LP/MILP evidence about the local scaled Jacobian.
-
-        The evidence is not a statement about nonlinear feasibility.
-        """
+        """Bounded native evidence about the local scaled Jacobian."""
         return ModelingNativeAnalysis(
             self._handle.diagnose_jacobian(
                 case_id.to_hex(),
                 codec.encode_json(settings),
-                maximum_rows=maximum_rows,
-                maximum_entries=maximum_entries,
-                maximum_attempts=maximum_attempts,
-                multiplier_bound=multiplier_bound,
-                tolerance=tolerance,
-                rank_relative=rank_relative,
+                controls=None if controls is None else codec.encode_json(controls),
             )
         )
 
@@ -765,39 +687,44 @@ class ModelingPackage:
         converter = codec.converter()
         converter.register_unstructure_hook(SemanticId, SemanticId.to_hex)
         converter.register_unstructure_hook(ContentHash, ContentHash.to_prefixed)
-        data = _DeclarationEdit(
-            tuple(converter.unstructure(row) for row in declarations)
+        data = codec.decode_json(
+            codec.encode_json(
+                {
+                    "declarations": tuple(
+                        converter.unstructure(row) for row in declarations
+                    )
+                }
+            ),
+            DeclarationEdit,
         )
         return ModelingPackage(self._handle.with_declarations(codec.encode_json(data)))
 
     def declarations(self) -> tuple[AuthoredModelingDeclarationsRow, ...]:
-        return tuple(
-            codec.converter().structure(
-                msgspec.json.decode(self._handle.declarations()),
-                list[AuthoredModelingDeclarationsRow],
-            )
+        document = codec.decode_json(self._handle.declarations(), DeclarationInventory)
+        return codec.document_rows(
+            document.declarations, AuthoredModelingDeclarationsRow
         )
 
     def inspect(
         self, case_id: DeclarationId, settings: SolveSettings
-    ) -> dict[str, object]:
+    ) -> ModelingInspection:
         """Inspect instantiated member lineage and declared topology before running."""
         return codec.decode_json(
             self._handle.inspect(case_id.to_hex(), codec.encode_json(settings)),
-            _AnalysisDocument,
-        ).payload
+            ModelingInspection,
+        )
 
     def prepare_flow(
         self,
         case_id: DeclarationId,
-        selection: Mapping[str, object],
+        selection: FlowSelectionDocument,
         settings: SolveSettings,
     ) -> PreparedFlow:
         """Project explicitly selected authored nodes, ports and connection policies."""
         return PreparedFlow(
             self._handle.prepare_flow(
                 case_id.to_hex(),
-                codec.encode_json(_AnalysisDocument(dict(selection))),
+                codec.encode_json(selection),
                 codec.encode_json(settings),
             )
         )
@@ -805,16 +732,16 @@ class ModelingPackage:
     def prepare_recycle(
         self,
         case_id: DeclarationId,
-        selection: Mapping[str, object],
-        request: Mapping[str, object],
+        selection: FlowSelectionDocument,
+        request: RecycleRequest,
         settings: SolveSettings,
     ) -> PreparedStrategy:
         """Compile admitted causal directions from this immutable authored model."""
         return PreparedStrategy(
             self._handle.prepare_recycle(
                 case_id.to_hex(),
-                codec.encode_json(_AnalysisDocument(dict(selection))),
-                codec.encode_json(_AnalysisDocument(dict(request))),
+                codec.encode_json(selection),
+                codec.encode_json(request),
                 codec.encode_json(settings),
             )
         )
@@ -862,49 +789,26 @@ class ModelingPackage:
         case_id: DeclarationId,
         settings: SolveSettings,
         *,
-        stages: tuple[str, ...] | None = None,
-        homotopy: bool | None = None,
-        initial_step: float | None = None,
-        minimum_step: float | None = None,
-        growth: float | None = None,
-        maximum_attempts: int | None = None,
-        time_limit: float | None = None,
-        discrete: ModelingDiscreteInitialization | None = None,
-        discrete_values: Mapping[str, float] | None = None,
+        overrides: InitializationOverrides | None = None,
     ) -> ModelingInitialization:
-        """Run bounded stages and adaptive homotopy, qualifying the original model.
-
-        Stage and homotopy steps fix the discrete variables the case leaves free under
-        ``discrete``: at their start values, or at ``discrete_values`` by case path.
-        The original model always runs unfixed.
-        """
+        """Run authored stages under native overrides and retain original bindings."""
         return ModelingInitialization(
             self._handle.initialize(
                 case_id.to_hex(),
                 codec.encode_json(settings),
-                stages=None if stages is None else list(stages),
-                homotopy=homotopy,
-                initial_step=initial_step,
-                minimum_step=minimum_step,
-                growth=growth,
-                maximum_attempts=maximum_attempts,
-                time_limit=time_limit,
-                discrete=None if discrete is None else discrete.value,
-                discrete_values=None
-                if discrete_values is None
-                else dict(discrete_values),
+                overrides=None if overrides is None else codec.encode_json(overrides),
             )
         )
 
     def admit_study(self, request: StudyRequest) -> StudyDefinition:
-        """Resolve physical bindings and operation capabilities once in this revision."""
+        """Resolve physical bindings and capabilities once in this revision."""
         return codec.decode_json(
             self._handle.admit_study(codec.encode_json(request)), StudyDefinition
         )
 
     @overload
     def study(
-        self, definition: StudyDefinition, *, maximum_points: int = 1024
+        self, definition: StudyDefinition, *, controls: StudyRunControls | None = None
     ) -> StudyReport: ...
 
     @overload
@@ -914,77 +818,53 @@ class ModelingPackage:
         *,
         runtime: "Runtime",
         workspace: Workspace,
-        maximum_points: int = 1024,
-        max_tries: int = 1,
-        priority: int = 0,
+        controls: StudySubmitControls | None = None,
     ) -> StudyHandle: ...
 
     def study(
         self,
         definition: StudyDefinition,
         *,
-        maximum_points: int = 1024,
+        controls: StudyRunControls | StudySubmitControls | None = None,
         runtime: "Runtime | None" = None,
         workspace: Workspace | None = None,
-        max_tries: int = 1,
-        priority: int = 0,
     ) -> "StudyReport | StudyHandle":
-        """Execute one admitted occurrence definition in this process or through workers.
-
-        The definition pins every operation and canonical binding. Its dependency and start
-        policies preserve scientific permission separately from operational completion.
-        Use ``admit_study`` to create it from the generated request contract.
-        """
+        """Execute admitted occurrences locally or through durable workers."""
         if runtime is None:
             if workspace is not None:
-                raise ValueError("a workspace selects a durable study; pass runtime")
+                message = "a workspace selects a durable study; pass runtime"
+                raise ValueError(message)
+            if controls is not None and not isinstance(controls, StudyRunControls):
+                message = "local studies require StudyRunControls"
+                raise TypeError(message)
             return StudyReport(
                 self._handle.study(
-                    codec.encode_json(definition), maximum_points=maximum_points
+                    codec.encode_json(definition),
+                    controls=None if controls is None else codec.encode_json(controls),
                 )
             )
         if workspace is None:
-            raise ValueError("a durable study publishes in a workspace")
+            message = "a durable study publishes in a workspace"
+            raise ValueError(message)
+        if controls is not None and not isinstance(controls, StudySubmitControls):
+            message = "durable studies require StudySubmitControls"
+            raise TypeError(message)
         return StudyHandle(
             self._handle.start_study(
                 runtime._handle,  # noqa: SLF001 - same native boundary
-                msgspec.json.encode(workspace),
+                codec.encode_json(workspace),
                 codec.encode_json(definition),
-                max_tries=max_tries,
-                priority=priority,
+                controls=None if controls is None else codec.encode_json(controls),
             )
         )
 
     def conform(
-        self,
-        settings: SolveSettings,
-        *,
-        maximum_fixtures: int = 1024,
-        maximum_checks: int = 16384,
-        derivative_cells: int = 100000,
-        derivative_step: float = 1e-6,
-        derivative_tolerance: float = 1e-4,
-        fixtures: Collection[DeclarationId] | None = None,
-        diagnostics: ModelingDiagnosticSettings | None = None,
+        self, settings: SolveSettings, *, controls: ConformanceControls | None = None
     ) -> ModelingConformance:
-        """Discover authored tests and run bounded shared checks without IDAES.
-
-        The run owns settings and derivative policy; a fixture's declared policy
-        replaces a setting for that fixture only. ``fixtures`` selects test
-        declarations by identity. An identity naming no authored test is refused
-        before any fixture runs; the run assesses no package coverage.
-        ``diagnostics`` are the run's numerical diagnostic thresholds; a fixture that
-        expects diagnostic findings needs them.
-        """
+        """Run bounded native shared checks and selected fixtures."""
         return ModelingConformance(
             self._handle.conform(
                 codec.encode_json(settings),
-                maximum_fixtures=maximum_fixtures,
-                maximum_checks=maximum_checks,
-                derivative_cells=derivative_cells,
-                derivative_step=derivative_step,
-                derivative_tolerance=derivative_tolerance,
-                fixtures=_selection(fixtures),
-                diagnostics=diagnostics,
+                controls=None if controls is None else codec.encode_json(controls),
             )
         )

@@ -61,7 +61,11 @@ async fn nested_source_claims_use_selected_utf8_bytes_and_native_joins() {
     let spec = registry.relation("authored.nested_sources").unwrap();
     let document = SemanticId::from_bytes([1; 16]);
     let context = SessionContext::new();
-    let mut documents = documents::Builder::new().unwrap();
+    let mut documents = documents::Builder::new(&crate::validate::ValidationContext::new(
+        pse_schema::registry().unwrap(),
+        SessionContext::new().state(),
+    ))
+    .unwrap();
     documents
         .push(documents::Row {
             document_id: document,
@@ -83,6 +87,7 @@ async fn nested_source_claims_use_selected_utf8_bytes_and_native_joins() {
                 serde_json::json!(["id", (document).to_hex()]),
                 nested(document, 2, 1)
             ]],
+            &crate::validate::ValidationContext::new(&registry, SessionContext::new().state())
         )
         .is_err(),
         "local declared validation already rejects reversed offsets"
@@ -110,6 +115,7 @@ async fn nested_source_claims_use_selected_utf8_bytes_and_native_joins() {
             &registry,
             spec,
             &[vec![serde_json::json!(["id", (document).to_hex()]), value]],
+            &crate::validate::ValidationContext::new(&registry, SessionContext::new().state()),
         )
         .unwrap();
         let input = context.read_batch(batch).unwrap().into_unoptimized_plan();

@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
+#![allow(
+    missing_docs,
+    reason = "strum's generated const into_str method is exposed through documented as_str contracts"
+)]
 
 //! One declaration of platform classes and detailed diagnostic codes.
 
@@ -26,20 +30,21 @@ crate::impl_diagnostic! {
 macro_rules! vocabulary {
     ($name:ident as $sql:literal { $($variant:ident => ($text:literal, $description:literal)),* $(,)? }) => {
         #[doc = "Stable platform diagnostic vocabulary."]
-        #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, serde::Serialize, serde::Deserialize)]
+        #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, strum::EnumString, strum::Display, strum::VariantArray, strum::IntoStaticStr, serde::Serialize, serde::Deserialize)]
         #[serde(try_from = "String", into = "String")]
+        #[strum(const_into_str, parse_err_ty = VocabularyError, parse_err_fn = Self::unknown_member)]
         #[cfg_attr(feature = "postgres", derive(postgres_types::ToSql, postgres_types::FromSql), postgres(name = $sql))]
-        pub enum $name { $(#[doc = $description] #[cfg_attr(feature = "postgres", postgres(name = $text))] $variant),* }
+        pub enum $name { $(#[doc = $description] #[strum(serialize = $text)] #[cfg_attr(feature = "postgres", postgres(name = $text))] $variant),* }
         impl $name {
             /// All declarations in stable order.
-            pub const ALL: &'static [Self] = &[$(Self::$variant),*];
+            pub const ALL: &'static [Self] = <Self as strum::VariantArray>::VARIANTS;
             /// Registry spelling.
-            pub const fn as_str(self) -> &'static str { match self { $(Self::$variant => $text),* } }
+            pub const fn as_str(self) -> &'static str { self.into_str() }
             /// Declared description.
             pub const fn description(self) -> &'static str { match self { $(Self::$variant => $description),* } }
             /// The member with this registry spelling, if any.
             pub fn parse(value: &str) -> Option<Self> {
-                match value { $($text => Some(Self::$variant),)* _ => None }
+                value.parse().ok()
             }
         }
         impl schemars::JsonSchema for $name {
@@ -49,18 +54,9 @@ macro_rules! vocabulary {
         }
         impl From<$name> for String { fn from(value: $name) -> Self { value.as_str().to_owned() } }
         impl TryFrom<String> for $name { type Error = VocabularyError; fn try_from(value: String) -> Result<Self, Self::Error> { value.parse() } }
-        impl std::fmt::Display for $name {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                f.write_str(self.as_str())
-            }
-        }
-        impl std::str::FromStr for $name {
-            type Err = VocabularyError;
-            fn from_str(value: &str) -> Result<Self, Self::Err> {
-                Self::parse(value).ok_or_else(|| VocabularyError::UnknownMember {
-                    vocabulary: stringify!($name),
-                    value: value.to_owned(),
-                })
+        impl $name {
+            fn unknown_member(value: &str) -> VocabularyError {
+                VocabularyError::UnknownMember { vocabulary: stringify!($name), value: value.to_owned() }
             }
         }
     };
@@ -96,15 +92,16 @@ vocabulary! { FailureClass as "failure_class" {
 macro_rules! codes {
     ($($variant:ident => ($text:literal, $class:ident, $description:literal)),* $(,)?) => {
         /// Detailed diagnostic identity; several codes can share a failure class.
-        #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, serde::Serialize, serde::Deserialize)]
+        #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, strum::VariantArray, strum::IntoStaticStr, serde::Serialize, serde::Deserialize)]
+        #[strum(const_into_str)]
         #[serde(try_from = "String", into = "String")]
         #[cfg_attr(feature = "postgres", derive(postgres_types::ToSql, postgres_types::FromSql), postgres(name = "diagnostic_code"))]
-        pub enum DiagnosticCode { $(#[doc = $description] #[cfg_attr(feature = "postgres", postgres(name = $text))] $variant),* }
+        pub enum DiagnosticCode { $(#[doc = $description] #[strum(serialize = $text)] #[cfg_attr(feature = "postgres", postgres(name = $text))] $variant),* }
         impl DiagnosticCode {
             /// All detailed codes.
-            pub const ALL: &'static [Self] = &[$(Self::$variant),*];
+            pub const ALL: &'static [Self] = <Self as strum::VariantArray>::VARIANTS;
             /// Stable dotted registry spelling.
-            pub const fn as_str(self) -> &'static str { match self { $(Self::$variant => $text),* } }
+            pub const fn as_str(self) -> &'static str { self.into_str() }
             /// Coarse failure classification.
             pub const fn class(self) -> FailureClass { match self { $(Self::$variant => FailureClass::$class),* } }
             /// Human-readable description.

@@ -47,7 +47,10 @@ impl TableProvider for ResolutionProvider {
         let defaults = &state.config_options().catalog;
         // Retain actual caller configuration and planners, with the original source
         // hierarchy. The result must never retain its own resolving provider.
-        let mut captured = state.clone();
+        // Capture caller configuration through the clean model owner. Execution
+        // extensions retain validation state containing this resolving provider.
+        session.capture_configuration(state).map_err(external)?;
+        let mut captured = session.native.context.state();
         captured.register_catalog_list(Arc::new(
             session
                 .bindings

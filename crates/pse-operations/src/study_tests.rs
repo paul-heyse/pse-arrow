@@ -8,7 +8,7 @@ use crate::catalog::NewIntent;
 use crate::jobs::{JobOutcome, JobState, NewJob, RetryPolicy};
 use crate::lifecycle::AttemptState;
 use crate::store_tests::{LEASE, Space, hash, new_attempt, new_job, space};
-use crate::studies::{NewPoint, NewStudy, StudyState};
+use crate::studies::{DispatchFence, NewPoint, NewStudy, PreEffectReceipt, StudyState};
 use crate::testing::TestDatabase;
 use crate::{OperationsError, Store, mint_id};
 use pse_model::generated::enums::StudyPointState;
@@ -53,7 +53,7 @@ fn new_study(space: &Space, policies: Vec<PointPolicy>) -> NewStudy {
         points: policies
             .into_iter()
             .map(|policy| NewPoint {
-                binding_hash: hash(8),
+                binding_hash: hash(8).into(),
                 job: new_job(&format!("{study_id}:{}", policy.key.0), RetryPolicy::ONCE),
                 policy,
             })
@@ -113,7 +113,7 @@ async fn ordering_failed_terminal_releases_usable_dependency_refuses_equal_bindi
             .iter()
             .map(|point| point.binding_hash)
             .collect::<Vec<_>>(),
-        vec![hash(8); 3]
+        vec![pse_ids::roles::BindingHash::from(hash(8)); 3]
     );
     assert_eq!(record.points[1].job_state, JobState::Queued);
     assert_eq!(record.points[2].state, StudyPointState::Failed);
@@ -175,13 +175,15 @@ async fn unresolved_seed_is_acquisition_only_dispatch_rechecks_revision_and_live
         store
             .studies()
             .admit_dispatch(
-                study.study_id,
-                OccurrenceKey(9),
-                child.job_id,
-                child.attempt_id,
-                "other",
-                point.revision,
-                args.clone()
+                DispatchFence {
+                    study: study.study_id,
+                    key: OccurrenceKey(9),
+                    job: child.job_id,
+                    attempt: child.attempt_id,
+                    worker: "other",
+                    expected_revision: point.revision,
+                },
+                args.clone(),
             )
             .await,
         Err(OperationsError::LeaseLost { .. })
@@ -190,13 +192,15 @@ async fn unresolved_seed_is_acquisition_only_dispatch_rechecks_revision_and_live
         store
             .studies()
             .admit_dispatch(
-                study.study_id,
-                OccurrenceKey(9),
-                child.job_id,
-                child.attempt_id,
-                "worker",
-                point.revision,
-                None
+                DispatchFence {
+                    study: study.study_id,
+                    key: OccurrenceKey(9),
+                    job: child.job_id,
+                    attempt: child.attempt_id,
+                    worker: "worker",
+                    expected_revision: point.revision,
+                },
+                None,
             )
             .await
             .unwrap(),
@@ -206,13 +210,15 @@ async fn unresolved_seed_is_acquisition_only_dispatch_rechecks_revision_and_live
         store
             .studies()
             .admit_dispatch(
-                study.study_id,
-                OccurrenceKey(9),
-                child.job_id,
-                child.attempt_id,
-                "worker",
-                point.revision,
-                args.clone()
+                DispatchFence {
+                    study: study.study_id,
+                    key: OccurrenceKey(9),
+                    job: child.job_id,
+                    attempt: child.attempt_id,
+                    worker: "worker",
+                    expected_revision: point.revision,
+                },
+                args.clone(),
             )
             .await
             .unwrap(),
@@ -222,13 +228,15 @@ async fn unresolved_seed_is_acquisition_only_dispatch_rechecks_revision_and_live
         store
             .studies()
             .admit_dispatch(
-                study.study_id,
-                OccurrenceKey(9),
-                child.job_id,
-                child.attempt_id,
-                "worker",
-                point.revision,
-                args
+                DispatchFence {
+                    study: study.study_id,
+                    key: OccurrenceKey(9),
+                    job: child.job_id,
+                    attempt: child.attempt_id,
+                    worker: "worker",
+                    expected_revision: point.revision,
+                },
+                args,
             )
             .await
             .is_err()
@@ -292,13 +300,15 @@ async fn pre_effect_receipt_requires_dispatch_revision_and_live_owner_and_absenc
         store
             .studies()
             .admit_dispatch(
-                study.study_id,
-                OccurrenceKey(4),
-                claim.job_id,
-                claim.attempt_id,
-                "worker",
-                point.revision,
-                None
+                DispatchFence {
+                    study: study.study_id,
+                    key: OccurrenceKey(4),
+                    job: claim.job_id,
+                    attempt: claim.attempt_id,
+                    worker: "worker",
+                    expected_revision: point.revision,
+                },
+                None,
             )
             .await
             .unwrap(),
@@ -310,15 +320,19 @@ async fn pre_effect_receipt_requires_dispatch_revision_and_live_owner_and_absenc
         store
             .studies()
             .record_receipt(
-                study.study_id,
-                OccurrenceKey(4),
-                claim.job_id,
-                claim.attempt_id,
-                "other",
-                point.revision,
-                ScientificFacts::default(),
-                None,
-                receipt.clone()
+                DispatchFence {
+                    study: study.study_id,
+                    key: OccurrenceKey(4),
+                    job: claim.job_id,
+                    attempt: claim.attempt_id,
+                    worker: "other",
+                    expected_revision: point.revision,
+                },
+                PreEffectReceipt {
+                    scientific: ScientificFacts::default(),
+                    diagnostic: None,
+                    receipt: receipt.clone(),
+                },
             )
             .await,
         Err(OperationsError::LeaseLost { .. })
@@ -327,15 +341,19 @@ async fn pre_effect_receipt_requires_dispatch_revision_and_live_owner_and_absenc
         store
             .studies()
             .record_receipt(
-                study.study_id,
-                OccurrenceKey(4),
-                claim.job_id,
-                claim.attempt_id,
-                "worker",
-                point.revision - 1,
-                ScientificFacts::default(),
-                None,
-                receipt.clone()
+                DispatchFence {
+                    study: study.study_id,
+                    key: OccurrenceKey(4),
+                    job: claim.job_id,
+                    attempt: claim.attempt_id,
+                    worker: "worker",
+                    expected_revision: point.revision - 1,
+                },
+                PreEffectReceipt {
+                    scientific: ScientificFacts::default(),
+                    diagnostic: None,
+                    receipt: receipt.clone(),
+                },
             )
             .await
             .is_err()
@@ -343,15 +361,19 @@ async fn pre_effect_receipt_requires_dispatch_revision_and_live_owner_and_absenc
     store
         .studies()
         .record_receipt(
-            study.study_id,
-            OccurrenceKey(4),
-            claim.job_id,
-            claim.attempt_id,
-            "worker",
-            point.revision,
-            ScientificFacts::default(),
-            None,
-            receipt.clone(),
+            DispatchFence {
+                study: study.study_id,
+                key: OccurrenceKey(4),
+                job: claim.job_id,
+                attempt: claim.attempt_id,
+                worker: "worker",
+                expected_revision: point.revision,
+            },
+            PreEffectReceipt {
+                scientific: ScientificFacts::default(),
+                diagnostic: None,
+                receipt: receipt.clone(),
+            },
         )
         .await
         .unwrap();
@@ -384,15 +406,19 @@ async fn pre_effect_receipt_requires_dispatch_revision_and_live_owner_and_absenc
         store
             .studies()
             .record_receipt(
-                study.study_id,
-                OccurrenceKey(4),
-                claim.job_id,
-                claim.attempt_id,
-                "worker",
-                point.revision,
-                ScientificFacts::default(),
-                None,
-                receipt
+                DispatchFence {
+                    study: study.study_id,
+                    key: OccurrenceKey(4),
+                    job: claim.job_id,
+                    attempt: claim.attempt_id,
+                    worker: "worker",
+                    expected_revision: point.revision,
+                },
+                PreEffectReceipt {
+                    scientific: ScientificFacts::default(),
+                    diagnostic: None,
+                    receipt,
+                },
             )
             .await,
         Err(OperationsError::LeaseLost { .. })

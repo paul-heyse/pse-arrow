@@ -14,6 +14,7 @@ from typing import Annotated, Literal
 import msgspec
 
 from pse.contracts import enums
+from pse.contracts import values as v
 
 FiniteBound = float
 
@@ -26,6 +27,18 @@ OptionValue = bool | int | float | str
 PositiveCount = Annotated[int, msgspec.Meta(ge=1)]
 
 Tolerance = Annotated[float, msgspec.Meta(gt=0.0)]
+
+
+class ActiveSetSnapshot(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Native activity vectors in source order."""
+
+    #: Native variable-bound statuses in source order.
+    bounds: tuple[enums.BoundActivity, ...]
+    #: Native constraint statuses in source order.
+    constraints: tuple[enums.RowActivity, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.bounds), v.sequence_key(v.scalar_key)(self.constraints),))
 
 
 class AdjointSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -45,6 +58,9 @@ class AdjointSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
     #: Native forward steps between stored checkpoints (IDAS `IDAAdjInit`'s `Nd`).
     steps_between_checkpoints: PositiveCount = 250
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.max_checkpoints), v.scalar_key(self.steps_between_checkpoints),))
+
 
 class AdmittedBinding(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Immutable selected-revision binding; attribution is excluded from content identity."""
@@ -55,6 +71,9 @@ class AdmittedBinding(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
     entries: dict[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], AdmittedBindingEntry]
     #: Exact revision that admitted member identity and role.
     revision: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.context), v.mapping_key(v.scalar_key, v.record_key)(self.entries), v.scalar_key(self.revision),))
 
 
 class AdmittedBindingEntry(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -73,6 +92,9 @@ class AdmittedBindingEntry(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
     #: Original unit, retained only for attribution.
     supplied_unit: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.canonical), v.scalar_key(self.member), v.scalar_key(self.parameter), v.scalar_key(self.quantity), v.record_key(self.supplied), v.scalar_key(self.supplied_unit),))
+
 
 class AdmittedHorizonValues(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Canonical horizon assignments admitted in the selected physical context."""
@@ -83,6 +105,23 @@ class AdmittedHorizonValues(msgspec.Struct, frozen=True, forbid_unknown_fields=T
     inputs: tuple[AdmittedBindingEntry, ...]
     #: Canonical controller trajectory values by declared binding index.
     trajectories: dict[Annotated[str, msgspec.Meta(pattern="^\\d+$")], tuple[AdmittedBindingEntry, ...]]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.arrival), v.sequence_key(v.record_key)(self.inputs), v.mapping_key(v.scalar_key, v.sequence_key(v.record_key))(self.trajectories),))
+
+
+class AnalysisPort(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Explicit physical coordinate of a native analysis request."""
+
+    #: Admitted physical quantity contract.
+    quantity_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Stable source identity, never a solver column index.
+    symbol_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Unit of the supplied coordinate.
+    unit_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.quantity_id), v.scalar_key(self.symbol_id), v.scalar_key(self.unit_id),))
 
 
 class ApplicabilityClaim(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -114,6 +153,9 @@ class ApplicabilityClaim(msgspec.Struct, frozen=True, forbid_unknown_fields=True
     #: Distinct scientific records selected by this application.
     records: tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], ...]
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.basis), v.scalar_key(self.call), v.optional_key(v.scalar_key)(self.coverage), v.sequence_key(v.scalar_key)(self.dependencies), v.optional_key(v.scalar_key)(self.evidence), v.scalar_key(self.form), v.optional_key(v.scalar_key)(self.id), v.scalar_key(self.layer), v.scalar_key(self.owner), v.sequence_key(v.scalar_key)(self.owner_lineage), v.optional_key(v.scalar_key)(self.reason), v.sequence_key(v.scalar_key)(self.records),))
+
 
 class ApplicabilityInput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Numerical inputs are recorded in the lowering's canonical physical units."""
@@ -124,6 +166,9 @@ class ApplicabilityInput(msgspec.Struct, frozen=True, forbid_unknown_fields=True
     quantity_type: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
     #: Actual value at the demanded application; the wire retains explicit IEEE evidence.
     value: NumericObservation
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.scalar_key(self.quantity_type), v.record_key(self.value),))
 
 
 class ApplicabilityObservation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -148,6 +193,9 @@ class ApplicabilityObservation(msgspec.Struct, frozen=True, forbid_unknown_field
     #: Both permissions remain independent even for a mixed dependency result.
     unknown_allowed: bool
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.admitted), v.record_key(self.claim), v.scalar_key(self.extrapolation_allowed), v.sequence_key(v.record_key)(self.inputs), v.optional_key(v.scalar_key)(self.instance), v.scalar_key(self.outcome), v.sequence_key(v.record_key)(self.permissions), v.scalar_key(self.required), v.scalar_key(self.unknown_allowed),))
+
 
 class ApplicabilityPermission(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Authorization retains its declaration and scope, with fixed named targets."""
@@ -165,6 +213,9 @@ class ApplicabilityPermission(msgspec.Struct, frozen=True, forbid_unknown_fields
     #: Exact admitted target identities; inheritance never widens this set.
     targets: tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], ...]
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.allow_extrapolation), v.scalar_key(self.allow_unknown), v.scalar_key(self.id), v.scalar_key(self.scope), v.scalar_key(self.target_kind), v.sequence_key(v.scalar_key)(self.targets),))
+
 
 class ArrivalDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Existing arrival cost intent with a checked finite initial prior."""
@@ -175,6 +226,1853 @@ class ArrivalDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
     next: str
     #: Existing prior case path.
     prior: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.initial), v.scalar_key(self.next), v.scalar_key(self.prior),))
+
+
+class AuthoredFitCasesFieldExperimentsItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: bindings
+    bindings: tuple[AuthoredFitCasesFieldExperimentsItemBindingsItem, ...]
+    #: case_id
+    case_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: experiment_id
+    experiment_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: route
+    route: enums.ModelingAnalysisRoute
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.bindings), v.scalar_key(self.case_id), v.scalar_key(self.experiment_id), v.scalar_key(self.route),))
+
+
+class AuthoredFitCasesFieldExperimentsItemBindingsItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: parameter_id
+    parameter_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: path
+    path: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.parameter_id), v.scalar_key(self.path),))
+
+
+class AuthoredFitCasesFieldObservationsItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: experiment_id
+    experiment_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: importance
+    importance: float
+    #: included
+    included: bool
+    #: observation_id
+    observation_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: output_path
+    output_path: str
+    #: standard_deviation_attribute
+    standard_deviation_attribute: str | None = None
+    #: time
+    time: float | None = None
+    #: time_basis
+    time_basis: enums.ObservationTimeBasis | None = None
+    #: time_unit_id
+    time_unit_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+    #: value_attribute
+    value_attribute: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.experiment_id), v.scalar_key(self.importance), v.scalar_key(self.included), v.scalar_key(self.observation_id), v.scalar_key(self.output_path), v.optional_key(v.scalar_key)(self.standard_deviation_attribute), v.optional_key(v.scalar_key)(self.time), v.optional_key(v.scalar_key)(self.time_basis), v.optional_key(v.scalar_key)(self.time_unit_id), v.scalar_key(self.value_attribute),))
+
+
+class AuthoredFitCasesFieldParametersItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: fixed
+    fixed: bool
+    #: lower
+    lower: float | None = None
+    #: scale
+    scale: float
+    #: symbol_id
+    symbol_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: upper
+    upper: float | None = None
+    #: value
+    value: float
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.fixed), v.optional_key(v.scalar_key)(self.lower), v.scalar_key(self.scale), v.scalar_key(self.symbol_id), v.optional_key(v.scalar_key)(self.upper), v.scalar_key(self.value),))
+
+
+class AuthoredFitCasesRow(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: experiments
+    experiments: tuple[AuthoredFitCasesFieldExperimentsItem, ...]
+    #: fit_id
+    fit_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: observations
+    observations: tuple[AuthoredFitCasesFieldObservationsItem, ...]
+    #: parameters
+    parameters: tuple[AuthoredFitCasesFieldParametersItem, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.experiments), v.scalar_key(self.fit_id), v.sequence_key(v.record_key)(self.observations), v.sequence_key(v.record_key)(self.parameters),))
+
+
+class AuthoredModelingDeclarationsFieldValue(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: accumulator
+    accumulator: AuthoredModelingDeclarationsFieldValueAccumulator | None = None
+    #: annotation
+    annotation: AuthoredModelingDeclarationsFieldValueAnnotation | None = None
+    #: applicability
+    applicability: AuthoredModelingDeclarationsFieldValueApplicability | None = None
+    #: attribute
+    attribute: AuthoredModelingDeclarationsFieldValueAttribute | None = None
+    #: binding
+    binding: AuthoredModelingDeclarationsFieldValueBinding | None = None
+    #: boundary
+    boundary: AuthoredModelingDeclarationsFieldValueBoundary | None = None
+    #: cardinality
+    cardinality: AuthoredModelingDeclarationsFieldValueCardinality | None = None
+    #: collocation_scheme
+    collocation_scheme: AuthoredModelingDeclarationsFieldValueCollocationScheme | None = None
+    #: complementarity
+    complementarity: AuthoredModelingDeclarationsFieldValueComplementarity | None = None
+    #: connection
+    connection: AuthoredModelingDeclarationsFieldValueConnection | None = None
+    #: constant
+    constant: AuthoredModelingDeclarationsFieldValueConstant | None = None
+    #: continuation
+    continuation: AuthoredModelingDeclarationsFieldValueContinuation | None = None
+    #: continuous
+    continuous: AuthoredModelingDeclarationsFieldValueContinuous | None = None
+    #: contribution
+    contribution: AuthoredModelingDeclarationsFieldValueContribution | None = None
+    #: coordinate_map
+    coordinate_map: AuthoredModelingDeclarationsFieldValueCoordinateMap | None = None
+    #: coordinate_slot
+    coordinate_slot: AuthoredModelingDeclarationsFieldValueCoordinateSlot | None = None
+    #: dataset
+    dataset: AuthoredModelingDeclarationsFieldValueDataset | None = None
+    #: difference_scheme
+    difference_scheme: AuthoredModelingDeclarationsFieldValueDifferenceScheme | None = None
+    #: discretization
+    discretization: AuthoredModelingDeclarationsFieldValueDiscretization | None = None
+    #: entity
+    entity: AuthoredModelingDeclarationsFieldValueEntity | None = None
+    #: enumeration
+    enumeration: AuthoredModelingDeclarationsFieldValueEnumeration | None = None
+    #: envelope
+    envelope: AuthoredModelingDeclarationsFieldValueEnvelope | None = None
+    #: equation
+    equation: AuthoredModelingDeclarationsFieldValueEquation | None = None
+    #: exchange
+    exchange: AuthoredModelingDeclarationsFieldValueExchange | None = None
+    #: expectation
+    expectation: AuthoredModelingDeclarationsFieldValueExpectation | None = None
+    #: function
+    function: AuthoredModelingDeclarationsFieldValueFunction | None = None
+    #: guard
+    guard: AuthoredModelingDeclarationsFieldValueGuard | None = None
+    #: import
+    import_: AuthoredModelingDeclarationsFieldValueImport | None = msgspec.field(default=None, name="import")
+    #: inventory_balance
+    inventory_balance: AuthoredModelingDeclarationsFieldValueInventoryBalance | None = None
+    #: kind
+    kind: enums.ModelingDeclarationKind
+    #: logic
+    logic: AuthoredModelingDeclarationsFieldValueLogic | None = None
+    #: ordered_set
+    ordered_set: AuthoredModelingDeclarationsFieldValueOrderedSet | None = None
+    #: permission
+    permission: AuthoredModelingDeclarationsFieldValuePermission | None = None
+    #: piecewise
+    piecewise: AuthoredModelingDeclarationsFieldValuePiecewise | None = None
+    #: realization
+    realization: AuthoredModelingDeclarationsFieldValueRealization | None = None
+    #: reconstruction
+    reconstruction: AuthoredModelingDeclarationsFieldValueReconstruction | None = None
+    #: reference_translation
+    reference_translation: AuthoredModelingDeclarationsFieldValueReferenceTranslation | None = None
+    #: relaxation
+    relaxation: AuthoredModelingDeclarationsFieldValueRelaxation | None = None
+    #: requirement
+    requirement: AuthoredModelingDeclarationsFieldValueRequirement | None = None
+    #: response
+    response: AuthoredModelingDeclarationsFieldValueResponse | None = None
+    #: scope
+    scope: AuthoredModelingDeclarationsFieldValueScope | None = None
+    #: state_port
+    state_port: AuthoredModelingDeclarationsFieldValueStatePort | None = None
+    #: state_specification
+    state_specification: AuthoredModelingDeclarationsFieldValueStateSpecification | None = None
+    #: table
+    table: AuthoredModelingDeclarationsFieldValueTable | None = None
+    #: temporal
+    temporal: AuthoredModelingDeclarationsFieldValueTemporal | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.record_key)(self.accumulator), v.optional_key(v.record_key)(self.annotation), v.optional_key(v.record_key)(self.applicability), v.optional_key(v.record_key)(self.attribute), v.optional_key(v.record_key)(self.binding), v.optional_key(v.record_key)(self.boundary), v.optional_key(v.record_key)(self.cardinality), v.optional_key(v.record_key)(self.collocation_scheme), v.optional_key(v.record_key)(self.complementarity), v.optional_key(v.record_key)(self.connection), v.optional_key(v.record_key)(self.constant), v.optional_key(v.record_key)(self.continuation), v.optional_key(v.record_key)(self.continuous), v.optional_key(v.record_key)(self.contribution), v.optional_key(v.record_key)(self.coordinate_map), v.optional_key(v.record_key)(self.coordinate_slot), v.optional_key(v.record_key)(self.dataset), v.optional_key(v.record_key)(self.difference_scheme), v.optional_key(v.record_key)(self.discretization), v.optional_key(v.record_key)(self.entity), v.optional_key(v.record_key)(self.enumeration), v.optional_key(v.record_key)(self.envelope), v.optional_key(v.record_key)(self.equation), v.optional_key(v.record_key)(self.exchange), v.optional_key(v.record_key)(self.expectation), v.optional_key(v.record_key)(self.function), v.optional_key(v.record_key)(self.guard), v.optional_key(v.record_key)(self.import_), v.optional_key(v.record_key)(self.inventory_balance), v.scalar_key(self.kind), v.optional_key(v.record_key)(self.logic), v.optional_key(v.record_key)(self.ordered_set), v.optional_key(v.record_key)(self.permission), v.optional_key(v.record_key)(self.piecewise), v.optional_key(v.record_key)(self.realization), v.optional_key(v.record_key)(self.reconstruction), v.optional_key(v.record_key)(self.reference_translation), v.optional_key(v.record_key)(self.relaxation), v.optional_key(v.record_key)(self.requirement), v.optional_key(v.record_key)(self.response), v.optional_key(v.record_key)(self.scope), v.optional_key(v.record_key)(self.state_port), v.optional_key(v.record_key)(self.state_specification), v.optional_key(v.record_key)(self.table), v.optional_key(v.record_key)(self.temporal),))
+
+
+class AuthoredModelingDeclarationsFieldValueAccumulator(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: boundary
+    boundary: str | None = None
+    #: indices
+    indices: tuple[AuthoredModelingDeclarationsFieldValueAccumulatorIndicesItem, ...]
+    #: mode
+    mode: enums.ModelingAccumulatorMode
+    #: tolerance
+    tolerance: str
+    #: type
+    type: tuple[ModelingTypeArenaNode, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.boundary), v.sequence_key(v.record_key)(self.indices), v.scalar_key(self.mode), v.scalar_key(self.tolerance), v.sequence_key(v.record_key)(self.type),))
+
+
+class AuthoredModelingDeclarationsFieldValueAccumulatorIndicesItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: domain
+    domain: str
+    #: name
+    name: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.domain), v.scalar_key(self.name),))
+
+
+class AuthoredModelingDeclarationsFieldValueAnnotation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: arguments
+    arguments: tuple[str, ...]
+    #: connectivity
+    connectivity: AuthoredModelingDeclarationsFieldValueAnnotationConnectivity | None = None
+    #: kind
+    kind: enums.ModelingAnnotationKind
+    #: objective
+    objective: AuthoredModelingDeclarationsFieldValueAnnotationObjective | None = None
+    #: scheme
+    scheme: enums.ConstraintScalingScheme | None = None
+    #: target
+    target: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.arguments), v.optional_key(v.record_key)(self.connectivity), v.scalar_key(self.kind), v.optional_key(v.record_key)(self.objective), v.optional_key(v.scalar_key)(self.scheme), v.scalar_key(self.target),))
+
+
+class AuthoredModelingDeclarationsFieldValueAnnotationConnectivity(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: incoming
+    incoming: int | None = None
+    #: outgoing
+    outgoing: int | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.incoming), v.optional_key(v.scalar_key)(self.outgoing),))
+
+
+class AuthoredModelingDeclarationsFieldValueAnnotationObjective(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: absolute_tolerance
+    absolute_tolerance: str | None = None
+    #: normalization
+    normalization: str | None = None
+    #: priority
+    priority: int | None = None
+    #: relative_tolerance
+    relative_tolerance: str | None = None
+    #: sense
+    sense: enums.NativeObjectiveSense
+    #: weight
+    weight: str | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.absolute_tolerance), v.optional_key(v.scalar_key)(self.normalization), v.optional_key(v.scalar_key)(self.priority), v.optional_key(v.scalar_key)(self.relative_tolerance), v.scalar_key(self.sense), v.optional_key(v.scalar_key)(self.weight),))
+
+
+class AuthoredModelingDeclarationsFieldValueApplicability(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: alternatives
+    alternatives: tuple[str, ...]
+    #: arguments
+    arguments: tuple[AuthoredModelingDeclarationsFieldValueApplicabilityArgumentsItem, ...]
+    #: axis
+    axis: str | None = None
+    #: basis
+    basis: enums.ModelingApplicabilityBasis | None = None
+    #: claim_kind
+    claim_kind: enums.ModelingApplicabilityKind
+    #: dependencies
+    dependencies: tuple[str, ...]
+    #: evidence
+    evidence: str
+    #: lower
+    lower: str | None = None
+    #: owner
+    owner: str
+    #: predicate
+    predicate: str | None = None
+    #: reason
+    reason: str | None = None
+    #: scope
+    scope: enums.ModelingValidityLayer
+    #: upper
+    upper: str | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.alternatives), v.sequence_key(v.record_key)(self.arguments), v.optional_key(v.scalar_key)(self.axis), v.optional_key(v.scalar_key)(self.basis), v.scalar_key(self.claim_kind), v.sequence_key(v.scalar_key)(self.dependencies), v.scalar_key(self.evidence), v.optional_key(v.scalar_key)(self.lower), v.scalar_key(self.owner), v.optional_key(v.scalar_key)(self.predicate), v.optional_key(v.scalar_key)(self.reason), v.scalar_key(self.scope), v.optional_key(v.scalar_key)(self.upper),))
+
+
+class AuthoredModelingDeclarationsFieldValueApplicabilityArgumentsItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: default_value
+    default_value: str | None = None
+    #: name
+    name: str
+    #: type
+    type: tuple[ModelingTypeArenaNode, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.default_value), v.scalar_key(self.name), v.sequence_key(v.record_key)(self.type),))
+
+
+class AuthoredModelingDeclarationsFieldValueAttribute(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: derived
+    derived: str | None = None
+    #: key
+    key: bool
+    #: storage
+    storage: tuple[ModelingColumnStorage, ...]
+    #: type
+    type: tuple[ModelingTypeArenaNode, ...] | None = None
+    #: unique
+    unique: bool
+    #: value
+    value: ModelingCell | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.derived), v.scalar_key(self.key), v.sequence_key(v.record_key)(self.storage), v.optional_key(v.sequence_key(v.record_key))(self.type), v.scalar_key(self.unique), v.optional_key(v.record_key)(self.value),))
+
+
+class AuthoredModelingDeclarationsFieldValueBinding(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: defined_by
+    defined_by: str | None = None
+    #: domain
+    domain: enums.ModelingVariableDomain | None = None
+    #: expression
+    expression: str | None = None
+    #: indices
+    indices: tuple[AuthoredModelingDeclarationsFieldValueBindingIndicesItem, ...]
+    #: type
+    type: tuple[ModelingTypeArenaNode, ...] | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.defined_by), v.optional_key(v.scalar_key)(self.domain), v.optional_key(v.scalar_key)(self.expression), v.sequence_key(v.record_key)(self.indices), v.optional_key(v.sequence_key(v.record_key))(self.type),))
+
+
+class AuthoredModelingDeclarationsFieldValueBindingIndicesItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: domain
+    domain: str
+    #: name
+    name: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.domain), v.scalar_key(self.name),))
+
+
+class AuthoredModelingDeclarationsFieldValueBoundary(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: indices
+    indices: tuple[AuthoredModelingDeclarationsFieldValueBoundaryIndicesItem, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.indices),))
+
+
+class AuthoredModelingDeclarationsFieldValueBoundaryIndicesItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: domain
+    domain: str
+    #: name
+    name: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.domain), v.scalar_key(self.name),))
+
+
+class AuthoredModelingDeclarationsFieldValueCardinality(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: count
+    count: str
+    #: indices
+    indices: tuple[AuthoredModelingDeclarationsFieldValueCardinalityIndicesItem, ...]
+    #: member
+    member: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.count), v.sequence_key(v.record_key)(self.indices), v.scalar_key(self.member),))
+
+
+class AuthoredModelingDeclarationsFieldValueCardinalityIndicesItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: domain
+    domain: str
+    #: name
+    name: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.domain), v.scalar_key(self.name),))
+
+
+class AuthoredModelingDeclarationsFieldValueCollocationScheme(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: alpha
+    alpha: float
+    #: beta
+    beta: float
+    #: right_endpoint
+    right_endpoint: bool
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.alpha), v.scalar_key(self.beta), v.scalar_key(self.right_endpoint),))
+
+
+class AuthoredModelingDeclarationsFieldValueComplementarity(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: first
+    first: str
+    #: indices
+    indices: tuple[AuthoredModelingDeclarationsFieldValueComplementarityIndicesItem, ...]
+    #: second
+    second: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.first), v.sequence_key(v.record_key)(self.indices), v.scalar_key(self.second),))
+
+
+class AuthoredModelingDeclarationsFieldValueComplementarityIndicesItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: domain
+    domain: str
+    #: name
+    name: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.domain), v.scalar_key(self.name),))
+
+
+class AuthoredModelingDeclarationsFieldValueConnection(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: from
+    from_: str = msgspec.field(name="from")
+    #: indices
+    indices: tuple[AuthoredModelingDeclarationsFieldValueConnectionIndicesItem, ...]
+    #: to
+    to: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.from_), v.sequence_key(v.record_key)(self.indices), v.scalar_key(self.to),))
+
+
+class AuthoredModelingDeclarationsFieldValueConnectionIndicesItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: domain
+    domain: str
+    #: name
+    name: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.domain), v.scalar_key(self.name),))
+
+
+class AuthoredModelingDeclarationsFieldValueConstant(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: provenance
+    provenance: ModelingProvenance
+    #: type
+    type: tuple[ModelingTypeArenaNode, ...]
+    #: value
+    value: ModelingCell
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.provenance), v.sequence_key(v.record_key)(self.type), v.record_key(self.value),))
+
+
+class AuthoredModelingDeclarationsFieldValueContinuation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: end
+    end: str
+    #: start
+    start: str
+    #: target
+    target: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.end), v.scalar_key(self.start), v.scalar_key(self.target),))
+
+
+class AuthoredModelingDeclarationsFieldValueContinuous(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: lower
+    lower: str
+    #: type
+    type: tuple[ModelingTypeArenaNode, ...]
+    #: upper
+    upper: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.lower), v.sequence_key(v.record_key)(self.type), v.scalar_key(self.upper),))
+
+
+class AuthoredModelingDeclarationsFieldValueContribution(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: expression
+    expression: str
+    #: indices
+    indices: tuple[AuthoredModelingDeclarationsFieldValueContributionIndicesItem, ...]
+    #: role
+    role: enums.ModelingContributionRole
+    #: target
+    target: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.expression), v.sequence_key(v.record_key)(self.indices), v.scalar_key(self.role), v.scalar_key(self.target),))
+
+
+class AuthoredModelingDeclarationsFieldValueContributionIndicesItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: domain
+    domain: str
+    #: name
+    name: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.domain), v.scalar_key(self.name),))
+
+
+class AuthoredModelingDeclarationsFieldValueCoordinateMap(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: arguments
+    arguments: tuple[AuthoredModelingDeclarationsFieldValueCoordinateMapArgumentsItem, ...]
+    #: validity
+    validity: str | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.arguments), v.optional_key(v.scalar_key)(self.validity),))
+
+
+class AuthoredModelingDeclarationsFieldValueCoordinateMapArgumentsItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: default_value
+    default_value: str | None = None
+    #: name
+    name: str
+    #: type
+    type: tuple[ModelingTypeArenaNode, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.default_value), v.scalar_key(self.name), v.sequence_key(v.record_key)(self.type),))
+
+
+class AuthoredModelingDeclarationsFieldValueCoordinateSlot(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: expression
+    expression: str
+    #: indices
+    indices: tuple[AuthoredModelingDeclarationsFieldValueCoordinateSlotIndicesItem, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.expression), v.sequence_key(v.record_key)(self.indices),))
+
+
+class AuthoredModelingDeclarationsFieldValueCoordinateSlotIndicesItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: domain
+    domain: str
+    #: name
+    name: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.domain), v.scalar_key(self.name),))
+
+
+class AuthoredModelingDeclarationsFieldValueDataset(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: bindings
+    bindings: tuple[AuthoredModelingDeclarationsFieldValueDatasetBindingsItem, ...]
+    #: complete_over
+    complete_over: tuple[ModelingCompleteness, ...]
+    #: document
+    document: str | None = None
+    #: provenance
+    provenance: ModelingProvenance
+    #: rows
+    rows: tuple[AuthoredModelingDeclarationsFieldValueDatasetRowsItem, ...]
+    #: target
+    target: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.bindings), v.sequence_key(v.record_key)(self.complete_over), v.optional_key(v.scalar_key)(self.document), v.record_key(self.provenance), v.sequence_key(v.record_key)(self.rows), v.scalar_key(self.target),))
+
+
+class AuthoredModelingDeclarationsFieldValueDatasetBindingsItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: name
+    name: str
+    #: value
+    value: ModelingCell
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.record_key(self.value),))
+
+
+class AuthoredModelingDeclarationsFieldValueDatasetRowsItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: keys
+    keys: tuple[ModelingCell, ...]
+    #: values
+    values: tuple[ModelingCell, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.keys), v.sequence_key(v.record_key)(self.values),))
+
+
+class AuthoredModelingDeclarationsFieldValueDifferenceScheme(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: offsets
+    offsets: tuple[int, ...]
+    #: order
+    order: int
+    #: quadrature
+    quadrature: tuple[float, ...]
+    #: weights
+    weights: tuple[float, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.offsets), v.scalar_key(self.order), v.sequence_key(v.scalar_key)(self.quadrature), v.sequence_key(v.scalar_key)(self.weights),))
+
+
+class AuthoredModelingDeclarationsFieldValueDiscretization(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: elements
+    elements: str
+    #: order
+    order: str
+    #: scheme
+    scheme: str
+    #: target
+    target: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.elements), v.scalar_key(self.order), v.scalar_key(self.scheme), v.scalar_key(self.target),))
+
+
+class AuthoredModelingDeclarationsFieldValueEntity(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: attributes
+    attributes: tuple[AuthoredModelingDeclarationsFieldValueEntityAttributesItem, ...]
+    #: kind_name
+    kind_name: str
+    #: provenance
+    provenance: ModelingProvenance | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.attributes), v.scalar_key(self.kind_name), v.optional_key(v.record_key)(self.provenance),))
+
+
+class AuthoredModelingDeclarationsFieldValueEntityAttributesItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: name
+    name: str
+    #: provenance
+    provenance: ModelingProvenance | None = None
+    #: value
+    value: ModelingCell
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.optional_key(v.record_key)(self.provenance), v.record_key(self.value),))
+
+
+class AuthoredModelingDeclarationsFieldValueEnumeration(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: members
+    members: tuple[AuthoredModelingDeclarationsFieldValueEnumerationMembersItem, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.members),))
+
+
+class AuthoredModelingDeclarationsFieldValueEnumerationMembersItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: facets
+    facets: tuple[enums.ModelingDataFacet, ...]
+    #: member_id
+    member_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: name
+    name: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.facets), v.scalar_key(self.member_id), v.scalar_key(self.name),))
+
+
+class AuthoredModelingDeclarationsFieldValueEnvelope(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: lower
+    lower: str
+    #: type
+    type: tuple[ModelingTypeArenaNode, ...]
+    #: upper
+    upper: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.lower), v.sequence_key(v.record_key)(self.type), v.scalar_key(self.upper),))
+
+
+class AuthoredModelingDeclarationsFieldValueEquation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: condition
+    condition: AuthoredModelingDeclarationsFieldValueEquationCondition | None = None
+    #: expression
+    expression: str
+    #: indices
+    indices: tuple[AuthoredModelingDeclarationsFieldValueEquationIndicesItem, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.record_key)(self.condition), v.scalar_key(self.expression), v.sequence_key(v.record_key)(self.indices),))
+
+
+class AuthoredModelingDeclarationsFieldValueEquationCondition(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: active
+    active: bool
+    #: variable
+    variable: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.active), v.scalar_key(self.variable),))
+
+
+class AuthoredModelingDeclarationsFieldValueEquationIndicesItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: domain
+    domain: str
+    #: name
+    name: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.domain), v.scalar_key(self.name),))
+
+
+class AuthoredModelingDeclarationsFieldValueExchange(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: from
+    from_: str = msgspec.field(name="from")
+    #: indices
+    indices: tuple[AuthoredModelingDeclarationsFieldValueExchangeIndicesItem, ...]
+    #: to
+    to: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.from_), v.sequence_key(v.record_key)(self.indices), v.scalar_key(self.to),))
+
+
+class AuthoredModelingDeclarationsFieldValueExchangeIndicesItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: domain
+    domain: str
+    #: name
+    name: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.domain), v.scalar_key(self.name),))
+
+
+class AuthoredModelingDeclarationsFieldValueExpectation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: actual
+    actual: str
+    #: expected
+    expected: str
+    #: relative_tolerance
+    relative_tolerance: str | None = None
+    #: tolerance
+    tolerance: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.actual), v.scalar_key(self.expected), v.optional_key(v.scalar_key)(self.relative_tolerance), v.scalar_key(self.tolerance),))
+
+
+class AuthoredModelingDeclarationsFieldValueFunction(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: applicability
+    applicability: tuple[str, ...]
+    #: arguments
+    arguments: tuple[AuthoredModelingDeclarationsFieldValueFunctionArgumentsItem, ...]
+    #: body
+    body: str | None = None
+    #: continuity
+    continuity: int | None = None
+    #: external
+    external: AuthoredModelingDeclarationsFieldValueFunctionExternal | None = None
+    #: guards
+    guards: tuple[ModelingEnvelopeGuard, ...]
+    #: return_type
+    return_type: tuple[ModelingTypeArenaNode, ...]
+    #: type_parameters
+    type_parameters: tuple[str, ...]
+    #: validity
+    validity: str | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.applicability), v.sequence_key(v.record_key)(self.arguments), v.optional_key(v.scalar_key)(self.body), v.optional_key(v.scalar_key)(self.continuity), v.optional_key(v.record_key)(self.external), v.sequence_key(v.record_key)(self.guards), v.sequence_key(v.record_key)(self.return_type), v.sequence_key(v.scalar_key)(self.type_parameters), v.optional_key(v.scalar_key)(self.validity),))
+
+
+class AuthoredModelingDeclarationsFieldValueFunctionArgumentsItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: default_value
+    default_value: str | None = None
+    #: name
+    name: str
+    #: type
+    type: tuple[ModelingTypeArenaNode, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.default_value), v.scalar_key(self.name), v.sequence_key(v.record_key)(self.type),))
+
+
+class AuthoredModelingDeclarationsFieldValueFunctionExternal(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: data
+    data: str
+    #: derivative_source
+    derivative_source: enums.ExternalDerivativeSource
+    #: derivatives
+    derivatives: int
+    #: implementation
+    implementation: str
+    #: output
+    output: str
+    #: revision
+    revision: str
+    #: smoothness
+    smoothness: int
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.data), v.scalar_key(self.derivative_source), v.scalar_key(self.derivatives), v.scalar_key(self.implementation), v.scalar_key(self.output), v.scalar_key(self.revision), v.scalar_key(self.smoothness),))
+
+
+class AuthoredModelingDeclarationsFieldValueGuard(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: predicate
+    predicate: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.predicate),))
+
+
+class AuthoredModelingDeclarationsFieldValueImport(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: version
+    version: VersionRequirement
+    #: alias
+    alias: str | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.version), v.optional_key(v.scalar_key)(self.alias),))
+
+
+class AuthoredModelingDeclarationsFieldValueInventoryBalance(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: axis
+    axis: str
+    #: flux
+    flux: str
+    #: indices
+    indices: tuple[AuthoredModelingDeclarationsFieldValueInventoryBalanceIndicesItem, ...]
+    #: inventory
+    inventory: str
+    #: tolerance
+    tolerance: str
+    #: transfers
+    transfers: tuple[AuthoredModelingDeclarationsFieldValueInventoryBalanceTransfersItem, ...]
+    #: type
+    type: tuple[ModelingTypeArenaNode, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.axis), v.scalar_key(self.flux), v.sequence_key(v.record_key)(self.indices), v.scalar_key(self.inventory), v.scalar_key(self.tolerance), v.sequence_key(v.record_key)(self.transfers), v.sequence_key(v.record_key)(self.type),))
+
+
+class AuthoredModelingDeclarationsFieldValueInventoryBalanceIndicesItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: domain
+    domain: str
+    #: name
+    name: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.domain), v.scalar_key(self.name),))
+
+
+class AuthoredModelingDeclarationsFieldValueInventoryBalanceTransfersItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: event
+    event: str
+    #: expression
+    expression: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.event), v.scalar_key(self.expression),))
+
+
+class AuthoredModelingDeclarationsFieldValueLogic(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: indices
+    indices: tuple[AuthoredModelingDeclarationsFieldValueLogicIndicesItem, ...]
+    #: proposition
+    proposition: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.indices), v.scalar_key(self.proposition),))
+
+
+class AuthoredModelingDeclarationsFieldValueLogicIndicesItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: domain
+    domain: str
+    #: name
+    name: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.domain), v.scalar_key(self.name),))
+
+
+class AuthoredModelingDeclarationsFieldValueOrderedSet(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: indices
+    indices: tuple[AuthoredModelingDeclarationsFieldValueOrderedSetIndicesItem, ...]
+    #: member
+    member: str
+    #: weight
+    weight: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.indices), v.scalar_key(self.member), v.scalar_key(self.weight),))
+
+
+class AuthoredModelingDeclarationsFieldValueOrderedSetIndicesItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: domain
+    domain: str
+    #: name
+    name: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.domain), v.scalar_key(self.name),))
+
+
+class AuthoredModelingDeclarationsFieldValuePermission(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: allow_extrapolation
+    allow_extrapolation: bool
+    #: allow_unknown
+    allow_unknown: bool
+    #: target_kind
+    target_kind: enums.ModelingPermissionTarget
+    #: targets
+    targets: tuple[str, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.allow_extrapolation), v.scalar_key(self.allow_unknown), v.scalar_key(self.target_kind), v.sequence_key(v.scalar_key)(self.targets),))
+
+
+class AuthoredModelingDeclarationsFieldValuePiecewise(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: abscissa
+    abscissa: str
+    #: indices
+    indices: tuple[AuthoredModelingDeclarationsFieldValuePiecewiseIndicesItem, ...]
+    #: input
+    input: str
+    #: ordinate
+    ordinate: str
+    #: output
+    output: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.abscissa), v.sequence_key(v.record_key)(self.indices), v.scalar_key(self.input), v.scalar_key(self.ordinate), v.scalar_key(self.output),))
+
+
+class AuthoredModelingDeclarationsFieldValuePiecewiseIndicesItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: domain
+    domain: str
+    #: name
+    name: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.domain), v.scalar_key(self.name),))
+
+
+class AuthoredModelingDeclarationsFieldValueRealization(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: accelerator
+    accelerator: str | None = None
+    #: argument
+    argument: str | None = None
+    #: function
+    function: str | None = None
+    #: policy
+    policy: enums.ModelingRealizationPolicy
+    #: target
+    target: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.accelerator), v.optional_key(v.scalar_key)(self.argument), v.optional_key(v.scalar_key)(self.function), v.scalar_key(self.policy), v.scalar_key(self.target),))
+
+
+class AuthoredModelingDeclarationsFieldValueReconstruction(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: arguments
+    arguments: tuple[AuthoredModelingDeclarationsFieldValueReconstructionArgumentsItem, ...]
+    #: map
+    map: str
+    #: normalization
+    normalization: str
+    #: reference
+    reference: str
+    #: return_type
+    return_type: tuple[ModelingTypeArenaNode, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.arguments), v.scalar_key(self.map), v.scalar_key(self.normalization), v.scalar_key(self.reference), v.sequence_key(v.record_key)(self.return_type),))
+
+
+class AuthoredModelingDeclarationsFieldValueReconstructionArgumentsItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: default_value
+    default_value: str | None = None
+    #: name
+    name: str
+    #: type
+    type: tuple[ModelingTypeArenaNode, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.default_value), v.scalar_key(self.name), v.sequence_key(v.record_key)(self.type),))
+
+
+class AuthoredModelingDeclarationsFieldValueReferenceTranslation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: arguments
+    arguments: tuple[AuthoredModelingDeclarationsFieldValueReferenceTranslationArgumentsItem, ...]
+    #: pressure
+    pressure: str
+    #: provenance
+    provenance: ModelingProvenance
+    #: return_type
+    return_type: tuple[ModelingTypeArenaNode, ...]
+    #: source_anchor
+    source_anchor: str
+    #: target_anchor
+    target_anchor: str
+    #: temperature
+    temperature: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.arguments), v.scalar_key(self.pressure), v.record_key(self.provenance), v.sequence_key(v.record_key)(self.return_type), v.scalar_key(self.source_anchor), v.scalar_key(self.target_anchor), v.scalar_key(self.temperature),))
+
+
+class AuthoredModelingDeclarationsFieldValueReferenceTranslationArgumentsItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: default_value
+    default_value: str | None = None
+    #: name
+    name: str
+    #: type
+    type: tuple[ModelingTypeArenaNode, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.default_value), v.scalar_key(self.name), v.sequence_key(v.record_key)(self.type),))
+
+
+class AuthoredModelingDeclarationsFieldValueRelaxation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: nominal
+    nominal: str
+    #: target
+    target: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.nominal), v.scalar_key(self.target),))
+
+
+class AuthoredModelingDeclarationsFieldValueRequirement(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: message
+    message: str
+    #: predicate
+    predicate: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.message), v.scalar_key(self.predicate),))
+
+
+class AuthoredModelingDeclarationsFieldValueResponse(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: arguments
+    arguments: tuple[AuthoredModelingDeclarationsFieldValueResponseArgumentsItem, ...]
+    #: body
+    body: str
+    #: return_type
+    return_type: tuple[ModelingTypeArenaNode, ...]
+    #: witness
+    witness: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.arguments), v.scalar_key(self.body), v.sequence_key(v.record_key)(self.return_type), v.scalar_key(self.witness),))
+
+
+class AuthoredModelingDeclarationsFieldValueResponseArgumentsItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: default_value
+    default_value: str | None = None
+    #: name
+    name: str
+    #: type
+    type: tuple[ModelingTypeArenaNode, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.default_value), v.scalar_key(self.name), v.sequence_key(v.record_key)(self.type),))
+
+
+class AuthoredModelingDeclarationsFieldValueScope(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: bases
+    bases: tuple[str, ...]
+    #: branch
+    branch: str | None = None
+    #: eligibility
+    eligibility: str | None = None
+    #: facets
+    facets: tuple[enums.ModelingKindFacet, ...]
+    #: fixture
+    fixture: AuthoredModelingDeclarationsFieldValueScopeFixture | None = None
+    #: operational
+    operational: AuthoredModelingDeclarationsFieldValueScopeOperational | None = None
+    #: oracle
+    oracle: tuple[str, ...] | None = None
+    #: parameters
+    parameters: tuple[AuthoredModelingDeclarationsFieldValueScopeParametersItem, ...]
+    #: selection
+    selection: AuthoredModelingDeclarationsFieldValueScopeSelection | None = None
+    #: type_parameters
+    type_parameters: tuple[str, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.bases), v.optional_key(v.scalar_key)(self.branch), v.optional_key(v.scalar_key)(self.eligibility), v.sequence_key(v.scalar_key)(self.facets), v.optional_key(v.record_key)(self.fixture), v.optional_key(v.record_key)(self.operational), v.optional_key(v.sequence_key(v.scalar_key))(self.oracle), v.sequence_key(v.record_key)(self.parameters), v.optional_key(v.record_key)(self.selection), v.sequence_key(v.scalar_key)(self.type_parameters),))
+
+
+class AuthoredModelingDeclarationsFieldValueScopeFixture(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: degrees_of_freedom
+    degrees_of_freedom: int
+    #: diagnostics
+    diagnostics: tuple[AuthoredModelingDeclarationsFieldValueScopeFixtureDiagnosticsItem, ...]
+    #: endpoint
+    endpoint: AuthoredModelingDeclarationsFieldValueScopeFixtureEndpoint | None = None
+    #: expected_failure
+    expected_failure: AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailure | None = None
+    #: initialization
+    initialization: AuthoredModelingDeclarationsFieldValueScopeFixtureInitialization | None = None
+    #: integration
+    integration: AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration | None = None
+    #: intent
+    intent: enums.NativeSolveIntent | None = None
+    #: modes
+    modes: tuple[AuthoredModelingDeclarationsFieldValueScopeFixtureModesItem, ...]
+    #: policy
+    policy: AuthoredModelingDeclarationsFieldValueScopeFixturePolicy | None = None
+    #: procedure
+    procedure: enums.ModelingProcedure | None = None
+    #: route
+    route: enums.ModelingAnalysisRoute | None = None
+    #: shooting
+    shooting: AuthoredModelingDeclarationsFieldValueScopeFixtureShooting | None = None
+    #: specifications
+    specifications: tuple[AuthoredModelingDeclarationsFieldValueScopeFixtureSpecificationsItem, ...]
+    #: stages
+    stages: tuple[str, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.degrees_of_freedom), v.sequence_key(v.record_key)(self.diagnostics), v.optional_key(v.record_key)(self.endpoint), v.optional_key(v.record_key)(self.expected_failure), v.optional_key(v.record_key)(self.initialization), v.optional_key(v.record_key)(self.integration), v.optional_key(v.scalar_key)(self.intent), v.sequence_key(v.record_key)(self.modes), v.optional_key(v.record_key)(self.policy), v.optional_key(v.scalar_key)(self.procedure), v.optional_key(v.scalar_key)(self.route), v.optional_key(v.record_key)(self.shooting), v.sequence_key(v.record_key)(self.specifications), v.sequence_key(v.scalar_key)(self.stages),))
+
+
+class AuthoredModelingDeclarationsFieldValueScopeFixtureDiagnosticsItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: members
+    members: tuple[str, ...]
+    #: rule
+    rule: enums.DiagnosticRule
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.members), v.scalar_key(self.rule),))
+
+
+class AuthoredModelingDeclarationsFieldValueScopeFixtureEndpoint(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: event
+    event: str | None = None
+    #: kind
+    kind: enums.EndpointPolicy
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.event), v.scalar_key(self.kind),))
+
+
+class AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailure(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: applicability
+    applicability: AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureApplicability | None = None
+    #: class
+    class_: enums.NativeBoundaryClass = msgspec.field(name="class")
+    #: members
+    members: tuple[str, ...]
+    #: validity
+    validity: AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureValidity | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.record_key)(self.applicability), v.scalar_key(self.class_), v.sequence_key(v.scalar_key)(self.members), v.optional_key(v.record_key)(self.validity),))
+
+
+class AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureApplicability(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: claim
+    claim: str
+    #: form
+    form: str
+    #: layer
+    layer: enums.ModelingValidityLayer
+    #: outcome
+    outcome: enums.ModelingApplicabilityOutcome
+    #: sets
+    sets: tuple[str, ...]
+    #: variables
+    variables: tuple[str, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.claim), v.scalar_key(self.form), v.scalar_key(self.layer), v.scalar_key(self.outcome), v.sequence_key(v.scalar_key)(self.sets), v.sequence_key(v.scalar_key)(self.variables),))
+
+
+class AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureValidity(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: form
+    form: str | None = None
+    #: layer
+    layer: enums.ModelingValidityLayer
+    #: sets
+    sets: tuple[str, ...]
+    #: variables
+    variables: tuple[str, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.form), v.scalar_key(self.layer), v.sequence_key(v.scalar_key)(self.sets), v.sequence_key(v.scalar_key)(self.variables),))
+
+
+class AuthoredModelingDeclarationsFieldValueScopeFixtureInitialization(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: growth
+    growth: float
+    #: homotopy
+    homotopy: bool
+    #: initial_step
+    initial_step: float
+    #: maximum_attempts
+    maximum_attempts: int
+    #: minimum_step
+    minimum_step: float
+    #: time_limit_seconds
+    time_limit_seconds: float
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.growth), v.scalar_key(self.homotopy), v.scalar_key(self.initial_step), v.scalar_key(self.maximum_attempts), v.scalar_key(self.minimum_step), v.scalar_key(self.time_limit_seconds),))
+
+
+class AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: initial_step
+    initial_step: str
+    #: normalized_absolute_tolerance
+    normalized_absolute_tolerance: float
+    #: quadrature_relative_tolerance
+    quadrature_relative_tolerance: float | None = None
+    #: quadratures
+    quadratures: tuple[AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationQuadraturesItem, ...]
+    #: relative_tolerance
+    relative_tolerance: float
+    #: samples
+    samples: tuple[str, ...]
+    #: schedules
+    schedules: tuple[AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItem, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.initial_step), v.scalar_key(self.normalized_absolute_tolerance), v.optional_key(v.scalar_key)(self.quadrature_relative_tolerance), v.sequence_key(v.record_key)(self.quadratures), v.scalar_key(self.relative_tolerance), v.sequence_key(v.scalar_key)(self.samples), v.sequence_key(v.record_key)(self.schedules),))
+
+
+class AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationQuadraturesItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: absolute_tolerance
+    absolute_tolerance: str
+    #: target
+    target: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.absolute_tolerance), v.scalar_key(self.target),))
+
+
+class AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: free
+    free: bool
+    #: lower
+    lower: str | None = None
+    #: target
+    target: str
+    #: times
+    times: tuple[str, ...]
+    #: upper
+    upper: str | None = None
+    #: values
+    values: tuple[str, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.free), v.optional_key(v.scalar_key)(self.lower), v.scalar_key(self.target), v.sequence_key(v.scalar_key)(self.times), v.optional_key(v.scalar_key)(self.upper), v.sequence_key(v.scalar_key)(self.values),))
+
+
+class AuthoredModelingDeclarationsFieldValueScopeFixtureModesItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: events
+    events: tuple[AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItem, ...]
+    #: facts
+    facts: tuple[AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemFactsItem, ...]
+    #: name
+    name: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.events), v.sequence_key(v.record_key)(self.facts), v.scalar_key(self.name),))
+
+
+class AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: direction
+    direction: enums.EventDirection
+    #: guard
+    guard: str
+    #: next
+    next: str | None = None
+    #: reset
+    reset: tuple[AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItemResetItem, ...]
+    #: tolerance
+    tolerance: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.direction), v.scalar_key(self.guard), v.optional_key(v.scalar_key)(self.next), v.sequence_key(v.record_key)(self.reset), v.scalar_key(self.tolerance),))
+
+
+class AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItemResetItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: expression
+    expression: str
+    #: target
+    target: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.expression), v.scalar_key(self.target),))
+
+
+class AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemFactsItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: name
+    name: str
+    #: namespace
+    namespace: enums.ModelingFactNamespace
+    #: value
+    value: bool
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.scalar_key(self.namespace), v.scalar_key(self.value),))
+
+
+class AuthoredModelingDeclarationsFieldValueScopeFixturePolicy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: backend
+    backend: enums.NativeBackend | None = None
+    #: body_occurrences
+    body_occurrences: int | None = None
+    #: body_slots
+    body_slots: int | None = None
+    #: derivative_cells
+    derivative_cells: int | None = None
+    #: derivative_step
+    derivative_step: float | None = None
+    #: derivative_tolerance
+    derivative_tolerance: float | None = None
+    #: foreign_bytes
+    foreign_bytes: int | None = None
+    #: items
+    items: int | None = None
+    #: native_options
+    native_options: tuple[AuthoredModelingDeclarationsFieldValueScopeFixturePolicyNativeOptionsItem, ...]
+    #: presolve
+    presolve: enums.PresolvePolicyKind | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.backend), v.optional_key(v.scalar_key)(self.body_occurrences), v.optional_key(v.scalar_key)(self.body_slots), v.optional_key(v.scalar_key)(self.derivative_cells), v.optional_key(v.scalar_key)(self.derivative_step), v.optional_key(v.scalar_key)(self.derivative_tolerance), v.optional_key(v.scalar_key)(self.foreign_bytes), v.optional_key(v.scalar_key)(self.items), v.sequence_key(v.record_key)(self.native_options), v.optional_key(v.scalar_key)(self.presolve),))
+
+
+class AuthoredModelingDeclarationsFieldValueScopeFixturePolicyNativeOptionsItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: name
+    name: str
+    #: value
+    value: ModelingCell
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.record_key(self.value),))
+
+
+class AuthoredModelingDeclarationsFieldValueScopeFixtureShooting(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: method
+    method: enums.ShootingMethod
+    #: nodes
+    nodes: tuple[str, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.method), v.sequence_key(v.scalar_key)(self.nodes),))
+
+
+class AuthoredModelingDeclarationsFieldValueScopeFixtureSpecificationsItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: expression
+    expression: str | None = None
+    #: kind
+    kind: enums.ModelingFixtureBinding
+    #: target
+    target: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.expression), v.scalar_key(self.kind), v.scalar_key(self.target),))
+
+
+class AuthoredModelingDeclarationsFieldValueScopeOperational(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: anchors
+    anchors: tuple[AuthoredModelingDeclarationsFieldValueScopeOperationalAnchorsItem, ...]
+    #: neighborhood
+    neighborhood: str | None = None
+    #: settings
+    settings: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.anchors), v.optional_key(v.scalar_key)(self.neighborhood), v.scalar_key(self.settings),))
+
+
+class AuthoredModelingDeclarationsFieldValueScopeOperationalAnchorsItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: expression
+    expression: str
+    #: target
+    target: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.expression), v.scalar_key(self.target),))
+
+
+class AuthoredModelingDeclarationsFieldValueScopeParametersItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: default_value
+    default_value: str | None = None
+    #: name
+    name: str
+    #: type
+    type: tuple[ModelingTypeArenaNode, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.default_value), v.scalar_key(self.name), v.sequence_key(v.record_key)(self.type),))
+
+
+class AuthoredModelingDeclarationsFieldValueScopeSelection(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: criterion
+    criterion: str
+    #: tolerance
+    tolerance: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.criterion), v.scalar_key(self.tolerance),))
+
+
+class AuthoredModelingDeclarationsFieldValueStatePort(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: indices
+    indices: tuple[AuthoredModelingDeclarationsFieldValueStatePortIndicesItem, ...]
+    #: specification
+    specification: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.indices), v.scalar_key(self.specification),))
+
+
+class AuthoredModelingDeclarationsFieldValueStatePortIndicesItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: domain
+    domain: str
+    #: name
+    name: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.domain), v.scalar_key(self.name),))
+
+
+class AuthoredModelingDeclarationsFieldValueStateSpecification(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: coordinates
+    coordinates: tuple[AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItem, ...]
+    #: extends
+    extends: str | None = None
+    #: indices
+    indices: tuple[AuthoredModelingDeclarationsFieldValueStateSpecificationIndicesItem, ...]
+    #: reconstructions
+    reconstructions: tuple[AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItem, ...]
+    #: supplied
+    supplied: str
+    #: transports
+    transports: tuple[AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItem, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.coordinates), v.optional_key(v.scalar_key)(self.extends), v.sequence_key(v.record_key)(self.indices), v.sequence_key(v.record_key)(self.reconstructions), v.scalar_key(self.supplied), v.sequence_key(v.record_key)(self.transports),))
+
+
+class AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: indices
+    indices: tuple[AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItemIndicesItem, ...]
+    #: name
+    name: str
+    #: target
+    target: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.indices), v.scalar_key(self.name), v.scalar_key(self.target),))
+
+
+class AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItemIndicesItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: domain
+    domain: str
+    #: name
+    name: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.domain), v.scalar_key(self.name),))
+
+
+class AuthoredModelingDeclarationsFieldValueStateSpecificationIndicesItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: domain
+    domain: str
+    #: name
+    name: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.domain), v.scalar_key(self.name),))
+
+
+class AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: equation
+    equation: str
+    #: indices
+    indices: tuple[AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItemIndicesItem, ...]
+    #: name
+    name: str
+    #: tolerance
+    tolerance: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.equation), v.sequence_key(v.record_key)(self.indices), v.scalar_key(self.name), v.scalar_key(self.tolerance),))
+
+
+class AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItemIndicesItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: domain
+    domain: str
+    #: name
+    name: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.domain), v.scalar_key(self.name),))
+
+
+class AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: expression
+    expression: str
+    #: indices
+    indices: tuple[AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItemIndicesItem, ...]
+    #: name
+    name: str
+    #: tolerance
+    tolerance: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.expression), v.sequence_key(v.record_key)(self.indices), v.scalar_key(self.name), v.scalar_key(self.tolerance),))
+
+
+class AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItemIndicesItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: domain
+    domain: str
+    #: name
+    name: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.domain), v.scalar_key(self.name),))
+
+
+class AuthoredModelingDeclarationsFieldValueTable(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: columns
+    columns: tuple[AuthoredModelingDeclarationsFieldValueTableColumnsItem, ...]
+    #: complete_over
+    complete_over: tuple[ModelingCompleteness, ...]
+    #: default_value
+    default_value: ModelingCell | None = None
+    #: envelopes
+    envelopes: tuple[ModelingEnvelope, ...]
+    #: keys
+    keys: tuple[AuthoredModelingDeclarationsFieldValueTableKeysItem, ...]
+    #: missing_policy
+    missing_policy: enums.ModelingMissingPolicy
+    #: requirements
+    requirements: tuple[str, ...]
+    #: storage
+    storage: tuple[ModelingColumnStorage, ...]
+    #: symmetry
+    symmetry: AuthoredModelingDeclarationsFieldValueTableSymmetry | None = None
+    #: unique
+    unique: tuple[AuthoredModelingDeclarationsFieldValueTableUniqueItem, ...]
+    #: value_type
+    value_type: tuple[ModelingTypeArenaNode, ...] | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.columns), v.sequence_key(v.record_key)(self.complete_over), v.optional_key(v.record_key)(self.default_value), v.sequence_key(v.record_key)(self.envelopes), v.sequence_key(v.record_key)(self.keys), v.scalar_key(self.missing_policy), v.sequence_key(v.scalar_key)(self.requirements), v.sequence_key(v.record_key)(self.storage), v.optional_key(v.record_key)(self.symmetry), v.sequence_key(v.record_key)(self.unique), v.optional_key(v.sequence_key(v.record_key))(self.value_type),))
+
+
+class AuthoredModelingDeclarationsFieldValueTableColumnsItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: derived
+    derived: str | None = None
+    #: name
+    name: str
+    #: type
+    type: tuple[ModelingTypeArenaNode, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.derived), v.scalar_key(self.name), v.sequence_key(v.record_key)(self.type),))
+
+
+class AuthoredModelingDeclarationsFieldValueTableKeysItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: name
+    name: str
+    #: range
+    range: ModelingIntegerRange | None = None
+    #: type
+    type: tuple[ModelingTypeArenaNode, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.optional_key(v.record_key)(self.range), v.sequence_key(v.record_key)(self.type),))
+
+
+class AuthoredModelingDeclarationsFieldValueTableSymmetry(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: diagonal
+    diagonal: enums.ModelingDiagonalPolicy
+    #: first
+    first: str
+    #: ordered
+    ordered: bool
+    #: second
+    second: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.diagonal), v.scalar_key(self.first), v.scalar_key(self.ordered), v.scalar_key(self.second),))
+
+
+class AuthoredModelingDeclarationsFieldValueTableUniqueItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: names
+    names: tuple[str, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.names),))
+
+
+class AuthoredModelingDeclarationsFieldValueTemporal(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: argument
+    argument: str
+    #: axis
+    axis: str
+    #: target
+    target: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.argument), v.scalar_key(self.axis), v.scalar_key(self.target),))
+
+
+class AuthoredModelingDeclarationsRow(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: declaration_id
+    declaration_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: document_id
+    document_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: is_override
+    is_override: bool
+    #: name
+    name: str
+    #: ordinal
+    ordinal: int
+    #: parent_id
+    parent_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+    #: source_end
+    source_end: int
+    #: source_start
+    source_start: int
+    #: value
+    value: AuthoredModelingDeclarationsFieldValue
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.declaration_id), v.scalar_key(self.document_id), v.scalar_key(self.is_override), v.scalar_key(self.name), v.scalar_key(self.ordinal), v.optional_key(v.scalar_key)(self.parent_id), v.scalar_key(self.source_end), v.scalar_key(self.source_start), v.record_key(self.value),))
 
 
 class AuthoredNumericalRequirementsRow(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -213,6 +2111,21 @@ class AuthoredNumericalRequirementsRow(msgspec.Struct, frozen=True, forbid_unkno
     #: unit_id
     unit_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.absolute_tolerance), v.optional_key(v.scalar_key)(self.case_id), v.scalar_key(self.coordinates), v.optional_key(v.scalar_key)(self.fit_id), v.optional_key(v.scalar_key)(self.instance_id), v.optional_key(v.scalar_key)(self.model_id), v.optional_key(v.scalar_key)(self.nominal), v.scalar_key(self.priority), v.scalar_key(self.provenance), v.optional_key(v.scalar_key)(self.relative_tolerance), v.scalar_key(self.required), v.scalar_key(self.requirement_id), v.optional_key(v.scalar_key)(self.scaling_factor), v.scalar_key(self.target_id), v.scalar_key(self.target_kind), v.optional_key(v.scalar_key)(self.unit_id),))
+
+
+class Basis(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Native basis values retain their original integer codes."""
+
+    #: Native column basis statuses.
+    columns: tuple[int, ...]
+    #: Native row basis statuses.
+    rows: tuple[int, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.columns), v.sequence_key(v.scalar_key)(self.rows),))
+
 
 class BindingAssignment(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """An assignment before contextual admission."""
@@ -221,6 +2134,9 @@ class BindingAssignment(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
     target: BindingTarget
     #: Physically typed value; bare numbers are not input values.
     value: BindingQuantity
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.target), v.record_key(self.value),))
 
 
 class BindingQuantity(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -233,17 +2149,26 @@ class BindingQuantity(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
     #: Registered representation unit.
     unit: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.magnitude), v.scalar_key(self.quantity), v.scalar_key(self.unit),))
+
 
 class BindingTargetMember(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="member"):
     """Stable instantiated member identity."""
 
     value: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.value),))
+
 
 class BindingTargetPath(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="path"):
     """Authored member path in the selected revision."""
 
     value: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.value),))
 
 
 class BoundaryDiagnostic(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -272,6 +2197,65 @@ class BoundaryDiagnostic(msgspec.Struct, frozen=True, forbid_unknown_fields=True
     #: The lineage of a rejected authored validity predicate; absent on every other finding.
     validity: ValidityLineage | None = None
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.applicability), v.sequence_key(v.record_key)(self.causes), v.scalar_key(self.class_), v.scalar_key(self.code), v.sequence_key(v.record_key)(self.locations), v.mapping_key(v.scalar_key, v.record_key)(self.observations), v.scalar_key(self.rule), v.scalar_key(self.severity), v.sequence_key(v.scalar_key)(self.sources), v.scalar_key(self.stage), v.optional_key(v.record_key)(self.validity),))
+
+
+class BuildInfo(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Build provenance of the compiled product, projected without recomputing its identity."""
+
+    #: Workspace and wheel version.
+    version: str
+    #: External SHA256 checksum of the exact embedded Cargo lockfile bytes.
+    cargo_lock_sha256: str
+    #: Captured Git commit, or the producer's source-distribution marker.
+    git_sha: str
+    #: Historical public lockfile digest field; empty when no such evidence was produced.
+    lockfile_hash: str
+    #: Captured Cargo build profile.
+    profile: str
+    #: Captured compiler release.
+    rustc_version: str
+    #: External SHA256 checksum of the exact embedded uv lockfile bytes.
+    uv_lock_sha256: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.cargo_lock_sha256), v.scalar_key(self.git_sha), v.scalar_key(self.lockfile_hash), v.scalar_key(self.profile), v.scalar_key(self.rustc_version), v.scalar_key(self.uv_lock_sha256),))
+
+
+class CacheReport(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Cheap aggregate observations without cloning the cached inventory."""
+
+    #: Currently admitted replay/decode loads under the shared deployment gate.
+    active_loads: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Explicit admission refusals, distinct from native eviction.
+    bypasses: Annotated[int, msgspec.Meta(ge=0)]
+    #: Pool-reserved capacity, including key/node allowance.
+    capacity_bytes: Annotated[int, msgspec.Meta(ge=0)]
+    #: Retained entry count (expired entries may await native TTL removal).
+    entries: Annotated[int, msgspec.Meta(ge=0)]
+    #: Upstream eviction totals are not exposed by `DefaultCache`.
+    evictions: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Successful native lookups.
+    hits: Annotated[int, msgspec.Meta(ge=0)]
+    #: Reserved transient replay/decode staging; native allocator peaks are separate.
+    inflight_bytes: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: All live value owners, including values evicted while readers retain them.
+    live_bytes: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Unsuccessful native lookups.
+    misses: Annotated[int, msgspec.Meta(ge=0)]
+    #: Native cache name.
+    name: str
+    #: Reader-owned bytes are unavailable for native file cache value types.
+    pinned_bytes: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Configured admission ceiling, distinct from a pool capacity reservation.
+    policy_limit_bytes: Annotated[int, msgspec.Meta(ge=0)]
+    #: Native retained entry extent; excludes upstream reader Arc clones.
+    retained_bytes: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.active_loads), v.scalar_key(self.bypasses), v.scalar_key(self.capacity_bytes), v.scalar_key(self.entries), v.optional_key(v.scalar_key)(self.evictions), v.scalar_key(self.hits), v.optional_key(v.scalar_key)(self.inflight_bytes), v.optional_key(v.scalar_key)(self.live_bytes), v.scalar_key(self.misses), v.scalar_key(self.name), v.optional_key(v.scalar_key)(self.pinned_bytes), v.scalar_key(self.policy_limit_bytes), v.scalar_key(self.retained_bytes),))
+
 
 class CaseOperation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One authored solve operation under its admitted route and existing settings document."""
@@ -282,6 +2266,54 @@ class CaseOperation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
     route: enums.ModelingAnalysisRoute
     #: Complete existing solve settings.
     settings: SolveSettings
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.case), v.scalar_key(self.route), v.record_key(self.settings),))
+
+
+class CausalUnitRealizationConditional(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="conditional"):
+    """Original owned residuals, local solved coordinates and one declared root procedure."""
+
+    #: Complete selected original unit equality identities.
+    residuals: tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], ...]
+    #: The canonical solver settings document; defaults resolve in its existing owner.
+    solver: SolveSettings
+    #: Remaining local free coordinates after boundary inputs are fixed.
+    unknowns: tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.residuals), v.record_key(self.solver), v.sequence_key(v.scalar_key)(self.unknowns),))
+
+    def __post_init__(self) -> None:
+        v.unique(v.scalar_key)(self, None, self.residuals)
+        v.unique(v.scalar_key)(self, None, self.unknowns)
+
+
+class CausalUnitRealizationExplicitMap(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="explicit_map"):
+    """Authored output functions with every free dependency declared at the boundary."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class CausalUnitRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Explicit causal direction and admitted mathematical realization for one unit."""
+
+    #: Input ports; their coordinates are owned by the authored port declarations.
+    inputs: tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], ...]
+    #: Owning selected flow node.
+    node: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Output ports; their expressions are owned by the authored port declarations.
+    outputs: tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], ...]
+    #: A unit equation solve is declared independently of an explicit function map.
+    realization: CausalUnitRealization
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.inputs), v.scalar_key(self.node), v.sequence_key(v.scalar_key)(self.outputs), v.record_key(self.realization),))
+
+    def __post_init__(self) -> None:
+        v.unique(v.scalar_key)(self, None, self.inputs)
+        v.unique(v.scalar_key)(self, None, self.outputs)
 
 
 class ClarabelSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="clarabel"):
@@ -353,12 +2385,36 @@ class ClarabelSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
     #: KKT ratio tolerance.
     tol_ktratio: float = 1e-6
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.chordal_decomposition_compact), v.scalar_key(self.chordal_decomposition_complete_dual), v.scalar_key(self.chordal_decomposition_enable), v.scalar_key(self.chordal_decomposition_merge_method), v.scalar_key(self.direct), v.scalar_key(self.dynamic_regularization_delta), v.scalar_key(self.dynamic_regularization_enable), v.scalar_key(self.dynamic_regularization_eps), v.scalar_key(self.equilibrate_max_iter), v.scalar_key(self.equilibrate_max_scaling), v.scalar_key(self.equilibrate_min_scaling), v.scalar_key(self.input_sparse_dropzeros), v.scalar_key(self.iterative_refinement_abstol), v.scalar_key(self.iterative_refinement_enable), v.scalar_key(self.iterative_refinement_max_iter), v.scalar_key(self.iterative_refinement_reltol), v.scalar_key(self.iterative_refinement_stop_ratio), v.scalar_key(self.linesearch_backtrack_step), v.scalar_key(self.max_step_fraction), v.scalar_key(self.min_switch_step_length), v.scalar_key(self.min_terminate_step_length), v.scalar_key(self.mode), v.scalar_key(self.presolve_enable), v.scalar_key(self.reduced_tol_infeas_abs), v.scalar_key(self.reduced_tol_infeas_rel), v.scalar_key(self.reduced_tol_ktratio), v.scalar_key(self.static_regularization_constant), v.scalar_key(self.static_regularization_enable), v.scalar_key(self.static_regularization_proportional), v.scalar_key(self.tol_infeas_abs), v.scalar_key(self.tol_infeas_rel), v.scalar_key(self.tol_ktratio),))
+
 
 class ClosedDuration(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """The `ClosedDuration` document type."""
 
     nanos: Annotated[int, msgspec.Meta(ge=0)]
     secs: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.nanos), v.scalar_key(self.secs),))
+
+
+class Completion(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Immutable semantic projection shared by Arrow, Python and publication."""
+
+    #: Final physical closure and usability decisions, never recomputed by an exporter.
+    assessments: tuple[RuntimeCandidateAssessmentsRow, ...]
+    #: Dynamic or fitting outcome, with candidate evidence separate from qualification.
+    computation: RuntimeComputationRunsRow | None = None
+    #: Source-attributed final errors and unavailable fit diagnostics.
+    diagnostics: tuple[BoundaryDiagnostic, ...]
+    #: Complete request lineage, independent of this execution's unique identity.
+    lineage: tuple[RuntimeRunLineageRow, ...]
+    #: Algebraic outcomes, including requested steps that were not attempted.
+    solves: tuple[RuntimeSolveRunsRow, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.assessments), v.optional_key(v.record_key)(self.computation), v.sequence_key(v.record_key)(self.diagnostics), v.sequence_key(v.record_key)(self.lineage), v.sequence_key(v.record_key)(self.solves),))
 
 
 class Conclusion(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -368,6 +2424,130 @@ class Conclusion(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_onl
     availability: enums.StudyAvailability
     #: Whole-study operational state.
     lifecycle: enums.StudyLifecycle
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.availability), v.scalar_key(self.lifecycle),))
+
+
+class ConeExponential(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="exponential"):
+    """The closed exponential cone over three rows."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class ConeGeneralizedPower(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="generalized_power"):
+    """The generalized power cone: `alpha.len()` scaled rows, then `dimension` rows under
+    the norm.
+    """
+
+    #: Positive exponents summing to one.
+    alpha: tuple[float, ...]
+    #: Rows under the norm.
+    dimension: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.alpha), v.scalar_key(self.dimension),))
+
+
+class ConeNonnegative(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="nonnegative"):
+    """`s >= 0`."""
+
+    #: Rows in the block.
+    dimension: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.dimension),))
+
+
+class ConePower(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="power"):
+    """The three-row power cone with exponent `alpha` in (0, 1)."""
+
+    #: Exponent.
+    alpha: float
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.alpha),))
+
+
+class ConePsdTriangle(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="psd_triangle"):
+    """Symmetric positive semidefinite matrices of `order`, as the scaled upper triangle.
+    A build without the SDP profile refuses it.
+    """
+
+    #: Matrix order.
+    order: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.order),))
+
+
+class ConeSecondOrder(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="second_order"):
+    """`s_0 >= ||(s_1, ...)||`."""
+
+    #: Rows in the block, including the leading one.
+    dimension: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.dimension),))
+
+
+class ConeZero(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="zero"):
+    """`s = 0`."""
+
+    #: Rows in the block.
+    dimension: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.dimension),))
+
+
+class ConformanceControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Source-owned conformance limits and selected fixtures."""
+
+    #: Maximum derivative comparison cells.
+    derivative_cells: Annotated[int, msgspec.Meta(ge=0)] = 100000
+    #: Finite-difference comparison step.
+    derivative_step: float = 1e-6
+    #: Derivative comparison tolerance.
+    derivative_tolerance: float = 0.0001
+    #: Optional native diagnostic policy.
+    diagnostics: ModelingDiagnosticPolicy | None = None
+    #: Explicit fixture occurrences, or the package selection when omitted.
+    fixtures: tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], ...] | None = None
+    #: Maximum conformance checks performed.
+    maximum_checks: Annotated[int, msgspec.Meta(ge=0)] = 16384
+    #: Maximum fixtures admitted by this operation.
+    maximum_fixtures: Annotated[int, msgspec.Meta(ge=0)] = 1024
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.derivative_cells), v.scalar_key(self.derivative_step), v.scalar_key(self.derivative_tolerance), v.optional_key(v.record_key)(self.diagnostics), v.optional_key(v.sequence_key(v.scalar_key))(self.fixtures), v.scalar_key(self.maximum_checks), v.scalar_key(self.maximum_fixtures),))
+
+
+class ConicRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Explicit continuous cone analysis. The request declares geometry; it is never inferred from NLP rows."""
+
+    #: Cone blocks in the pse-owned vocabulary, mapped to the library only by its adapter.
+    cones: tuple[Cone, ...]
+    #: A in Ax+s=b.
+    constraints: SparseMatrix
+    #: Objective coefficients.
+    objective: tuple[float, ...]
+    #: Original objective constant.
+    objective_constant: float
+    #: Physical objective coordinate, with NIL identity.
+    objective_port: AnalysisPort
+    #: Upper triangular Q in 1/2 x'Qx + c'x + constant.
+    quadratic: SparseMatrix
+    #: Exact authored b.
+    rhs: tuple[float, ...]
+    #: Cone row coordinates, in native block order.
+    rows: tuple[AnalysisPort, ...]
+    #: Complete source coordinates; all bounds are explicit cone rows.
+    variables: tuple[AnalysisPort, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.cones), v.record_key(self.constraints), v.sequence_key(v.scalar_key)(self.objective), v.scalar_key(self.objective_constant), v.record_key(self.objective_port), v.record_key(self.quadratic), v.sequence_key(v.scalar_key)(self.rhs), v.sequence_key(v.record_key)(self.rows), v.sequence_key(v.record_key)(self.variables),))
 
 
 class ControllerOperation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -382,17 +2562,130 @@ class ControllerOperation(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
     #: Existing advanced-step prediction mapping; absence means full solves.
     predictions: tuple[tuple[str, str], ...] | None = None
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.bindings), v.record_key(self.case), v.sequence_key(v.tuple_key((v.scalar_key, v.scalar_key,)))(self.moves), v.optional_key(v.sequence_key(v.tuple_key((v.scalar_key, v.scalar_key,))))(self.predictions),))
+
+
+class DeclarationEdit(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Authored declarations submitted for contextual revision admission."""
+
+    #: Declarations from the selected authored revision.
+    declarations: tuple[AuthoredModelingDeclarationsRow, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.declarations),))
+
+
+class DeclarationInventory(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Declarations retained by the selected revision."""
+
+    #: Declarations from the selected authored revision.
+    declarations: tuple[AuthoredModelingDeclarationsRow, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.declarations),))
+
 
 class DependencyOrdering(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="ordering"):
     """Release after terminal completion, including failure or cancellation."""
 
     predecessor: OccurrenceKey
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.predecessor),))
+
 
 class DependencyUsableResult(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="usable_result"):
     """Require the operation owner's aggregate scientific permission."""
 
     predecessor: OccurrenceKey
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.predecessor),))
+
+
+class DiagnosticAnnotationDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One original query annotation, including every grouped note and help."""
+
+    #: Original ordered help suggestions.
+    helps: tuple[DiagnosticNoteDocument, ...]
+    #: Canonical error or warning severity of the native annotation.
+    kind: enums.DiagnosticSeverity
+    #: Original native annotation message.
+    message: str
+    #: Original ordered notes.
+    notes: tuple[DiagnosticNoteDocument, ...]
+    #: Original annotation span when supplied.
+    span: DiagnosticSpanDocument | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.helps), v.scalar_key(self.kind), v.scalar_key(self.message), v.sequence_key(v.record_key)(self.notes), v.optional_key(v.record_key)(self.span),))
+
+
+class DiagnosticCauseDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One retained original message in an error's source chain."""
+
+    #: Original source message, with no reclassification.
+    message: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.message),))
+
+
+class DiagnosticContextDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One typed native leaf and its ordered execution contexts."""
+
+    #: The authoritative typed leaf code.
+    code: enums.DiagnosticCode
+    #: Ordered native execution wrappers.
+    contexts: tuple[str, ...]
+    #: Original grouped query annotations.
+    diagnostics: tuple[DiagnosticAnnotationDocument, ...]
+    #: Original leaf message.
+    message: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.code), v.sequence_key(v.scalar_key)(self.contexts), v.sequence_key(v.record_key)(self.diagnostics), v.scalar_key(self.message),))
+
+
+class DiagnosticNoteDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One native query note or help, retaining its optional span."""
+
+    #: Original native text.
+    message: str
+    #: Original query source span when supplied.
+    span: DiagnosticSpanDocument | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.message), v.optional_key(v.record_key)(self.span),))
+
+
+class DiagnosticSamplesControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Native limits for supplied diagnostic points."""
+
+    #: Maximum supplied diagnostic samples.
+    maximum_samples: Annotated[int, msgspec.Meta(ge=0)] = 128
+    #: Wall-clock allowance in seconds.
+    time_limit: float = 60.0
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.maximum_samples), v.scalar_key(self.time_limit),))
+
+
+class DiagnosticSpanDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Query source coordinates under the native engine's line and column convention."""
+
+    #: Ending source column.
+    end_column: Annotated[int, msgspec.Meta(ge=0)]
+    #: Ending source line.
+    end_line: Annotated[int, msgspec.Meta(ge=0)]
+    #: Starting source column.
+    start_column: Annotated[int, msgspec.Meta(ge=0)]
+    #: Starting source line.
+    start_line: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.end_column), v.scalar_key(self.end_line), v.scalar_key(self.start_column), v.scalar_key(self.start_line),))
 
 
 class DiffsolSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -407,6 +2700,48 @@ class DiffsolSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
     #: Time-stepping scheme.
     method: enums.DiffsolMethod = enums.DiffsolMethod.BDF
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.linear), v.scalar_key(self.method),))
+
+
+class DiscreteInitializationFixAt(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="fix_at"):
+    """Fix every free discrete variable at the value declared for its case path. The
+    assignment is complete: a free discrete variable without a value is refused.
+    """
+
+    values: dict[str, float]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.mapping_key(v.scalar_key, v.scalar_key)(self.values),))
+
+
+class DiscreteInitializationFixAtStart(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="fix_at_start"):
+    """Fix every free discrete variable at its specification start value."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class DiscreteInitializationRefuse(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="refuse"):
+    """Fix nothing: a step whose analysis cannot decide a free discrete variable refuses it."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class EligibilityDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """An adapter's retained contextual representation assessment."""
+
+    #: Backend assessed by the native routing owner.
+    backend: enums.NativeBackend
+    #: Whether no ineligibility reasons were retained.
+    eligible: bool
+    #: Every retained applicable typed reason.
+    reasons: tuple[IneligibleDocument, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.backend), v.scalar_key(self.eligible), v.sequence_key(v.record_key)(self.reasons),))
+
 
 class EndpointRequirement(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Explicit final-result obligation, independent of the requested output grid."""
@@ -416,6 +2751,9 @@ class EndpointRequirement(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
     #: Registry-owned completion policy.
     kind: enums.EndpointPolicy
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.event), v.scalar_key(self.kind),))
+
 
 class EstimatorInput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Existing estimator window input intent."""
@@ -424,6 +2762,9 @@ class EstimatorInput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
     binding: WindowInput
     #: Driven input index.
     input: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.binding), v.scalar_key(self.input),))
 
 
 class EstimatorOperation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -440,6 +2781,9 @@ class EstimatorOperation(msgspec.Struct, frozen=True, forbid_unknown_fields=True
     #: Existing estimation window.
     window: Annotated[int, msgspec.Meta(ge=0)]
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.arrival), v.record_key(self.case), v.sequence_key(v.record_key)(self.inputs), v.sequence_key(v.tuple_key((v.scalar_key, v.sequence_key(v.scalar_key),)))(self.measurements), v.scalar_key(self.window),))
+
 
 class EvaluationLimits(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """The `EvaluationLimits` document type."""
@@ -448,6 +2792,25 @@ class EvaluationLimits(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
     operations: Annotated[int, msgspec.Meta(ge=0)]
     provider_calls: Annotated[int, msgspec.Meta(ge=0)]
     scratch_bytes: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.derivative_components), v.scalar_key(self.operations), v.scalar_key(self.provider_calls), v.scalar_key(self.scratch_bytes),))
+
+
+class ExportReceipt(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A receipt of an export: the manifest's location and the lease protecting its members."""
+
+    #: The manifest location.
+    destination: str
+    #: When the export expires, microseconds since the Unix epoch.
+    expires_at: int
+    #: The lease protecting the members until it expires or is released.
+    lease_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: The exported publication.
+    publication_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.destination), v.scalar_key(self.expires_at), v.scalar_key(self.lease_id), v.scalar_key(self.publication_id),))
 
 
 class FeralSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -468,6 +2831,19 @@ class FeralSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
     singular_pivot_floor: float = 1e-20
     static_pivoting: bool | None = None
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.cascade_break), v.scalar_key(self.fma), v.scalar_key(self.increase_quality), v.optional_key(v.scalar_key)(self.inertia_pivot_floor), v.optional_key(v.scalar_key)(self.min_par_flops), v.scalar_key(self.ordering), v.optional_key(v.scalar_key)(self.parallel), v.scalar_key(self.pivtol), v.scalar_key(self.refine), v.scalar_key(self.refine_max_steps), v.scalar_key(self.refine_target), v.scalar_key(self.scaling), v.scalar_key(self.singular_pivot_floor), v.optional_key(v.scalar_key)(self.static_pivoting),))
+
+
+class FitDeclarations(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Registry-owned experiment and parameter selection intent; measurements belong to typed records."""
+
+    #: Declared fits with their parameters, experiments and observation selections.
+    fits: tuple[AuthoredFitCasesRow, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.fits),))
+
 
 class FitOperation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One authored fit selection; experiment data stays in the pinned source revision."""
@@ -476,6 +2852,9 @@ class FitOperation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_o
     fit: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
     #: Complete fit controls.
     settings: FitOperationSettings
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.fit), v.record_key(self.settings),))
 
 
 class FitOperationSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -494,6 +2873,58 @@ class FitOperationSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
     #: Existing uncertainty/interval request.
     uncertainty: FitUncertainty | None = None
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.derivatives), v.scalar_key(self.max_cells), v.scalar_key(self.rank_tolerance), v.mapping_key(v.scalar_key, v.record_key)(self.simulations), v.record_key(self.solver), v.optional_key(v.record_key)(self.uncertainty),))
+
+
+class FitPreparationDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Decoded fit preparation. Native fitting resolves its selected model and experiments."""
+
+    #: Requested derivative evidence policy.
+    derivatives: enums.FitDerivatives = enums.FitDerivatives.RESPONSES
+    #: Maximum native fit workspace cells.
+    max_cells: Annotated[int, msgspec.Meta(ge=0)] = 1000000
+    #: Rank tolerance for fit admission.
+    rank_tolerance: float = 1e-8
+    #: Native dynamic settings by experiment identity.
+    simulations: dict[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], Profile] = msgspec.field(default_factory=dict)
+    #: Canonical solve settings; their own owner admits cross-field rules.
+    solver: SolveSettings
+    #: Optional fit uncertainty request.
+    uncertainty: FitUncertainty | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.derivatives), v.scalar_key(self.max_cells), v.scalar_key(self.rank_tolerance), v.mapping_key(v.scalar_key, v.record_key)(self.simulations), v.record_key(self.solver), v.optional_key(v.record_key)(self.uncertainty),))
+
+
+class FitProfileDocumentAvailable(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="status", tag="available"):
+    """Every chain, including worker failures and its actual parallelism."""
+
+    #: Every retained chain, including distinct worker failures.
+    chains: tuple[ProfileChain, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.chains),))
+
+
+class FitProfileDocumentNotRequested(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="status", tag="not_requested"):
+    """No profile request was made."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class FitProfileDocumentWithheld(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="status", tag="withheld"):
+    """The native reason and retained diagnostic explanation."""
+
+    #: Retained explanation of the refusal.
+    detail: str
+    #: Canonical native reason for withholding.
+    reason: enums.WithheldReason
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.detail), v.scalar_key(self.reason),))
+
 
 class FitUncertainty(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """What a fit derives from its estimate beyond the covariance, which every fit with free
@@ -509,6 +2940,111 @@ class FitUncertainty(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
     #: Also derive profile-likelihood intervals under these controls; absent derives Wald
     #: intervals alone.
     profile: ProfileControls | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.level), v.scalar_key(self.predictions), v.optional_key(v.record_key)(self.profile),))
+
+
+class FlowConnectionDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Decision transport owned by the compiler's flow operation."""
+
+    #: Selected declared connection occurrence.
+    connection: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Finite nonnegative authored tear cost.
+    cost: float
+    #: Explicit shared tear-decision identity.
+    group: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Mandatory, forbidden or freely selected tear policy.
+    policy: enums.TearPolicy
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.connection), v.scalar_key(self.cost), v.scalar_key(self.group), v.scalar_key(self.policy),))
+
+
+class FlowDecisionDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One grouped tear decision and canonical permission."""
+
+    #: Native tear objective cost.
+    cost: float
+    #: Identity retained from the admitted source.
+    id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Canonical tear permission.
+    policy: enums.TearPolicy
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.cost), v.scalar_key(self.id), v.scalar_key(self.policy),))
+
+
+class FlowEdgeDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One admitted directed edge and its port bindings."""
+
+    #: Admitted source and destination port bindings.
+    bindings: tuple[tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]], ...]
+    #: Grouped tear decision identity.
+    decision: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Source endpoint identity.
+    from_: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] = msgspec.field(name="from")
+    #: Identity retained from the admitted source.
+    id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Destination endpoint identity.
+    to: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.tuple_key((v.scalar_key, v.scalar_key,)))(self.bindings), v.scalar_key(self.decision), v.scalar_key(self.from_), v.scalar_key(self.id), v.scalar_key(self.to),))
+
+
+class FlowGraphDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Public immutable projection of the selected, physically admitted flow graph."""
+
+    #: Selected authored connections.
+    connections: tuple[FlowEdgeDocument, ...]
+    #: Grouped tear decisions.
+    decisions: tuple[FlowDecisionDocument, ...]
+    #: Identity of the exact admitted flow graph.
+    identity: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: Selected graph nodes.
+    nodes: tuple[FlowNodeDocument, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.connections), v.sequence_key(v.record_key)(self.decisions), v.scalar_key(self.identity), v.sequence_key(v.record_key)(self.nodes),))
+
+
+class FlowNodeDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One admitted node and its physical ports."""
+
+    #: Identity retained from the admitted source.
+    id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Selected authored ports.
+    ports: tuple[FlowPortDocument, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.id), v.sequence_key(v.record_key)(self.ports),))
+
+
+class FlowPortDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One admitted port with its physical meaning."""
+
+    #: Identity retained from the admitted source.
+    id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Physical quantity identity.
+    quantity_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Physical unit identity.
+    unit_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.id), v.scalar_key(self.quantity_id), v.scalar_key(self.unit_id),))
+
+
+class FlowSelectionDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Decoded flow selection. Identity membership and physical closure are admitted by `flow_graph`."""
+
+    #: One decision for every selected connection occurrence.
+    connections: tuple[FlowConnectionDocument, ...]
+    #: Explicit selected instances; repeated identities refuse before set construction.
+    nodes: tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.connections), v.sequence_key(v.scalar_key)(self.nodes),))
 
 
 class HighsDiagnostics(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -537,6 +3073,9 @@ class HighsDiagnostics(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
     #: forbid violation, as in the native API; no penalty is inferred from units.
     relaxation: HighsPenalties | None = None
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.sequence_key(v.scalar_key))(self.basis_inverse), v.scalar_key(self.cut_pool), v.scalar_key(self.fixed_lp), v.scalar_key(self.iis), v.scalar_key(self.presolve), v.scalar_key(self.ranging), v.scalar_key(self.rays), v.optional_key(v.record_key)(self.relaxation),))
+
 
 class HighsPenalties(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Complete physical penalty declarations for native feasibility relaxation."""
@@ -549,6 +3088,9 @@ class HighsPenalties(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
     rows: tuple[float, ...] | None = None
     #: Optional per-variable upper-bound penalties.
     upper: tuple[float, ...] | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.global_), v.optional_key(v.sequence_key(v.scalar_key))(self.lower), v.optional_key(v.sequence_key(v.scalar_key))(self.rows), v.optional_key(v.sequence_key(v.scalar_key))(self.upper),))
 
 
 class HighsSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="highs"):
@@ -565,6 +3107,9 @@ class HighsSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
     #: Partial source-attributed MIP start, with unspecified coordinates absent.
     sparse_start: dict[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], float] | None = None
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.diagnostics), v.scalar_key(self.method), v.optional_key(v.scalar_key)(self.nodes), v.optional_key(v.mapping_key(v.scalar_key, v.scalar_key))(self.sparse_start),))
+
 
 class HorizonBinding(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Serializes the existing horizon signal vocabulary without replacing its semantics."""
@@ -574,6 +3119,9 @@ class HorizonBinding(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
     #: Controller case target path, resolved by the horizon owner.
     target: str
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.signal), v.scalar_key(self.target),))
+
 
 class HorizonInputDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """A plant input projected into the existing horizon owner."""
@@ -582,6 +3130,9 @@ class HorizonInputDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
     initial: BindingQuantity
     #: Existing plant parameter identity.
     parameter: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.initial), v.scalar_key(self.parameter),))
 
 
 class HorizonOperation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -600,11 +3151,17 @@ class HorizonOperation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
     #: Existing closed-loop sample count.
     steps: PositiveCount
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.record_key)(self.controller), v.optional_key(v.record_key)(self.estimator), v.sequence_key(v.record_key)(self.inputs), v.scalar_key(self.period), v.record_key(self.plant), v.scalar_key(self.steps),))
+
 
 class HorizonSignalDocumentApplied(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="applied"):
     """Existing driven input index."""
 
     value: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.value),))
 
 
 class HorizonSignalDocumentEstimated(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="estimated"):
@@ -612,11 +3169,17 @@ class HorizonSignalDocumentEstimated(msgspec.Struct, frozen=True, forbid_unknown
 
     value: str
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.value),))
+
 
 class HorizonSignalDocumentMeasured(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="measured"):
     """Existing measured plant output."""
 
     value: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.value),))
 
 
 class HorizonSignalDocumentTrajectory(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="trajectory"):
@@ -624,9 +3187,15 @@ class HorizonSignalDocumentTrajectory(msgspec.Struct, frozen=True, forbid_unknow
 
     value: tuple[BindingQuantity, ...]
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.value),))
+
 
 class IdasLinearKlu(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="klu"):
     """SuiteSparse KLU over the compiled analytic Jacobian."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
 
 
 class IdasLinearSpfgmr(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="spfgmr"):
@@ -637,6 +3206,9 @@ class IdasLinearSpfgmr(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
     #: Left preconditioner built from the compiled Jacobian; none when absent.
     preconditioner: enums.Preconditioner = enums.Preconditioner.NONE
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.dimension), v.scalar_key(self.preconditioner),))
+
 
 class IdasLinearSpgmr(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="spgmr"):
     """Matrix-free GMRES over analytic Jacobian-vector products."""
@@ -645,6 +3217,9 @@ class IdasLinearSpgmr(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
     dimension: PositiveCount
     #: Left preconditioner built from the compiled Jacobian; none when absent.
     preconditioner: enums.Preconditioner = enums.Preconditioner.NONE
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.dimension), v.scalar_key(self.preconditioner),))
 
 
 class IdasSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -664,12 +3239,238 @@ class IdasSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_o
     #: Forward-sensitivity corrector.
     sensitivity: enums.SensitivityCorrector = enums.SensitivityCorrector.SIMULTANEOUS
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.initialization), v.record_key(self.linear), v.scalar_key(self.sensitivity),))
+
+
+class IncumbentDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """An incumbent in original objective units and its retained native search evidence."""
+
+    #: Finite native global dual bound, when available.
+    dual_bound: float | None = None
+    #: Finite native relative gap, when available.
+    gap: float | None = None
+    #: Native nodes explored by this observation.
+    nodes: int | None = None
+    #: Original objective value.
+    objective: float
+    #: Native elapsed seconds by this observation.
+    seconds: float | None = None
+    #: Identity of the stored solution retained for resumption.
+    solution_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.dual_bound), v.optional_key(v.scalar_key)(self.gap), v.optional_key(v.scalar_key)(self.nodes), v.scalar_key(self.objective), v.optional_key(v.scalar_key)(self.seconds), v.optional_key(v.scalar_key)(self.solution_id),))
+
+
+class IneligibleDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One reason retained by the native eligibility owner, with its exact typed detail."""
+
+    #: Canonical native reason code.
+    code: enums.NativeIneligibility
+    #: Required derivative order, with value, first and second encoded as 0, 1 and 2.
+    derivative_order: Annotated[int, msgspec.Meta(ge=0, le=255)] | None = None
+    #: Constraint forms outside this adapter's capability.
+    forms: tuple[enums.NativeConstraintForm, ...]
+    #: Classes established by the prepared facts and requested intent.
+    problem_classes: tuple[enums.NativeProblemClass, ...]
+    #: Structural requirements this adapter or method cannot honour.
+    requirements: tuple[enums.ModelingStructuralRequirement, ...]
+    #: Whether shifted one-sided sign constraints were representable.
+    sign_bounds: bool | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.code), v.optional_key(v.scalar_key)(self.derivative_order), v.sequence_key(v.scalar_key)(self.forms), v.sequence_key(v.scalar_key)(self.problem_classes), v.sequence_key(v.scalar_key)(self.requirements), v.optional_key(v.scalar_key)(self.sign_bounds),))
+
+
+class InitializationDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Immutable temporary-stage evidence from initialization, without changing specification bindings."""
+
+    #: Whether initialization was cancelled.
+    cancelled: bool
+    #: Number of completed temporary stages.
+    completed_stages: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original specification values.
+    original: dict[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], float]
+    #: Whether the original specification bindings were restored.
+    original_bindings_restored: bool
+    #: Candidate values for solved unknowns.
+    solved_unknowns: dict[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], float]
+    #: Retained temporary-stage evidence.
+    stages: tuple[InitializationStageDocument, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.cancelled), v.scalar_key(self.completed_stages), v.mapping_key(v.scalar_key, v.scalar_key)(self.original), v.scalar_key(self.original_bindings_restored), v.mapping_key(v.scalar_key, v.scalar_key)(self.solved_unknowns), v.sequence_key(v.record_key)(self.stages),))
+
+
+class InitializationOverrides(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Optional explicit initialization choices. Rust owns every omitted value."""
+
+    #: Optional discrete treatment.
+    discrete: DiscreteInitialization | None = None
+    #: Optional growth factor.
+    growth: float | None = None
+    #: Optional homotopy enablement.
+    homotopy: bool | None = None
+    #: Optional initial fraction.
+    initial_step: float | None = None
+    #: Optional attempt bound.
+    maximum_attempts: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Optional minimum fraction.
+    minimum_step: float | None = None
+    #: Optional stage order, compatible with the authored order.
+    stages: tuple[str, ...] | None = None
+    #: Optional wall-clock bound.
+    time_limit: ClosedDuration | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.record_key)(self.discrete), v.optional_key(v.scalar_key)(self.growth), v.optional_key(v.scalar_key)(self.homotopy), v.optional_key(v.scalar_key)(self.initial_step), v.optional_key(v.scalar_key)(self.maximum_attempts), v.optional_key(v.scalar_key)(self.minimum_step), v.optional_key(v.sequence_key(v.scalar_key))(self.stages), v.optional_key(v.record_key)(self.time_limit),))
+
+
+class InitializationStageDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Retained evidence from one temporary initialization stage."""
+
+    #: Values returned by this stage.
+    candidate: dict[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], float]
+    #: Whether this temporary stage completed.
+    completed: bool
+    #: Temporary values applied only to this stage.
+    overlay: dict[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], float]
+    #: Temporary stage index.
+    stage: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.mapping_key(v.scalar_key, v.scalar_key)(self.candidate), v.scalar_key(self.completed), v.mapping_key(v.scalar_key, v.scalar_key)(self.overlay), v.scalar_key(self.stage),))
+
+
+class InspectionConnection(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One selected declared connection."""
+
+    #: Source endpoint identity.
+    from_: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] = msgspec.field(name="from")
+    #: Identity retained from the admitted source.
+    id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Provenance of this selected member.
+    lineage: InspectionLineage
+    #: Destination endpoint identity.
+    to: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.from_), v.scalar_key(self.id), v.record_key(self.lineage), v.scalar_key(self.to),))
+
+
+class InspectionExecution(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Selected declared execution before native preparation."""
+
+    #: Declared execution procedure.
+    procedure: enums.ModelingProcedure
+    #: Requested retained-start policy.
+    requested_start: enums.NativeStartPolicy
+    #: Native analysis route.
+    route: enums.ModelingAnalysisRoute
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.procedure), v.scalar_key(self.requested_start), v.scalar_key(self.route),))
+
+
+class InspectionInstance(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One selected instantiated definition."""
+
+    #: Originating definition identity.
+    definition: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Identity retained from the admitted source.
+    id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Instantiated model members and their provenance.
+    members: dict[str, Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]]
+    #: Containing instance, when present.
+    parent: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+    #: Authored qualified path.
+    path: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.definition), v.scalar_key(self.id), v.mapping_key(v.scalar_key, v.scalar_key)(self.members), v.optional_key(v.scalar_key)(self.parent), v.scalar_key(self.path),))
+
+
+class InspectionLineage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Retained authored provenance of an instantiated member."""
+
+    #: Originating authored declaration.
+    declaration: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Declaration supplying the selected default.
+    default_owner: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+    #: Declarations that demanded this specialization.
+    demand: tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], ...]
+    #: Selected instance identity.
+    instance: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Whether this member overrides an inherited default.
+    is_override: bool
+    #: Authored qualified path.
+    path: str
+    #: Applied authored presets.
+    presets: tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.declaration), v.optional_key(v.scalar_key)(self.default_owner), v.sequence_key(v.scalar_key)(self.demand), v.scalar_key(self.instance), v.scalar_key(self.is_override), v.scalar_key(self.path), v.sequence_key(v.scalar_key)(self.presets),))
+
+
+class InspectionMember(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One selected model member."""
+
+    #: Identity retained from the admitted source.
+    id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Provenance of this selected member.
+    lineage: InspectionLineage
+    #: Authored declaration role.
+    role: enums.ModelingDeclarationKind
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.id), v.record_key(self.lineage), v.scalar_key(self.role),))
+
+
+class InspectionPort(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One selected declared port."""
+
+    #: Identity retained from the admitted source.
+    id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Provenance of this selected member.
+    lineage: InspectionLineage
+    #: Selected symbol carried by this port.
+    symbol: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.id), v.record_key(self.lineage), v.scalar_key(self.symbol),))
+
+
+class IntervalBound(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One end of a confidence interval."""
+
+    #: How the end was reached.
+    outcome: enums.IntervalOutcome
+    #: The end in the parameter's unit; absent when a profile chain stopped.
+    value: float | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.outcome), v.optional_key(v.scalar_key)(self.value),))
+
+
+class InventoryControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A bounded operational inventory page."""
+
+    #: Maximum rows returned by the selected inventory operation.
+    limit: int = 100
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.limit),))
+
 
 class IpoptLinearMumps(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="mumps"):
     """Sequential MUMPS 5.9 (`linear_solver = mumps`)."""
 
     #: Fill-reducing ordering (`mumps_pivot_order`, MUMPS ICNTL(7)).
     ordering: enums.MumpsOrdering
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.ordering),))
 
 
 class IpoptLinearPardisomkl(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="pardisomkl"):
@@ -682,6 +3483,9 @@ class IpoptLinearPardisomkl(msgspec.Struct, frozen=True, forbid_unknown_fields=T
     #: Fill-reducing ordering (`pardisomkl_order`).
     ordering: enums.PardisoOrdering
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.matching), v.scalar_key(self.ordering),))
+
 
 class IpoptLinearSpral(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="spral"):
     """SPRAL SSIDS on OpenMP threads (`linear_solver = spral`)."""
@@ -692,6 +3496,9 @@ class IpoptLinearSpral(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
     pivot: enums.SpralPivot
     #: Matrix scaling (`spral_scaling`).
     scaling: enums.SpralScaling
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.ordering), v.scalar_key(self.pivot), v.scalar_key(self.scaling),))
 
 
 class IpoptSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="ipopt"):
@@ -709,6 +3516,31 @@ class IpoptSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
     #: Restart of a submitted primal-dual seed: barrier and pushes (L-N3).
     restart: WarmRestart = msgspec.field(default_factory=lambda: msgspec.convert({"barrier": {"kind": "seed"}, "bound_frac": 1e-9, "bound_push": 1e-9, "mult_bound_push": 1e-9, "slack_bound_frac": 1e-9, "slack_bound_push": 1e-9}, type=WarmRestart))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.bound_frac), v.scalar_key(self.bound_push), v.record_key(self.linear), v.scalar_key(self.mu_strategy), v.record_key(self.restart),))
+
+
+class JacobianDiagnosticControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Local Jacobian diagnostic work, independent of nonlinear feasibility."""
+
+    #: Maximum native search attempts.
+    maximum_attempts: Annotated[int, msgspec.Meta(ge=0)] = 64
+    #: Maximum retained matrix entries.
+    maximum_entries: Annotated[int, msgspec.Meta(ge=0)] = 100000
+    #: Optional native discrete-search node limit.
+    maximum_nodes: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Maximum rows considered by the search.
+    maximum_rows: Annotated[int, msgspec.Meta(ge=0)] = 32
+    #: Bound on local diagnostic multipliers.
+    multiplier_bound: float = 10.0
+    #: Relative numerical rank tolerance.
+    rank_relative: float = 1e-8
+    #: Native search feasibility tolerance.
+    tolerance: float = 1e-7
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.maximum_attempts), v.scalar_key(self.maximum_entries), v.optional_key(v.scalar_key)(self.maximum_nodes), v.scalar_key(self.maximum_rows), v.scalar_key(self.multiplier_bound), v.scalar_key(self.rank_relative), v.scalar_key(self.tolerance),))
+
 
 class JobPayload(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Version 5 of a durable job's payload: the one task a job runs. Unknown fields, tasks
@@ -720,13 +3552,22 @@ class JobPayload(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_onl
     #: The task.
     task: JobTask
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.record_key(self.task),))
+
 
 class JobStartFresh(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="fresh"):
     """From the case's authored starts."""
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
 
 class JobStartResumeFromParent(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="resume_from_parent"):
     """From the latest incumbent in the parent attempt chain (Plan 22 G8)."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
 
 
 class JobStartStoredSolution(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="stored_solution"):
@@ -734,6 +3575,9 @@ class JobStartStoredSolution(msgspec.Struct, frozen=True, forbid_unknown_fields=
 
     #: The stored solution.
     solution: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.solution),))
 
 
 class JobTaskModeling(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="modeling"):
@@ -753,6 +3597,9 @@ class JobTaskModeling(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
     #: predecessor's stored solution instead.
     start: JobStart = msgspec.field(default_factory=lambda: msgspec.convert({"kind": "fresh"}, type=JobStart))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.case), v.sequence_key(v.scalar_key)(self.modeling), v.scalar_key(self.physical), v.scalar_key(self.route), v.record_key(self.settings), v.record_key(self.start),))
+
 
 class JobTaskStudyFinalization(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="study_finalization"):
     """Publish a concluded study: its summary and every completed point's result members,
@@ -761,6 +3608,9 @@ class JobTaskStudyFinalization(msgspec.Struct, frozen=True, forbid_unknown_field
 
     #: The study to publish.
     study_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.study_id),))
 
 
 class JobTaskStudyOperation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="study_operation"):
@@ -773,9 +3623,15 @@ class JobTaskStudyOperation(msgspec.Struct, frozen=True, forbid_unknown_fields=T
     #: The exact admitted occurrence copied mechanically from StudyDefinition.
     point: StudyPointBinding
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.modeling), v.scalar_key(self.physical), v.record_key(self.point),))
+
 
 class KinsolEtaChoice1(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="choice1"):
     """Eisenstat-Walker choice 1, KINSOL's default."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
 
 
 class KinsolEtaChoice2(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="choice2"):
@@ -786,12 +3642,18 @@ class KinsolEtaChoice2(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
     #: Safeguard factor in (0, 1].
     gamma: Fraction
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.alpha), v.scalar_key(self.gamma),))
+
 
 class KinsolEtaConstant(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="constant"):
     """A constant forcing term in (0, 1] (`KINSetEtaConstValue`)."""
 
     #: The forcing term.
     value: Fraction
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.value),))
 
 
 class KinsolLinearDense(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="dense"):
@@ -800,9 +3662,15 @@ class KinsolLinearDense(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
     #: Maximum admitted dimension.
     limit: PositiveCount
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.limit),))
+
 
 class KinsolLinearKlu(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="klu"):
     """Vendored SuiteSparse KLU with analytic CSC Jacobian."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
 
 
 class KinsolLinearSpbcgs(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="spbcgs"):
@@ -811,12 +3679,18 @@ class KinsolLinearSpbcgs(msgspec.Struct, frozen=True, forbid_unknown_fields=True
     #: Maximum Krylov subspace dimension.
     dimension: PositiveCount
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.dimension),))
+
 
 class KinsolLinearSpfgmr(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="spfgmr"):
     """Matrix-free native flexible GMRES."""
 
     #: Maximum Krylov subspace dimension.
     dimension: PositiveCount
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.dimension),))
 
 
 class KinsolLinearSpgmr(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="spgmr"):
@@ -825,12 +3699,18 @@ class KinsolLinearSpgmr(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
     #: Maximum Krylov subspace dimension.
     dimension: PositiveCount
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.dimension),))
+
 
 class KinsolLinearSptfqmr(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="sptfqmr"):
     """Matrix-free native transpose-free QMR."""
 
     #: Maximum Krylov subspace dimension.
     dimension: PositiveCount
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.dimension),))
 
 
 class KinsolSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="kinsol"):
@@ -860,6 +3740,9 @@ class KinsolSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
     #: Nonlinear strategy.
     strategy: enums.KinsolStrategy = enums.KinsolStrategy.LINE_SEARCH
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.anderson), v.scalar_key(self.anderson_delay), v.scalar_key(self.damping), v.record_key(self.eta), v.record_key(self.linear), v.optional_key(v.scalar_key)(self.max_newton_step), v.scalar_key(self.orthogonalization), v.scalar_key(self.preconditioner), v.scalar_key(self.setup_interval), v.scalar_key(self.strategy),))
+
 
 class KktTolerances(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Distinct normalized optimality requirements; no scalar means every stopping test."""
@@ -868,6 +3751,21 @@ class KktTolerances(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
     complementarity: float
     #: Normalized stationarity budget.
     stationarity: float
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.complementarity), v.scalar_key(self.stationarity),))
+
+
+class KnowledgeControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Native limits for retained knowledge inspection."""
+
+    #: Maximum retained document bytes.
+    maximum_bytes: Annotated[int, msgspec.Meta(ge=0)] = 67108864
+    #: Maximum inspected scalar cells.
+    maximum_cells: Annotated[int, msgspec.Meta(ge=0)] = 100000
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.maximum_bytes), v.scalar_key(self.maximum_cells),))
 
 
 class LegacyUnavailable(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -882,6 +3780,9 @@ class LegacyUnavailable(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
     #: Former positional predecessor retained as historical attribution only.
     predecessor: Annotated[int, msgspec.Meta(ge=0)] | None = None
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.optional_key(v.scalar_key)(self.binding_hash), v.scalar_key(self.kind), v.optional_key(v.scalar_key)(self.predecessor),))
+
 
 class Limits(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """The `Limits` document type."""
@@ -892,17 +3793,453 @@ class Limits(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=Tr
     items: Annotated[int, msgspec.Meta(ge=0)]
     members: Annotated[int, msgspec.Meta(ge=0)]
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.body_occurrences), v.optional_key(v.scalar_key)(self.body_slots), v.scalar_key(self.depth), v.scalar_key(self.items), v.scalar_key(self.members),))
+
+
+class LinearDiagnosticControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Source-coordinate declarations for bounded affine-model diagnostics."""
+
+    #: Request native irreducible infeasibility evidence.
+    iis: bool = False
+    #: Complete lower-bound penalties keyed by source coordinate.
+    lower_penalties: dict[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], float] | None = None
+    #: Maximum retained matrix entries.
+    maximum_entries: Annotated[int, msgspec.Meta(ge=0)] = 100000
+    #: Request native sensitivity ranges.
+    ranging: bool = False
+    #: Request native infeasibility or unboundedness rays.
+    rays: bool = False
+    #: Explicit lower, upper and row relaxation penalties.
+    relaxation: tuple[float, float, float] | None = None
+    #: Complete row penalties keyed by source coordinate.
+    row_penalties: dict[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], float] | None = None
+    #: Complete upper-bound penalties keyed by source coordinate.
+    upper_penalties: dict[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], float] | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.iis), v.optional_key(v.mapping_key(v.scalar_key, v.scalar_key))(self.lower_penalties), v.scalar_key(self.maximum_entries), v.scalar_key(self.ranging), v.scalar_key(self.rays), v.optional_key(v.tuple_key((v.scalar_key, v.scalar_key, v.scalar_key,)))(self.relaxation), v.optional_key(v.mapping_key(v.scalar_key, v.scalar_key))(self.row_penalties), v.optional_key(v.mapping_key(v.scalar_key, v.scalar_key))(self.upper_penalties),))
+
+
+class MatrixPolicy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Explicit diagnostic work and numerical classification limits."""
+
+    #: Includes dense input and both complete singular-vector factors/Gram products.
+    dense_entries: Annotated[int, msgspec.Meta(ge=0)]
+    #: Maximum parallel row and column pairs reported before the analysis is refused.
+    findings: Annotated[int, msgspec.Meta(ge=0)]
+    #: Pairs with `1 - |cosine|` at or below this are reported as parallel; in [0, 1).
+    parallel_tolerance: float
+    #: Absolute singular-value cutoff for numerical rank.
+    rank_absolute: float
+    #: Singular-value cutoff relative to the largest singular value; in [0, 1).
+    rank_relative: float
+    #: Magnitude above which a row or column's component of a singular vector below the
+    #: rank cutoff names it as a member of that near-null mode; in [0, 1).
+    singular_vector: float
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.dense_entries), v.scalar_key(self.findings), v.scalar_key(self.parallel_tolerance), v.scalar_key(self.rank_absolute), v.scalar_key(self.rank_relative), v.scalar_key(self.singular_vector),))
+
+
+class ModelingCell(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: uncertainty
+    uncertainty: ModelingCellUncertainty | None = None
+    #: value
+    value: ModelingCellValue
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.record_key)(self.uncertainty), v.record_key(self.value),))
+
+
+class ModelingCellUncertainty(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: kind
+    kind: enums.ModelingUncertaintyKind
+    #: magnitude
+    magnitude: float
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.kind), v.scalar_key(self.magnitude),))
+
+
+class ModelingCellValue(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: boolean
+    boolean: ModelingCellValueBoolean | None = None
+    #: identifier
+    identifier: ModelingCellValueIdentifier | None = None
+    #: integer
+    integer: ModelingCellValueInteger | None = None
+    #: kind
+    kind: enums.ModelingCellKind
+    #: quantity
+    quantity: ModelingCellValueQuantity | None = None
+    #: reference
+    reference: ModelingCellValueReference | None = None
+    #: references
+    references: ModelingCellValueReferences | None = None
+    #: row
+    row: ModelingCellValueRow | None = None
+    #: text
+    text: ModelingCellValueText | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.record_key)(self.boolean), v.optional_key(v.record_key)(self.identifier), v.optional_key(v.record_key)(self.integer), v.scalar_key(self.kind), v.optional_key(v.record_key)(self.quantity), v.optional_key(v.record_key)(self.reference), v.optional_key(v.record_key)(self.references), v.optional_key(v.record_key)(self.row), v.optional_key(v.record_key)(self.text),))
+
+
+class ModelingCellValueBoolean(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: value
+    value: bool
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.value),))
+
+
+class ModelingCellValueIdentifier(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: scheme
+    scheme: tuple[str, ...]
+    #: value
+    value: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.scheme), v.scalar_key(self.value),))
+
+
+class ModelingCellValueInteger(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: value
+    value: int
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.value),))
+
+
+class ModelingCellValueQuantity(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: magnitude
+    magnitude: float
+    #: unit
+    unit: tuple[ModelingUnitFactor, ...] | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.magnitude), v.optional_key(v.sequence_key(v.record_key))(self.unit),))
+
+
+class ModelingCellValueReference(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: path
+    path: tuple[str, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.path),))
+
+
+class ModelingCellValueReferences(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: paths
+    paths: tuple[ModelingCellValueReferencesPathsItem, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.paths),))
+
+
+class ModelingCellValueReferencesPathsItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: keys
+    keys: tuple[ModelingKeyCell, ...] | None = None
+    #: path
+    path: tuple[str, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.sequence_key(v.record_key))(self.keys), v.sequence_key(v.scalar_key)(self.path),))
+
+
+class ModelingCellValueRow(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: keys
+    keys: tuple[ModelingKeyCell, ...]
+    #: target
+    target: tuple[str, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.keys), v.sequence_key(v.scalar_key)(self.target),))
+
+
+class ModelingCellValueText(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: value
+    value: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.value),))
+
+
+class ModelingColumnStorage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: name
+    name: str
+    #: scheme
+    scheme: tuple[str, ...] | None = None
+    #: storage_unit
+    storage_unit: tuple[ModelingUnitFactor, ...] | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.optional_key(v.sequence_key(v.scalar_key))(self.scheme), v.optional_key(v.sequence_key(v.record_key))(self.storage_unit),))
+
+
+class ModelingCompleteness(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: key
+    key: str
+    #: range
+    range: ModelingIntegerRange | None = None
+    #: set
+    set: tuple[str, ...] | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key), v.optional_key(v.record_key)(self.range), v.optional_key(v.sequence_key(v.scalar_key))(self.set),))
+
+
+class ModelingDiagnosticPolicy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Explicit thresholds and budgets; the caller selects the named knowledge profile."""
+
+    #: Bound violation above which a value is outside its bound.
+    bound_violation: float
+    #: Normalized Jacobian magnitude above which an entry, row or column is large.
+    jacobian_large: float
+    #: Normalized Jacobian magnitude below which a nonzero entry, row or column is small.
+    jacobian_small: float
+    #: Dense matrix analysis budgets and tolerances.
+    matrix: MatrixPolicy
+    #: Finding budget; further findings leave the report incomplete.
+    maximum_findings: Annotated[int, msgspec.Meta(ge=0)]
+    #: Absolute part of the near-bound distance.
+    near_bound_absolute: float
+    #: Relative part of the near-bound distance, times the larger of the bound and nominal.
+    near_bound_relative: float
+    #: Name of the knowledge profile these thresholds come from.
+    profile: str
+    #: Row residual, relative to the row nominal, above which it is large.
+    residual: float
+    #: Equation term analysis budgets and tolerances.
+    terms: TermPolicy
+    #: Normalized magnitude above which a value is large.
+    variable_large: float
+    #: Normalized magnitude below which a nonzero value is small.
+    variable_small: float
+    #: Normalized magnitude at or below which a value counts as zero.
+    variable_zero: float
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.bound_violation), v.scalar_key(self.jacobian_large), v.scalar_key(self.jacobian_small), v.record_key(self.matrix), v.scalar_key(self.maximum_findings), v.scalar_key(self.near_bound_absolute), v.scalar_key(self.near_bound_relative), v.scalar_key(self.profile), v.scalar_key(self.residual), v.record_key(self.terms), v.scalar_key(self.variable_large), v.scalar_key(self.variable_small), v.scalar_key(self.variable_zero),))
+
+
+class ModelingEnvelope(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: lower
+    lower: str
+    #: name
+    name: str
+    #: type
+    type: tuple[ModelingTypeArenaNode, ...]
+    #: upper
+    upper: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.lower), v.scalar_key(self.name), v.sequence_key(v.record_key)(self.type), v.scalar_key(self.upper),))
+
+
+class ModelingEnvelopeGuard(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: arguments
+    arguments: tuple[str, ...]
+    #: carrier
+    carrier: str
+    #: envelope
+    envelope: str
+    #: extent
+    extent: enums.ModelingEnvelopeExtent
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.arguments), v.scalar_key(self.carrier), v.scalar_key(self.envelope), v.scalar_key(self.extent),))
+
+
+class ModelingInspection(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Nonexecuting observation of the selected model."""
+
+    #: Selected authored connections.
+    connections: tuple[InspectionConnection, ...]
+    #: Selected route and procedure before execution.
+    execution: InspectionExecution
+    #: Instantiated authored definitions.
+    instances: tuple[InspectionInstance, ...]
+    #: Instantiated model members and their provenance.
+    members: tuple[InspectionMember, ...]
+    #: Selected authored ports.
+    ports: tuple[InspectionPort, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.connections), v.record_key(self.execution), v.sequence_key(v.record_key)(self.instances), v.sequence_key(v.record_key)(self.members), v.sequence_key(v.record_key)(self.ports),))
+
+
+class ModelingIntegerRange(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: lower
+    lower: int
+    #: upper
+    upper: int
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.lower), v.scalar_key(self.upper),))
+
+
+class ModelingKeyCell(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: boolean
+    boolean: ModelingCellValueBoolean | None = None
+    #: identifier
+    identifier: ModelingCellValueIdentifier | None = None
+    #: integer
+    integer: ModelingCellValueInteger | None = None
+    #: kind
+    kind: enums.ModelingKeyCellKind
+    #: quantity
+    quantity: ModelingCellValueQuantity | None = None
+    #: reference
+    reference: ModelingCellValueReference | None = None
+    #: text
+    text: ModelingCellValueText | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.record_key)(self.boolean), v.optional_key(v.record_key)(self.identifier), v.optional_key(v.record_key)(self.integer), v.scalar_key(self.kind), v.optional_key(v.record_key)(self.quantity), v.optional_key(v.record_key)(self.reference), v.optional_key(v.record_key)(self.text),))
+
+
+class ModelingLineageEntry(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: kind
+    kind: enums.ModelingLineageKind
+    #: path
+    path: tuple[str, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.kind), v.sequence_key(v.scalar_key)(self.path),))
+
+
+class ModelingNonlinearPolicy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Explicit physical row nominals weight the dimensionless ell-1 violation that classifies each
+    attempt.
+    """
+
+    #: Attempt budget of the deletion filter.
+    maximum_attempts: Annotated[int, msgspec.Meta(ge=0)]
+    #: Positive physical nominal of every outer equation, by equation id.
+    nominals: dict[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], float]
+    #: Nominal-weighted ell-1 violation at or below which an attempt is a feasible witness.
+    penalty_tolerance: float
+    #: Joined deadline of every attempt.
+    time_limit: ClosedDuration
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.maximum_attempts), v.mapping_key(v.scalar_key, v.scalar_key)(self.nominals), v.scalar_key(self.penalty_tolerance), v.record_key(self.time_limit),))
+
+
+class ModelingProvenance(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: lineage
+    lineage: tuple[ModelingLineageEntry, ...]
+    #: role
+    role: tuple[str, ...]
+    #: source
+    source: tuple[str, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.lineage), v.sequence_key(v.scalar_key)(self.role), v.sequence_key(v.scalar_key)(self.source),))
+
+
+class ModelingTypeArenaNode(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: children
+    children: tuple[Annotated[int, msgspec.Meta(ge=0)], ...]
+    #: exponent
+    exponent: ModelingTypeArenaNodeExponent | None = None
+    #: kind
+    kind: enums.ModelingTypeNode
+    #: name
+    name: str | None = None
+    #: path
+    path: tuple[str, ...] | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.children), v.optional_key(v.record_key)(self.exponent), v.scalar_key(self.kind), v.optional_key(v.scalar_key)(self.name), v.optional_key(v.sequence_key(v.scalar_key))(self.path),))
+
+
+class ModelingTypeArenaNodeExponent(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: den
+    den: Annotated[int, msgspec.Meta(ge=-32768, le=32767)]
+    #: num
+    num: Annotated[int, msgspec.Meta(ge=-32768, le=32767)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.den), v.scalar_key(self.num),))
+
+
+class ModelingUnitFactor(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: den
+    den: Annotated[int, msgspec.Meta(ge=-32768, le=32767)]
+    #: num
+    num: Annotated[int, msgspec.Meta(ge=-32768, le=32767)]
+    #: symbol
+    symbol: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.den), v.scalar_key(self.num), v.scalar_key(self.symbol),))
+
 
 class NumericObservationNonfinite(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="nonfinite"):
     """The `NumericObservationNonfinite` document type."""
 
     value: enums.DiagnosticNonfiniteObservation
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.value),))
+
 
 class NumericObservationReal(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="real"):
     """The `NumericObservationReal` document type."""
 
     value: float
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.value),))
 
 
 class NumericalPolicy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -933,11 +4270,17 @@ class NumericalPolicy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
     #: Refuse canonical-unit fallback where no authored or quantity nominal is known.
     strict_nominals: bool = False
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.record_key)(self.acceptable), v.scalar_key(self.closure), v.scalar_key(self.gap_absolute), v.scalar_key(self.gap_relative), v.scalar_key(self.incumbent), v.scalar_key(self.integrality), v.record_key(self.kkt), v.scalar_key(self.mip_absolute_gap), v.scalar_key(self.mip_relative_gap), v.scalar_key(self.native_scaling), v.sequence_key(v.record_key)(self.requirements), v.scalar_key(self.strict_nominals),))
+
 
 class ObservationBoolean(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="boolean"):
     """A checked predicate."""
 
     value: bool
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.value),))
 
 
 class ObservationContracts(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="contracts"):
@@ -945,15 +4288,24 @@ class ObservationContracts(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
 
     value: tuple[OperandContract, ...]
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.value),))
+
 
 class ObservationInteger(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="integer"):
     """Exact counts or native codes."""
 
     value: int
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.value),))
+
 
 class ObservationMissing(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="missing"):
     """Evidence was not available."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
 
 
 class ObservationNonfinite(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="nonfinite"):
@@ -961,11 +4313,17 @@ class ObservationNonfinite(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
 
     value: enums.DiagnosticNonfiniteObservation
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.value),))
+
 
 class ObservationPhysical(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="physical"):
     """Finite physical evidence bound to its complete immutable quantity contract."""
 
     value: PhysicalObservation
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.value),))
 
 
 class ObservationReal(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="real"):
@@ -973,11 +4331,17 @@ class ObservationReal(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
 
     value: float
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.value),))
+
 
 class ObservationText(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="text"):
     """Native status or explanatory detail."""
 
     value: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.value),))
 
 
 class OperandContract(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -988,11 +4352,17 @@ class OperandContract(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
     #: Immutable complete quantity-type identity.
     quantity: Annotated[tuple[Annotated[int, msgspec.Meta(ge=0, le=255)], ...], msgspec.Meta(min_length=16, max_length=16)]
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.sequence_key(v.sequence_key(v.scalar_key)))(self.indices), v.sequence_key(v.scalar_key)(self.quantity),))
+
 
 class OperationRequestDeclaredCase(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="declared_case"):
     """Existing authored algebraic solve owner."""
 
     request: CaseOperation
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.request),))
 
 
 class OperationRequestFit(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="fit"):
@@ -1000,17 +4370,26 @@ class OperationRequestFit(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
 
     request: FitOperation
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.request),))
+
 
 class OperationRequestHorizon(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="horizon"):
     """Existing closed-loop horizon owner."""
 
     request: HorizonOperation
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.request),))
+
 
 class OperationRequestSimulation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="simulation"):
     """Existing authored integration owner."""
 
     request: SimulationOperation
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.request),))
 
 
 class OperationSource(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -1021,6 +4400,9 @@ class OperationSource(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
     #: Immutable modeling revision, including included scientific data.
     revision: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.physical_context), v.scalar_key(self.revision),))
+
 
 class Optimization(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """The `Optimization` document type."""
@@ -1028,6 +4410,9 @@ class Optimization(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_o
     cores: Annotated[int, msgspec.Meta(ge=0)]
     cpe_iterations: Annotated[int, msgspec.Meta(ge=0)]
     horner_iterations: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.cores), v.scalar_key(self.cpe_iterations), v.scalar_key(self.horner_iterations),))
 
 
 class ParameterCovariance(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -1039,6 +4424,9 @@ class ParameterCovariance(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
     run_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
     #: `Σ_θ` row-major, in the parameters' units.
     values: tuple[FiniteBound, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.parameters), v.scalar_key(self.run_id), v.sequence_key(v.scalar_key)(self.values),))
 
 
 class PhysicalObservation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -1052,6 +4440,9 @@ class PhysicalObservation(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
     quantity: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
     #: Declared canonical unit.
     unit: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.context), v.scalar_key(self.magnitude), v.scalar_key(self.quantity), v.scalar_key(self.unit),))
 
 
 class PointAttemptOutcome(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -1069,6 +4460,9 @@ class PointAttemptOutcome(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
     scientific: ScientificFacts
     #: Actual chosen start, if dispatch was attempted.
     start: StartProvenance | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.attempt_id), v.optional_key(v.record_key)(self.diagnostic), v.scalar_key(self.effect), v.optional_key(v.scalar_key)(self.lifecycle), v.record_key(self.scientific), v.optional_key(v.record_key)(self.start),))
 
 
 class PointOutcome(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -1089,12 +4483,18 @@ class PointOutcome(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_o
     #: Latest actual start provenance.
     start: StartProvenance | None = None
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.attempts), v.optional_key(v.record_key)(self.diagnostic), v.scalar_key(self.effect), v.scalar_key(self.key), v.scalar_key(self.lifecycle), v.record_key(self.scientific), v.optional_key(v.record_key)(self.start),))
+
 
 class PointOverlay(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Submitted replacements; the list preserves duplicate references for validation."""
 
     #: Each assignment is admitted against the same selected revision.
     assignments: tuple[BindingAssignment, ...] = msgspec.field(default_factory=tuple)
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.assignments),))
 
 
 class PointPolicy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -1110,6 +4510,9 @@ class PointPolicy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_on
     seed_need: enums.StudySeedNeed
     #: Authored start intent.
     start: StartPolicy
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.attempt_limit), v.sequence_key(v.record_key)(self.dependencies), v.scalar_key(self.key), v.scalar_key(self.seed_need), v.record_key(self.start),))
 
 
 class PointStatus(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -1132,6 +4535,9 @@ class PointStatus(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_on
     #: Its state.
     state: enums.StudyPointState
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.attempt_id), v.scalar_key(self.attempt_state), v.optional_key(v.scalar_key)(self.error), v.scalar_key(self.job_state), v.optional_key(v.record_key)(self.legacy), v.optional_key(v.record_key)(self.outcome), v.scalar_key(self.point_index), v.scalar_key(self.state),))
+
 
 class PounceConvexSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="pounce_convex"):
     """The POUNCE-convex interior-point method's choices and FERAL configuration."""
@@ -1147,6 +4553,9 @@ class PounceConvexSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
     #: infeasibility from the iterates, instead of the direct infeasible-start method.
     self_dual: bool = True
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.crossover), v.scalar_key(self.equilibrate), v.record_key(self.linear), v.scalar_key(self.self_dual),))
+
 
 class PounceSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="pounce"):
     """POUNCE method and complete native FERAL configuration."""
@@ -1157,6 +4566,9 @@ class PounceSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
     method: enums.PounceMethod = enums.PounceMethod.INTERIOR_POINT
     #: Interior-point restart of a submitted primal-dual seed (L-N3).
     restart: WarmRestart = msgspec.field(default_factory=lambda: msgspec.convert({"barrier": {"kind": "seed"}, "bound_frac": 1e-9, "bound_push": 1e-9, "mult_bound_push": 1e-9, "slack_bound_frac": 1e-9, "slack_bound_push": 1e-9}, type=WarmRestart))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.linear), v.scalar_key(self.method), v.record_key(self.restart),))
 
 
 class PreparationCounts(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -1174,6 +4586,9 @@ class PreparationCounts(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
     #: requests built from a bound structure.
     views: Annotated[int, msgspec.Meta(ge=0)]
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.observations), v.scalar_key(self.rebuilt), v.scalar_key(self.shared), v.scalar_key(self.views),))
+
 
 class PreparationSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Serialization of the existing compiler/expansion controls, with no second defaults."""
@@ -1182,6 +4597,9 @@ class PreparationSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
     compiler: StudyCompilerProfile
     #: Existing expansion admission limits.
     limits: Limits
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.compiler), v.record_key(self.limits),))
 
 
 class Profile(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -1236,6 +4654,35 @@ class Profile(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=T
     #: Behavior required for internal domain failures; terminal when absent.
     trial_failures: enums.TrialPolicy = enums.TrialPolicy.TERMINAL
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.adjoint), v.sequence_key(v.scalar_key)(self.atol), v.record_key(self.diffsol), v.scalar_key(self.end), v.record_key(self.endpoint), v.record_key(self.idas), v.scalar_key(self.initial_step), v.scalar_key(self.max_cells), v.scalar_key(self.max_events), v.scalar_key(self.max_steps), v.scalar_key(self.method), v.record_key(self.numerics), v.sequence_key(v.scalar_key)(self.out_atol), v.optional_key(v.scalar_key)(self.out_rtol), v.sequence_key(v.scalar_key)(self.parameter_scales), v.scalar_key(self.rtol), v.sequence_key(v.scalar_key)(self.samples), v.sequence_key(v.record_key)(self.schedule), v.scalar_key(self.sensitivity), v.scalar_key(self.start), v.record_key(self.time_limit), v.scalar_key(self.trial_failures),))
+
+
+class ProfileChain(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """The chain of one free parameter toward one end."""
+
+    #: Successfully started workers in this profile execution.
+    actual_parallelism: Annotated[int, msgspec.Meta(ge=0)]
+    #: The end reached.
+    bound: IntervalBound
+    #: Why the chain stopped.
+    detail: str | None = None
+    #: The end the chain moves toward.
+    end: enums.IntervalEnd
+    #: The fit estimate of the parameter.
+    estimate: float
+    #: The parameter.
+    parameter: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Every pinned fit, in solve order.
+    points: tuple[ProfilePoint, ...]
+    #: Worker start or environment failures for this execution, including partial starts.
+    scheduling_failures: tuple[ProfileWorkerFailure, ...]
+    #: Typed worker failure, separate from the scientific interval outcome.
+    worker_failure: ProfileWorkerFailure | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.actual_parallelism), v.record_key(self.bound), v.optional_key(v.scalar_key)(self.detail), v.scalar_key(self.end), v.scalar_key(self.estimate), v.scalar_key(self.parameter), v.sequence_key(v.record_key)(self.points), v.sequence_key(v.record_key)(self.scheduling_failures), v.optional_key(v.record_key)(self.worker_failure),))
+
 
 class ProfileControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Controls of the profile-likelihood pin chains (ADR-0118 item 8)."""
@@ -1247,6 +4694,128 @@ class ProfileControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
     #: Chains solved at once, each pinned fit on the fit's own threads; the fit's job admits
     #: the cores of all of them. Absent solves as many at once as one job's cores admit.
     workers: PositiveCount | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.points), v.scalar_key(self.tolerance), v.optional_key(v.scalar_key)(self.workers),))
+
+
+class ProfilePoint(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One pinned fit of a profile chain."""
+
+    #: Qualified stationary or better and feasible, and used by the chain.
+    accepted: bool
+    #: Why the pinned fit failed or was not used.
+    detail: str | None = None
+    #: The pinned fit's objective, half the weighted residual sum of squares.
+    objective: float | None = None
+    #: The pinned fit's qualification, when the runner returned a report.
+    qualification: enums.NativeQualification | None = None
+    #: The chain point whose solution seeded this fit; `None` for the fit estimate (PS-11).
+    seed: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: `√(2·max(f - f*, 0))`.
+    statistic: float | None = None
+    #: The pinned parameter value, in the parameter's unit.
+    value: float
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.accepted), v.optional_key(v.scalar_key)(self.detail), v.optional_key(v.scalar_key)(self.objective), v.optional_key(v.scalar_key)(self.qualification), v.optional_key(v.scalar_key)(self.seed), v.optional_key(v.scalar_key)(self.statistic), v.scalar_key(self.value),))
+
+
+class ProfileWorkerFailurePanic(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="panic"):
+    """The chain began and its worker unwound. It is never replayed."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class ProfileWorkerFailureScheduling(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="scheduling"):
+    """A worker could not start or enter its execution environment; an unstarted
+    chain carries this outcome when no remaining worker completes it.
+    """
+
+    detail: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.detail),))
+
+
+class ProgressControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Durable progress observation controls."""
+
+    #: Continue observing until the selected attempt ends.
+    follow: bool = True
+    #: Maximum rows retained from each progress stream at a time.
+    page: Annotated[int, msgspec.Meta(ge=0)] = 256
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.follow), v.scalar_key(self.page),))
+
+
+class ProgressEventDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """An owned event from memory or from a durable attempt's selected stream."""
+
+    #: Durable observation time in Unix microseconds; absent in memory.
+    at: int | None = None
+    #: Seconds since admitted step execution began.
+    elapsed_seconds: float
+    #: Typed incumbent evidence when this event reported an incumbent.
+    incumbent: IncumbentDocument | None = None
+    #: Original native phase or callback name.
+    phase: str
+    #: Sequence in this selected durable stream; absent in memory.
+    sequence: int | None = None
+    #: Durable producing step; absent for observations retained only in memory.
+    step: int | None = None
+    #: Typed original metric values by backend-specific key.
+    values: dict[str, ProgressMetricDocument]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.at), v.scalar_key(self.elapsed_seconds), v.optional_key(v.record_key)(self.incumbent), v.scalar_key(self.phase), v.optional_key(v.scalar_key)(self.sequence), v.optional_key(v.scalar_key)(self.step), v.mapping_key(v.scalar_key, v.record_key)(self.values),))
+
+
+class ProgressMetricDocumentBoolean(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="boolean"):
+    """Original native Boolean."""
+
+    value: bool
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.value),))
+
+
+class ProgressMetricDocumentInteger(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="integer"):
+    """Exact integral count or identifier."""
+
+    value: int
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.value),))
+
+
+class ProgressMetricDocumentReal(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="real"):
+    """Every IEEE real value, with explicit nonfinite evidence when necessary."""
+
+    value: Observation
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.value),))
+
+
+class ProgressMetricDocumentText(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="text"):
+    """Original native explanatory text."""
+
+    value: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.value),))
+
+
+class ProgressMetricDocumentUnavailable(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="unavailable"):
+    """Canonical reason that no observation was available."""
+
+    value: enums.EvidenceUnavailableReason
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.value),))
 
 
 class Propagation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -1262,6 +4831,129 @@ class Propagation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_on
     #: none repeated.
     outputs: tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], ...]
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.covariance), v.sequence_key(v.scalar_key)(self.outputs),))
+
+
+class PublicationSettlementCommitted(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="status", tag="committed"):
+    """The ticket's publication is visible."""
+
+    #: The publication.
+    publication_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.publication_id),))
+
+
+class PublicationSettlementConflict(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="status", tag="conflict"):
+    """The ticket can never commit as prepared: re-prepare against the head."""
+
+    #: The workspace head at settlement.
+    head: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+    #: Why.
+    reason: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.head), v.scalar_key(self.reason),))
+
+
+class PublicationSettlementProvedNoncommit(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="status", tag="proved_noncommit"):
+    """Nothing was committed and nothing is in flight: the same ticket may commit again."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class PublicationSettlementUnresolved(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="status", tag="unresolved"):
+    """The catalog could not be reached; nothing may be concluded. Settle again later."""
+
+    #: Why.
+    reason: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.reason),))
+
+
+class Published(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A committed publication."""
+
+    #: The durable attempt it publishes.
+    attempt_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: The parent it was committed on.
+    parent: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+    #: The publication, now the head of its workspace.
+    publication_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: The workspace.
+    workspace_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.attempt_id), v.optional_key(v.scalar_key)(self.parent), v.scalar_key(self.publication_id), v.scalar_key(self.workspace_id),))
+
+
+class PureConformanceControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Limits and selection for pure document conformance, with no solver work."""
+
+    #: Explicit fixture occurrences, or the package selection when omitted.
+    fixtures: tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], ...] | None = None
+    #: Maximum conformance checks performed.
+    maximum_checks: Annotated[int, msgspec.Meta(ge=0)] = 16384
+    #: Maximum fixtures admitted by this operation.
+    maximum_fixtures: Annotated[int, msgspec.Meta(ge=0)] = 1024
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.sequence_key(v.scalar_key))(self.fixtures), v.scalar_key(self.maximum_checks), v.scalar_key(self.maximum_fixtures),))
+
+
+class RecycleRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Concrete tear witness and causal directions; native KINSOL owns all recycle iteration."""
+
+    #: Native Anderson history; zero means unaccelerated fixed point.
+    anderson: Annotated[int, msgspec.Meta(ge=0)]
+    #: Native fixed-point damping in (0,1].
+    damping: Fraction
+    #: Exact selected tear decision groups, obtainable through select_tears.
+    tears: tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], ...]
+    #: Complete admitted causal unit inventory.
+    units: tuple[CausalUnitRequest, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.anderson), v.scalar_key(self.damping), v.sequence_key(v.scalar_key)(self.tears), v.sequence_key(v.record_key)(self.units),))
+
+    def __post_init__(self) -> None:
+        v.unique(v.scalar_key)(self, None, self.tears)
+
+
+class ResourceConsumer(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A current native memory consumer and its accounted reservation."""
+
+    #: Accounted memory owner name.
+    name: str
+    #: Current reservation in bytes.
+    reserved_bytes: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.scalar_key(self.reserved_bytes),))
+
+
+class ResourceReport(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Pool counters do not claim global allocator coverage."""
+
+    #: Native retained capacities and hits, without cloning cached values.
+    caches: tuple[CacheReport, ...]
+    #: Configured finite accounted limit.
+    limit_bytes: Annotated[int, msgspec.Meta(ge=0)]
+    #: Maximum accounted claims since this shared runtime was created.
+    pool_peak_bytes: Annotated[int, msgspec.Meta(ge=0)]
+    #: Current accounted claims across every query and platform consumer.
+    pool_reserved_now: Annotated[int, msgspec.Meta(ge=0)]
+    #: Whole-process peak resident bytes; None on unsupported platforms.
+    process_peak_rss_bytes: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Largest current consumers, decreasing by bytes then increasing by owner name.
+    top_consumers: tuple[ResourceConsumer, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.caches), v.scalar_key(self.limit_bytes), v.scalar_key(self.pool_peak_bytes), v.scalar_key(self.pool_reserved_now), v.optional_key(v.scalar_key)(self.process_peak_rss_bytes), v.sequence_key(v.record_key)(self.top_consumers),))
+
 
 class RestartBarrierSeed(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="seed"):
     """The final barrier value the producing interior-point solve recorded with the seed. A
@@ -1269,12 +4961,240 @@ class RestartBarrierSeed(msgspec.Struct, frozen=True, forbid_unknown_fields=True
     receipt says so.
     """
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
 
 class RestartBarrierValue(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="value"):
     """A stated positive value."""
 
     #: The initial barrier parameter.
     value: Tolerance
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.value),))
+
+
+class RouteDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A selected native backend, or direct evaluation without free coordinates."""
+
+    #: Selected backend; absent for direct constant evaluation.
+    backend: enums.NativeBackend | None = None
+    #: Whether the selected model is evaluated directly.
+    constant: bool
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.backend), v.scalar_key(self.constant),))
+
+
+class RunControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """The failure policy for a finite sequence of admitted modeling operations."""
+
+    #: Continue independent operations after one operation fails.
+    continue_independent: bool = False
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.continue_independent),))
+
+
+class RuntimeCandidateAssessmentsRow(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: absolute_gap
+    absolute_gap: float | None = None
+    #: bound
+    bound: float | None = None
+    #: bound_origin
+    bound_origin: enums.CandidateBoundOrigin | None = None
+    #: candidate_kind
+    candidate_kind: enums.NativeCandidateKind | None = None
+    #: closure
+    closure: enums.ClosureAssessment
+    #: incumbent_policy
+    incumbent_policy: enums.IncumbentPolicy
+    #: native_termination
+    native_termination: enums.NativeTermination | None = None
+    #: numerically_feasible
+    numerically_feasible: bool | None = None
+    #: permits_result
+    permits_result: bool
+    #: permits_seed
+    permits_seed: bool
+    #: policy
+    policy: enums.ClosurePolicy
+    #: qualification
+    qualification: enums.NativeQualification | None = None
+    #: qualifiers
+    qualifiers: tuple[enums.CandidateQualifier, ...]
+    #: reason
+    reason: str
+    #: refusals
+    refusals: tuple[enums.CandidateRefusal, ...]
+    #: relative_gap
+    relative_gap: float | None = None
+    #: The run that produced the row: minted once when a run starts or a job is enqueued, and shared by the job's retried attempts. It names the execution, not the request's content.
+    run_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: step
+    step: int
+    #: usability
+    usability: enums.CandidateUse
+    #: validated
+    validated: bool | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.absolute_gap), v.optional_key(v.scalar_key)(self.bound), v.optional_key(v.scalar_key)(self.bound_origin), v.optional_key(v.scalar_key)(self.candidate_kind), v.scalar_key(self.closure), v.scalar_key(self.incumbent_policy), v.optional_key(v.scalar_key)(self.native_termination), v.optional_key(v.scalar_key)(self.numerically_feasible), v.scalar_key(self.permits_result), v.scalar_key(self.permits_seed), v.scalar_key(self.policy), v.optional_key(v.scalar_key)(self.qualification), v.sequence_key(v.scalar_key)(self.qualifiers), v.scalar_key(self.reason), v.sequence_key(v.scalar_key)(self.refusals), v.optional_key(v.scalar_key)(self.relative_gap), v.scalar_key(self.run_id), v.scalar_key(self.step), v.scalar_key(self.usability), v.optional_key(v.scalar_key)(self.validated),))
+
+
+class RuntimeComputationRunsRow(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: backend
+    backend: enums.NativeBackend | None = None
+    #: candidate_available
+    candidate_available: bool
+    #: candidate_kind
+    candidate_kind: enums.NativeCandidateKind | None = None
+    #: completed_samples
+    completed_samples: int | None = None
+    #: completed_time
+    completed_time: float | None = None
+    #: error
+    error: str | None = None
+    #: estimate_qualified
+    estimate_qualified: bool | None = None
+    #: feasible
+    feasible: bool | None = None
+    #: kind
+    kind: enums.ComputationKind
+    #: native_code
+    native_code: int | None = None
+    #: native_status
+    native_status: str | None = None
+    #: profile_identity
+    profile_identity: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: qualification
+    qualification: enums.NativeQualification
+    #: response_available
+    response_available: bool | None = None
+    #: response_condition
+    response_condition: float | None = None
+    #: response_rank
+    response_rank: int | None = None
+    #: The run that produced the row: minted once when a run starts or a job is enqueued, and shared by the job's retried attempts. It names the execution, not the request's content.
+    run_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: source_identity
+    source_identity: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: state
+    state: enums.NativeRunState
+    #: termination
+    termination: enums.NativeTermination | None = None
+    #: trajectory_termination
+    trajectory_termination: enums.TrajectoryTermination | None = None
+    #: validation_error
+    validation_error: str | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.backend), v.scalar_key(self.candidate_available), v.optional_key(v.scalar_key)(self.candidate_kind), v.optional_key(v.scalar_key)(self.completed_samples), v.optional_key(v.scalar_key)(self.completed_time), v.optional_key(v.scalar_key)(self.error), v.optional_key(v.scalar_key)(self.estimate_qualified), v.optional_key(v.scalar_key)(self.feasible), v.scalar_key(self.kind), v.optional_key(v.scalar_key)(self.native_code), v.optional_key(v.scalar_key)(self.native_status), v.scalar_key(self.profile_identity), v.scalar_key(self.qualification), v.optional_key(v.scalar_key)(self.response_available), v.optional_key(v.scalar_key)(self.response_condition), v.optional_key(v.scalar_key)(self.response_rank), v.scalar_key(self.run_id), v.scalar_key(self.source_identity), v.scalar_key(self.state), v.optional_key(v.scalar_key)(self.termination), v.optional_key(v.scalar_key)(self.trajectory_termination), v.optional_key(v.scalar_key)(self.validation_error),))
+
+
+class RuntimeRunLineageRow(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: The case declaration the step solved: its root when that root is a case or a test (a case with an oracle), otherwise absent. A fit names the one case all its experiments solve, if they share one.
+    case_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+    #: environment_identity
+    environment_identity: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: The fit the step solved; absent for a modeling solve or simulation.
+    fit_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+    #: The instance the step's root became: the root declaration's own identity for an ordinary solve or simulation, the experiment's instance for a fit experiment. Absent for a fit, which spans its experiments' instances.
+    instance_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+    #: The specialized definition the step solved: the root declaration its model specializes. A fit names the one definition all its experiments specialize, and none when they specialize different ones.
+    model_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+    #: numerical_identity
+    numerical_identity: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: physical_identity
+    physical_identity: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: preparation_identity
+    preparation_identity: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: profile_identity
+    profile_identity: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: request_identity
+    request_identity: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: revision
+    revision: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: The run that produced the row: minted once when a run starts or a job is enqueued, and shared by the job's retried attempts. It names the execution, not the request's content.
+    run_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: step
+    step: int
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.case_id), v.scalar_key(self.environment_identity), v.optional_key(v.scalar_key)(self.fit_id), v.optional_key(v.scalar_key)(self.instance_id), v.optional_key(v.scalar_key)(self.model_id), v.scalar_key(self.numerical_identity), v.scalar_key(self.physical_identity), v.scalar_key(self.preparation_identity), v.scalar_key(self.profile_identity), v.scalar_key(self.request_identity), v.scalar_key(self.revision), v.scalar_key(self.run_id), v.scalar_key(self.step),))
+
+
+class RuntimeSolveRunsFieldCommitmentItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: lower
+    lower: float
+    #: source_id
+    source_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: upper
+    upper: float
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.lower), v.scalar_key(self.source_id), v.scalar_key(self.upper),))
+
+
+class RuntimeSolveRunsRow(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: assurance
+    assurance: enums.NativeAssurance
+    #: backend
+    backend: enums.NativeBackend | None = None
+    #: candidate_kind
+    candidate_kind: enums.NativeCandidateKind | None = None
+    #: The case declaration the step solved: its root when that root is a case or a test, otherwise absent.
+    case_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+    #: commitment
+    commitment: tuple[RuntimeSolveRunsFieldCommitmentItem, ...] | None = None
+    #: error
+    error: str | None = None
+    #: feasible
+    feasible: bool | None = None
+    #: The instance the step's root became: the root declaration's own identity, or a fit experiment's instance.
+    instance_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+    #: The specialized definition the step solved: the root declaration its model specializes.
+    model_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+    #: native_code
+    native_code: int | None = None
+    #: native_status
+    native_status: str | None = None
+    #: objective
+    objective: float | None = None
+    #: objective_quantity_id
+    objective_quantity_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+    #: objective_sense
+    objective_sense: enums.NativeObjectiveSense | None = None
+    #: qualification
+    qualification: enums.NativeQualification
+    #: revision
+    revision: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")] | None = None
+    #: The run that produced the row: minted once when a run starts or a job is enqueued, and shared by the job's retried attempts. It names the execution, not the request's content.
+    run_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: state
+    state: enums.NativeRunState
+    #: step
+    step: int
+    #: termination
+    termination: enums.NativeTermination | None = None
+    #: transformation
+    transformation: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")] | None = None
+    #: validation_error
+    validation_error: str | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.assurance), v.optional_key(v.scalar_key)(self.backend), v.optional_key(v.scalar_key)(self.candidate_kind), v.optional_key(v.scalar_key)(self.case_id), v.optional_key(v.sequence_key(v.record_key))(self.commitment), v.optional_key(v.scalar_key)(self.error), v.optional_key(v.scalar_key)(self.feasible), v.optional_key(v.scalar_key)(self.instance_id), v.optional_key(v.scalar_key)(self.model_id), v.optional_key(v.scalar_key)(self.native_code), v.optional_key(v.scalar_key)(self.native_status), v.optional_key(v.scalar_key)(self.objective), v.optional_key(v.scalar_key)(self.objective_quantity_id), v.optional_key(v.scalar_key)(self.objective_sense), v.scalar_key(self.qualification), v.optional_key(v.scalar_key)(self.revision), v.scalar_key(self.run_id), v.scalar_key(self.state), v.scalar_key(self.step), v.optional_key(v.scalar_key)(self.termination), v.optional_key(v.scalar_key)(self.transformation), v.optional_key(v.scalar_key)(self.validation_error),))
 
 
 class ScheduledInput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -1306,6 +5226,9 @@ class ScheduledInput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
     #: the end is observed by the final sample only.
     times: tuple[float, ...]
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.parameter), v.sequence_key(v.scalar_key)(self.times),))
+
 
 class ScientificFacts(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """E supplies aggregate decisions; the study never counts result tables to infer these."""
@@ -1316,6 +5239,9 @@ class ScientificFacts(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
     seed_permission: bool
     #: Aggregate usable-result permission from the owning operation.
     usable: bool
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.candidate_use), v.scalar_key(self.seed_permission), v.scalar_key(self.usable),))
 
 
 class ScipSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="scip"):
@@ -1342,6 +5268,21 @@ class ScipSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_o
     #: Random seed shift (`randomization/randomseedshift`), recorded with the result.
     seed: Annotated[int, msgspec.Meta(ge=0, le=65535)] = 0
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.exact), v.scalar_key(self.iis), v.scalar_key(self.nlp_linear_solver), v.optional_key(v.scalar_key)(self.nodes), v.scalar_key(self.pool), v.scalar_key(self.reoptimize), v.scalar_key(self.seed),))
+
+
+class SeedOrigin(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Portable provenance of an output seed, distinct from its coordinate compatibility."""
+
+    #: Zero-based original attempt.
+    attempt: Annotated[int, msgspec.Meta(ge=0)]
+    #: Public run identity when one exists.
+    run: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.attempt), v.optional_key(v.scalar_key)(self.run),))
+
 
 class SensitivityRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Physical parameter sensitivities at a regular square Root or an optimization's local
@@ -1360,6 +5301,9 @@ class SensitivityRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True
     #: optimal value.
     reduced_hessian: bool = False
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.parameters), v.optional_key(v.record_key)(self.propagation), v.scalar_key(self.reduced_hessian),))
+
 
 class SimulationOperation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One authored integrated simulation and its existing profile document."""
@@ -1368,6 +5312,9 @@ class SimulationOperation(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
     case: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
     #: Explicit existing integration controls; absence requests authored controls.
     profile: Profile | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.case), v.optional_key(v.record_key)(self.profile),))
 
 
 class SolveControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -1398,6 +5345,9 @@ class SolveControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
     threads: Annotated[int, msgspec.Meta(ge=0)] = 1
     #: Positive wall-clock allowance, including callbacks, in seconds.
     time_limit: Tolerance = 300.0
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.foreign_bytes), v.scalar_key(self.hessian), v.scalar_key(self.history), v.scalar_key(self.iterations), v.mapping_key(v.scalar_key, v.scalar_key)(self.options), v.scalar_key(self.reuse), v.scalar_key(self.start), v.scalar_key(self.threads), v.scalar_key(self.time_limit),))
 
 
 class SolveSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -1433,6 +5383,12 @@ class SolveSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
     #: Typed settings of one backend; absent is the routed backend's native defaults.
     settings: BackendSettings | None = None
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.optional_key(v.scalar_key)(self.backend), v.record_key(self.controls), v.optional_key(v.scalar_key)(self.convexity_absolute), v.optional_key(v.scalar_key)(self.convexity_relative), v.scalar_key(self.intent), v.record_key(self.numerics), v.scalar_key(self.presolve), v.mapping_key(v.scalar_key, v.scalar_key)(self.presolve_options), v.sequence_key(v.scalar_key)(self.required_passes), v.optional_key(v.record_key)(self.sensitivity), v.optional_key(v.record_key)(self.settings),))
+
+    def __post_init__(self) -> None:
+        v.unique(v.scalar_key)(self, None, self.required_passes)
+
 
 class SourceLocation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Authored location attached by the owner that has the source map."""
@@ -1450,6 +5406,9 @@ class SourceLocation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
     #: UTF-8 starting byte offset, when supplied by the parser/compiler.
     start: Annotated[int, msgspec.Meta(ge=0)] | None = None
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.end), v.optional_key(v.scalar_key)(self.name), v.scalar_key(self.path), v.optional_key(v.scalar_key)(self.revision), v.scalar_key(self.source), v.optional_key(v.scalar_key)(self.start),))
+
 
 class SourceManifest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Version 1 of a source bundle's manifest: the path of every document, in order."""
@@ -1458,6 +5417,27 @@ class SourceManifest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
     version: Literal[1] = 1
     #: The document paths, relative to the package root.
     paths: tuple[str, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.sequence_key(v.scalar_key)(self.paths),))
+
+
+class SparseMatrix(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Compressed-sparse-column matrix of the conic boundary."""
+
+    #: Offsets of each column's entries: `columns + 1` of them, from zero.
+    column_starts: tuple[Annotated[int, msgspec.Meta(ge=0)], ...]
+    #: Column count.
+    columns: Annotated[int, msgspec.Meta(ge=0)]
+    #: Row of each entry, strictly increasing within a column.
+    row_indices: tuple[Annotated[int, msgspec.Meta(ge=0)], ...]
+    #: Row count.
+    rows: Annotated[int, msgspec.Meta(ge=0)]
+    #: Value of each entry.
+    values: tuple[float, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.column_starts), v.scalar_key(self.columns), v.sequence_key(v.scalar_key)(self.row_indices), v.scalar_key(self.rows), v.sequence_key(v.scalar_key)(self.values),))
 
 
 class StartPolicyContinuation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="continuation"):
@@ -1472,6 +5452,9 @@ class StartPolicyContinuation(msgspec.Struct, frozen=True, forbid_unknown_fields
     #: Explicit fallback choice.
     unavailable: enums.StudyUnavailableSeedPolicy = enums.StudyUnavailableSeedPolicy.REFUSE
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.permission), v.scalar_key(self.predecessor), v.scalar_key(self.role), v.scalar_key(self.unavailable),))
+
 
 class StartPolicyExplicit(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="explicit"):
     """Explicit supplied seed: incompatibility never falls back."""
@@ -1481,9 +5464,15 @@ class StartPolicyExplicit(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
     #: Immutable supplied artifact identity; facts cannot substitute another seed.
     seed: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.role), v.scalar_key(self.seed),))
+
 
 class StartPolicyFresh(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="fresh"):
     """Operation-owned fresh start."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
 
 
 class StartProvenanceContinuation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="continuation"):
@@ -1496,6 +5485,9 @@ class StartProvenanceContinuation(msgspec.Struct, frozen=True, forbid_unknown_fi
     #: Seed artifact.
     seed: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.predecessor), v.scalar_key(self.role), v.scalar_key(self.seed),))
+
 
 class StartProvenanceExplicit(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="explicit"):
     """An explicit supplied seed was compatible."""
@@ -1505,9 +5497,15 @@ class StartProvenanceExplicit(msgspec.Struct, frozen=True, forbid_unknown_fields
     #: Seed artifact.
     seed: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.role), v.scalar_key(self.seed),))
+
 
 class StartProvenanceFresh(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="fresh"):
     """Declared fresh start."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
 
 
 class StartProvenanceFreshFallback(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="fresh_fallback"):
@@ -1520,9 +5518,15 @@ class StartProvenanceFreshFallback(msgspec.Struct, frozen=True, forbid_unknown_f
     #: Selected role.
     role: enums.StudySeedRole
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.predecessor), v.scalar_key(self.reason), v.scalar_key(self.role),))
+
 
 class StartProvenanceNotNeeded(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="not_needed"):
     """Constant/seed-free operation; no seed was requested."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
 
 
 class StudyCancel(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -1537,12 +5541,18 @@ class StudyCancel(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_on
     #: Points whose running try was asked to stop; each ends through its worker.
     stopping: tuple[Annotated[int, msgspec.Meta(ge=0)], ...]
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.already_concluded), v.sequence_key(v.scalar_key)(self.cancelled), v.scalar_key(self.concluded), v.sequence_key(v.scalar_key)(self.stopping),))
+
 
 class StudyCompilerProfile(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """The `StudyCompilerProfile` document type."""
 
     evaluation: EvaluationLimits
     optimization: Optimization
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.evaluation), v.record_key(self.optimization),))
 
 
 class StudyDefinition(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -1559,6 +5569,9 @@ class StudyDefinition(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
     #: The points, in index order.
     points: tuple[StudyPointDefinition, ...]
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.sequence_key(v.scalar_key)(self.modeling), v.scalar_key(self.physical), v.sequence_key(v.record_key)(self.points),))
+
 
 class StudyOperation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Immutable request recorded by a study occurrence and replayed by either executor."""
@@ -1574,6 +5587,9 @@ class StudyOperation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
     #: Exact source/context reconstruction precondition.
     source: OperationSource
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.optional_key(v.record_key)(self.admitted_horizon), v.record_key(self.operation), v.record_key(self.preparation), v.record_key(self.source),))
+
 
 class StudyPoint(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One point of a study to start."""
@@ -1586,6 +5602,9 @@ class StudyPoint(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_onl
     policy: StudyPointPolicy
     #: Existing preparation controls, serialized without a second default authority.
     preparation: PreparationSettings
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.operation), v.record_key(self.overlay), v.record_key(self.policy), v.record_key(self.preparation),))
 
 
 class StudyPointBinding(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -1604,6 +5623,9 @@ class StudyPointBinding(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
     #: Study identity.
     study_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.binding), v.scalar_key(self.binding_hash), v.record_key(self.operation), v.scalar_key(self.point_index), v.record_key(self.policy), v.scalar_key(self.study_id),))
+
 
 class StudyPointDefinition(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One point of a study's definition."""
@@ -1616,6 +5638,9 @@ class StudyPointDefinition(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
     operation: StudyOperation
     #: Shared occurrence/dependency/start policy.
     policy: PointPolicy
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.binding), v.scalar_key(self.binding_hash), v.record_key(self.operation), v.record_key(self.policy),))
 
 
 class StudyPointPolicy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -1630,6 +5655,9 @@ class StudyPointPolicy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
     #: Explicit start/seed selection.
     start: StartPolicy
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.attempt_limit), v.sequence_key(v.record_key)(self.dependencies), v.scalar_key(self.key), v.record_key(self.start),))
+
 
 class StudyRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Raw request admitted once into the immutable executable definition."""
@@ -1638,6 +5666,19 @@ class StudyRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_o
     version: Literal[1] = 1
     #: Ordered occurrence requests.
     points: tuple[StudyPoint, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.sequence_key(v.record_key)(self.points),))
+
+
+class StudyRunControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Bounded in-process study execution."""
+
+    #: Maximum points the local execution may admit.
+    maximum_points: Annotated[int, msgspec.Meta(ge=0)] = 1024
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.maximum_points),))
 
 
 class StudyStatus(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -1662,6 +5703,85 @@ class StudyStatus(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_on
     #: The study.
     study_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.attempt_id), v.scalar_key(self.attempt_state), v.scalar_key(self.finalization), v.optional_key(v.scalar_key)(self.finalization_error), v.sequence_key(v.record_key)(self.points), v.scalar_key(self.publication_id), v.scalar_key(self.state), v.scalar_key(self.study_id),))
+
+
+class StudySubmitControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Durable study queue submission."""
+
+    #: Maximum job tries including the initial attempt.
+    max_tries: Annotated[int, msgspec.Meta(ge=0)] = 1
+    #: Queue priority passed to the operational store.
+    priority: int = 0
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.max_tries), v.scalar_key(self.priority),))
+
+
+class StudyWaitControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Observation timing while waiting for a study publication."""
+
+    #: Seconds between study state observations.
+    poll_seconds: float = 0.5
+    #: Optional seconds after which observation stops with a typed refusal.
+    timeout_seconds: float | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.poll_seconds), v.optional_key(v.scalar_key)(self.timeout_seconds),))
+
+
+class TableName(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A literal native table reference, without SQL normalization."""
+
+    #: Literal catalog component.
+    catalog: str
+    #: Literal schema component.
+    schema: str
+    #: Literal table component.
+    table: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.catalog), v.scalar_key(self.schema), v.scalar_key(self.table),))
+
+
+class TearSelectionDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Available independently verified tear evidence; absence remains separate from native attempts."""
+
+    #: Selected authored connections.
+    connections: tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], ...]
+    #: Native tear objective cost.
+    cost: float
+    #: Grouped tear decisions.
+    decisions: tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], ...]
+    #: Native method and evidence description.
+    method: str
+    #: Admitted evaluation order.
+    order: tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.connections), v.scalar_key(self.cost), v.sequence_key(v.scalar_key)(self.decisions), v.scalar_key(self.method), v.sequence_key(v.scalar_key)(self.order),))
+
+
+class TermPolicy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Bounded examination of original signed additive terms, before simplification."""
+
+    #: Normalized subset sum at or below which the subset is reported as cancelling.
+    cancellation: float
+    #: Maximum number of subsets examined.
+    combinations: Annotated[int, msgspec.Meta(ge=0)]
+    #: Maximum number of cancelling subsets reported.
+    findings: Annotated[int, msgspec.Meta(ge=0)]
+    #: Largest subset size examined for cancellation, from 2 to 32.
+    maximum_terms: Annotated[int, msgspec.Meta(ge=0)]
+    #: Ratio to the largest magnitude beyond which a smaller term is reported as mismatched.
+    mismatch: float
+    #: Magnitude at or below which a term is treated as zero and not examined.
+    zero: float
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.cancellation), v.scalar_key(self.combinations), v.scalar_key(self.findings), v.scalar_key(self.maximum_terms), v.scalar_key(self.mismatch), v.scalar_key(self.zero),))
+
 
 class TerminationCauseAssessment(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="assessment"):
     """The joined run was assessed."""
@@ -1673,6 +5793,9 @@ class TerminationCauseAssessment(msgspec.Struct, frozen=True, forbid_unknown_fie
     #: Every requested candidate is a result.
     usable: bool
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.candidate_use), v.sequence_key(v.record_key)(self.diagnostics), v.scalar_key(self.usable),))
+
 
 class TerminationCauseError(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="error"):
     """The run failed with an error, or cancellation stopped it."""
@@ -1680,12 +5803,18 @@ class TerminationCauseError(msgspec.Struct, frozen=True, forbid_unknown_fields=T
     #: The error's message.
     diagnostic: BoundaryDiagnostic
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.diagnostic),))
+
 
 class TerminationCauseInfrastructure(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="infrastructure"):
     """Infrastructure failed the try; it is retried under the job's policy."""
 
     #: Preserved original typed cause and observations.
     diagnostic: BoundaryDiagnostic
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.diagnostic),))
 
 
 class TerminationDetail(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -1704,6 +5833,9 @@ class TerminationDetail(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
     point: PointAttemptOutcome | None = None
     #: Purpose-specific retry classification; severity does not grant retries.
     retry_failure: enums.StudyRetryFailure | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.record_key(self.cause), v.scalar_key(self.effect), v.optional_key(v.record_key)(self.point), v.optional_key(v.scalar_key)(self.retry_failure),))
 
 
 class ValidityLineage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -1730,6 +5862,67 @@ class ValidityLineage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
     #: Positions of the constrained arguments among the form's declared arguments.
     variables: tuple[Annotated[int, msgspec.Meta(ge=0)], ...]
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.form), v.scalar_key(self.layer), v.sequence_key(v.scalar_key)(self.members), v.sequence_key(v.scalar_key)(self.sets), v.scalar_key(self.source), v.sequence_key(v.scalar_key)(self.variables),))
+
+
+class VersionRequirement(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: major
+    major: int
+    #: minor
+    minor: int
+    #: operator
+    operator: enums.ModelingVersionOperator
+    #: patch
+    patch: int
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.major), v.scalar_key(self.minor), v.scalar_key(self.operator), v.scalar_key(self.patch),))
+
+
+class WarmPayloadSnapshotHighs(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="highs"):
+    """LP/QP source coordinates and native simplex status codes."""
+
+    #: Optional simplex basis status codes.
+    basis: Basis | None = None
+    #: Optional column and constraint dual starts.
+    dual: tuple[tuple[Observation, ...], tuple[Observation, ...]] | None = None
+    #: Optional source-coordinate primal start.
+    primal: tuple[Observation, ...] | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.record_key)(self.basis), v.optional_key(v.tuple_key((v.sequence_key(v.record_key), v.sequence_key(v.record_key),)))(self.dual), v.optional_key(v.sequence_key(v.record_key))(self.primal),))
+
+
+class WarmPayloadSnapshotNlp(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="nlp"):
+    """NLP source coordinates and optional restart state."""
+
+    #: Barrier parameter when supplied by the native owner.
+    barrier: Observation | None = None
+    #: Lower and upper bound duals in source order.
+    bound_duals: tuple[tuple[Observation, ...], tuple[Observation, ...]] | None = None
+    #: Source-coordinate primal values.
+    primal: tuple[Observation, ...]
+    #: Constraint duals in source order.
+    row_duals: tuple[Observation, ...] | None = None
+    #: Active-set state and its coordinate transformation.
+    working_set: WorkingSetSnapshot | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.record_key)(self.barrier), v.optional_key(v.tuple_key((v.sequence_key(v.record_key), v.sequence_key(v.record_key),)))(self.bound_duals), v.sequence_key(v.record_key)(self.primal), v.optional_key(v.sequence_key(v.record_key))(self.row_duals), v.optional_key(v.record_key)(self.working_set),))
+
+
+class WarmPayloadSnapshotRoot(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="root"):
+    """Root-system source coordinates."""
+
+    #: Source-coordinate primal values, including explicit special floats.
+    primal: tuple[Observation, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.primal),))
+
 
 class WarmRestart(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """How an interior-point method re-centres a complete primal-dual seed (L-N3). With the
@@ -1753,11 +5946,39 @@ class WarmRestart(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_on
     #: Absolute push of the slack seed from its bounds (`warm_start_slack_bound_push`).
     slack_bound_push: Tolerance = 1e-9
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.barrier), v.scalar_key(self.bound_frac), v.scalar_key(self.bound_push), v.scalar_key(self.mult_bound_push), v.scalar_key(self.slack_bound_frac), v.scalar_key(self.slack_bound_push),))
+
+
+class WarmStartSnapshot(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Typed semantic seed snapshot. Nonfinite numbers have explicit observations; zero's
+    sign survives in real observations. Snapshot attribution is separate from content identity.
+    """
+
+    #: Registry backend spelling.
+    backend: enums.NativeBackend
+    #: Numeric input content compatibility.
+    data: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: Exact source coordinate compatibility.
+    layout: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: Producing occurrence, when there is one.
+    origin: SeedOrigin | None = None
+    #: Complete portable seed data.
+    payload: WarmPayloadSnapshot
+    #: Effective native profile compatibility.
+    profile: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.backend), v.scalar_key(self.data), v.scalar_key(self.layout), v.optional_key(v.record_key)(self.origin), v.record_key(self.payload), v.scalar_key(self.profile),))
+
 
 class WindowInputConstant(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="constant"):
     """The `WindowInputConstant` document type."""
 
     value: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.value),))
 
 
 class WindowInputPeriods(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="periods"):
@@ -1765,12 +5986,51 @@ class WindowInputPeriods(msgspec.Struct, frozen=True, forbid_unknown_fields=True
 
     value: tuple[str, ...]
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.value),))
+
+
+class WorkingSetSnapshot(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Typed active set with the transformation under which its indices are meaningful."""
+
+    #: Native activities when compiled with active-set support.
+    active: ActiveSetSnapshot | None = None
+    #: Presolve coordinate transformation.
+    transformation: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.record_key)(self.active), v.scalar_key(self.transformation),))
+
+
+class Workspace(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A registered publication workspace: one publication history with one head, whose
+    members are written under `root`.
+    """
+
+    #: Its unique name.
+    name: str
+    #: The directory its members are written under.
+    root_uri: str
+    #: The workspace identity.
+    workspace_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.scalar_key(self.root_uri), v.scalar_key(self.workspace_id),))
+
 
 BackendSettings = IpoptSettings | PounceSettings | KinsolSettings | HighsSettings | ClarabelSettings | ScipSettings | PounceConvexSettings
 
 BindingTarget = BindingTargetPath | BindingTargetMember
 
+CausalUnitRealization = CausalUnitRealizationExplicitMap | CausalUnitRealizationConditional
+
+Cone = ConeZero | ConeNonnegative | ConeSecondOrder | ConeExponential | ConePower | ConeGeneralizedPower | ConePsdTriangle
+
 Dependency = DependencyOrdering | DependencyUsableResult
+
+DiscreteInitialization = DiscreteInitializationRefuse | DiscreteInitializationFixAtStart | DiscreteInitializationFixAt
+
+FitProfileDocument = FitProfileDocumentNotRequested | FitProfileDocumentAvailable | FitProfileDocumentWithheld
 
 HorizonSignalDocument = HorizonSignalDocumentMeasured | HorizonSignalDocumentEstimated | HorizonSignalDocumentApplied | HorizonSignalDocumentTrajectory
 
@@ -1792,6 +6052,12 @@ Observation = ObservationMissing | ObservationReal | ObservationNonfinite | Obse
 
 OperationRequest = OperationRequestDeclaredCase | OperationRequestSimulation | OperationRequestFit | OperationRequestHorizon
 
+ProfileWorkerFailure = ProfileWorkerFailurePanic | ProfileWorkerFailureScheduling
+
+ProgressMetricDocument = ProgressMetricDocumentInteger | ProgressMetricDocumentReal | ProgressMetricDocumentText | ProgressMetricDocumentBoolean | ProgressMetricDocumentUnavailable
+
+PublicationSettlement = PublicationSettlementCommitted | PublicationSettlementProvedNoncommit | PublicationSettlementConflict | PublicationSettlementUnresolved
+
 RestartBarrier = RestartBarrierSeed | RestartBarrierValue
 
 StartPolicy = StartPolicyFresh | StartPolicyContinuation | StartPolicyExplicit
@@ -1800,44 +6066,207 @@ StartProvenance = StartProvenanceFresh | StartProvenanceNotNeeded | StartProvena
 
 TerminationCause = TerminationCauseError | TerminationCauseInfrastructure | TerminationCauseAssessment
 
+WarmPayloadSnapshot = WarmPayloadSnapshotRoot | WarmPayloadSnapshotNlp | WarmPayloadSnapshotHighs
+
 WindowInput = WindowInputConstant | WindowInputPeriods
 
 __all__ = [
+    "ActiveSetSnapshot",
     "AdjointSettings",
     "AdmittedBinding",
     "AdmittedBindingEntry",
     "AdmittedHorizonValues",
+    "AnalysisPort",
     "ApplicabilityClaim",
     "ApplicabilityInput",
     "ApplicabilityObservation",
     "ApplicabilityPermission",
     "ArrivalDocument",
+    "AuthoredFitCasesFieldExperimentsItem",
+    "AuthoredFitCasesFieldExperimentsItemBindingsItem",
+    "AuthoredFitCasesFieldObservationsItem",
+    "AuthoredFitCasesFieldParametersItem",
+    "AuthoredFitCasesRow",
+    "AuthoredModelingDeclarationsFieldValue",
+    "AuthoredModelingDeclarationsFieldValueAccumulator",
+    "AuthoredModelingDeclarationsFieldValueAccumulatorIndicesItem",
+    "AuthoredModelingDeclarationsFieldValueAnnotation",
+    "AuthoredModelingDeclarationsFieldValueAnnotationConnectivity",
+    "AuthoredModelingDeclarationsFieldValueAnnotationObjective",
+    "AuthoredModelingDeclarationsFieldValueApplicability",
+    "AuthoredModelingDeclarationsFieldValueApplicabilityArgumentsItem",
+    "AuthoredModelingDeclarationsFieldValueAttribute",
+    "AuthoredModelingDeclarationsFieldValueBinding",
+    "AuthoredModelingDeclarationsFieldValueBindingIndicesItem",
+    "AuthoredModelingDeclarationsFieldValueBoundary",
+    "AuthoredModelingDeclarationsFieldValueBoundaryIndicesItem",
+    "AuthoredModelingDeclarationsFieldValueCardinality",
+    "AuthoredModelingDeclarationsFieldValueCardinalityIndicesItem",
+    "AuthoredModelingDeclarationsFieldValueCollocationScheme",
+    "AuthoredModelingDeclarationsFieldValueComplementarity",
+    "AuthoredModelingDeclarationsFieldValueComplementarityIndicesItem",
+    "AuthoredModelingDeclarationsFieldValueConnection",
+    "AuthoredModelingDeclarationsFieldValueConnectionIndicesItem",
+    "AuthoredModelingDeclarationsFieldValueConstant",
+    "AuthoredModelingDeclarationsFieldValueContinuation",
+    "AuthoredModelingDeclarationsFieldValueContinuous",
+    "AuthoredModelingDeclarationsFieldValueContribution",
+    "AuthoredModelingDeclarationsFieldValueContributionIndicesItem",
+    "AuthoredModelingDeclarationsFieldValueCoordinateMap",
+    "AuthoredModelingDeclarationsFieldValueCoordinateMapArgumentsItem",
+    "AuthoredModelingDeclarationsFieldValueCoordinateSlot",
+    "AuthoredModelingDeclarationsFieldValueCoordinateSlotIndicesItem",
+    "AuthoredModelingDeclarationsFieldValueDataset",
+    "AuthoredModelingDeclarationsFieldValueDatasetBindingsItem",
+    "AuthoredModelingDeclarationsFieldValueDatasetRowsItem",
+    "AuthoredModelingDeclarationsFieldValueDifferenceScheme",
+    "AuthoredModelingDeclarationsFieldValueDiscretization",
+    "AuthoredModelingDeclarationsFieldValueEntity",
+    "AuthoredModelingDeclarationsFieldValueEntityAttributesItem",
+    "AuthoredModelingDeclarationsFieldValueEnumeration",
+    "AuthoredModelingDeclarationsFieldValueEnumerationMembersItem",
+    "AuthoredModelingDeclarationsFieldValueEnvelope",
+    "AuthoredModelingDeclarationsFieldValueEquation",
+    "AuthoredModelingDeclarationsFieldValueEquationCondition",
+    "AuthoredModelingDeclarationsFieldValueEquationIndicesItem",
+    "AuthoredModelingDeclarationsFieldValueExchange",
+    "AuthoredModelingDeclarationsFieldValueExchangeIndicesItem",
+    "AuthoredModelingDeclarationsFieldValueExpectation",
+    "AuthoredModelingDeclarationsFieldValueFunction",
+    "AuthoredModelingDeclarationsFieldValueFunctionArgumentsItem",
+    "AuthoredModelingDeclarationsFieldValueFunctionExternal",
+    "AuthoredModelingDeclarationsFieldValueGuard",
+    "AuthoredModelingDeclarationsFieldValueImport",
+    "AuthoredModelingDeclarationsFieldValueInventoryBalance",
+    "AuthoredModelingDeclarationsFieldValueInventoryBalanceIndicesItem",
+    "AuthoredModelingDeclarationsFieldValueInventoryBalanceTransfersItem",
+    "AuthoredModelingDeclarationsFieldValueLogic",
+    "AuthoredModelingDeclarationsFieldValueLogicIndicesItem",
+    "AuthoredModelingDeclarationsFieldValueOrderedSet",
+    "AuthoredModelingDeclarationsFieldValueOrderedSetIndicesItem",
+    "AuthoredModelingDeclarationsFieldValuePermission",
+    "AuthoredModelingDeclarationsFieldValuePiecewise",
+    "AuthoredModelingDeclarationsFieldValuePiecewiseIndicesItem",
+    "AuthoredModelingDeclarationsFieldValueRealization",
+    "AuthoredModelingDeclarationsFieldValueReconstruction",
+    "AuthoredModelingDeclarationsFieldValueReconstructionArgumentsItem",
+    "AuthoredModelingDeclarationsFieldValueReferenceTranslation",
+    "AuthoredModelingDeclarationsFieldValueReferenceTranslationArgumentsItem",
+    "AuthoredModelingDeclarationsFieldValueRelaxation",
+    "AuthoredModelingDeclarationsFieldValueRequirement",
+    "AuthoredModelingDeclarationsFieldValueResponse",
+    "AuthoredModelingDeclarationsFieldValueResponseArgumentsItem",
+    "AuthoredModelingDeclarationsFieldValueScope",
+    "AuthoredModelingDeclarationsFieldValueScopeFixture",
+    "AuthoredModelingDeclarationsFieldValueScopeFixtureDiagnosticsItem",
+    "AuthoredModelingDeclarationsFieldValueScopeFixtureEndpoint",
+    "AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailure",
+    "AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureApplicability",
+    "AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureValidity",
+    "AuthoredModelingDeclarationsFieldValueScopeFixtureInitialization",
+    "AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration",
+    "AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationQuadraturesItem",
+    "AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItem",
+    "AuthoredModelingDeclarationsFieldValueScopeFixtureModesItem",
+    "AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItem",
+    "AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItemResetItem",
+    "AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemFactsItem",
+    "AuthoredModelingDeclarationsFieldValueScopeFixturePolicy",
+    "AuthoredModelingDeclarationsFieldValueScopeFixturePolicyNativeOptionsItem",
+    "AuthoredModelingDeclarationsFieldValueScopeFixtureShooting",
+    "AuthoredModelingDeclarationsFieldValueScopeFixtureSpecificationsItem",
+    "AuthoredModelingDeclarationsFieldValueScopeOperational",
+    "AuthoredModelingDeclarationsFieldValueScopeOperationalAnchorsItem",
+    "AuthoredModelingDeclarationsFieldValueScopeParametersItem",
+    "AuthoredModelingDeclarationsFieldValueScopeSelection",
+    "AuthoredModelingDeclarationsFieldValueStatePort",
+    "AuthoredModelingDeclarationsFieldValueStatePortIndicesItem",
+    "AuthoredModelingDeclarationsFieldValueStateSpecification",
+    "AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItem",
+    "AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItemIndicesItem",
+    "AuthoredModelingDeclarationsFieldValueStateSpecificationIndicesItem",
+    "AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItem",
+    "AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItemIndicesItem",
+    "AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItem",
+    "AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItemIndicesItem",
+    "AuthoredModelingDeclarationsFieldValueTable",
+    "AuthoredModelingDeclarationsFieldValueTableColumnsItem",
+    "AuthoredModelingDeclarationsFieldValueTableKeysItem",
+    "AuthoredModelingDeclarationsFieldValueTableSymmetry",
+    "AuthoredModelingDeclarationsFieldValueTableUniqueItem",
+    "AuthoredModelingDeclarationsFieldValueTemporal",
+    "AuthoredModelingDeclarationsRow",
     "AuthoredNumericalRequirementsRow",
     "BackendSettings",
+    "Basis",
     "BindingAssignment",
     "BindingQuantity",
     "BindingTarget",
     "BindingTargetMember",
     "BindingTargetPath",
     "BoundaryDiagnostic",
+    "BuildInfo",
+    "CacheReport",
     "CaseOperation",
+    "CausalUnitRealization",
+    "CausalUnitRealizationConditional",
+    "CausalUnitRealizationExplicitMap",
+    "CausalUnitRequest",
     "ClarabelSettings",
     "ClosedDuration",
+    "Completion",
     "Conclusion",
+    "Cone",
+    "ConeExponential",
+    "ConeGeneralizedPower",
+    "ConeNonnegative",
+    "ConePower",
+    "ConePsdTriangle",
+    "ConeSecondOrder",
+    "ConeZero",
+    "ConformanceControls",
+    "ConicRequest",
     "ControllerOperation",
+    "DeclarationEdit",
+    "DeclarationInventory",
     "Dependency",
     "DependencyOrdering",
     "DependencyUsableResult",
+    "DiagnosticAnnotationDocument",
+    "DiagnosticCauseDocument",
+    "DiagnosticContextDocument",
+    "DiagnosticNoteDocument",
+    "DiagnosticSamplesControls",
+    "DiagnosticSpanDocument",
     "DiffsolSettings",
+    "DiscreteInitialization",
+    "DiscreteInitializationFixAt",
+    "DiscreteInitializationFixAtStart",
+    "DiscreteInitializationRefuse",
+    "EligibilityDocument",
     "EndpointRequirement",
     "EstimatorInput",
     "EstimatorOperation",
     "EvaluationLimits",
+    "ExportReceipt",
     "FeralSettings",
     "FiniteBound",
+    "FitDeclarations",
     "FitOperation",
     "FitOperationSettings",
+    "FitPreparationDocument",
+    "FitProfileDocument",
+    "FitProfileDocumentAvailable",
+    "FitProfileDocumentNotRequested",
+    "FitProfileDocumentWithheld",
     "FitUncertainty",
+    "FlowConnectionDocument",
+    "FlowDecisionDocument",
+    "FlowEdgeDocument",
+    "FlowGraphDocument",
+    "FlowNodeDocument",
+    "FlowPortDocument",
+    "FlowSelectionDocument",
     "Fraction",
     "HighsDiagnostics",
     "HighsPenalties",
@@ -1855,11 +6284,25 @@ __all__ = [
     "IdasLinearSpfgmr",
     "IdasLinearSpgmr",
     "IdasSettings",
+    "IncumbentDocument",
+    "IneligibleDocument",
+    "InitializationDocument",
+    "InitializationOverrides",
+    "InitializationStageDocument",
+    "InspectionConnection",
+    "InspectionExecution",
+    "InspectionInstance",
+    "InspectionLineage",
+    "InspectionMember",
+    "InspectionPort",
+    "IntervalBound",
+    "InventoryControls",
     "IpoptLinear",
     "IpoptLinearMumps",
     "IpoptLinearPardisomkl",
     "IpoptLinearSpral",
     "IpoptSettings",
+    "JacobianDiagnosticControls",
     "JobPayload",
     "JobStart",
     "JobStartFresh",
@@ -1882,8 +6325,37 @@ __all__ = [
     "KinsolLinearSptfqmr",
     "KinsolSettings",
     "KktTolerances",
+    "KnowledgeControls",
     "LegacyUnavailable",
     "Limits",
+    "LinearDiagnosticControls",
+    "MatrixPolicy",
+    "ModelingCell",
+    "ModelingCellUncertainty",
+    "ModelingCellValue",
+    "ModelingCellValueBoolean",
+    "ModelingCellValueIdentifier",
+    "ModelingCellValueInteger",
+    "ModelingCellValueQuantity",
+    "ModelingCellValueReference",
+    "ModelingCellValueReferences",
+    "ModelingCellValueReferencesPathsItem",
+    "ModelingCellValueRow",
+    "ModelingCellValueText",
+    "ModelingColumnStorage",
+    "ModelingCompleteness",
+    "ModelingDiagnosticPolicy",
+    "ModelingEnvelope",
+    "ModelingEnvelopeGuard",
+    "ModelingInspection",
+    "ModelingIntegerRange",
+    "ModelingKeyCell",
+    "ModelingLineageEntry",
+    "ModelingNonlinearPolicy",
+    "ModelingProvenance",
+    "ModelingTypeArenaNode",
+    "ModelingTypeArenaNodeExponent",
+    "ModelingUnitFactor",
     "NumericObservation",
     "NumericObservationNonfinite",
     "NumericObservationReal",
@@ -1920,20 +6392,52 @@ __all__ = [
     "PreparationCounts",
     "PreparationSettings",
     "Profile",
+    "ProfileChain",
     "ProfileControls",
+    "ProfilePoint",
+    "ProfileWorkerFailure",
+    "ProfileWorkerFailurePanic",
+    "ProfileWorkerFailureScheduling",
+    "ProgressControls",
+    "ProgressEventDocument",
+    "ProgressMetricDocument",
+    "ProgressMetricDocumentBoolean",
+    "ProgressMetricDocumentInteger",
+    "ProgressMetricDocumentReal",
+    "ProgressMetricDocumentText",
+    "ProgressMetricDocumentUnavailable",
     "Propagation",
+    "PublicationSettlement",
+    "PublicationSettlementCommitted",
+    "PublicationSettlementConflict",
+    "PublicationSettlementProvedNoncommit",
+    "PublicationSettlementUnresolved",
+    "Published",
+    "PureConformanceControls",
+    "RecycleRequest",
+    "ResourceConsumer",
+    "ResourceReport",
     "RestartBarrier",
     "RestartBarrierSeed",
     "RestartBarrierValue",
+    "RouteDocument",
+    "RunControls",
+    "RuntimeCandidateAssessmentsRow",
+    "RuntimeComputationRunsRow",
+    "RuntimeRunLineageRow",
+    "RuntimeSolveRunsFieldCommitmentItem",
+    "RuntimeSolveRunsRow",
     "ScheduledInput",
     "ScientificFacts",
     "ScipSettings",
+    "SeedOrigin",
     "SensitivityRequest",
     "SimulationOperation",
     "SolveControls",
     "SolveSettings",
     "SourceLocation",
     "SourceManifest",
+    "SparseMatrix",
     "StartPolicy",
     "StartPolicyContinuation",
     "StartPolicyExplicit",
@@ -1953,7 +6457,13 @@ __all__ = [
     "StudyPointDefinition",
     "StudyPointPolicy",
     "StudyRequest",
+    "StudyRunControls",
     "StudyStatus",
+    "StudySubmitControls",
+    "StudyWaitControls",
+    "TableName",
+    "TearSelectionDocument",
+    "TermPolicy",
     "TerminationCause",
     "TerminationCauseAssessment",
     "TerminationCauseError",
@@ -1961,8 +6471,16 @@ __all__ = [
     "TerminationDetail",
     "Tolerance",
     "ValidityLineage",
+    "VersionRequirement",
+    "WarmPayloadSnapshot",
+    "WarmPayloadSnapshotHighs",
+    "WarmPayloadSnapshotNlp",
+    "WarmPayloadSnapshotRoot",
     "WarmRestart",
+    "WarmStartSnapshot",
     "WindowInput",
     "WindowInputConstant",
     "WindowInputPeriods",
+    "WorkingSetSnapshot",
+    "Workspace",
 ]

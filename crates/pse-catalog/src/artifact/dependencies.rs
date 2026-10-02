@@ -107,15 +107,6 @@ fn policy_facts(policy: pse_schema::model::provider::ProviderPolicy, rows: &mut 
         Some(scope_name(&policy.scope)),
         Some(policy.id),
     ));
-    for id in policy.requirements {
-        rows.push(fact(
-            Kind::Policy,
-            &scope,
-            &format!("requirement:{id}"),
-            None,
-            Some(id),
-        ));
-    }
     for effect in policy.effects {
         rows.push(fact(
             Kind::Policy,
@@ -321,7 +312,11 @@ pub(super) fn bind(
     rows: &[deps::Row],
     cancel: &CancellationToken,
 ) -> Result<(EngineSession, RelationPlan), EngineError> {
-    let mut builder = deps::Builder::with_registry(session.registry(), rows.len())?;
+    let mut builder = deps::Builder::with_registry(
+        session.registry(),
+        rows.len(),
+        session.validation_context()?.as_ref(),
+    )?;
     for row in rows {
         builder.push(row.clone())?;
     }
@@ -381,7 +376,12 @@ mod tests {
     use std::sync::Arc;
 
     fn input(rows: &[deps::Row]) -> LogicalPlan {
-        let mut builder = deps::Builder::new().unwrap();
+        let registry = pse_schema::registry().unwrap();
+        let validation = Arc::new(pse_relations::validate::ValidationContext::new(
+            registry,
+            pse_engine::validation::NativeValidation(SessionContext::new().state()),
+        ));
+        let mut builder = deps::Builder::new(&validation).unwrap();
         for row in rows {
             builder.push(row.clone()).unwrap();
         }

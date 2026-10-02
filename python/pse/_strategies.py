@@ -3,25 +3,23 @@
 """Owned explicit graph and numerical strategies over native preparation."""
 
 import attrs
-import msgspec
 
 from pse import codec
 from pse._build import (
     DiagnosticReport,
-    NativeRoute,
     NativeStrategyAttempt,
     _NativePreparedFlow,
     _NativePreparedStrategy,
     _NativeStrategyResult,
 )
-from pse.contracts.documents import SolveSettings
+from pse.contracts.documents import (
+    FlowGraphDocument,
+    InitializationDocument,
+    RouteDocument,
+    SolveSettings,
+    TearSelectionDocument,
+)
 from pse.contracts.enums import TearMethod
-
-
-class _AnalysisDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
-    """Transport envelope; Rust admits the typed analysis inside it."""
-
-    payload: dict[str, object]
 
 
 @attrs.frozen
@@ -30,11 +28,9 @@ class PreparedFlow:
 
     _handle: _NativePreparedFlow
 
-    def graph(self) -> dict[str, object]:
+    def graph(self) -> FlowGraphDocument:
         """Return source-attributed nodes, scalar ports, connections and decisions."""
-        return codec.decode_json(
-            self._handle.graph_json().encode(), _AnalysisDocument
-        ).payload
+        return codec.decode_json(self._handle.graph(), FlowGraphDocument)
 
     def select_tears(
         self, method: TearMethod, settings: SolveSettings
@@ -52,7 +48,7 @@ class PreparedStrategy:
     _handle: _NativePreparedStrategy
 
     @property
-    def routes(self) -> tuple[NativeRoute, ...]:
+    def routes(self) -> tuple[RouteDocument, ...]:
         """Typed routes selected before execution, without implicit failure fallback."""
         return tuple(self._handle.routes)
 
@@ -67,14 +63,10 @@ class StrategyResult:
 
     _handle: _NativeStrategyResult
 
-    def tears(self) -> dict[str, object] | None:
+    def tears(self) -> TearSelectionDocument | None:
         """Selected decisions, authored cost and independently checked acyclic order."""
-        data = self._handle.tears_json()
-        return (
-            None
-            if data is None
-            else codec.decode_json(data.encode(), _AnalysisDocument).payload
-        )
+        data = self._handle.tears()
+        return None if data is None else codec.decode_json(data, TearSelectionDocument)
 
     def attempts(self) -> tuple[NativeStrategyAttempt, ...]:
         """Every attempt in order: its native report or the typed failure before one."""
@@ -89,11 +81,7 @@ class StrategyResult:
                 failures.append((index, failure))
         return tuple(failures)
 
-    def initialization(self) -> dict[str, object] | None:
+    def initialization(self) -> InitializationDocument | None:
         """Original values, committed unknowns and temporary stage evidence."""
-        data = self._handle.initialization_json()
-        return (
-            None
-            if data is None
-            else codec.decode_json(data.encode(), _AnalysisDocument).payload
-        )
+        data = self._handle.initialization()
+        return None if data is None else codec.decode_json(data, InitializationDocument)

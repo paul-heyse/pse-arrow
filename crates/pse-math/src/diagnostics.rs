@@ -6,7 +6,7 @@ use faer::{Mat, sparse::SparseColMatRef};
 use std::sync::atomic::{AtomicBool, Ordering};
 
 /// Explicit diagnostic work and numerical classification limits.
-#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct MatrixPolicy {
     /// Includes dense input and both complete singular-vector factors/Gram products.
@@ -302,7 +302,7 @@ mod tests {
 }
 
 /// Bounded examination of original signed additive terms, before simplification.
-#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TermPolicy {
     /// Magnitude at or below which a term is treated as zero and not examined.

@@ -10,7 +10,7 @@
 //! Pardiso KKT solver from that same library.
 use crate::ProblemError;
 use std::ffi::c_int;
-#[cfg(any(test, feature = "sdp"))]
+#[cfg(any(test, feature = "clarabel-pardiso"))]
 use std::{
     collections::BTreeSet,
     ffi::{CStr, c_char, c_void},
@@ -20,11 +20,11 @@ unsafe extern "C" {
     fn MKL_Set_Num_Threads_Local(threads: c_int) -> c_int;
     fn omp_get_max_threads() -> c_int;
     fn omp_set_num_threads(threads: c_int);
-    #[cfg(any(test, feature = "sdp"))]
+    #[cfg(any(test, feature = "clarabel-pardiso"))]
     fn dladdr(address: *const c_void, info: *mut DlInfo) -> c_int;
 }
 
-#[cfg(any(test, feature = "sdp"))]
+#[cfg(any(test, feature = "clarabel-pardiso"))]
 #[repr(C)]
 struct DlInfo {
     fname: *const c_char,
@@ -33,7 +33,7 @@ struct DlInfo {
     saddr: *mut c_void,
 }
 /// The file that defines the code at `address`, by the dynamic linker.
-#[cfg(any(test, feature = "sdp"))]
+#[cfg(any(test, feature = "clarabel-pardiso"))]
 pub(crate) fn object_of(address: *const c_void) -> Option<String> {
     let mut info = DlInfo {
         fname: std::ptr::null(),
@@ -52,7 +52,7 @@ pub(crate) fn object_of(address: *const c_void) -> Option<String> {
     })
 }
 /// Shared objects mapped into this process, by file name.
-#[cfg(any(test, feature = "sdp"))]
+#[cfg(any(test, feature = "clarabel-pardiso"))]
 pub(crate) fn mapped_libraries() -> BTreeSet<String> {
     std::fs::read_to_string("/proc/self/maps")
         .unwrap_or_default()

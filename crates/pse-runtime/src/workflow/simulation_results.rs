@@ -17,7 +17,9 @@ impl RunResult {
             _ => BTreeMap::new(),
         };
         let registry = &self.runtime.registry;
-        let mut header = computation_runs::Builder::with_registry(registry, 1).map_err(relation)?;
+        let validation = self.runtime.validation_context()?;
+        let mut header =
+            computation_runs::Builder::with_registry(registry, 1, &validation).map_err(relation)?;
         header
             .push(
                 self.completion()
@@ -42,6 +44,7 @@ impl RunResult {
         let RunRequest::Shooting { problem, .. } = &self.request else {
             return Err(contract("shooting request mismatch"));
         };
+        let validation = self.runtime.validation_context()?;
         let report = match &self.report {
             Ok(RunReport::Shooting(report)) => Some(report.as_ref()),
             _ => None,
@@ -96,6 +99,7 @@ impl RunResult {
         let mut variables = solve_variables::Builder::with_registry(
             &self.runtime.registry,
             problem.contract().variables.len(),
+            &validation,
         )
         .map_err(relation)?;
         for (i, variable) in problem.contract().variables.iter().enumerate() {
@@ -131,6 +135,7 @@ impl RunResult {
         let mut constraints = solve_constraints::Builder::with_registry(
             &self.runtime.registry,
             problem.contract().rows.len(),
+            &validation,
         )
         .map_err(relation)?;
         for (i, id) in problem.contract().rows.iter().enumerate() {
@@ -162,7 +167,8 @@ impl RunResult {
             constraints.finish().map_err(relation)?,
         );
         let mut metrics =
-            solve_metrics::Builder::with_registry(&self.runtime.registry, 0).map_err(relation)?;
+            solve_metrics::Builder::with_registry(&self.runtime.registry, 0, &validation)
+                .map_err(relation)?;
         if let Some(native) = native {
             let stored = self.stored_events(0)?;
             let events = stored
@@ -193,8 +199,9 @@ impl RunResult {
             solve_metrics::RELATION_ID,
             metrics.finish().map_err(relation)?,
         );
-        let mut header = computation_runs::Builder::with_registry(&self.runtime.registry, 1)
-            .map_err(relation)?;
+        let mut header =
+            computation_runs::Builder::with_registry(&self.runtime.registry, 1, &validation)
+                .map_err(relation)?;
         header
             .push(
                 self.completion()
@@ -219,9 +226,13 @@ impl RunResult {
         self.numerical_tables(batches)?;
         use pse_relations::generated::runtime::run_lineage;
         let completion = self.completion().map_err(|e| contract(e.to_string()))?;
-        let mut lineage =
-            run_lineage::Builder::with_registry(&self.runtime.registry, completion.lineage.len())
-                .map_err(relation)?;
+        let validation = self.runtime.validation_context()?;
+        let mut lineage = run_lineage::Builder::with_registry(
+            &self.runtime.registry,
+            completion.lineage.len(),
+            &validation,
+        )
+        .map_err(relation)?;
         for row in &completion.lineage {
             lineage.push(row.clone()).map_err(relation)?;
         }

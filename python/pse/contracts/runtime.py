@@ -23,6 +23,9 @@ class RuntimeArtifactDescriptorsFieldImplementation:
     registry: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     algorithms: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.source), v.scalar_key(self.build), v.scalar_key(self.registry), v.scalar_key(self.algorithms),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeArtifactDescriptorsFieldValueAssumptionsItem:
@@ -30,6 +33,9 @@ class RuntimeArtifactDescriptorsFieldValueAssumptionsItem:
 
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     canonical_value: b.tuple[b.int, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.integer_range(0, 255), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.sequence_key(v.scalar_key)(self.canonical_value),))
 
 
 @attrs.frozen(kw_only=True)
@@ -50,6 +56,9 @@ class RuntimeArtifactDescriptorsRow:
     value_assumptions: b.tuple[RuntimeArtifactDescriptorsFieldValueAssumptionsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeArtifactDescriptorsFieldValueAssumptionsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     reconstruction: e.ArtifactReconstruction = attrs.field(validator=attrs.validators.instance_of(e.ArtifactReconstruction))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.artifact_id), v.scalar_key(self.descriptor_version), v.scalar_key(self.profile), v.scalar_key(self.profile_contract), v.sequence_key(v.scalar_key)(self.requested_relations), v.optional_key(v.sequence_key(v.scalar_key))(self.profile_required_relations), v.scalar_key(self.release_id), v.sequence_key(v.record_key)(self.release_members), v.scalar_key(self.semantic_identity), v.record_key(self.implementation), v.scalar_key(self.target_contract), v.sequence_key(v.record_key)(self.value_assumptions), v.scalar_key(self.reconstruction),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeArtifactMigrationLineageRow:
@@ -65,6 +74,9 @@ class RuntimeArtifactMigrationLineageRow:
     output_schema: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     output_table: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.source_publication_id), v.record_key(self.source_member), v.scalar_key(self.target_relation_id), v.scalar_key(self.target_relation_version), v.scalar_key(self.declaration), v.scalar_key(self.transformation_digest), v.scalar_key(self.output_catalog), v.scalar_key(self.output_schema), v.scalar_key(self.output_table),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeCacheEntryStatisticsRow:
@@ -74,6 +86,9 @@ class RuntimeCacheEntryStatisticsRow:
     key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     bytes: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
     hits: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.cache), v.scalar_key(self.key), v.scalar_key(self.bytes), v.scalar_key(self.hits),))
 
 
 @attrs.frozen(kw_only=True)
@@ -93,6 +108,9 @@ class RuntimeCacheStatisticsRow:
     misses: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
     bypasses: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
     evictions: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.scalar_key(self.policy_limit_bytes), v.scalar_key(self.capacity_bytes), v.scalar_key(self.retained_bytes), v.optional_key(v.scalar_key)(self.live_bytes), v.optional_key(v.scalar_key)(self.pinned_bytes), v.optional_key(v.scalar_key)(self.inflight_bytes), v.optional_key(v.scalar_key)(self.active_loads), v.scalar_key(self.entries), v.scalar_key(self.hits), v.scalar_key(self.misses), v.scalar_key(self.bypasses), v.optional_key(v.scalar_key)(self.evictions),))
 
 
 @attrs.frozen(kw_only=True)
@@ -120,6 +138,9 @@ class RuntimeCandidateAssessmentsRow:
     permits_result: b.bool = attrs.field(validator=v.exact_type(b.bool))
     permits_seed: b.bool = attrs.field(validator=v.exact_type(b.bool))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.step), v.optional_key(v.scalar_key)(self.native_termination), v.optional_key(v.scalar_key)(self.numerically_feasible), v.scalar_key(self.closure), v.scalar_key(self.policy), v.scalar_key(self.usability), v.scalar_key(self.reason), v.scalar_key(self.incumbent_policy), v.optional_key(v.scalar_key)(self.candidate_kind), v.optional_key(v.scalar_key)(self.qualification), v.optional_key(v.scalar_key)(self.validated), v.optional_key(v.scalar_key)(self.bound_origin), v.optional_key(v.scalar_key)(self.bound), v.optional_key(v.scalar_key)(self.absolute_gap), v.optional_key(v.scalar_key)(self.relative_gap), v.sequence_key(v.scalar_key)(self.qualifiers), v.sequence_key(v.scalar_key)(self.refusals), v.scalar_key(self.permits_result), v.scalar_key(self.permits_seed),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeChangeEventsRow:
@@ -132,6 +153,9 @@ class RuntimeChangeEventsRow:
     kind: e.ChangeKind = attrs.field(validator=attrs.validators.instance_of(e.ChangeKind))
     row_key: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     committed_at: datetime | None = attrs.field(validator=attrs.validators.optional(v.utc_timestamp))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.table_uri), v.scalar_key(self.relation_id), v.scalar_key(self.contract_fingerprint), v.scalar_key(self.commit_version), v.scalar_key(self.kind), v.scalar_key(self.row_key), v.optional_key(v.scalar_key)(self.committed_at),))
 
 
 @attrs.frozen(kw_only=True)
@@ -161,6 +185,9 @@ class RuntimeComputationRunsRow:
     validation_error: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     error: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.kind), v.scalar_key(self.source_identity), v.scalar_key(self.profile_identity), v.scalar_key(self.state), v.optional_key(v.scalar_key)(self.termination), v.optional_key(v.scalar_key)(self.trajectory_termination), v.optional_key(v.scalar_key)(self.backend), v.optional_key(v.scalar_key)(self.native_code), v.optional_key(v.scalar_key)(self.native_status), v.scalar_key(self.qualification), v.optional_key(v.scalar_key)(self.candidate_kind), v.scalar_key(self.candidate_available), v.optional_key(v.scalar_key)(self.feasible), v.optional_key(v.scalar_key)(self.completed_time), v.optional_key(v.scalar_key)(self.completed_samples), v.optional_key(v.scalar_key)(self.estimate_qualified), v.optional_key(v.scalar_key)(self.response_available), v.optional_key(v.scalar_key)(self.response_rank), v.optional_key(v.scalar_key)(self.response_condition), v.optional_key(v.scalar_key)(self.validation_error), v.optional_key(v.scalar_key)(self.error),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeDiagnosticsFindingsFieldEvidenceRow:
@@ -168,6 +195,9 @@ class RuntimeDiagnosticsFindingsFieldEvidenceRow:
 
     relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     row_key: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.relation_id), v.scalar_key(self.row_key),))
 
 
 @attrs.frozen(kw_only=True)
@@ -178,6 +208,9 @@ class RuntimeDiagnosticsFindingsFieldEvidenceExecution:
     diagnostic_code: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     attempt_error: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.failure_class), v.optional_key(v.scalar_key)(self.diagnostic_code), v.scalar_key(self.attempt_error),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeDiagnosticsFindingsFieldEvidence:
@@ -186,6 +219,9 @@ class RuntimeDiagnosticsFindingsFieldEvidence:
     kind: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     row: RuntimeDiagnosticsFindingsFieldEvidenceRow | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(RuntimeDiagnosticsFindingsFieldEvidenceRow)))
     execution: RuntimeDiagnosticsFindingsFieldEvidenceExecution | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(RuntimeDiagnosticsFindingsFieldEvidenceExecution)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.kind), v.optional_key(v.record_key)(self.row), v.optional_key(v.record_key)(self.execution),))
 
     def __attrs_post_init__(self) -> None:
         if not ((self.kind == "execution" and self.execution is not None and self.row is None) or (self.kind == "row" and self.execution is None and self.row is not None)):
@@ -206,6 +242,9 @@ class RuntimeDiagnosticsFindingsRow:
     message: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     next_steps: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.finding_id), v.optional_key(v.scalar_key)(self.run_id), v.scalar_key(self.check_id), v.scalar_key(self.severity), v.sequence_key(v.scalar_key)(self.subjects), v.record_key(self.evidence), v.scalar_key(self.message), v.sequence_key(v.scalar_key)(self.next_steps),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeExecutionStatisticsRow:
@@ -213,6 +252,9 @@ class RuntimeExecutionStatisticsRow:
 
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     count: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.optional_key(v.scalar_key)(self.count),))
 
 
 @attrs.frozen(kw_only=True)
@@ -229,6 +271,9 @@ class RuntimeFitConstraintsRow:
     upper: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     tolerance: b.float = attrs.field(validator=v.finite_float)
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.experiment_id), v.scalar_key(self.row_id), v.scalar_key(self.quantity_id), v.scalar_key(self.unit_id), v.optional_key(v.scalar_key)(self.value), v.optional_key(v.scalar_key)(self.lower), v.optional_key(v.scalar_key)(self.upper), v.scalar_key(self.tolerance),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeFitObservationsRow:
@@ -244,6 +289,9 @@ class RuntimeFitObservationsRow:
     objective_contribution: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.observation_id), v.scalar_key(self.experiment_id), v.scalar_key(self.included), v.optional_key(v.scalar_key)(self.prediction), v.optional_key(v.scalar_key)(self.residual), v.optional_key(v.scalar_key)(self.standardized_residual), v.optional_key(v.scalar_key)(self.objective_contribution), v.scalar_key(self.unit_id),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeFitParametersRow:
@@ -256,6 +304,9 @@ class RuntimeFitParametersRow:
     unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     scale: b.float = attrs.field(validator=v.finite_float)
     at_bound: b.bool | None = attrs.field(validator=attrs.validators.optional(v.exact_type(b.bool)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.parameter_id), v.scalar_key(self.fixed), v.optional_key(v.scalar_key)(self.value), v.scalar_key(self.unit_id), v.scalar_key(self.scale), v.optional_key(v.scalar_key)(self.at_bound),))
 
 
 @attrs.frozen(kw_only=True)
@@ -272,6 +323,9 @@ class RuntimeFitVariablesRow:
     lower: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     upper: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.experiment_id), v.scalar_key(self.symbol_id), v.scalar_key(self.quantity_id), v.scalar_key(self.unit_id), v.scalar_key(self.fixed), v.optional_key(v.scalar_key)(self.value), v.optional_key(v.scalar_key)(self.lower), v.optional_key(v.scalar_key)(self.upper),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeFittedParameterCellsRow:
@@ -285,6 +339,9 @@ class RuntimeFittedParameterCellsRow:
     quantity_type_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     value: b.float = attrs.field(validator=v.finite_float)
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.fit_id), v.scalar_key(self.source_revision), v.scalar_key(self.fit_source), v.scalar_key(self.parameter_id), v.scalar_key(self.quantity_type_id), v.scalar_key(self.unit_id), v.scalar_key(self.value),))
 
 
 @attrs.frozen(kw_only=True)
@@ -303,6 +360,9 @@ class RuntimeIncumbentsRow:
     seconds: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     solution_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.seq), v.scalar_key(self.step), v.scalar_key(self.elapsed_seconds), v.scalar_key(self.phase), v.scalar_key(self.objective), v.optional_key(v.scalar_key)(self.dual_bound), v.optional_key(v.scalar_key)(self.gap), v.optional_key(v.scalar_key)(self.nodes), v.optional_key(v.scalar_key)(self.seconds), v.optional_key(v.scalar_key)(self.solution_id),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeInfeasibilityCertificatesFieldRayItem:
@@ -311,6 +371,9 @@ class RuntimeInfeasibilityCertificatesFieldRayItem:
     coordinate: e.NativeRayCoordinate = attrs.field(validator=attrs.validators.instance_of(e.NativeRayCoordinate))
     source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     value: b.float = attrs.field(validator=v.finite_float)
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.coordinate), v.scalar_key(self.source_id), v.scalar_key(self.value),))
 
 
 @attrs.frozen(kw_only=True)
@@ -323,6 +386,9 @@ class RuntimeInfeasibilityCertificatesFieldVerification:
     margin: b.float = attrs.field(validator=v.finite_float)
     tolerance: b.float = attrs.field(validator=v.finite_float)
     verified: b.bool = attrs.field(validator=v.exact_type(b.bool))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.residual), v.scalar_key(self.objective), v.scalar_key(self.cone), v.scalar_key(self.margin), v.scalar_key(self.tolerance), v.scalar_key(self.verified),))
 
 
 @attrs.frozen(kw_only=True)
@@ -337,6 +403,9 @@ class RuntimeInfeasibilityCertificatesRow:
     ray: b.tuple[RuntimeInfeasibilityCertificatesFieldRayItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeInfeasibilityCertificatesFieldRayItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     verification: RuntimeInfeasibilityCertificatesFieldVerification | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(RuntimeInfeasibilityCertificatesFieldVerification)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.step), v.scalar_key(self.backend), v.scalar_key(self.kind), v.scalar_key(self.accuracy), v.sequence_key(v.record_key)(self.ray), v.optional_key(v.record_key)(self.verification),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeLocalValidityRow:
@@ -346,6 +415,9 @@ class RuntimeLocalValidityRow:
     step: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
     quantity: e.DerivedQuantity = attrs.field(validator=attrs.validators.instance_of(e.DerivedQuantity))
     validity: s.LocalValidity = attrs.field(validator=attrs.validators.instance_of(s.LocalValidity))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.step), v.scalar_key(self.quantity), v.record_key(self.validity),))
 
 
 @attrs.frozen(kw_only=True)
@@ -357,6 +429,9 @@ class RuntimeMaintenanceOutcomesRow:
     deleted_files: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
     deleted_logs: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.table_uri), v.scalar_key(self.delta_version), v.sequence_key(v.scalar_key)(self.deleted_files), v.scalar_key(self.deleted_logs),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeModelingChecksFieldInputValuesItem:
@@ -365,6 +440,9 @@ class RuntimeModelingChecksFieldInputValuesItem:
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     value: b.float = attrs.field(validator=v.finite_float)
     quantity_type: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.scalar_key(self.value), v.scalar_key(self.quantity_type),))
 
 
 @attrs.frozen(kw_only=True)
@@ -377,6 +455,9 @@ class RuntimeModelingChecksFieldApplicabilityPermissionsItem:
     targets: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
     allow_unknown: b.bool = attrs.field(validator=v.exact_type(b.bool))
     allow_extrapolation: b.bool = attrs.field(validator=v.exact_type(b.bool))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.permission_id), v.scalar_key(self.scope), v.scalar_key(self.target_kind), v.sequence_key(v.scalar_key)(self.targets), v.scalar_key(self.allow_unknown), v.scalar_key(self.allow_extrapolation),))
 
 
 @attrs.frozen(kw_only=True)
@@ -416,6 +497,9 @@ class RuntimeModelingChecksRow:
     applicability_reason: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     applicability_permissions: b.tuple[RuntimeModelingChecksFieldApplicabilityPermissionsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeModelingChecksFieldApplicabilityPermissionsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.step), v.scalar_key(self.sample_index), v.optional_key(v.scalar_key)(self.time), v.scalar_key(self.target_id), v.scalar_key(self.source_id), v.scalar_key(self.kind), v.scalar_key(self.value), v.optional_key(v.scalar_key)(self.tolerance), v.scalar_key(self.satisfied), v.optional_key(v.scalar_key)(self.within_validity), v.optional_key(v.scalar_key)(self.extrapolation_allowed), v.scalar_key(self.basis), v.optional_key(v.scalar_key)(self.layer), v.optional_key(v.scalar_key)(self.claim_id), v.optional_key(v.scalar_key)(self.claim_owner), v.sequence_key(v.scalar_key)(self.claim_owner_lineage), v.optional_key(v.scalar_key)(self.coverage_id), v.optional_key(v.scalar_key)(self.evidence_id), v.optional_key(v.scalar_key)(self.form_id), v.optional_key(v.scalar_key)(self.call_id), v.sequence_key(v.scalar_key)(self.selected_records), v.sequence_key(v.scalar_key)(self.dependencies), v.sequence_key(v.record_key)(self.input_values), v.optional_key(v.scalar_key)(self.applicability_outcome), v.optional_key(v.scalar_key)(self.applicability_basis), v.sequence_key(v.scalar_key)(self.permission_ids), v.optional_key(v.scalar_key)(self.unknown_allowed), v.optional_key(v.scalar_key)(self.observation_instance), v.optional_key(v.scalar_key)(self.applicability_required), v.optional_key(v.scalar_key)(self.applicability_reason), v.sequence_key(v.record_key)(self.applicability_permissions),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeModelingConformanceRow:
@@ -435,6 +519,9 @@ class RuntimeModelingConformanceRow:
     deviation: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     tolerance: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.fixture_id), v.scalar_key(self.sample_index), v.optional_key(v.scalar_key)(self.time), v.scalar_key(self.target_id), v.scalar_key(self.source_id), v.scalar_key(self.kind), v.scalar_key(self.status), v.scalar_key(self.message), v.optional_key(v.scalar_key)(self.failure_ordinal), v.optional_key(v.scalar_key)(self.oracle_source_id), v.optional_key(v.scalar_key)(self.deviation), v.optional_key(v.scalar_key)(self.tolerance),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeModelingDiagnosticSamplesFieldOutcomesItem:
@@ -446,6 +533,9 @@ class RuntimeModelingDiagnosticSamplesFieldOutcomesItem:
     error_class: e.NativeBoundaryClass | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.NativeBoundaryClass)))
     error: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.sample_id), v.optional_key(v.scalar_key)(self.report_id), v.optional_key(v.scalar_key)(self.failure_ordinal), v.optional_key(v.scalar_key)(self.error_class), v.optional_key(v.scalar_key)(self.error),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeModelingDiagnosticSamplesRow:
@@ -456,6 +546,9 @@ class RuntimeModelingDiagnosticSamplesRow:
     stop: e.ModelingDiagnosticSampleStop = attrs.field(validator=attrs.validators.instance_of(e.ModelingDiagnosticSampleStop))
     outcomes: b.tuple[RuntimeModelingDiagnosticSamplesFieldOutcomesItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeModelingDiagnosticSamplesFieldOutcomesItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.unattempted), v.scalar_key(self.stop), v.sequence_key(v.record_key)(self.outcomes),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeModelingDiagnosticsFieldPointItem:
@@ -465,6 +558,9 @@ class RuntimeModelingDiagnosticsFieldPointItem:
     kind: e.ModelingRealValueKind = attrs.field(validator=attrs.validators.instance_of(e.ModelingRealValueKind))
     value: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.source_id), v.scalar_key(self.kind), v.optional_key(v.scalar_key)(self.value),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeModelingDiagnosticsFieldRowNominalsItem:
@@ -472,6 +568,9 @@ class RuntimeModelingDiagnosticsFieldRowNominalsItem:
 
     source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     value: b.float = attrs.field(validator=v.finite_float)
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.source_id), v.scalar_key(self.value),))
 
 
 @attrs.frozen(kw_only=True)
@@ -481,6 +580,9 @@ class RuntimeModelingDiagnosticsFieldVariableNominalsItem:
     source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     value: b.float = attrs.field(validator=v.finite_float)
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.source_id), v.scalar_key(self.value),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeModelingDiagnosticsFieldStatisticsItem:
@@ -488,6 +590,9 @@ class RuntimeModelingDiagnosticsFieldStatisticsItem:
 
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     count: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.scalar_key(self.count),))
 
 
 @attrs.frozen(kw_only=True)
@@ -497,6 +602,9 @@ class RuntimeModelingDiagnosticsFieldMatrixRowNormsItem:
     source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     value: b.float = attrs.field(validator=v.finite_float)
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.source_id), v.scalar_key(self.value),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeModelingDiagnosticsFieldMatrixColumnNormsItem:
@@ -504,6 +612,9 @@ class RuntimeModelingDiagnosticsFieldMatrixColumnNormsItem:
 
     source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     value: b.float = attrs.field(validator=v.finite_float)
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.source_id), v.scalar_key(self.value),))
 
 
 @attrs.frozen(kw_only=True)
@@ -514,6 +625,9 @@ class RuntimeModelingDiagnosticsFieldMatrixParallelRowsItem:
     second_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     cosine: b.float = attrs.field(validator=v.finite_float)
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.first_id), v.scalar_key(self.second_id), v.scalar_key(self.cosine),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeModelingDiagnosticsFieldMatrixParallelColumnsItem:
@@ -523,6 +637,9 @@ class RuntimeModelingDiagnosticsFieldMatrixParallelColumnsItem:
     second_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     cosine: b.float = attrs.field(validator=v.finite_float)
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.first_id), v.scalar_key(self.second_id), v.scalar_key(self.cosine),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeModelingDiagnosticsFieldMatrixModesItemLeftItem:
@@ -530,6 +647,9 @@ class RuntimeModelingDiagnosticsFieldMatrixModesItemLeftItem:
 
     source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     value: b.float = attrs.field(validator=v.finite_float)
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.source_id), v.scalar_key(self.value),))
 
 
 @attrs.frozen(kw_only=True)
@@ -539,6 +659,9 @@ class RuntimeModelingDiagnosticsFieldMatrixModesItemRightItem:
     source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     value: b.float = attrs.field(validator=v.finite_float)
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.source_id), v.scalar_key(self.value),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeModelingDiagnosticsFieldMatrixModesItem:
@@ -547,6 +670,9 @@ class RuntimeModelingDiagnosticsFieldMatrixModesItem:
     value: b.float = attrs.field(validator=v.finite_float)
     left: b.tuple[RuntimeModelingDiagnosticsFieldMatrixModesItemLeftItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeModelingDiagnosticsFieldMatrixModesItemLeftItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     right: b.tuple[RuntimeModelingDiagnosticsFieldMatrixModesItemRightItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeModelingDiagnosticsFieldMatrixModesItemRightItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.value), v.sequence_key(v.record_key)(self.left), v.sequence_key(v.record_key)(self.right),))
 
 
 @attrs.frozen(kw_only=True)
@@ -560,6 +686,9 @@ class RuntimeModelingDiagnosticsFieldMatrix:
     parallel_rows: b.tuple[RuntimeModelingDiagnosticsFieldMatrixParallelRowsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeModelingDiagnosticsFieldMatrixParallelRowsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     parallel_columns: b.tuple[RuntimeModelingDiagnosticsFieldMatrixParallelColumnsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeModelingDiagnosticsFieldMatrixParallelColumnsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     modes: b.tuple[RuntimeModelingDiagnosticsFieldMatrixModesItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeModelingDiagnosticsFieldMatrixModesItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.rank), v.scalar_key(self.cutoff), v.sequence_key(v.record_key)(self.row_norms), v.sequence_key(v.record_key)(self.column_norms), v.sequence_key(v.record_key)(self.parallel_rows), v.sequence_key(v.record_key)(self.parallel_columns), v.sequence_key(v.record_key)(self.modes),))
 
 
 @attrs.frozen(kw_only=True)
@@ -579,6 +708,9 @@ class RuntimeModelingDiagnosticsRow:
     statistics: b.tuple[RuntimeModelingDiagnosticsFieldStatisticsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeModelingDiagnosticsFieldStatisticsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     matrix: RuntimeModelingDiagnosticsFieldMatrix | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(RuntimeModelingDiagnosticsFieldMatrix)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.source_identity), v.scalar_key(self.numerical_identity), v.scalar_key(self.profile), v.scalar_key(self.complete), v.sequence_key(v.record_key)(self.point), v.sequence_key(v.scalar_key)(self.rows), v.sequence_key(v.scalar_key)(self.columns), v.sequence_key(v.record_key)(self.row_nominals), v.sequence_key(v.record_key)(self.variable_nominals), v.sequence_key(v.record_key)(self.statistics), v.optional_key(v.record_key)(self.matrix),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeModelingFindingsFieldObservationsItemContractsItemIndicesItem:
@@ -588,6 +720,9 @@ class RuntimeModelingFindingsFieldObservationsItemContractsItemIndicesItem:
     domain: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     kind: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.bound_index), v.scalar_key(self.domain), v.scalar_key(self.kind),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeModelingFindingsFieldObservationsItemContractsItem:
@@ -595,6 +730,9 @@ class RuntimeModelingFindingsFieldObservationsItemContractsItem:
 
     quantity: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     indices: b.tuple[RuntimeModelingFindingsFieldObservationsItemContractsItemIndicesItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeModelingFindingsFieldObservationsItemContractsItemIndicesItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.quantity), v.sequence_key(v.record_key)(self.indices),))
 
 
 @attrs.frozen(kw_only=True)
@@ -613,6 +751,9 @@ class RuntimeModelingFindingsFieldObservationsItem:
     context: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
     contracts: b.tuple[RuntimeModelingFindingsFieldObservationsItemContractsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeModelingFindingsFieldObservationsItemContractsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.scalar_key(self.kind), v.optional_key(v.scalar_key)(self.real), v.optional_key(v.scalar_key)(self.real_kind), v.optional_key(v.scalar_key)(self.integer), v.optional_key(v.scalar_key)(self.boolean), v.optional_key(v.scalar_key)(self.text), v.optional_key(v.scalar_key)(self.quantity), v.optional_key(v.scalar_key)(self.unit), v.optional_key(v.scalar_key)(self.context), v.sequence_key(v.record_key)(self.contracts),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeModelingFindingsFieldLocationsItem:
@@ -625,6 +766,9 @@ class RuntimeModelingFindingsFieldLocationsItem:
     start: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
     end: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.source_id), v.optional_key(v.scalar_key)(self.revision), v.scalar_key(self.path), v.optional_key(v.scalar_key)(self.name), v.optional_key(v.scalar_key)(self.start), v.optional_key(v.scalar_key)(self.end),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeModelingFindingsFieldValidity:
@@ -636,6 +780,9 @@ class RuntimeModelingFindingsFieldValidity:
     set_ids: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
     variables: b.tuple[b.int, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.integer_range(0, 9223372036854775807), iterable_validator=attrs.validators.instance_of(b.tuple)))
     member_ids: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.layer), v.scalar_key(self.source_id), v.optional_key(v.scalar_key)(self.form_id), v.sequence_key(v.scalar_key)(self.set_ids), v.sequence_key(v.scalar_key)(self.variables), v.sequence_key(v.scalar_key)(self.member_ids),))
 
 
 @attrs.frozen(kw_only=True)
@@ -655,6 +802,9 @@ class RuntimeModelingFindingsFieldApplicabilityItemClaim:
     basis: e.ModelingApplicabilityBasis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.ModelingApplicabilityBasis)))
     reason: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.id), v.optional_key(v.scalar_key)(self.coverage), v.scalar_key(self.owner), v.sequence_key(v.scalar_key)(self.owner_lineage), v.optional_key(v.scalar_key)(self.evidence), v.scalar_key(self.form), v.scalar_key(self.call), v.sequence_key(v.scalar_key)(self.records), v.sequence_key(v.scalar_key)(self.dependencies), v.scalar_key(self.layer), v.optional_key(v.scalar_key)(self.basis), v.optional_key(v.scalar_key)(self.reason),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeModelingFindingsFieldApplicabilityItemInputsItem:
@@ -664,6 +814,9 @@ class RuntimeModelingFindingsFieldApplicabilityItemInputsItem:
     value: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     real_kind: e.ModelingRealValueKind = attrs.field(validator=attrs.validators.instance_of(e.ModelingRealValueKind))
     quantity_type: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.optional_key(v.scalar_key)(self.value), v.scalar_key(self.real_kind), v.scalar_key(self.quantity_type),))
 
 
 @attrs.frozen(kw_only=True)
@@ -676,6 +829,9 @@ class RuntimeModelingFindingsFieldApplicabilityItemPermissionsItem:
     targets: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
     allow_unknown: b.bool = attrs.field(validator=v.exact_type(b.bool))
     allow_extrapolation: b.bool = attrs.field(validator=v.exact_type(b.bool))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.id), v.scalar_key(self.scope), v.scalar_key(self.target_kind), v.sequence_key(v.scalar_key)(self.targets), v.scalar_key(self.allow_unknown), v.scalar_key(self.allow_extrapolation),))
 
 
 @attrs.frozen(kw_only=True)
@@ -692,6 +848,9 @@ class RuntimeModelingFindingsFieldApplicabilityItem:
     extrapolation_allowed: b.bool = attrs.field(validator=v.exact_type(b.bool))
     admitted: b.bool = attrs.field(validator=v.exact_type(b.bool))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.claim), v.optional_key(v.scalar_key)(self.instance), v.sequence_key(v.record_key)(self.inputs), v.scalar_key(self.outcome), v.scalar_key(self.required), v.sequence_key(v.record_key)(self.permissions), v.scalar_key(self.unknown_allowed), v.scalar_key(self.extrapolation_allowed), v.scalar_key(self.admitted),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeModelingFindingsFieldCausesItemObservationsItemContractsItemIndicesItem:
@@ -701,6 +860,9 @@ class RuntimeModelingFindingsFieldCausesItemObservationsItemContractsItemIndices
     domain: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     kind: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.bound_index), v.scalar_key(self.domain), v.scalar_key(self.kind),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeModelingFindingsFieldCausesItemObservationsItemContractsItem:
@@ -708,6 +870,9 @@ class RuntimeModelingFindingsFieldCausesItemObservationsItemContractsItem:
 
     quantity: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     indices: b.tuple[RuntimeModelingFindingsFieldCausesItemObservationsItemContractsItemIndicesItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeModelingFindingsFieldCausesItemObservationsItemContractsItemIndicesItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.quantity), v.sequence_key(v.record_key)(self.indices),))
 
 
 @attrs.frozen(kw_only=True)
@@ -726,6 +891,9 @@ class RuntimeModelingFindingsFieldCausesItemObservationsItem:
     context: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
     contracts: b.tuple[RuntimeModelingFindingsFieldCausesItemObservationsItemContractsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeModelingFindingsFieldCausesItemObservationsItemContractsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.scalar_key(self.kind), v.optional_key(v.scalar_key)(self.real), v.optional_key(v.scalar_key)(self.real_kind), v.optional_key(v.scalar_key)(self.integer), v.optional_key(v.scalar_key)(self.boolean), v.optional_key(v.scalar_key)(self.text), v.optional_key(v.scalar_key)(self.quantity), v.optional_key(v.scalar_key)(self.unit), v.optional_key(v.scalar_key)(self.context), v.sequence_key(v.record_key)(self.contracts),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeModelingFindingsFieldCausesItemLocationsItem:
@@ -738,6 +906,9 @@ class RuntimeModelingFindingsFieldCausesItemLocationsItem:
     start: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
     end: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.source_id), v.optional_key(v.scalar_key)(self.revision), v.scalar_key(self.path), v.optional_key(v.scalar_key)(self.name), v.optional_key(v.scalar_key)(self.start), v.optional_key(v.scalar_key)(self.end),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeModelingFindingsFieldCausesItemValidity:
@@ -749,6 +920,9 @@ class RuntimeModelingFindingsFieldCausesItemValidity:
     set_ids: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
     variables: b.tuple[b.int, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.integer_range(0, 9223372036854775807), iterable_validator=attrs.validators.instance_of(b.tuple)))
     member_ids: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.layer), v.scalar_key(self.source_id), v.optional_key(v.scalar_key)(self.form_id), v.sequence_key(v.scalar_key)(self.set_ids), v.sequence_key(v.scalar_key)(self.variables), v.sequence_key(v.scalar_key)(self.member_ids),))
 
 
 @attrs.frozen(kw_only=True)
@@ -768,6 +942,9 @@ class RuntimeModelingFindingsFieldCausesItemApplicabilityItemClaim:
     basis: e.ModelingApplicabilityBasis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.ModelingApplicabilityBasis)))
     reason: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.id), v.optional_key(v.scalar_key)(self.coverage), v.scalar_key(self.owner), v.sequence_key(v.scalar_key)(self.owner_lineage), v.optional_key(v.scalar_key)(self.evidence), v.scalar_key(self.form), v.scalar_key(self.call), v.sequence_key(v.scalar_key)(self.records), v.sequence_key(v.scalar_key)(self.dependencies), v.scalar_key(self.layer), v.optional_key(v.scalar_key)(self.basis), v.optional_key(v.scalar_key)(self.reason),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeModelingFindingsFieldCausesItemApplicabilityItemInputsItem:
@@ -777,6 +954,9 @@ class RuntimeModelingFindingsFieldCausesItemApplicabilityItemInputsItem:
     value: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     real_kind: e.ModelingRealValueKind = attrs.field(validator=attrs.validators.instance_of(e.ModelingRealValueKind))
     quantity_type: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.optional_key(v.scalar_key)(self.value), v.scalar_key(self.real_kind), v.scalar_key(self.quantity_type),))
 
 
 @attrs.frozen(kw_only=True)
@@ -789,6 +969,9 @@ class RuntimeModelingFindingsFieldCausesItemApplicabilityItemPermissionsItem:
     targets: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
     allow_unknown: b.bool = attrs.field(validator=v.exact_type(b.bool))
     allow_extrapolation: b.bool = attrs.field(validator=v.exact_type(b.bool))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.id), v.scalar_key(self.scope), v.scalar_key(self.target_kind), v.sequence_key(v.scalar_key)(self.targets), v.scalar_key(self.allow_unknown), v.scalar_key(self.allow_extrapolation),))
 
 
 @attrs.frozen(kw_only=True)
@@ -804,6 +987,9 @@ class RuntimeModelingFindingsFieldCausesItemApplicabilityItem:
     unknown_allowed: b.bool = attrs.field(validator=v.exact_type(b.bool))
     extrapolation_allowed: b.bool = attrs.field(validator=v.exact_type(b.bool))
     admitted: b.bool = attrs.field(validator=v.exact_type(b.bool))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.claim), v.optional_key(v.scalar_key)(self.instance), v.sequence_key(v.record_key)(self.inputs), v.scalar_key(self.outcome), v.scalar_key(self.required), v.sequence_key(v.record_key)(self.permissions), v.scalar_key(self.unknown_allowed), v.scalar_key(self.extrapolation_allowed), v.scalar_key(self.admitted),))
 
 
 @attrs.frozen(kw_only=True)
@@ -821,6 +1007,9 @@ class RuntimeModelingFindingsFieldCausesItem:
     locations: b.tuple[RuntimeModelingFindingsFieldCausesItemLocationsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeModelingFindingsFieldCausesItemLocationsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     validity: RuntimeModelingFindingsFieldCausesItemValidity | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(RuntimeModelingFindingsFieldCausesItemValidity)))
     applicability: b.tuple[RuntimeModelingFindingsFieldCausesItemApplicabilityItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeModelingFindingsFieldCausesItemApplicabilityItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.tree_path), v.scalar_key(self.code), v.scalar_key(self.class_), v.scalar_key(self.severity), v.scalar_key(self.stage), v.scalar_key(self.rule), v.sequence_key(v.scalar_key)(self.sources), v.sequence_key(v.record_key)(self.observations), v.sequence_key(v.record_key)(self.locations), v.optional_key(v.record_key)(self.validity), v.sequence_key(v.record_key)(self.applicability),))
 
 
 @attrs.frozen(kw_only=True)
@@ -841,6 +1030,9 @@ class RuntimeModelingFindingsRow:
     applicability: b.tuple[RuntimeModelingFindingsFieldApplicabilityItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeModelingFindingsFieldApplicabilityItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     causes: b.tuple[RuntimeModelingFindingsFieldCausesItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeModelingFindingsFieldCausesItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.ordinal), v.scalar_key(self.code), v.scalar_key(self.class_), v.scalar_key(self.severity), v.scalar_key(self.stage), v.scalar_key(self.rule), v.sequence_key(v.scalar_key)(self.sources), v.sequence_key(v.record_key)(self.observations), v.sequence_key(v.record_key)(self.locations), v.optional_key(v.record_key)(self.validity), v.sequence_key(v.record_key)(self.applicability), v.sequence_key(v.record_key)(self.causes),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeModelingFixtureStatusRow:
@@ -850,6 +1042,9 @@ class RuntimeModelingFixtureStatusRow:
     fixture_id: i.DeclarationId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     status: e.ModelingConformanceStatus = attrs.field(validator=attrs.validators.instance_of(e.ModelingConformanceStatus))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.fixture_id), v.scalar_key(self.status),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeModelingInitializationsFieldCommittedItem:
@@ -858,6 +1053,9 @@ class RuntimeModelingInitializationsFieldCommittedItem:
     source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     value: b.float = attrs.field(validator=v.finite_float)
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.source_id), v.scalar_key(self.value),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeModelingInitializationsFieldDiscreteAssignmentItem:
@@ -865,6 +1063,9 @@ class RuntimeModelingInitializationsFieldDiscreteAssignmentItem:
 
     source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     value: b.float = attrs.field(validator=v.finite_float)
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.source_id), v.scalar_key(self.value),))
 
 
 @attrs.frozen(kw_only=True)
@@ -881,6 +1082,9 @@ class RuntimeModelingInitializationsFieldAttemptsItem:
     interruption_class: e.NativeBoundaryClass | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.NativeBoundaryClass)))
     interruption: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.kind), v.optional_key(v.scalar_key)(self.stage), v.optional_key(v.scalar_key)(self.fraction), v.optional_key(v.scalar_key)(self.result_id), v.scalar_key(self.accepted), v.optional_key(v.scalar_key)(self.error), v.optional_key(v.scalar_key)(self.failure_ordinal), v.optional_key(v.scalar_key)(self.interruption_class), v.optional_key(v.scalar_key)(self.interruption),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeModelingInitializationsRow:
@@ -895,6 +1099,9 @@ class RuntimeModelingInitializationsRow:
     discrete_assignment: b.tuple[RuntimeModelingInitializationsFieldDiscreteAssignmentItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeModelingInitializationsFieldDiscreteAssignmentItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     attempts: b.tuple[RuntimeModelingInitializationsFieldAttemptsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeModelingInitializationsFieldAttemptsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.complete), v.optional_key(v.scalar_key)(self.failure), v.optional_key(v.scalar_key)(self.failure_ordinal), v.optional_key(v.sequence_key(v.record_key))(self.committed), v.scalar_key(self.discrete), v.sequence_key(v.record_key)(self.discrete_assignment), v.sequence_key(v.record_key)(self.attempts),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeModelingJacobianOptimizationFieldPointItem:
@@ -902,6 +1109,9 @@ class RuntimeModelingJacobianOptimizationFieldPointItem:
 
     source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     value: b.float = attrs.field(validator=v.finite_float)
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.source_id), v.scalar_key(self.value),))
 
 
 @attrs.frozen(kw_only=True)
@@ -911,6 +1121,9 @@ class RuntimeModelingJacobianOptimizationFieldRowNominalsItem:
     source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     value: b.float = attrs.field(validator=v.finite_float)
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.source_id), v.scalar_key(self.value),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeModelingJacobianOptimizationFieldVariableNominalsItem:
@@ -919,6 +1132,9 @@ class RuntimeModelingJacobianOptimizationFieldVariableNominalsItem:
     source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     value: b.float = attrs.field(validator=v.finite_float)
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.source_id), v.scalar_key(self.value),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeModelingJacobianOptimizationFieldConditioningItemWeightsItem:
@@ -926,6 +1142,9 @@ class RuntimeModelingJacobianOptimizationFieldConditioningItemWeightsItem:
 
     source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     value: b.float = attrs.field(validator=v.finite_float)
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.source_id), v.scalar_key(self.value),))
 
 
 @attrs.frozen(kw_only=True)
@@ -936,6 +1155,9 @@ class RuntimeModelingJacobianOptimizationFieldConditioningItem:
     residual_maximum: b.float = attrs.field(validator=v.finite_float)
     pivot: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.weights), v.scalar_key(self.residual_maximum), v.scalar_key(self.pivot),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeModelingJacobianOptimizationFieldDegenerateItemCertificateWeightsItem:
@@ -943,6 +1165,9 @@ class RuntimeModelingJacobianOptimizationFieldDegenerateItemCertificateWeightsIt
 
     source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     value: b.float = attrs.field(validator=v.finite_float)
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.source_id), v.scalar_key(self.value),))
 
 
 @attrs.frozen(kw_only=True)
@@ -953,6 +1178,9 @@ class RuntimeModelingJacobianOptimizationFieldDegenerateItemCertificate:
     residual_maximum: b.float = attrs.field(validator=v.finite_float)
     pivot: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.weights), v.scalar_key(self.residual_maximum), v.scalar_key(self.pivot),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeModelingJacobianOptimizationFieldDegenerateItem:
@@ -961,6 +1189,9 @@ class RuntimeModelingJacobianOptimizationFieldDegenerateItem:
     rows: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
     certificate: RuntimeModelingJacobianOptimizationFieldDegenerateItemCertificate = attrs.field(validator=attrs.validators.instance_of(RuntimeModelingJacobianOptimizationFieldDegenerateItemCertificate))
     irreducible_at_tolerance: b.bool = attrs.field(validator=v.exact_type(b.bool))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.rows), v.record_key(self.certificate), v.scalar_key(self.irreducible_at_tolerance),))
 
 
 @attrs.frozen(kw_only=True)
@@ -971,6 +1202,9 @@ class RuntimeModelingJacobianOptimizationFieldAttemptsItemTermination:
     code: b.int = attrs.field(validator=v.integer_range(-9223372036854775808, 9223372036854775807))
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.category), v.scalar_key(self.code), v.scalar_key(self.name),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeModelingJacobianOptimizationFieldAttemptsItem:
@@ -979,6 +1213,9 @@ class RuntimeModelingJacobianOptimizationFieldAttemptsItem:
     termination: RuntimeModelingJacobianOptimizationFieldAttemptsItemTermination = attrs.field(validator=attrs.validators.instance_of(RuntimeModelingJacobianOptimizationFieldAttemptsItemTermination))
     qualification: e.NativeQualification = attrs.field(validator=attrs.validators.instance_of(e.NativeQualification))
     validation_error: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.termination), v.scalar_key(self.qualification), v.optional_key(v.scalar_key)(self.validation_error),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1000,6 +1237,9 @@ class RuntimeModelingJacobianOptimizationRow:
     attempts: b.tuple[RuntimeModelingJacobianOptimizationFieldAttemptsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeModelingJacobianOptimizationFieldAttemptsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     unavailable: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.source_identity), v.scalar_key(self.numerical_identity), v.sequence_key(v.record_key)(self.point), v.sequence_key(v.record_key)(self.row_nominals), v.sequence_key(v.record_key)(self.variable_nominals), v.scalar_key(self.tolerance), v.scalar_key(self.rank_relative), v.scalar_key(self.multiplier_bound), v.scalar_key(self.complete), v.sequence_key(v.record_key)(self.conditioning), v.sequence_key(v.record_key)(self.degenerate), v.sequence_key(v.record_key)(self.attempts), v.sequence_key(v.scalar_key)(self.unavailable),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeModelingKnowledgeRow:
@@ -1020,6 +1260,9 @@ class RuntimeModelingKnowledgeRow:
     lineage: b.tuple[s.ModelingKnowledgeLineage, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.ModelingKnowledgeLineage), iterable_validator=attrs.validators.instance_of(b.tuple)))
     test_only: b.bool = attrs.field(validator=v.exact_type(b.bool))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.source_revision), v.scalar_key(self.owner_id), v.scalar_key(self.row_index), v.scalar_key(self.slot), v.optional_key(v.scalar_key)(self.record_kind_id), v.scalar_key(self.origin_id), v.sequence_key(v.record_key)(self.keys), v.sequence_key(v.record_key)(self.value), v.optional_key(v.record_key)(self.uncertainty), v.optional_key(v.scalar_key)(self.source_id), v.optional_key(v.scalar_key)(self.role_enumeration_id), v.optional_key(v.scalar_key)(self.role_member_id), v.sequence_key(v.record_key)(self.lineage), v.scalar_key(self.test_only),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeModelingKnowledgeNamesRow:
@@ -1028,6 +1271,9 @@ class RuntimeModelingKnowledgeNamesRow:
     source_revision: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     declaration_id: i.DeclarationId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.source_revision), v.scalar_key(self.name), v.scalar_key(self.declaration_id),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1038,6 +1284,9 @@ class RuntimeModelingLinearDiagnosticsFieldAttemptTermination:
     code: b.int = attrs.field(validator=v.integer_range(-9223372036854775808, 9223372036854775807))
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.category), v.scalar_key(self.code), v.scalar_key(self.name),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeModelingLinearDiagnosticsFieldAttempt:
@@ -1047,6 +1296,9 @@ class RuntimeModelingLinearDiagnosticsFieldAttempt:
     qualification: e.NativeQualification = attrs.field(validator=attrs.validators.instance_of(e.NativeQualification))
     validation_error: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.termination), v.scalar_key(self.qualification), v.optional_key(v.scalar_key)(self.validation_error),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeModelingLinearDiagnosticsFieldPrimalRayItem:
@@ -1054,6 +1306,9 @@ class RuntimeModelingLinearDiagnosticsFieldPrimalRayItem:
 
     source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     value: b.float = attrs.field(validator=v.finite_float)
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.source_id), v.scalar_key(self.value),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1063,6 +1318,9 @@ class RuntimeModelingLinearDiagnosticsFieldDualRayItem:
     source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     value: b.float = attrs.field(validator=v.finite_float)
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.source_id), v.scalar_key(self.value),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeModelingLinearDiagnosticsFieldIisColumnsItem:
@@ -1070,6 +1328,9 @@ class RuntimeModelingLinearDiagnosticsFieldIisColumnsItem:
 
     source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     code: b.int = attrs.field(validator=v.integer_range(-9223372036854775808, 9223372036854775807))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.source_id), v.scalar_key(self.code),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1079,6 +1340,9 @@ class RuntimeModelingLinearDiagnosticsFieldIisRowsItem:
     source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     code: b.int = attrs.field(validator=v.integer_range(-9223372036854775808, 9223372036854775807))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.source_id), v.scalar_key(self.code),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeModelingLinearDiagnosticsFieldIisColumnStatusItem:
@@ -1087,6 +1351,9 @@ class RuntimeModelingLinearDiagnosticsFieldIisColumnStatusItem:
     source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     code: b.int = attrs.field(validator=v.integer_range(-9223372036854775808, 9223372036854775807))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.source_id), v.scalar_key(self.code),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeModelingLinearDiagnosticsFieldIisRowStatusItem:
@@ -1094,6 +1361,9 @@ class RuntimeModelingLinearDiagnosticsFieldIisRowStatusItem:
 
     source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     code: b.int = attrs.field(validator=v.integer_range(-9223372036854775808, 9223372036854775807))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.source_id), v.scalar_key(self.code),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1106,6 +1376,9 @@ class RuntimeModelingLinearDiagnosticsFieldIis:
     row_status: b.tuple[RuntimeModelingLinearDiagnosticsFieldIisRowStatusItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeModelingLinearDiagnosticsFieldIisRowStatusItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     relaxation_only: b.bool = attrs.field(validator=v.exact_type(b.bool))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.columns), v.sequence_key(v.record_key)(self.rows), v.sequence_key(v.record_key)(self.column_status), v.sequence_key(v.record_key)(self.row_status), v.scalar_key(self.relaxation_only),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeModelingLinearDiagnosticsFieldRangingItemValue:
@@ -1114,6 +1387,9 @@ class RuntimeModelingLinearDiagnosticsFieldRangingItemValue:
     kind: e.ModelingRealValueKind = attrs.field(validator=attrs.validators.instance_of(e.ModelingRealValueKind))
     value: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.kind), v.optional_key(v.scalar_key)(self.value),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeModelingLinearDiagnosticsFieldRangingItemObjective:
@@ -1121,6 +1397,9 @@ class RuntimeModelingLinearDiagnosticsFieldRangingItemObjective:
 
     kind: e.ModelingRealValueKind = attrs.field(validator=attrs.validators.instance_of(e.ModelingRealValueKind))
     value: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.kind), v.optional_key(v.scalar_key)(self.value),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1131,6 +1410,9 @@ class RuntimeModelingLinearDiagnosticsFieldRangingItemEntering:
     row_slack: b.bool = attrs.field(validator=v.exact_type(b.bool))
     sentinel: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(-9223372036854775808, 9223372036854775807)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.source_id), v.scalar_key(self.row_slack), v.optional_key(v.scalar_key)(self.sentinel),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeModelingLinearDiagnosticsFieldRangingItemLeaving:
@@ -1139,6 +1421,9 @@ class RuntimeModelingLinearDiagnosticsFieldRangingItemLeaving:
     source_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     row_slack: b.bool = attrs.field(validator=v.exact_type(b.bool))
     sentinel: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(-9223372036854775808, 9223372036854775807)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.source_id), v.scalar_key(self.row_slack), v.optional_key(v.scalar_key)(self.sentinel),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1152,6 +1437,9 @@ class RuntimeModelingLinearDiagnosticsFieldRangingItem:
     entering: RuntimeModelingLinearDiagnosticsFieldRangingItemEntering = attrs.field(validator=attrs.validators.instance_of(RuntimeModelingLinearDiagnosticsFieldRangingItemEntering))
     leaving: RuntimeModelingLinearDiagnosticsFieldRangingItemLeaving = attrs.field(validator=attrs.validators.instance_of(RuntimeModelingLinearDiagnosticsFieldRangingItemLeaving))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.family), v.scalar_key(self.source_id), v.record_key(self.value), v.record_key(self.objective), v.record_key(self.entering), v.record_key(self.leaving),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeModelingLinearDiagnosticsFieldRelaxationRestoredStatus:
@@ -1161,6 +1449,9 @@ class RuntimeModelingLinearDiagnosticsFieldRelaxationRestoredStatus:
     code: b.int = attrs.field(validator=v.integer_range(-9223372036854775808, 9223372036854775807))
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.category), v.scalar_key(self.code), v.scalar_key(self.name),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeModelingLinearDiagnosticsFieldRelaxationPrimalItem:
@@ -1168,6 +1459,9 @@ class RuntimeModelingLinearDiagnosticsFieldRelaxationPrimalItem:
 
     source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     value: b.float = attrs.field(validator=v.finite_float)
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.source_id), v.scalar_key(self.value),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1179,6 +1473,9 @@ class RuntimeModelingLinearDiagnosticsFieldRelaxation:
     penalty: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     primal: b.tuple[RuntimeModelingLinearDiagnosticsFieldRelaxationPrimalItem, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeModelingLinearDiagnosticsFieldRelaxationPrimalItem), iterable_validator=attrs.validators.instance_of(b.tuple))))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.operation_status), v.record_key(self.restored_status), v.optional_key(v.scalar_key)(self.penalty), v.optional_key(v.sequence_key(v.record_key))(self.primal),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeModelingLinearDiagnosticsFieldUnavailableItem:
@@ -1186,6 +1483,9 @@ class RuntimeModelingLinearDiagnosticsFieldUnavailableItem:
 
     analysis: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     reason: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.analysis), v.scalar_key(self.reason),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1205,6 +1505,9 @@ class RuntimeModelingLinearDiagnosticsRow:
     relaxation: RuntimeModelingLinearDiagnosticsFieldRelaxation | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(RuntimeModelingLinearDiagnosticsFieldRelaxation)))
     unavailable: b.tuple[RuntimeModelingLinearDiagnosticsFieldUnavailableItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeModelingLinearDiagnosticsFieldUnavailableItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.source_identity), v.scalar_key(self.numerical_identity), v.sequence_key(v.scalar_key)(self.rows), v.sequence_key(v.scalar_key)(self.columns), v.record_key(self.attempt), v.optional_key(v.sequence_key(v.record_key))(self.primal_ray), v.optional_key(v.sequence_key(v.record_key))(self.dual_ray), v.optional_key(v.record_key)(self.iis), v.sequence_key(v.record_key)(self.ranging), v.optional_key(v.record_key)(self.relaxation), v.sequence_key(v.record_key)(self.unavailable),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeModelingNonlinearExplanationsFieldNominalsItem:
@@ -1212,6 +1515,9 @@ class RuntimeModelingNonlinearExplanationsFieldNominalsItem:
 
     source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     value: b.float = attrs.field(validator=v.finite_float)
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.source_id), v.scalar_key(self.value),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1226,6 +1532,9 @@ class RuntimeModelingNonlinearExplanationsFieldAttemptsItem:
     error: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     interruption_class: e.NativeBoundaryClass | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.NativeBoundaryClass)))
     interruption: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.omitted), v.scalar_key(self.observation), v.optional_key(v.scalar_key)(self.penalty), v.optional_key(v.scalar_key)(self.result_id), v.optional_key(v.scalar_key)(self.failure_ordinal), v.optional_key(v.scalar_key)(self.error), v.optional_key(v.scalar_key)(self.interruption_class), v.optional_key(v.scalar_key)(self.interruption),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1242,6 +1551,9 @@ class RuntimeModelingNonlinearExplanationsRow:
     nominals: b.tuple[RuntimeModelingNonlinearExplanationsFieldNominalsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeModelingNonlinearExplanationsFieldNominalsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     penalty_tolerance: b.float = attrs.field(validator=v.finite_float)
     attempts: b.tuple[RuntimeModelingNonlinearExplanationsFieldAttemptsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeModelingNonlinearExplanationsFieldAttemptsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.source_identity), v.scalar_key(self.complete), v.optional_key(v.scalar_key)(self.stop), v.optional_key(v.scalar_key)(self.failure_ordinal), v.sequence_key(v.scalar_key)(self.candidate_rows), v.sequence_key(v.scalar_key)(self.background_variables), v.sequence_key(v.record_key)(self.nominals), v.scalar_key(self.penalty_tolerance), v.sequence_key(v.record_key)(self.attempts),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1262,6 +1574,9 @@ class RuntimeModelingParityRow:
     deviation: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     tolerance: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.definition_id), v.scalar_key(self.oracle_source_id), v.optional_key(v.scalar_key)(self.release_id), v.scalar_key(self.fixture_id), v.scalar_key(self.sample_index), v.scalar_key(self.target_id), v.scalar_key(self.source_id), v.scalar_key(self.kind), v.scalar_key(self.status), v.scalar_key(self.fixture_status), v.optional_key(v.scalar_key)(self.deviation), v.optional_key(v.scalar_key)(self.tolerance),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeModelingReportsRow:
@@ -1278,6 +1593,9 @@ class RuntimeModelingReportsRow:
     transfer_context: s.ModelingTransferContext | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(s.ModelingTransferContext)))
     value: b.float = attrs.field(validator=v.finite_float)
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.step), v.scalar_key(self.target_id), v.scalar_key(self.source_id), v.scalar_key(self.label), v.scalar_key(self.path), v.scalar_key(self.quantity_id), v.scalar_key(self.unit_id), v.optional_key(v.record_key)(self.transfer_context), v.scalar_key(self.value),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeModelingTrajectoryModesRow:
@@ -1288,6 +1606,9 @@ class RuntimeModelingTrajectoryModesRow:
     time: b.float = attrs.field(validator=v.finite_float)
     mode: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.sample), v.scalar_key(self.time), v.scalar_key(self.mode),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeNativeDependenciesFieldEvidenceText:
@@ -1295,12 +1616,18 @@ class RuntimeNativeDependenciesFieldEvidenceText:
 
     value: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.value),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeNativeDependenciesFieldEvidenceIdentity:
     """Declared relation row or nested value."""
 
     value: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.value),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1310,12 +1637,18 @@ class RuntimeNativeDependenciesFieldEvidenceIdentifiedText:
     identity: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     text: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.identity), v.scalar_key(self.text),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeNativeDependenciesFieldEvidenceFingerprint:
     """Declared relation row or nested value."""
 
     value: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.value),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1324,6 +1657,9 @@ class RuntimeNativeDependenciesFieldEvidenceProjection:
 
     selection: s.MemberDescriptor = attrs.field(validator=attrs.validators.instance_of(s.MemberDescriptor))
     columns: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.selection), v.sequence_key(v.scalar_key)(self.columns),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1337,6 +1673,9 @@ class RuntimeNativeDependenciesFieldEvidence:
     fingerprint: RuntimeNativeDependenciesFieldEvidenceFingerprint | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(RuntimeNativeDependenciesFieldEvidenceFingerprint)))
     selection: s.MemberDescriptor | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(s.MemberDescriptor)))
     projection: RuntimeNativeDependenciesFieldEvidenceProjection | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(RuntimeNativeDependenciesFieldEvidenceProjection)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.kind), v.optional_key(v.record_key)(self.text), v.optional_key(v.record_key)(self.identity), v.optional_key(v.record_key)(self.identified_text), v.optional_key(v.record_key)(self.fingerprint), v.optional_key(v.record_key)(self.selection), v.optional_key(v.record_key)(self.projection),))
 
     def __attrs_post_init__(self) -> None:
         if not ((self.kind == "absent" and self.fingerprint is None and self.identified_text is None and self.identity is None and self.projection is None and self.selection is None and self.text is None) or (self.kind == "fingerprint" and self.fingerprint is not None and self.identified_text is None and self.identity is None and self.projection is None and self.selection is None and self.text is None) or (self.kind == "identified_text" and self.fingerprint is None and self.identified_text is not None and self.identity is None and self.projection is None and self.selection is None and self.text is None) or (self.kind == "identity" and self.fingerprint is None and self.identified_text is None and self.identity is not None and self.projection is None and self.selection is None and self.text is None) or (self.kind == "present" and self.fingerprint is None and self.identified_text is None and self.identity is None and self.projection is None and self.selection is None and self.text is None) or (self.kind == "projection" and self.fingerprint is None and self.identified_text is None and self.identity is None and self.projection is not None and self.selection is None and self.text is None) or (self.kind == "selection" and self.fingerprint is None and self.identified_text is None and self.identity is None and self.projection is None and self.selection is not None and self.text is None) or (self.kind == "text" and self.fingerprint is None and self.identified_text is None and self.identity is None and self.projection is None and self.selection is None and self.text is not None)):
@@ -1352,6 +1691,9 @@ class RuntimeNativeDependenciesRow:
     scope: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     evidence: RuntimeNativeDependenciesFieldEvidence = attrs.field(validator=attrs.validators.instance_of(RuntimeNativeDependenciesFieldEvidence))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.kind), v.scalar_key(self.scope), v.scalar_key(self.name), v.record_key(self.evidence),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1370,6 +1712,9 @@ class RuntimeObjectiveLevelsRow:
     bound: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     value: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.level), v.optional_key(v.scalar_key)(self.priority), v.scalar_key(self.sense), v.scalar_key(self.quantity_id), v.scalar_key(self.route), v.scalar_key(self.attempt), v.optional_key(v.scalar_key)(self.result_id), v.optional_key(v.scalar_key)(self.optimum), v.optional_key(v.scalar_key)(self.bound), v.optional_key(v.scalar_key)(self.value),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeOperationalAttemptTransitionsRow:
@@ -1383,6 +1728,9 @@ class RuntimeOperationalAttemptTransitionsRow:
     reason: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     at: datetime = attrs.field(validator=v.utc_timestamp)
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.attempt_id), v.scalar_key(self.seq), v.optional_key(v.scalar_key)(self.from_state), v.scalar_key(self.to_state), v.optional_key(v.scalar_key)(self.actor), v.optional_key(v.scalar_key)(self.reason), v.scalar_key(self.at),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeOperationalAttemptsRow:
@@ -1391,7 +1739,7 @@ class RuntimeOperationalAttemptsRow:
     attempt_id: i.AttemptId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     run_id: i.RunId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     kind: e.AttemptKind = attrs.field(validator=attrs.validators.instance_of(e.AttemptKind))
-    request_identity: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    operational_job_identity: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     preparation_identity: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
     state: e.AttemptState = attrs.field(validator=attrs.validators.instance_of(e.AttemptState))
     state_version: b.int = attrs.field(validator=v.integer_range(-2147483648, 2147483647))
@@ -1412,6 +1760,10 @@ class RuntimeOperationalAttemptsRow:
     updated_at: datetime = attrs.field(validator=v.utc_timestamp)
     started_at: datetime | None = attrs.field(validator=attrs.validators.optional(v.utc_timestamp))
     finished_at: datetime | None = attrs.field(validator=attrs.validators.optional(v.utc_timestamp))
+    operational_job_frame: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.attempt_id), v.scalar_key(self.run_id), v.scalar_key(self.kind), v.scalar_key(self.operational_job_identity), v.optional_key(v.scalar_key)(self.preparation_identity), v.scalar_key(self.state), v.scalar_key(self.state_version), v.optional_key(v.scalar_key)(self.parent_attempt), v.optional_key(v.scalar_key)(self.worker), v.optional_key(v.scalar_key)(self.lease_expires_at), v.optional_key(v.scalar_key)(self.heartbeat_at), v.scalar_key(self.cancel_requested), v.optional_key(v.scalar_key)(self.cancel_requested_at), v.optional_key(v.scalar_key)(self.termination_class), v.optional_key(v.scalar_key)(self.termination_native), v.optional_key(v.scalar_key)(self.termination_run_state), v.optional_key(v.scalar_key)(self.termination_trajectory), v.optional_key(v.scalar_key)(self.termination_runtime), v.optional_key(v.scalar_key)(self.termination_rule), v.optional_key(v.scalar_key)(self.termination_detail), v.scalar_key(self.created_at), v.scalar_key(self.updated_at), v.optional_key(v.scalar_key)(self.started_at), v.optional_key(v.scalar_key)(self.finished_at), v.optional_key(v.scalar_key)(self.operational_job_frame),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1430,6 +1782,9 @@ class RuntimeOperationalIncumbentsRow:
     nodes: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(-9223372036854775808, 9223372036854775807)))
     seconds: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     solution_id: i.SolutionId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.attempt_id), v.scalar_key(self.seq), v.scalar_key(self.step), v.scalar_key(self.at), v.scalar_key(self.elapsed_seconds), v.scalar_key(self.phase), v.scalar_key(self.objective), v.optional_key(v.scalar_key)(self.dual_bound), v.optional_key(v.scalar_key)(self.gap), v.optional_key(v.scalar_key)(self.nodes), v.optional_key(v.scalar_key)(self.seconds), v.optional_key(v.scalar_key)(self.solution_id),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1452,6 +1807,9 @@ class RuntimeOperationalJobsRow:
     updated_at: datetime = attrs.field(validator=v.utc_timestamp)
     last_error: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.job_id), v.scalar_key(self.attempt_id), v.scalar_key(self.idempotency_key), v.scalar_key(self.payload_version), v.scalar_key(self.payload), v.scalar_key(self.priority), v.scalar_key(self.state), v.scalar_key(self.tries), v.scalar_key(self.max_tries), v.scalar_key(self.backoff_base_us), v.scalar_key(self.backoff_cap_us), v.scalar_key(self.available_at), v.scalar_key(self.enqueued_at), v.scalar_key(self.updated_at), v.optional_key(v.scalar_key)(self.last_error),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeOperationalOrphanCandidatesRow:
@@ -1467,6 +1825,9 @@ class RuntimeOperationalOrphanCandidatesRow:
     disposition: e.OrphanDisposition = attrs.field(validator=attrs.validators.instance_of(e.OrphanDisposition))
     claim_epoch: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(-9223372036854775808, 9223372036854775807)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.scan_id), v.scalar_key(self.prefix), v.scalar_key(self.generation), v.scalar_key(self.discovery_epoch), v.scalar_key(self.ownership), v.scalar_key(self.evidence), v.scalar_key(self.protections), v.scalar_key(self.disposition), v.optional_key(v.scalar_key)(self.claim_epoch),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeOperationalOrphanScansRow:
@@ -1480,6 +1841,9 @@ class RuntimeOperationalOrphanScansRow:
     listed_count: b.int = attrs.field(validator=v.integer_range(-9223372036854775808, 9223372036854775807))
     complete: b.bool = attrs.field(validator=v.exact_type(b.bool))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.scan_id), v.scalar_key(self.workspace_id), v.scalar_key(self.root_uri), v.scalar_key(self.maintenance_epoch), v.scalar_key(self.generation), v.scalar_key(self.listed_count), v.scalar_key(self.complete),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeOperationalProgressEventsRow:
@@ -1491,6 +1855,9 @@ class RuntimeOperationalProgressEventsRow:
     at: datetime = attrs.field(validator=v.utc_timestamp)
     elapsed_seconds: b.float = attrs.field(validator=v.finite_float)
     phase: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.attempt_id), v.scalar_key(self.seq), v.scalar_key(self.step), v.scalar_key(self.at), v.scalar_key(self.elapsed_seconds), v.scalar_key(self.phase),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1507,6 +1874,9 @@ class RuntimeOperationalProgressValuesRow:
     text: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     unavailable: e.EvidenceUnavailableReason | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.EvidenceUnavailableReason)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.attempt_id), v.scalar_key(self.seq), v.scalar_key(self.name), v.scalar_key(self.kind), v.optional_key(v.scalar_key)(self.real), v.optional_key(v.scalar_key)(self.integer), v.optional_key(v.scalar_key)(self.boolean), v.optional_key(v.scalar_key)(self.text), v.optional_key(v.scalar_key)(self.unavailable),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeOperationalPublicationHeadsRow:
@@ -1515,6 +1885,9 @@ class RuntimeOperationalPublicationHeadsRow:
     workspace_id: i.WorkspaceId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     publication_id: i.PublicationId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     advanced_at: datetime = attrs.field(validator=v.utc_timestamp)
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.workspace_id), v.optional_key(v.scalar_key)(self.publication_id), v.scalar_key(self.advanced_at),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1528,6 +1901,9 @@ class RuntimeOperationalPublicationIntentsRow:
     prepared_at: datetime = attrs.field(validator=v.utc_timestamp)
     abandoned_at: datetime | None = attrs.field(validator=attrs.validators.optional(v.utc_timestamp))
     reclaimed_at: datetime | None = attrs.field(validator=attrs.validators.optional(v.utc_timestamp))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.publication_id), v.scalar_key(self.workspace_id), v.scalar_key(self.attempt_id), v.scalar_key(self.member_prefix), v.scalar_key(self.prepared_at), v.optional_key(v.scalar_key)(self.abandoned_at), v.optional_key(v.scalar_key)(self.reclaimed_at),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1548,6 +1924,9 @@ class RuntimeOperationalPublicationMembersRow:
     revision_column: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     revision_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.publication_id), v.scalar_key(self.role), v.scalar_key(self.catalog_name), v.scalar_key(self.schema_name), v.scalar_key(self.table_name), v.scalar_key(self.relation_id), v.scalar_key(self.relation_version), v.scalar_key(self.contract_fingerprint), v.scalar_key(self.table_uri), v.scalar_key(self.delta_version), v.scalar_key(self.selection_kind), v.optional_key(v.scalar_key)(self.revision_column), v.optional_key(v.scalar_key)(self.revision_id),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeOperationalPublicationWindowsRow:
@@ -1557,6 +1936,9 @@ class RuntimeOperationalPublicationWindowsRow:
     table_uri: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     from_version: b.int = attrs.field(validator=v.integer_range(-9223372036854775808, 9223372036854775807))
     through_version: b.int = attrs.field(validator=v.integer_range(-9223372036854775808, 9223372036854775807))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.publication_id), v.scalar_key(self.table_uri), v.scalar_key(self.from_version), v.scalar_key(self.through_version),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1569,6 +1951,9 @@ class RuntimeOperationalPublicationsRow:
     attempt_id: i.AttemptId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     kind: e.PublicationKind = attrs.field(validator=attrs.validators.instance_of(e.PublicationKind))
     committed_at: datetime = attrs.field(validator=v.utc_timestamp)
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.publication_id), v.scalar_key(self.workspace_id), v.optional_key(v.scalar_key)(self.parent_publication), v.scalar_key(self.attempt_id), v.scalar_key(self.kind), v.scalar_key(self.committed_at),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1583,6 +1968,9 @@ class RuntimeOperationalReaderLeasesRow:
     expires_at: datetime = attrs.field(validator=v.utc_timestamp)
     released_at: datetime | None = attrs.field(validator=attrs.validators.optional(v.utc_timestamp))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.lease_id), v.scalar_key(self.publication_id), v.optional_key(v.scalar_key)(self.head_of), v.scalar_key(self.holder), v.scalar_key(self.acquired_at), v.scalar_key(self.expires_at), v.optional_key(v.scalar_key)(self.released_at),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeOperationalResetRecordsRow:
@@ -1594,6 +1982,9 @@ class RuntimeOperationalResetRecordsRow:
     source_fingerprint: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     inventory_rows: b.int = attrs.field(validator=v.integer_range(-9223372036854775808, 9223372036854775807))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.reset_id), v.scalar_key(self.manifest_digest), v.scalar_key(self.manifest_uri), v.scalar_key(self.source_fingerprint), v.scalar_key(self.inventory_rows),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeOperationalRetentionMarksRow:
@@ -1603,6 +1994,9 @@ class RuntimeOperationalRetentionMarksRow:
     phase: e.RetentionPhase = attrs.field(validator=attrs.validators.instance_of(e.RetentionPhase))
     marked_at: datetime = attrs.field(validator=v.utc_timestamp)
     deleted_at: datetime | None = attrs.field(validator=attrs.validators.optional(v.utc_timestamp))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.publication_id), v.scalar_key(self.phase), v.scalar_key(self.marked_at), v.optional_key(v.scalar_key)(self.deleted_at),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1619,6 +2013,9 @@ class RuntimeOperationalRetiredInventoryRow:
     protections: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     disposition: e.OrphanDisposition = attrs.field(validator=attrs.validators.instance_of(e.OrphanDisposition))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.reset_id), v.scalar_key(self.ordinal), v.optional_key(v.scalar_key)(self.workspace_id), v.optional_key(v.scalar_key)(self.root_uri), v.optional_key(v.scalar_key)(self.prefix), v.scalar_key(self.record_kind), v.scalar_key(self.document), v.scalar_key(self.protections), v.scalar_key(self.disposition),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeOperationalSchemaSupportStateRow:
@@ -1629,6 +2026,9 @@ class RuntimeOperationalSchemaSupportStateRow:
     source: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     target: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     ready: b.bool = attrs.field(validator=v.exact_type(b.bool))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.history), v.scalar_key(self.shared_version), v.scalar_key(self.source), v.scalar_key(self.target), v.scalar_key(self.ready),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1642,6 +2042,9 @@ class RuntimeOperationalSettlementsRow:
     reason: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     conflict_head: i.PublicationId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     settled_at: datetime = attrs.field(validator=v.utc_timestamp)
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.settlement_id), v.scalar_key(self.attempt_id), v.scalar_key(self.outcome), v.optional_key(v.scalar_key)(self.publication_id), v.optional_key(v.scalar_key)(self.reason), v.optional_key(v.scalar_key)(self.conflict_head), v.scalar_key(self.settled_at),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1667,6 +2070,9 @@ class RuntimeOperationalSolutionsRow:
     created_by: i.AttemptId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     created_at: datetime = attrs.field(validator=v.utc_timestamp)
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.solution_id), v.scalar_key(self.compatibility_stamp), v.scalar_key(self.preparation_identity), v.scalar_key(self.kind), v.scalar_key(self.origin), v.scalar_key(self.backend), v.scalar_key(self.profile_stamp), v.scalar_key(self.data_stamp), v.optional_key(v.sequence_key(v.scalar_key))(self.primal), v.optional_key(v.sequence_key(v.scalar_key))(self.lower_bound_duals), v.optional_key(v.sequence_key(v.scalar_key))(self.upper_bound_duals), v.optional_key(v.sequence_key(v.scalar_key))(self.column_duals), v.optional_key(v.sequence_key(v.scalar_key))(self.row_duals), v.optional_key(v.scalar_key)(self.barrier), v.optional_key(v.sequence_key(v.scalar_key))(self.basis_columns), v.optional_key(v.sequence_key(v.scalar_key))(self.basis_rows), v.optional_key(v.scalar_key)(self.created_by), v.scalar_key(self.created_at),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeOperationalSourceBundlesRow:
@@ -1675,6 +2081,9 @@ class RuntimeOperationalSourceBundlesRow:
     bundle_hash: i.SourceBundleId = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     manifest: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     created_at: datetime = attrs.field(validator=v.utc_timestamp)
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.bundle_hash), v.scalar_key(self.manifest), v.scalar_key(self.created_at),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1685,6 +2094,9 @@ class RuntimeOperationalSourceDocumentsRow:
     path: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     content_hash: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     content: b.bytes = attrs.field(validator=attrs.validators.instance_of(b.bytes))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.bundle_hash), v.scalar_key(self.path), v.scalar_key(self.content_hash), v.scalar_key(self.content),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1699,6 +2111,9 @@ class RuntimeOperationalStudiesRow:
     state: e.StudyState = attrs.field(validator=attrs.validators.instance_of(e.StudyState))
     created_at: datetime = attrs.field(validator=v.utc_timestamp)
     updated_at: datetime = attrs.field(validator=v.utc_timestamp)
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.study_id), v.scalar_key(self.attempt_id), v.scalar_key(self.publication_id), v.scalar_key(self.finalization_job), v.scalar_key(self.definition), v.scalar_key(self.state), v.scalar_key(self.created_at), v.scalar_key(self.updated_at),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1719,6 +2134,9 @@ class RuntimeOperationalStudyPointMembersRow:
     revision_column: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     revision_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.study_id), v.scalar_key(self.point_index), v.scalar_key(self.catalog_name), v.scalar_key(self.schema_name), v.scalar_key(self.table_name), v.scalar_key(self.relation_id), v.scalar_key(self.relation_version), v.scalar_key(self.contract_fingerprint), v.scalar_key(self.table_uri), v.scalar_key(self.delta_version), v.scalar_key(self.selection_kind), v.optional_key(v.scalar_key)(self.revision_column), v.optional_key(v.scalar_key)(self.revision_id),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeOperationalStudyPointsRow:
@@ -1734,6 +2152,9 @@ class RuntimeOperationalStudyPointsRow:
     outcome: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     updated_at: datetime = attrs.field(validator=v.utc_timestamp)
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.study_id), v.scalar_key(self.point_index), v.scalar_key(self.binding_hash), v.scalar_key(self.job_id), v.scalar_key(self.state), v.scalar_key(self.revision), v.scalar_key(self.policy), v.scalar_key(self.outcome), v.scalar_key(self.updated_at),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeOperationalWorkspacesRow:
@@ -1745,6 +2166,9 @@ class RuntimeOperationalWorkspacesRow:
     maintenance_epoch: b.int = attrs.field(validator=v.integer_range(-9223372036854775808, 9223372036854775807))
     created_at: datetime = attrs.field(validator=v.utc_timestamp)
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.workspace_id), v.scalar_key(self.name), v.scalar_key(self.root_uri), v.scalar_key(self.maintenance_epoch), v.scalar_key(self.created_at),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeParameterCovariancesRow:
@@ -1755,6 +2179,9 @@ class RuntimeParameterCovariancesRow:
     parameters: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
     parameter_units: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
     values: b.tuple[b.float, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.finite_float, iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.approximation), v.sequence_key(v.scalar_key)(self.parameters), v.sequence_key(v.scalar_key)(self.parameter_units), v.sequence_key(v.scalar_key)(self.values),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1773,6 +2200,9 @@ class RuntimeParameterIntervalsRow:
     points: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
     detail: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.parameter_id), v.scalar_key(self.method), v.scalar_key(self.end), v.scalar_key(self.unit_id), v.scalar_key(self.level), v.scalar_key(self.estimate), v.optional_key(v.scalar_key)(self.value), v.scalar_key(self.outcome), v.scalar_key(self.points), v.optional_key(v.scalar_key)(self.detail),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeParametricSensitivitiesRow:
@@ -1787,6 +2217,9 @@ class RuntimeParametricSensitivitiesRow:
     target_unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     primal: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     dual: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.step), v.scalar_key(self.parameter_id), v.scalar_key(self.target_kind), v.scalar_key(self.target_id), v.scalar_key(self.parameter_unit_id), v.scalar_key(self.target_unit_id), v.optional_key(v.scalar_key)(self.primal), v.optional_key(v.scalar_key)(self.dual),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1805,6 +2238,9 @@ class RuntimeProfilePointsRow:
     accepted: b.bool = attrs.field(validator=v.exact_type(b.bool))
     detail: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.parameter_id), v.scalar_key(self.end), v.scalar_key(self.point), v.scalar_key(self.value), v.optional_key(v.scalar_key)(self.seed), v.optional_key(v.scalar_key)(self.qualification), v.optional_key(v.scalar_key)(self.objective), v.optional_key(v.scalar_key)(self.statistic), v.scalar_key(self.accepted), v.optional_key(v.scalar_key)(self.detail),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimePropagatedCovariancesRow:
@@ -1817,6 +2253,9 @@ class RuntimePropagatedCovariancesRow:
     outputs: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
     output_units: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
     values: b.tuple[b.float, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.finite_float, iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.step), v.scalar_key(self.covariance_run_id), v.sequence_key(v.scalar_key)(self.parameters), v.sequence_key(v.scalar_key)(self.outputs), v.sequence_key(v.scalar_key)(self.output_units), v.sequence_key(v.scalar_key)(self.values),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1837,6 +2276,9 @@ class RuntimePublicationManifestsRow:
     maintenance_epoch: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
     store_fingerprint: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.publication_id), v.scalar_key(self.workspace_id), v.optional_key(v.scalar_key)(self.parent_publication_id), v.scalar_key(self.attempt_id), v.scalar_key(self.kind), v.sequence_key(v.record_key)(self.inputs), v.sequence_key(v.record_key)(self.members), v.sequence_key(v.record_key)(self.windows), v.optional_key(v.scalar_key)(self.exported_at), v.optional_key(v.scalar_key)(self.export_lease_id), v.optional_key(v.scalar_key)(self.export_expires_at), v.optional_key(v.scalar_key)(self.maintenance_epoch), v.optional_key(v.scalar_key)(self.store_fingerprint),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeReducedHessiansRow:
@@ -1854,6 +2296,9 @@ class RuntimeReducedHessiansRow:
     eigenvalues: b.tuple[b.float, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.finite_float, iterable_validator=attrs.validators.instance_of(b.tuple)))
     eigenvectors: b.tuple[b.float, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.finite_float, iterable_validator=attrs.validators.instance_of(b.tuple)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.step), v.sequence_key(v.scalar_key)(self.parameters), v.sequence_key(v.scalar_key)(self.parameter_units), v.scalar_key(self.objective_unit_id), v.sequence_key(v.scalar_key)(self.coordinate_scales), v.scalar_key(self.objective_scale), v.sequence_key(v.scalar_key)(self.values), v.sequence_key(v.scalar_key)(self.normalized), v.sequence_key(v.scalar_key)(self.eigenvalues), v.sequence_key(v.scalar_key)(self.eigenvectors),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeResolvedNumericsFieldProvenanceItem:
@@ -1865,6 +2310,9 @@ class RuntimeResolvedNumericsFieldProvenanceItem:
     selected: b.bool = attrs.field(validator=v.exact_type(b.bool))
     value: b.float = attrs.field(validator=v.finite_float)
     description: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.declaration), v.scalar_key(self.source), v.scalar_key(self.field), v.scalar_key(self.selected), v.scalar_key(self.value), v.scalar_key(self.description),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1884,6 +2332,9 @@ class RuntimeResolvedNumericsRow:
     budget: b.float = attrs.field(validator=v.finite_float)
     provenance: b.tuple[RuntimeResolvedNumericsFieldProvenanceItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeResolvedNumericsFieldProvenanceItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.step), v.scalar_key(self.target_id), v.scalar_key(self.target_kind), v.scalar_key(self.quantity_id), v.scalar_key(self.unit_id), v.scalar_key(self.nominal), v.scalar_key(self.coordinate_scale), v.scalar_key(self.absolute), v.scalar_key(self.relative), v.scalar_key(self.budget), v.sequence_key(v.record_key)(self.provenance),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeResponseDirectionsRow:
@@ -1895,6 +2346,9 @@ class RuntimeResponseDirectionsRow:
     singular_value: b.float = attrs.field(validator=v.finite_float)
     identifiable: b.bool = attrs.field(validator=v.exact_type(b.bool))
     component: b.float = attrs.field(validator=v.finite_float)
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.direction), v.scalar_key(self.parameter_id), v.scalar_key(self.singular_value), v.scalar_key(self.identifiable), v.scalar_key(self.component),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1911,6 +2365,9 @@ class RuntimeResponseSensitivitiesRow:
     parameter_unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     value: b.float = attrs.field(validator=v.finite_float)
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.experiment_id), v.scalar_key(self.sample), v.optional_key(v.scalar_key)(self.time), v.scalar_key(self.output_id), v.scalar_key(self.parameter_id), v.scalar_key(self.output_unit_id), v.scalar_key(self.parameter_unit_id), v.scalar_key(self.value),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeRetainedVersionsRow:
@@ -1921,6 +2378,9 @@ class RuntimeRetainedVersionsRow:
     through_version: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
     reason: e.RetentionReason = attrs.field(validator=attrs.validators.instance_of(e.RetentionReason))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.table_uri), v.scalar_key(self.from_version), v.scalar_key(self.through_version), v.scalar_key(self.reason),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeRouteDecisionsFieldEligibilityItem:
@@ -1928,6 +2388,9 @@ class RuntimeRouteDecisionsFieldEligibilityItem:
 
     backend: e.NativeBackend = attrs.field(validator=attrs.validators.instance_of(e.NativeBackend))
     reasons: b.tuple[e.NativeIneligibility, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(e.NativeIneligibility), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.backend), v.sequence_key(v.scalar_key)(self.reasons),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1948,6 +2411,9 @@ class RuntimeRouteDecisionsRow:
     refusal: e.NativeRouteRefusal | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.NativeRouteRefusal)))
     detail: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.request_identity), v.scalar_key(self.step), v.scalar_key(self.intent), v.scalar_key(self.selection), v.optional_key(v.scalar_key)(self.requested_backend), v.sequence_key(v.scalar_key)(self.classes), v.sequence_key(v.record_key)(self.eligibility), v.optional_key(v.scalar_key)(self.selected), v.optional_key(v.scalar_key)(self.backend), v.optional_key(v.scalar_key)(self.representation), v.optional_key(v.scalar_key)(self.lexicographic), v.optional_key(v.scalar_key)(self.refusal), v.optional_key(v.scalar_key)(self.detail),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeRunLineageRow:
@@ -1967,6 +2433,9 @@ class RuntimeRunLineageRow:
     physical_identity: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     environment_identity: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.step), v.optional_key(v.scalar_key)(self.model_id), v.scalar_key(self.revision), v.optional_key(v.scalar_key)(self.case_id), v.optional_key(v.scalar_key)(self.instance_id), v.optional_key(v.scalar_key)(self.fit_id), v.scalar_key(self.request_identity), v.scalar_key(self.preparation_identity), v.scalar_key(self.profile_identity), v.scalar_key(self.numerical_identity), v.scalar_key(self.physical_identity), v.scalar_key(self.environment_identity),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeSimulationEventsRow:
@@ -1979,6 +2448,9 @@ class RuntimeSimulationEventsRow:
     symbol_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     before: b.float = attrs.field(validator=v.finite_float)
     after: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.ordinal), v.optional_key(v.scalar_key)(self.event_id), v.scalar_key(self.time), v.scalar_key(self.symbol_id), v.scalar_key(self.before), v.optional_key(v.scalar_key)(self.after),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1993,6 +2465,9 @@ class RuntimeSimulationSamplesRow:
     unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     value: b.float = attrs.field(validator=v.finite_float)
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.sample), v.scalar_key(self.time), v.scalar_key(self.symbol_id), v.scalar_key(self.quantity_id), v.scalar_key(self.unit_id), v.scalar_key(self.value),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeSolutionPoolRow:
@@ -2005,6 +2480,9 @@ class RuntimeSolutionPoolRow:
     value: b.float = attrs.field(validator=v.finite_float)
     objective: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     feasible: b.bool | None = attrs.field(validator=attrs.validators.optional(v.exact_type(b.bool)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.step), v.scalar_key(self.rank), v.scalar_key(self.symbol_id), v.scalar_key(self.value), v.optional_key(v.scalar_key)(self.objective), v.optional_key(v.scalar_key)(self.feasible),))
 
 
 @attrs.frozen(kw_only=True)
@@ -2026,6 +2504,9 @@ class RuntimeSolveConstraintsRow:
     dual: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     dual_qualification: e.DualQualification = attrs.field(validator=attrs.validators.instance_of(e.DualQualification))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.step), v.scalar_key(self.row_id), v.optional_key(v.scalar_key)(self.quantity_id), v.optional_key(v.scalar_key)(self.unit_id), v.optional_key(v.scalar_key)(self.value), v.optional_key(v.scalar_key)(self.lower), v.optional_key(v.scalar_key)(self.upper), v.optional_key(v.scalar_key)(self.equality_residual), v.optional_key(v.scalar_key)(self.lower_violation), v.optional_key(v.scalar_key)(self.upper_violation), v.optional_key(v.scalar_key)(self.tolerance), v.optional_key(v.scalar_key)(self.dual), v.scalar_key(self.dual_qualification),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeSolveMetricsRow:
@@ -2042,6 +2523,9 @@ class RuntimeSolveMetricsRow:
     text: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     unavailable: e.EvidenceUnavailableReason | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.EvidenceUnavailableReason)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.step), v.scalar_key(self.namespace), v.scalar_key(self.name), v.scalar_key(self.kind), v.optional_key(v.scalar_key)(self.real), v.optional_key(v.scalar_key)(self.integer), v.optional_key(v.scalar_key)(self.boolean), v.optional_key(v.scalar_key)(self.text), v.optional_key(v.scalar_key)(self.unavailable),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeSolveRunsFieldCommitmentItem:
@@ -2050,6 +2534,9 @@ class RuntimeSolveRunsFieldCommitmentItem:
     source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     lower: b.float = attrs.field(validator=v.finite_float)
     upper: b.float = attrs.field(validator=v.finite_float)
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.source_id), v.scalar_key(self.lower), v.scalar_key(self.upper),))
 
 
 @attrs.frozen(kw_only=True)
@@ -2079,6 +2566,9 @@ class RuntimeSolveRunsRow:
     transformation: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
     commitment: b.tuple[RuntimeSolveRunsFieldCommitmentItem, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeSolveRunsFieldCommitmentItem), iterable_validator=attrs.validators.instance_of(b.tuple))))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.step), v.optional_key(v.scalar_key)(self.model_id), v.optional_key(v.scalar_key)(self.revision), v.optional_key(v.scalar_key)(self.case_id), v.optional_key(v.scalar_key)(self.instance_id), v.optional_key(v.scalar_key)(self.backend), v.optional_key(v.scalar_key)(self.native_code), v.optional_key(v.scalar_key)(self.native_status), v.scalar_key(self.state), v.optional_key(v.scalar_key)(self.termination), v.scalar_key(self.assurance), v.scalar_key(self.qualification), v.optional_key(v.scalar_key)(self.candidate_kind), v.optional_key(v.scalar_key)(self.feasible), v.optional_key(v.scalar_key)(self.objective), v.optional_key(v.scalar_key)(self.objective_sense), v.optional_key(v.scalar_key)(self.objective_quantity_id), v.optional_key(v.scalar_key)(self.validation_error), v.optional_key(v.scalar_key)(self.error), v.optional_key(v.scalar_key)(self.transformation), v.optional_key(v.sequence_key(v.record_key))(self.commitment),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeSolveVariablesRow:
@@ -2103,6 +2593,9 @@ class RuntimeSolveVariablesRow:
     reduced_cost: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     stationarity: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     dual_qualification: e.DualQualification = attrs.field(validator=attrs.validators.instance_of(e.DualQualification))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.step), v.scalar_key(self.symbol_id), v.optional_key(v.scalar_key)(self.quantity_id), v.optional_key(v.scalar_key)(self.unit_id), v.scalar_key(self.fixed), v.scalar_key(self.parameter), v.optional_key(v.scalar_key)(self.domain), v.optional_key(v.scalar_key)(self.value), v.optional_key(v.scalar_key)(self.lower), v.optional_key(v.scalar_key)(self.upper), v.optional_key(v.scalar_key)(self.lower_violation), v.optional_key(v.scalar_key)(self.upper_violation), v.optional_key(v.scalar_key)(self.tolerance), v.optional_key(v.scalar_key)(self.lower_dual), v.optional_key(v.scalar_key)(self.upper_dual), v.optional_key(v.scalar_key)(self.reduced_cost), v.optional_key(v.scalar_key)(self.stationarity), v.scalar_key(self.dual_qualification),))
 
 
 @attrs.frozen(kw_only=True)
@@ -2129,6 +2622,9 @@ class RuntimeSolverCapabilitiesRow:
     batch: b.bool = attrs.field(validator=v.exact_type(b.bool))
     sensitivities: b.bool = attrs.field(validator=v.exact_type(b.bool))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.backend), v.scalar_key(self.structural_policy), v.scalar_key(self.lexicographic_degradation), v.sequence_key(v.scalar_key)(self.classes), v.sequence_key(v.scalar_key)(self.automatic_classes), v.scalar_key(self.derivatives), v.scalar_key(self.warm), v.scalar_key(self.reuse), v.scalar_key(self.cancellation), v.scalar_key(self.diagnostics), v.scalar_key(self.general_bounds), v.scalar_key(self.sign_bounds), v.scalar_key(self.parallel), v.scalar_key(self.certifies), v.sequence_key(v.scalar_key)(self.native_forms), v.sequence_key(v.scalar_key)(self.requirements), v.sequence_key(v.scalar_key)(self.lexicographic_classes), v.scalar_key(self.batch), v.scalar_key(self.sensitivities),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeStructuralAssessmentsFieldEquationsItem:
@@ -2138,6 +2634,9 @@ class RuntimeStructuralAssessmentsFieldEquationsItem:
     lower: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     upper: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.id), v.optional_key(v.scalar_key)(self.lower), v.optional_key(v.scalar_key)(self.upper),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeStructuralAssessmentsFieldMatchingItem:
@@ -2145,6 +2644,9 @@ class RuntimeStructuralAssessmentsFieldMatchingItem:
 
     row: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     column: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.row), v.scalar_key(self.column),))
 
 
 @attrs.frozen(kw_only=True)
@@ -2169,6 +2671,9 @@ class RuntimeStructuralAssessmentsRow:
     admitted: b.bool = attrs.field(validator=v.exact_type(b.bool))
     provenance: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.request_identity), v.scalar_key(self.step), v.scalar_key(self.mode), v.scalar_key(self.scope), v.scalar_key(self.scope_model), v.sequence_key(v.scalar_key)(self.scope_members), v.sequence_key(v.scalar_key)(self.scope_rows), v.sequence_key(v.scalar_key)(self.scope_columns), v.sequence_key(v.scalar_key)(self.scope_inputs), v.sequence_key(v.scalar_key)(self.variables), v.sequence_key(v.record_key)(self.equations), v.sequence_key(v.record_key)(self.matching), v.sequence_key(v.scalar_key)(self.unmatched_rows), v.sequence_key(v.scalar_key)(self.unmatched_columns), v.optional_key(v.scalar_key)(self.optimization_freedom), v.scalar_key(self.admitted), v.scalar_key(self.provenance),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeStudyOutcomesFieldStart:
@@ -2180,6 +2685,9 @@ class RuntimeStudyOutcomesFieldStart:
     seed_id: i.SolutionId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     unavailable: e.StudySeedUnavailable | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.StudySeedUnavailable)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.kind), v.optional_key(v.scalar_key)(self.predecessor), v.optional_key(v.scalar_key)(self.role), v.optional_key(v.scalar_key)(self.seed_id), v.optional_key(v.scalar_key)(self.unavailable),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeStudyOutcomesFieldDiagnosticObservationsItemContractsItemIndicesItem:
@@ -2189,6 +2697,9 @@ class RuntimeStudyOutcomesFieldDiagnosticObservationsItemContractsItemIndicesIte
     domain: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     kind: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.bound_index), v.scalar_key(self.domain), v.scalar_key(self.kind),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeStudyOutcomesFieldDiagnosticObservationsItemContractsItem:
@@ -2196,6 +2707,9 @@ class RuntimeStudyOutcomesFieldDiagnosticObservationsItemContractsItem:
 
     quantity: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     indices: b.tuple[RuntimeStudyOutcomesFieldDiagnosticObservationsItemContractsItemIndicesItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeStudyOutcomesFieldDiagnosticObservationsItemContractsItemIndicesItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.quantity), v.sequence_key(v.record_key)(self.indices),))
 
 
 @attrs.frozen(kw_only=True)
@@ -2214,6 +2728,9 @@ class RuntimeStudyOutcomesFieldDiagnosticObservationsItem:
     context: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
     contracts: b.tuple[RuntimeStudyOutcomesFieldDiagnosticObservationsItemContractsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeStudyOutcomesFieldDiagnosticObservationsItemContractsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.scalar_key(self.kind), v.optional_key(v.scalar_key)(self.real), v.optional_key(v.scalar_key)(self.real_kind), v.optional_key(v.scalar_key)(self.integer), v.optional_key(v.scalar_key)(self.boolean), v.optional_key(v.scalar_key)(self.text), v.optional_key(v.scalar_key)(self.quantity), v.optional_key(v.scalar_key)(self.unit), v.optional_key(v.scalar_key)(self.context), v.sequence_key(v.record_key)(self.contracts),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeStudyOutcomesFieldDiagnosticLocationsItem:
@@ -2226,6 +2743,9 @@ class RuntimeStudyOutcomesFieldDiagnosticLocationsItem:
     start: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
     end: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.source_id), v.optional_key(v.scalar_key)(self.revision), v.scalar_key(self.path), v.optional_key(v.scalar_key)(self.name), v.optional_key(v.scalar_key)(self.start), v.optional_key(v.scalar_key)(self.end),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeStudyOutcomesFieldDiagnosticValidity:
@@ -2237,6 +2757,9 @@ class RuntimeStudyOutcomesFieldDiagnosticValidity:
     set_ids: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
     variables: b.tuple[b.int, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.integer_range(0, 9223372036854775807), iterable_validator=attrs.validators.instance_of(b.tuple)))
     member_ids: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.layer), v.scalar_key(self.source_id), v.optional_key(v.scalar_key)(self.form_id), v.sequence_key(v.scalar_key)(self.set_ids), v.sequence_key(v.scalar_key)(self.variables), v.sequence_key(v.scalar_key)(self.member_ids),))
 
 
 @attrs.frozen(kw_only=True)
@@ -2256,6 +2779,9 @@ class RuntimeStudyOutcomesFieldDiagnosticApplicabilityItemClaim:
     basis: e.ModelingApplicabilityBasis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.ModelingApplicabilityBasis)))
     reason: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.id), v.optional_key(v.scalar_key)(self.coverage), v.scalar_key(self.owner), v.sequence_key(v.scalar_key)(self.owner_lineage), v.optional_key(v.scalar_key)(self.evidence), v.scalar_key(self.form), v.scalar_key(self.call), v.sequence_key(v.scalar_key)(self.records), v.sequence_key(v.scalar_key)(self.dependencies), v.scalar_key(self.layer), v.optional_key(v.scalar_key)(self.basis), v.optional_key(v.scalar_key)(self.reason),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeStudyOutcomesFieldDiagnosticApplicabilityItemInputsItem:
@@ -2265,6 +2791,9 @@ class RuntimeStudyOutcomesFieldDiagnosticApplicabilityItemInputsItem:
     value: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     real_kind: e.ModelingRealValueKind = attrs.field(validator=attrs.validators.instance_of(e.ModelingRealValueKind))
     quantity_type: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.optional_key(v.scalar_key)(self.value), v.scalar_key(self.real_kind), v.scalar_key(self.quantity_type),))
 
 
 @attrs.frozen(kw_only=True)
@@ -2277,6 +2806,9 @@ class RuntimeStudyOutcomesFieldDiagnosticApplicabilityItemPermissionsItem:
     targets: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
     allow_unknown: b.bool = attrs.field(validator=v.exact_type(b.bool))
     allow_extrapolation: b.bool = attrs.field(validator=v.exact_type(b.bool))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.id), v.scalar_key(self.scope), v.scalar_key(self.target_kind), v.sequence_key(v.scalar_key)(self.targets), v.scalar_key(self.allow_unknown), v.scalar_key(self.allow_extrapolation),))
 
 
 @attrs.frozen(kw_only=True)
@@ -2293,6 +2825,9 @@ class RuntimeStudyOutcomesFieldDiagnosticApplicabilityItem:
     extrapolation_allowed: b.bool = attrs.field(validator=v.exact_type(b.bool))
     admitted: b.bool = attrs.field(validator=v.exact_type(b.bool))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.claim), v.optional_key(v.scalar_key)(self.instance), v.sequence_key(v.record_key)(self.inputs), v.scalar_key(self.outcome), v.scalar_key(self.required), v.sequence_key(v.record_key)(self.permissions), v.scalar_key(self.unknown_allowed), v.scalar_key(self.extrapolation_allowed), v.scalar_key(self.admitted),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeStudyOutcomesFieldDiagnosticCausesItemObservationsItemContractsItemIndicesItem:
@@ -2302,6 +2837,9 @@ class RuntimeStudyOutcomesFieldDiagnosticCausesItemObservationsItemContractsItem
     domain: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     kind: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.bound_index), v.scalar_key(self.domain), v.scalar_key(self.kind),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeStudyOutcomesFieldDiagnosticCausesItemObservationsItemContractsItem:
@@ -2309,6 +2847,9 @@ class RuntimeStudyOutcomesFieldDiagnosticCausesItemObservationsItemContractsItem
 
     quantity: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     indices: b.tuple[RuntimeStudyOutcomesFieldDiagnosticCausesItemObservationsItemContractsItemIndicesItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeStudyOutcomesFieldDiagnosticCausesItemObservationsItemContractsItemIndicesItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.quantity), v.sequence_key(v.record_key)(self.indices),))
 
 
 @attrs.frozen(kw_only=True)
@@ -2327,6 +2868,9 @@ class RuntimeStudyOutcomesFieldDiagnosticCausesItemObservationsItem:
     context: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
     contracts: b.tuple[RuntimeStudyOutcomesFieldDiagnosticCausesItemObservationsItemContractsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeStudyOutcomesFieldDiagnosticCausesItemObservationsItemContractsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.scalar_key(self.kind), v.optional_key(v.scalar_key)(self.real), v.optional_key(v.scalar_key)(self.real_kind), v.optional_key(v.scalar_key)(self.integer), v.optional_key(v.scalar_key)(self.boolean), v.optional_key(v.scalar_key)(self.text), v.optional_key(v.scalar_key)(self.quantity), v.optional_key(v.scalar_key)(self.unit), v.optional_key(v.scalar_key)(self.context), v.sequence_key(v.record_key)(self.contracts),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeStudyOutcomesFieldDiagnosticCausesItemLocationsItem:
@@ -2339,6 +2883,9 @@ class RuntimeStudyOutcomesFieldDiagnosticCausesItemLocationsItem:
     start: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
     end: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.source_id), v.optional_key(v.scalar_key)(self.revision), v.scalar_key(self.path), v.optional_key(v.scalar_key)(self.name), v.optional_key(v.scalar_key)(self.start), v.optional_key(v.scalar_key)(self.end),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeStudyOutcomesFieldDiagnosticCausesItemValidity:
@@ -2350,6 +2897,9 @@ class RuntimeStudyOutcomesFieldDiagnosticCausesItemValidity:
     set_ids: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
     variables: b.tuple[b.int, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.integer_range(0, 9223372036854775807), iterable_validator=attrs.validators.instance_of(b.tuple)))
     member_ids: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.layer), v.scalar_key(self.source_id), v.optional_key(v.scalar_key)(self.form_id), v.sequence_key(v.scalar_key)(self.set_ids), v.sequence_key(v.scalar_key)(self.variables), v.sequence_key(v.scalar_key)(self.member_ids),))
 
 
 @attrs.frozen(kw_only=True)
@@ -2369,6 +2919,9 @@ class RuntimeStudyOutcomesFieldDiagnosticCausesItemApplicabilityItemClaim:
     basis: e.ModelingApplicabilityBasis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.ModelingApplicabilityBasis)))
     reason: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.id), v.optional_key(v.scalar_key)(self.coverage), v.scalar_key(self.owner), v.sequence_key(v.scalar_key)(self.owner_lineage), v.optional_key(v.scalar_key)(self.evidence), v.scalar_key(self.form), v.scalar_key(self.call), v.sequence_key(v.scalar_key)(self.records), v.sequence_key(v.scalar_key)(self.dependencies), v.scalar_key(self.layer), v.optional_key(v.scalar_key)(self.basis), v.optional_key(v.scalar_key)(self.reason),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeStudyOutcomesFieldDiagnosticCausesItemApplicabilityItemInputsItem:
@@ -2378,6 +2931,9 @@ class RuntimeStudyOutcomesFieldDiagnosticCausesItemApplicabilityItemInputsItem:
     value: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     real_kind: e.ModelingRealValueKind = attrs.field(validator=attrs.validators.instance_of(e.ModelingRealValueKind))
     quantity_type: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.optional_key(v.scalar_key)(self.value), v.scalar_key(self.real_kind), v.scalar_key(self.quantity_type),))
 
 
 @attrs.frozen(kw_only=True)
@@ -2390,6 +2946,9 @@ class RuntimeStudyOutcomesFieldDiagnosticCausesItemApplicabilityItemPermissionsI
     targets: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
     allow_unknown: b.bool = attrs.field(validator=v.exact_type(b.bool))
     allow_extrapolation: b.bool = attrs.field(validator=v.exact_type(b.bool))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.id), v.scalar_key(self.scope), v.scalar_key(self.target_kind), v.sequence_key(v.scalar_key)(self.targets), v.scalar_key(self.allow_unknown), v.scalar_key(self.allow_extrapolation),))
 
 
 @attrs.frozen(kw_only=True)
@@ -2405,6 +2964,9 @@ class RuntimeStudyOutcomesFieldDiagnosticCausesItemApplicabilityItem:
     unknown_allowed: b.bool = attrs.field(validator=v.exact_type(b.bool))
     extrapolation_allowed: b.bool = attrs.field(validator=v.exact_type(b.bool))
     admitted: b.bool = attrs.field(validator=v.exact_type(b.bool))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.claim), v.optional_key(v.scalar_key)(self.instance), v.sequence_key(v.record_key)(self.inputs), v.scalar_key(self.outcome), v.scalar_key(self.required), v.sequence_key(v.record_key)(self.permissions), v.scalar_key(self.unknown_allowed), v.scalar_key(self.extrapolation_allowed), v.scalar_key(self.admitted),))
 
 
 @attrs.frozen(kw_only=True)
@@ -2423,6 +2985,9 @@ class RuntimeStudyOutcomesFieldDiagnosticCausesItem:
     validity: RuntimeStudyOutcomesFieldDiagnosticCausesItemValidity | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(RuntimeStudyOutcomesFieldDiagnosticCausesItemValidity)))
     applicability: b.tuple[RuntimeStudyOutcomesFieldDiagnosticCausesItemApplicabilityItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeStudyOutcomesFieldDiagnosticCausesItemApplicabilityItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.tree_path), v.scalar_key(self.code), v.scalar_key(self.class_), v.scalar_key(self.severity), v.scalar_key(self.stage), v.scalar_key(self.rule), v.sequence_key(v.scalar_key)(self.sources), v.sequence_key(v.record_key)(self.observations), v.sequence_key(v.record_key)(self.locations), v.optional_key(v.record_key)(self.validity), v.sequence_key(v.record_key)(self.applicability),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeStudyOutcomesFieldDiagnostic:
@@ -2440,6 +3005,9 @@ class RuntimeStudyOutcomesFieldDiagnostic:
     applicability: b.tuple[RuntimeStudyOutcomesFieldDiagnosticApplicabilityItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeStudyOutcomesFieldDiagnosticApplicabilityItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     causes: b.tuple[RuntimeStudyOutcomesFieldDiagnosticCausesItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeStudyOutcomesFieldDiagnosticCausesItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.code), v.scalar_key(self.class_), v.scalar_key(self.severity), v.scalar_key(self.stage), v.scalar_key(self.rule), v.sequence_key(v.scalar_key)(self.sources), v.sequence_key(v.record_key)(self.observations), v.sequence_key(v.record_key)(self.locations), v.optional_key(v.record_key)(self.validity), v.sequence_key(v.record_key)(self.applicability), v.sequence_key(v.record_key)(self.causes),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeStudyOutcomesFieldAttemptsItemStart:
@@ -2451,6 +3019,9 @@ class RuntimeStudyOutcomesFieldAttemptsItemStart:
     seed_id: i.SolutionId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     unavailable: e.StudySeedUnavailable | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.StudySeedUnavailable)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.kind), v.optional_key(v.scalar_key)(self.predecessor), v.optional_key(v.scalar_key)(self.role), v.optional_key(v.scalar_key)(self.seed_id), v.optional_key(v.scalar_key)(self.unavailable),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeStudyOutcomesFieldAttemptsItemDiagnosticObservationsItemContractsItemIndicesItem:
@@ -2460,6 +3031,9 @@ class RuntimeStudyOutcomesFieldAttemptsItemDiagnosticObservationsItemContractsIt
     domain: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     kind: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.bound_index), v.scalar_key(self.domain), v.scalar_key(self.kind),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeStudyOutcomesFieldAttemptsItemDiagnosticObservationsItemContractsItem:
@@ -2467,6 +3041,9 @@ class RuntimeStudyOutcomesFieldAttemptsItemDiagnosticObservationsItemContractsIt
 
     quantity: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     indices: b.tuple[RuntimeStudyOutcomesFieldAttemptsItemDiagnosticObservationsItemContractsItemIndicesItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeStudyOutcomesFieldAttemptsItemDiagnosticObservationsItemContractsItemIndicesItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.quantity), v.sequence_key(v.record_key)(self.indices),))
 
 
 @attrs.frozen(kw_only=True)
@@ -2485,6 +3062,9 @@ class RuntimeStudyOutcomesFieldAttemptsItemDiagnosticObservationsItem:
     context: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
     contracts: b.tuple[RuntimeStudyOutcomesFieldAttemptsItemDiagnosticObservationsItemContractsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeStudyOutcomesFieldAttemptsItemDiagnosticObservationsItemContractsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.scalar_key(self.kind), v.optional_key(v.scalar_key)(self.real), v.optional_key(v.scalar_key)(self.real_kind), v.optional_key(v.scalar_key)(self.integer), v.optional_key(v.scalar_key)(self.boolean), v.optional_key(v.scalar_key)(self.text), v.optional_key(v.scalar_key)(self.quantity), v.optional_key(v.scalar_key)(self.unit), v.optional_key(v.scalar_key)(self.context), v.sequence_key(v.record_key)(self.contracts),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeStudyOutcomesFieldAttemptsItemDiagnosticLocationsItem:
@@ -2497,6 +3077,9 @@ class RuntimeStudyOutcomesFieldAttemptsItemDiagnosticLocationsItem:
     start: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
     end: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.source_id), v.optional_key(v.scalar_key)(self.revision), v.scalar_key(self.path), v.optional_key(v.scalar_key)(self.name), v.optional_key(v.scalar_key)(self.start), v.optional_key(v.scalar_key)(self.end),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeStudyOutcomesFieldAttemptsItemDiagnosticValidity:
@@ -2508,6 +3091,9 @@ class RuntimeStudyOutcomesFieldAttemptsItemDiagnosticValidity:
     set_ids: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
     variables: b.tuple[b.int, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.integer_range(0, 9223372036854775807), iterable_validator=attrs.validators.instance_of(b.tuple)))
     member_ids: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.layer), v.scalar_key(self.source_id), v.optional_key(v.scalar_key)(self.form_id), v.sequence_key(v.scalar_key)(self.set_ids), v.sequence_key(v.scalar_key)(self.variables), v.sequence_key(v.scalar_key)(self.member_ids),))
 
 
 @attrs.frozen(kw_only=True)
@@ -2527,6 +3113,9 @@ class RuntimeStudyOutcomesFieldAttemptsItemDiagnosticApplicabilityItemClaim:
     basis: e.ModelingApplicabilityBasis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.ModelingApplicabilityBasis)))
     reason: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.id), v.optional_key(v.scalar_key)(self.coverage), v.scalar_key(self.owner), v.sequence_key(v.scalar_key)(self.owner_lineage), v.optional_key(v.scalar_key)(self.evidence), v.scalar_key(self.form), v.scalar_key(self.call), v.sequence_key(v.scalar_key)(self.records), v.sequence_key(v.scalar_key)(self.dependencies), v.scalar_key(self.layer), v.optional_key(v.scalar_key)(self.basis), v.optional_key(v.scalar_key)(self.reason),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeStudyOutcomesFieldAttemptsItemDiagnosticApplicabilityItemInputsItem:
@@ -2536,6 +3125,9 @@ class RuntimeStudyOutcomesFieldAttemptsItemDiagnosticApplicabilityItemInputsItem
     value: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     real_kind: e.ModelingRealValueKind = attrs.field(validator=attrs.validators.instance_of(e.ModelingRealValueKind))
     quantity_type: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.optional_key(v.scalar_key)(self.value), v.scalar_key(self.real_kind), v.scalar_key(self.quantity_type),))
 
 
 @attrs.frozen(kw_only=True)
@@ -2548,6 +3140,9 @@ class RuntimeStudyOutcomesFieldAttemptsItemDiagnosticApplicabilityItemPermission
     targets: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
     allow_unknown: b.bool = attrs.field(validator=v.exact_type(b.bool))
     allow_extrapolation: b.bool = attrs.field(validator=v.exact_type(b.bool))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.id), v.scalar_key(self.scope), v.scalar_key(self.target_kind), v.sequence_key(v.scalar_key)(self.targets), v.scalar_key(self.allow_unknown), v.scalar_key(self.allow_extrapolation),))
 
 
 @attrs.frozen(kw_only=True)
@@ -2564,6 +3159,9 @@ class RuntimeStudyOutcomesFieldAttemptsItemDiagnosticApplicabilityItem:
     extrapolation_allowed: b.bool = attrs.field(validator=v.exact_type(b.bool))
     admitted: b.bool = attrs.field(validator=v.exact_type(b.bool))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.claim), v.optional_key(v.scalar_key)(self.instance), v.sequence_key(v.record_key)(self.inputs), v.scalar_key(self.outcome), v.scalar_key(self.required), v.sequence_key(v.record_key)(self.permissions), v.scalar_key(self.unknown_allowed), v.scalar_key(self.extrapolation_allowed), v.scalar_key(self.admitted),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemObservationsItemContractsItemIndicesItem:
@@ -2573,6 +3171,9 @@ class RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemObservationsItemC
     domain: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     kind: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.bound_index), v.scalar_key(self.domain), v.scalar_key(self.kind),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemObservationsItemContractsItem:
@@ -2580,6 +3181,9 @@ class RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemObservationsItemC
 
     quantity: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     indices: b.tuple[RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemObservationsItemContractsItemIndicesItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemObservationsItemContractsItemIndicesItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.quantity), v.sequence_key(v.record_key)(self.indices),))
 
 
 @attrs.frozen(kw_only=True)
@@ -2598,6 +3202,9 @@ class RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemObservationsItem:
     context: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
     contracts: b.tuple[RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemObservationsItemContractsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemObservationsItemContractsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.scalar_key(self.kind), v.optional_key(v.scalar_key)(self.real), v.optional_key(v.scalar_key)(self.real_kind), v.optional_key(v.scalar_key)(self.integer), v.optional_key(v.scalar_key)(self.boolean), v.optional_key(v.scalar_key)(self.text), v.optional_key(v.scalar_key)(self.quantity), v.optional_key(v.scalar_key)(self.unit), v.optional_key(v.scalar_key)(self.context), v.sequence_key(v.record_key)(self.contracts),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemLocationsItem:
@@ -2610,6 +3217,9 @@ class RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemLocationsItem:
     start: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
     end: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.source_id), v.optional_key(v.scalar_key)(self.revision), v.scalar_key(self.path), v.optional_key(v.scalar_key)(self.name), v.optional_key(v.scalar_key)(self.start), v.optional_key(v.scalar_key)(self.end),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemValidity:
@@ -2621,6 +3231,9 @@ class RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemValidity:
     set_ids: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
     variables: b.tuple[b.int, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.integer_range(0, 9223372036854775807), iterable_validator=attrs.validators.instance_of(b.tuple)))
     member_ids: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.layer), v.scalar_key(self.source_id), v.optional_key(v.scalar_key)(self.form_id), v.sequence_key(v.scalar_key)(self.set_ids), v.sequence_key(v.scalar_key)(self.variables), v.sequence_key(v.scalar_key)(self.member_ids),))
 
 
 @attrs.frozen(kw_only=True)
@@ -2640,6 +3253,9 @@ class RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemApplicabilityItem
     basis: e.ModelingApplicabilityBasis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.ModelingApplicabilityBasis)))
     reason: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.id), v.optional_key(v.scalar_key)(self.coverage), v.scalar_key(self.owner), v.sequence_key(v.scalar_key)(self.owner_lineage), v.optional_key(v.scalar_key)(self.evidence), v.scalar_key(self.form), v.scalar_key(self.call), v.sequence_key(v.scalar_key)(self.records), v.sequence_key(v.scalar_key)(self.dependencies), v.scalar_key(self.layer), v.optional_key(v.scalar_key)(self.basis), v.optional_key(v.scalar_key)(self.reason),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemApplicabilityItemInputsItem:
@@ -2649,6 +3265,9 @@ class RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemApplicabilityItem
     value: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     real_kind: e.ModelingRealValueKind = attrs.field(validator=attrs.validators.instance_of(e.ModelingRealValueKind))
     quantity_type: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.optional_key(v.scalar_key)(self.value), v.scalar_key(self.real_kind), v.scalar_key(self.quantity_type),))
 
 
 @attrs.frozen(kw_only=True)
@@ -2661,6 +3280,9 @@ class RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemApplicabilityItem
     targets: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
     allow_unknown: b.bool = attrs.field(validator=v.exact_type(b.bool))
     allow_extrapolation: b.bool = attrs.field(validator=v.exact_type(b.bool))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.id), v.scalar_key(self.scope), v.scalar_key(self.target_kind), v.sequence_key(v.scalar_key)(self.targets), v.scalar_key(self.allow_unknown), v.scalar_key(self.allow_extrapolation),))
 
 
 @attrs.frozen(kw_only=True)
@@ -2676,6 +3298,9 @@ class RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemApplicabilityItem
     unknown_allowed: b.bool = attrs.field(validator=v.exact_type(b.bool))
     extrapolation_allowed: b.bool = attrs.field(validator=v.exact_type(b.bool))
     admitted: b.bool = attrs.field(validator=v.exact_type(b.bool))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.claim), v.optional_key(v.scalar_key)(self.instance), v.sequence_key(v.record_key)(self.inputs), v.scalar_key(self.outcome), v.scalar_key(self.required), v.sequence_key(v.record_key)(self.permissions), v.scalar_key(self.unknown_allowed), v.scalar_key(self.extrapolation_allowed), v.scalar_key(self.admitted),))
 
 
 @attrs.frozen(kw_only=True)
@@ -2694,6 +3319,9 @@ class RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItem:
     validity: RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemValidity | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemValidity)))
     applicability: b.tuple[RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemApplicabilityItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemApplicabilityItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.tree_path), v.scalar_key(self.code), v.scalar_key(self.class_), v.scalar_key(self.severity), v.scalar_key(self.stage), v.scalar_key(self.rule), v.sequence_key(v.scalar_key)(self.sources), v.sequence_key(v.record_key)(self.observations), v.sequence_key(v.record_key)(self.locations), v.optional_key(v.record_key)(self.validity), v.sequence_key(v.record_key)(self.applicability),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeStudyOutcomesFieldAttemptsItemDiagnostic:
@@ -2711,6 +3339,9 @@ class RuntimeStudyOutcomesFieldAttemptsItemDiagnostic:
     applicability: b.tuple[RuntimeStudyOutcomesFieldAttemptsItemDiagnosticApplicabilityItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeStudyOutcomesFieldAttemptsItemDiagnosticApplicabilityItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     causes: b.tuple[RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.code), v.scalar_key(self.class_), v.scalar_key(self.severity), v.scalar_key(self.stage), v.scalar_key(self.rule), v.sequence_key(v.scalar_key)(self.sources), v.sequence_key(v.record_key)(self.observations), v.sequence_key(v.record_key)(self.locations), v.optional_key(v.record_key)(self.validity), v.sequence_key(v.record_key)(self.applicability), v.sequence_key(v.record_key)(self.causes),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeStudyOutcomesFieldAttemptsItem:
@@ -2724,6 +3355,9 @@ class RuntimeStudyOutcomesFieldAttemptsItem:
     effect: e.StudyEffectState = attrs.field(validator=attrs.validators.instance_of(e.StudyEffectState))
     start: RuntimeStudyOutcomesFieldAttemptsItemStart | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(RuntimeStudyOutcomesFieldAttemptsItemStart)))
     diagnostic: RuntimeStudyOutcomesFieldAttemptsItemDiagnostic | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(RuntimeStudyOutcomesFieldAttemptsItemDiagnostic)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.attempt_id), v.optional_key(v.scalar_key)(self.lifecycle), v.scalar_key(self.usable), v.scalar_key(self.seed_permission), v.optional_key(v.scalar_key)(self.candidate_use), v.scalar_key(self.effect), v.optional_key(v.record_key)(self.start), v.optional_key(v.record_key)(self.diagnostic),))
 
 
 @attrs.frozen(kw_only=True)
@@ -2746,6 +3380,9 @@ class RuntimeStudyOutcomesRow:
     start: RuntimeStudyOutcomesFieldStart | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(RuntimeStudyOutcomesFieldStart)))
     diagnostic: RuntimeStudyOutcomesFieldDiagnostic | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(RuntimeStudyOutcomesFieldDiagnostic)))
     attempts: b.tuple[RuntimeStudyOutcomesFieldAttemptsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeStudyOutcomesFieldAttemptsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.study_id), v.scalar_key(self.point_index), v.optional_key(v.scalar_key)(self.case_id), v.scalar_key(self.binding_hash), v.scalar_key(self.state), v.optional_key(v.scalar_key)(self.attempt_id), v.optional_key(v.scalar_key)(self.attempt_state), v.optional_key(v.scalar_key)(self.result_id), v.optional_key(v.scalar_key)(self.member_catalog), v.scalar_key(self.usable), v.scalar_key(self.seed_permission), v.optional_key(v.scalar_key)(self.candidate_use), v.scalar_key(self.effect), v.optional_key(v.record_key)(self.start), v.optional_key(v.record_key)(self.diagnostic), v.sequence_key(v.record_key)(self.attempts),))
 
 
 @attrs.frozen(kw_only=True)
@@ -2770,6 +3407,9 @@ class RuntimeTrajectoryEndpointsRow:
     prefix_complete: b.bool = attrs.field(validator=v.exact_type(b.bool))
     missing_observations: b.tuple[b.float, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.finite_float, iterable_validator=attrs.validators.instance_of(b.tuple)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.requirement), v.optional_key(v.scalar_key)(self.required_event), v.optional_key(v.scalar_key)(self.event_id), v.scalar_key(self.time), v.scalar_key(self.mode), v.sequence_key(v.scalar_key)(self.state_ids), v.sequence_key(v.scalar_key)(self.input_ids), v.sequence_key(v.scalar_key)(self.output_ids), v.sequence_key(v.scalar_key)(self.state), v.sequence_key(v.scalar_key)(self.outputs), v.sequence_key(v.scalar_key)(self.integrals), v.sequence_key(v.scalar_key)(self.input_columns), v.sequence_key(v.scalar_key)(self.inputs), v.scalar_key(self.endpoint_satisfied), v.scalar_key(self.prefix_complete), v.sequence_key(v.scalar_key)(self.missing_observations),))
+
 
 @attrs.frozen(kw_only=True)
 class RuntimeValidationFindingsRow:
@@ -2783,3 +3423,6 @@ class RuntimeValidationFindingsRow:
     path: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     field_json: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     observed_literal: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.rule), v.scalar_key(self.code), v.optional_key(v.scalar_key)(self.relation_id), v.scalar_key(self.row), v.optional_key(v.scalar_key)(self.key_literals), v.scalar_key(self.path), v.optional_key(v.scalar_key)(self.field_json), v.optional_key(v.scalar_key)(self.observed_literal),))

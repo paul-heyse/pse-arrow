@@ -2,17 +2,10 @@
 // Copyright (c) 2026 Paul Heyse
 //! Mechanical owned analysis requests. Native preparation owns all eligibility and iteration.
 use super::*;
+use crate::enums::EnumValue;
 use pse_backend_native::solve::SolveReport;
+use pse_model::generated::enums::{NativeBackend, NativeQualification, NativeTermination};
 use pse_runtime::math::solves::{Outcome, StepReport};
-
-#[derive(serde::Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct AnalysisDocument<T> {
-    pub(super) payload: T,
-}
-fn document(payload: serde_json::Value) -> String {
-    serde_json::json!({"payload":payload}).to_string()
-}
 
 /// Physically admitted selected-revision graph with authored tear policies.
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
@@ -24,14 +17,8 @@ pub(crate) struct NativePreparedFlow {
 }
 #[pymethods]
 impl NativePreparedFlow {
-    fn graph_json(&self) -> String {
-        let d = self.inner.graph().declaration();
-        document(serde_json::json!({
-            "identity": self.inner.graph().key(),
-            "nodes": d.nodes.iter().map(|n| serde_json::json!({"id":n.id,"ports":n.ports.iter().map(|p|serde_json::json!({"id":p.id,"quantity_id":p.quantity.as_id(),"unit_id":p.unit.as_id()})).collect::<Vec<_>>()})).collect::<Vec<_>>(),
-            "connections": d.connections.iter().map(|c|serde_json::json!({"id":c.id,"from":c.from,"to":c.to,"decision":c.decision,"bindings":c.bindings})).collect::<Vec<_>>(),
-            "decisions":d.decisions.iter().map(|d|serde_json::json!({"id":d.id,"cost":d.cost,"policy":d.policy})).collect::<Vec<_>>()
-        }))
+    fn graph(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
+        documents::encode(py, &self.inner.document())
     }
     fn select_tears(
         &self,
@@ -194,25 +181,23 @@ impl NativeStrategyResult {
         }
     }
     /// Only initialization has temporary overlays; their candidates never replace original bindings.
-    fn initialization_json(&self) -> Option<String> {
+    fn initialization(&self, _py: Python<'_>) -> PyResult<Option<Vec<u8>>> {
         #[cfg(feature = "native-solvers")]
-        if let StrategyResult::Initialization(r) = self.inner.as_ref() {
-            let values = |v: &std::collections::BTreeMap<pse_ids::SemanticId, f64>| {
-                v.iter()
-                    .map(|(k, v)| (k.to_hex(), *v))
-                    .collect::<std::collections::BTreeMap<_, _>>()
-            };
-            return Some(document(
-                serde_json::json!({"original":values(&r.original.scalars),"solved_unknowns":values(&r.values.scalars),"completed_stages":r.completed_stages,"original_bindings_restored":r.original_bindings_restored,"cancelled":r.cancelled,"stages":r.stages.iter().map(|s|serde_json::json!({"stage":s.stage,"completed":s.completed,"overlay":s.overlay.iter().map(|(k,v)|(k.to_hex(),*v)).collect::<std::collections::BTreeMap<_,_>>(),"candidate":values(&s.candidate.scalars)})).collect::<Vec<_>>()}),
-            ));
+        if let StrategyResult::Initialization(report) = self.inner.as_ref() {
+            return documents::encode(_py, &native::InitializationDocument::from(report.as_ref()))
+                .map(Some);
         }
-        None
+        Ok(None)
     }
-    fn tears_json(&self) -> Option<String> {
-        if let StrategyResult::Tears(r) = self.inner.as_ref() {
-            return r.selected.as_ref().map(|s| document(serde_json::json!({"decisions":s.decisions,"connections":s.connections,"order":s.order,"cost":s.cost,"method":s.method})));
+    fn tears(&self, py: Python<'_>) -> PyResult<Option<Vec<u8>>> {
+        if let StrategyResult::Tears(report) = self.inner.as_ref() {
+            return report
+                .document()
+                .as_ref()
+                .map(|value| documents::encode(py, value))
+                .transpose();
         }
-        None
+        Ok(None)
     }
 }
 /// One strategy attempt: exactly one of its native report and the typed failure that
@@ -264,12 +249,12 @@ pub(crate) struct NativeAttempt {
 #[pymethods]
 impl NativeAttempt {
     #[getter]
-    fn backend(&self) -> &str {
-        self.inner.backend.as_str()
+    fn backend(&self) -> EnumValue<NativeBackend> {
+        self.inner.backend.into()
     }
     #[getter]
-    fn termination(&self) -> &str {
-        self.inner.termination.category.as_str()
+    fn termination(&self) -> EnumValue<NativeTermination> {
+        self.inner.termination.category.into()
     }
     #[getter]
     fn native_code(&self) -> i64 {
@@ -280,15 +265,15 @@ impl NativeAttempt {
         &self.inner.termination.name
     }
     #[getter]
-    fn qualification(&self) -> &str {
-        self.inner.qualification.as_str()
+    fn qualification(&self) -> EnumValue<NativeQualification> {
+        self.inner.qualification.into()
     }
     /// Typed independent-validation failure, when validation failed.
     #[getter]
     fn validation_error(&self) -> Option<inspection::DiagnosticReport> {
         self.inner
             .validation_failure()
-            .map(|e| inspection::DiagnosticReport::observe(e))
+            .map(inspection::DiagnosticReport::observe)
     }
     /// Effective explicit native options and semantic controls, as the adapter recorded them.
     #[pyo3(signature = () -> "dict[str, bool | int | float | str]")]
@@ -329,18 +314,20 @@ impl NativeAttempt {
                 .events
                 .iter()
                 .cloned()
-                .map(ProgressEvent::native)
+                .map(|event| documents::DocumentValue(event.into()))
                 .collect(),
             self.inner.dropped_events,
         )
     }
     fn metrics(&self) -> ProgressEvent {
-        ProgressEvent::native(pse_backend_native::solve::Event {
-            phase: "final".into(),
-            elapsed: Duration::ZERO,
-            values: self.inner.metrics.clone(),
-            incumbent: None,
-        })
+        documents::DocumentValue(native::ProgressEventDocument::from(
+            pse_backend_native::solve::Event {
+                phase: "final".into(),
+                elapsed: Duration::ZERO,
+                values: self.inner.metrics.clone(),
+                incumbent: None,
+            },
+        ))
     }
     fn provenance(&self) -> std::collections::BTreeMap<String, String> {
         self.inner.provenance.clone()
@@ -352,10 +339,11 @@ impl NativeAttempt {
             .map(|inner| NativeStart { inner })
     }
     /// Actual input seed receipt, distinct from available output starts.
-    fn start_json(&self) -> Option<String> {
+    fn start_receipt(&self, py: Python<'_>) -> PyResult<Option<Vec<u8>>> {
         self.inner
             .start_receipt
             .as_ref()
-            .map(|s| document(s.snapshot()))
+            .map(|start| documents::encode(py, &start.snapshot()))
+            .transpose()
     }
 }

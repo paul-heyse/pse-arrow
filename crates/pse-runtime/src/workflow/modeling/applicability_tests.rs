@@ -72,7 +72,8 @@ fn applicability_check_registry_roundtrip_preserves_physical_inputs_and_claim_li
     assert_eq!(check.unknown_allowed, Some(true));
     assert_eq!(check.extrapolation_allowed, Some(false));
     let registry = pse_schema::registry().unwrap();
-    let mut builder = ModelingCheck::builder(registry, 1).unwrap();
+    let validation = pse_relations::validate::ValidationContext::local(registry).unwrap();
+    let mut builder = ModelingCheck::builder(registry, 1, &validation).unwrap();
     ModelingCheck::push(&mut builder, check.clone()).unwrap();
     let batch = ModelingCheck::finish(builder).unwrap();
     assert_eq!(ModelingCheck::rows(&batch).unwrap(), checks);
@@ -93,7 +94,8 @@ fn inherited_family_authorization_roundtrip_retains_concrete_owner_and_exact_nam
     assert_eq!(checks[0].claim_owner_lineage, vec![id(3), id(23), id(24)]);
     assert_eq!(checks[0].applicability_permissions[0].targets, vec![id(23)]);
     let registry = pse_schema::registry().unwrap();
-    let mut builder = ModelingCheck::builder(registry, 2).unwrap();
+    let validation = pse_relations::validate::ValidationContext::local(registry).unwrap();
+    let mut builder = ModelingCheck::builder(registry, 2, &validation).unwrap();
     for check in &checks {
         ModelingCheck::push(&mut builder, check.clone()).unwrap();
     }
@@ -158,7 +160,8 @@ fn repeated_form_instances_inputs_and_informational_alternatives_have_distinct_t
     );
     assert!(checks[3].applicability_permissions.is_empty());
     let registry = pse_schema::registry().unwrap();
-    let mut builder = ModelingCheck::builder(registry, 4).unwrap();
+    let validation = pse_relations::validate::ValidationContext::local(registry).unwrap();
+    let mut builder = ModelingCheck::builder(registry, 4, &validation).unwrap();
     for check in &checks {
         ModelingCheck::push(&mut builder, check.clone()).unwrap();
     }

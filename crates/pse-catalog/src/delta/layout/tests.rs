@@ -120,7 +120,7 @@ async fn nested_leaf_extraction_preserves_same_named_durable_conversion() {
 #[tokio::test]
 async fn source_span_obligations_preserve_decoded_view_fields() {
     use datafusion::{arrow::array::RecordBatch, datasource::ViewTable, prelude::SessionContext};
-    let registry = pse_engine::validation::registry().unwrap();
+    let registry = pse_schema::registry().unwrap();
     let spec = registry.relation("authored.entities").unwrap();
     let layout = super::DurableLayout::new(Arc::new(
         pse_schema::arrow::relation_schema(registry, spec).unwrap(),

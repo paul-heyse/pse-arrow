@@ -89,6 +89,30 @@ pub struct CasePlan {
     owner: Option<Arc<dyn crate::AllocationOwner>>,
 }
 impl CasePlan {
+    /// Process-local shared storage identities, independent of owner wrappers and body data.
+    pub fn allocation_identity(&self) -> Vec<usize> {
+        vec![
+            Arc::as_ptr(&self.structure) as usize,
+            Arc::as_ptr(&self.columns) as usize,
+            Arc::as_ptr(&self.rows) as usize,
+            Arc::as_ptr(&self.instances) as usize,
+            Arc::as_ptr(&self.jacobian) as usize,
+            Arc::as_ptr(&self.hessian) as usize,
+            Arc::as_ptr(&self.jacobian_terms) as usize,
+            Arc::as_ptr(&self.hessian_terms) as usize,
+            Arc::as_ptr(&self.requests) as usize,
+        ]
+    }
+    /// Plan storage without immutable body data, which has its own unique lease.
+    pub fn allocation_bytes(&self) -> usize {
+        self.retained_bytes()
+            .saturating_sub(self.bodies.values().map(|b| b.retained_bytes()).sum())
+    }
+    /// Owned shallow wrappers created by attaching escaping allocation ownership.
+    pub fn owner_wrapper_bytes(&self) -> usize {
+        size_of::<Self>()
+            + self.bodies.len() * (size_of::<PreparedBody>() + size_of::<ContentHash>() + 96)
+    }
     /// Known immutable payload; shared bodies are counted once within this plan.
     /// Opaque library and map allocation overhead is accounted by the runtime policy.
     pub fn retained_bytes(&self) -> usize {
@@ -102,6 +126,7 @@ impl CasePlan {
                 .iter()
                 .map(|i| {
                     size_of_val(i)
+                        + i.checked_members.len() * (size_of::<(SemanticId, SemanticId)>() + 96)
                         + size_of_val(i.slots.as_slice())
                         + size_of_val(i.contributions.as_slice())
                 })
@@ -137,7 +162,7 @@ impl CasePlan {
         for body in self.bodies.values_mut() {
             *body = Arc::new(body.as_ref().clone().with_owner(owner.clone()));
         }
-        self.owner = Some(owner);
+        self.owner = Some(crate::retain_allocation_owner(self.owner.take(), owner));
         self
     }
     /// Admit complete structure and sparse ordering without constructing evaluators.
@@ -221,6 +246,19 @@ impl CasePlan {
             let body = bodies
                 .get(&binding.body)
                 .ok_or_else(|| MathError::Contract("missing prepared body".into()))?;
+            if !body
+                .checked_members()
+                .iter()
+                .eq(binding.checked_members.keys())
+                || binding
+                    .checked_members
+                    .values()
+                    .any(|id| *id == SemanticId::NIL)
+            {
+                return Err(MathError::Contract(
+                    "incomplete or invalid checked-member attribution".into(),
+                ));
+            }
             if body.input_count() != binding.slots.len() {
                 return Err(MathError::Contract("body binding arity".into()));
             }
@@ -746,6 +784,7 @@ impl CaseWorker {
             };
             let context = |cause| MathError::Instance {
                 instance: binding.instance,
+                checked_members: binding.checked_members.clone(),
                 cause: Box::new(cause),
             };
             let inputs = binding.values(values).map_err(|cause| {

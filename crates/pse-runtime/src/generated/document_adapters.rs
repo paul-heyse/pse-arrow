@@ -6,6 +6,7 @@ trait IntoBatches {
     fn into_batches(
         self,
         registry: &pse_schema::Registry,
+        validation: &pse_relations::validate::ValidationContext,
     ) -> Result<
         std::collections::BTreeMap<
             pse_ids::SemanticId,
@@ -22,6 +23,7 @@ impl IntoBatches for pse_authoring::generated::documents::AssertionsDocument {
     fn into_batches(
         self,
         registry: &pse_schema::Registry,
+        validation: &pse_relations::validate::ValidationContext,
     ) -> Result<
         std::collections::BTreeMap<
             pse_ids::SemanticId,
@@ -36,6 +38,7 @@ impl IntoBatches for pse_authoring::generated::documents::AssertionsDocument {
         let mut builder = pse_relations::generated::r#provenance::r#assertions::Builder::with_registry(
             registry,
             self.r#assertions.len(),
+            validation,
         )?;
         for row in self.r#assertions {
             builder.push(row)?;
@@ -55,6 +58,7 @@ impl IntoBatches for pse_authoring::generated::documents::CasesDocument {
     fn into_batches(
         self,
         registry: &pse_schema::Registry,
+        validation: &pse_relations::validate::ValidationContext,
     ) -> Result<
         std::collections::BTreeMap<
             pse_ids::SemanticId,
@@ -69,6 +73,7 @@ impl IntoBatches for pse_authoring::generated::documents::CasesDocument {
         let mut builder = pse_relations::generated::r#authored::r#fit_cases::Builder::with_registry(
             registry,
             self.r#fit_cases.len(),
+            validation,
         )?;
         for row in self.r#fit_cases {
             builder.push(row)?;
@@ -88,6 +93,7 @@ impl IntoBatches for pse_authoring::generated::documents::MaterialsDocument {
     fn into_batches(
         self,
         registry: &pse_schema::Registry,
+        validation: &pse_relations::validate::ValidationContext,
     ) -> Result<
         std::collections::BTreeMap<
             pse_ids::SemanticId,
@@ -102,6 +108,7 @@ impl IntoBatches for pse_authoring::generated::documents::MaterialsDocument {
         let mut builder = pse_relations::generated::r#reference::r#dimensions::Builder::with_registry(
             registry,
             self.r#dimensions.len(),
+            validation,
         )?;
         for row in self.r#dimensions {
             builder.push(row)?;
@@ -113,6 +120,7 @@ impl IntoBatches for pse_authoring::generated::documents::MaterialsDocument {
         let mut builder = pse_relations::generated::r#reference::r#units::Builder::with_registry(
             registry,
             self.r#units.len(),
+            validation,
         )?;
         for row in self.r#units {
             builder.push(row)?;
@@ -124,6 +132,7 @@ impl IntoBatches for pse_authoring::generated::documents::MaterialsDocument {
         let mut builder = pse_relations::generated::r#reference::r#unit_sets::Builder::with_registry(
             registry,
             self.r#unit_sets.len(),
+            validation,
         )?;
         for row in self.r#unit_sets {
             builder.push(row)?;
@@ -135,6 +144,7 @@ impl IntoBatches for pse_authoring::generated::documents::MaterialsDocument {
         let mut builder = pse_relations::generated::r#reference::r#quantity_kinds::Builder::with_registry(
             registry,
             self.r#quantity_kinds.len(),
+            validation,
         )?;
         for row in self.r#quantity_kinds {
             builder.push(row)?;
@@ -146,6 +156,7 @@ impl IntoBatches for pse_authoring::generated::documents::MaterialsDocument {
         let mut builder = pse_relations::generated::r#reference::r#bases::Builder::with_registry(
             registry,
             self.r#bases.len(),
+            validation,
         )?;
         for row in self.r#bases {
             builder.push(row)?;
@@ -157,6 +168,7 @@ impl IntoBatches for pse_authoring::generated::documents::MaterialsDocument {
         let mut builder = pse_relations::generated::r#reference::r#reference_states::Builder::with_registry(
             registry,
             self.r#reference_states.len(),
+            validation,
         )?;
         for row in self.r#reference_states {
             builder.push(row)?;
@@ -170,6 +182,7 @@ impl IntoBatches for pse_authoring::generated::documents::MaterialsDocument {
         let mut builder = pse_relations::generated::r#reference::r#quantity_types::Builder::with_registry(
             registry,
             self.r#quantity_types.len(),
+            validation,
         )?;
         for row in self.r#quantity_types {
             builder.push(row)?;
@@ -181,6 +194,7 @@ impl IntoBatches for pse_authoring::generated::documents::MaterialsDocument {
         let mut builder = pse_relations::generated::r#reference::r#conversion_rules::Builder::with_registry(
             registry,
             self.r#conversion_rules.len(),
+            validation,
         )?;
         for row in self.r#conversion_rules {
             builder.push(row)?;
@@ -194,6 +208,7 @@ impl IntoBatches for pse_authoring::generated::documents::MaterialsDocument {
         let mut builder = pse_relations::generated::r#reference::r#quantity_operations::Builder::with_registry(
             registry,
             self.r#quantity_operations.len(),
+            validation,
         )?;
         for row in self.r#quantity_operations {
             builder.push(row)?;
@@ -207,6 +222,7 @@ impl IntoBatches for pse_authoring::generated::documents::MaterialsDocument {
         let mut builder = pse_relations::generated::r#reference::r#quantity_operation_reductions::Builder::with_registry(
             registry,
             self.r#quantity_operation_reductions.len(),
+            validation,
         )?;
         for row in self.r#quantity_operation_reductions {
             builder.push(row)?;
@@ -220,6 +236,7 @@ impl IntoBatches for pse_authoring::generated::documents::MaterialsDocument {
         let mut builder = pse_relations::generated::r#reference::r#quantity_preconditions::Builder::with_registry(
             registry,
             self.r#quantity_preconditions.len(),
+            validation,
         )?;
         for row in self.r#quantity_preconditions {
             builder.push(row)?;
@@ -233,6 +250,7 @@ impl IntoBatches for pse_authoring::generated::documents::MaterialsDocument {
         let mut builder = pse_relations::generated::r#reference::r#math_context::Builder::with_registry(
             registry,
             self.r#math_context.len(),
+            validation,
         )?;
         for row in self.r#math_context {
             builder.push(row)?;
@@ -252,6 +270,7 @@ impl IntoBatches for pse_authoring::generated::documents::ModelingDocument {
     fn into_batches(
         self,
         registry: &pse_schema::Registry,
+        validation: &pse_relations::validate::ValidationContext,
     ) -> Result<
         std::collections::BTreeMap<
             pse_ids::SemanticId,
@@ -266,6 +285,7 @@ impl IntoBatches for pse_authoring::generated::documents::ModelingDocument {
         let mut builder = pse_relations::generated::r#authored::r#modeling_declarations::Builder::with_registry(
             registry,
             self.r#modeling_declarations.len(),
+            validation,
         )?;
         for row in self.r#modeling_declarations {
             builder.push(row)?;
@@ -287,6 +307,7 @@ impl IntoBatches for pse_authoring::generated::documents::PackageHeaderDocument 
     fn into_batches(
         self,
         registry: &pse_schema::Registry,
+        validation: &pse_relations::validate::ValidationContext,
     ) -> Result<
         std::collections::BTreeMap<
             pse_ids::SemanticId,
@@ -301,6 +322,7 @@ impl IntoBatches for pse_authoring::generated::documents::PackageHeaderDocument 
         let mut builder = pse_relations::generated::r#authored::r#packages::Builder::with_registry(
             registry,
             1,
+            validation,
         )?;
         for row in std::iter::once(self.r#package) {
             builder.push(row)?;
@@ -312,6 +334,7 @@ impl IntoBatches for pse_authoring::generated::documents::PackageHeaderDocument 
         let mut builder = pse_relations::generated::r#authored::r#package_unit_sets::Builder::with_registry(
             registry,
             self.r#unit_sets.len(),
+            validation,
         )?;
         for row in self.r#unit_sets {
             builder.push(row)?;
@@ -332,6 +355,7 @@ pub(crate) fn batches_from_document<'de, D: serde::Deserializer<'de>>(
     name: &str,
     deserializer: D,
     registry: &pse_schema::Registry,
+    validation: &pse_relations::validate::ValidationContext,
 ) -> Result<
     std::collections::BTreeMap<
         pse_ids::SemanticId,
@@ -345,35 +369,35 @@ pub(crate) fn batches_from_document<'de, D: serde::Deserializer<'de>>(
                     deserializer,
                 )
                 .map_err(|error| crate::authoring_driver::contract(error.to_string()))?;
-            Ok(document.into_batches(registry)?)
+            Ok(document.into_batches(registry, validation)?)
         }
         "cases" => {
             let document = <pse_authoring::generated::documents::CasesDocument as serde::Deserialize>::deserialize(
                     deserializer,
                 )
                 .map_err(|error| crate::authoring_driver::contract(error.to_string()))?;
-            Ok(document.into_batches(registry)?)
+            Ok(document.into_batches(registry, validation)?)
         }
         "materials" => {
             let document = <pse_authoring::generated::documents::MaterialsDocument as serde::Deserialize>::deserialize(
                     deserializer,
                 )
                 .map_err(|error| crate::authoring_driver::contract(error.to_string()))?;
-            Ok(document.into_batches(registry)?)
+            Ok(document.into_batches(registry, validation)?)
         }
         "modeling" => {
             let document = <pse_authoring::generated::documents::ModelingDocument as serde::Deserialize>::deserialize(
                     deserializer,
                 )
                 .map_err(|error| crate::authoring_driver::contract(error.to_string()))?;
-            Ok(document.into_batches(registry)?)
+            Ok(document.into_batches(registry, validation)?)
         }
         "package_header" => {
             let document = <pse_authoring::generated::documents::PackageHeaderDocument as serde::Deserialize>::deserialize(
                     deserializer,
                 )
                 .map_err(|error| crate::authoring_driver::contract(error.to_string()))?;
-            Ok(document.into_batches(registry)?)
+            Ok(document.into_batches(registry, validation)?)
         }
         _ => {
             Err(

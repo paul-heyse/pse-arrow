@@ -39,14 +39,15 @@ fn typed_phase_roundtrip_preserves_occurrences_empty_membership_and_budget_owner
 -> Result<(), Box<dyn std::error::Error>> {
     use pse_model::generated::facts::FactBatch;
     use pse_relations::generated::facts::{decode, encode};
-    let registry = pse_engine::validation::registry()?;
+    let registry = pse_schema::registry()?;
+    let validation = fixture_validation(registry);
     let pool: std::sync::Arc<dyn pse_columnar::MemoryPool> =
         std::sync::Arc::new(pse_columnar::GreedyMemoryPool::new(64 << 20));
     let cancel = CancellationToken::new();
     let mut second = package();
     second.name = "second occurrence".into();
     let values = FactBatch::AuthoredPackages(vec![second, package(), package()]);
-    let checked = encode(&values, registry, &pool, &cancel)?;
+    let checked = encode(&values, registry, &validation, &pool, &cancel)?;
     assert_eq!(decode(&checked)?, values);
     let detached = checked.batch().column(1).clone();
     drop(checked);
@@ -54,16 +55,16 @@ fn typed_phase_roundtrip_preserves_occurrences_empty_membership_and_budget_owner
     drop(detached);
     assert_eq!(pool.reserved(), 0);
     let empty = FactBatch::ReferenceUnits(vec![]);
-    let checked = encode(&empty, registry, &pool, &cancel)?;
+    let checked = encode(&empty, registry, &validation, &pool, &cancel)?;
     assert_eq!(decode(&checked)?, empty);
     drop(checked);
     assert_eq!(pool.reserved(), 0);
     let denied: std::sync::Arc<dyn pse_columnar::MemoryPool> =
         std::sync::Arc::new(pse_columnar::GreedyMemoryPool::new(0));
-    assert!(encode(&values, registry, &denied, &cancel).is_err());
+    assert!(encode(&values, registry, &validation, &denied, &cancel).is_err());
     assert_eq!(denied.reserved(), 0);
     cancel.cancel();
-    assert!(encode(&values, registry, &pool, &cancel).is_err());
+    assert!(encode(&values, registry, &validation, &pool, &cancel).is_err());
     assert_eq!(pool.reserved(), 0);
     Ok(())
 }
@@ -71,11 +72,12 @@ fn typed_phase_roundtrip_preserves_occurrences_empty_membership_and_budget_owner
 #[test]
 fn typed_collection_keeps_distinct_schemas_and_explicit_empty_relations()
 -> Result<(), Box<dyn std::error::Error>> {
-    let registry = pse_engine::validation::registry()?;
+    let registry = pse_schema::registry()?;
+    let validation = fixture_validation(registry);
     let budget: std::sync::Arc<dyn pse_columnar::MemoryPool> =
         std::sync::Arc::new(pse_columnar::GreedyMemoryPool::new(64 << 20));
     let cancel = CancellationToken::new();
-    let mut collection = Collection::new(registry, &budget, &cancel);
+    let mut collection = Collection::new(registry, &budget, &cancel, &validation);
     collection.ensure::<units::Row>()?;
     collection.push(package())?;
     let selection = unit_sets::Row {
@@ -103,11 +105,12 @@ fn typed_collection_keeps_distinct_schemas_and_explicit_empty_relations()
 #[test]
 fn detached_nested_buffer_retains_the_construction_claim() -> Result<(), Box<dyn std::error::Error>>
 {
-    let registry = pse_engine::validation::registry()?;
+    let registry = pse_schema::registry()?;
+    let validation = fixture_validation(registry);
     let budget: std::sync::Arc<dyn pse_columnar::MemoryPool> =
         std::sync::Arc::new(pse_columnar::GreedyMemoryPool::new(64 << 20));
     let cancel = CancellationToken::new();
-    let mut collection = Collection::new(registry, &budget, &cancel);
+    let mut collection = Collection::new(registry, &budget, &cancel, &validation);
     collection.push(package())?;
     let batches = collection.finish()?;
     let buffer = batches[&packages::spec(registry)?.key]
@@ -132,11 +135,12 @@ fn detached_nested_buffer_retains_the_construction_claim() -> Result<(), Box<dyn
 #[test]
 fn checked_reuse_and_single_input_concat_share_the_existing_allocation_claim()
 -> Result<(), Box<dyn std::error::Error>> {
-    let registry = pse_engine::validation::registry()?;
+    let registry = pse_schema::registry()?;
+    let validation = fixture_validation(registry);
     let budget: std::sync::Arc<dyn pse_columnar::MemoryPool> =
         std::sync::Arc::new(pse_columnar::GreedyMemoryPool::new(64 << 20));
     let cancel = CancellationToken::new();
-    let mut collection = Collection::new(registry, &budget, &cancel);
+    let mut collection = Collection::new(registry, &budget, &cancel, &validation);
     collection.push(package())?;
     let batches = collection.finish()?;
     let spec = packages::spec(registry)?;
@@ -167,21 +171,34 @@ fn checked_reuse_and_single_input_concat_share_the_existing_allocation_claim()
 #[test]
 fn denied_growth_and_cancellation_release_all_construction_claims()
 -> Result<(), Box<dyn std::error::Error>> {
-    let registry = pse_engine::validation::registry()?;
+    let registry = pse_schema::registry()?;
+    let validation = fixture_validation(registry);
     let cancel = CancellationToken::new();
     let denied: std::sync::Arc<dyn pse_columnar::MemoryPool> =
         std::sync::Arc::new(pse_columnar::GreedyMemoryPool::new(0));
-    let mut collection = Collection::new(registry, &denied, &cancel);
+    let mut collection = Collection::new(registry, &denied, &cancel, &validation);
     assert!(collection.push(package()).is_err());
     drop(collection);
     assert_eq!(denied.reserved(), 0);
 
     let budget: std::sync::Arc<dyn pse_columnar::MemoryPool> =
         std::sync::Arc::new(pse_columnar::GreedyMemoryPool::new(64 << 20));
-    let mut collection = Collection::new(registry, &budget, &cancel);
+    let mut collection = Collection::new(registry, &budget, &cancel, &validation);
     collection.push(package())?;
     cancel.cancel();
     assert!(collection.finish().is_err());
     assert_eq!(budget.reserved(), 0);
     Ok(())
+}
+
+// Deliberate native context for these isolated generated-contract fixtures.
+fn fixture_validation(
+    registry: &pse_schema::Registry,
+) -> std::sync::Arc<pse_relations::validate::ValidationContext> {
+    std::sync::Arc::new(pse_relations::validate::ValidationContext::new(
+        registry,
+        pse_engine::validation::NativeValidation(
+            datafusion::prelude::SessionContext::new().state(),
+        ),
+    ))
 }

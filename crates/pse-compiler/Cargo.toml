@@ -17,6 +17,8 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+schemars.workspace = true
+serde.workspace = true
 petgraph.workspace = true
 pse-model.workspace = true
 tracing.workspace = true
@@ -35,4 +37,5 @@ pse-quantity.workspace = true
 pse-workspace-hack.workspace = true
 
 [dev-dependencies]
+serde_json.workspace = true
 pse-quantity = { workspace = true, features = ["fixtures"] }

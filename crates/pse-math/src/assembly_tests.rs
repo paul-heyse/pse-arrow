@@ -81,6 +81,7 @@ fn fixture(alias: bool, fixed: bool) -> (Arc<CaseAssembly>, CaseValues) {
             vec![variable(2), variable(1)],
             vec![],
             vec![InstanceBinding {
+                checked_members: Default::default(),
                 instance: id(9),
                 body: key,
                 slots,
@@ -379,6 +380,7 @@ fn coefficient_projection_preserves_erased_domain_obligations() {
                 }],
                 vec![],
                 vec![InstanceBinding {
+                    checked_members: Default::default(),
                     instance: id(9),
                     body: key,
                     slots: vec![SlotBinding::new(&port, &port, &registry).unwrap()],
@@ -514,6 +516,7 @@ fn scaled_gathers_factored_quadratics_and_parameter_class_changes() {
             }],
             vec![parameter.clone()],
             vec![InstanceBinding {
+                checked_members: Default::default(),
                 instance: id(9),
                 body: key,
                 slots: vec![
@@ -654,6 +657,7 @@ fn admitted_transcendentals_and_strict_guards_feed_library_fbbt() {
             }],
             vec![],
             vec![InstanceBinding {
+                checked_members: Default::default(),
                 instance: id(9),
                 body: key,
                 slots: vec![SlotBinding::new(&port, &port, &registry).unwrap()],
@@ -807,6 +811,7 @@ fn parametric_plan_keeps_objective_and_differentiates_parameters() {
             }],
             vec![port(2)],
             vec![InstanceBinding {
+                checked_members: Default::default(),
                 instance: id(9),
                 body: key,
                 slots: vec![
@@ -974,6 +979,7 @@ fn lexicographic_structure_projects_every_level() {
             vec![variable(1), variable(2)],
             vec![],
             vec![InstanceBinding {
+                checked_members: Default::default(),
                 instance: id(9),
                 body: key,
                 slots: vec![

@@ -139,7 +139,10 @@ def pse_estimate(
     authored = authored.with_fit_declarations((fit,))
     result = (
         authored.prepare_fit(
-            FitId(identity(158)), pse.SolveSettings(intent=NativeSolveIntent.OPTIMIZE)
+            FitId(identity(158)),
+            pse.FitPreparationDocument(
+                solver=pse.SolveSettings(intent=NativeSolveIntent.OPTIMIZE)
+            ),
         )
         .start()
         .wait()

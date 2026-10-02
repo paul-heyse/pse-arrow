@@ -10,7 +10,8 @@ use pse_model::generated::{
 };
 
 /// Immutable semantic projection shared by Arrow, Python and publication.
-#[derive(Clone, Debug, Default, serde::Serialize)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct Completion {
     /// Final physical closure and usability decisions, never recomputed by an exporter.
     pub assessments: Vec<pse_model::generated::runtime::candidate_assessments::Row>,
@@ -74,7 +75,7 @@ impl RunResult {
                         run_id: self.run_id,
                         step,
                         model_id: Some(solved.model()),
-                        revision: Some(request.source.revision.identity()),
+                        revision: Some(request.source.revision.identity().as_id()),
                         case_id: solved.case(),
                         instance_id: Some(solved.instance()),
                         backend: native.map(|r| r.backend),
@@ -149,11 +150,11 @@ impl RunResult {
                         .map_err(crate::math::MathRuntimeError::from)?;
                     let mut identity = FramedHasher::new(pse_ids::Frame::CompletedRequestV2);
                     identity
-                        .hash(&request.source.revision.identity())
+                        .hash(&request.source.revision.identity().as_id())
                         .id(&solved.instance().as_id())
                         .hash(&preparation)
-                        .hash(&selected)
-                        .hash(&profile)
+                        .hash(&selected.as_id())
+                        .hash(&profile.as_id())
                         .hash(&request.solve.numerics().key);
                     // A result is traceable to what seeded it and to native state it reused:
                     // the previous step's seed and the reuse of retained native state enter
@@ -175,13 +176,13 @@ impl RunResult {
                         run_id: self.run_id,
                         step,
                         model_id: lineage.model_id,
-                        revision: request.source.revision.identity(),
+                        revision: request.source.revision.identity().as_id(),
                         case_id: lineage.case_id,
                         instance_id: lineage.instance_id,
                         fit_id: lineage.fit_id,
                         request_identity: identity.finish_hash(),
                         preparation_identity: preparation,
-                        profile_identity: profile,
+                        profile_identity: profile.as_id(),
                         numerical_identity: request.solve.numerics().key,
                         physical_identity: request.source.physical.key,
                         environment_identity: actual_environment.finish_hash(),
@@ -194,12 +195,13 @@ impl RunResult {
                     _ => None,
                 };
                 let r = trajectory.map(|t| t.report.as_ref());
-                let profile = super::dynamics::profile_identity(p.profile());
+                let profile = super::dynamics::profile_identity(p.profile())
+                    .map_err(crate::math::MathRuntimeError::from)?;
                 let mut row = header(
                     self,
                     ComputationKind::Simulation,
-                    p.source.revision.identity(),
-                    profile,
+                    p.source.revision.identity().as_id(),
+                    profile.as_id(),
                 );
                 row.state = if r.is_some() {
                     NativeRunState::Native
@@ -244,13 +246,13 @@ impl RunResult {
                     run_id: self.run_id,
                     step: 0,
                     model_id: lineage.model_id,
-                    revision: p.source.revision.identity(),
+                    revision: p.source.revision.identity().as_id(),
                     case_id: lineage.case_id,
                     instance_id: lineage.instance_id,
                     fit_id: lineage.fit_id,
                     request_identity: p.identity(),
                     preparation_identity: p.identity(),
-                    profile_identity: profile,
+                    profile_identity: profile.as_id(),
                     numerical_identity: p.numerics().key,
                     physical_identity: p.source.physical.key,
                     environment_identity: actual_environment.finish_hash(),
@@ -271,8 +273,8 @@ impl RunResult {
                 let mut row = header(
                     self,
                     ComputationKind::Shooting,
-                    source.revision.identity(),
-                    p.profile_key,
+                    source.revision.identity().as_id(),
+                    p.profile_key.as_id(),
                 );
                 row.state = if native.is_some() {
                     NativeRunState::Native
@@ -326,13 +328,13 @@ impl RunResult {
                     run_id: self.run_id,
                     step: 0,
                     model_id: lineage.model_id,
-                    revision: source.revision.identity(),
+                    revision: source.revision.identity().as_id(),
                     case_id: lineage.case_id,
                     instance_id: lineage.instance_id,
                     fit_id: lineage.fit_id,
-                    request_identity: p.request_identity(initial.as_deref()),
-                    preparation_identity: p.request_identity(None),
-                    profile_identity: p.profile_key,
+                    request_identity: p.request_identity(initial.as_deref()).as_id(),
+                    preparation_identity: p.request_identity(None).as_id(),
+                    profile_identity: p.profile_key.as_id(),
                     numerical_identity: p.numerics().key,
                     physical_identity: source.physical.key,
                     environment_identity: actual_environment.finish_hash(),
@@ -346,7 +348,12 @@ impl RunResult {
                 let native = r.and_then(|r| r.solve.as_ref());
                 let physical = p.source.physical.key;
                 let p = &p.problem;
-                let mut row = header(self, ComputationKind::Fit, p.source_identity, p.profile_key);
+                let mut row = header(
+                    self,
+                    ComputationKind::Fit,
+                    p.source_identity,
+                    p.profile_key.as_id(),
+                );
                 row.state = if native.is_some() {
                     NativeRunState::Native
                 } else if r.is_some() {
@@ -399,7 +406,7 @@ impl RunResult {
                     fit_id: lineage.fit_id,
                     request_identity: p.key,
                     preparation_identity: p.key,
-                    profile_identity: p.profile_key,
+                    profile_identity: p.profile_key.as_id(),
                     numerical_identity: p.numerics.key,
                     physical_identity: physical,
                     environment_identity: actual_environment.finish_hash(),
@@ -467,5 +474,23 @@ fn header(
         response_condition: None,
         validation_error: None,
         error: result.report.as_ref().err().map(ToString::to_string),
+    }
+}
+
+impl RunResult {
+    /// Retained resumable native start of a selected step; omission selects the first step.
+    pub fn available_start(
+        &self,
+        step: Option<usize>,
+    ) -> Option<pse_backend_native::solve::WarmStart> {
+        let step = step.unwrap_or_default();
+        match self.report().ok()? {
+            RunReport::Modeling(reports) => match &reports.get(step)?.outcome {
+                Outcome::Native(report) => report.warm_start.clone(),
+                _ => None,
+            },
+            RunReport::Fit(report) if step == 0 => report.solve.as_ref()?.warm_start.clone(),
+            _ => None,
+        }
     }
 }

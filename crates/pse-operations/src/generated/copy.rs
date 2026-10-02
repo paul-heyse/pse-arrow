@@ -26,13 +26,13 @@ pub const ATTEMPT_TRANSITIONS: CopyIn = CopyIn {
 /// The binary copy into `attempts` (runtime.operational_attempts).
 pub const ATTEMPTS: CopyIn = CopyIn {
     table: "attempts",
-    statement: "COPY pse_ops.\"attempts\" (\"attempt_id\", \"run_id\", \"kind\", \"request_identity\", \"preparation_identity\", \"state\", \"state_version\", \"parent_attempt\", \"worker\", \"lease_expires_at\", \"heartbeat_at\", \"cancel_requested\", \"cancel_requested_at\", \"termination_class\", \"termination_native\", \"termination_run_state\", \"termination_trajectory\", \"termination_runtime\", \"termination_rule\", \"termination_detail\", \"created_at\", \"updated_at\", \"started_at\", \"finished_at\") FROM STDIN (FORMAT binary)",
-    probe: "SELECT \"attempt_id\", \"run_id\", \"kind\", \"request_identity\", \"preparation_identity\", \"state\", \"state_version\", \"parent_attempt\", \"worker\", \"lease_expires_at\", \"heartbeat_at\", \"cancel_requested\", \"cancel_requested_at\", \"termination_class\", \"termination_native\", \"termination_run_state\", \"termination_trajectory\", \"termination_runtime\", \"termination_rule\", \"termination_detail\", \"created_at\", \"updated_at\", \"started_at\", \"finished_at\" FROM pse_ops.\"attempts\" WHERE false",
+    statement: "COPY pse_ops.\"attempts\" (\"attempt_id\", \"run_id\", \"kind\", \"operational_job_identity\", \"preparation_identity\", \"state\", \"state_version\", \"parent_attempt\", \"worker\", \"lease_expires_at\", \"heartbeat_at\", \"cancel_requested\", \"cancel_requested_at\", \"termination_class\", \"termination_native\", \"termination_run_state\", \"termination_trajectory\", \"termination_runtime\", \"termination_rule\", \"termination_detail\", \"created_at\", \"updated_at\", \"started_at\", \"finished_at\", \"operational_job_frame\") FROM STDIN (FORMAT binary)",
+    probe: "SELECT \"attempt_id\", \"run_id\", \"kind\", \"operational_job_identity\", \"preparation_identity\", \"state\", \"state_version\", \"parent_attempt\", \"worker\", \"lease_expires_at\", \"heartbeat_at\", \"cancel_requested\", \"cancel_requested_at\", \"termination_class\", \"termination_native\", \"termination_run_state\", \"termination_trajectory\", \"termination_runtime\", \"termination_rule\", \"termination_detail\", \"created_at\", \"updated_at\", \"started_at\", \"finished_at\", \"operational_job_frame\" FROM pse_ops.\"attempts\" WHERE false",
     columns: &[
         "attempt_id",
         "run_id",
         "kind",
-        "request_identity",
+        "operational_job_identity",
         "preparation_identity",
         "state",
         "state_version",
@@ -53,6 +53,7 @@ pub const ATTEMPTS: CopyIn = CopyIn {
         "updated_at",
         "started_at",
         "finished_at",
+        "operational_job_frame",
     ],
 };
 /// The binary copy into `incumbents` (runtime.operational_incumbents).

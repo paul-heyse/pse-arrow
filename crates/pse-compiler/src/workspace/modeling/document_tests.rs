@@ -60,6 +60,7 @@ fn document(path: &str, magnitudes: &[f64]) -> Arc<DataDocument> {
 }
 fn inventory(first: &[f64], second: &[f64]) -> Arc<DocumentInventory> {
     Arc::new(DocumentInventory {
+        field_spans: Default::default(),
         packages: [(SOURCE, PACKAGE)].into(),
         documents: [
             document("data/first.parquet", first),
@@ -93,7 +94,7 @@ fn unchanged_dataset_reuses_admitted_table() {
     let executions = Arc::new(AtomicUsize::new(0));
     let observed = executions.clone();
     let mut workspace = CompilerWorkspace::with_events(
-        super::super::tests::inputs(),
+        crate::authored_transfer_tests::context(),
         WorkspaceLimits::default(),
         Some(Box::new(move |event| {
             if let salsa::EventKind::WillExecute { .. } = event.kind
@@ -122,10 +123,13 @@ fn unchanged_dataset_reuses_admitted_table() {
         .unwrap();
     assert_eq!(executions.load(Ordering::Relaxed), 3);
     assert_eq!(value(&incremental, "p.second", "p.b"), 5.0);
-    let clean = CompilerWorkspace::new(super::super::tests::inputs(), WorkspaceLimits::default())
-        .unwrap()
-        .publish_modeling_with(rows(TEXT), scope.clone(), edited.clone())
-        .unwrap();
+    let clean = CompilerWorkspace::new(
+        crate::authored_transfer_tests::context(),
+        WorkspaceLimits::default(),
+    )
+    .unwrap()
+    .publish_modeling_with(rows(TEXT), scope.clone(), edited.clone())
+    .unwrap();
     assert_eq!(incremental.checked, clean.checked);
     // A declaration edit that leaves the first table's plan unchanged reuses its rows; one
     // that changes its storage unit admits them again.
@@ -144,8 +148,11 @@ fn unchanged_dataset_reuses_admitted_table() {
 
 #[test]
 fn document_reuse_decoded_interpretation_changes_match_clean_admission() {
-    let mut workspace =
-        CompilerWorkspace::new(super::super::tests::inputs(), WorkspaceLimits::default()).unwrap();
+    let mut workspace = CompilerWorkspace::new(
+        crate::authored_transfer_tests::context(),
+        WorkspaceLimits::default(),
+    )
+    .unwrap();
     let old_inventory = inventory(&[1., 2.], &[3., 4.]);
     let original = workspace
         .publish_modeling_with(rows(TEXT), PhysicalScope::default(), old_inventory.clone())
@@ -158,10 +165,13 @@ fn document_reuse_decoded_interpretation_changes_match_clean_admission() {
     let incremental = workspace
         .publish_modeling_with(rows(TEXT), PhysicalScope::default(), edited.clone())
         .unwrap();
-    let clean = CompilerWorkspace::new(super::super::tests::inputs(), WorkspaceLimits::default())
-        .unwrap()
-        .publish_modeling_with(rows(TEXT), PhysicalScope::default(), edited)
-        .unwrap();
+    let clean = CompilerWorkspace::new(
+        crate::authored_transfer_tests::context(),
+        WorkspaceLimits::default(),
+    )
+    .unwrap()
+    .publish_modeling_with(rows(TEXT), PhysicalScope::default(), edited)
+    .unwrap();
     assert_eq!(value(&original, "p.second", "p.b"), 4.);
     assert_eq!(value(&incremental, "p.second", "p.b"), 5.);
     assert_eq!(incremental.checked, clean.checked);
@@ -199,7 +209,7 @@ fn document_rows_are_charged_to_the_workspace_limits() {
         Arc::new(inventory)
     };
     let mut workspace = CompilerWorkspace::new(
-        super::super::tests::inputs(),
+        crate::authored_transfer_tests::context(),
         WorkspaceLimits {
             input_bytes: 32 << 20,
             ..WorkspaceLimits::default()

@@ -25,7 +25,7 @@ pub struct RuntimeProfilePointsRow {
     pub r#qualification: Option<crate::generated::enums::NativeQualification>,
     ///The pinned fit's objective f, half the weighted residual sum of squares.
     pub r#objective: Option<f64>,
-    ///√(2·max(f − f*, 0)) against the estimate's objective f*.
+    ///√(2·max(f - f*, 0)) against the estimate's objective f*.
     pub r#statistic: Option<f64>,
     ///The pinned fit was qualified stationary or better and feasible, and the chain used it.
     pub r#accepted: bool,

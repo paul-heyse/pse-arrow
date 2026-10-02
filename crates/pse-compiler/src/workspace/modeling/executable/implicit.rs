@@ -71,17 +71,15 @@ fn sign_restriction(predicate: &dsl::Predicate, unknowns: &[SemanticId]) -> Opti
         _ => None,
     }
 }
-fn indicator(predicate: dsl::Predicate) -> Result<Expr> {
-    Ok(Expr {
+fn indicator(predicate: dsl::Predicate) -> Expr {
+    Expr {
         kind: ExprKind::Conditional {
             guard: Box::new(predicate),
-            then: Box::new(dsl::parse_expr("1").map_err(|e| CompileError::Missing(e.to_string()))?),
-            otherwise: Box::new(
-                dsl::parse_expr("0").map_err(|e| CompileError::Missing(e.to_string()))?,
-            ),
+            then: Box::new(number_expression(1.0)),
+            otherwise: Box::new(number_expression(0.0)),
         },
         span: Span::default(),
-    })
+    }
 }
 
 /// Algorithm selected by source realization or by the compiler's affine rate proof.
@@ -264,6 +262,55 @@ pub struct AdmittedImplicit {
     pub residuals: Vec<AdmittedResidual>,
 }
 impl AdmittedImplicit {
+    pub(super) fn owner_attachment_bytes(&self) -> usize {
+        size_of::<Self>()
+            + 128
+            + self.unknowns.len() * size_of::<SemanticId>()
+            + self.algorithm.retained_bytes()
+            + match &self.selection.meaning {
+                ImplicitMeaning::Operational(value) => value.len(),
+                _ => 0,
+            }
+            + self.residuals.len() * size_of::<AdmittedResidual>()
+            + self
+                .residuals
+                .iter()
+                .map(|r| {
+                    r.rows.len() * size_of::<SemanticId>()
+                        + r.scales.len() * size_of::<ImplicitScale>()
+                        + r.hint_targets.len()
+                            * size_of::<(SemanticId, DeclarationId, ModelingHint)>()
+                })
+                .sum::<usize>()
+            + self
+                .bodies()
+                .map(|body| body.owner_attachment_bytes())
+                .sum::<usize>()
+    }
+    pub(super) fn with_owner(mut self, owner: Arc<dyn pse_math::AllocationOwner>) -> Self {
+        let attach = |body: &mut Arc<AdmittedBody>| {
+            *body = Arc::new(body.as_ref().clone().with_owner(owner.clone()));
+        };
+        for body in self
+            .selection
+            .anchors
+            .iter_mut()
+            .chain(self.selection.restriction.iter_mut())
+        {
+            attach(body);
+        }
+        for residual in &mut self.residuals {
+            attach(&mut residual.body);
+            for body in residual.hints.iter_mut().chain(residual.terms.iter_mut()) {
+                attach(body);
+            }
+            if let Some(assessment) = &mut residual.assessment {
+                attach(&mut assessment.eligibility);
+                attach(&mut assessment.criterion);
+            }
+        }
+        self
+    }
     fn residual_requirements(
         &self,
         residual: &AdmittedResidual,
@@ -281,7 +328,18 @@ impl AdmittedImplicit {
             inner_minimum,
             requested_output,
         )
-        .map_err(|e| CompileError::Missing(e.to_string()))
+        .map_err(|cause| self.derivative_refusal(cause))
+    }
+    fn derivative_refusal(&self, mut cause: pse_kernels::ProviderError) -> CompileError {
+        if let pse_kernels::ProviderError::DerivativeUnavailable { members, .. } = &mut cause {
+            members.clone_from(&self.unknowns);
+        }
+        MathError::Provider {
+            source_id: self.descriptor.spec().id,
+            provider: self.descriptor.spec().id,
+            cause,
+        }
+        .into()
     }
     /// Resolve the selected algorithms' minimum and the shared residual/output capability.
     /// Called under the library allocation owner before dependencies receive their demands.
@@ -323,7 +381,7 @@ impl AdmittedImplicit {
             minimum,
             requested_output,
         )
-        .map_err(|e| CompileError::Missing(e.to_string()))
+        .map_err(|cause| self.derivative_refusal(cause))
     }
     /// Actual dependency demands for residual, numerical and selector programs.
     pub fn provider_demands(
@@ -743,7 +801,7 @@ pub(super) fn project(
                         ..
                     }
                 );
-                operation.restriction = Some(indicator(predicate.clone())?);
+                operation.restriction = Some(indicator(predicate.clone()));
             }
         }
         let branches = if generated {
@@ -817,14 +875,8 @@ pub(super) fn project(
                     eligibility: Expr {
                         kind: ExprKind::Conditional {
                             guard: Box::new(alternative.eligibility.clone()),
-                            then: Box::new(
-                                dsl::parse_expr("1")
-                                    .map_err(|e| CompileError::Missing(e.to_string()))?,
-                            ),
-                            otherwise: Box::new(
-                                dsl::parse_expr("0")
-                                    .map_err(|e| CompileError::Missing(e.to_string()))?,
-                            ),
+                            then: Box::new(number_expression(1.0)),
+                            otherwise: Box::new(number_expression(0.0)),
                         },
                         span: Span::default(),
                     },
@@ -1236,10 +1288,8 @@ pub(super) fn project(
         };
         let input_expressions = inputs
             .iter()
-            .map(|id| {
-                dsl::parse_expr(&symbol_name(*id)).map_err(|e| CompileError::Missing(e.to_string()))
-            })
-            .collect::<Result<Vec<_>>>()?;
+            .map(|id| symbol_expression(*id))
+            .collect::<Vec<_>>();
         for (i, id) in unknowns.iter().enumerate() {
             additions.push((
                 symbol_name(*id),
@@ -1259,10 +1309,7 @@ pub(super) fn project(
                 .any(|o| matches!(o,ModelingOutput::Member(existing) if existing==id))
             {
                 p.outputs.push(ModelingOutput::Member(*id));
-                p.expressions.push(
-                    dsl::parse_expr(&symbol_name(*id))
-                        .map_err(|e| CompileError::Missing(e.to_string()))?,
-                );
+                p.expressions.push(symbol_expression(*id));
                 p.quantities.push(ports[id].quantity);
                 p.declarations.push(model.symbols[id].lineage.declaration);
             }
@@ -1363,12 +1410,8 @@ impl AdmittedModeling {
         }
         Ok(demands)
     }
-    /// Child residual providers before their consumers, using admitted library dependencies.
-    pub fn implicit_order(&self) -> Result<Vec<Arc<AdmittedImplicit>>> {
-        self.implicit_order_for(None)
-    }
     /// Admit only providers reachable from selected observations and their hint/residual dependencies.
-    pub fn implicit_order_for(
+    pub(in crate::workspace::modeling) fn implicit_order_for(
         &self,
         rows: Option<&BTreeSet<SemanticId>>,
     ) -> Result<Vec<Arc<AdmittedImplicit>>> {

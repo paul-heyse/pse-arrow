@@ -17,6 +17,7 @@ import pyarrow as pa
 import pytest
 
 import pse
+from pse.contracts.documents import ResourceReport
 from pse.contracts.values import SemanticId
 from pse.tests.test_native_registry import PublicationIndex, publication_index
 
@@ -251,7 +252,9 @@ assert all(row.pinned_bytes in (None, 0) for row in publication.cache_usage())
 
 
 @pytest.mark.unit
-def test_inspection_annotations_evaluate_on_the_running_interpreter() -> None:
+def test_inspection_annotations_evaluate_on_the_running_interpreter(
+    inspection_settings: pse.EngineSettings,
+) -> None:
     for target in (
         pse.FieldTransfer,
         pse.TableStream,
@@ -261,13 +264,14 @@ def test_inspection_annotations_evaluate_on_the_running_interpreter() -> None:
         pse.TableStream.extension_report,
     ):
         assert get_type_hints(target), target
-    # Native properties are typed by the stub emitted from the compiled API.
-    # They deliberately have no duplicate runtime Python declaration.
-    report_stub = (
-        Path(pse.__file__).with_name("_native.pyi").read_text(encoding="utf-8")
-    )
-    assert "def pool_reserved_now(self, /) -> int:" in report_stub
-    assert hasattr(pse.ResourceReport, "pool_reserved_now")
+    assert pse.ResourceReport is ResourceReport
+    annotations = get_type_hints(ResourceReport)
+    assert annotations["pool_reserved_now"] is int
+    assert annotations["pool_peak_bytes"] is int
+    assert annotations["limit_bytes"] is int
+    usage = pse.Runtime(inspection_settings).resource_usage()
+    assert isinstance(usage, ResourceReport)
+    assert 0 <= usage.pool_reserved_now <= usage.pool_peak_bytes <= usage.limit_bytes
 
 
 @pytest.mark.component

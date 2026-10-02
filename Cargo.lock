@@ -1587,12 +1587,12 @@ dependencies = [
 
 [[package]]
 name = "darling"
-version = "0.20.11"
+version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fc7f46116c46ff9ab3eb1597a45688b6715c6e628b5c133e288e709a29bcb4ee"
+checksum = "25ae13da2f202d56bd7f91c25fba009e7717a1e4a1cc98a76d844b65ae912e9d"
 dependencies = [
- "darling_core 0.20.11",
- "darling_macro 0.20.11",
+ "darling_core 0.23.0",
+ "darling_macro 0.23.0",
 ]
 
 [[package]]
@@ -1611,11 +1611,10 @@ dependencies = [
 
 [[package]]
 name = "darling_core"
-version = "0.20.11"
+version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d00b9596d185e565c2207a0b01f8bd1a135483d02d9b7b0a54b11da8d53412e"
+checksum = "9865a50f7c335f53564bb694ef660825eb8610e0a53d3e11bf1b0d3df31e03b0"
 dependencies = [
- "fnv",
  "ident_case",
  "proc-macro2",
  "quote",
@@ -1636,11 +1635,11 @@ dependencies = [
 
 [[package]]
 name = "darling_macro"
-version = "0.20.11"
+version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fc34b93ccb385b40dc71c6fceac4b2ad23662c7eeb248cf10d529b7e055b6ead"
+checksum = "ac3984ec7bd6cfa798e62b4a642426a5be0e68f9401cfc2a01e3fa9ea2fcdb8d"
 dependencies = [
- "darling_core 0.20.11",
+ "darling_core 0.23.0",
  "quote",
  "syn 2.0.119",
 ]
@@ -5582,25 +5581,25 @@ dependencies = [
 ]
 
 [[package]]
-name = "proc-macro-error-attr2"
-version = "2.0.0"
+name = "proc-macro-error-attr3"
+version = "3.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "96de42df36bb9bba5542fe9f1a054b8cc87e172759a1868aa05c1f3acc89dfc5"
+checksum = "9e564d14133360e1ae169ffde5da25881b5fa47261665b8e5713c212c27799da"
 dependencies = [
  "proc-macro2",
  "quote",
 ]
 
 [[package]]
-name = "proc-macro-error2"
-version = "2.0.1"
+name = "proc-macro-error3"
+version = "3.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "11ec05c52be0a07b08061f7dd003e7d7092e0472bc731b4af7bb1ef876109802"
+checksum = "8f0d4471b3436c22106b21913b1dda531558918ae9b7ec55d58aa84b43552233"
 dependencies = [
- "proc-macro-error-attr2",
+ "proc-macro-error-attr3",
  "proc-macro2",
  "quote",
- "syn 2.0.119",
+ "syn 3.0.5",
 ]
 
 [[package]]
@@ -5746,6 +5745,7 @@ dependencies = [
  "pse-schema",
  "pse-testkit",
  "pse-workspace-hack",
+ "serde-saphyr",
  "serde_json",
  "tempfile",
  "tokio",
@@ -5758,8 +5758,12 @@ dependencies = [
 name = "pse-buildinfo"
 version = "0.0.1"
 dependencies = [
+ "hex",
  "pse-ids",
  "pse-workspace-hack",
+ "schemars",
+ "serde",
+ "sha2",
 ]
 
 [[package]]
@@ -5792,6 +5796,7 @@ dependencies = [
  "tracing",
  "url",
  "uuid",
+ "validator",
  "walkdir",
 ]
 
@@ -5801,6 +5806,7 @@ version = "0.0.1"
 dependencies = [
  "arrow-array",
  "arrow-schema",
+ "petgraph",
  "prettyplease 0.3.0",
  "proc-macro2",
  "pse-columnar",
@@ -5858,6 +5864,9 @@ dependencies = [
  "pse-structural",
  "pse-workspace-hack",
  "salsa",
+ "schemars",
+ "serde",
+ "serde_json",
  "thiserror 2.0.20",
  "tracing",
 ]
@@ -5870,6 +5879,7 @@ dependencies = [
  "postgres-types",
  "schemars",
  "serde",
+ "strum",
  "thiserror 2.0.20",
 ]
 
@@ -5895,6 +5905,7 @@ dependencies = [
  "pse-relations",
  "pse-schema",
  "pse-workspace-hack",
+ "schemars",
  "serde",
  "serde_json",
  "thiserror 2.0.20",
@@ -5910,6 +5921,7 @@ version = "0.0.1"
 dependencies = [
  "blake3",
  "bytes",
+ "hex",
  "miette",
  "postgres-types",
  "proptest",
@@ -5958,6 +5970,7 @@ dependencies = [
  "pse-model",
  "pse-quantity",
  "pse-workspace-hack",
+ "schemars",
  "serde",
  "serde_json",
  "symbolica",
@@ -5981,6 +5994,7 @@ dependencies = [
  "schemars",
  "serde",
  "serde_json",
+ "strum",
  "thiserror 2.0.20",
 ]
 
@@ -6064,7 +6078,6 @@ dependencies = [
  "pse-model",
  "pse-modeling",
  "pse-relations",
- "pse-rules",
  "pse-runtime",
  "pse-schema",
  "pse-workspace-hack",
@@ -6130,6 +6143,7 @@ dependencies = [
  "datafusion",
  "datafusion-common",
  "miette",
+ "pse-authoring",
  "pse-columnar",
  "pse-diagnostics",
  "pse-engine",
@@ -6175,6 +6189,7 @@ dependencies = [
  "pse-operations",
  "pse-quantity",
  "pse-relations",
+ "pse-rules",
  "pse-schema",
  "pse-structural",
  "pse-testkit",
@@ -6203,6 +6218,7 @@ dependencies = [
  "arrow-schema",
  "arrow-select",
  "datafusion-common",
+ "hex",
  "miette",
  "pse-columnar",
  "pse-diagnostics",
@@ -6226,9 +6242,11 @@ dependencies = [
  "pse-diagnostics",
  "pse-ids",
  "pse-kernels",
+ "pse-model",
  "pse-quantity",
  "pse-workspace-hack",
  "rustworkx-core",
+ "schemars",
  "serde",
  "thiserror 2.0.20",
 ]
@@ -6383,6 +6401,7 @@ dependencies = [
  "pse-workspace-hack",
  "serde",
  "serde_json",
+ "strum",
 ]
 
 [[package]]
@@ -8697,9 +8716,9 @@ dependencies = [
 
 [[package]]
 name = "validator"
-version = "0.19.0"
+version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d0b4a29d8709210980a09379f27ee31549b73292c87ab9899beee1c0d3be6303"
+checksum = "43fb22e1a008ece370ce08a3e9e4447a910e92621bb49b85d6e48a45397e7cfa"
 dependencies = [
  "idna",
  "once_cell",
@@ -8713,13 +8732,12 @@ dependencies = [
 
 [[package]]
 name = "validator_derive"
-version = "0.19.0"
+version = "0.20.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bac855a2ce6f843beb229757e6e570a42e837bcb15e5f449dd48d5747d41bf77"
+checksum = "240e4b81c20a1d6d50d1d7265c658dfbd204e8b9ac4d80f3c931f39462196335"
 dependencies = [
- "darling 0.20.11",
- "once_cell",
- "proc-macro-error2",
+ "darling 0.23.0",
+ "proc-macro-error3",
  "proc-macro2",
  "quote",
  "syn 2.0.119",
@@ -9286,11 +9304,13 @@ dependencies = [
  "prettyplease 0.3.0",
  "pse-authoring",
  "pse-backend-native",
+ "pse-buildinfo",
  "pse-catalog",
  "pse-codegen",
  "pse-columnar",
  "pse-engine",
  "pse-ids",
+ "pse-model",
  "pse-quantity",
  "pse-relations",
  "pse-rules",

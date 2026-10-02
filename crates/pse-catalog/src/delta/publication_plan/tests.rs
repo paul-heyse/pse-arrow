@@ -34,6 +34,12 @@ fn declared_publication_preserves_deep_shared_inputs_without_running_them() {
         )]),
     );
     let registry = Arc::new(builder.build().unwrap());
+    let validation = Arc::new(ValidationContext::new(
+        &registry,
+        pse_engine::validation::NativeValidation(
+            datafusion::prelude::SessionContext::new().state(),
+        ),
+    ));
     let spec = registry.relation("authored.values").unwrap();
     let mut input = LogicalPlan::EmptyRelation(EmptyRelation {
         produce_one_row: false,
@@ -91,7 +97,7 @@ fn declared_publication_preserves_deep_shared_inputs_without_running_them() {
             maintenance_epoch: None,
             store_fingerprint: None,
         };
-        let publication = candidate(header, members, Arc::clone(&registry)).unwrap();
+        let publication = candidate(header, members, Arc::clone(&registry), &validation).unwrap();
         assert_eq!(publication.schema().field(0).name(), "publication_id");
     }
     assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 0);

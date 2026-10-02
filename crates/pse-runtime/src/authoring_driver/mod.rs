@@ -7,7 +7,7 @@ mod error;
 pub mod native;
 pub mod p0;
 pub mod p1;
-mod work;
+pub(crate) mod work;
 pub use error::AuthoringDriverError as DriverError;
 use pse_authoring::{ParseBudget, SourceSpan, dsl, ids};
 

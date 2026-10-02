@@ -70,6 +70,34 @@ pub struct Path {
     pub segments: Vec<PathSegment>,
 }
 
+impl Path {
+    /// A generated or parser-owned scalar identifier; dots remain part of that identifier.
+    pub fn single(name: impl Into<String>) -> Self {
+        Self {
+            segments: vec![PathSegment {
+                name: name.into(),
+                indices: Vec::new(),
+            }],
+        }
+    }
+    /// The unindexed scalar identifier, if this path is exactly one segment.
+    pub fn ident(&self) -> Option<&str> {
+        match self.segments.as_slice() {
+            [segment] if segment.indices.is_empty() => Some(&segment.name),
+            _ => None,
+        }
+    }
+    /// Whether this path names exactly the given scalar identifier.
+    pub fn is_ident(&self, name: &str) -> bool {
+        self.ident() == Some(name)
+    }
+}
+impl std::fmt::Display for Path {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(&super::render_path(self))
+    }
+}
+
 /// An arithmetic binary operator.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BinaryOp {
@@ -171,14 +199,14 @@ pub enum ExprKind {
     /// A package-defined function, resolved before mathematical admission.
     NamedCall {
         /// Lexically resolved function path.
-        name: String,
+        name: Path,
         /// Positional arguments.
         args: Vec<Expr>,
     },
     /// Partial derivatives of an explicit function argument, applied to arguments.
     Partial {
         /// Function path.
-        function: String,
+        function: Path,
         /// Ordered differentiated formal arguments (repetition denotes higher order).
         wrt: Vec<Path>,
         /// Applied arguments.
@@ -363,4 +391,47 @@ pub enum EquationKind {
         /// False branch.
         otherwise: Box<Equation>,
     },
+}
+
+/// Logic syntax sharing the expression grammar and source-bearing atom/count nodes.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Proposition {
+    /// A binary-variable reference admitted by the path grammar.
+    Atom(Expr),
+    /// Logical complement.
+    Not(Box<Proposition>),
+    /// Ordered conjunction.
+    And(Vec<Proposition>),
+    /// Ordered disjunction.
+    Or(Vec<Proposition>),
+    /// Exclusive disjunction.
+    Xor(Box<Proposition>, Box<Proposition>),
+    /// Right-associative material implication.
+    Implies(Box<Proposition>, Box<Proposition>),
+    /// Exact count of true operands, with an admitted arithmetic count expression.
+    Exactly(Expr, Vec<Proposition>),
+}
+impl Proposition {
+    /// Visit every retained expression, including cardinality counts.
+    pub fn expressions(&self, visit: &mut impl FnMut(&Expr)) {
+        match self {
+            Self::Atom(expression) => visit(expression),
+            Self::Not(value) => value.expressions(visit),
+            Self::And(values) | Self::Or(values) => {
+                for value in values {
+                    value.expressions(visit);
+                }
+            }
+            Self::Xor(a, b) | Self::Implies(a, b) => {
+                a.expressions(visit);
+                b.expressions(visit);
+            }
+            Self::Exactly(count, values) => {
+                visit(count);
+                for value in values {
+                    value.expressions(visit);
+                }
+            }
+        }
+    }
 }

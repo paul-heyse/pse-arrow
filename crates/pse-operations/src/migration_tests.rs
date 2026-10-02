@@ -7,7 +7,7 @@ use std::time::Duration;
 
 const SOURCE_DDL: &str = include_str!("../test-fixtures/plan25d/schema.sql");
 const SOURCE_PHYSICAL: &str = include_str!("../test-fixtures/plan25d/physical.sql");
-const SNAPSHOT: &str = "SELECT jsonb_build_object('attempts',(SELECT jsonb_agg(to_jsonb(x)) FROM pse_ops.attempts x),'jobs',(SELECT jsonb_agg(to_jsonb(x)) FROM pse_ops.jobs x),'workspaces',(SELECT jsonb_agg(to_jsonb(x)) FROM pse_ops.workspaces x),'publications',(SELECT jsonb_agg(to_jsonb(x)) FROM pse_ops.publications x),'leases',(SELECT jsonb_agg(to_jsonb(x)) FROM pse_ops.reader_leases x),'retention',(SELECT jsonb_agg(to_jsonb(x)) FROM pse_ops.retention_marks x))::text";
+const SNAPSHOT: &str = "SELECT jsonb_build_object('attempts',(SELECT jsonb_agg((to_jsonb(x)-'request_identity'-'operational_job_identity'-'operational_job_frame') || jsonb_build_object('recorded_operational_key',COALESCE(to_jsonb(x)->'request_identity',to_jsonb(x)->'operational_job_identity'))) FROM pse_ops.attempts x),'jobs',(SELECT jsonb_agg(to_jsonb(x)) FROM pse_ops.jobs x),'workspaces',(SELECT jsonb_agg(to_jsonb(x)) FROM pse_ops.workspaces x),'publications',(SELECT jsonb_agg(to_jsonb(x)) FROM pse_ops.publications x),'leases',(SELECT jsonb_agg(to_jsonb(x)) FROM pse_ops.reader_leases x),'retention',(SELECT jsonb_agg(to_jsonb(x)) FROM pse_ops.retention_marks x))::text";
 const HISTORICAL_ROWS: &str = r#"
       INSERT INTO pse_ops.attempts(attempt_id,run_id,kind,request_identity,state,worker,lease_expires_at,heartbeat_at)
       VALUES ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000002','simulation',decode(repeat('17',32),'hex'),'running','historical-worker','2030-01-01','2026-01-01');
@@ -63,7 +63,7 @@ fn migration_frozen_source_identity_and_history_ownership() {
         .part(SOURCE_PHYSICAL.as_bytes());
     assert_eq!(hash.finish_hash().to_hex(), MIGRATION_SOURCE);
     let (catalog, operations) = transitions().unwrap();
-    assert_eq!((catalog.len(), operations.len()), (2, 6));
+    assert_eq!((catalog.len(), operations.len()), (2, 7));
     assert_ne!(CATALOG_HISTORY, OPERATIONS_HISTORY);
 }
 #[tokio::test]
@@ -89,7 +89,7 @@ async fn migration_supported_source_preserves_payload_and_catalog() {
             .count("SELECT count(*) FROM pse_ops.operations_schema_history")
             .await
             .unwrap(),
-        6
+        7
     );
     assert_eq!(session.count("SELECT count(*) FROM pg_tables WHERE schemaname='public' AND tablename='refinery_schema_history'").await.unwrap(),0);
     let reopened = Store::open_with(db.url(), &crate::store::StoreOptions::for_tests())
@@ -182,7 +182,7 @@ async fn migration_interrupted_committed_prefix_resumes_and_open_refuses_not_rea
         assert!(migrate(db.store()).await.unwrap().final_ready.ready);
         assert_eq!(session.texts(SNAPSHOT).await.unwrap(), before);
         drop(session);
-        drop(proxy);
+        proxy.shutdown().await.unwrap();
         db.remove().await.unwrap();
     }
 }
@@ -323,7 +323,7 @@ fn migration_plan25e_frozen_source_identity_and_follow_on_target() {
     assert_eq!(hash.finish_hash().to_hex(), STUDY_MIGRATION_SOURCE);
     let sql = include_str!("../migrations/V5__study_occurrence_policy.sql");
     assert!(sql.contains(INVENTORY_MIGRATION_SOURCE));
-    assert!(sql.contains(crate::generated::OPERATIONS_FINGERPRINT_HEX));
+    assert!(sql.contains(PLAN25F_OPERATIONS));
     // The replacement has precisely the registry's table declaration, including column order.
     let declared = SCHEMA_SQL
         .split_once("CREATE TABLE pse_ops.\"study_points\" (")
@@ -381,7 +381,7 @@ fn migration_source_and_history_prefix_are_admitted_together() {
         (STUDY_MIGRATION_SOURCE, true, 0, 4),
         (FRESH_PLAN25E_ORIGIN, false, 0, 1),
         (FRESH_PLAN25E_ORIGIN, true, 1, 0),
-        (FRESH_PLAN25E_ORIGIN, true, 1, 3),
+        (FRESH_PLAN25E_ORIGIN, true, 1, 4),
         ("unknown", false, 0, 0),
     ] {
         reason(
@@ -497,7 +497,7 @@ async fn migration_plan25e_fresh_and_upgraded_sources_preserve_historical_occurr
                 .count("SELECT count(*) FROM pse_ops.operations_schema_history")
                 .await
                 .unwrap(),
-            if fresh { 2 } else { 6 }
+            if fresh { 3 } else { 7 }
         );
         if fresh {
             assert_eq!(
@@ -530,7 +530,7 @@ async fn migration_inspection_is_read_only_and_stale_plan_refuses_before_marker(
     let plan = db.store().migration_plan().await.unwrap();
     assert_eq!(comment(&db).await, before);
     assert_eq!(plan.source, MIGRATION_SOURCE);
-    assert_eq!(plan.pending_steps().len(), 8);
+    assert_eq!(plan.pending_steps().len(), 9);
     assert_eq!(raw.count("SELECT count(*) FROM pg_tables WHERE schemaname='pse_ops' AND tablename LIKE '%schema_history'").await.unwrap(), 0);
     let mut changed = plan.clone();
     changed.shared_version += 1;
@@ -559,7 +559,7 @@ fn migration_plan25f_frozen_source_and_appended_inventory_target() {
     assert_eq!(hash.finish_hash().to_hex(), INVENTORY_MIGRATION_SOURCE);
     let inventory = include_str!("../migrations/V2__catalog_retirement_inventory.sql");
     let ready = include_str!("../migrations/V6__retirement_ready.sql");
-    assert!(ready.contains(SCHEMA_FINGERPRINT_HEX));
+    assert!(ready.contains(JOB_IDENTITY_MIGRATION_SOURCE));
     assert!(inventory.contains(crate::generated::CATALOG_FINGERPRINT_HEX));
     assert!(!inventory.contains("DROP "));
     for table in [
@@ -588,7 +588,7 @@ fn migration_plan25f_frozen_source_and_appended_inventory_target() {
         "../migrations/plan25g-constraint-signatures.json"
     ))
     .unwrap();
-    for (table, name, kind) in crate::generated::layout::CONSTRAINTS {
+    for (table, name, kind) in plan25g_layout::CONSTRAINTS {
         assert!(
             signatures
                 .iter()
@@ -635,7 +635,7 @@ async fn migration_plan25f_fresh_and_upgraded_inventory_preserves_every_catalog_
                 .iter()
                 .map(|s| s.version)
                 .collect::<Vec<_>>(),
-            [2, 6]
+            [2, 6, 7]
         );
         let report = db.store().migrate(&plan).await.unwrap();
         assert!(report.final_ready.ready);
@@ -676,7 +676,7 @@ async fn migration_inventory_interruption_and_malformed_timestamp_never_destroy_
         let report = db.store().migrate(&resumed).await.unwrap();
         assert!(report.final_ready.ready);
         assert_eq!(raw.texts(SNAPSHOT).await.unwrap(), before);
-        drop(proxy);
+        proxy.shutdown().await.unwrap();
         drop(raw);
         db.remove().await.unwrap();
     }
@@ -693,6 +693,103 @@ async fn migration_inventory_interruption_and_malformed_timestamp_never_destroy_
         MigrationRefusal::ChecksumConflict,
     );
     assert_eq!(comment(&db).await, before);
+    drop(raw);
+    db.remove().await.unwrap();
+}
+
+#[test]
+fn operational_identity_v7_preserves_v6_digest_and_unknown_frame_provenance() {
+    let mut hash = pse_ids::FramedHasher::new(pse_ids::Frame::OpsSchemaV1);
+    hash.part(include_bytes!("../test-fixtures/plan25g/schema.sql"))
+        .part(include_bytes!("../test-fixtures/plan25g/physical.sql"));
+    assert_eq!(hash.finish_hash().to_hex(), JOB_IDENTITY_MIGRATION_SOURCE);
+    let sql = include_str!("../migrations/V7__operational_job_identity.sql");
+    assert!(sql.contains("RENAME COLUMN request_identity TO operational_job_identity"));
+    assert!(sql.contains("ADD COLUMN operational_job_frame text"));
+    assert!(!sql.contains("UPDATE pse_ops.attempts"));
+    assert!(sql.contains(SCHEMA_FINGERPRINT_HEX));
+    let (_, operations) = transitions().unwrap();
+    assert_eq!(operations.last().unwrap().version(), 7);
+}
+
+#[tokio::test]
+async fn operational_identity_v7_migrates_fresh_v6_and_preserves_unknown_provenance() {
+    let db = TestDatabase::empty().await.unwrap();
+    let session = db.session().await.unwrap();
+    session
+        .execute(include_str!("../test-fixtures/plan25g/schema.sql"))
+        .await
+        .unwrap();
+    session
+        .execute(include_str!("../test-fixtures/plan25g/physical.sql"))
+        .await
+        .unwrap();
+    session.execute(&format!("INSERT INTO pse_ops.schema_support_state VALUES ('catalog',1,'fresh','{}',true),('operations',1,'fresh','{PLAN25F_OPERATIONS}',true); COMMENT ON SCHEMA pse_ops IS '{RECORD_PREFIX}{JOB_IDENTITY_MIGRATION_SOURCE}'", crate::generated::CATALOG_FINGERPRINT_HEX)).await.unwrap();
+    session.execute("INSERT INTO pse_ops.attempts(attempt_id,run_id,kind,request_identity,state) VALUES('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000002','simulation',decode(repeat('17',32),'hex'),'completed')").await.unwrap();
+    let plan = db.store().migration_plan().await.unwrap();
+    assert_eq!(
+        plan.pending_steps()
+            .iter()
+            .map(|s| s.version)
+            .collect::<Vec<_>>(),
+        vec![7]
+    );
+    let report = db.store().migrate(&plan).await.unwrap();
+    assert!(report.final_ready.ready);
+    assert_eq!(session.texts("SELECT encode(operational_job_identity,'hex'), operational_job_frame FROM pse_ops.attempts").await.unwrap(), vec![vec![Some("17".repeat(32)),None]]);
+    db.store().open().await.unwrap();
+    let attempt = db
+        .store()
+        .attempts()
+        .get(
+            pse_ids::SemanticId::from_bytes([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1])
+                .into(),
+        )
+        .await
+        .unwrap();
+    let recorded = pse_ids::roles::RecordedOperationalJobIdentity::recorded(
+        attempt.operational_job_identity,
+        attempt.operational_job_frame,
+    );
+    assert!(recorded.current_key().is_none());
+    drop(session);
+    db.remove().await.unwrap();
+}
+
+#[tokio::test]
+async fn operational_identity_v7_migrates_upgraded_v6_and_normalizes_only_known_names() {
+    let db = legacy().await;
+    let mut session = db.store().schema_session().await.unwrap();
+    let (catalog, operations) = transitions().unwrap();
+    run_history(&mut session.client, &catalog[..1], CATALOG_HISTORY)
+        .await
+        .unwrap();
+    run_history(&mut session.client, &operations[..5], OPERATIONS_HISTORY)
+        .await
+        .unwrap();
+    run_history(&mut session.client, &catalog, CATALOG_HISTORY)
+        .await
+        .unwrap();
+    run_history(&mut session.client, &operations[..6], OPERATIONS_HISTORY)
+        .await
+        .unwrap();
+    drop(session);
+    let raw = db.session().await.unwrap();
+    let before = raw.texts(SNAPSHOT).await.unwrap();
+    assert_eq!(raw.count("SELECT count(*) FROM pg_constraint WHERE conrelid='pse_ops.study_points'::regclass AND contype='n' AND conname LIKE '%_not_null1'").await.unwrap(), 6);
+    let plan = db.store().migration_plan().await.unwrap();
+    assert_eq!(
+        plan.pending_steps()
+            .iter()
+            .map(|s| s.version)
+            .collect::<Vec<_>>(),
+        vec![7]
+    );
+    assert!(db.store().migrate(&plan).await.unwrap().final_ready.ready);
+    assert_eq!(raw.texts(SNAPSHOT).await.unwrap(), before);
+    assert_eq!(raw.count("SELECT count(*) FROM pg_constraint WHERE conrelid='pse_ops.study_points'::regclass AND contype='n' AND conname LIKE '%_not_null1'").await.unwrap(), 0);
+    assert_eq!(raw.texts("SELECT encode(operational_job_identity,'hex'), operational_job_frame FROM pse_ops.attempts").await.unwrap(), vec![vec![Some("17".repeat(32)), None]]);
+    db.store().open().await.unwrap();
     drop(raw);
     db.remove().await.unwrap();
 }

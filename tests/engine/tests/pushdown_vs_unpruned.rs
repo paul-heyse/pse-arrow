@@ -89,7 +89,10 @@ async fn fixture() -> (Arc<dyn TableProvider>, RecordBatch, tempfile::TempDir) {
             ]
         })
         .collect::<Vec<_>>();
-    let batch = pse_relations::testing::batch_from_literals(&registry, spec, &rows).expect("batch");
+    let validation = pse_relations::validate::ValidationContext::local(&registry)
+        .expect("local primitive fixture");
+    let batch = pse_relations::testing::batch_from_literals(&registry, spec, &rows, &validation)
+        .expect("batch");
     let key = spec.key;
     let (publication, directory, _) =
         native_publication::publish(registry, BTreeMap::from([(key, batch.clone())])).await;

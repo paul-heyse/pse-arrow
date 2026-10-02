@@ -17,6 +17,7 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+strum.workspace = true
 thiserror.workspace = true
 miette.workspace = true
 serde.workspace = true

@@ -145,24 +145,31 @@ fn publication_row(id: u8, parent: Option<u8>) -> publication_manifests::Row {
 }
 
 /// The admitted record an executed publication candidate returns.
-fn admitted(batches: &[RecordBatch]) -> publication_manifests::Row {
+fn admitted(
+    batches: &[RecordBatch],
+    validation: &pse_relations::validate::ValidationContext,
+) -> publication_manifests::Row {
     assert_eq!(batches.len(), 1);
     publication_manifests::View::try_from_batch_with_registry(
-        pse_engine::validation::registry().unwrap(),
+        pse_schema::registry().unwrap(),
         &batches[0],
+        validation,
     )
     .unwrap()
     .row(0)
     .unwrap()
 }
 
-fn source_member_batches(dangling: bool) -> Vec<(&'static str, pse_ids::SemanticId, RecordBatch)> {
+fn source_member_batches(
+    dangling: bool,
+    validation: &pse_relations::validate::ValidationContext,
+) -> Vec<(&'static str, pse_ids::SemanticId, RecordBatch)> {
     use pse_relations::generated::{
         authored::{entities, packages},
         enums::{EntityKind, IdPolicy, PackageKind},
     };
     let identity = |id| pse_ids::SemanticId::from_bytes([id; 16]);
-    let mut packages = packages::Builder::new().unwrap();
+    let mut packages = packages::Builder::new(validation).unwrap();
     packages
         .push(packages::Row {
             package_id: identity(10).into(),
@@ -175,7 +182,7 @@ fn source_member_batches(dangling: bool) -> Vec<(&'static str, pse_ids::Semantic
             doc: String::new(),
         })
         .unwrap();
-    let mut entities = entities::Builder::new().unwrap();
+    let mut entities = entities::Builder::new(validation).unwrap();
     entities
         .push(entities::Row {
             entity_id: identity(11),
@@ -208,7 +215,9 @@ async fn native_member_writes_feed_actual_versions_into_coherent_publication() {
         let root = tempfile::tempdir().unwrap();
         let (context, _, _, _) = context();
         let mut members = vec![];
-        for (name, relation_id, batch) in source_member_batches(dangling) {
+        for (name, relation_id, batch) in
+            source_member_batches(dangling, &native_validation(&context.state()))
+        {
             let reference = datafusion::common::ResolvedTableReference {
                 catalog: "model.a".into(),
                 schema: "authored".into(),
@@ -232,9 +241,13 @@ async fn native_member_writes_feed_actual_versions_into_coherent_publication() {
             }));
         }
         let registry = pse_schema::shared_registry().unwrap();
-        let plan =
-            publication_plan::candidate(publication_row(2, None), members, Arc::clone(&registry))
-                .unwrap();
+        let plan = publication_plan::candidate(
+            publication_row(2, None),
+            members,
+            Arc::clone(&registry),
+            &native_validation(&context.state()),
+        )
+        .unwrap();
         let state = context.state();
         let prepared = prepare_native(&state, &plan).unwrap();
         assert_eq!(
@@ -252,7 +265,7 @@ async fn native_member_writes_feed_actual_versions_into_coherent_publication() {
             // Nothing is admitted: no record exists to commit.
             assert!(result.is_err());
         } else {
-            let record = admitted(&result.unwrap().into_batches());
+            let record = admitted(&result.unwrap().into_batches(), &native_validation(&state));
             let publication = open_publication(record, &registry, Arc::new(state))
                 .await
                 .unwrap();
@@ -285,7 +298,7 @@ async fn publication_composes_one_write_with_an_exact_unchanged_member() {
     let state = context.state();
     let registry = pse_schema::shared_registry().unwrap();
     let mut original = publication_row(2, None);
-    for (_, id, batch) in source_member_batches(false) {
+    for (_, id, batch) in source_member_batches(false, &native_validation(&context.state())) {
         let name = registry.relation_by_id(id).unwrap().qualified_name();
         original
             .members
@@ -297,7 +310,10 @@ async fn publication_composes_one_write_with_an_exact_unchanged_member() {
     assert_eq!(first.members, expected);
     let packages = original.members[0].clone();
     let entities = &original.members[1];
-    let (_, relation_id, batch) = source_member_batches(false).pop().unwrap();
+    let (_, relation_id, batch) =
+        source_member_batches(false, &native_validation(&context.state()))
+            .pop()
+            .unwrap();
     let table = DeltaTableBuilder::from_url(location(&temp.path().join("child-entities")))
         .unwrap()
         .build()
@@ -315,8 +331,13 @@ async fn publication_composes_one_write_with_an_exact_unchanged_member() {
             input: context.read_batch(batch).unwrap().into_unoptimized_plan(),
         }),
     ];
-    let plan = publication_plan::candidate(publication_row(3, Some(2)), members, registry.clone())
-        .unwrap();
+    let plan = publication_plan::candidate(
+        publication_row(3, Some(2)),
+        members,
+        registry.clone(),
+        &native_validation(&state),
+    )
+    .unwrap();
     assert_eq!(
         plan.display_indent()
             .to_string()
@@ -324,7 +345,10 @@ async fn publication_composes_one_write_with_an_exact_unchanged_member() {
             .count(),
         1
     );
-    let record = admitted(&run_native(&state, &plan).await.unwrap());
+    let record = admitted(
+        &run_native(&state, &plan).await.unwrap(),
+        &native_validation(&state),
+    );
     let current = open_publication(record, &registry, Arc::new(state.clone()))
         .await
         .unwrap();
@@ -378,10 +402,18 @@ async fn qualify_retained_only_composition(
     let registry = pse_schema::shared_registry().unwrap();
     // A publication can select only existing exact members without rewriting data.
     let retained = selected.iter().cloned().map(Member::Retained).collect();
-    let plan = publication_plan::candidate(publication_row(4, Some(3)), retained, registry.clone())
-        .unwrap();
+    let plan = publication_plan::candidate(
+        publication_row(4, Some(3)),
+        retained,
+        registry.clone(),
+        &native_validation(state),
+    )
+    .unwrap();
     assert!(!plan.display_indent().to_string().contains("DeltaWrite:"));
-    let record = admitted(&run_native(state, &plan).await.unwrap());
+    let record = admitted(
+        &run_native(state, &plan).await.unwrap(),
+        &native_validation(state),
+    );
     let reopened = open_publication(record, &registry, Arc::new(state.clone()))
         .await
         .unwrap();
@@ -393,6 +425,7 @@ async fn qualify_retained_only_composition(
         publication_row(5, Some(4)),
         missing.into_iter().map(Member::Retained).collect(),
         registry,
+        &native_validation(state),
     )
     .unwrap();
     // A selection of a version that does not exist is never admitted.
@@ -409,8 +442,16 @@ async fn publish(
         .into_iter()
         .map(Member::Retained)
         .collect();
-    let plan = publication_plan::candidate(row, members, pse_schema::shared_registry().unwrap())?;
-    Ok(admitted(&run_native(state, &plan).await?))
+    let plan = publication_plan::candidate(
+        row,
+        members,
+        pse_schema::shared_registry().unwrap(),
+        &native_validation(state),
+    )?;
+    Ok(admitted(
+        &run_native(state, &plan).await?,
+        &native_validation(state),
+    ))
 }
 
 #[tokio::test]
@@ -418,7 +459,8 @@ async fn unavailable_declared_input_prevents_publication() {
     let temp = tempfile::tempdir().unwrap();
     let (context, _, _, _) = context();
     let mut record = publication_row(2, None);
-    let (_, _, packages) = source_member_batches(false).remove(0);
+    let (_, _, packages) =
+        source_member_batches(false, &native_validation(&context.state())).remove(0);
     record.members.push(
         write_member(
             &context,
@@ -428,7 +470,7 @@ async fn unavailable_declared_input_prevents_publication() {
         )
         .await,
     );
-    let relation = pse_engine::validation::registry()
+    let relation = pse_schema::registry()
         .unwrap()
         .relation("authored.packages")
         .unwrap();
@@ -504,7 +546,7 @@ async fn write_member(
 ) -> pse_relations::generated::structures::MemberDescriptor {
     use datafusion::datasource::{MemTable, provider_as_source};
     use pse_catalog::delta::contract::DeclaredCheck;
-    let registry = pse_engine::validation::registry().unwrap();
+    let registry = pse_schema::registry().unwrap();
     let spec = registry.relation(name).unwrap();
     let contract = DeclaredCheck::new(registry, spec.id).unwrap();
     let input = LogicalPlanBuilder::scan(
@@ -602,7 +644,7 @@ async fn publication_admits_real_members_and_rejects_duplicates_and_dangling_ref
     ] {
         let temp = tempfile::tempdir().unwrap();
         let (context, _, _, _) = context();
-        let mut packages = packages::Builder::new().unwrap();
+        let mut packages = packages::Builder::new(&native_validation(&context.state())).unwrap();
         packages
             .push(packages::Row {
                 package_id: identity(10).into(),
@@ -615,7 +657,7 @@ async fn publication_admits_real_members_and_rejects_duplicates_and_dangling_ref
                 doc: String::new(),
             })
             .unwrap();
-        let mut entities = entities::Builder::new().unwrap();
+        let mut entities = entities::Builder::new(&native_validation(&context.state())).unwrap();
         let entity = entities::Row {
             entity_id: identity(11),
             package_id: identity(10).into(),
@@ -652,7 +694,7 @@ async fn publication_admits_real_members_and_rejects_duplicates_and_dangling_ref
         if case == "valid" {
             let publication = open_publication(
                 result.unwrap(),
-                pse_engine::validation::registry().unwrap(),
+                pse_schema::registry().unwrap(),
                 Arc::new(context.state()),
             )
             .await
@@ -821,7 +863,7 @@ async fn validating_route_rejects_bad_rows_and_constraint_addition_scans_existin
 #[test]
 fn every_registry_relation_has_a_declared_delta_layout() {
     use deltalake::kernel::{StructType, engine::arrow_conversion::TryIntoKernel};
-    let registry = pse_engine::validation::registry().unwrap();
+    let registry = pse_schema::registry().unwrap();
     for relation in registry.relations() {
         let schema = pse_schema::delta::relation_schema(registry, relation).unwrap();
         let converted: std::result::Result<StructType, _> = (&schema).try_into_kernel();
@@ -1270,7 +1312,7 @@ async fn publication_selection_preserves_full_tables_and_exact_identity_slices()
     let root = tempfile::tempdir().unwrap();
     let (writer, _, _, _) = context();
     let identity = |value| pse_ids::SemanticId::from_bytes([value; 16]);
-    let mut builder = entities::Builder::new().unwrap();
+    let mut builder = entities::Builder::new(&native_validation(&writer.state())).unwrap();
     for id in [10, 11] {
         builder
             .push(entities::Row {
@@ -1333,7 +1375,7 @@ async fn publication_selection_preserves_full_tables_and_exact_identity_slices()
         row.members.push(selected);
         let result = open_publication(
             row,
-            pse_engine::validation::registry().unwrap(),
+            pse_schema::registry().unwrap(),
             Arc::new(writer.state()),
         )
         .await;
@@ -1378,7 +1420,7 @@ async fn open_publication(
 ) -> std::result::Result<pse_catalog::delta::publication::Publication, pse_engine::EngineError> {
     assert_eq!(
         registry.fingerprint(),
-        pse_engine::validation::registry().unwrap().fingerprint()
+        pse_schema::registry().unwrap().fingerprint()
     );
     pse_catalog::delta::publication::Publication::open(
         pse_catalog::delta::publication::PublicationSelection {
@@ -1451,4 +1493,82 @@ async fn run_native(state: &SessionState, plan: &LogicalPlan) -> Result<Vec<Reco
         .await
         .map_err(datafusion::common::DataFusionError::from)?
         .into_batches())
+}
+
+fn native_validation(state: &SessionState) -> Arc<pse_relations::validate::ValidationContext> {
+    Arc::new(pse_relations::validate::ValidationContext::new(
+        pse_schema::registry().unwrap(),
+        pse_engine::validation::NativeValidation(state.clone()),
+    ))
+}
+
+#[test]
+fn imported_metadata_validator_preserves_field_and_unicode_length_contracts() {
+    use deltalake::operations::update_table_metadata::TableMetadataUpdate;
+    use validator::Validate;
+
+    for update in [
+        TableMetadataUpdate {
+            name: Some("process-results".into()),
+            description: Some("Qualified process results".into()),
+        },
+        TableMetadataUpdate {
+            name: None,
+            description: Some(String::new()),
+        },
+        TableMetadataUpdate {
+            name: Some("é".repeat(255)),
+            description: Some("λ".repeat(4000)),
+        },
+    ] {
+        assert!(update.validate().is_ok(), "{update:?}");
+    }
+
+    for (update, code, field) in [
+        (
+            TableMetadataUpdate {
+                name: None,
+                description: None,
+            },
+            "no_fields_specified",
+            None,
+        ),
+        (
+            TableMetadataUpdate {
+                name: Some(String::new()),
+                description: None,
+            },
+            "length",
+            Some("name"),
+        ),
+        (
+            TableMetadataUpdate {
+                name: Some("é".repeat(256)),
+                description: None,
+            },
+            "length",
+            Some("name"),
+        ),
+        (
+            TableMetadataUpdate {
+                name: None,
+                description: Some("λ".repeat(4001)),
+            },
+            "length",
+            Some("description"),
+        ),
+    ] {
+        let errors = update.validate().unwrap_err();
+        let fields = errors.field_errors();
+        if let Some(field) = field {
+            assert!(fields.contains_key(field), "{errors:?}");
+        }
+        assert!(
+            fields
+                .values()
+                .flat_map(|errors| errors.iter())
+                .any(|error| error.code == code),
+            "{errors:?}"
+        );
+    }
 }

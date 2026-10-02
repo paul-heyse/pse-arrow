@@ -73,7 +73,7 @@ impl ModelingDiagnosticPreparation {
 }
 
 /// Explicit thresholds and budgets; the caller selects the named knowledge profile.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ModelingDiagnosticPolicy {
     /// Name of the knowledge profile these thresholds come from.

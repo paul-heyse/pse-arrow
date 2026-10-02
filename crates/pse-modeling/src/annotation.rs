@@ -5,7 +5,7 @@ use crate::specialize::{Engine, Environment, Lineage};
 use crate::{DeclarationId, InstanceId, Result, Type, invalid};
 use pse_authoring::{
     dsl::{self, Expr, ExprKind, Predicate},
-    language::{StaticValue, parse_static},
+    language::StaticValue,
 };
 use pse_ids::SemanticId;
 /// Orientation of an authored objective member: the registry enumeration.
@@ -150,13 +150,13 @@ pub struct Annotation {
     /// Demand and declaration provenance.
     pub lineage: Lineage,
 }
-pub(crate) fn label(source: &str, at: DeclarationId) -> Result<String> {
-    match parse_static(source).map_err(|e| invalid(at, e.to_string()))? {
-        StaticValue::Text(value) => Ok(value),
+pub(crate) fn label(source: &StaticValue, at: DeclarationId) -> Result<String> {
+    match source {
+        StaticValue::Text(value) => Ok(value.clone()),
         StaticValue::Expression(Expr {
             kind: ExprKind::Path(path),
             ..
-        }) if path.segments.iter().all(|s| s.indices.is_empty()) => Ok(dsl::render_path(&path)),
+        }) if path.segments.iter().all(|s| s.indices.is_empty()) => Ok(dsl::render_path(path)),
         _ => Err(invalid(at, "annotation requires a label")),
     }
 }
@@ -215,7 +215,13 @@ impl Engine<'_, '_> {
             .ok_or_else(|| invalid(at, "annotation payload"))?;
         let kind = shape(a, at)?;
         let ports = kind == Shape::Connectivity;
-        let targets = self.annotation_targets(instance, &a.target, env, at, ports)?;
+        let targets = self.annotation_targets(
+            instance,
+            &self.p.expression_at(at, "annotation.target", 0)?.clone(),
+            env,
+            at,
+            ports,
+        )?;
         if ports {
             let (incoming, outgoing) = connectivity_limits(a, at)?;
             for (target, _, _) in targets {
@@ -256,11 +262,14 @@ impl Engine<'_, '_> {
                 continue;
             }
             let expression = |engine: &mut Self, index: usize| -> Result<Expr> {
-                let source = a
+                let _source = a
                     .arguments
                     .get(index)
                     .ok_or_else(|| invalid(at, "annotation argument missing"))?;
-                let parsed = dsl::parse_expr(source).map_err(|e| invalid(at, e.to_string()))?;
+                let parsed = engine
+                    .p
+                    .expression_at(at, "annotation.arguments", index)?
+                    .clone();
                 let value = engine.rewrite(instance, &parsed, env, &[at])?;
                 let types = engine
                     .model
@@ -290,15 +299,17 @@ impl Engine<'_, '_> {
                 AnnotationKind::Scale => {
                     AnnotationValue::Scale(a.scheme.ok_or_else(|| invalid(at, "scaling scheme"))?)
                 }
-                AnnotationKind::Report => AnnotationValue::Report(label(&a.arguments[0], at)?),
+                AnnotationKind::Report => AnnotationValue::Report(label(
+                    self.p.static_at(at, "annotation.arguments", 0)?,
+                    at,
+                )?),
                 AnnotationKind::Valid => AnnotationValue::Valid {
                     lower: expression(self, 0)?,
                     upper: expression(self, 1)?,
                     layer: pse_model::generated::enums::ModelingValidityLayer::Closure,
                 },
                 AnnotationKind::Check => {
-                    let predicate = dsl::parse_predicate(&a.arguments[0])
-                        .map_err(|e| invalid(at, e.to_string()))?;
+                    let predicate = self.p.predicate_at(at, "annotation.arguments", 0)?.clone();
                     let predicate = self.rewrite_predicate(instance, &predicate, env, &[at])?;
                     let types = self
                         .model
@@ -359,24 +370,32 @@ impl Engine<'_, '_> {
                 .neutral_dimensionless()
                 .ok_or_else(|| invalid(at, "objective members need a neutral scalar type"))?,
         ));
-        let number =
-            |text: &Option<String>, ty: &Type| -> Result<Option<(crate::specialize::Value, f64)>> {
-                text.as_deref()
-                    .map(|text| {
-                        let value = self.eval(at, env, text, Some(ty))?;
-                        let scalar = value.scalar(at)?;
-                        Ok((value, scalar))
-                    })
-                    .transpose()
-            };
-        let weight = number(&members.weight, &scalar)?;
+        let number = |role: &str,
+                      text: &Option<String>,
+                      ty: &Type|
+         -> Result<Option<(crate::specialize::Value, f64)>> {
+            text.as_deref()
+                .map(|_| {
+                    let value = self.eval_field(
+                        at,
+                        env,
+                        &format!("annotation.objective.{role}"),
+                        0,
+                        Some(ty),
+                    )?;
+                    let scalar = value.scalar(at)?;
+                    Ok((value, scalar))
+                })
+                .transpose()
+        };
+        let weight = number("weight", &members.weight, &scalar)?;
         if weight
             .as_ref()
             .is_some_and(|(_, w)| !(w.is_finite() && *w > 0.0))
         {
             return Err(refuse(Refusal::InvalidWeight));
         }
-        let normalization = number(&members.normalization, ty)?;
+        let normalization = number("normalization", &members.normalization, ty)?;
         if normalization
             .as_ref()
             .is_some_and(|(_, n)| !(n.is_finite() && *n > 0.0))
@@ -396,8 +415,12 @@ impl Engine<'_, '_> {
                 )
                 .map_err(|e| invalid(at, e.to_string()))?,
         ));
-        let absolute = number(&members.absolute_tolerance, &difference)?;
-        let relative = number(&members.relative_tolerance, &scalar)?;
+        let absolute = number(
+            "absolute_tolerance",
+            &members.absolute_tolerance,
+            &difference,
+        )?;
+        let relative = number("relative_tolerance", &members.relative_tolerance, &scalar)?;
         if [&absolute, &relative]
             .into_iter()
             .flatten()
@@ -421,13 +444,10 @@ pub(crate) fn target_declaration(
     p: &crate::CheckedPackage,
     c: &crate::TypeContext<'_>,
     at: DeclarationId,
-    source: &str,
+    source: &Expr,
     env: &std::collections::BTreeMap<String, Type>,
 ) -> Result<Option<DeclarationId>> {
-    let ExprKind::Path(mut path) = dsl::parse_expr(source)
-        .map_err(|e| invalid(at, e.to_string()))?
-        .kind
-    else {
+    let ExprKind::Path(mut path) = source.kind.clone() else {
         return Ok(None);
     };
     let Some(last) = path.segments.pop() else {
@@ -436,7 +456,7 @@ pub(crate) fn target_declaration(
     if !last.indices.is_empty() {
         return Ok(None);
     }
-    if let Some(id) = p.resolve(at, source) {
+    if let Some(id) = p.resolve(at, &dsl::render_expr(source)) {
         return Ok(Some(id));
     }
     if path.segments.is_empty() {
@@ -462,32 +482,35 @@ pub(crate) fn target_type(
     p: &crate::CheckedPackage,
     c: &crate::TypeContext<'_>,
     at: DeclarationId,
-    source: &str,
+    source: &Expr,
     env: &std::collections::BTreeMap<String, Type>,
 ) -> Result<Type> {
     if let Some(id) = target_declaration(p, c, at, source, env)? {
         let row = &p.declarations[&id];
         if let Some(e) = &row.value.equation {
             let mut local = env.clone();
-            for i in &e.indices {
-                let expression =
-                    dsl::parse_expr(&i.domain).map_err(|e| invalid(at, e.to_string()))?;
+            for (position, i) in e.indices.iter().enumerate() {
                 let (Type::Set(element) | Type::Continuous(_, element)) =
-                    crate::expression::infer(&expression, &local, p, c, id, None)?
+                    crate::expression::index_domain_type(
+                        p.static_at(id, "equation.indices.domain", position)?,
+                        &local,
+                        p,
+                        c,
+                        id,
+                    )?
                 else {
                     return Err(invalid(at, "annotation coordinate domain"));
                 };
                 local.insert(i.name.clone(), *element);
             }
-            let equation =
-                dsl::parse_equation(&e.expression).map_err(|e| invalid(at, e.to_string()))?;
-            let dsl::EquationKind::Relation { lhs, .. } = equation.kind else {
+            let equation = p.equation_at(id, "equation.expression", 0)?;
+            let dsl::EquationKind::Relation { lhs, .. } = &equation.kind else {
                 return Err(invalid(
                     at,
                     "annotation target must have a fixed physical row contract",
                 ));
             };
-            let Type::Quantity(s) = crate::expression::infer(&lhs, &local, p, c, id, None)? else {
+            let Type::Quantity(s) = crate::expression::infer(lhs, &local, p, c, id, None)? else {
                 return Err(invalid(at, "physical row annotation required"));
             };
             let quantity = pse_quantity::scheme::Scheme::Delta(Box::new(s))
@@ -516,6 +539,5 @@ pub(crate) fn target_type(
             return Ok(ty.clone());
         }
     }
-    let expression = dsl::parse_expr(source).map_err(|e| invalid(at, e.to_string()))?;
-    crate::expression::infer(&expression, env, p, c, at, None)
+    crate::expression::infer(source, env, p, c, at, None)
 }

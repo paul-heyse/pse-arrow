@@ -265,6 +265,13 @@ pub struct Expectation {
 /// Finite specialization product and its independent inspection/closure views.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct SpecializedModel {
+    /// Selected checked source fields belong to this revision, independently of shared mathematics.
+    source_occurrences: std::sync::Arc<
+        BTreeMap<
+            crate::expression::occurrences::OccurrenceKey,
+            crate::expression::occurrences::CheckedExpression,
+        >,
+    >,
     /// Explicit function selectors for single-residual implicit occurrences.
     pub root_selections: BTreeMap<InstanceId, RootSelection>,
     /// Immutable selected records and authored closure edges in this model scope.
@@ -603,6 +610,32 @@ pub fn specialize_with_discretizer(
     }
     engine.check_connectivity()?;
     engine.finish(&bindings.formulation)?;
+    let mut selected = engine
+        .model
+        .instances
+        .values()
+        .map(|instance| instance.definition)
+        .collect::<BTreeSet<_>>();
+    for lineage in engine
+        .model
+        .symbols
+        .values()
+        .map(|symbol| &symbol.lineage)
+        .chain(engine.model.equations.iter().map(|row| &row.lineage))
+    {
+        selected.insert(lineage.declaration);
+        selected.extend(&lineage.demand);
+        selected.extend(&lineage.presets);
+        selected.extend(lineage.default_owner);
+    }
+    selected.extend(engine.model.functions.values().map(|function| function.id));
+    engine.model.source_occurrences = std::sync::Arc::new(
+        package
+            .expression_occurrences()
+            .filter(|(key, _)| selected.contains(&key.declaration))
+            .map(|(key, value)| (key.clone(), value.clone()))
+            .collect(),
+    );
     engine.model.selection_closures = engine.selection_collector.into_inner();
     Ok(engine.model)
 }
@@ -648,12 +681,12 @@ impl Engine<'_, '_> {
     pub(crate) fn annotation_targets(
         &mut self,
         instance: InstanceId,
-        source: &str,
+        expression: &Expr,
         env: &Environment,
         at: DeclarationId,
         ports: bool,
     ) -> Result<Vec<(SemanticId, Type, Environment)>> {
-        let expression = dsl::parse_expr(source).map_err(|e| invalid(at, e.to_string()))?;
+        let expression = expression.clone();
         // One coordinate of an indexed equation member names that equation row.
         if let ExprKind::Path(path) = &expression.kind
             && let Some((last, prefix)) = path.segments.split_last()
@@ -664,7 +697,7 @@ impl Engine<'_, '_> {
             let values = last
                 .indices
                 .iter()
-                .map(|index| self.eval(at, env, &dsl::render_expr(index), None))
+                .map(|index| self.eval_ast_with(at, env, index, None))
                 .collect::<Result<Vec<_>>>()?;
             let coordinates = self.member_coordinates(owner, member, values)?;
             let row = self.p.declarations[&member].clone();
@@ -672,17 +705,22 @@ impl Engine<'_, '_> {
                 self.p,
                 self.c,
                 member,
-                &row.name,
+                &Expr {
+                    kind: ExprKind::Path(Path {
+                        segments: vec![PathSegment {
+                            name: row.name.clone(),
+                            indices: Vec::new(),
+                        }],
+                    }),
+                    span: Span::default(),
+                },
                 &self.source_types(member, &self.states[&owner].env)?,
             )?;
             let local = coordinates_env(env, &coordinates);
-            let equation = row
-                .value
-                .equation
-                .as_ref()
-                .ok_or_else(|| invalid(at, "equation payload"))?;
-            let equation = dsl::parse_equation(&equation.expression)
-                .map_err(|e| invalid(at, e.to_string()))?;
+            let equation = self
+                .p
+                .equation_at(member, "equation.expression", 0)?
+                .clone();
             if !self.equation_defined(&equation, &local)? {
                 return Ok(Vec::new());
             }
@@ -715,6 +753,7 @@ impl Engine<'_, '_> {
                     .ok_or_else(|| invalid(at, "material port payload missing"))?;
                 return self
                     .coordinates(
+                        owner,
                         member,
                         &self.states[&owner].env,
                         indices
@@ -751,6 +790,7 @@ impl Engine<'_, '_> {
                 Vec::new()
             };
             let coordinates = self.coordinates(
+                owner,
                 member,
                 &self.states[&owner].env.clone(),
                 indices.into_iter(),
@@ -759,7 +799,15 @@ impl Engine<'_, '_> {
                 self.p,
                 self.c,
                 member,
-                &row.name,
+                &Expr {
+                    kind: ExprKind::Path(Path {
+                        segments: vec![PathSegment {
+                            name: row.name.clone(),
+                            indices: Vec::new(),
+                        }],
+                    }),
+                    span: Span::default(),
+                },
                 &self.source_types(member, &self.states[&owner].env)?,
             )?;
             let mut targets = Vec::new();
@@ -770,9 +818,11 @@ impl Engine<'_, '_> {
                         return Err(invalid(at, "connectivity target must be a declared port"));
                     }
                     member_id(owner, member, &coordinates)
-                } else if let Some(e) = &row.value.equation {
-                    let equation = dsl::parse_equation(&e.expression)
-                        .map_err(|e| invalid(at, e.to_string()))?;
+                } else if row.value.equation.is_some() {
+                    let equation = self
+                        .p
+                        .equation_at(member, "equation.expression", 0)?
+                        .clone();
                     if !self.equation_defined(&equation, &local)? {
                         continue;
                     }
@@ -831,15 +881,23 @@ impl Engine<'_, '_> {
         }
         Ok(())
     }
-    pub(crate) fn eval(
+    pub(crate) fn eval_ast(
         &self,
         at: DeclarationId,
         env: &Environment,
-        text: &str,
+        expression: &Expr,
+    ) -> Result<Value> {
+        self.eval_ast_with(at, env, expression, None)
+    }
+    pub(crate) fn eval_ast_with(
+        &self,
+        at: DeclarationId,
+        env: &Environment,
+        expression: &Expr,
         expected: Option<&Type>,
     ) -> Result<Value> {
         self.checkpoint()?;
-        Evaluator {
+        let value = Evaluator {
             package: self.p,
             physical: self.c,
             at,
@@ -849,7 +907,59 @@ impl Engine<'_, '_> {
             reader: self.reader,
             selections: Some(&self.selection_collector),
         }
-        .text(text, expected)
+        .expr(expression, expected, 0)?;
+        if expected.is_some_and(|expected| !value::conforms(&value, expected, self.p)) {
+            return Err(invalid(
+                at,
+                "static value does not satisfy its checked expected type",
+            ));
+        }
+        Ok(value)
+    }
+    pub(crate) fn eval_field(
+        &self,
+        at: DeclarationId,
+        env: &Environment,
+        role: &str,
+        position: usize,
+        expected: Option<&Type>,
+    ) -> Result<Value> {
+        self.checkpoint()?;
+        let occurrence = self
+            .p
+            .expression_occurrence(at, role, position)
+            .ok_or_else(|| {
+                invalid(
+                    at,
+                    format!("checked value occurrence absent: {role}[{position}]"),
+                )
+            })?;
+        let mut evaluator = Evaluator {
+            package: self.p,
+            physical: self.c,
+            at,
+            env,
+            limit: self.limits.members,
+            stack: Vec::new(),
+            reader: self.reader,
+            selections: Some(&self.selection_collector),
+        };
+        let value = match &occurrence.syntax {
+            crate::expression::occurrences::Syntax::Expression(expression) => {
+                evaluator.expr(expression, expected, 0)?
+            }
+            crate::expression::occurrences::Syntax::Static(value) => {
+                evaluator.syntax(value, expected, 0)?
+            }
+            _ => return Err(invalid(at, "value occurrence owns a different grammar")),
+        };
+        if expected.is_some_and(|expected| !value::conforms(&value, expected, self.p)) {
+            return Err(invalid(
+                at,
+                "static value does not satisfy its checked expected type",
+            ));
+        }
+        Ok(value)
     }
     #[allow(
         clippy::too_many_arguments,
@@ -860,21 +970,19 @@ impl Engine<'_, '_> {
         target: InstanceId,
         owner: InstanceId,
         at: DeclarationId,
-        source: &str,
         env: &Environment,
         supplied: &Environment,
         overridden: &Environment,
     ) -> Result<()> {
-        use pse_authoring::language::{StaticValue, parse_static};
-        let StaticValue::Apply { arguments, .. } =
-            parse_static(source).map_err(|e| invalid(at, e.to_string()))?
+        use pse_authoring::language::StaticValue;
+        let StaticValue::Apply { arguments, .. } = self.p.static_at(at, "binding.expression", 0)?
         else {
             return Ok(());
         };
         let mut source_env = None;
         for (name, argument) in arguments {
-            if overridden.contains_key(&name)
-                || !supplied.get(&name).is_some_and(|value| {
+            if overridden.contains_key(name)
+                || !supplied.get(name).is_some_and(|value| {
                     matches!(value, Value::Set(_))
                         || value_type(value).is_some_and(|ty| ty.quantity_scheme().is_some())
                 })
@@ -893,11 +1001,11 @@ impl Engine<'_, '_> {
                 expression.walk(|_| count += 1);
                 self.reserve(count.saturating_add(1))?;
                 self.numerical_sources
-                    .entry((target, name))
+                    .entry((target, name.clone()))
                     .or_insert(NumericalSource {
                         instance: owner,
                         declaration: at,
-                        expression,
+                        expression: expression.clone(),
                         env,
                     });
             }
@@ -981,7 +1089,7 @@ impl Engine<'_, '_> {
         let calls = |expression: &Expr, pending: &mut Vec<String>| {
             expression.walk(|node| match &node.kind {
                 ExprKind::NamedCall { name, .. } | ExprKind::Partial { function: name, .. } => {
-                    pending.push(name.clone());
+                    pending.push(dsl::render_path(name));
                 }
                 _ => {}
             });
@@ -1077,11 +1185,14 @@ impl Engine<'_, '_> {
                 variables: BTreeSet::new(),
                 arguments: vec![("value".into(), ty.clone()), ("source".into(), ty.clone())],
                 result: ty,
-                body: Some(dsl::parse_expr("value").map_err(|e| invalid(id, e.to_string()))?),
+                body: Some(Expr {
+                    kind: ExprKind::Path(Path::single("value")),
+                    span: Span::default(),
+                }),
             });
         Ok(Expr {
             kind: ExprKind::NamedCall {
-                name,
+                name: Path::single(name),
                 args: vec![value, prerequisite],
             },
             span: Span::default(),
@@ -1131,7 +1242,7 @@ impl Engine<'_, '_> {
                 return Ok(expanded);
             }
         }
-        let Some(expression) = row
+        let Some(_expression) = row
             .value
             .binding
             .as_ref()
@@ -1143,7 +1254,10 @@ impl Engine<'_, '_> {
         let source = NumericalSource {
             instance,
             declaration: member,
-            expression: dsl::parse_expr(expression).map_err(|e| invalid(member, e.to_string()))?,
+            expression: self
+                .p
+                .expression_at(member, "binding.expression", 0)?
+                .clone(),
             env: self.numerical_source_environment(&coordinates_env(
                 &self.states[&instance].env,
                 coordinates,
@@ -1156,8 +1270,8 @@ impl Engine<'_, '_> {
             self.model.symbols[&symbol].ty.clone(),
         )
     }
-    fn predicate(&self, at: DeclarationId, env: &Environment, text: &str) -> Result<bool> {
-        let p = dsl::parse_predicate(text).map_err(|e| invalid(at, e.to_string()))?;
+    fn predicate(&self, at: DeclarationId, env: &Environment, role: &str) -> Result<bool> {
+        let p = self.p.predicate_at(at, role, 0)?;
         Evaluator {
             package: self.p,
             physical: self.c,
@@ -1168,7 +1282,7 @@ impl Engine<'_, '_> {
             reader: self.reader,
             selections: Some(&self.selection_collector),
         }
-        .predicate(&p)
+        .predicate(p)
     }
     pub(crate) fn lineage(
         &self,
@@ -1225,11 +1339,11 @@ impl Engine<'_, '_> {
         if let Some(binding) = &row.value.binding
             && row.value.kind == Kind::Preset
         {
-            let expr = binding
+            let _expr = binding
                 .expression
                 .as_ref()
                 .ok_or_else(|| invalid(definition, "preset requires application"))?;
-            let value = self.eval(definition, &arguments, expr, None)?;
+            let value = self.eval_field(definition, &arguments, "binding.expression", 0, None)?;
             let Value::Definition {
                 id: target,
                 mut bindings,
@@ -1238,7 +1352,7 @@ impl Engine<'_, '_> {
                 return Err(invalid(definition, "preset target"));
             };
             self.remember_constructor_sources(
-                id, id, definition, expr, &arguments, &bindings, &arguments,
+                id, id, definition, &arguments, &bindings, &arguments,
             )?;
             bindings.extend(arguments);
             self.stack.push(definition);
@@ -1301,17 +1415,17 @@ impl Engine<'_, '_> {
         }
         .definition_environment(definition, &arguments, env.clone())?;
         let mut source_env = None;
-        for parameter in &contract.parameters {
+        for (position, parameter) in contract.parameters.iter().enumerate() {
             if !arguments.contains_key(&parameter.name)
                 && env.get(&parameter.name).is_some_and(|value| {
                     matches!(value, Value::Set(_))
                         || value_type(value).is_some_and(|ty| ty.quantity_scheme().is_some())
                 })
-                && let Some(source) = &parameter.default_value
+                && parameter.default_value.is_some()
             {
-                let pse_authoring::language::StaticValue::Expression(expression) =
-                    pse_authoring::language::parse_static(source)
-                        .map_err(|e| invalid(definition, e.to_string()))?
+                let pse_authoring::language::StaticValue::Expression(expression) = self
+                    .p
+                    .static_at(definition, "scope.parameters.default_value", position)?
                 else {
                     // Literal structural collections have no numerical read or
                     // selection expression to replay. Their admitted value is enough.
@@ -1332,7 +1446,7 @@ impl Engine<'_, '_> {
                     .or_insert(NumericalSource {
                         instance: id,
                         declaration: definition,
-                        expression,
+                        expression: expression.clone(),
                         env: retained_env,
                     });
             }
@@ -1381,13 +1495,19 @@ impl Engine<'_, '_> {
                     .binding
                     .as_ref()
                     .ok_or_else(|| invalid(*member, "scope payload"))?;
-                let source = b
+                let _source = b
                     .expression
                     .as_ref()
                     .ok_or_else(|| invalid(*member, "scope value"))?;
                 published.insert(
                     r.name.clone(),
-                    self.eval(*member, &env, source, self.p.types.get(member))?,
+                    self.eval_field(
+                        *member,
+                        &env,
+                        "binding.expression",
+                        0,
+                        self.p.types.get(member),
+                    )?,
                 );
             }
         }
@@ -1426,6 +1546,7 @@ impl Engine<'_, '_> {
             let r = self.p.declarations[member].clone();
             if let Some(a) = &r.value.accumulator {
                 for coordinates in self.coordinates(
+                    id,
                     *member,
                     &env,
                     a.indices
@@ -1435,10 +1556,11 @@ impl Engine<'_, '_> {
                     let key = member_id(id, *member, &coordinates);
                     self.reserve(1)?;
                     let ty = self.p.types[member].clone();
-                    let tolerance = self.eval(
+                    let tolerance = self.eval_field(
                         *member,
                         &coordinates_env(&env, &coordinates),
-                        &a.tolerance,
+                        "accumulator.tolerance",
+                        0,
                         Some(&ty),
                     )?;
                     if tolerance.scalar(*member)? <= 0.0 {
@@ -1447,11 +1569,14 @@ impl Engine<'_, '_> {
                     let boundary = a
                         .boundary
                         .as_ref()
-                        .map(|path| {
+                        .map(|_| {
                             self.resolve_boundary(
                                 id,
                                 *member,
-                                path,
+                                &self
+                                    .p
+                                    .expression_at(*member, "accumulator.boundary", 0)?
+                                    .clone(),
                                 &coordinates_env(&env, &coordinates),
                             )
                         })
@@ -1491,6 +1616,7 @@ impl Engine<'_, '_> {
                     .as_ref()
                     .ok_or_else(|| invalid(*member, "symbol payload"))?;
                 for coordinates in self.coordinates(
+                    id,
                     *member,
                     &env,
                     b.indices
@@ -1510,6 +1636,7 @@ impl Engine<'_, '_> {
                     .as_ref()
                     .ok_or_else(|| invalid(*member, "child payload"))?;
                 for coordinates in self.coordinates(
+                    id,
                     *member,
                     &env,
                     b.indices
@@ -1520,12 +1647,11 @@ impl Engine<'_, '_> {
                         })
                         .map(|i| (i.name.as_str(), i.domain.as_str())),
                 )? {
-                    let value = self.eval(
+                    let value = self.eval_field(
                         *member,
                         &coordinates_env(&env, &coordinates),
-                        b.expression
-                            .as_deref()
-                            .ok_or_else(|| invalid(*member, "child implementation"))?,
+                        "binding.expression",
+                        0,
                         None,
                     )?;
                     let Value::Definition {
@@ -1626,9 +1752,6 @@ impl Engine<'_, '_> {
                         child,
                         id,
                         *member,
-                        b.expression
-                            .as_deref()
-                            .ok_or_else(|| invalid(*member, "child implementation"))?,
                         &coordinates_env(&env, &coordinates),
                         &bindings,
                         &Environment::new(),
@@ -1704,6 +1827,7 @@ impl Engine<'_, '_> {
             let row = self.p.declarations[member].clone();
             if let Some(exchange) = &row.value.exchange {
                 for coordinates in self.coordinates(
+                    id,
                     *member,
                     &env,
                     exchange
@@ -1713,8 +1837,18 @@ impl Engine<'_, '_> {
                 )? {
                     self.reserve(1)?;
                     let local = coordinates_env(&env, &coordinates);
-                    let from = self.resolve_boundary(id, *member, &exchange.from, &local)?;
-                    let to = self.resolve_boundary(id, *member, &exchange.to, &local)?;
+                    let from = self.resolve_boundary(
+                        id,
+                        *member,
+                        self.p.expression_at(*member, "exchange.from", 0)?,
+                        &local,
+                    )?;
+                    let to = self.resolve_boundary(
+                        id,
+                        *member,
+                        self.p.expression_at(*member, "exchange.to", 0)?,
+                        &local,
+                    )?;
                     let pair = crate::contextual::PairedExchange::admit(*member, from, to)?;
                     self.model
                         .exchanges
@@ -1731,14 +1865,17 @@ impl Engine<'_, '_> {
             {
                 Selected::Equation(e) => {
                     for coordinates in self.coordinates(
+                        id,
                         *member,
                         &env,
                         e.indices
                             .iter()
                             .map(|i| (i.name.as_str(), i.domain.as_str())),
                     )? {
-                        let equation = dsl::parse_equation(&e.expression)
-                            .map_err(|e| invalid(*member, e.to_string()))?;
+                        let equation = self
+                            .p
+                            .equation_at(*member, "equation.expression", 0)?
+                            .clone();
                         if self.differentiates_replicas(
                             id,
                             &equation,
@@ -1762,6 +1899,7 @@ impl Engine<'_, '_> {
                 Selected::Piecewise(_) => self.piecewise(id, &r, &env)?,
                 Selected::Logic(l) => {
                     for coordinates in self.coordinates(
+                        id,
                         *member,
                         &env,
                         l.indices
@@ -1773,6 +1911,7 @@ impl Engine<'_, '_> {
                 }
                 Selected::Complementarity(c) => {
                     for coordinates in self.coordinates(
+                        id,
                         *member,
                         &env,
                         c.indices
@@ -1784,24 +1923,23 @@ impl Engine<'_, '_> {
                 }
                 Selected::Disjunction(_) => self.disjunction(id, *member, &env, None)?,
                 Selected::Requirement(r) => {
-                    if !self.predicate(*member, &env, &r.predicate)? {
+                    if !self.predicate(*member, &env, "requirement.predicate")? {
                         return Err(invalid(*member, &r.message));
                     }
                 }
                 Selected::Port(b) => {
                     for coordinates in self.coordinates(
+                        id,
                         *member,
                         &env,
                         b.indices
                             .iter()
                             .map(|i| (i.name.as_str(), i.domain.as_str())),
                     )? {
-                        let expr = dsl::parse_expr(
-                            b.expression
-                                .as_deref()
-                                .ok_or_else(|| invalid(*member, "port needs target"))?,
-                        )
-                        .map_err(|e| invalid(*member, e.to_string()))?;
+                        let expr = self
+                            .p
+                            .expression_at(*member, "binding.expression", 0)?
+                            .clone();
                         let target = self.rewrite(
                             id,
                             &expr,
@@ -1826,6 +1964,7 @@ impl Engine<'_, '_> {
                 }
                 Selected::Contribution(c) => {
                     for coordinates in self.coordinates(
+                        id,
                         *member,
                         &env,
                         c.indices
@@ -1848,20 +1987,29 @@ impl Engine<'_, '_> {
                     self.process_connection(id, &r, &env)?;
                 }
                 Selected::Expectation(test) => {
-                    let mut rewrite = |source: &str| -> Result<Expr> {
+                    let mut rewrite = |role: &str| -> Result<Expr> {
                         self.rewrite(
                             id,
-                            &dsl::parse_expr(source)
-                                .map_err(|e| invalid(*member, e.to_string()))?,
+                            self.p.expression_at(*member, role, 0)?,
                             &env,
                             &[*member],
                         )
                     };
-                    let actual = rewrite(&test.actual)?;
-                    let expected = rewrite(&test.expected)?;
-                    let tolerance = rewrite(&test.tolerance)?;
-                    let relative_tolerance =
-                        rewrite(test.relative_tolerance.as_deref().unwrap_or("0"))?;
+                    let actual = rewrite("expectation.actual")?;
+                    let expected = rewrite("expectation.expected")?;
+                    let tolerance = rewrite("expectation.tolerance")?;
+                    let relative_tolerance = if test.relative_tolerance.is_some() {
+                        rewrite("expectation.relative_tolerance")?
+                    } else {
+                        Expr {
+                            kind: ExprKind::Number(Number {
+                                exact_integer: Some(0),
+                                value: 0.0,
+                                unit: None,
+                            }),
+                            span: Span::default(),
+                        }
+                    };
                     let types = self
                         .model
                         .symbols
@@ -1958,15 +2106,17 @@ impl Engine<'_, '_> {
     /// Realize the equations deferred until every replica of their instances exists.
     fn replicated_equations(&mut self) -> Result<()> {
         for occurrence in std::mem::take(&mut self.replicated) {
-            let Selected::Equation(e) = self.p.declarations[&occurrence.member]
+            let Selected::Equation(_e) = self.p.declarations[&occurrence.member]
                 .value
                 .selected()
                 .map_err(|e| invalid(occurrence.member, e.to_string()))?
             else {
                 return Err(invalid(occurrence.member, "equation payload"));
             };
-            let equation = dsl::parse_equation(&e.expression)
-                .map_err(|e| invalid(occurrence.member, e.to_string()))?;
+            let equation = self
+                .p
+                .equation_at(occurrence.member, "equation.expression", 0)?
+                .clone();
             self.equation(
                 occurrence.instance,
                 occurrence.member,
@@ -1985,8 +2135,8 @@ impl Engine<'_, '_> {
     ) -> Result<()> {
         let row = &self.p.declarations[&id];
         if row.value.guard.is_some() || row.value.kind == Kind::Stage {
-            let active = if let Some(guard) = &row.value.guard {
-                self.predicate(id, env, &guard.predicate)?
+            let active = if row.value.guard.is_some() {
+                self.predicate(id, env, "guard.predicate")?
             } else {
                 env.get(&crate::analysis::Fact::Stage(row.name.clone()).path())
                     == Some(&Value::Boolean(true))
@@ -2013,17 +2163,54 @@ impl Engine<'_, '_> {
 
     fn coordinates<'a>(
         &self,
+        instance: InstanceId,
         at: DeclarationId,
         env: &Environment,
         indices: impl Iterator<Item = (&'a str, &'a str)>,
     ) -> Result<Vec<Vec<(String, Value)>>> {
         let mut output = vec![Vec::new()];
-        for (name, domain) in indices {
+        let declaration = &self.p.declarations[&at];
+        let role = crate::expression::member_index_role(declaration);
+        let names = crate::expression::member_index_names(declaration);
+        for (name, _) in indices {
+            let position = names
+                .iter()
+                .position(|selected| *selected == name)
+                .ok_or_else(|| invalid(at, "index binder has no checked declaration occurrence"))?;
             let mut next = Vec::new();
             for row in output {
                 self.checkpoint()?;
                 let local = coordinates_env(env, &row);
-                let Value::Set(values) = self.eval(at, &local, domain, None)? else {
+                let domain = match crate::temporal::index_domain(self.p, at, position)? {
+                    crate::temporal::IndexDomain::Authored { position } => {
+                        self.eval_field(at, &local, &role, position, None)?
+                    }
+                    crate::temporal::IndexDomain::Temporal { policy, axis } => {
+                        let mut owner = Some(instance);
+                        let mut mesh = None;
+                        while let Some(candidate) = owner {
+                            let state = &self.states[&candidate];
+                            if state.members.values().any(|member| *member == axis) {
+                                mesh = self.model.meshes.get(&member_id(candidate, axis, &[]));
+                                if mesh.is_some() {
+                                    break;
+                                }
+                            }
+                            owner = state.parent;
+                        }
+                        let mesh = mesh.ok_or_else(|| {
+                            invalid(
+                                policy,
+                                format!(
+                                    "resolved temporal axis {} has no active realization",
+                                    axis.as_id().to_hex()
+                                ),
+                            )
+                        })?;
+                        Value::Set(mesh.points.clone())
+                    }
+                };
+                let Value::Set(values) = domain else {
                     return Err(invalid(at, "finite domain required"));
                 };
                 if next
@@ -2170,12 +2357,10 @@ impl Engine<'_, '_> {
             .as_ref()
             .ok_or_else(|| invalid(member, "demand target is not a symbol"))?;
         if row.value.kind == Kind::Port {
-            let expr = dsl::parse_expr(
-                b.expression
-                    .as_deref()
-                    .ok_or_else(|| invalid(member, "port target"))?,
-            )
-            .map_err(|e| invalid(member, e.to_string()))?;
+            let expr = self
+                .p
+                .expression_at(member, "binding.expression", 0)?
+                .clone();
             let env = coordinates_env(&self.states[&instance].env, coordinates);
             let target = self.rewrite(instance, &expr, &env, chain)?;
             return symbol_reference(&target)
@@ -2204,7 +2389,7 @@ impl Engine<'_, '_> {
             let initial = b
                 .expression
                 .as_ref()
-                .map(|source| self.eval(member, &env, source, Some(&ty)))
+                .map(|_| self.eval_field(member, &env, "binding.expression", 0, Some(&ty)))
                 .transpose()?;
             if existing.ty != ty || existing.initial != initial {
                 return Err(invalid(
@@ -2247,9 +2432,9 @@ impl Engine<'_, '_> {
             .ok_or_else(|| invalid(instance, "instance missing"))?;
         state.symbols.insert(key, id);
         state.stack.push(member);
-        if let Some(source) = &b.expression {
+        if let Some(_source) = &b.expression {
             if row.value.kind == Kind::Parameter {
-                let value = self.eval(member, &env, source, Some(&ty))?;
+                let value = self.eval_field(member, &env, "binding.expression", 0, Some(&ty))?;
                 self.compatible(&value, &ty, member)?;
                 self.model
                     .symbols
@@ -2257,7 +2442,10 @@ impl Engine<'_, '_> {
                     .ok_or_else(|| invalid(id, "symbol missing"))?
                     .initial = Some(value);
             } else if matches!(row.value.kind, Kind::Let | Kind::Alias) {
-                let expr = dsl::parse_expr(source).map_err(|e| invalid(member, e.to_string()))?;
+                let expr = self
+                    .p
+                    .expression_at(member, "binding.expression", 0)?
+                    .clone();
                 let expr = self.rewrite(instance, &expr, &env, &demand)?;
                 self.model
                     .symbols
@@ -2266,9 +2454,8 @@ impl Engine<'_, '_> {
                     .expression = Some(expr);
             }
         }
-        if let Some(source) = &b.defined_by {
-            let equation =
-                dsl::parse_equation(source).map_err(|e| invalid(member, e.to_string()))?;
+        if b.defined_by.is_some() {
+            let equation = self.p.equation_at(member, "binding.defined_by", 0)?.clone();
             let equation = self.rewrite_equation(instance, &equation, &env, &demand)?;
             self.model.equations.push(Row {
                 id: pse_ids::named_id(id, "defining-equation"),
@@ -2296,7 +2483,7 @@ impl Engine<'_, '_> {
             .as_ref()
             .ok_or_else(|| invalid(id, "contribution payload"))?;
         let env = coordinates_env(&self.states[&instance].env, coordinates);
-        let path = dsl::parse_expr(&c.target).map_err(|e| invalid(id, e.to_string()))?;
+        let path = self.p.expression_at(id, "contribution.target", 0)?.clone();
         let ExprKind::Path(path) = path.kind else {
             return Err(invalid(id, "accumulator path required"));
         };
@@ -2309,7 +2496,10 @@ impl Engine<'_, '_> {
             .ok_or_else(|| invalid(id, "accumulator target absent"))?
             .ty
             .clone();
-        let expression = dsl::parse_expr(&c.expression).map_err(|e| invalid(id, e.to_string()))?;
+        let expression = self
+            .p
+            .expression_at(id, "contribution.expression", 0)?
+            .clone();
         let mut expression = self.rewrite(instance, &expression, &env, &[id])?;
         let types = self
             .model
@@ -2617,6 +2807,16 @@ impl Contribution {
     }
 }
 impl SpecializedModel {
+    /// Borrow revision attribution under the specialized model's allocation owner.
+    pub fn source_occurrences(
+        &self,
+    ) -> &BTreeMap<
+        crate::expression::occurrences::OccurrenceKey,
+        crate::expression::occurrences::CheckedExpression,
+    > {
+        &self.source_occurrences
+    }
+
     /// The declared integral a member names: the integral itself, or the one reached by
     /// following exact symbol aliases. A sum or scaled expression names none.
     pub fn integral_of(&self, member: SemanticId) -> Option<SemanticId> {

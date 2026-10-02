@@ -94,7 +94,14 @@ struct Definitions {
 fn bind(context: &SessionContext, defs: &mut Definitions, name: &str, batch: RecordBatch) {
     let registry = pse_schema::registry().unwrap();
     let spec = registry.relation(name).unwrap();
-    let checked = FieldCheckedBatch::admit(registry, spec, batch.clone()).unwrap();
+    let checked = FieldCheckedBatch::admit(
+        registry,
+        spec,
+        batch.clone(),
+        &crate::validate::ValidationContext::new(registry, SessionContext::new().state()),
+        &pse_columnar::CancellationToken::new(),
+    )
+    .unwrap();
     defs.batches.insert(spec.key, checked);
     defs.inputs.insert(
         spec.id,
@@ -102,13 +109,12 @@ fn bind(context: &SessionContext, defs: &mut Definitions, name: &str, batch: Rec
     );
 }
 fn definitions(context: &SessionContext) -> Definitions {
-    crate::validate::ValidationContext::install_default(
-        pse_schema::registry().unwrap(),
-        context.state(),
-    )
-    .unwrap();
     let mut defs = Definitions::default();
-    let mut rows = units::Builder::new().unwrap();
+    let mut rows = units::Builder::new(&crate::validate::ValidationContext::new(
+        pse_schema::registry().unwrap(),
+        SessionContext::new().state(),
+    ))
+    .unwrap();
     for row in [
         unit(10, 0, None),
         unit(11, 1, None),
@@ -125,7 +131,11 @@ fn definitions(context: &SessionContext) -> Definitions {
         "reference.units",
         rows.finish().unwrap().into_batch(),
     );
-    let mut rows = quantity_kinds::Builder::new().unwrap();
+    let mut rows = quantity_kinds::Builder::new(&crate::validate::ValidationContext::new(
+        pse_schema::registry().unwrap(),
+        SessionContext::new().state(),
+    ))
+    .unwrap();
     for (identity, power) in [(50, 0), (51, 2)] {
         rows.push(quantity_kinds::Row {
             quantity_kind_id: id(identity),
@@ -145,7 +155,11 @@ fn definitions(context: &SessionContext) -> Definitions {
         "reference.quantity_kinds",
         rows.finish().unwrap().into_batch(),
     );
-    let mut rows = reference_states::Builder::new().unwrap();
+    let mut rows = reference_states::Builder::new(&crate::validate::ValidationContext::new(
+        pse_schema::registry().unwrap(),
+        SessionContext::new().state(),
+    ))
+    .unwrap();
     for identity in [60, 61] {
         rows.push(reference_states::Row {
             reference_state_id: id(identity),
@@ -165,7 +179,11 @@ fn definitions(context: &SessionContext) -> Definitions {
         "reference.reference_states",
         rows.finish().unwrap().into_batch(),
     );
-    let mut rows = quantity_types::Builder::new().unwrap();
+    let mut rows = quantity_types::Builder::new(&crate::validate::ValidationContext::new(
+        pse_schema::registry().unwrap(),
+        SessionContext::new().state(),
+    ))
+    .unwrap();
     for row in [
         quantity(20, 10, None),
         quantity(21, 10, Some(60)),
@@ -320,7 +338,11 @@ async fn physical_projection_refuses_bad_composite_identity_missing_factor_and_c
     let context = SessionContext::new();
     for variant in 0..3 {
         let mut defs = definitions(&context);
-        let mut rows = units::Builder::new().unwrap();
+        let mut rows = units::Builder::new(&crate::validate::ValidationContext::new(
+            pse_schema::registry().unwrap(),
+            SessionContext::new().state(),
+        ))
+        .unwrap();
         for row in [
             unit(10, 0, None),
             unit(11, 1, None),

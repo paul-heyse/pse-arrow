@@ -118,7 +118,7 @@ impl ModelingPackage {
                     preparation_failures.push(Some(
                         error
                             .boundary_diagnostic()
-                            .with_revision(point.operation.source.revision),
+                            .with_revision(point.operation.source.revision.as_id()),
                     ));
                 }
             }
@@ -373,14 +373,18 @@ impl ModelingPackage {
                                     super::study_operations::scientific_facts(result),
                                     result_diagnostic(result).map(|diagnostic| {
                                         diagnostic.with_revision(
-                                            definition.points[index].operation.source.revision,
+                                            definition.points[index]
+                                                .operation
+                                                .source
+                                                .revision
+                                                .as_id(),
                                         )
                                     }),
                                 ),
                                 Err(error) => (
                                     ScientificFacts::default(),
                                     Some(error.boundary_diagnostic().with_revision(
-                                        definition.points[index].operation.source.revision,
+                                        definition.points[index].operation.source.revision.as_id(),
                                     )),
                                 ),
                             };
@@ -560,6 +564,11 @@ fn study_error(rule: DiagnosticRule, detail: &str) -> WorkflowError {
 }
 
 #[cfg(all(test, feature = "solver-kinsol"))]
+#[allow(
+    clippy::unwrap_used,
+    clippy::panic,
+    reason = "native occurrence controls fail on invalid setup or unexpected fixture variants"
+)]
 mod occurrence_execution_tests {
     use super::*;
     use crate::workflow::tests::{compiler_profile, physical, runtime};
@@ -760,7 +769,7 @@ mod occurrence_execution_tests {
         let (package, mut definition) = fixture(&[1., 2.]).await;
         let OperationRequest::DeclaredCase(case) = &mut definition.points[0].operation.operation
         else {
-            unreachable!()
+            panic!("fixture must retain its declared case operation")
         };
         case.case = DeclarationId::from_bytes([255; 16]);
         let report = package

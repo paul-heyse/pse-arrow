@@ -96,8 +96,10 @@ impl ModelingLevelsReport {
     /// A level that does not fit the relation.
     pub fn table(&self) -> Result<FieldCheckedBatch, WorkflowError> {
         use pse_relations::generated::runtime::objective_levels as rows;
-        let mut builder = rows::Builder::with_registry(&self.runtime.registry, self.levels.len())
-            .map_err(relation)?;
+        let validation = self.runtime.validation_context()?;
+        let mut builder =
+            rows::Builder::with_registry(&self.runtime.registry, self.levels.len(), &validation)
+                .map_err(relation)?;
         for level in &self.levels {
             builder
                 .push(rows::Row {

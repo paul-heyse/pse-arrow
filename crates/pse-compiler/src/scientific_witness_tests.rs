@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Normalized admission through authored declarations and the ordinary compiler.
-use crate::workspace::{CompilerWorkspace, Inputs, Profile, WorkspaceLimits};
+use crate::workspace::{CompilerContext, CompilerWorkspace, Profile, WorkspaceLimits};
 use pse_authoring::{
     ParseBudget,
     language::{IdentityPolicy, parse},
@@ -36,7 +36,7 @@ fn control(potential: &str, response: &str, derivative: bool) -> Result<(), Stri
         ParseBudget::default(),
     )
     .map_err(|error| error.to_string())?;
-    let inputs = Inputs {
+    let inputs = CompilerContext {
         quantities: Arc::new(pse_quantity::standard::standard_registry().unwrap()),
         preconditions: Arc::new(
             pse_quantity::PhysicalPreconditions::new(
@@ -44,13 +44,8 @@ fn control(potential: &str, response: &str, derivative: bool) -> Result<(), Stri
             )
             .unwrap(),
         ),
-        flows: BTreeMap::new(),
-        definitions: BTreeMap::new(),
-        domains: BTreeMap::new(),
-        groups: BTreeMap::new(),
+
         providers: BTreeMap::new(),
-        cases: BTreeMap::new(),
-        values: BTreeMap::new(),
     };
     let mut workspace = CompilerWorkspace::new(inputs, WorkspaceLimits::default())
         .map_err(|error| error.to_string())?;

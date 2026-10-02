@@ -13,10 +13,23 @@ use super::pascal;
 pub(super) struct Type {
     pub annotation: String,
     pub validator: String,
+    pub equality_key: String,
+    pub item_key: Option<String>,
 }
 
 fn scalar(annotation: &str) -> Type {
     Type {
+        item_key: None,
+        equality_key: if annotation.starts_with("b.")
+            || annotation.starts_with("e.")
+            || annotation == "datetime"
+            || annotation == "v.SemanticId"
+            || annotation == "v.ContentHash"
+        {
+            "v.scalar_key".into()
+        } else {
+            "v.record_key".into()
+        },
         annotation: annotation.to_owned(),
         validator: format!("attrs.validators.instance_of({annotation})"),
     }
@@ -30,6 +43,8 @@ fn integer(bits: u8, signed: bool) -> Type {
         (1_i128 << bits) - 1
     };
     Type {
+        item_key: None,
+        equality_key: "v.scalar_key".into(),
         annotation: "b.int".to_owned(),
         validator: format!("v.integer_range({lower}, {upper})"),
     }
@@ -37,6 +52,7 @@ fn integer(bits: u8, signed: bool) -> Type {
 
 pub(super) fn optional(mut ty: Type, nullable: bool) -> Type {
     if nullable {
+        ty.equality_key = format!("v.optional_key({})", ty.equality_key);
         ty.annotation.push_str(" | None");
         ty.validator = format!("attrs.validators.optional({})", ty.validator);
     }
@@ -45,6 +61,17 @@ pub(super) fn optional(mut ty: Type, nullable: bool) -> Type {
 
 pub(super) fn structure(name: &str, fields: &[(String, Type)]) -> String {
     let attributes = super::identifiers::fields(fields.iter().map(|(name, _)| name.as_str()));
+    let key_fields = fields
+        .iter()
+        .zip(&attributes)
+        .map(|((_, ty), attribute)| format!("{}(self.{attribute})", ty.equality_key))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let key_tuple = if key_fields.is_empty() {
+        "()".to_owned()
+    } else {
+        format!("({key_fields},)")
+    };
     let fields = fields
         .iter()
         .zip(attributes)
@@ -67,7 +94,7 @@ pub(super) fn structure(name: &str, fields: &[(String, Type)]) -> String {
         .collect::<Vec<_>>()
         .concat();
     format!(
-        "\n\n@attrs.frozen(kw_only=True)\nclass {name}:\n    \"\"\"Declared relation row or nested value.\"\"\"\n\n{fields}"
+        "\n\n@attrs.frozen(kw_only=True)\nclass {name}:\n    \"\"\"Declared relation row or nested value.\"\"\"\n\n{fields}\n    def _pse_equality_key(self) -> v.EqualityKey:\n        return (type(self), {key_tuple})\n"
     )
 }
 
@@ -78,6 +105,8 @@ fn list(child: &Type, width: Option<i32>) -> Type {
     );
     let validator = width.map_or_else(|| inner.clone(), |width| format!("attrs.validators.and_({inner}, attrs.validators.min_len({width}), attrs.validators.max_len({width}))"));
     Type {
+        item_key: Some(child.equality_key.clone()),
+        equality_key: format!("v.sequence_key({})", child.equality_key),
         annotation: format!("b.tuple[{}, ...]", child.annotation),
         validator,
     }
@@ -136,6 +165,8 @@ impl super::super::native::Policy for PythonPolicy<'_> {
                     "SemanticId"
                 };
                 return Ok(Some(Type {
+                    item_key: None,
+                    equality_key: "v.scalar_key".into(),
                     annotation: format!(
                         "i.{}",
                         super::super::rust::identities::type_name(identity)
@@ -169,6 +200,8 @@ impl super::super::native::Policy for PythonPolicy<'_> {
         }
         Ok(Some(match ty.data_type() {
             DataType::Boolean => Type {
+                item_key: None,
+                equality_key: "v.scalar_key".into(),
                 annotation: "b.bool".into(),
                 validator: "v.exact_type(b.bool)".into(),
             },
@@ -180,12 +213,16 @@ impl super::super::native::Policy for PythonPolicy<'_> {
             DataType::UInt32 => integer(32, false),
             DataType::UInt64 => integer(64, false),
             DataType::Float64 => Type {
+                item_key: None,
+                equality_key: "v.scalar_key".into(),
                 annotation: "b.float".into(),
                 validator: "v.finite_float".into(),
             },
             DataType::Utf8 => scalar("b.str"),
             DataType::Binary => scalar("b.bytes"),
             DataType::Timestamp(..) => Type {
+                item_key: None,
+                equality_key: "v.scalar_key".into(),
                 annotation: "datetime".into(),
                 validator: "v.utc_timestamp".into(),
             },
@@ -223,14 +260,20 @@ impl super::super::native::Policy for PythonPolicy<'_> {
         if let Some(collection) = crate::model::CollectionContract::from_field(ty.field())?
             && (collection.minimum != 0 || collection.maximum.is_some() || collection.unique)
         {
-            let maximum = collection
-                .maximum
-                .map_or_else(|| "None".into(), |value| value.to_string());
-            let unique = if collection.unique { "True" } else { "False" };
-            value.validator = format!(
-                "attrs.validators.and_({}, v.collection({}, {maximum}, unique={unique}))",
-                value.validator, collection.minimum
-            );
+            let mut checks = vec![value.validator];
+            if collection.minimum != 0 {
+                checks.push(format!("attrs.validators.min_len({})", collection.minimum));
+            }
+            if let Some(maximum) = collection.maximum {
+                checks.push(format!("attrs.validators.max_len({maximum})"));
+            }
+            if collection.unique {
+                let key = value.item_key.as_deref().ok_or_else(|| {
+                    super::error("unique collection lacks its declared element".into())
+                })?;
+                checks.push(format!("v.unique({key})"));
+            }
+            value.validator = format!("attrs.validators.and_({})", checks.join(", "));
         }
         Ok(value)
     }
@@ -238,6 +281,8 @@ impl super::super::native::Policy for PythonPolicy<'_> {
 
 fn integer_domain(range: crate::model::IntegerRange) -> Type {
     Type {
+        item_key: None,
+        equality_key: "v.scalar_key".into(),
         annotation: "b.int".to_owned(),
         validator: format!("v.integer_range({}, {})", range.minimum, range.maximum),
     }

@@ -96,7 +96,11 @@ impl ArtifactPlan {
         reserve
             .try_grow(row.owned_bytes().saturating_mul(16).saturating_add(4096))
             .map_err(pse_engine::session::engine)?;
-        let mut builder = wire::Builder::with_registry(self.session.registry(), 1)?;
+        let mut builder = wire::Builder::with_registry(
+            self.session.registry(),
+            1,
+            self.session.validation_context()?.as_ref(),
+        )?;
         builder.push(row.clone())?;
         self.session = self.session.with_checked_workspace(
             BTreeMap::from([(wire::RELATION_KEY, builder.finish()?)]),
@@ -237,6 +241,8 @@ impl crate::delta::publication::Publication {
                 self.session().registry(),
                 wire::spec(self.session().registry())?,
                 batch,
+                self.session().validation_context()?.as_ref(),
+                cancel,
             )?;
             for row in wire::Row::rows(&checked)? {
                 let descriptor =

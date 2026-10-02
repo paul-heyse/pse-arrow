@@ -140,7 +140,8 @@ impl ResolvedAccuracy {
     /// # Errors
     /// The identity serializer refused a value.
     pub fn key(&self) -> Result<ContentHash, ProblemError> {
-        crate::identity::of(pse_ids::Frame::NativeAccuracyV3, self)
+        pse_ids::document::of(pse_ids::Frame::NativeAccuracyV4, self)
+            .map_err(|e| ProblemError::Internal(e.to_string()))
     }
     /// Derive semantic native controls; physical arrays remain the final acceptance authority.
     ///
@@ -308,7 +309,8 @@ impl Controls {
     /// # Errors
     /// The identity serializer refused a value.
     pub fn identity(&self) -> Result<ContentHash, ProblemError> {
-        crate::identity::of(pse_ids::Frame::NativeControlsV2, self)
+        pse_ids::document::of(pse_ids::Frame::NativeControlsV3, self)
+            .map_err(|e| ProblemError::Internal(e.to_string()))
     }
     /// Conservative retained reporting allowance, separate from worker/native scratch.
     /// Native option readback, explicit strings and bounded event copies are included.
@@ -661,7 +663,8 @@ impl Compatibility {
     }
 }
 /// Native basis values retain their original integer codes.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct Basis {
     /// Native column basis statuses.
     pub columns: Vec<i32>,
@@ -849,13 +852,91 @@ pub struct WarmStart {
     pub payload: WarmPayload,
 }
 /// Portable provenance of an output seed, distinct from its coordinate compatibility.
-#[derive(Clone, Debug, serde::Serialize)]
+#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct SeedOrigin {
     /// Public run identity when one exists.
     pub run: Option<pse_model::generated::identities::RunId>,
     /// Zero-based original attempt.
     pub attempt: usize,
 }
+/// Typed semantic seed snapshot. Nonfinite numbers have explicit observations; zero's
+/// sign survives in real observations. Snapshot attribution is separate from content identity.
+#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct WarmStartSnapshot {
+    /// Producing occurrence, when there is one.
+    pub origin: Option<SeedOrigin>,
+    /// Exact source coordinate compatibility.
+    pub layout: ContentHash,
+    /// Effective native profile compatibility.
+    pub profile: ContentHash,
+    /// Numeric input content compatibility.
+    pub data: ContentHash,
+    /// Registry backend spelling.
+    pub backend: Backend,
+    /// Complete portable seed data.
+    pub payload: WarmPayloadSnapshot,
+}
+/// Portable seed data with explicit numerical observations.
+#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum WarmPayloadSnapshot {
+    /// Root-system source coordinates.
+    Root {
+        /// Source-coordinate primal values, including explicit special floats.
+        primal: Vec<pse_model::diagnostic::Observation>,
+    },
+    /// NLP source coordinates and optional restart state.
+    Nlp {
+        /// Source-coordinate primal values.
+        primal: Vec<pse_model::diagnostic::Observation>,
+        /// Lower and upper bound duals in source order.
+        bound_duals: Option<(
+            Vec<pse_model::diagnostic::Observation>,
+            Vec<pse_model::diagnostic::Observation>,
+        )>,
+        /// Constraint duals in source order.
+        row_duals: Option<Vec<pse_model::diagnostic::Observation>>,
+        /// Barrier parameter when supplied by the native owner.
+        barrier: Option<pse_model::diagnostic::Observation>,
+        /// Active-set state and its coordinate transformation.
+        working_set: Option<WorkingSetSnapshot>,
+    },
+    /// LP/QP source coordinates and native simplex status codes.
+    Highs {
+        /// Optional source-coordinate primal start.
+        primal: Option<Vec<pse_model::diagnostic::Observation>>,
+        /// Optional column and constraint dual starts.
+        dual: Option<(
+            Vec<pse_model::diagnostic::Observation>,
+            Vec<pse_model::diagnostic::Observation>,
+        )>,
+        /// Optional simplex basis status codes.
+        basis: Option<Basis>,
+    },
+}
+/// Canonical named native bound and row activity vocabulary.
+pub use pse_model::generated::enums::{BoundActivity, RowActivity};
+/// Typed active set with the transformation under which its indices are meaningful.
+#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct WorkingSetSnapshot {
+    /// Presolve coordinate transformation.
+    pub transformation: ContentHash,
+    /// Native activities when compiled with active-set support.
+    pub active: Option<ActiveSetSnapshot>,
+}
+/// Native activity vectors in source order.
+#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ActiveSetSnapshot {
+    /// Native variable-bound statuses in source order.
+    pub bounds: Vec<BoundActivity>,
+    /// Native constraint statuses in source order.
+    pub constraints: Vec<RowActivity>,
+}
+
 impl WarmPayload {
     /// A primal-only NLP start.
     pub fn primal(primal: Vec<f64>) -> Self {
@@ -922,9 +1003,72 @@ impl WarmStart {
         }
     }
     /// Owned semantic seed snapshot for result provenance; this is not native consumption evidence.
-    pub fn snapshot(&self) -> serde_json::Value {
+    pub fn snapshot(&self) -> WarmStartSnapshot {
+        let vector = |v: &[f64]| {
+            v.iter()
+                .map(|v| pse_model::diagnostic::Observation::number(*v))
+                .collect::<Vec<_>>()
+        };
         let payload = match &self.payload {
-            WarmPayload::Root(x) => serde_json::json!({"kind":"root","primal":x}),
+            WarmPayload::Root(x) => WarmPayloadSnapshot::Root { primal: vector(x) },
+            WarmPayload::Nlp {
+                primal,
+                bounds,
+                rows,
+                barrier,
+                working,
+            } => WarmPayloadSnapshot::Nlp {
+                primal: vector(primal),
+                bound_duals: bounds.as_ref().map(|(l, u)| (vector(l), vector(u))),
+                row_duals: rows.as_ref().map(|r| vector(r)),
+                barrier: barrier.map(pse_model::diagnostic::Observation::number),
+                working_set: working.as_ref().map(WorkingSet::snapshot),
+            },
+            WarmPayload::Highs {
+                primal,
+                dual,
+                basis,
+            } => WarmPayloadSnapshot::Highs {
+                primal: primal.as_ref().map(|p| vector(p)),
+                dual: dual.as_ref().map(|(c, r)| (vector(c), vector(r))),
+                basis: basis.clone(),
+            },
+        };
+        WarmStartSnapshot {
+            origin: self.origin.clone(),
+            layout: self.compatibility.layout,
+            profile: self.compatibility.profile,
+            data: self.compatibility.data,
+            backend: self.compatibility.backend,
+            payload,
+        }
+    }
+    /// Content identity of this seed (coordinates, profile, data, backend and payload)
+    /// without its execution origin, so a lineage identity records what seeded a result
+    /// independently of the run that produced the seed (F25).
+    pub fn content_key(&self) -> ContentHash {
+        let mut h = pse_ids::FramedHasher::new(pse_ids::Frame::NativeSeedV3);
+        h.hash(&self.compatibility.layout)
+            .hash(&self.compatibility.profile)
+            .hash(&self.compatibility.data)
+            .str(self.compatibility.backend.as_str());
+        let vector = |h: &mut pse_ids::FramedHasher, v: &[f64]| {
+            h.u64(v.len() as u64);
+            for value in v {
+                h.f64(*value);
+            }
+        };
+        let optional = |h: &mut pse_ids::FramedHasher, v: Option<&[f64]>| {
+            h.bool(v.is_some());
+            if let Some(v) = v {
+                vector(h, v);
+            }
+        };
+        match &self.payload {
+            WarmPayload::Root(primal) => {
+                h.str("root");
+                vector(&mut h, primal);
+            }
             WarmPayload::Nlp {
                 primal,
                 bounds,
@@ -932,27 +1076,68 @@ impl WarmStart {
                 barrier,
                 working,
             } => {
-                serde_json::json!({"kind":"nlp","primal":primal,"bound_duals":bounds,"row_duals":rows,"barrier":barrier,"working_set":working.as_ref().map(WorkingSet::snapshot)})
+                h.str("nlp");
+                vector(&mut h, primal);
+                h.bool(bounds.is_some());
+                if let Some((lower, upper)) = bounds {
+                    vector(&mut h, lower);
+                    vector(&mut h, upper);
+                }
+                optional(&mut h, rows.as_deref());
+                h.bool(barrier.is_some());
+                if let Some(v) = barrier {
+                    h.f64(*v);
+                }
+                h.bool(working.is_some());
+                if let Some(w) = working {
+                    h.hash(&w.transformation);
+                    #[cfg(feature = "pounce")]
+                    {
+                        use pounce_rs::sqp::{BoundStatus, ConsStatus};
+                        h.u64(w.active.bounds.len() as u64);
+                        for status in &w.active.bounds {
+                            h.str(match status {
+                                BoundStatus::Inactive => "inactive",
+                                BoundStatus::AtLower => "at_lower",
+                                BoundStatus::AtUpper => "at_upper",
+                                BoundStatus::Fixed => "fixed",
+                            });
+                        }
+                        h.u64(w.active.constraints.len() as u64);
+                        for status in &w.active.constraints {
+                            h.str(match status {
+                                ConsStatus::Inactive => "inactive",
+                                ConsStatus::AtLower => "at_lower",
+                                ConsStatus::AtUpper => "at_upper",
+                                ConsStatus::Equality => "equality",
+                            });
+                        }
+                    }
+                }
             }
             WarmPayload::Highs {
                 primal,
                 dual,
                 basis,
             } => {
-                serde_json::json!({"kind":"highs","primal":primal,"dual":dual,"basis":basis.as_ref().map(|b|serde_json::json!({"columns":b.columns,"rows":b.rows}))})
+                h.str("highs");
+                optional(&mut h, primal.as_deref());
+                h.bool(dual.is_some());
+                if let Some((columns, rows)) = dual {
+                    vector(&mut h, columns);
+                    vector(&mut h, rows);
+                }
+                h.bool(basis.is_some());
+                if let Some(basis) = basis {
+                    for codes in [&basis.columns, &basis.rows] {
+                        h.u64(codes.len() as u64);
+                        for code in codes {
+                            h.part(&code.to_le_bytes());
+                        }
+                    }
+                }
             }
-        };
-        serde_json::json!({"origin":self.origin,"layout":self.compatibility.layout.to_hex(),"profile":self.compatibility.profile.to_hex(),"data":self.compatibility.data.to_hex(),"backend":self.compatibility.backend.as_str(),"payload":payload})
-    }
-    /// Content identity of this seed (coordinates, profile, data, backend and payload)
-    /// without its execution origin, so a lineage identity records what seeded a result
-    /// independently of the run that produced the seed (F25).
-    pub fn content_key(&self) -> ContentHash {
-        let mut detached = self.clone();
-        detached.origin = None;
-        // Version 2 frames an NLP seed's barrier and working set (DP-24).
-        let mut h = pse_ids::FramedHasher::new(pse_ids::Frame::NativeSeedV2);
-        h.str(&detached.snapshot().to_string());
+        }
         h.finish_hash()
     }
     /// Numeric data and native profile changes may reuse a seed; its coordinates and
@@ -971,30 +1156,41 @@ impl WarmStart {
 impl WorkingSet {
     /// Owned provenance of this working set: every bound and row status by its snake_case
     /// name, never Rust `Debug` text (F30).
-    fn snapshot(&self) -> serde_json::Value {
+    fn snapshot(&self) -> WorkingSetSnapshot {
         #[cfg(feature = "pounce")]
         let active = {
             use pounce_rs::sqp::{BoundStatus, ConsStatus};
-            let bound = |status: &BoundStatus| match status {
-                BoundStatus::Inactive => "inactive",
-                BoundStatus::AtLower => "at_lower",
-                BoundStatus::AtUpper => "at_upper",
-                BoundStatus::Fixed => "fixed",
-            };
-            let row = |status: &ConsStatus| match status {
-                ConsStatus::Inactive => "inactive",
-                ConsStatus::AtLower => "at_lower",
-                ConsStatus::AtUpper => "at_upper",
-                ConsStatus::Equality => "equality",
-            };
-            serde_json::json!({
-                "bounds": self.active.bounds.iter().map(bound).collect::<Vec<_>>(),
-                "constraints": self.active.constraints.iter().map(row).collect::<Vec<_>>(),
+            Some(ActiveSetSnapshot {
+                bounds: self
+                    .active
+                    .bounds
+                    .iter()
+                    .map(|s| match s {
+                        BoundStatus::Inactive => BoundActivity::Inactive,
+                        BoundStatus::AtLower => BoundActivity::AtLower,
+                        BoundStatus::AtUpper => BoundActivity::AtUpper,
+                        BoundStatus::Fixed => BoundActivity::Fixed,
+                    })
+                    .collect(),
+                constraints: self
+                    .active
+                    .constraints
+                    .iter()
+                    .map(|s| match s {
+                        ConsStatus::Inactive => RowActivity::Inactive,
+                        ConsStatus::AtLower => RowActivity::AtLower,
+                        ConsStatus::AtUpper => RowActivity::AtUpper,
+                        ConsStatus::Equality => RowActivity::Equality,
+                    })
+                    .collect(),
             })
         };
         #[cfg(not(feature = "pounce"))]
-        let active = serde_json::Value::Null;
-        serde_json::json!({"transformation": self.transformation.to_hex(), "active": active})
+        let active = None;
+        WorkingSetSnapshot {
+            transformation: self.transformation,
+            active,
+        }
     }
 }
 /// What became of a submitted working set at the presolve boundary: it reaches the native
@@ -1666,6 +1862,49 @@ pub(crate) fn insert_native_metrics(
 
 #[cfg(test)]
 mod numerical_tests {
+    #[test]
+    fn seed_content_identity_canonicalizes_nan_and_excludes_output_origin() {
+        let seed = |value| WarmStart {
+            origin: None,
+            compatibility: Compatibility {
+                layout: ContentHash::from_bytes([1; 32]),
+                profile: ContentHash::from_bytes([2; 32]),
+                data: ContentHash::from_bytes([3; 32]),
+                backend: Backend::Ipopt,
+            },
+            payload: WarmPayload::Root(vec![value]),
+        };
+        assert_eq!(
+            seed(f64::NAN).content_key(),
+            seed(f64::from_bits(0xfff8_0000_0000_0007)).content_key()
+        );
+        assert_ne!(seed(0.0).content_key(), seed(-0.0).content_key());
+        assert_ne!(
+            seed(f64::INFINITY).content_key(),
+            seed(f64::NEG_INFINITY).content_key()
+        );
+        let first = seed(1.0);
+        let mut from_run = first.clone();
+        from_run.origin = Some(SeedOrigin {
+            run: None,
+            attempt: 9,
+        });
+        assert_eq!(first.content_key(), from_run.content_key());
+        let snapshot = seed(-0.0).snapshot();
+        let WarmPayloadSnapshot::Root { primal } = snapshot.payload else {
+            panic!("root seed snapshot")
+        };
+        let pse_model::diagnostic::Observation::Real(value) = primal[0] else {
+            panic!("real signed zero")
+        };
+        assert_eq!(value.to_bits(), (-0.0_f64).to_bits());
+        let encoded = serde_json::to_string(&seed(f64::INFINITY).snapshot()).unwrap();
+        assert!(
+            encoded.contains("positive_infinity"),
+            "special floats are explicit observations"
+        );
+    }
+
     use super::*;
     #[test]
     fn identity_covers_every_settings_field() {

@@ -8,11 +8,11 @@ level: decision
 principles: [AP-02, AP-03, AP-04, DP-01, DP-04, DP-13, PS-07, PS-10, PS-12]
 blueprint: [§D6, §7.2, §7.5, §9.4, §9.5, §14.3, §15.5.1, §19.4, §25]
 review: docs/design_review/reviews/design_review_selected-mathematical-realizations_2026-10-01.md
-evidence: "Implemented/Tested: Plan 25d focused Linux force-validation controls, 2026-10-01; bounded design review remains Proposed; broader qualification remains 25k."
+evidence: Tested
 supersedes: []
 superseded-by: null
 revisit: A supported selector cannot preserve its value or its established derivative neighborhood across realizations.
-verification: Plan 25d selected-root, export-fidelity, exact-rational, derivative-demand and regular-square-response controls; bounded D6 and identity contract review.
+verification: Plan 25d selected-root, export-fidelity, exact-rational, derivative-demand and regular-square-response controls under Linux force-validation, 2026-10-01; bounded D6 and identity contract review remains Proposed; broader qualification remains 25k.
 standard: core-3.3/process-simulator-1.3
 scenarios: [docs/design_review/reviews/design_review_codebase-domain-alignment-follow-up_2026-09-30.md#fs06, docs/design_review/reviews/design_review_codebase-domain-alignment-follow-up_2026-09-30.md#fs07]
 ---
@@ -61,6 +61,15 @@ Factorable export carries restrictions and fidelity evidence. Exact selected-fun
 requires equivalent graph restrictions; unsupported selection yields a valid Relaxed superset or
 an exact-only refusal. Initial exact controls cover nondegenerate affine and explicitly restricted
 square-root branches. Candidate original-space assessment and bound provenance remain separate.
+
+**Proposed qualification clarification, 2026-10-02:** coupled cubic-density flowsheets
+may explicitly author a residual-relational density model using the existing physical
+residual, phase interval, validity and original-space checks. The outer solve then owns
+the density coordinate. This is a chosen relational problem, not evidence that the
+operationally selected density function is equivalent or differentiable. Preserve the
+operational model and its value-only/refusal controls separately; starts and bounds do
+not justify its nonlinear selector neighborhood. Positive physical oracles remain attached
+to the explicitly chosen formulation. No new uniqueness or neighborhood prover is implied.
 
 The factorable DAG retains Symbolica Rational, including large coefficients and exact folding.
 Only an explicit backend boundary requests binary64 and rejects invalid conversions. Library

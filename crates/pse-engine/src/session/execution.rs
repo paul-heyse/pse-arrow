@@ -26,6 +26,7 @@ use std::{
 /// Actual PSE execution services bound into native SessionConfig for this operation.
 #[derive(Debug)]
 pub struct NativeExecutionContext {
+    validation: Arc<pse_relations::validate::ValidationContext>,
     template: EngineSession,
     pub(super) caches: Arc<super::cache::CacheStore>,
     completed_state: std::sync::Mutex<Option<std::sync::Weak<SessionState>>>,
@@ -38,6 +39,11 @@ pub struct NativeExecutionContext {
     query_admission: std::sync::Mutex<std::sync::Weak<tokio::sync::OwnedSemaphorePermit>>,
 }
 impl NativeExecutionContext {
+    /// Actual immutable planner/function owner captured before execution extensions bind.
+    pub fn validation_context(&self) -> &pse_relations::validate::ValidationContext {
+        &self.validation
+    }
+
     pub(crate) fn port_store(&self) -> &crate::operation::ports::Store {
         &self.caches.3
     }
@@ -52,6 +58,10 @@ impl NativeExecutionContext {
         cancel: &CancellationToken,
     ) -> Result<SessionState, EngineError> {
         let services = Arc::new(Self {
+            validation: Arc::new(pse_relations::validate::ValidationContext::new(
+                session.registry(),
+                crate::validation::NativeValidation(state.clone()),
+            )),
             template: session.empty_selection()?,
             caches: session.invocation.clone().unwrap_or_default(),
             inherited: session.invocation.is_some(),
@@ -248,6 +258,7 @@ impl NativeExecutionContext {
             .import_scope(source.ownership())
             .map_err(pse_columnar::external)?;
         let services = Arc::new(Self {
+            validation: source.validation.clone(),
             caches,
             inherited: source.inherited,
             parent_admission: source.parent_admission.clone(),

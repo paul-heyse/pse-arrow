@@ -118,7 +118,6 @@ impl CacheKey for Key {
                         .chain(&policy.required_settings)
                         .map(|(key, value)| key.capacity() + value.capacity() + 128)
                         .sum::<usize>()
-                        + policy.requirements.len() * 128
                         + match &policy.scope {
                             pse_schema::model::provider::ProviderScope::Catalog(a) => a.capacity(),
                             pse_schema::model::provider::ProviderScope::Schema(a, b) => {
@@ -265,7 +264,7 @@ struct SelectedTable {
     interpretation: Arc<Interpretation>,
 }
 /// Wrap the full decoded selection, below query projection/filtering. The outer
-/// common execution contract still re-admits policy and requirements on every read.
+/// common execution contract still re-admits policy and native contract obligations on every read.
 pub(crate) fn selected(
     inner: Arc<dyn TableProvider>,
     member: &pse_relations::generated::structures::MemberDescriptor,

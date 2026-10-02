@@ -61,12 +61,8 @@ impl Engine<'_, '_> {
             if let ExprKind::Path(path) = &source.expression.kind {
                 self.restore_set_source(source.instance, path, &source.env, source.declaration)?;
             }
-            let replay = self.eval(
-                source.declaration,
-                &source.env,
-                &dsl::render_expr(&source.expression),
-                None,
-            )?;
+            let replay =
+                self.eval_ast_with(source.declaration, &source.env, &source.expression, None)?;
             if Some(&replay) != env.get(&segment.name) {
                 return Err(invalid(
                     at,
@@ -171,7 +167,7 @@ impl Engine<'_, '_> {
         let values = segment
             .indices
             .iter()
-            .map(|index| self.eval(at, env, &dsl::render_expr(index), None))
+            .map(|index| self.eval_ast_with(at, env, index, None))
             .collect::<Result<Vec<_>>>()?;
         let coordinates = self.member_coordinates(instance, member, values)?;
         state
@@ -237,8 +233,12 @@ impl Engine<'_, '_> {
         if indices.len() != values.len() {
             return Err(invalid(member, "member index arity differs"));
         }
-        let admitted =
-            self.coordinates(member, &self.states[&instance].env, indices.into_iter())?;
+        let admitted = self.coordinates(
+            instance,
+            member,
+            &self.states[&instance].env,
+            indices.into_iter(),
+        )?;
         admitted.into_iter().find(|row| row.iter().zip(&values).all(|((_, x), y)| {
             x == y || matches!((x,y),
                 (Value::Coordinate{quantity:q,bits:a,..},Value::Number{quantity:r,bits:b}) if q==r && a==b)
@@ -391,7 +391,7 @@ impl Engine<'_, '_> {
                     let coordinates = path.segments[0]
                         .indices
                         .iter()
-                        .map(|e| self.eval(at, &env, &dsl::render_expr(e), None))
+                        .map(|e| self.eval_ast_with(at, &env, e, None))
                         .collect::<Result<Vec<_>>>()?;
                     return group
                         .iter()
@@ -413,7 +413,14 @@ impl Engine<'_, '_> {
                 // A pure function's free names belong to its definition scope. A caller
                 // instance cannot capture a table, entity or constant with a same-named member.
                 if in_function {
-                    let value = self.eval(at, &env, &text, None)?;
+                    let value = self.eval_ast(
+                        at,
+                        &env,
+                        &Expr {
+                            kind: ExprKind::Path(path.clone()),
+                            span: Span::default(),
+                        },
+                    )?;
                     return self.scientific_value_expression(instance, path, &value, at, &env);
                 }
                 // Tables and attributes are immutable admitted data, never I/O from this operation.
@@ -438,7 +445,14 @@ impl Engine<'_, '_> {
                         let id = self.symbol(owner, member, &coordinates, chain)?;
                         return self.symbol_value_expression(owner, member, &coordinates, id);
                     }
-                    let value = self.eval(at, &env, &text, None)?;
+                    let value = self.eval_ast(
+                        at,
+                        &env,
+                        &Expr {
+                            kind: ExprKind::Path(path.clone()),
+                            span: Span::default(),
+                        },
+                    )?;
                     return self.scientific_value_expression(instance, path, &value, at, &env);
                 }
                 let (owner, member, coordinates) =
@@ -460,12 +474,19 @@ impl Engine<'_, '_> {
                     .collect::<Result<_>>()?,
             },
             ExprKind::NamedCall { name, args } => {
-                if let Some(value) =
-                    self.physical_operation_call(instance, at, name, args, &env, chain)?
-                {
+                if let Some(value) = self.physical_operation_call(
+                    instance,
+                    at,
+                    &dsl::render_path(name),
+                    args,
+                    &env,
+                    chain,
+                )? {
                     return Ok(value);
                 }
-                if let Some(value) = self.contextual_call(instance, at, name, args, &env, chain)? {
+                if let Some(value) =
+                    self.contextual_call(instance, at, &dsl::render_path(name), args, &env, chain)?
+                {
                     return Ok(value);
                 }
                 let function = self.resolve_function(instance, at, name, &env)?;
@@ -505,8 +526,15 @@ impl Engine<'_, '_> {
                 let result_type =
                     crate::expression::infer(expression, &types, self.p, self.c, at, None)?;
                 self.restore_set_source(instance, &binder.domain, &env, at)?;
-                let Value::Set(values) =
-                    self.eval(at, &env, &dsl::render_path(&binder.domain), None)?
+                let Value::Set(values) = self.eval_ast_with(
+                    at,
+                    &env,
+                    &Expr {
+                        kind: ExprKind::Path(binder.domain.clone()),
+                        span: Span::default(),
+                    },
+                    None,
+                )?
                 else {
                     return Err(invalid(at, "finite reduction set required"));
                 };
@@ -583,7 +611,10 @@ impl Engine<'_, '_> {
                             body: None,
                         });
                     return Ok(Expr {
-                        kind: ExprKind::NamedCall { name, args: terms },
+                        kind: ExprKind::NamedCall {
+                            name: Path::single(name),
+                            args: terms,
+                        },
                         span: Span::default(),
                     });
                 }
@@ -662,11 +693,14 @@ impl Engine<'_, '_> {
                         } else {
                             None
                         };
-                        let value = self
-                            .eval(at, &env, &dsl::render_expr(value), Some(&ty))
-                            .map_err(|e| {
-                                invalid(at, format!("{name} must be static at specialization: {e}"))
-                            })?;
+                        let value =
+                            self.eval_ast_with(at, &env, value, Some(&ty))
+                                .map_err(|e| {
+                                    invalid(
+                                        at,
+                                        format!("{name} must be static at specialization: {e}"),
+                                    )
+                                })?;
                         self.lexical.remove(name);
                         env.insert(name.clone(), value);
                         self.source_locals.insert(name.clone());
@@ -864,7 +898,7 @@ impl Engine<'_, '_> {
             PredicateKind::Atom(e) => {
                 // Presence is a static query. A missing dependency of that query is
                 // its actual refusal, rather than an unresolved function named present.
-                if matches!(&e.kind, ExprKind::NamedCall { name, .. } if name == "present") {
+                if matches!(&e.kind, ExprKind::NamedCall { name, .. } if name.is_ident("present")) {
                     return (Evaluator {
                         package: self.p,
                         physical: self.c,

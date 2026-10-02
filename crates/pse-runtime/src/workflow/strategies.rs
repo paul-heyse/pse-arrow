@@ -16,7 +16,7 @@ use pse_kernels::DerivativeOrder;
 use std::sync::Arc;
 
 /// Explicit physical coordinate of a native analysis request.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AnalysisPort {
     /// Stable source identity, never a solver column index.
@@ -28,7 +28,7 @@ pub struct AnalysisPort {
 }
 
 /// Explicit continuous cone analysis. The request declares geometry; it is never inferred from NLP rows.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ConicRequest {
     /// Complete source coordinates; all bounds are explicit cone rows.
@@ -86,8 +86,8 @@ impl Runtime {
             return Err(contract("cone request exceeds workspace allowance"));
         }
         // Identity of the pse-owned request encoding, independent of any library's serde.
-        let identity = native::identity::of(pse_ids::Frame::ExplicitConicV4, &request)
-            .map_err(MathRuntimeError::from)?;
+        let identity = pse_ids::document::of(pse_ids::Frame::ExplicitConicV5, &request)
+            .map_err(|e| contract(e.to_string()))?;
         let target = |p: &AnalysisPort, kind| pse_math::numerics::TargetSpec {
             id: p.symbol_id,
             kind,
@@ -200,16 +200,68 @@ impl Runtime {
     }
 }
 
+mod requests;
+pub use requests::{CausalUnitRealization, CausalUnitRequest, RecycleRequest};
 #[cfg(feature = "solver-kinsol")]
 mod conditional;
 #[cfg(feature = "solver-kinsol")]
-pub use conditional::{
-    CausalUnitRealization, CausalUnitRequest, PreparedInitializationStrategy, PreparedRecycle,
-    RecycleRequest,
-};
+pub use conditional::{PreparedInitializationStrategy, PreparedRecycle};
 
 #[cfg(test)]
 #[cfg(feature = "solver-kinsol")]
 mod start_tests;
 #[cfg(test)]
 mod tests;
+
+/// Immutable temporary-stage evidence from initialization, without changing specification bindings.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct InitializationDocument {
+    #[doc = "Original specification values."]
+    pub original: std::collections::BTreeMap<SemanticId, f64>,
+    #[doc = "Candidate values for solved unknowns."]
+    pub solved_unknowns: std::collections::BTreeMap<SemanticId, f64>,
+    #[doc = "Number of completed temporary stages."]
+    pub completed_stages: usize,
+    #[doc = "Whether the original specification bindings were restored."]
+    pub original_bindings_restored: bool,
+    #[doc = "Whether initialization was cancelled."]
+    pub cancelled: bool,
+    #[doc = "Retained temporary-stage evidence."]
+    pub stages: Vec<InitializationStageDocument>,
+}
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[doc = "Retained evidence from one temporary initialization stage."]
+pub struct InitializationStageDocument {
+    #[doc = "Temporary stage index."]
+    pub stage: usize,
+    #[doc = "Whether this temporary stage completed."]
+    pub completed: bool,
+    #[doc = "Temporary values applied only to this stage."]
+    pub overlay: std::collections::BTreeMap<SemanticId, f64>,
+    #[doc = "Values returned by this stage."]
+    pub candidate: std::collections::BTreeMap<SemanticId, f64>,
+}
+#[cfg(feature = "solver-kinsol")]
+impl From<&crate::math::initialization::InitializationReport> for InitializationDocument {
+    fn from(report: &crate::math::initialization::InitializationReport) -> Self {
+        Self {
+            original: report.original.scalars.clone(),
+            solved_unknowns: report.values.scalars.clone(),
+            completed_stages: report.completed_stages,
+            original_bindings_restored: report.original_bindings_restored,
+            cancelled: report.cancelled,
+            stages: report
+                .stages
+                .iter()
+                .map(|stage| InitializationStageDocument {
+                    stage: stage.stage,
+                    completed: stage.completed,
+                    overlay: stage.overlay.clone(),
+                    candidate: stage.candidate.scalars.clone(),
+                })
+                .collect(),
+        }
+    }
+}

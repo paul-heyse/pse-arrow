@@ -56,7 +56,9 @@ pub(crate) fn new_attempt() -> NewAttempt {
         attempt_id: mint_id(),
         run_id: mint_id(),
         kind: AttemptKind::Simulation,
-        request_identity: hash(1),
+        operational_job_identity: pse_ids::roles::RecordedOperationalJobIdentity::current(
+            pse_ids::roles::OperationalJobHash::from(hash(1)),
+        ),
         preparation_identity: Some(hash(2)),
         parent_attempt: None,
     }
@@ -266,8 +268,23 @@ async fn generated_schema_creates_empty_store() {
             .count(&format!("SELECT count(*) FROM pse_ops.\"{table}\""))
             .await
             .unwrap();
-        assert_eq!(rows, 0, "{table} is not empty");
+        assert_eq!(
+            rows,
+            if *table == "schema_support_state" {
+                2
+            } else {
+                0
+            },
+            "{table} has unexpected initial rows"
+        );
     }
+    assert_eq!(
+        session.texts("SELECT history,shared_version::text,source,target,ready::text FROM pse_ops.schema_support_state ORDER BY history").await.unwrap(),
+        [
+            [Some("catalog".to_owned()), Some(crate::generated::SHARED_VERSION.to_string()), Some("fresh".to_owned()), Some(crate::generated::CATALOG_FINGERPRINT_HEX.to_owned()), Some("true".to_owned())],
+            [Some("operations".to_owned()), Some(crate::generated::SHARED_VERSION.to_string()), Some("fresh".to_owned()), Some(crate::generated::OPERATIONS_FINGERPRINT_HEX.to_owned()), Some("true".to_owned())],
+        ]
+    );
     let recorded = session
         .texts(
             "SELECT obj_description(oid, 'pg_namespace') FROM pg_namespace \
@@ -699,7 +716,7 @@ async fn dropped_statement_does_not_block_the_pool() {
         max_connections: 1,
         ..crate::StoreOptions::for_tests()
     };
-    let store = Store::connect_with(database.url(), &options).await.unwrap();
+    let store = Store::open_with(database.url(), &options).await.unwrap();
     let lock = database.session().await.unwrap();
     lock.execute("BEGIN; LOCK TABLE pse_ops.attempts IN ACCESS EXCLUSIVE MODE")
         .await
@@ -3418,7 +3435,7 @@ async fn lost_commit_acknowledgement_settles() {
         Some(second.publication_id)
     );
     store.close();
-    drop(proxy);
+    proxy.shutdown().await.unwrap();
     database.remove().await.unwrap();
 }
 

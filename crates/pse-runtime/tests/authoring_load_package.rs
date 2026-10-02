@@ -23,8 +23,9 @@ fn fixture(name: &str) -> std::path::PathBuf {
 fn texts(name: &str) -> BTreeMap<String, Vec<u8>> {
     let loaded = load_package(
         &fixture(name),
-        pse_engine::validation::registry().unwrap(),
+        pse_schema::registry().unwrap(),
         ParseBudget::default(),
+        &fixture_validation(pse_schema::registry().unwrap()),
     )
     .unwrap();
     loaded
@@ -42,6 +43,7 @@ fn explicit_and_named_fixtures_decode_generated_rows_and_original_source_spans()
         &fixture("minimal_explicit"),
         registry,
         ParseBudget::default(),
+        &fixture_validation(registry),
     )
     .unwrap();
     let constant = reference::quantity_kinds::View::from_checked(
@@ -74,7 +76,13 @@ fn explicit_and_named_fixtures_decode_generated_rows_and_original_source_spans()
         "row span: {original:?}; {span:?}"
     );
     assert!(original.contains("extensive: false"));
-    let named = load_package(&fixture("minimal_named"), registry, ParseBudget::default()).unwrap();
+    let named = load_package(
+        &fixture("minimal_named"),
+        registry,
+        ParseBudget::default(),
+        &fixture_validation(registry),
+    )
+    .unwrap();
     let entity =
         authored::entities::View::from_checked(&named.batches[&authored::entities::RELATION_ID])
             .unwrap()
@@ -115,6 +123,26 @@ fn missing_ids_unknown_fields_duplicate_keys_and_wrong_package_context_fail() {
             "materials/quantity-kinds.yaml".to_owned(),
             text.into_bytes(),
         );
-        assert!(load_package_documents(inputs, registry, ParseBudget::default()).is_err());
+        assert!(
+            load_package_documents(
+                inputs,
+                registry,
+                ParseBudget::default(),
+                &fixture_validation(registry)
+            )
+            .is_err()
+        );
     }
+}
+
+fn fixture_validation(
+    registry: &pse_schema::Registry,
+) -> std::sync::Arc<pse_relations::validate::ValidationContext> {
+    // This source-only fixture deliberately captures its fixed native session state.
+    std::sync::Arc::new(pse_relations::validate::ValidationContext::new(
+        registry,
+        pse_engine::validation::NativeValidation(
+            datafusion::prelude::SessionContext::new().state(),
+        ),
+    ))
 }

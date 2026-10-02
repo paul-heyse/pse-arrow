@@ -1,0 +1,53 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+package indexed_recycle {
+def Mixer {
+    param fresh:Flow=1{mol/s};
+    var returned:Flow; var mixed:Flow;
+    eq mixing:mixed==fresh+returned;
+    port inlet:Flow=returned; port outlet:Flow=mixed;
+    annotation connectivity inlet(1,0); annotation connectivity outlet(0,1);
+    annotation start returned(0{mol/s}); annotation start mixed(1{mol/s});
+}
+def HoldupReactor {
+    param residence:Time=1{s};
+    var incoming:Flow; var outgoing:Flow; var inventory:TotalAmount;
+    eq discharge:outgoing==inventory/residence;
+    when analysis.route==analysis.steady {eq balance:incoming==outgoing; annotation start inventory(1{mol});}
+    port inlet:Flow=incoming; port outlet:Flow=outgoing;
+    annotation connectivity inlet(1,0); annotation connectivity outlet(0,1);
+    annotation start incoming(1{mol/s}); annotation start outgoing(1{mol/s});
+}
+def Separator {
+    var incoming:Flow; var returned:Flow; var product:Flow;
+    eq split:returned==incoming/2;
+    eq balance:product==incoming-returned;
+    port inlet:Flow=incoming; port recycle:Flow=returned; port outlet:Flow=product;
+    annotation connectivity inlet(1,0); annotation connectivity recycle(0,1);
+    annotation connectivity outlet(0,1);
+    annotation start incoming(1{mol/s}); annotation start returned(0{mol/s});
+    annotation start product(1{mol/s});
+}
+def Root {
+    param starting_inventory:TotalAmount=1{mol};
+    param erroneous_flux:Flow=0{mol/s};
+    domain t:Time from 0{s} to 1{s};
+    when analysis.route==analysis.steady {discretize grid on t using stationary(elements=1,order=1);}
+    when analysis.route==analysis.integrated {discretize grid on t using integrated(elements=1,order=1);}
+    child mixer[i in t]:Mixer=Mixer();
+    child reactor[i in t]:HoldupReactor=HoldupReactor();
+    child separator[i in t]:Separator=Separator();
+    connect mixed:[i in t] mixer[i].outlet -> reactor[i].inlet;
+    connect reacted:[i in t] reactor[i].outlet -> separator[i].inlet;
+    connect recycle:[i in t] separator[i].recycle -> mixer[i].inlet;
+    when analysis.dynamic {
+        eq rate[i in t]:d(reactor[i].inventory)/di==mixer[i].mixed-reactor[i].outgoing;
+        eq initial:reactor[0{s}].inventory==starting_inventory;
+        conserve external[i in t]:TotalAmount on t inventory reactor[i].inventory flux mixer[i].fresh-separator[i].product tolerance 1e-6{mol};
+    }
+}
+test dynamic fixture {
+    dof 0; route integrated; procedure integrate;
+    integrate samples(0{s},0.25{s},0.5{s},1{s}) relative(1e-9) normalized_absolute(1e-11) step(1e-4{s});
+} {child root:Root=Root();}
+}

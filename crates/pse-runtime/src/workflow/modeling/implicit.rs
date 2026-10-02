@@ -206,8 +206,7 @@ pub(super) fn factorable_definitions(
         .collect::<BTreeMap<_, _>>();
     product
         .admitted
-        .implicit
-        .values()
+        .implicit_systems()
         .filter_map(|inner| {
             let (key, mut definition) = inner.factorable_definition()?;
             for (j, id) in inner.unknowns.iter().enumerate() {
@@ -255,7 +254,7 @@ impl ModelingPackage {
         rows: Option<&BTreeSet<SemanticId>>,
     ) -> Result<BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>, WorkflowError> {
         let product = model.compiled();
-        if product.admitted.implicit.is_empty() {
+        if product.admitted.implicit_systems().next().is_none() {
             return Ok(self.registrations());
         }
         controls
@@ -267,7 +266,6 @@ impl ModelingPackage {
             .map_err(crate::math::MathRuntimeError::from)?;
         let mut inputs = Vec::new();
         for inner in product
-            .admitted
             .implicit_order_for(rows)
             .map_err(crate::math::MathRuntimeError::from)?
         {
@@ -289,7 +287,7 @@ impl ModelingPackage {
                         declared_tolerance: None,
                     })
                     .collect::<Vec<_>>();
-                for (id, quantity) in residual.rows.iter().zip(&residual.body.quantities) {
+                for (id, quantity) in residual.rows.iter().zip(residual.body.quantities()) {
                     targets.push(pse_math::numerics::TargetSpec {
                         id: *id,
                         kind: NumericalTarget::Row,
@@ -360,7 +358,7 @@ impl ModelingPackage {
                 let mut hash =
                     pse_ids::FramedHasher::new(pse_ids::Frame::ModelingImplicitTrialHintsV1);
                 hash.hash(&inner.descriptor.spec().identity())
-                    .hash(&residual.body.spec.physical)
+                    .hash(&residual.body.spec().physical)
                     .id(&residual.id)
                     .hash(&policy.key());
                 for r in &declarations {
@@ -566,14 +564,12 @@ mod tests {
         };
         assert!(
             product
-                .admitted
                 .implicit_order_for(Some(&BTreeSet::from([independent])))
                 .unwrap()
                 .is_empty()
         );
         assert_eq!(
             product
-                .admitted
                 .implicit_order_for(Some(&BTreeSet::from([dependent])))
                 .unwrap()
                 .len(),
@@ -692,10 +688,7 @@ mod tests {
             .unwrap()
             .id;
         let selected = BTreeSet::from([pin]);
-        let ordered = product
-            .admitted
-            .implicit_order_for(Some(&selected))
-            .unwrap();
+        let ordered = product.implicit_order_for(Some(&selected)).unwrap();
         assert_eq!(ordered.len(), 3);
         let numerical = ordered
             .iter()
@@ -708,7 +701,7 @@ mod tests {
             .unwrap();
         let parent = ordered
             .iter()
-            .find(|inner| !inner.residuals[0].body.math.providers().is_empty())
+            .find(|inner| !inner.residuals[0].body.math().providers().is_empty())
             .unwrap();
         let child = ordered
             .iter()
@@ -799,9 +792,9 @@ mod tests {
             .unwrap();
         let product = model.compiled();
         let target = product.admitted.inputs[0];
-        let y = product.admitted.implicit.values().next().unwrap().unknowns[0];
+        let y = product.admitted.implicit_systems().next().unwrap().unknowns[0];
         let row = ModelingOutput::Member(y).row_id();
-        let inner = product.admitted.implicit.values().next().unwrap();
+        let inner = product.admitted.implicit_systems().next().unwrap();
         assert_eq!(inner.residuals.len(), 2);
         assert_eq!(
             inner.descriptor.spec().derivatives,
@@ -962,11 +955,11 @@ mod tests {
             .await
             .unwrap();
         let product = prepared.model.model.compiled();
-        let ordered = product.admitted.implicit_order().unwrap();
+        let ordered = product.implicit_order().unwrap();
         assert_eq!(ordered.len(), 2);
-        assert_eq!(ordered[1].residuals[0].body.math.providers().len(), 1);
+        assert_eq!(ordered[1].residuals[0].body.math().providers().len(), 1);
         assert_eq!(
-            ordered[1].residuals[0].body.math.providers()[0].id,
+            ordered[1].residuals[0].body.math().providers()[0].id,
             ordered[0].descriptor.spec().id
         );
         assert_eq!(

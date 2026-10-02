@@ -35,13 +35,14 @@ fn unit_row() -> units::Row {
 
 #[test]
 fn generated_builder_checks_actual_nested_values_and_view_checks_actual_fields() {
-    pse_engine::validation::registry().unwrap();
+    let registry = pse_schema::registry().unwrap();
+    let validation = fixture_validation(registry);
     let mut invalid = unit_row();
     invalid.dimension.as_mut().expect("atomic unit")[2].den = 0;
-    let mut builder = units::Builder::new().expect("builder");
+    let mut builder = units::Builder::new(&validation).expect("builder");
     builder.push(invalid).expect("representation append");
     assert!(builder.finish().is_err());
-    let mut builder = units::Builder::new().expect("fresh builder");
+    let mut builder = units::Builder::new(&validation).expect("fresh builder");
     builder.push(unit_row()).expect("valid");
     let constructed = builder.finish().expect("batch");
     let batch = constructed.batch();
@@ -60,12 +61,13 @@ fn generated_builder_checks_actual_nested_values_and_view_checks_actual_fields()
         batch.columns().to_vec(),
     )
     .expect("Arrow accepts renamed field with copied fingerprint");
-    assert!(units::View::try_from_batch(&forged).is_err());
+    assert!(units::View::try_from_batch(&forged, &validation).is_err());
 }
 
 #[test]
 fn canonical_order_transfers_checked_values_and_retained_buffer_ownership() {
-    let registry = pse_engine::validation::registry().expect("registry");
+    let registry = pse_schema::registry().expect("registry");
+    let validation = fixture_validation(registry);
     let spec = units::spec(registry).expect("units declaration");
     let budget: Arc<dyn pse_columnar::MemoryPool> =
         Arc::new(pse_columnar::GreedyMemoryPool::new(32 * 1024 * 1024));
@@ -74,7 +76,7 @@ fn canonical_order_transfers_checked_values_and_retained_buffer_ownership() {
     first.offset_to_canonical = Some(-0.0);
     let mut second = unit_row();
     second.unit_id = SemanticId::from_bytes([2; 16]);
-    let mut builder = units::Builder::new().expect("builder");
+    let mut builder = units::Builder::new(&validation).expect("builder");
     builder.push(second.clone()).expect("later key");
     builder.push(first.clone()).expect("earlier key");
     let input = builder.finish().expect("checked fields");
@@ -132,10 +134,11 @@ fn canonical_order_transfers_checked_values_and_retained_buffer_ownership() {
 #[test]
 fn reserved_concat_refuses_before_allocation_and_keeps_its_claim_with_slices() {
     use pse_relations::columnar::FieldCheckedBatch;
-    let registry = pse_engine::validation::registry().expect("registry");
+    let registry = pse_schema::registry().expect("registry");
+    let validation = fixture_validation(registry);
     let spec = units::spec(registry).expect("units");
     let cancel = pse_columnar::CancellationToken::new();
-    let mut builder = units::Builder::new().expect("builder");
+    let mut builder = units::Builder::new(&validation).expect("builder");
     builder.push(unit_row()).expect("row");
     let input = builder.finish().expect("fields");
     let tiny: Arc<dyn pse_columnar::MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(1));
@@ -167,4 +170,16 @@ fn reserved_concat_refuses_before_allocation_and_keeps_its_claim_with_slices() {
     assert!(budget.reserved() > 0);
     drop(slice);
     assert_eq!(budget.reserved(), 0);
+}
+
+// Deliberate native context for these isolated generated-contract fixtures.
+fn fixture_validation(
+    registry: &pse_schema::Registry,
+) -> Arc<pse_relations::validate::ValidationContext> {
+    Arc::new(pse_relations::validate::ValidationContext::new(
+        registry,
+        pse_engine::validation::NativeValidation(
+            datafusion::prelude::SessionContext::new().state(),
+        ),
+    ))
 }

@@ -694,7 +694,7 @@ impl FitProblem {
                     normalization: &self.normalization,
                     compatibility: Compatibility {
                         layout: self.key,
-                        profile: self.profile_key,
+                        profile: self.profile_key.as_id(),
                         data: self.source_identity,
                         backend,
                     },

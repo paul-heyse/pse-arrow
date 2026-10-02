@@ -578,7 +578,22 @@ fn reference(
                 reader: crate::provenance::Reader::Admission(None),
                 selections: None,
             }
-            .text(&name, Some(ty))?;
+            .expr(
+                &pse_authoring::dsl::Expr {
+                    kind: pse_authoring::dsl::ExprKind::Path(pse_authoring::dsl::Path {
+                        segments: path
+                            .iter()
+                            .map(|name| pse_authoring::dsl::PathSegment {
+                                name: name.clone(),
+                                indices: Vec::new(),
+                            })
+                            .collect(),
+                    }),
+                    span: pse_authoring::dsl::Span::default(),
+                },
+                Some(ty),
+                0,
+            )?;
             if !conforms(&value, ty, p) {
                 return Err(invalid(at, format!("{name} is not a {ty:?}")));
             }
@@ -2056,8 +2071,7 @@ pub(crate) fn derive(p: &mut CheckedPackage, c: &TypeContext<'_>) -> Result<()> 
         if let Some(requirement) = &row.value.requirement
             && let Some(kind) = kind
         {
-            let predicate = pse_authoring::dsl::parse_predicate(&requirement.predicate)
-                .map_err(|e| invalid(at, e.to_string()))?;
+            let predicate = p.predicate_at(at, "requirement.predicate", 0)?.clone();
             crate::expression::predicate(&predicate, &kind_types(p, kind, at), p, c, at).map_err(
                 |e| {
                     crate::data::context(
@@ -2070,7 +2084,7 @@ pub(crate) fn derive(p: &mut CheckedPackage, c: &TypeContext<'_>) -> Result<()> 
                 },
             )?;
         }
-        let Some(expression) = row
+        let Some(_expression) = row
             .value
             .attribute
             .as_ref()
@@ -2087,8 +2101,7 @@ pub(crate) fn derive(p: &mut CheckedPackage, c: &TypeContext<'_>) -> Result<()> 
                 row.name, p.declarations[&kind].name
             )
         };
-        let expression =
-            pse_authoring::dsl::parse_expr(expression).map_err(|e| invalid(at, e.to_string()))?;
+        let expression = p.expression_at(at, "attribute.derived", 0)?.clone();
         let actual =
             crate::expression::infer(&expression, &kind_types(p, kind, at), p, c, at, Some(&ty))
                 .map_err(|e| crate::data::context(e, &what()))?;
@@ -2185,17 +2198,18 @@ fn derivation_mentions(
     fn function(
         p: &CheckedPackage,
         at: DeclarationId,
-        name: &str,
+        name: &Path,
         pending: &mut Vec<DeclarationId>,
     ) {
-        if p.functions
-            .get(&at)
-            .is_some_and(|f| f.arguments.iter().any(|(n, _)| n == name))
-        {
+        if p.functions.get(&at).is_some_and(|f| {
+            f.arguments
+                .iter()
+                .any(|(n, _)| Some(n.as_str()) == name.ident())
+        }) {
             return;
         }
         if let Some(id) = p
-            .resolve(at, name)
+            .resolve_segments(at, &name.segments)
             .filter(|id| p.functions.contains_key(id))
         {
             pending.push(id);
@@ -2209,7 +2223,7 @@ fn derivation_mentions(
         reads: &mut BTreeSet<DeclarationId>,
         pending: &mut Vec<DeclarationId>,
     ) -> Result<()> {
-        function(p, at, &pse_authoring::dsl::render_path(path), pending);
+        function(p, at, path, pending);
         let mut local = env.clone();
         let mut receiver = None;
         for (position, segment) in path.segments.iter().enumerate() {
@@ -2455,8 +2469,7 @@ pub(crate) fn verify(p: &CheckedPackage) -> Result<()> {
                 .requirement
                 .as_ref()
                 .ok_or_else(|| invalid(*row, "requirement payload"))?;
-            let predicate = pse_authoring::dsl::parse_predicate(&requirement.predicate)
-                .map_err(|e| invalid(*row, e.to_string()))?;
+            let predicate = p.predicate_at(*row, "requirement.predicate", 0)?.clone();
             for (id, record) in members(p, *kind) {
                 let env = record_values(id, record);
                 let holds = value::Evaluator {

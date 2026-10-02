@@ -21,8 +21,8 @@ mod walk;
 
 pub use ast::{
     BinaryOp, Binder, CompareOp, Equation, EquationKind, EquationSense, Expr, ExprKind, Function,
-    Number, Path, PathSegment, Predicate, PredicateKind, ReduceKind, Span,
+    Number, Path, PathSegment, Predicate, PredicateKind, Proposition, ReduceKind, Span,
 };
 pub use error::DslError;
-pub use parser::{parse_equation, parse_expr, parse_predicate};
+pub use parser::{parse_equation, parse_expr, parse_predicate, parse_proposition};
 pub use render::{render_equation, render_expr, render_path, render_predicate};

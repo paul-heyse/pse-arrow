@@ -214,7 +214,8 @@ impl super::Runtime {
             ));
         };
         let records = operations.runs(filter).await?;
-        let mut rows = attempts::Builder::with_registry(&self.registry, records.len())
+        let validation = self.validation_context()?;
+        let mut rows = attempts::Builder::with_registry(&self.registry, records.len(), &validation)
             .map_err(super::relation)?;
         for row in records {
             rows.push(row).map_err(super::relation)?;
@@ -239,8 +240,9 @@ impl super::Runtime {
             ));
         };
         let records = operations.store.jobs().list(filter).await?;
-        let mut rows =
-            jobs::Builder::with_registry(&self.registry, records.len()).map_err(super::relation)?;
+        let validation = self.validation_context()?;
+        let mut rows = jobs::Builder::with_registry(&self.registry, records.len(), &validation)
+            .map_err(super::relation)?;
         for row in records {
             rows.push(row).map_err(super::relation)?;
         }
@@ -423,7 +425,16 @@ impl DurableAttempt {
                     attempt_id: self.attempt,
                     run_id,
                     kind,
-                    request_identity,
+                    operational_job_identity:
+                        pse_ids::roles::RecordedOperationalJobIdentity::current(
+                            pse_ids::roles::OperationalJobHash::from(
+                                pse_ids::document::of(
+                                    pse_ids::Frame::DurableJobRequestV3,
+                                    &(self.attempt, run_id, kind, request_identity),
+                                )
+                                .map_err(|error| super::contract(error.to_string()))?,
+                            ),
+                        ),
                     preparation_identity,
                     parent_attempt: None,
                 },
@@ -714,7 +725,7 @@ fn identities(
             let mut h = FramedHasher::new(pse_ids::Frame::DurableModelingRequestV1);
             h.u64(steps.len() as u64);
             for step in steps {
-                h.hash(&step.solve.request_identity().map_err(math)?);
+                h.hash(&step.solve.request_identity().map_err(math)?.as_id());
             }
             let preparation = match steps.as_slice() {
                 [one] => Some(one.solve.preparation_identity().map_err(math)?),
@@ -727,8 +738,8 @@ fn identities(
         #[cfg(feature = "solver-diffsol")]
         RunRequest::Shooting { problem, initial } => (
             AttemptKind::Shooting,
-            problem.request_identity(initial.as_deref()),
-            Some(problem.request_identity(None)),
+            problem.request_identity(initial.as_deref()).as_id(),
+            Some(problem.request_identity(None).as_id()),
         ),
     })
 }

@@ -542,12 +542,13 @@ fn same_key_in_two_forms_is_refused() {
         "{error}"
     );
     // A dataset-supplied key is a declared binding of a key.
+    let error = refusal(&FORMS.replace(
+        "bind(source = \"bank\") provenance(s, role.given) { [a]",
+        "bind(label = \"x\") provenance(s, role.given) { [a]",
+    ));
     assert!(
-        refusal(&FORMS.replace(
-            "bind(source = \"bank\") provenance(s, role.given) { [a]",
-            "bind(label = \"x\") provenance(s, role.given) { [a]"
-        ))
-        .contains("binding label names no key of kind form")
+        error.contains("binding label names no attribute"),
+        "{error}"
     );
     // The binding is part of the key: another source is another row.
     admitted(&FORMS.replace(

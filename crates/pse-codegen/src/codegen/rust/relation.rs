@@ -106,9 +106,9 @@ pub(super) fn render(reg: &Registry, spec: &RelationSpec) -> Result<TokenStream,
         /// Checks schema, recursive extension contracts and visible values.
         /// # Errors
         /// All independently actionable violations.
-        pub fn validate(batch: &crate::RecordBatch) -> Result<(), Vec<crate::RelationError>> {
+        pub fn validate(batch: &crate::RecordBatch, context: &crate::validate::ValidationContext) -> Result<(), Vec<crate::RelationError>> {
             let reg = pse_schema::registry().map_err(|error| vec![error.into()])?;
-            crate::validate::validate_batch(reg, spec(reg).map_err(|error| vec![error])?, batch)
+            crate::validate::validate_batch(reg, spec(reg).map_err(|error| vec![error])?, batch, context)
         }
         impl crate::columnar::RelationRow for #row {
             type Builder = #builder;
@@ -117,7 +117,7 @@ pub(super) fn render(reg: &Registry, spec: &RelationSpec) -> Result<TokenStream,
                 Ok(())
             }
             fn relation(registry: &pse_schema::Registry) -> Result<&pse_schema::model::RelationSpec, crate::RelationError> { spec(registry) }
-            fn builder(registry: &pse_schema::Registry, capacity: usize) -> Result<Self::Builder, crate::RelationError> { #builder::with_registry(registry, capacity) }
+            fn builder(registry: &pse_schema::Registry, capacity: usize, context: &crate::validate::ValidationContext) -> Result<Self::Builder, crate::RelationError> { #builder::with_registry(registry, capacity, context) }
             fn push(builder: &mut Self::Builder, row: Self) -> Result<(), crate::RelationError> { builder.push(row) }
             fn finish(builder: Self::Builder) -> Result<crate::columnar::FieldCheckedBatch, crate::RelationError> { builder.finish() }
             fn rows(batch: &crate::columnar::FieldCheckedBatch) -> Result<Vec<Self>, crate::RelationError> { #view::from_checked(batch)?.rows() }
@@ -240,14 +240,14 @@ fn support(
             /// Admits a raw candidate's actual schema and visible local values.
             /// # Errors
             /// A schema, field contract or local value violation.
-            pub fn try_from_batch(batch: &'a crate::RecordBatch) -> Result<Self, crate::RelationError> {
-                Self::try_from_batch_with_registry(pse_schema::registry()?, batch)
+            pub fn try_from_batch(batch: &'a crate::RecordBatch, context: &crate::validate::ValidationContext) -> Result<Self, crate::RelationError> {
+                Self::try_from_batch_with_registry(pse_schema::registry()?, batch, context)
             }
             /// Admits a raw candidate with an explicitly bound registry.
             /// # Errors
             /// A schema, field contract or local value violation.
-            pub fn try_from_batch_with_registry(registry: &pse_schema::Registry, batch: &'a crate::RecordBatch) -> Result<Self, crate::RelationError> {
-                crate::validate::validate_batch(registry, spec(registry)?, batch).map_err(|errors| crate::RelationError::Validation { errors })?;
+            pub fn try_from_batch_with_registry(registry: &pse_schema::Registry, batch: &'a crate::RecordBatch, context: &crate::validate::ValidationContext) -> Result<Self, crate::RelationError> {
+                crate::validate::validate_batch(registry, spec(registry)?, batch, context).map_err(|errors| crate::RelationError::Validation { errors })?;
                 Self::borrow_columns(batch)
             }
             /// Borrows a checked owner without rescanning visible values.

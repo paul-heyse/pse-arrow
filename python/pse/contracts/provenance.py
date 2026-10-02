@@ -22,6 +22,9 @@ class ProvenanceAssertionsRow:
     status: e.AssertionStatus = attrs.field(validator=attrs.validators.instance_of(e.AssertionStatus))
     reason: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.assertion_id), v.scalar_key(self.package_id), v.scalar_key(self.expected), v.scalar_key(self.status), v.scalar_key(self.reason),))
+
 
 @attrs.frozen(kw_only=True)
 class ProvenanceDerivationsFieldSupportingItem:
@@ -29,6 +32,9 @@ class ProvenanceDerivationsFieldSupportingItem:
 
     relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     row_key: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.relation_id), v.scalar_key(self.row_key),))
 
 
 @attrs.frozen(kw_only=True)
@@ -41,3 +47,6 @@ class ProvenanceDerivationsRow:
     rule_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     algorithm_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     supporting: b.tuple[ProvenanceDerivationsFieldSupportingItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ProvenanceDerivationsFieldSupportingItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.derivation_id), v.scalar_key(self.relation_id), v.scalar_key(self.row_key), v.optional_key(v.scalar_key)(self.rule_id), v.optional_key(v.scalar_key)(self.algorithm_id), v.sequence_key(v.record_key)(self.supporting),))

@@ -212,18 +212,17 @@ fn bounded_reconciliation(
                 .iter()
                 .any(|r| r.get("kind").and_then(Value::as_str) == Some("metadata_bound"))
     });
-    if let Some(records) = evidence.as_array_mut() {
-        if records.len() > EVIDENCE_RECORDS_MAX {
-            records.truncate(EVIDENCE_RECORDS_MAX);
-            records.push(serde_json::json!({"kind":"evidence_bound","limit":EVIDENCE_RECORDS_MAX}));
-        }
+    if let Some(records) = evidence.as_array_mut()
+        && records.len() > EVIDENCE_RECORDS_MAX
+    {
+        records.truncate(EVIDENCE_RECORDS_MAX);
+        records.push(serde_json::json!({"kind":"evidence_bound","limit":EVIDENCE_RECORDS_MAX}));
     }
-    if let Some(records) = protections.as_array_mut() {
-        if records.len() > EVIDENCE_RECORDS_MAX {
-            records.truncate(EVIDENCE_RECORDS_MAX);
-            records
-                .push(serde_json::json!({"kind":"protection_bound","limit":EVIDENCE_RECORDS_MAX}));
-        }
+    if let Some(records) = protections.as_array_mut()
+        && records.len() > EVIDENCE_RECORDS_MAX
+    {
+        records.truncate(EVIDENCE_RECORDS_MAX);
+        records.push(serde_json::json!({"kind":"protection_bound","limit":EVIDENCE_RECORDS_MAX}));
     }
     let owned = complete && evidence.as_array().is_some_and(|a| !a.is_empty());
     (

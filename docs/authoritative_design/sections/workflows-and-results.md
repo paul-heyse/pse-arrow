@@ -950,8 +950,9 @@ separately.
 
 **Boundary documents.** The Rust serde type owns each Rust-owned document: the backend,
 solve, Diffsol and IDAS settings, the job payload, the termination detail, the source
-manifest, study request/definition/outcomes/status/cancellation, complete boundary diagnostics
-and a study's preparation counts. schemars derives its JSON
+manifest, workspace/publication/export/settlement, completion, fitting declarations and
+preparation, knowledge/inspection, flow/tear/recycle, initialization, simulation profiles,
+study request/definition/outcomes/status/cancellation and complete boundary diagnostics. schemars derives its JSON
 Schema (draft 2020-12) into `docs/generated/schema/`, and a closed emitter
 (`pse-codegen::codegen::documents`) turns the schemas into frozen msgspec `Struct` types in
 `python/pse/contracts/documents/`: every
@@ -966,6 +967,22 @@ Single-value setting domains are validated types (`Tolerance`, `Fraction`,
 `admit_settings` keeps the cross-field and environment rules. `SimulationSettings` stays a
 native class that takes an encoded document; fixture execution policies are authored data
 ([§6.10](schema-and-relations.md#section-6-10)).
+
+Operation-owned request/result types are registered directly for generation; there is no
+parallel hand-written schema or Python mirror. Python sends typed documents through the
+common codec, then Rust admission resolves contextual identities and defaults. Closed
+getters and their compiled stubs expose generated enums, while explanations stay separate.
+Source-authoring grammar schemas remain distinct from hydrated serde document schemas.
+
+Row collection cardinality uses attrs validators; uniqueness uses linear equality-consistent
+keys derived by admitted element type. Nested records, sequences and reordered maps retain
+their equality contract, including equal signed zeros; content hashes are not equality keys.
+The emitter uses deterministic petgraph dependency ordering with attributable cycle/missing
+reference errors. Common strum mechanics own vocabulary iteration, parsing and spelling;
+operation-specific semantic projections remain with their owner.
+
+> Supplement: [ADR-0151](../../adr/0151-generated-operation-boundaries.md)
+> (proposed; authorized implementation).
 
 - **Strict structuring.** cattrs converters forbid extra keys and keep detailed
   validation; msgspec structs forbid unknown fields for wire envelopes, settings and

@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
+#![allow(
+    missing_docs,
+    reason = "strum's generated const into_str method is exposed through documented as_str contracts"
+)]
 
 //! The platform vocabularies the registry is written in (ADR-0117).
 //!
@@ -32,8 +36,9 @@ macro_rules! vocabulary {
         $(#[$meta])*
         #[derive(
             Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize,
-            serde::Deserialize,
+            serde::Deserialize, strum::EnumString, strum::Display, strum::VariantArray, strum::IntoStaticStr,
         )]
+        #[strum(const_into_str, parse_err_ty = VocabularyError, parse_err_fn = Self::unknown_member)]
         #[cfg_attr(
             feature = "postgres",
             derive(postgres_types::ToSql, postgres_types::FromSql),
@@ -43,6 +48,7 @@ macro_rules! vocabulary {
             $(
                 $(#[$vmeta])*
                 #[serde(rename = $text)]
+                #[strum(serialize = $text)]
                 #[cfg_attr(feature = "postgres", postgres(name = $text))]
                 $variant,
             )+
@@ -50,38 +56,28 @@ macro_rules! vocabulary {
 
         impl $name {
             #[doc = concat!("Every [`", stringify!($name), "`], in registry order.")]
-            pub const ALL: [Self; [$($text),+].len()] = [$(Self::$variant),+];
+            pub const ALL: [Self; [$($text),+].len()] = {
+                match <Self as strum::VariantArray>::VARIANTS.first_chunk::<{ [$($text),+].len() }>() {
+                    Some(members) => *members,
+                    None => panic!("strum variant count disagrees with vocabulary"),
+                }
+            };
 
             /// The registry spelling, the only textual form of the member.
             pub const fn as_str(self) -> &'static str {
-                match self {
-                    $(Self::$variant => $text,)+
-                }
+                self.into_str()
             }
 
             /// The member with this spelling; `None` for any other text, since a closed
             /// vocabulary has no fallback member.
             pub fn parse(text: &str) -> Option<Self> {
-                match text {
-                    $($text => Some(Self::$variant),)+
-                    _ => None,
-                }
+                text.parse().ok()
             }
         }
 
-        impl core::fmt::Display for $name {
-            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-                f.write_str(self.as_str())
-            }
-        }
-
-        impl core::str::FromStr for $name {
-            type Err = VocabularyError;
-            fn from_str(text: &str) -> Result<Self, Self::Err> {
-                Self::parse(text).ok_or_else(|| VocabularyError::UnknownMember {
-                    vocabulary: stringify!($name),
-                    value: text.to_owned(),
-                })
+        impl $name {
+            fn unknown_member(value: &str) -> VocabularyError {
+                VocabularyError::UnknownMember { vocabulary: stringify!($name), value: value.to_owned() }
             }
         }
     };

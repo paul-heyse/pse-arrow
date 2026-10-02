@@ -17,7 +17,6 @@ mod declarations;
 pub mod documents;
 pub mod enums_platform;
 pub mod inv;
-mod invariant_closure;
 pub mod invariants;
 mod modeling;
 mod modeling_analysis;

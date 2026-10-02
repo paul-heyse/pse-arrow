@@ -17,6 +17,7 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+strum.workspace = true
 # The shared refusal of an unknown spelling and its §23.2 code.
 pse-diagnostics.workspace = true
 serde.workspace = true

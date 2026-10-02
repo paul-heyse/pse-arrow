@@ -11,6 +11,8 @@
 mod extended;
 #[path = "../../tests/support/plan14.rs"]
 mod fixture;
+#[path = "k4/studies.rs"]
+mod k4_studies;
 #[path = "native_process/phases.rs"]
 mod phases;
 use criterion::{Criterion, criterion_group, criterion_main};
@@ -76,6 +78,10 @@ fn process(c: &mut Criterion) {
     let blocks = spec["blocks"].as_u64().unwrap() as usize;
     let threads = spec["threads"].as_u64().unwrap() as usize;
     let output = PathBuf::from(std::env::var("PSE_PROCESS_COST_OUTPUT").unwrap());
+    if operation == "k4-study" {
+        k4_studies::measure(c, &spec, &output, &compiler_phases);
+        return;
+    }
     if spec["extended"].as_bool() == Some(true) || matches!(operation, "vessel" | "fit") {
         extended::measure(c, &spec, &output, &compiler_phases);
         return;

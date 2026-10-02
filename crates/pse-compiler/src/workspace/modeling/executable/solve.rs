@@ -212,20 +212,14 @@ impl PreparedModeling {
         order: DerivativeOrder,
         profile: Profile,
         context: &ContentHash,
-    ) -> ContentHash {
-        let mut h = FramedHasher::new(pse_ids::Frame::CompilerModelingViewV2);
+    ) -> pse_ids::roles::PreparedViewHash {
+        let mut h = FramedHasher::new(pse_ids::Frame::CompilerModelingViewV3);
         h.hash(&structure.key())
             .hash(context)
             .u64(order as u64)
             .u64(self.admitted.bodies.len() as u64);
-        for (key, body) in &self.admitted.bodies {
-            h.hash(key).u64(body.occurrences.len() as u64);
-            for o in &body.occurrences {
-                h.id(&o.id)
-                    .id(&o.definition)
-                    .u64(u64::from(o.span.start))
-                    .u64(u64::from(o.span.end));
-            }
+        for key in self.admitted.bodies.keys() {
+            h.hash(key);
         }
         h.u64(self.model.derived.len() as u64);
         for (id, parameter) in &self.model.derived {
@@ -257,17 +251,30 @@ impl PreparedModeling {
         ] {
             h.u64(x as u64);
         }
-        h.finish_hash()
+        pse_ids::roles::PreparedViewHash::from_id(h.finish_hash())
     }
     /// Source occurrences of the admitted bodies, by definition. They are provenance, not
     /// structure, so a reused view takes them from the current model.
     pub fn occurrences(&self) -> BTreeMap<SemanticId, Vec<Occurrence>> {
-        self.admitted
-            .bodies
-            .values()
-            .flat_map(|b| b.occurrences.iter().cloned())
-            .fold(BTreeMap::new(), |mut map, o| {
-                map.entry(o.definition).or_insert_with(Vec::new).push(o);
+        self.model
+            .source_occurrences()
+            .iter()
+            .fold(BTreeMap::new(), |mut map, (key, value)| {
+                let mut identity = FramedHasher::new(pse_ids::Frame::ModelingSourceOccurrenceV1);
+                identity
+                    .id(&key.declaration.as_id())
+                    .str(&key.role)
+                    .u64(key.position as u64);
+                map.entry(key.declaration.as_id())
+                    .or_insert_with(Vec::new)
+                    .push(Occurrence {
+                        id: identity.finish_id(),
+                        definition: key.declaration.as_id(),
+                        span: Span {
+                            start: value.source.start,
+                            end: value.source.end,
+                        },
+                    });
                 map
             })
     }
@@ -303,21 +310,47 @@ impl PreparedModeling {
         )?);
         let bound = ValueProducts::bind(&plan, &values, cancel)?;
         Ok(PreparedCase {
-            quantities,
-            presolve: bound.presolve,
-            coefficient_values: bound.assumptions,
+            quantities: quantities.into(),
+            presolve: bound.presolve.into(),
+            coefficient_values: Arc::new(bound.assumptions).into(),
             facts: bound.facts,
-            structure: structural_plan(SemanticId::NIL, &plan, cancel)?,
-            artifacts: artifact_requests(&plan, profile, environment),
-            occurrences: self.occurrences(),
-            coefficients: bound.coefficients,
+            structure: structural_plan(SemanticId::NIL, &plan, cancel)?.into(),
+            artifacts: artifact_requests(&plan, profile, environment).into(),
+            occurrences: Arc::new(self.occurrences()).into(),
+            coefficients: bound.coefficients.map(Into::into),
             plan,
-            derivation,
-            derived,
+            derivation: derivation.into(),
+            derived: Arc::new(derived).into(),
         })
     }
 }
 impl PreparedCase {
+    /// Payload allocated by a value rebind, excluding shared mathematics and provenance.
+    pub fn rebind_allocation_bytes(&self, previous: &Self) -> usize {
+        let mut bytes = 2 * size_of::<Self>() + 1024;
+        if !pse_math::SharedAllocation::ptr_eq(
+            &self.coefficient_values,
+            &previous.coefficient_values,
+        ) {
+            bytes += self.coefficient_values.capacity() * size_of::<(SemanticId, u64)>() + 32;
+        }
+        if !pse_math::SharedAllocation::ptr_eq(&self.derived, &previous.derived) {
+            bytes += self.derived.retained_bytes() + size_of::<Derived>() + 32;
+        }
+        if !pse_math::SharedAllocation::ptr_eq(&self.presolve, &previous.presolve) {
+            bytes += self.presolve.bytes() + 32;
+        }
+        if let Some(coefficients) = &self.coefficients
+            && self
+                .coefficients
+                .as_ref()
+                .zip(previous.coefficients.as_ref())
+                .is_none_or(|(a, b)| !pse_math::SharedAllocation::ptr_eq(a, b))
+        {
+            bytes += coefficients.retained_bytes() + 32;
+        }
+        bytes
+    }
     /// Whether every value the value-dependent products consumed is unchanged in `values`
     /// (DP-09): the values the derived parameters consumed (ADR-0104), the dependencies the
     /// presolve projection recorded and, with a coefficient snapshot, the fixed and
@@ -350,17 +383,18 @@ impl PreparedCase {
     /// Values that do not bind this structure, a refused derived parameter, a failed
     /// projection, or cancellation.
     pub fn rebind(&self, values: &CaseValues, cancel: &Arc<AtomicBool>) -> Result<Self> {
+        let _span = tracing::info_span!("pse.case.value_rebind").entered();
         let mut rebound = self.clone();
         if !self.derived.matches(values) {
-            rebound.derived = self.derivation.derive(values, cancel)?;
+            rebound.derived = Arc::new(self.derivation.derive(values, cancel)?).into();
         }
         let values = rebound.derived.complete(values);
         self.plan.structure().validate_frozen_values(&values)?;
-        rebound.coefficient_values = fixed_values(&self.plan, &values)?;
+        rebound.coefficient_values = Arc::new(fixed_values(&self.plan, &values)?).into();
         if !self.products_match(&values) {
             let bound = ValueProducts::bind(&self.plan, &values, cancel)?;
-            rebound.presolve = bound.presolve;
-            rebound.coefficients = bound.coefficients;
+            rebound.presolve = bound.presolve.into();
+            rebound.coefficients = bound.coefficients.map(Into::into);
             rebound.facts = bound.facts;
         }
         Ok(rebound)
@@ -610,13 +644,16 @@ impl PreparedModeling {
     /// Identity of the parametric projection of the view keyed `view` over `parameters`, in
     /// request order (A6, DP-09): the view's complete identity and the ordered parameter
     /// coordinates. Equal keys give equal parametric plans and artifact requests.
-    pub fn parametric_key(view: &ContentHash, parameters: &[SemanticId]) -> ContentHash {
+    pub fn parametric_key(
+        view: &pse_ids::roles::PreparedViewHash,
+        parameters: &[SemanticId],
+    ) -> pse_ids::roles::PreparedViewHash {
         let mut h = FramedHasher::new(pse_ids::Frame::CompilerModelingParametricV1);
-        h.hash(view).u64(parameters.len() as u64);
+        h.hash(&view.as_id()).u64(parameters.len() as u64);
         for parameter in parameters {
             h.id(parameter);
         }
-        h.finish_hash()
+        pse_ids::roles::PreparedViewHash::from_id(h.finish_hash())
     }
 }
 

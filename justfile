@@ -368,6 +368,9 @@ features-combinations:
     set -euo pipefail
     source scripts/build-env.sh
     source scripts/native-solver-env.sh
+    source scripts/native-math-env.sh
+    export CARGO_HACK_CARGO_SRC="$PWD/scripts/cargo_feature_check.py"
+    export PATH="$PWD/.venv/bin:$PATH"
     cargo hack --keep-going check --workspace --feature-powerset --depth 2 --locked
 
 [group('local')]
@@ -376,6 +379,9 @@ features-no-default:
     set -euo pipefail
     source scripts/build-env.sh
     source scripts/native-solver-env.sh
+    source scripts/native-math-env.sh
+    export CARGO_HACK_CARGO_SRC="$PWD/scripts/cargo_feature_check.py"
+    export PATH="$PWD/.venv/bin:$PATH"
     cargo hack --keep-going check --workspace --no-default-features --locked
 
 [group('local')]
@@ -1256,6 +1262,12 @@ native-python output *args:
     native_output="$1"
     shift
     exec bash scripts/native_exec.sh "{{ py }}" -m scripts.native_tests python --junitxml="$native_output/native-python.xml" "$@"
+
+[group('local')]
+[doc('Run selected native benchmark controls once; no performance receipt or timing samples')]
+[positional-arguments]
+bench-case-smoke output *args:
+    bash scripts/native_exec.sh "{{ py }}" -m scripts.case_measure --smoke "$@"
 
 [group('local')]
 [doc('Fresh-process Criterion cases; requires --functional-from with completed local qualification')]

@@ -1,7 +1,19 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! One public native workflow. Model declarations are generated; mathematics stays in Rust libraries.
+mod route_documents;
+pub use route_documents::{EligibilityDocument, IneligibleDocument, RouteDocument};
+mod controls;
+pub use controls::{
+    InventoryControls, ProgressControls, RunControls, StudyRunControls, StudySubmitControls,
+    StudyWaitControls,
+};
 mod completion;
+mod diagnostic_documents;
+pub use diagnostic_documents::{
+    DiagnosticAnnotationDocument, DiagnosticCauseDocument, DiagnosticContextDocument,
+    DiagnosticNoteDocument, DiagnosticSpanDocument,
+};
 mod diagnostic_rows;
 mod diagnostics;
 mod durable;
@@ -22,6 +34,8 @@ pub use pse_model::generated::identities::ScanId;
 pub use pse_operations::inventory::{
     CandidatePage as OrphanCandidatePage, OrphanCandidate, ScanCheckpoint,
 };
+mod progress_documents;
+pub use progress_documents::{IncumbentDocument, ProgressEventDocument, ProgressMetricDocument};
 mod progress;
 pub use progress::{ProgressStream, StreamRecord};
 /// The operational store a process connects to: `PSE_DATABASE_URL`, else the development
@@ -64,12 +78,12 @@ pub use objectives::{ModelingLevelsReport, ModelingObjectiveLevel};
 mod staged;
 mod strategies;
 mod time;
-pub use strategies::{AnalysisPort, ConicRequest, PreparedConic};
-#[cfg(feature = "solver-kinsol")]
 pub use strategies::{
-    CausalUnitRealization, CausalUnitRequest, PreparedInitializationStrategy, PreparedRecycle,
-    RecycleRequest,
+    AnalysisPort, CausalUnitRealization, CausalUnitRequest, ConicRequest, InitializationDocument,
+    InitializationStageDocument, PreparedConic, RecycleRequest,
 };
+#[cfg(feature = "solver-kinsol")]
+pub use strategies::{PreparedInitializationStrategy, PreparedRecycle};
 #[cfg_attr(
     not(feature = "solver-diffsol"),
     allow(
@@ -89,9 +103,10 @@ pub use horizon::{
 mod shooting;
 pub use dynamics::SimulationProfile;
 pub use fitting::{
-    Covariance, FitDeclaration, FitDeclarations, FitDerivatives, FitDiagnostic, FitProfile,
-    FitReport, FitRule, FitUncertainty, FitWithheld, Interval, IntervalBound, PreparedFit,
-    ProfileChain, ProfileControls, ProfilePoint,
+    Covariance, FitDeclaration, FitDeclarations, FitDerivatives, FitDiagnostic,
+    FitPreparationDocument, FitProfile, FitProfileDocument, FitReport, FitRule, FitUncertainty,
+    FitWithheld, Interval, IntervalBound, PreparedFit, ProfileChain, ProfileControls, ProfilePoint,
+    ProfileWorkerFailure,
 };
 #[cfg(feature = "solver-diffsol")]
 pub use shooting::{
@@ -101,6 +116,13 @@ pub use shooting::{
 mod physical;
 pub use physical::PhysicalContext;
 mod modeling;
+pub(crate) use modeling::PackageAdmission;
+pub use modeling::documents::{
+    ConformanceControls, DeclarationEdit, DeclarationInventory, DiagnosticSamplesControls,
+    InspectionConnection, InspectionExecution, InspectionInstance, InspectionLineage,
+    InspectionMember, InspectionPort, JacobianDiagnosticControls, KnowledgeControls,
+    LinearDiagnosticControls, ModelingInspection, PureConformanceControls,
+};
 pub mod uncertainty;
 pub use modeling::ModelingNativeAnalysis;
 pub use modeling::{
@@ -280,6 +302,12 @@ pub struct Runtime {
     orphan_streams: Arc<tokio::sync::Mutex<orphans::DiscoveryStreams>>,
 }
 impl Runtime {
+    pub(crate) fn validation_context(
+        &self,
+    ) -> Result<Arc<pse_relations::validate::ValidationContext>, WorkflowError> {
+        Ok(self.sessions.validation_context(&self.registry)?)
+    }
+
     /// Clear retained executable programs. Existing workers keep their owners and remain valid.
     pub fn clear_program_cache(&self) {
         self.shared.math().clear_program_cache();

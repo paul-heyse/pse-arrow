@@ -22,7 +22,7 @@ use pse_backend_native::{
     kkt::{Fallback, Prediction},
     solve::{Event, Metric, Progress},
 };
-use pse_ids::{ContentHash, FramedHasher, SemanticId};
+use pse_ids::{FramedHasher, SemanticId};
 use pse_model::generated::identities::RunId;
 use pse_operations::attempts::AttemptKind;
 use std::{
@@ -175,7 +175,12 @@ async fn admit(
 ) -> Result<Staged, WorkflowError> {
     if let Some(attempt) = durable.as_ref() {
         attempt
-            .register_as(run_id, AttemptKind::Modeling, admitted.identity, None)
+            .register_as(
+                run_id,
+                AttemptKind::Modeling,
+                admitted.identity.as_id(),
+                None,
+            )
             .await?;
     }
     let staged = match opened {
@@ -203,7 +208,7 @@ struct Stage {
     /// The symbol of every path the loop reads from a solution.
     read: BTreeMap<String, SemanticId>,
     /// The prepared template's request identity.
-    identity: ContentHash,
+    identity: pse_ids::roles::LineageRequestHash,
 }
 impl Stage {
     /// Admit a stage whose steps bind `bound` and whose solutions the loop reads at `read`.
@@ -420,7 +425,7 @@ struct Admitted {
     estimator: Option<Estimator>,
     controller: Option<Controller>,
     /// The horizon's request identity, registered with its durable attempt.
-    identity: ContentHash,
+    identity: pse_ids::roles::LineageRequestHash,
     /// Native threads of the stages' solves; the plant runs on as many, so the session keeps
     /// their retained state.
     threads: usize,
@@ -763,7 +768,7 @@ fn identity(
     inputs: &[super::HorizonInput],
     estimator: Option<&Estimator>,
     controller: Option<&Controller>,
-) -> ContentHash {
+) -> pse_ids::roles::LineageRequestHash {
     let mut h = FramedHasher::new(pse_ids::Frame::DurableHorizonRequestV1);
     h.hash(&plant.identity())
         .u64(period.to_bits())
@@ -775,7 +780,7 @@ fn identity(
     match estimator {
         Some(e) => {
             h.bool(true)
-                .hash(&e.stage.identity)
+                .hash(&e.stage.identity.as_id())
                 .u64(e.window as u64)
                 .u64(e.measurements.len() as u64);
             for (o, paths) in &e.measurements {
@@ -811,7 +816,7 @@ fn identity(
     match controller {
         Some(c) => {
             h.bool(true)
-                .hash(&c.stage.identity)
+                .hash(&c.stage.identity.as_id())
                 .u64(c.bindings.len() as u64);
             for (path, signal) in &c.bindings {
                 h.str(path);
@@ -857,7 +862,7 @@ fn identity(
             h.bool(false);
         }
     }
-    h.finish_hash()
+    pse_ids::roles::LineageRequestHash::from_id(h.finish_hash())
 }
 
 #[derive(Clone, Copy, Debug)]

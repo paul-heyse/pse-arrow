@@ -138,9 +138,8 @@ def _modules_after(statement: str) -> frozenset[str]:
 def build_info_matches_checkout() -> None:
     """Assert the built extension was produced from this checkout's lockfiles.
 
-    Only the fields the extension actually populates are compared: the lockfile
-    digests are empty strings until ``pse-buildinfo`` wires them in phase 1, and
-    a placeholder must not be able to fail this by looking like a mismatch.
+    Compare captured external checksums with the exact checkout lockfiles.
+    An absent lockfile has no checksum evidence and is left unattributed.
     """
     info = build_info()
     for field_name, lockfile in (

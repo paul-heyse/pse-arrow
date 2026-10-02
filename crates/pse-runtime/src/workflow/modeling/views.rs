@@ -5,59 +5,11 @@
 //! identity (DP-09). A value-only change finds its structure here and rebinds values; only
 //! a structural change prepares again.
 use super::*;
-use crate::math::{ExecutableCase, Preparation, modeling::ModelingCasePreparation};
+use crate::math::{ExecutableCase, modeling::ModelingCasePreparation};
 use pse_compiler::workspace::{ModelingVariableState, Profile};
-use pse_ids::ContentHash;
 use pse_kernels::DerivativeOrder;
 use pse_math::binding::CaseValues;
-use std::{
-    collections::{BTreeSet, VecDeque},
-    sync::{Arc, Mutex},
-};
-
-/// Retained views per kind. Bounded, least recently used first out (DP-20).
-const CAPACITY: usize = 16;
-/// A bounded map from structural identity to a prepared product.
-#[derive(Debug)]
-struct Bounded<T>(VecDeque<(ContentHash, T)>);
-impl<T: Clone> Bounded<T> {
-    fn get(&mut self, key: &ContentHash) -> Option<T> {
-        let index = self.0.iter().position(|(k, _)| k == key)?;
-        let entry = self.0.remove(index)?;
-        let value = entry.1.clone();
-        self.0.push_back(entry);
-        Some(value)
-    }
-    fn insert(&mut self, key: ContentHash, value: T) {
-        self.0.retain(|(k, _)| *k != key);
-        if self.0.len() == CAPACITY {
-            self.0.pop_front();
-        }
-        self.0.push_back((key, value));
-    }
-}
-impl<T> Default for Bounded<T> {
-    fn default() -> Self {
-        Self(VecDeque::new())
-    }
-}
-/// The package's prepared solver views and observation programs.
-#[derive(Debug, Default)]
-pub(in crate::workflow) struct Views {
-    solver: Mutex<Bounded<Preparation>>,
-    observations: Mutex<Bounded<Arc<ExecutableCase>>>,
-    parametric: Mutex<Bounded<Arc<ExecutableCase>>>,
-}
-impl Views {
-    fn lock<T>(
-        slot: &Mutex<Bounded<T>>,
-    ) -> Result<std::sync::MutexGuard<'_, Bounded<T>>, WorkflowError> {
-        slot.lock().map_err(|_| {
-            crate::math::MathRuntimeError::Infrastructure("prepared view lock poisoned".into())
-                .into()
-        })
-    }
-}
+use std::{collections::BTreeSet, sync::Arc};
 impl ModelingPackage {
     /// The solver view of `model` under `states`, bound to `values`. The first request for a
     /// structure prepares it; every later one rebinds values onto it (A6). The returned
@@ -78,7 +30,8 @@ impl ModelingPackage {
             .map_err(crate::math::MathRuntimeError::from)?;
         let key = product.view_key(&bound.structure, order, compiler, &self.physical.key);
         let service = self.runtime.shared.math();
-        let cached = Views::lock(&self.views.solver)?.get(&key);
+        let generation = service.modeling_cache.generation();
+        let cached = service.modeling_cache.solver(key);
         let case = match cached {
             Some(view) => service.rebind(&view, values.clone(), cancel).await?,
             None => {
@@ -93,10 +46,13 @@ impl ModelingPackage {
                         cancel,
                     )
                     .await?;
-                Views::lock(&self.views.solver)?.insert(key, view.clone());
+                service
+                    .modeling_cache
+                    .retain_solver(generation, key, view.clone());
                 view
             }
         };
+        let case = service.attribute_modeling_view(&case, model)?;
         Ok(ModelingCasePreparation {
             model: model.clone(),
             values: case.compiled().complete(&values),
@@ -123,10 +79,11 @@ impl ModelingPackage {
                 "sensitivity parameter {unknown} is not a declared parameter of the solved case"
             )));
         }
+        let generation = self.runtime.shared.math().modeling_cache.generation();
         let product = model.compiled();
         let view = product.view_key(structure, order, compiler, &self.physical.key);
         let key = pse_compiler::workspace::PreparedModeling::parametric_key(&view, parameters);
-        if let Some(program) = Views::lock(&self.views.parametric)?.get(&key) {
+        if let Some(program) = self.runtime.shared.math().modeling_cache.program(key, true) {
             return Ok(program);
         }
         let program = self
@@ -142,7 +99,12 @@ impl ModelingPackage {
                 cancel,
             )
             .await?;
-        Views::lock(&self.views.parametric)?.insert(key, program.clone());
+        self.runtime.shared.math().modeling_cache.retain_program(
+            generation,
+            key,
+            program.clone(),
+            true,
+        );
         Ok(program)
     }
     /// The value-independent program observing `rows` of `model`, compiled once per
@@ -154,6 +116,7 @@ impl ModelingPackage {
         compiler: Profile,
         cancel: &crate::CancelSource,
     ) -> Result<Arc<ExecutableCase>, WorkflowError> {
+        let generation = self.runtime.shared.math().modeling_cache.generation();
         let product = model.compiled();
         let structure = product
             .observation_structure(rows)
@@ -164,7 +127,13 @@ impl ModelingPackage {
             compiler,
             &self.physical.key,
         );
-        if let Some(program) = Views::lock(&self.views.observations)?.get(&key) {
+        if let Some(program) = self
+            .runtime
+            .shared
+            .math()
+            .modeling_cache
+            .program(key, false)
+        {
             return Ok(program);
         }
         let program = self
@@ -179,7 +148,12 @@ impl ModelingPackage {
                 cancel,
             )
             .await?;
-        Views::lock(&self.views.observations)?.insert(key, program.clone());
+        self.runtime.shared.math().modeling_cache.retain_program(
+            generation,
+            key,
+            program.clone(),
+            false,
+        );
         Ok(program)
     }
 }

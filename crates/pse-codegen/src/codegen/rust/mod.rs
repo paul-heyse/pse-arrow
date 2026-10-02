@@ -235,7 +235,7 @@ fn documents(reg: &Registry) -> Result<(TokenStream, TokenStream), SchemaError> 
             let doc = section.doc;
             fields.push(quote!(#[doc = #doc] #default pub #key: #ty,));
             batches.push(quote! {
-                let mut builder = pse_relations::generated::#namespace::#relation::Builder::with_registry(registry, #capacity)?;
+                let mut builder = pse_relations::generated::#namespace::#relation::Builder::with_registry(registry, #capacity, validation)?;
                 for row in #values {
                     builder.push(row)?;
                 }
@@ -256,7 +256,7 @@ fn documents(reg: &Registry) -> Result<(TokenStream, TokenStream), SchemaError> 
                 /// This establishes local field construction, not keys or foreign keys.
                 /// # Errors
                 /// An incompatible declaration or invalid scalar/nested field value.
-                fn into_batches(self, registry: &pse_schema::Registry) -> Result<
+                fn into_batches(self, registry: &pse_schema::Registry, validation: &pse_relations::validate::ValidationContext) -> Result<
                     std::collections::BTreeMap<pse_ids::SemanticId, Vec<pse_relations::columnar::FieldCheckedBatch>>,
                     pse_relations::RelationError,
                 > {
@@ -271,7 +271,7 @@ fn documents(reg: &Registry) -> Result<(TokenStream, TokenStream), SchemaError> 
             #document_name => {
                 let document = <pse_authoring::generated::documents::#name as serde::Deserialize>::deserialize(deserializer)
                     .map_err(|error| crate::authoring_driver::contract(error.to_string()))?;
-                Ok(document.into_batches(registry)?)
+                Ok(document.into_batches(registry, validation)?)
             }
         });
     }
@@ -279,7 +279,7 @@ fn documents(reg: &Registry) -> Result<(TokenStream, TokenStream), SchemaError> 
         quote!(#(#declarations)*),
         quote! {
             trait IntoBatches {
-                fn into_batches(self, registry: &pse_schema::Registry) -> Result<
+                fn into_batches(self, registry: &pse_schema::Registry, validation: &pse_relations::validate::ValidationContext) -> Result<
                     std::collections::BTreeMap<pse_ids::SemanticId, Vec<pse_relations::columnar::FieldCheckedBatch>>, pse_relations::RelationError>;
             }
             #(#implementations)*
@@ -287,7 +287,7 @@ fn documents(reg: &Registry) -> Result<(TokenStream, TokenStream), SchemaError> 
             /// # Errors
             /// Unknown document kinds, strict serde shape errors and invalid field values.
             pub(crate) fn batches_from_document<'de, D: serde::Deserializer<'de>>(
-                name: &str, deserializer: D, registry: &pse_schema::Registry,
+                name: &str, deserializer: D, registry: &pse_schema::Registry, validation: &pse_relations::validate::ValidationContext,
             ) -> Result<std::collections::BTreeMap<pse_ids::SemanticId, Vec<pse_relations::columnar::FieldCheckedBatch>>, crate::authoring_driver::DriverError> {
                 match name {
                     #(#dispatch)*

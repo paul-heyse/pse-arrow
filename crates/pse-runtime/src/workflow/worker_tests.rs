@@ -215,7 +215,10 @@ async fn unknown_payload_version_refused() {
                         attempt_id: pse_operations::mint_id(),
                         run_id: pse_operations::mint_id(),
                         kind: pse_operations::attempts::AttemptKind::Modeling,
-                        request_identity: job.request_identity().unwrap(),
+                        operational_job_identity:
+                            pse_ids::roles::RecordedOperationalJobIdentity::current(
+                                job.operational_job_identity(key).unwrap(),
+                            ),
                         preparation_identity: None,
                         parent_attempt: None,
                     },
@@ -312,24 +315,30 @@ fn job_request_identity_independent_of_key_order() {
     assert_ne!(forward, backward);
     let decoded = |text: &str| serde_json::from_str::<ModelingJob>(text).unwrap();
     assert_eq!(
-        decoded(&forward).request_identity().unwrap(),
-        decoded(&backward).request_identity().unwrap()
+        decoded(&forward).operational_job_identity("scope").unwrap(),
+        decoded(&backward)
+            .operational_job_identity("scope")
+            .unwrap()
     );
     assert_eq!(
-        decoded(&forward).request_identity().unwrap(),
-        job.request_identity().unwrap()
+        decoded(&forward).operational_job_identity("scope").unwrap(),
+        job.operational_job_identity("scope").unwrap()
+    );
+    assert_ne!(
+        job.operational_job_identity("scope").unwrap(),
+        job.operational_job_identity("another-scope").unwrap()
     );
     let mut changed = job.clone();
     changed.settings.controls.iterations += 1;
     assert_ne!(
-        changed.request_identity().unwrap(),
-        job.request_identity().unwrap()
+        changed.operational_job_identity("scope").unwrap(),
+        job.operational_job_identity("scope").unwrap()
     );
     let mut resumed = job.clone();
     resumed.start = JobStart::ResumeFromParent;
     assert_ne!(
-        resumed.request_identity().unwrap(),
-        job.request_identity().unwrap()
+        resumed.operational_job_identity("scope").unwrap(),
+        job.operational_job_identity("scope").unwrap()
     );
 }
 
@@ -338,7 +347,7 @@ fn study_job_v5_codec_unit_retains_binding_policy_and_operation() {
     use pse_model::study::*;
     let hash = pse_ids::ContentHash::from_bytes([1; 32]);
     let binding = AdmittedBinding {
-        revision: hash,
+        revision: hash.into(),
         context: hash,
         entries: BTreeMap::new(),
     };
@@ -346,7 +355,7 @@ fn study_job_v5_codec_unit_retains_binding_policy_and_operation() {
         version: pse_model::document::Version,
         admitted_horizon: None,
         source: OperationSource {
-            revision: hash,
+            revision: hash.into(),
             physical_context: hash,
         },
         preparation: PreparationSettings::default(),

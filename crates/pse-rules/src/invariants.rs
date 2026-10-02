@@ -17,81 +17,6 @@ use pse_relations::{
 use pse_schema::{Registry, model::RelationKey};
 use std::collections::{BTreeMap, BTreeSet};
 
-/// Provider policies use the same registry-to-native lowering as bundle admission.
-#[derive(Debug)]
-pub struct RegistryRequirementPlanner;
-static IMPLEMENTATION: std::sync::LazyLock<
-    std::sync::Arc<pse_engine::session::ObligationImplementation>,
-> = std::sync::LazyLock::new(std::sync::Arc::default);
-#[async_trait::async_trait]
-impl pse_engine::session::policy::RequirementPlanner for RegistryRequirementPlanner {
-    async fn plan(
-        &self,
-        session: &EngineSession,
-        requirements: &BTreeSet<SemanticId>,
-        cancel: &CancellationToken,
-    ) -> Result<datafusion::logical_expr::LogicalPlan, pse_engine::EngineError> {
-        let mut plans = BTreeMap::new();
-        let mut missing = BTreeSet::new();
-        for id in requirements {
-            let required = BTreeSet::from([*id]);
-            if let Some(plan) = session.reuse_obligation(&required, &IMPLEMENTATION, cancel)? {
-                plans.insert(*id, plan);
-            } else {
-                missing.insert(*id);
-            }
-        }
-        if !missing.is_empty() {
-            let compiled = program::compile_individual(
-                &session.input_keys().collect(),
-                session,
-                session.registry(),
-                InvariantScope::Required(&missing),
-                cancel,
-            )
-            .await
-            .map_err(|error| pse_engine::EngineError::Semantic(std::sync::Arc::new(error)))?;
-            let (ids, inputs): (Vec<_>, Vec<_>) = compiled
-                .into_iter()
-                .map(|(id, plan)| (id, (plan, BTreeSet::from([id]))))
-                .unzip();
-            plans.extend(ids.into_iter().zip(session.bind_obligations(
-                &inputs,
-                &IMPLEMENTATION,
-                cancel,
-            )?));
-        }
-        let mut plans = plans.into_values().collect::<Vec<_>>();
-        let schema = plans
-            .first()
-            .ok_or_else(|| pse_engine::EngineError::Admission {
-                path: "provider.requirements".to_owned(),
-                reason: "empty requirement selection".to_owned(),
-            })?
-            .schema()
-            .clone();
-        plans.retain(|plan| !matches!(plan, datafusion::logical_expr::LogicalPlan::EmptyRelation(empty) if !empty.produce_one_row));
-        if plans.is_empty() {
-            return Ok(datafusion::logical_expr::LogicalPlan::EmptyRelation(
-                datafusion::logical_expr::EmptyRelation {
-                    produce_one_row: false,
-                    schema,
-                },
-            ));
-        }
-        if plans.len() == 1
-            && let Some(plan) = plans.pop()
-        {
-            return Ok(plan);
-        }
-        datafusion::logical_expr::Union::try_new_with_loose_types(
-            plans.into_iter().map(std::sync::Arc::new).collect(),
-        )
-        .map(datafusion::logical_expr::LogicalPlan::Union)
-        .map_err(pse_engine::EngineError::from)
-    }
-}
-
 /// The complete candidate scope whose registry obligations are being discharged.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum InvariantScope<'a> {
@@ -108,7 +33,7 @@ pub enum InvariantScope<'a> {
     Affected(&'a BTreeSet<RelationKey>),
     /// Local sidecar predicates; cross-artifact obligations require the enclosing scope.
     SidecarRelation,
-    /// Exactly the invariant declarations selected by composed provider policies.
+    /// Exactly the invariant declarations selected by the explicit boundary caller.
     Required(&'a BTreeSet<SemanticId>),
 }
 
@@ -199,7 +124,13 @@ pub async fn run_invariants(
         if batch.num_rows() == 0 {
             continue;
         }
-        let owner = FieldCheckedBatch::admit_owned(registry, spec, batch.clone())?;
+        let owner = FieldCheckedBatch::admit_owned(
+            registry,
+            spec,
+            batch.clone(),
+            session.validation_context()?.as_ref(),
+            cancel,
+        )?;
         let view = diagnostics_findings::View::from_checked(&owner)?;
         // This is an observation of the completed typed diagnostic output, not a second
         // interpretation of an invariant. Its predicates ran in the native program.

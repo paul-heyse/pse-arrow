@@ -63,7 +63,14 @@ async fn selected_ids_retain_values_metadata_and_empty_group_nullability() {
         ],
     )
     .unwrap();
-    let checked = FieldCheckedBatch::admit(&registry, spec, batch).unwrap();
+    let checked = FieldCheckedBatch::admit(
+        &registry,
+        spec,
+        batch,
+        &fixture_validation(&registry),
+        &CancellationToken::new(),
+    )
+    .unwrap();
     let cancel = CancellationToken::new();
     let session = pse_testkit::factory(
         Arc::new(pse_columnar::GreedyMemoryPool::new(64 << 20)),
@@ -151,4 +158,16 @@ async fn selected_ids_retain_values_metadata_and_empty_group_nullability() {
             "{mode}"
         );
     }
+}
+
+// Deliberate fixed native owner for isolated caller-supplied fixture rows.
+fn fixture_validation(
+    registry: &pse_schema::Registry,
+) -> pse_relations::validate::ValidationContext {
+    pse_relations::validate::ValidationContext::new(
+        registry,
+        pse_engine::validation::NativeValidation(
+            datafusion::prelude::SessionContext::new().state(),
+        ),
+    )
 }

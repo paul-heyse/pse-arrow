@@ -186,10 +186,12 @@ pub(crate) fn admit_translations(
         };
         let source_anchor = anchor(&declaration.source_anchor, &arguments[0].1)?;
         let target_anchor = anchor(&declaration.target_anchor, &result)?;
-        let temperature = pse_authoring::dsl::parse_expr(&declaration.temperature)
-            .map_err(|error| invalid(at, error.to_string()))?;
-        let pressure = pse_authoring::dsl::parse_expr(&declaration.pressure)
-            .map_err(|error| invalid(at, error.to_string()))?;
+        let temperature = package
+            .expression_at(at, "reference_translation.temperature", 0)?
+            .clone();
+        let pressure = package
+            .expression_at(at, "reference_translation.pressure", 0)?
+            .clone();
         // Entity facets and provenance are admitted after the function dependency graph.
         // Complete this private signature product from that admitted provenance below.
         let descriptor = ReferenceTranslation {
@@ -889,24 +891,28 @@ pub(crate) fn call_type(
                 .ok_or_else(|| invalid(at, "reflection names an exchange"))?;
             let mut endpoint_env =
                 crate::expression::declaration_environment(package, context, id)?;
-            for index in &exchange.indices {
-                let domain = dsl::parse_expr(&index.domain)
-                    .map_err(|error| invalid(at, error.to_string()))?;
+            for (position, index) in exchange.indices.iter().enumerate() {
                 let (Type::Set(element) | Type::Continuous(_, element)) =
-                    crate::expression::infer(&domain, &endpoint_env, package, context, id, None)?
+                    crate::expression::index_domain_type(
+                        package.static_at(id, "exchange.indices.domain", position)?,
+                        &endpoint_env,
+                        package,
+                        context,
+                        id,
+                    )?
                 else {
                     return Err(invalid(at, "exchange index domain must be a set"));
                 };
                 endpoint_env.insert(index.name.clone(), *element);
             }
-            let endpoint = |text: &str| -> Result<DeclarationId> {
-                let expr = dsl::parse_expr(text).map_err(|error| invalid(at, error.to_string()))?;
-                match crate::expression::infer(&expr, &endpoint_env, package, context, id, None)? {
+            let endpoint = |role: &str| -> Result<DeclarationId> {
+                let expr = package.expression_at(id, role, 0)?;
+                match crate::expression::infer(expr, &endpoint_env, package, context, id, None)? {
                     Type::Boundary(id) => Ok(id),
                     _ => Err(invalid(at, "exchange endpoint requires a boundary")),
                 }
             };
-            let (first, second) = (endpoint(&exchange.from)?, endpoint(&exchange.to)?);
+            let (first, second) = (endpoint("exchange.from")?, endpoint("exchange.to")?);
             let selected = if boundary.declaration() == first {
                 second
             } else if boundary.declaration() == second {

@@ -44,3 +44,42 @@ pub const PERSISTENT_IDENTITY_QUALIFIED: bool = !CARGO_LOCK.is_empty() && !UV_LO
 #[cfg(test)]
 #[path = "../identity.rs"]
 mod identity;
+
+/// SHA256 checksum of the exact captured Cargo lockfile; empty when absent.
+pub const CARGO_LOCK_SHA256: &str = env!("PSE_CARGO_LOCK_SHA256");
+/// SHA256 checksum of the exact captured uv lockfile; empty when absent.
+pub const UV_LOCK_SHA256: &str = env!("PSE_UV_LOCK_SHA256");
+
+/// Build provenance of the compiled product, projected without recomputing its identity.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct BuildInfo {
+    /// Workspace and wheel version.
+    pub version: String,
+    /// Captured compiler release.
+    pub rustc_version: String,
+    /// Captured Cargo build profile.
+    pub profile: String,
+    /// Captured Git commit, or the producer's source-distribution marker.
+    pub git_sha: String,
+    /// Historical public lockfile digest field; empty when no such evidence was produced.
+    pub lockfile_hash: String,
+    /// External SHA256 checksum of the exact embedded Cargo lockfile bytes.
+    pub cargo_lock_sha256: String,
+    /// External SHA256 checksum of the exact embedded uv lockfile bytes.
+    pub uv_lock_sha256: String,
+}
+impl BuildInfo {
+    /// Observe captured provenance; an absent lockfile keeps its checksum absent.
+    pub fn captured() -> Self {
+        Self {
+            version: VERSION.into(),
+            rustc_version: RUSTC_VERSION.into(),
+            profile: PROFILE.into(),
+            git_sha: GIT_SHA.into(),
+            lockfile_hash: String::new(),
+            cargo_lock_sha256: CARGO_LOCK_SHA256.into(),
+            uv_lock_sha256: UV_LOCK_SHA256.into(),
+        }
+    }
+}

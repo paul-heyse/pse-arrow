@@ -16,49 +16,31 @@ use crate::error::IdError;
 
 /// Renders `bytes` as lowercase hexadecimal.
 fn to_hex_string(bytes: &[u8]) -> String {
-    let mut out = String::with_capacity(bytes.len() * 2);
-    for byte in bytes {
-        // `write!` to a String cannot fail, and the crate denies `unwrap`.
-        out.push(hex_digit(byte >> 4));
-        out.push(hex_digit(byte & 0x0f));
-    }
-    out
+    hex::encode(bytes)
 }
 
-/// The lowercase hexadecimal digit for a nibble; values above 15 cannot occur.
-const fn hex_digit(nibble: u8) -> char {
-    match nibble {
-        0..=9 => (b'0' + nibble) as char,
-        10..=15 => (b'a' + (nibble - 10)) as char,
-        // Unreachable for a nibble; a total function is cheaper than a panic policy escape.
-        _ => '?',
-    }
-}
-
-/// Parses exactly `WIDTH * 2` hexadecimal digits into `WIDTH` bytes.
+/// Parse either case; canonical authored literals impose their lowercase policy separately.
 fn parse_hex_bytes<const WIDTH: usize>(text: &str) -> Result<[u8; WIDTH], IdError> {
-    let digits: Vec<char> = text.chars().collect();
-    if digits.len() != WIDTH * 2 {
+    if text.chars().count() != WIDTH * 2 {
         return Err(IdError::HexLength {
             expected: WIDTH * 2,
-            actual: digits.len(),
+            actual: text.chars().count(),
         });
     }
     let mut out = [0_u8; WIDTH];
-    for (index, byte) in out.iter_mut().enumerate() {
-        let high = nibble_of(digits[index * 2], index * 2)?;
-        let low = nibble_of(digits[index * 2 + 1], index * 2 + 1)?;
-        *byte = (high << 4) | low;
-    }
+    hex::decode_to_slice(text, &mut out).map_err(|error| match error {
+        hex::FromHexError::InvalidHexCharacter { c, index } => IdError::HexDigit {
+            position: index,
+            found: c,
+        },
+        hex::FromHexError::OddLength | hex::FromHexError::InvalidStringLength => {
+            IdError::HexLength {
+                expected: WIDTH * 2,
+                actual: text.len(),
+            }
+        }
+    })?;
     Ok(out)
-}
-
-/// One hexadecimal digit, upper or lower case, as a nibble.
-fn nibble_of(found: char, position: usize) -> Result<u8, IdError> {
-    found
-        .to_digit(16)
-        .and_then(|value| u8::try_from(value).ok())
-        .ok_or(IdError::HexDigit { position, found })
 }
 
 /// A 128-bit semantic identity (blueprint §5.1, `pse.semantic_id`).

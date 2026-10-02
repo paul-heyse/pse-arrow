@@ -400,7 +400,7 @@ fn sqp_working_set_restart_reaches_runtime() {
     let transformation = first.preprocessing.as_ref().unwrap().transformation;
     assert_eq!(working.transformation, transformation);
     // The published seed names each status in snake_case, never by Rust `Debug` (F30).
-    let snapshot = seed.snapshot();
+    let snapshot = serde_json::to_value(seed.snapshot()).unwrap();
     let active = &snapshot["payload"]["working_set"]["active"];
     let statuses = active["bounds"]
         .as_array()

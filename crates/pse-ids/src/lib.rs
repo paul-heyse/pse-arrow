@@ -3,6 +3,7 @@
 
 //! Semantic identity and canonical hashing; native representations live in pse-columnar.
 pub mod derive;
+pub mod document;
 pub mod encoding;
 pub mod error;
 pub mod float;
@@ -12,6 +13,7 @@ pub mod newtype;
 #[cfg(feature = "postgres")]
 pub mod postgres;
 pub mod preimage;
+pub mod roles;
 pub use derive::{Frame, FramedHasher, derive_hash, derive_id, named_id};
 pub use encoding::{EncodingHasher, encoding_checksum};
 pub use error::IdError;

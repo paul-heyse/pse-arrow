@@ -53,7 +53,10 @@ impl CacheValue for Value {
 impl MathService {
     /// Clear retained programs without cancelling live owners or permitting late reinsertion.
     pub fn clear_program_cache(&self) {
-        self.retention.clear(|| self.entries.clear());
+        self.retention.clear(|| {
+            self.entries.clear();
+            self.modeling_cache.clear();
+        });
     }
     /// Obtain a compiler-issued artifact; callers cannot supply an independent cache key.
     pub async fn artifact(
@@ -124,21 +127,24 @@ impl CacheComponent for MathService {
         self.clear_program_cache();
     }
     fn report(&self) -> Vec<CacheReport> {
-        vec![CacheReport {
-            name: self.entries.name(),
-            capacity_bytes: 0,
-            retained_bytes: self.entries.memory_used(),
-            policy_limit_bytes: self.entries.cache_limit(),
-            live_bytes: Some(self.live.load(Ordering::Acquire)),
-            pinned_bytes: None,
-            inflight_bytes: None,
-            active_loads: Some(self.flights.active()),
-            evictions: None,
-            entries: self.entries.len(),
-            hits: self.hits.load(Ordering::Relaxed),
-            misses: self.misses.load(Ordering::Relaxed),
-            bypasses: 0,
-        }]
+        vec![
+            self.modeling_cache.report(),
+            CacheReport {
+                name: self.entries.name(),
+                capacity_bytes: 0,
+                retained_bytes: self.entries.memory_used(),
+                policy_limit_bytes: self.entries.cache_limit(),
+                live_bytes: Some(self.live.load(Ordering::Acquire)),
+                pinned_bytes: None,
+                inflight_bytes: None,
+                active_loads: Some(self.flights.active()),
+                evictions: None,
+                entries: self.entries.len(),
+                hits: self.hits.load(Ordering::Relaxed),
+                misses: self.misses.load(Ordering::Relaxed),
+                bypasses: 0,
+            },
+        ]
     }
     fn details(
         &self,

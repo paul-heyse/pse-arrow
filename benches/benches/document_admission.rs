@@ -12,7 +12,7 @@
 use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
 use datafusion::arrow::array::{ArrayRef, Float64Array, Int64Array, RecordBatch};
 use datafusion::arrow::datatypes::{DataType, Field, Schema};
-use pse_compiler::workspace::{CompilerWorkspace, Inputs, WorkspaceLimits};
+use pse_compiler::workspace::{CompilerContext, CompilerWorkspace, WorkspaceLimits};
 use pse_modeling::PhysicalScope;
 use pse_modeling::document::DocumentInventory;
 use pse_relations::columnar::RelationRow;
@@ -55,28 +55,25 @@ fn sources() -> BTreeMap<String, Vec<u8>> {
     ])
 }
 
-fn inputs() -> Inputs {
-    Inputs {
+fn context() -> CompilerContext {
+    CompilerContext {
         quantities: Arc::new(pse_quantity::standard::standard_registry().unwrap()),
         preconditions: Arc::new(pse_quantity::PhysicalPreconditions::new(vec![]).unwrap()),
-        flows: BTreeMap::new(),
-        definitions: BTreeMap::new(),
-        domains: BTreeMap::new(),
-        groups: BTreeMap::new(),
         providers: BTreeMap::new(),
-        cases: BTreeMap::new(),
-        values: BTreeMap::new(),
     }
 }
 
 fn admission(c: &mut Criterion) {
     let registry = pse_schema::shared_registry().unwrap();
+    let native = pse_testkit::NativeFixture::new((256 << 20).try_into().unwrap()).unwrap();
+    let validation = native.factory.validation_context(&registry).unwrap();
     let sources = sources();
     let load = || {
         load_package_documents(
             sources.clone(),
             &registry,
             pse_authoring::ParseBudget::default(),
+            &validation,
         )
         .unwrap()
     };
@@ -87,6 +84,17 @@ fn admission(c: &mut Criterion) {
     .unwrap();
     let mut inventory = DocumentInventory::default();
     for document in &bundle.documents {
+        for (path, span) in document.spans.iter() {
+            if let Some(field) = path.strip_prefix("/modeling-fields/")
+                && let Some((declaration, role)) = field.split_once('/')
+            {
+                inventory
+                    .field_spans
+                    .entry(pse_ids::SemanticId::parse_hex(declaration).unwrap().into())
+                    .or_default()
+                    .insert(role.into(), span);
+            }
+        }
         match document.data() {
             Some(data) => {
                 inventory.documents.insert(document.id, Arc::clone(data));
@@ -105,7 +113,7 @@ fn admission(c: &mut Criterion) {
     group.bench_function("load_and_decode/100000", |b| b.iter(load));
     group.bench_function("admit/100000", |b| {
         b.iter_batched(
-            || CompilerWorkspace::new(inputs(), WorkspaceLimits::default()).unwrap(),
+            || CompilerWorkspace::new(context(), WorkspaceLimits::default()).unwrap(),
             |mut workspace| {
                 let revision = workspace
                     .publish_modeling_with(

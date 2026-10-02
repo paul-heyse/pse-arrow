@@ -1,0 +1,26 @@
+{
+  "invariant": "runtime.operational_schema_support_state:unique:pk",
+  "rows": {
+    "runtime.operational_schema_support_state": [
+      {
+        "history": "[\"text\",\"value-1\"]",
+        "ready": "[\"bool\",true]",
+        "shared_version": "[\"i64\",1]",
+        "source": "[\"text\",\"value-1\"]",
+        "target": "[\"text\",\"value-1\"]"
+      },
+      {
+        "history": "[\"text\",\"value-1\"]",
+        "ready": "[\"bool\",true]",
+        "shared_version": "[\"i64\",1]",
+        "source": "[\"text\",\"value-1\"]",
+        "target": "[\"text\",\"value-1\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"text\",\"value-1\"]"
+    ]
+  ]
+}

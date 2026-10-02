@@ -3,24 +3,48 @@
   "rows": {
     "runtime.candidate_assessments": [
       {
+        "absolute_gap": "[\"f64\",\"3ff0000000000000\"]",
+        "bound": "[\"f64\",\"3ff0000000000000\"]",
+        "bound_origin": "[\"enum\",\"global_export\"]",
+        "candidate_kind": "[\"enum\",\"final_iterate\"]",
         "closure": "[\"enum\",\"not_required\"]",
+        "incumbent_policy": "[\"enum\",\"refuse\"]",
         "native_termination": "[\"enum\",\"success\"]",
         "numerically_feasible": "[\"bool\",true]",
+        "permits_result": "[\"bool\",true]",
+        "permits_seed": "[\"bool\",true]",
         "policy": "[\"enum\",\"require_closed\"]",
+        "qualification": "[\"enum\",\"unqualified\"]",
+        "qualifiers": "[\"list\",[]]",
         "reason": "[\"text\",\"value-1\"]",
+        "refusals": "[\"list\",[]]",
+        "relative_gap": "[\"f64\",\"3ff0000000000000\"]",
         "run_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "step": "[\"i64\",1]",
-        "usability": "[\"enum\",\"usable\"]"
+        "usability": "[\"enum\",\"usable\"]",
+        "validated": "[\"bool\",true]"
       },
       {
+        "absolute_gap": "[\"f64\",\"3ff0000000000000\"]",
+        "bound": "[\"f64\",\"3ff0000000000000\"]",
+        "bound_origin": "[\"enum\",\"global_export\"]",
+        "candidate_kind": "[\"enum\",\"final_iterate\"]",
         "closure": "[\"enum\",\"not_required\"]",
+        "incumbent_policy": "[\"enum\",\"refuse\"]",
         "native_termination": "[\"enum\",\"success\"]",
         "numerically_feasible": "[\"bool\",true]",
+        "permits_result": "[\"bool\",true]",
+        "permits_seed": "[\"bool\",true]",
         "policy": "[\"enum\",\"require_closed\"]",
+        "qualification": "[\"enum\",\"unqualified\"]",
+        "qualifiers": "[\"list\",[]]",
         "reason": "[\"text\",\"value-1\"]",
+        "refusals": "[\"list\",[]]",
+        "relative_gap": "[\"f64\",\"3ff0000000000000\"]",
         "run_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "step": "[\"i64\",1]",
-        "usability": "[\"enum\",\"usable\"]"
+        "usability": "[\"enum\",\"usable\"]",
+        "validated": "[\"bool\",true]"
       }
     ]
   },

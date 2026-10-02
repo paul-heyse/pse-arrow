@@ -1496,7 +1496,7 @@ fn declare_local_analysis(b: &mut RegistryBuilder) {
             documented(
                 "dual",
                 real(),
-                "For a row, the derivative of its multiplier; for a variable, of its bound multiplier z_L − z_U; both in the minimization convention of `solve_constraints.dual`, zero where the constraint is inactive; absent for the objective.",
+                "For a row, the derivative of its multiplier; for a variable, of its bound multiplier z_L - z_U; both in the minimization convention of `solve_constraints.dual`, zero where the constraint is inactive; absent for the objective.",
             )
             .optional(),
         ],
@@ -1618,7 +1618,7 @@ fn declare_fit_uncertainty(b: &mut RegistryBuilder) {
             )
             .optional(),
         ],
-        "Confidence intervals of a fit's free parameters (ADR-0118 item 8). A Wald end is the estimate ± z·σ with z the standard normal quantile of (1 + level)/2. A profile-likelihood end is the pinned value at which the signed root of twice the objective increase, √(2(f − f*)), reaches √χ²₁(level), found by an adaptive pin chain; with absolute deviations both use the same quantile, so they agree on a linear model. The validity of each method's intervals is in local_validity.",
+        "Confidence intervals of a fit's free parameters (ADR-0118 item 8). A Wald end is the estimate ± z·σ with z the standard normal quantile of (1 + level)/2. A profile-likelihood end is the pinned value at which the signed root of twice the objective increase, √(2(f - f*)), reaches √χ²₁(level), found by an adaptive pin chain; with absolute deviations both use the same quantile, so they agree on a linear model. The validity of each method's intervals is in local_validity.",
     );
     relation(
         b,
@@ -1656,7 +1656,7 @@ fn declare_fit_uncertainty(b: &mut RegistryBuilder) {
             documented(
                 "statistic",
                 real(),
-                "√(2·max(f − f*, 0)) against the estimate's objective f*.",
+                "√(2·max(f - f*, 0)) against the estimate's objective f*.",
             )
             .optional(),
             documented(

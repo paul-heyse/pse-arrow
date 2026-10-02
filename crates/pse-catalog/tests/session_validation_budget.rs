@@ -65,6 +65,7 @@ fn input() -> (Arc<Registry>, RecordBatch) {
                 vec![serde_json::json!(["text", "x".repeat(64 << 10)]); 8]
             ]),
         ]],
+        &fixture_validation(&registry),
     )
     .expect("caller-owned input");
     (registry, batch)
@@ -299,6 +300,7 @@ fn many_invalid_nested_values_are_budgeted_before_diagnostics_and_release_scratc
             serde_json::json!(["u64", 0]),
             serde_json::json!(["list", vec![row; 1024]]),
         ]],
+        &fixture_validation(&registry),
     )
     .expect("valid spans");
     let list = valid
@@ -377,4 +379,14 @@ fn many_invalid_nested_values_are_budgeted_before_diagnostics_and_release_scratc
     };
     assert_eq!(code(&error), DiagnosticCode::RuntimeResourceLimit);
     assert_eq!(tiny.reserved(), 0);
+}
+
+// Deliberate fixed native owner for isolated caller-supplied fixture rows.
+fn fixture_validation(registry: &Registry) -> pse_relations::validate::ValidationContext {
+    pse_relations::validate::ValidationContext::new(
+        registry,
+        pse_engine::validation::NativeValidation(
+            datafusion::prelude::SessionContext::new().state(),
+        ),
+    )
 }

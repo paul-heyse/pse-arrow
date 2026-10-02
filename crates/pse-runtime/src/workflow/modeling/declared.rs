@@ -150,7 +150,8 @@ pub struct DeclaredExecution {
     pub requested_start: pse_backend_native::solve::StartPolicy,
 }
 /// Optional explicit initialization choices. Rust owns every omitted value.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(default, deny_unknown_fields)]
 pub struct InitializationOverrides {
     /// Optional stage order, compatible with the authored order.
     pub stages: Option<Vec<String>>,
@@ -165,6 +166,7 @@ pub struct InitializationOverrides {
     /// Optional attempt bound.
     pub maximum_attempts: Option<usize>,
     /// Optional wall-clock bound.
+    #[schemars(with = "Option<pse_model::document::ClosedDuration>")]
     pub time_limit: Option<std::time::Duration>,
     /// Optional discrete treatment.
     pub discrete: Option<DiscreteInitialization>,

@@ -32,7 +32,7 @@
 @id("01a0f076dd1876e1afc4604167adf5c4") let feed_in[i in stages,j in components]:ComponentFlow=sum(b in stages where b==bottom and b==i | feed*feed_composition[j]);
 @id("01a0f076dd1876e1afc46042139a3101") let liquid_out[i in stages]:Flow=reflux+sum(b in stages where b==bottom and b==i | feed);
 @id("01a0f076dd1876e1afc460438568405d") eq material[i in stages,j in components]:liquid_in[i,j]+vapor_in[i,j]+feed_in[i,j]==liquid_out[i]*x[i,j]+boilup*y[i,j];
-@id("01a0f076dd1876e1afc46044096384d0") eq equilibrium[i in stages,j in components]:y[i,j]/equilibrium.fraction_unit()==(vapor_pressure(T[i],j)/pressure)*(x[i,j]/equilibrium.fraction_unit());
+@id("01a0f076dd1876e1afc46044096384d0") eq phase_equilibrium[i in stages,j in components]:y[i,j]/equilibrium.fraction_unit()==(vapor_pressure(T[i],j)/pressure)*(x[i,j]/equilibrium.fraction_unit());
 @id("01a0f076dd1876e1afc460456494c97d") eq summation[i in stages]:sum(j in components | y[i,j]/equilibrium.fraction_unit())==1;
 @id("01a0f076dd1876e1afc46046813da431") annotation start x(0.5{1});
 @id("01a0f076dd1876e1afc460479cc61e1a") annotation start y(0.5{1});

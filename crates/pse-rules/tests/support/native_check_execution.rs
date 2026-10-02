@@ -13,14 +13,10 @@ use datafusion::arrow::{
     datatypes::DataType,
 };
 use pse_columnar::CancellationToken;
-use pse_ids::SemanticId;
-use pse_rules::invariants::{InvariantScope, RegistryRequirementPlanner, run_invariants};
+use pse_rules::invariants::{InvariantScope, run_invariants};
 use pse_schema::{
     Registry, RegistryBuilder,
-    model::{
-        Authority, FieldContract as T, Namespace, RelationDecl, RelationKey, SnapshotClass,
-        provider::{ProviderPolicy, ProviderScope},
-    },
+    model::{Authority, FieldContract as T, Namespace, RelationDecl, RelationKey, SnapshotClass},
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -48,9 +44,7 @@ fn registry() -> Arc<Registry> {
         ])
         .checks(BTreeMap::from([("approved".into(), "approved".into())])),
     );
-    let registry = Arc::new(builder.build().unwrap());
-    pse_engine::validation::bind_defaults(&registry).unwrap();
-    registry
+    Arc::new(builder.build().unwrap())
 }
 fn rows(registry: &Registry, values: Vec<Option<bool>>) -> BTreeMap<RelationKey, RecordBatch> {
     let spec = registry.relation("authored.native_checked").unwrap();
@@ -83,7 +77,8 @@ async fn native_predicates_report_exact_false_and_unknown_keys_without_a_rule_de
             .any(|declaration| declaration.id == check)
     );
     let input = rows(&registry, vec![Some(true), Some(false), None]);
-    let report = pse_relations::validate::ValidationContext::for_registry(&registry)
+    let report = session(&registry, &rows(&registry, vec![Some(true)]))
+        .validation_context()
         .unwrap()
         .relation(&registry, spec)
         .unwrap()
@@ -143,58 +138,6 @@ async fn native_predicates_report_exact_false_and_unknown_keys_without_a_rule_de
     assert_eq!(affected.check_count(), 0);
 }
 
-#[tokio::test]
-async fn native_check_provider_policy_applies_to_no_scan_execution_and_refuses_absent_sources() {
-    let registry = registry();
-    let required = registry
-        .relation("authored.native_checked")
-        .unwrap()
-        .row_check_id("approved")
-        .unwrap();
-    let factory = pse_testkit::NativeFixture::new(std::num::NonZeroUsize::new(64 << 20).unwrap())
-        .unwrap()
-        .into_factory()
-        .with_requirement_planner(Arc::new(RegistryRequirementPlanner));
-    for (values, valid) in [
-        (vec![], true),
-        (vec![Some(true)], true),
-        (vec![Some(false)], false),
-        (vec![None], false),
-    ] {
-        let cancel = CancellationToken::new();
-        let mut policy = ProviderPolicy::new(SemanticId::from_bytes([8; 16]), ProviderScope::Root);
-        policy.requirements.insert(required);
-        let candidate = factory.candidate(rows(&registry, values), Arc::clone(&registry), &cancel);
-        if !valid {
-            assert!(
-                candidate.is_err(),
-                "invalid rows must refuse before provider binding"
-            );
-            continue;
-        }
-        let bound = candidate.unwrap().with_policy(policy).unwrap();
-        let prepared = bound.prepare_sql("SELECT 42", &cancel).await.unwrap();
-        assert!(prepared.execute(&cancel).await.is_ok());
-    }
-    let mut policy = ProviderPolicy::new(SemanticId::from_bytes([8; 16]), ProviderScope::Root);
-    policy.requirements.insert(required);
-    let cancel = CancellationToken::new();
-    let missing = factory
-        .candidate(BTreeMap::new(), registry, &cancel)
-        .unwrap()
-        .with_policy(policy)
-        .unwrap();
-    assert!(
-        missing
-            .prepare_sql("SELECT 42", &cancel)
-            .await
-            .unwrap()
-            .execute(&cancel)
-            .await
-            .is_err()
-    );
-}
-
 async fn assert_predicate(
     relation: &str,
     name: &str,
@@ -206,7 +149,7 @@ async fn assert_predicate(
         common::DFSchema,
         execution::context::SessionContext,
     };
-    let registry = pse_engine::validation::registry().unwrap();
+    let registry = pse_schema::catalog::assemble().unwrap();
     let sql = &registry.relation(relation).unwrap().checks[name];
     let schema = Arc::new(Schema::new(
         columns

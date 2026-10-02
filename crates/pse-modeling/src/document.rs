@@ -187,6 +187,8 @@ impl DataDocument {
 pub struct DocumentInventory {
     /// The package identity of each source document declaring modeling rows.
     pub packages: BTreeMap<SemanticId, SemanticId>,
+    /// Parser-derived declaration payload field locations, keyed by full structural field path.
+    pub field_spans: BTreeMap<DeclarationId, BTreeMap<String, pse_authoring::SourceSpan>>,
     /// The data documents by identity.
     pub documents: BTreeMap<SemanticId, Arc<DataDocument>>,
 }
@@ -202,6 +204,24 @@ impl DocumentInventory {
     pub fn retained_bytes(&self) -> usize {
         size_of::<Self>()
             + self.packages.len() * (2 * size_of::<SemanticId>() + 32)
+            + self
+                .field_spans
+                .values()
+                .map(|fields| {
+                    size_of::<DeclarationId>()
+                        + size_of::<BTreeMap<String, pse_authoring::SourceSpan>>()
+                        + 32
+                        + fields
+                            .keys()
+                            .map(|path| {
+                                size_of::<String>()
+                                    + path.capacity()
+                                    + size_of::<pse_authoring::SourceSpan>()
+                                    + 32
+                            })
+                            .sum::<usize>()
+                })
+                .sum::<usize>()
             + self
                 .documents
                 .values()
@@ -355,6 +375,14 @@ impl DocumentTable {
 
 /// The package data documents admission reads (ADR-0125).
 pub trait Documents {
+    /// Exact source fields from the immutable source revision, when supplied by authoring.
+    fn field_spans(
+        &self,
+        _declaration: DeclarationId,
+    ) -> Option<&BTreeMap<String, pse_authoring::SourceSpan>> {
+        None
+    }
+
     /// Precharge owned expansion before allocating it. Standalone pure checks have no
     /// workspace owner; engine consumers enforce their workspace allowance here.
     ///

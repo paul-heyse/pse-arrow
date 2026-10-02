@@ -361,10 +361,6 @@ impl IsolatedWriteBody {
         replacement.dependencies.clear();
         let mut admitted = session;
         admitted.bindings.replace_table(&reference, &replacement)?;
-        admitted
-            .check_requirements(cancel)
-            .await
-            .map_err(external)?;
         let catalog = state
             .catalog_list()
             .catalog(

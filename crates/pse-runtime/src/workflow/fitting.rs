@@ -2,13 +2,15 @@
 // Copyright (c) 2026 Paul Heyse
 //! Shared-parameter experiment compilation. Trial values never enter Salsa queries.
 mod covariance;
+mod documents;
+pub use documents::{FitPreparationDocument, FitProfileDocument};
 mod modeling;
 mod oracle;
 mod preparation;
 mod profile;
 pub use covariance::{Covariance, FitWithheld, Interval, IntervalBound};
 pub use modeling::FitDeclarations;
-pub use profile::{ProfileChain, ProfilePoint};
+pub use profile::{ProfileChain, ProfilePoint, ProfileWorkerFailure};
 #[cfg(test)]
 pub(in crate::workflow) mod regression;
 mod results;
@@ -206,7 +208,7 @@ pub(crate) struct FitProblem {
     pub(crate) lineage: pse_model::lineage::Fitted,
     pub(crate) profile: FitProfile,
     pub(crate) key: ContentHash,
-    pub(crate) profile_key: ContentHash,
+    pub(crate) profile_key: pse_ids::roles::ProfileHash,
     pub(crate) numerics: Arc<ResolvedNumericalPolicy>,
     pub(crate) normalization: Normalization,
     pub(crate) tolerances: native::quality::Tolerances,

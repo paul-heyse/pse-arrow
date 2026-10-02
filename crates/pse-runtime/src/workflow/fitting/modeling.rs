@@ -14,7 +14,7 @@ use pse_relations::{
 };
 
 /// Registry-owned experiment and parameter selection intent; measurements belong to typed records.
-#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct FitDeclarations {
     /// Declared fits with their parameters, experiments and observation selections.
@@ -39,11 +39,12 @@ impl FitDeclarations {
     pub(crate) fn tables(
         &self,
         registry: &pse_schema::Registry,
+        validation: &pse_relations::validate::ValidationContext,
     ) -> Result<BTreeMap<SemanticId, FieldCheckedBatch>, WorkflowError> {
         let mut result = BTreeMap::new();
         macro_rules! relation {
             ($name:ident, $rows:expr) => {{
-                let mut builder = $name::Builder::with_registry(registry, $rows.len())
+                let mut builder = $name::Builder::with_registry(registry, $rows.len(), validation)
                     .map_err(super::super::relation)?;
                 for row in $rows {
                     builder.push(row.clone()).map_err(super::super::relation)?;
@@ -77,7 +78,7 @@ fn member(model: &ModelingPreparation, path: &str) -> Result<SemanticId, Workflo
         .ok_or_else(|| contract(format!("unknown fit source path {path}")))
 }
 fn port(model: &ModelingPreparation, id: SemanticId) -> Result<Port, WorkflowError> {
-    let source = &model.compiled().admitted.case;
+    let source = &model.compiled().admitted.case();
     source
         .parameters()
         .iter()
@@ -363,7 +364,7 @@ impl ModelingPackage {
         let mut physical_cells = 0usize;
         let mut identity = FramedHasher::new(pse_ids::Frame::ModelingFitSourceV2);
         identity.hash(&self.physical.key);
-        identity.hash(&self.revision.identity());
+        identity.hash(&self.revision.identity().as_id());
         let mut execution_identity = FramedHasher::new(pse_ids::Frame::ModelingFitExecutionV1);
         for (ei, (e, (bindings, case, model, local))) in
             d.experiments.iter().zip(sources).enumerate()
@@ -520,7 +521,7 @@ impl ModelingPackage {
                             .model()
                             .compiled()
                             .admitted
-                            .case
+                            .case()
                             .rows()
                             .iter()
                             .find(|r| r.id == *id)
@@ -755,7 +756,7 @@ impl ModelingPackage {
                         let r = model
                             .compiled()
                             .admitted
-                            .case
+                            .case()
                             .rows()
                             .iter()
                             .find(|r| r.id == output)

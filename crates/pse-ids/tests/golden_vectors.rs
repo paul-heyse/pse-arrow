@@ -291,26 +291,41 @@ fn the_derive_key_contexts_are_frozen() {
 /// The frame spellings captured at the start of Plan 22 B3a, before the catalog existed.
 const CAPTURED_FRAME_SPELLINGS: &str = include_str!("frame_spellings.txt");
 
+/// Deliberately versioned additions after the captured Plan 22/23 catalog.
+const APPROVED_FRAME_ADDITIONS: &str = include_str!("frame-spellings-additions.txt");
+
 #[test]
 fn frame_spellings_unchanged() {
-    // Every frame in the catalog is a spelling that was in use before it, and every
-    // spelling that was in use is in the catalog: no identity moved to a new context.
-    let captured: std::collections::BTreeSet<&str> = CAPTURED_FRAME_SPELLINGS
-        .lines()
-        .map(str::trim)
-        .filter(|line| !line.is_empty() && !line.starts_with('#'))
-        .collect();
-    let cataloged: std::collections::BTreeSet<&str> =
-        Frame::ALL.iter().map(|frame| frame.as_str()).collect();
-    assert_eq!(
-        cataloged.difference(&captured).collect::<Vec<_>>(),
-        Vec::<&&str>::new(),
-        "frames that were not in use before the catalog"
+    fn spellings(source: &str) -> std::collections::BTreeSet<&str> {
+        let rows = source
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty() && !line.starts_with('#'))
+            .collect::<Vec<_>>();
+        let unique = rows
+            .iter()
+            .copied()
+            .collect::<std::collections::BTreeSet<_>>();
+        assert_eq!(rows.len(), unique.len(), "duplicate golden spelling");
+        unique
+    }
+    let captured = spellings(CAPTURED_FRAME_SPELLINGS);
+    let additions = spellings(APPROVED_FRAME_ADDITIONS);
+    assert!(
+        captured.is_disjoint(&additions),
+        "an addition aliases a historical frame"
     );
+    let approved = captured
+        .union(&additions)
+        .copied()
+        .collect::<std::collections::BTreeSet<_>>();
+    let cataloged = Frame::ALL
+        .iter()
+        .map(|frame| frame.as_str())
+        .collect::<std::collections::BTreeSet<_>>();
     assert_eq!(
-        captured.difference(&cataloged).collect::<Vec<_>>(),
-        Vec::<&&str>::new(),
-        "spellings in use before the catalog that it does not declare"
+        cataloged, approved,
+        "catalog must preserve history and exactly the approved additions"
     );
     assert_eq!(
         cataloged.len(),

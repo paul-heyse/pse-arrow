@@ -119,7 +119,7 @@ pub(crate) fn expression(value: &Expr) -> usize {
                 args.capacity() * size_of::<Expr>() + args.iter().map(expression).sum::<usize>()
             }
             ExprKind::NamedCall { name, args } => {
-                name.capacity()
+                path(name)
                     + args.capacity() * size_of::<Expr>()
                     + args.iter().map(expression).sum::<usize>()
             }
@@ -128,7 +128,7 @@ pub(crate) fn expression(value: &Expr) -> usize {
                 wrt,
                 args,
             } => {
-                function.capacity()
+                path(function)
                     + wrt.capacity() * size_of::<Path>()
                     + wrt.iter().map(path).sum::<usize>()
                     + args.capacity() * size_of::<Expr>()
@@ -373,6 +373,7 @@ impl SpecializedModel {
     /// Conservative owned specialization storage, excluding separately owned library math.
     pub fn retained_bytes(&self) -> usize {
         size_of::<Self>()
+            + crate::expression::occurrences::retained_bytes(self.source_occurrences())
             + selections(&self.selection_closures)
             + map(&self.root_selections, |_, s| match s {
                 crate::specialize::RootSelection::Branch(p) => predicate(p),

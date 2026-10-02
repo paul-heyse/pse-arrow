@@ -128,7 +128,7 @@ pub struct StudyPointDefinition {
     /// Reconstructable admitted descriptor of one existing operation.
     pub operation: StudyOperation,
     /// The hash of the point's value bindings.
-    pub binding_hash: ContentHash,
+    pub binding_hash: pse_ids::roles::BindingHash,
     /// Canonical physically admitted member assignments; original paths are attribution.
     pub binding: AdmittedBinding,
     /// Shared occurrence/dependency/start policy.
@@ -198,8 +198,7 @@ fn identity(
     frame: pse_ids::Frame,
     value: &impl serde::Serialize,
 ) -> Result<ContentHash, WorkflowError> {
-    pse_backend_native::identity::of(frame, value)
-        .map_err(|e| WorkflowError::Math(crate::math::MathRuntimeError::from(e)))
+    pse_ids::document::of(frame, value).map_err(|e| contract(e.to_string()))
 }
 
 fn document(value: &impl serde::Serialize, what: &str) -> Result<serde_json::Value, WorkflowError> {
@@ -243,7 +242,7 @@ impl Operations {
             attempt_id: point.attempt_id,
             point_index: binding.point_index,
             revision: point.revision,
-            source_revision: binding.operation.source.revision,
+            source_revision: binding.operation.source.revision.as_id(),
             start: None,
             scientific: Default::default(),
             diagnostic: None,
@@ -521,26 +520,40 @@ impl Runtime {
                 .store()
                 .studies()
                 .record_receipt(
-                    point.study_id,
-                    pse_model::study::OccurrenceKey(point.point_index),
-                    point.job_id,
-                    point.attempt_id,
-                    operations.worker(),
-                    point.revision,
-                    point.scientific.clone(),
-                    point.diagnostic.clone(),
-                    document(&ticket, "point receipt")?,
+                    pse_operations::studies::DispatchFence {
+                        study: point.study_id,
+                        key: pse_model::study::OccurrenceKey(point.point_index),
+                        job: point.job_id,
+                        attempt: point.attempt_id,
+                        worker: operations.worker(),
+                        expected_revision: point.revision,
+                    },
+                    pse_operations::studies::PreEffectReceipt {
+                        scientific: point.scientific.clone(),
+                        diagnostic: point.diagnostic.clone(),
+                        receipt: document(&ticket, "point receipt")?,
+                    },
                 )
                 .await?;
             point.revision += 1;
             point.effect = pse_model::study::EffectState::Unknown;
             let completed = command.execute(cancel).await?;
-            let members = candidate_record(&completed, &self.registry)?.members;
+            let members = candidate_record(
+                &completed,
+                &self.registry,
+                self.validation_context()?.as_ref(),
+            )?
+            .members;
             point.effect = pse_model::study::EffectState::Idempotent;
             return Ok(members);
         }
         let completed = command.execute(cancel).await?;
-        Ok(candidate_record(&completed, &self.registry)?.members)
+        Ok(candidate_record(
+            &completed,
+            &self.registry,
+            self.validation_context()?.as_ref(),
+        )?
+        .members)
     }
 
     /// Start a durable study (Plan 22 O7): store its sources and definition, and create
@@ -629,7 +642,7 @@ impl Runtime {
                 return Err(contract("immutable study seed need differs from owner"));
             }
         }
-        let request_identity = identity(pse_ids::Frame::DurableStudyRequestV1, &definition)?;
+        let request_identity = identity(pse_ids::Frame::DurableStudyRequestV2, &definition)?;
         let study_id: StudyId = pse_operations::mint_id();
         let attempt_id: AttemptId = pse_operations::mint_id();
         let run_id: RunId = pse_operations::mint_id();
@@ -669,7 +682,12 @@ impl Runtime {
                     OperationRequest::Simulation(_) => AttemptKind::Simulation,
                     OperationRequest::Fit(_) => AttemptKind::Fit,
                 },
-                request_identity: identity(pse_ids::Frame::DurableJobRequestV2, &operation_job)?,
+                operational_job_identity: pse_ids::roles::RecordedOperationalJobIdentity::current(
+                    pse_ids::roles::OperationalJobHash::from(identity(
+                        pse_ids::Frame::DurableJobRequestV3,
+                        &operation_job,
+                    )?),
+                ),
                 preparation_identity: None,
                 parent_attempt: None,
             };
@@ -690,7 +708,12 @@ impl Runtime {
                 attempt_id: pse_operations::mint_id(),
                 run_id,
                 kind: AttemptKind::StudyFinalization,
-                request_identity,
+                operational_job_identity: pse_ids::roles::RecordedOperationalJobIdentity::current(
+                    pse_ids::roles::OperationalJobHash::from(identity(
+                        pse_ids::Frame::DurableJobRequestV3,
+                        &(AttemptKind::StudyFinalization, request_identity, study_id),
+                    )?),
+                ),
                 preparation_identity: None,
                 parent_attempt: None,
             },
@@ -707,7 +730,13 @@ impl Runtime {
                     attempt_id,
                     run_id,
                     kind: AttemptKind::Study,
-                    request_identity,
+                    operational_job_identity:
+                        pse_ids::roles::RecordedOperationalJobIdentity::current(
+                            pse_ids::roles::OperationalJobHash::from(identity(
+                                pse_ids::Frame::DurableJobRequestV3,
+                                &(AttemptKind::Study, request_identity, study_id),
+                            )?),
+                        ),
                     preparation_identity: None,
                     parent_attempt: None,
                 },
@@ -741,7 +770,8 @@ impl Runtime {
     pub async fn studies(&self, filter: &StudyFilter) -> Result<FieldCheckedBatch, WorkflowError> {
         use pse_relations::generated::runtime::operational_studies as studies;
         let records = self.operations()?.store().studies().list(filter).await?;
-        let mut rows = studies::Builder::with_registry(&self.registry, records.len())
+        let validation = self.validation_context()?;
+        let mut rows = studies::Builder::with_registry(&self.registry, records.len(), &validation)
             .map_err(super::relation)?;
         for row in records {
             rows.push(row).map_err(super::relation)?;
@@ -856,8 +886,13 @@ impl Runtime {
         definition: &StudyDefinition,
         available: &std::collections::BTreeSet<u32>,
     ) -> Result<FieldCheckedBatch, WorkflowError> {
-        let mut rows = study_outcomes::Builder::with_registry(&self.registry, record.points.len())
-            .map_err(super::relation)?;
+        let validation = self.validation_context()?;
+        let mut rows = study_outcomes::Builder::with_registry(
+            &self.registry,
+            record.points.len(),
+            &validation,
+        )
+        .map_err(super::relation)?;
         for point in &record.points {
             let defined = definition
                 .points

@@ -113,14 +113,19 @@ async fn admit(
         .await
         .map_err(|error| error.context("collect the candidate record"))?;
     let registry = request.registry.as_ref();
-    let record = publication_manifests::View::try_from_batch_with_registry(registry, &batch)
-        .map_err(pse_columnar::external)?
-        .row(0)
-        .map_err(pse_columnar::external)?;
+    let validation = pse_relations::validate::ValidationContext::new(
+        registry,
+        pse_engine::validation::NativeValidation(state.as_ref().clone()),
+    );
+    let record =
+        publication_manifests::View::try_from_batch_with_registry(registry, &batch, &validation)
+            .map_err(pse_columnar::external)?
+            .row(0)
+            .map_err(pse_columnar::external)?;
     if record.parent_publication_id == Some(record.publication_id) {
         return Err(invalid("a publication cannot be its own parent"));
     }
-    super::publication::verify_inputs(&record.inputs, registry, Arc::clone(&state))
+    super::publication::verify_inputs(&record.inputs, Arc::clone(&state))
         .await
         .map_err(|error| error.context("open the candidate's exact inputs"))?;
     let candidate = super::publication::bind_members(&record.members, registry, Arc::clone(&state))

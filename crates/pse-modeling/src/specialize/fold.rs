@@ -33,7 +33,15 @@ impl Engine<'_, '_> {
             at,
             None,
         )?;
-        let Value::Set(members) = self.eval(at, env, &dsl::render_path(&binder.domain), None)?
+        let Value::Set(members) = self.eval_ast_with(
+            at,
+            env,
+            &Expr {
+                kind: ExprKind::Path(binder.domain.clone()),
+                span: Span::default(),
+            },
+            None,
+        )?
         else {
             return Err(invalid(at, "fold requires finite membership"));
         };

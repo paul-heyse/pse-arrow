@@ -17,6 +17,7 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+schemars.workspace = true
 pse-columnar.workspace = true
 pse-diagnostics.workspace = true
 datafusion.workspace = true

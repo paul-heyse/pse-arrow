@@ -83,8 +83,104 @@ def require_functional(root: Path, path: Path) -> dict:
     return {"path": str(report.resolve()), "digest": validation_receipts.digest(report)}
 
 
-def preparation_campaign(output: Path, profile: str) -> dict:
-    """Build untimed, then isolate every declared M1 workload and the 100k-row admission."""
+def selected_workloads(
+    declarations: tuple[dict, ...], selection: list[str]
+) -> list[dict]:
+    """Select declared identities exactly; no selector means the complete campaign."""
+    workloads = [w for declaration in declarations for w in declaration["workloads"]]
+    identities = [w["id"] for w in workloads]
+    if len(set(identities)) != len(identities):
+        raise ValueError("measurement workload identities must be unique")
+    unknown = sorted(set(selection) - set(identities))
+    if unknown:
+        raise ValueError(f"unknown measurement cases: {', '.join(unknown)}")
+    return [w for w in workloads if not selection or w["id"] in selection]
+
+
+def smoke_campaign(
+    output: Path, profile: str, process: dict, preparation: dict, selected: set[str]
+) -> None:
+    """Execute benchmark controls once; this produces no performance qualification."""
+    targets = {"native_process", "modeling_preparation", "document_admission"}
+    command = [
+        "cargo",
+        "bench",
+        "-p",
+        "pse-benches",
+        "--locked",
+        "--profile",
+        profile,
+        "--features",
+        "native-process,pse-relations/force-validate",
+        "--no-run",
+        "--message-format=json",
+    ]
+    for target in sorted(targets):
+        command.extend(("--bench", target))
+    build = subprocess.run(
+        command, cwd=ROOT, check=True, text=True, stdout=subprocess.PIPE
+    )
+    binaries = {
+        row["target"]["name"]: row["executable"]
+        for line in build.stdout.splitlines()
+        if line.startswith("{")
+        for row in [json.loads(line)]
+        if row.get("reason") == "compiler-artifact"
+        and row.get("executable")
+        and row.get("target", {}).get("name") in targets
+    }
+    if set(binaries) != targets:
+        raise ValueError("all selected benchmark control executables must be built")
+    for declaration, target in (
+        (process, "native_process"),
+        (preparation, "modeling_preparation"),
+        ({"workloads": [{"id": "document-admission"}]}, "document_admission"),
+    ):
+        for workload in declaration["workloads"]:
+            name = workload["id"]
+            if name not in selected:
+                continue
+            directory = output / name
+            directory.mkdir()
+            env = {
+                **os.environ,
+                "PSE_PROCESS_COST_CASE": name,
+                "PSE_PROCESS_COST_SPEC": json.dumps(workload),
+                "PSE_PROCESS_COST_OUTPUT": str(directory),
+                "PSE_PREPARATION_CASE": name,
+                "PSE_PREPARATION_OUTPUT": str(directory),
+                "PSE_ADMISSION_OUTPUT": str(directory),
+            }
+            with (directory / "process.log").open("w") as log:
+                subprocess.run(
+                    [binaries[target], "--test"],
+                    cwd=ROOT,
+                    env=env,
+                    check=True,
+                    stdout=log,
+                    stderr=subprocess.STDOUT,
+                )
+    validation.write_json(
+        output / "case-smoke.json",
+        {
+            "schema": "case-smoke-v1",
+            "measured": False,
+            "selected_cases": sorted(selected),
+            "native": native_provenance(
+                {
+                    "cargo_profile": profile,
+                    "features": ["native-process", "pse-relations/force-validate"],
+                },
+                list(binaries.values()),
+            ),
+        },
+    )
+
+
+def preparation_campaign(
+    output: Path, profile: str, workloads: list[dict], admission_selected: bool
+) -> dict:
+    """Build untimed, then isolate the selected preparation/admission workloads."""
     command = [
         "cargo",
         "bench",
@@ -119,9 +215,8 @@ def preparation_campaign(output: Path, profile: str) -> dict:
         raise ValueError(
             "both preparation and admission benchmark artifacts are required"
         )
-    declaration = json.loads((ROOT / ".config/preparation-cases.json").read_text())
     cases = []
-    for workload in declaration["workloads"]:
+    for workload in workloads:
         name = workload["id"]
         directory = output / "preparation" / name
         directory.mkdir(parents=True, exist_ok=False)
@@ -147,24 +242,29 @@ def preparation_campaign(output: Path, profile: str) -> dict:
                 ),
             }
         )
-    directory = output / "admission"
-    directory.mkdir(parents=True, exist_ok=False)
-    with (directory / "process.log").open("w") as log:
-        subprocess.run(
-            [binaries["document_admission"], "--bench"],
-            cwd=ROOT,
-            env={**os.environ, "PSE_ADMISSION_OUTPUT": str(directory)},
-            check=True,
-            stdout=log,
-            stderr=subprocess.STDOUT,
-        )
-    admission = json.loads((directory / "admission.json").read_text())
-    admission["samples"] = {
-        phase: samples(
-            directory / "criterion/document_admission" / phase / "100000/new/raw.csv"
-        )
-        for phase in ("load_and_decode", "admit")
-    }
+    admission = None
+    if admission_selected:
+        directory = output / "admission"
+        directory.mkdir(parents=True, exist_ok=False)
+        with (directory / "process.log").open("w") as log:
+            subprocess.run(
+                [binaries["document_admission"], "--bench"],
+                cwd=ROOT,
+                env={**os.environ, "PSE_ADMISSION_OUTPUT": str(directory)},
+                check=True,
+                stdout=log,
+                stderr=subprocess.STDOUT,
+            )
+        admission = json.loads((directory / "admission.json").read_text())
+        admission["samples"] = {
+            phase: samples(
+                directory
+                / "criterion/document_admission"
+                / phase
+                / "100000/new/raw.csv"
+            )
+            for phase in ("load_and_decode", "admit")
+        }
     return {
         "native": native_provenance(
             {
@@ -181,11 +281,36 @@ def preparation_campaign(output: Path, profile: str) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output", type=Path)
-    parser.add_argument("--functional-from", type=Path, required=True)
+    parser.add_argument("--functional-from", type=Path)
+    parser.add_argument(
+        "--smoke",
+        action="store_true",
+        help="Run each selected control once without timing samples or a measurement receipt.",
+    )
+    parser.add_argument(
+        "--case",
+        action="append",
+        default=[],
+        help="Declared process, preparation or document-admission case; repeat to select several. Defaults to all.",
+    )
     args = parser.parse_args()
+    declaration = json.loads((ROOT / ".config/process-cases.json").read_text())
+    preparation = json.loads((ROOT / ".config/preparation-cases.json").read_text())
+    admission = {"workloads": [{"id": "document-admission"}]}
+    selection = selected_workloads((declaration, preparation, admission), args.case)
+    selected = {w["id"] for w in selection}
+    if args.smoke:
+        if args.functional_from:
+            parser.error("smoke controls do not consume qualification receipts")
+        output = validation.fresh_output(ROOT, args.output)
+        smoke_campaign(
+            output, declaration["cargo_profile"], declaration, preparation, selected
+        )
+        return 0
+    if args.functional_from is None:
+        parser.error("measurement requires --functional-from completed qualification")
     functional = require_functional(ROOT, args.functional_from)
     output = validation.fresh_output(ROOT, args.output)
-    declaration = json.loads((ROOT / ".config/process-cases.json").read_text())
     started = time.time()
     before = source_digest(ROOT)
     profile = {
@@ -227,6 +352,8 @@ def main() -> int:
     cases = []
     for workload in declaration["workloads"]:
         name = workload["id"]
+        if name not in selected:
+            continue
         directory = output / "process-cost" / name
         directory.mkdir(parents=True, exist_ok=False)
         env = {
@@ -267,6 +394,7 @@ def main() -> int:
         "started": started,
         "source_digest": before,
         "compilation_timed": False,
+        "selected_cases": [w["id"] for w in selection],
         "binary_path": str(binary.resolve()),
         "binary_digest": native["files"][str(binary.resolve())],
         "toolchain": native["toolchain"],
@@ -277,8 +405,16 @@ def main() -> int:
         },
         "cases": cases,
     }
-    report["thermodynamic_preparation"] = preparation_campaign(
-        output, profile["cargo_profile"]
+    report["thermodynamic_preparation"] = (
+        preparation_campaign(
+            output,
+            profile["cargo_profile"],
+            [w for w in preparation["workloads"] if w["id"] in selected],
+            "document-admission" in selected,
+        )
+        if any(w["id"] in selected for w in preparation["workloads"])
+        or "document-admission" in selected
+        else {"cases": [], "admission": None, "not_selected": True}
     )
     if source_digest(ROOT) != before:
         raise ValueError("sources changed during preparation measurement")

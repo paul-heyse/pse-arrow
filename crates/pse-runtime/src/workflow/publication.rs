@@ -37,7 +37,9 @@ use std::collections::BTreeMap;
 
 /// A registered publication workspace: one publication history with one head, whose
 /// members are written under `root`.
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[serde(deny_unknown_fields)]
 pub struct Workspace {
     /// The workspace identity.
@@ -46,6 +48,7 @@ pub struct Workspace {
     pub name: String,
     /// The directory its members are written under.
     #[serde(rename = "root_uri")]
+    #[schemars(with = "String")]
     pub root: url::Url,
 }
 
@@ -74,7 +77,9 @@ impl Workspace {
 }
 
 /// A committed publication.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[serde(deny_unknown_fields)]
 pub struct Published {
     /// The publication, now the head of its workspace.
@@ -88,7 +93,9 @@ pub struct Published {
 }
 
 /// The settlement of a publication ticket whose commit outcome is unknown.
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
 pub enum PublicationSettlement {
     /// The ticket's publication is visible.
@@ -121,6 +128,7 @@ pub struct PublicationAttempt {
     pub ticket: PublicationTicket,
     operations: super::Operations,
     registry: std::sync::Arc<pse_schema::Registry>,
+    validation: std::sync::Arc<pse_relations::validate::ValidationContext>,
     /// The workspace published in.
     pub workspace: Workspace,
     /// The exact expected parent; never rebased.
@@ -185,7 +193,7 @@ impl PublicationAttempt {
                 .checkpoint()
                 .map_err(pse_engine::EngineError::from)?;
         }
-        let record = candidate_record(&completed, &self.registry)?;
+        let record = candidate_record(&completed, &self.registry, &self.validation)?;
         let request = PublicationCommit {
             publication_id: self.publication_id,
             workspace_id: self.workspace.workspace_id,
@@ -218,6 +226,7 @@ impl PublicationAttempt {
 pub(super) fn candidate_record(
     completed: &pse_engine::session::CompletedComputation,
     registry: &pse_schema::Registry,
+    validation: &pse_relations::validate::ValidationContext,
 ) -> Result<publication_manifests::Row, WorkflowError> {
     let batches = completed.batches();
     let [batch] = batches else {
@@ -226,7 +235,7 @@ pub(super) fn candidate_record(
     if batch.num_rows() != 1 {
         return Err(contract("a publication candidate returns one record"));
     }
-    publication_manifests::View::try_from_batch_with_registry(registry, batch)
+    publication_manifests::View::try_from_batch_with_registry(registry, batch, validation)
         .and_then(|view| view.row(0))
         .map_err(super::relation)
 }
@@ -328,6 +337,7 @@ pub fn prepare_artifact_publication(
         ticket,
         operations: operations.clone(),
         registry: std::sync::Arc::clone(runtime.registry()),
+        validation: runtime.validation_context()?,
         workspace: workspace.clone(),
         parent,
         attempt_id: attempt,
@@ -434,30 +444,31 @@ impl RunResult {
         match &self.request {
             super::run::RunRequest::Modeling(steps) => {
                 for p in steps {
-                    source.hash(&p.source.revision.identity());
+                    source.hash(&p.source.revision.identity().as_id());
                     algorithms
                         .hash(&p.model.case.compiled().plan.structure().key())
                         .hash(&p.model.case.compiled().presolve.key);
                     target.hash(
                         &p.solve
                             .request_identity()
-                            .map_err(crate::math::MathRuntimeError::from)?,
+                            .map_err(crate::math::MathRuntimeError::from)?
+                            .as_id(),
                     );
                 }
             }
             super::run::RunRequest::Fit(f) => {
                 source.hash(&f.problem.source_identity);
-                algorithms.hash(&f.problem.profile_key);
+                algorithms.hash(&f.problem.profile_key.as_id());
                 target.hash(&f.problem.key);
             }
             #[cfg(feature = "solver-diffsol")]
             super::run::RunRequest::Shooting { problem, initial } => {
-                source.hash(&problem.simulation.source.revision.identity());
-                algorithms.hash(&problem.profile_key);
-                target.hash(&problem.request_identity(initial.as_deref()));
+                source.hash(&problem.simulation.source.revision.identity().as_id());
+                algorithms.hash(&problem.profile_key.as_id());
+                target.hash(&problem.request_identity(initial.as_deref()).as_id());
             }
             super::run::RunRequest::Simulation(s) => {
-                source.hash(&s.source.revision.identity());
+                source.hash(&s.source.revision.identity().as_id());
                 algorithms.hash(&s.contract().identity);
                 target.hash(&s.identity());
             }

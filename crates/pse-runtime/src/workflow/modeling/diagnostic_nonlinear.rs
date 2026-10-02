@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Bounded whole-model infeasibility explanations on POUNCE's ℓ1 exact penalty (ADR-0109
+//! Bounded whole-model infeasibility explanations on POUNCE's ell-1 exact penalty (ADR-0109
 //! item 2a). Local obstruction never certifies infeasibility.
 use super::*;
 use crate::math::solves::Outcome;
@@ -12,17 +12,19 @@ use std::{
     time::{Duration, Instant},
 };
 
-/// Explicit physical row nominals weight the dimensionless ℓ1 violation that classifies each
+/// Explicit physical row nominals weight the dimensionless ell-1 violation that classifies each
 /// attempt.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct ModelingNonlinearPolicy {
     /// Positive physical nominal of every outer equation, by equation id.
     pub nominals: BTreeMap<SemanticId, f64>,
-    /// Nominal-weighted ℓ1 violation at or below which an attempt is a feasible witness.
+    /// Nominal-weighted ell-1 violation at or below which an attempt is a feasible witness.
     pub penalty_tolerance: f64,
     /// Attempt budget of the deletion filter.
     pub maximum_attempts: usize,
     /// Joined deadline of every attempt.
+    #[schemars(with = "pse_model::document::ClosedDuration")]
     pub time_limit: Duration,
 }
 /// Evidence from one bounded local optimization, not a global verdict.
@@ -34,7 +36,7 @@ pub struct ModelingElasticAttempt {
     pub omitted: BTreeSet<SemanticId>,
     /// Local classification of the attempt.
     pub observation: ElasticObservation,
-    /// Nominal-weighted ℓ1 violation of the retained equations at the candidate.
+    /// Nominal-weighted ell-1 violation of the retained equations at the candidate.
     pub penalty: Option<f64>,
     /// The attempt's solve, or why it could not run.
     pub result: Result<ModelingResult, Arc<WorkflowError>>,
@@ -74,7 +76,7 @@ pub struct ModelingNonlinearExplanation {
 }
 impl ModelingPackage {
     /// A deletion filter over the outer equations. Every attempt solves the original rows
-    /// that remain with POUNCE's explicit ℓ1 exact-penalty method, which returns either a
+    /// that remain with POUNCE's explicit ell-1 exact-penalty method, which returns either a
     /// feasible point or a labelled least-infeasible point; no elastic reformulation of the
     /// model is built. A deletion is a local diagnostic heuristic; every trial and its scope
     /// are retained.
@@ -288,7 +290,7 @@ impl ModelingPackage {
         Ok(report)
     }
 }
-/// The explanation's own explicit route: POUNCE's ℓ1 exact penalty minimizes the violation of
+/// The explanation's own explicit route: POUNCE's ell-1 exact penalty minimizes the violation of
 /// every remaining row (ADR-0109 items 1 and 2a), with presolve off because its passes assume
 /// the rows hold. Without POUNCE linked there is no route.
 fn l1_route(solver: &mut crate::math::solves::SolverProfile) -> Result<(), WorkflowError> {
@@ -403,7 +405,7 @@ fn classify(
     let Outcome::Native(report) = &result.outcome else {
         return (ElasticObservation::Inconclusive, None);
     };
-    // The ℓ1 violation of the retained original rows at the candidate, each divided by its
+    // The ell-1 violation of the retained original rows at the candidate, each divided by its
     // declared physical nominal.
     let penalty = report
         .candidate
@@ -522,7 +524,7 @@ mod tests {
             "{}",
             summarize()
         );
-        // The first attempt ran the explicit ℓ1 route on the unrelaxed rows and stopped at a
+        // The first attempt ran the explicit ell-1 route on the unrelaxed rows and stopped at a
         // labelled least-infeasible point: x² ≥ 4 and x² ≤ 1 leave a least violation of 3.
         let first = &report.attempts[0];
         assert!(

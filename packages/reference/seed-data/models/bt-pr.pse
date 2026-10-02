@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("01a0e1b4f611717da49a9268ae84b41b") package bt_pr {
+@id("fa54ee317c9c47c784f061780ebd47b2") use peng_robinson @"1.0.0";
 @id("5a9d7f50661c46ab8ec5d26502e39b57") use cubic @"1.0.0";
 @id("2e7eb81f56ba439bb9b2a8a82e825e87") use eos_data @"1.0.0";
 
@@ -40,7 +41,8 @@
 @id("36131f7421a94f4c8eb221a25649ecb6") reference translation stock_to_oracle_entropy(value:MolarEntropy,composition:MoleFraction[chemistry.species],members:Set<chemistry.species>)->PrOracleEntropy anchors(source=stock_entropy_anchor,target=oracle_entropy_anchor) at(temperature=bt_pr_oracle.temperature,pressure=bt_pr_oracle.pressure) provenance(references.idaes_bt_pr,provenance.Role.oracle_input);
 @id("01a0e1b4f611717da49a9279038f6687") fn gas_h(T:Temperature,j:chemistry.species)->MolarEnthalpy=properties.component_enthalpy(bt_pr_idaes,chemistry.vapor,j,T);
 @id("01a0e1b4f611717da49a927a3d93aefe") fn gas_s(T:Temperature,j:chemistry.species)->MolarEntropy=properties.component_entropy(bt_pr_idaes,chemistry.vapor,j,T);
-@id("01a0e1b4f611717da49a927b8ced04f1") def BT_PR(defined_state:Boolean=true,minimum:Temperature=350{K},maximum:Temperature=400{K},formulation:equilibrium.VleFormulation=equilibrium.VleFormulation.smooth):pr_equilibrium.SmoothPR {
+@id("01a0e1b4f611717da49a927b8ced04f1") def BT_PR(defined_state:Boolean=true,minimum:Temperature=350{K},maximum:Temperature=400{K},formulation:equilibrium.VleFormulation=equilibrium.VleFormulation.smooth,density:peng_robinson.PressureDensityPhase=peng_robinson.BoundedCubicDensity):pr_equilibrium.SmoothPR {
+@id("bf6f13b12e7640fe97fc99814088bc39") override param density_phase:peng_robinson.PressureDensityPhase=density;
 @id("e79fa9fc0a1e4d92824498ab8f0ff6fc") override param eos_package:properties.property_package=eos_data.bt_pr_parameters;
 @id("51ea00c3f9be4ba0b690173bb1b2fa76") override param eos_potential:Fn(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy=eos_data.potential;
 
@@ -61,7 +63,7 @@
 @id("01a0e1b4f611717da49a9289db1e3f2c") annotation valid T(minimum_temperature,maximum_temperature);
 @id("01a0e1b4f611717da49a928a09891d4a") annotation valid pressure(80000{Pa},120000{Pa});
 @id("01a0eed1000d7436b90c08550d1c0196") when formulation==equilibrium.VleFormulation.complementarity {
-@id("01a0eeced80374ab83c0820cd5bb1246") child closure:nested_equilibrium.FlashSplit=pr_equilibrium.ComplementarityPR(selected=bt_ideal.aromatics,pkg=eos_package,law=eos_potential,family=eos_family,vapor_pressure=bt_pr.psat,minimum=minimum,maximum=maximum,bubble=365{K},dew=370{K});
+@id("01a0eeced80374ab83c0820cd5bb1246") child closure:nested_equilibrium.FlashSplit=pr_equilibrium.ComplementarityPR(density=density,selected=bt_ideal.aromatics,pkg=eos_package,law=eos_potential,family=eos_family,vapor_pressure=bt_pr.psat,minimum=minimum,maximum=maximum,bubble=365{K},dew=370{K});
 @id("01a0eeced80374ab83c0820dd9a03750") eq bind_temperature:closure.T==T;
 @id("01a0eeced80374ab83c0820ed5549345") eq bind_pressure:closure.pressure==pressure;
 @id("01a0eeced80374ab83c0820f90e5029b") eq bind_feed[j in components]:closure.z[j]==z[j];
@@ -85,9 +87,9 @@
 @id("01a0eed189fc72d7af4d92b767fe5b32") override eq fugacity[j in components]:y[j]==closure.y[j];
 }
 }
-@id("01a0e1b4f611717da49a928ba89fe8d7") test ftpx_368 oracle references.idaes_test_bt_pr_368 fixture {dof 0; route steady; procedure solve; fix root.flow=100{mol/s}; fix root.T=368{K}; fix root.pressure=100000{Pa}; fix root.z[chem.benzene]=0.5{1}; fix root.z[chem.toluene]=0.5{1};} {
+@id("01a0e1b4f611717da49a928ba89fe8d7") test ftpx_368 oracle references.idaes_test_bt_pr_368 fixture {dof 0; route steady; procedure solve; intent root; fix root.flow=100{mol/s}; fix root.T=368{K}; fix root.pressure=100000{Pa}; fix root.z[chem.benzene]=0.5{1}; fix root.z[chem.toluene]=0.5{1};policy {limits body_occurrences(1000000); backend ipopt; } } {
 @id("624edaf474e24a85987dfd0365308aad") permission selected_unknown_fit families(cubic.critical_point,properties.predictive_rule) allow_unknown true allow_extrapolation false;
-@id("01a0e1b4f611717da49a928c23791ee5") child root:BT_PR=BT_PR;
+@id("01a0e1b4f611717da49a928c23791ee5") child root:BT_PR=BT_PR(density=peng_robinson.RelationalDensity);
 @id("01a0e1b4f611717da49a928d8bf28e89") expect root.x[chem.benzene]==0.4012128{1} tolerance 0.000005{1};
 @id("01a0e1b4f611717da49a928e1252d268") expect root.y[chem.benzene]==0.6141738{1} tolerance 0.000007{1};
 @id("01a0e1b4f611717da49a928fd215bf33") expect root.liquid.Z==0.003504 tolerance 0.00000004;
@@ -101,9 +103,9 @@
 @id("01a0e1b4f611717da49a92973e438b65") expect root.oracle_s_liquid==-359.256{J/(mol*K)} tolerance 0.004{J/(mol*K)};
 @id("01a0e1b4f611717da49a9298e6ab23f4") expect root.oracle_s_vapor==-262.348{J/(mol*K)} tolerance 0.003{J/(mol*K)};
 }
-@id("01a0e1c6a64b7167adfc3a95a9afa0d6") test initialized_ftpx oracle references.idaes_test_bt_pr_368 fixture {dof 0; route steady; procedure initialize; stages("ideal-K"); initialize homotopy(false) step(0.5) minimum(1e-6) growth(2) attempts(4) seconds(600); fix root.flow=100{mol/s}; fix root.T=368{K}; fix root.pressure=100000{Pa}; fix root.z[chem.benzene]=0.5{1}; fix root.z[chem.toluene]=0.5{1};} {
+@id("01a0e1c6a64b7167adfc3a95a9afa0d6") test initialized_ftpx oracle references.idaes_test_bt_pr_368 fixture {dof 0; route steady; procedure initialize; stages("ideal-K"); initialize homotopy(false) step(0.5) minimum(1e-6) growth(2) attempts(4) seconds(600); fix root.flow=100{mol/s}; fix root.T=368{K}; fix root.pressure=100000{Pa}; fix root.z[chem.benzene]=0.5{1}; fix root.z[chem.toluene]=0.5{1};policy {limits body_occurrences(1000000); } } {
 @id("8b35dc90c40145d4a1f78a23fa8a9d85") permission selected_unknown_fit families(cubic.critical_point,properties.predictive_rule) allow_unknown true allow_extrapolation false;
-@id("01a0e1c6a64b7167adfc3a96dacbd442") child root:BT_PR=BT_PR;
+@id("01a0e1c6a64b7167adfc3a96dacbd442") child root:BT_PR=BT_PR(density=peng_robinson.RelationalDensity);
 @id("01a0e1c6a64b7167adfc3a97e41fc4c3") expect root.x[chem.benzene]==0.4012128{1} tolerance 0.000005{1};
 @id("01a0e1c6a64b7167adfc3a98d2872c2e") expect root.y[chem.benzene]==0.6141738{1} tolerance 0.000007{1};
 @id("01a0e1c6a64b7167adfc3a996e99da70") expect root.oracle_h_liquid==38235.1{J/mol} tolerance 0.4{J/mol};

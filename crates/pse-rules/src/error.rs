@@ -5,6 +5,12 @@
 /// An invariant that cannot be planned or executed.
 #[derive(Debug, thiserror::Error)]
 pub enum RuleError {
+    /// Explicit source registration/reference violations with affected identities.
+    #[error("{} source reference violations", violations.len())]
+    References {
+        /// Actual typed violations in the supplied complete inventory.
+        violations: Vec<crate::references::EntityViolation>,
+    },
     /// Original classified native engine failure.
     #[error(transparent)]
     Engine(#[from] pse_columnar::EngineError),
@@ -25,13 +31,14 @@ pse_diagnostics::impl_diagnostic! {
     RuleError,
     code(this) { match this {
         Self::Internal { .. } => Some(pse_diagnostics::DiagnosticCode::InternalInvariant),
+        Self::References { .. } => Some(pse_diagnostics::DiagnosticCode::SchemaAdmission),
         _ => None,
     } },
     forward(this) { match this {
         Self::Engine(value) => Some(value),
         Self::Relation(value) => Some(value),
         Self::Catalog(value) => Some(value),
-        Self::Internal { .. } => None,
+        Self::Internal { .. } | Self::References { .. } => None,
     } },
     help(_this) { None },
     related(_this) { None },

@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    107u8, 253u8, 215u8, 190u8, 144u8, 6u8, 127u8, 203u8, 53u8, 56u8, 192u8, 213u8,
-    241u8, 247u8, 72u8, 219u8, 249u8, 250u8, 236u8, 251u8, 165u8, 89u8, 125u8, 48u8,
-    55u8, 62u8, 89u8, 221u8, 249u8, 145u8, 102u8, 72u8,
+    8u8, 76u8, 135u8, 9u8, 220u8, 125u8, 254u8, 110u8, 51u8, 14u8, 229u8, 124u8, 95u8,
+    101u8, 172u8, 244u8, 101u8, 248u8, 84u8, 82u8, 90u8, 210u8, 173u8, 93u8, 225u8, 1u8,
+    113u8, 130u8, 77u8, 94u8, 149u8, 99u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeOperationalAttemptsRow {
     fn append(
@@ -39,7 +39,7 @@ impl crate::columnar::ArrowValue for RuntimeOperationalAttemptsRow {
         crate::columnar::ArrowValue::append(&self.r#run_id, children[1usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#kind, children[2usize].as_mut())?;
         crate::columnar::ArrowValue::append(
-            &self.r#request_identity,
+            &self.r#operational_job_identity,
             children[3usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
@@ -116,6 +116,10 @@ impl crate::columnar::ArrowValue for RuntimeOperationalAttemptsRow {
             &self.r#finished_at,
             children[23usize].as_mut(),
         )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#operational_job_frame,
+            children[24usize].as_mut(),
+        )?;
         output.append(true);
         Ok(())
     }
@@ -190,6 +194,9 @@ impl crate::columnar::ArrowValue for RuntimeOperationalAttemptsRow {
         <Option<
             i64,
         > as crate::columnar::ArrowValue>::append_null(children[23usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[24usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -212,7 +219,7 @@ impl crate::columnar::ArrowValue for RuntimeOperationalAttemptsRow {
                 input.column(2usize).as_ref(),
                 index,
             )?,
-            r#request_identity: <pse_ids::ContentHash as crate::columnar::ArrowValue>::read(
+            r#operational_job_identity: <pse_ids::ContentHash as crate::columnar::ArrowValue>::read(
                 input.column(3usize).as_ref(),
                 index,
             )?,
@@ -326,6 +333,12 @@ impl crate::columnar::ArrowValue for RuntimeOperationalAttemptsRow {
                 input.column(23usize).as_ref(),
                 index,
             )?,
+            r#operational_job_frame: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(24usize).as_ref(),
+                index,
+            )?,
         })
     }
 }
@@ -364,9 +377,17 @@ pub fn schema() -> Result<crate::SchemaRef, crate::RelationError> {
 /// Checks schema, recursive extension contracts and visible values.
 /// # Errors
 /// All independently actionable violations.
-pub fn validate(batch: &crate::RecordBatch) -> Result<(), Vec<crate::RelationError>> {
+pub fn validate(
+    batch: &crate::RecordBatch,
+    context: &crate::validate::ValidationContext,
+) -> Result<(), Vec<crate::RelationError>> {
     let reg = pse_schema::registry().map_err(|error| vec![error.into()])?;
-    crate::validate::validate_batch(reg, spec(reg).map_err(|error| vec![error])?, batch)
+    crate::validate::validate_batch(
+        reg,
+        spec(reg).map_err(|error| vec![error])?,
+        batch,
+        context,
+    )
 }
 impl crate::columnar::RelationRow for RuntimeOperationalAttemptsRow {
     type Builder = RuntimeOperationalAttemptsBuilder;
@@ -381,7 +402,7 @@ impl crate::columnar::RelationRow for RuntimeOperationalAttemptsRow {
         crate::columnar::ArrowValue::append(&self.r#run_id, columns[1usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#kind, columns[2usize].as_mut())?;
         crate::columnar::ArrowValue::append(
-            &self.r#request_identity,
+            &self.r#operational_job_identity,
             columns[3usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
@@ -458,6 +479,10 @@ impl crate::columnar::RelationRow for RuntimeOperationalAttemptsRow {
             &self.r#finished_at,
             columns[23usize].as_mut(),
         )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#operational_job_frame,
+            columns[24usize].as_mut(),
+        )?;
         Ok(())
     }
     fn relation(
@@ -468,8 +493,9 @@ impl crate::columnar::RelationRow for RuntimeOperationalAttemptsRow {
     fn builder(
         registry: &pse_schema::Registry,
         capacity: usize,
+        context: &crate::validate::ValidationContext,
     ) -> Result<Self::Builder, crate::RelationError> {
-        RuntimeOperationalAttemptsBuilder::with_registry(registry, capacity)
+        RuntimeOperationalAttemptsBuilder::with_registry(registry, capacity, context)
     }
     fn push(builder: &mut Self::Builder, row: Self) -> Result<(), crate::RelationError> {
         builder.push(row)
@@ -492,10 +518,10 @@ impl crate::columnar::RelationRow for RuntimeOperationalAttemptsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        58_368_usize + size_of::<Self::Builder>()
+        60_416_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        456usize
+        472usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -700,6 +726,17 @@ impl crate::columnar::RelationRow for RuntimeOperationalAttemptsRow {
                 Ok::<usize, crate::RelationError>(1)
             }?,
         )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#operational_job_frame).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
         Ok(bytes)
     }
 }
@@ -710,7 +747,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 24usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 25usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "attempt_id",
@@ -728,7 +765,7 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 24usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "request_identity",
+        name: "operational_job_identity",
         position: 3usize,
     },
     crate::columnar::ColumnReference {
@@ -831,6 +868,11 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 24usize] = [
         name: "finished_at",
         position: 23usize,
     },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "operational_job_frame",
+        position: 24usize,
+    },
 ];
 /// Named native column references derived from the declared field inventory.
 pub mod columns {
@@ -840,8 +882,8 @@ pub mod columns {
     pub const RUN_ID: crate::columnar::ColumnReference = super::COLUMNS[1usize];
     ///kind
     pub const KIND: crate::columnar::ColumnReference = super::COLUMNS[2usize];
-    ///request_identity
-    pub const REQUEST_IDENTITY: crate::columnar::ColumnReference = super::COLUMNS[3usize];
+    ///operational_job_identity
+    pub const OPERATIONAL_JOB_IDENTITY: crate::columnar::ColumnReference = super::COLUMNS[3usize];
     ///preparation_identity
     pub const PREPARATION_IDENTITY: crate::columnar::ColumnReference = super::COLUMNS[4usize];
     ///state
@@ -882,6 +924,8 @@ pub mod columns {
     pub const STARTED_AT: crate::columnar::ColumnReference = super::COLUMNS[22usize];
     ///finished_at
     pub const FINISHED_AT: crate::columnar::ColumnReference = super::COLUMNS[23usize];
+    ///operational_job_frame
+    pub const OPERATIONAL_JOB_FRAME: crate::columnar::ColumnReference = super::COLUMNS[24usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -891,7 +935,7 @@ pub struct RuntimeOperationalAttemptsView<'a> {
     attempt_id_column: &'a arrow_array::FixedSizeBinaryArray,
     run_id_column: &'a arrow_array::FixedSizeBinaryArray,
     kind_column: &'a arrow_array::StringArray,
-    request_identity_column: &'a arrow_array::FixedSizeBinaryArray,
+    operational_job_identity_column: &'a arrow_array::FixedSizeBinaryArray,
     preparation_identity_column: &'a arrow_array::FixedSizeBinaryArray,
     state_column: &'a arrow_array::StringArray,
     state_version_column: &'a arrow_array::Int32Array,
@@ -912,6 +956,7 @@ pub struct RuntimeOperationalAttemptsView<'a> {
     updated_at_column: &'a arrow_array::TimestampMicrosecondArray,
     started_at_column: &'a arrow_array::TimestampMicrosecondArray,
     finished_at_column: &'a arrow_array::TimestampMicrosecondArray,
+    operational_job_frame_column: &'a arrow_array::StringArray,
 }
 impl<'a> RuntimeOperationalAttemptsView<'a> {
     /// Admits a raw candidate's actual schema and visible local values.
@@ -919,8 +964,9 @@ impl<'a> RuntimeOperationalAttemptsView<'a> {
     /// A schema, field contract or local value violation.
     pub fn try_from_batch(
         batch: &'a crate::RecordBatch,
+        context: &crate::validate::ValidationContext,
     ) -> Result<Self, crate::RelationError> {
-        Self::try_from_batch_with_registry(pse_schema::registry()?, batch)
+        Self::try_from_batch_with_registry(pse_schema::registry()?, batch, context)
     }
     /// Admits a raw candidate with an explicitly bound registry.
     /// # Errors
@@ -928,8 +974,9 @@ impl<'a> RuntimeOperationalAttemptsView<'a> {
     pub fn try_from_batch_with_registry(
         registry: &pse_schema::Registry,
         batch: &'a crate::RecordBatch,
+        context: &crate::validate::ValidationContext,
     ) -> Result<Self, crate::RelationError> {
-        crate::validate::validate_batch(registry, spec(registry)?, batch)
+        crate::validate::validate_batch(registry, spec(registry)?, batch, context)
             .map_err(|errors| crate::RelationError::Validation {
                 errors,
             })?;
@@ -960,7 +1007,7 @@ impl<'a> RuntimeOperationalAttemptsView<'a> {
             kind_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(2usize).as_ref())?,
-            request_identity_column: crate::columnar::array::<
+            operational_job_identity_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
             >(batch.column(3usize).as_ref())?,
             preparation_identity_column: crate::columnar::array::<
@@ -1023,6 +1070,9 @@ impl<'a> RuntimeOperationalAttemptsView<'a> {
             finished_at_column: crate::columnar::array::<
                 arrow_array::TimestampMicrosecondArray,
             >(batch.column(23usize).as_ref())?,
+            operational_job_frame_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(24usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -1075,16 +1125,20 @@ impl<'a> RuntimeOperationalAttemptsView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
-        "request_identity",
+        "operational_job_identity",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn request_identity_column(
+    pub const fn operational_job_identity_column(
         &self,
     ) -> &'a arrow_array::FixedSizeBinaryArray {
-        self.request_identity_column
+        self.operational_job_identity_column
     }
-    #[doc = concat!("Borrows the exact declared field for `", "request_identity", "`.")]
-    pub fn request_identity_field(&self) -> &'a crate::FieldRef {
+    #[doc = concat!(
+        "Borrows the exact declared field for `",
+        "operational_job_identity",
+        "`.",
+    )]
+    pub fn operational_job_identity_field(&self) -> &'a crate::FieldRef {
         &self.batch.schema_ref().fields()[3usize]
     }
     #[doc = concat!(
@@ -1365,6 +1419,22 @@ impl<'a> RuntimeOperationalAttemptsView<'a> {
     pub fn finished_at_field(&self) -> &'a crate::FieldRef {
         &self.batch.schema_ref().fields()[23usize]
     }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "operational_job_frame",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn operational_job_frame_column(&self) -> &'a arrow_array::StringArray {
+        self.operational_job_frame_column
+    }
+    #[doc = concat!(
+        "Borrows the exact declared field for `",
+        "operational_job_frame",
+        "`.",
+    )]
+    pub fn operational_job_frame_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[24usize]
+    }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
     /// # Errors
@@ -1383,8 +1453,8 @@ impl<'a> RuntimeOperationalAttemptsView<'a> {
             )?,
             r#run_id: crate::columnar::ArrowValue::read(self.run_id_column, index)?,
             r#kind: crate::columnar::ArrowValue::read(self.kind_column, index)?,
-            r#request_identity: crate::columnar::ArrowValue::read(
-                self.request_identity_column,
+            r#operational_job_identity: crate::columnar::ArrowValue::read(
+                self.operational_job_identity_column,
                 index,
             )?,
             r#preparation_identity: crate::columnar::ArrowValue::read(
@@ -1459,6 +1529,10 @@ impl<'a> RuntimeOperationalAttemptsView<'a> {
             )?,
             r#finished_at: crate::columnar::ArrowValue::read(
                 self.finished_at_column,
+                index,
+            )?,
+            r#operational_job_frame: crate::columnar::ArrowValue::read(
+                self.operational_job_frame_column,
                 index,
             )?,
         })

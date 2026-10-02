@@ -16,6 +16,7 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+schemars.workspace = true
 gmp-mpfr-sys.workspace = true
 pse-model.workspace = true
 symbolica.workspace = true

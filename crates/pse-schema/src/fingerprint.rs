@@ -175,8 +175,7 @@ pub fn semantic_description(
             .foreign_keys
             .iter()
             .map(|reference| {
-                let target = reg
-                    .relation(reference.target)
+                let target = crate::product::referenced_relation(reg, spec, reference.target)
                     .ok_or_else(|| invalid(format!("missing relation {}", reference.target)))?;
                 Ok((
                     reference.name.to_owned(),

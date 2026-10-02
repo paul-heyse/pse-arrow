@@ -24,7 +24,6 @@ pub struct InputSelection {
     registry: Weak<pse_schema::Registry>,
     sources: BTreeMap<BindingKey, Source>,
     policy: Arc<super::super::policy::EffectivePolicy>,
-    planner: Option<Weak<dyn super::super::policy::RequirementPlanner>>,
 }
 impl InputSelection {
     /// Conservative bookkeeping extent, excluding source buffers already charged
@@ -52,7 +51,6 @@ impl InputSelection {
             .fold(0usize, usize::saturating_add);
         size_of::<Self>()
             .saturating_add(self.sources.len().saturating_mul(512))
-            .saturating_add(self.policy.requirements.len().saturating_mul(128))
             .saturating_add(settings)
             .saturating_add(origins)
     }
@@ -118,7 +116,6 @@ impl InputSelection {
             registry: Arc::downgrade(session.registry()),
             sources,
             policy: session.selection()?.effective.clone(),
-            planner: session.requirement_planner.as_ref().map(Arc::downgrade),
         }))
     }
     /// Compare the complete selection without scanning values or rebuilding state.
@@ -131,11 +128,6 @@ impl InputSelection {
                 .upgrade()
                 .is_some_and(|owner| Arc::ptr_eq(&owner, session.registry()))
             || self.policy != session.selection()?.effective
-            || match (&self.planner, &session.requirement_planner) {
-                (None, None) => false,
-                (Some(old), Some(new)) => !old.upgrade().is_some_and(|old| Arc::ptr_eq(&old, new)),
-                _ => true,
-            }
         {
             return Ok(false);
         }
@@ -220,6 +212,8 @@ mod integrated_performance_unit {
                         vec![Arc::new(Int64Array::from(values))],
                     )
                     .unwrap(),
+                    &pse_relations::validate::ValidationContext::local(&registry).unwrap(),
+                    &pse_columnar::CancellationToken::new(),
                 )
                 .unwrap(),
             )

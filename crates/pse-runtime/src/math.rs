@@ -9,6 +9,7 @@ pub mod initialization;
 mod jobs;
 pub mod modeling;
 mod products;
+pub(crate) mod retention;
 pub mod settings;
 pub mod solves;
 mod staged;
@@ -22,11 +23,10 @@ pub(crate) use jobs::Submission;
 pub use jobs::{WorkerBudget, WorkerCharge};
 use pse_columnar::flight::{FlightCancellation, Flights};
 use pse_compiler::workspace::{
-    CompileError, CompilerWorkspace, Inputs, PreparedCase, Profile, WorkspaceLimits,
+    CompileError, CompilerContext, CompilerWorkspace, PreparedCase, WorkspaceLimits,
 };
 use pse_engine::cache_service::CacheComponent;
-use pse_ids::SemanticId;
-use pse_kernels::{DerivativeOrder, Provider, ProviderKey};
+use pse_kernels::{Provider, ProviderKey};
 use pse_math::assembly::{CaseAssembly, CaseWorker};
 pub(crate) use staged::NativeSession;
 use std::{
@@ -203,6 +203,7 @@ pub struct MathService {
     policy: MathPolicy,
     jobs: Arc<tokio::sync::Semaphore>,
     entries: DefaultCache<Key, Value>,
+    pub(crate) modeling_cache: retention::ModelingCache,
     flights: Flights<Key, Artifact, MathRuntimeError>,
     retention: pse_columnar::retention::RetentionFence,
     live: Arc<AtomicUsize>,
@@ -307,7 +308,9 @@ impl Preparation {
         &self.prepared
     }
     /// Share the compiler-owned complete structural witness without copying or rematching.
-    pub fn structural_witness(&self) -> Arc<pse_structural::incidence::StructuralAnalysis> {
+    pub fn structural_witness(
+        &self,
+    ) -> pse_math::SharedAllocation<pse_structural::incidence::StructuralAnalysis> {
         self.prepared.structure.clone()
     }
     /// Pure semantic outputs. No evaluator is constructed by preparation.
@@ -365,6 +368,7 @@ impl MathService {
             cores,
             jobs: Arc::new(tokio::sync::Semaphore::new(policy.jobs)),
             entries: DefaultCache::new(policy.artifact_bytes).with_name("pse.cache.math_artifacts"),
+            modeling_cache: retention::ModelingCache::new(policy.artifact_bytes),
             flights: Flights::new(policy.flights),
             policy,
             retention: Default::default(),
@@ -389,82 +393,19 @@ impl MathService {
     }
     /// Reserve a workspace before constructing its Salsa generation.
     pub fn workspace(
-        &self,
-        inputs: Inputs,
+        self: &Arc<Self>,
+        inputs: CompilerContext,
         mut limits: WorkspaceLimits,
     ) -> Result<Workspace, MathRuntimeError> {
         limits.input_bytes = limits.input_bytes.min(self.policy.workspace_bytes / 2);
         limits.retained_bytes = limits.retained_bytes.min(self.policy.workspace_bytes / 2);
         let lease = self.reserve("math:compiler-workspace", self.policy.workspace_bytes)?;
-        let compiler = CompilerWorkspace::new(inputs, limits)?;
+        let mut compiler = CompilerWorkspace::new(inputs, limits)?;
+        compiler.attach_body_retention(Arc::new(retention::BodyRetention(Arc::downgrade(self))))?;
         Ok(Workspace {
             compiler: Arc::new(Mutex::new(compiler)),
             lease,
         })
-    }
-    /// Publish a validated batch under the single application writer.
-    pub fn publish(&self, workspace: &Workspace, inputs: Inputs) -> Result<(), MathRuntimeError> {
-        workspace
-            .compiler
-            .lock()
-            .map_err(|_| MathRuntimeError::Infrastructure("compiler lock poisoned".into()))?
-            .publish(inputs)?;
-        Ok(())
-    }
-    /// Prepare on a bounded owned worker. Driver cancellation requests native cancellation.
-    pub async fn prepare(
-        self: &Arc<Self>,
-        workspace: Workspace,
-        id: SemanticId,
-        order: DerivativeOrder,
-        profile: Profile,
-        coefficients: bool,
-        driver: &crate::CancelSource,
-    ) -> Result<Preparation, MathRuntimeError> {
-        let control = FlightCancellation::default();
-        let operation = self.job_retained(1, WITHIN_WORKSPACE, control.clone(), move |flag| {
-            let _workspace_lease = workspace.lease;
-            let mut compiler = workspace
-                .compiler
-                .lock()
-                .map_err(|_| MathRuntimeError::Infrastructure("compiler lock poisoned".into()))?;
-            let prepared = compiler.prepare_cancellable(id, order, profile, coefficients, flag)?;
-            let bytes = prepared.retained_bytes();
-            Ok((prepared, bytes))
-        });
-        tokio::pin!(operation);
-        tokio::select! {result=&mut operation=>self.own_preparation(result?),()=driver.cancelled()=>{control.cancel();Err(MathRuntimeError::Cancelled)}}
-    }
-    /// Atomically select an immutable revision and prepare it on the same compiler
-    /// lock. Concurrent revisions cannot interleave publication and query execution.
-    pub async fn prepare_revision(
-        self: &Arc<Self>,
-        workspace: Workspace,
-        inputs: Inputs,
-        id: SemanticId,
-        order: DerivativeOrder,
-        profile: Profile,
-        driver: &crate::CancelSource,
-    ) -> Result<Preparation, MathRuntimeError> {
-        let control = FlightCancellation::default();
-        let operation = self.job_retained(1, WITHIN_WORKSPACE, control.clone(), move |flag| {
-            let _lease = workspace.lease;
-            let mut compiler = workspace
-                .compiler
-                .lock()
-                .map_err(|_| MathRuntimeError::Infrastructure("compiler lock poisoned".into()))?;
-            compiler.publish(inputs)?;
-            let prepared = compiler.prepare_cancellable(id, order, profile, false, flag.clone())?;
-            let prepared = if prepared.presolve.coefficient_eligible() {
-                compiler.prepare_cancellable(id, order, profile, true, flag)?
-            } else {
-                prepared
-            };
-            let bytes = prepared.retained_bytes();
-            Ok((prepared, bytes))
-        });
-        tokio::pin!(operation);
-        tokio::select! {result=&mut operation=>self.own_preparation(result?),()=driver.cancelled()=>{control.cancel();Err(MathRuntimeError::Cancelled)}}
     }
     /// Structural preparations and value rebinds performed so far (A6).
     pub fn preparations(&self) -> PreparationCounts {

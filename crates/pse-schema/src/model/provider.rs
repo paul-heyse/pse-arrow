@@ -96,8 +96,6 @@ pub struct ProviderPolicy {
     pub id: SemanticId,
     /// Where the policy applies.
     pub scope: ProviderScope,
-    /// Invariant IDs whose obligations conjoin with inherited requirements.
-    pub requirements: BTreeSet<SemanticId>,
     /// Effect ceiling. This cannot create provider implementation support.
     pub effects: BTreeSet<OperationEffect>,
     /// Overridable native configuration defaults.
@@ -113,7 +111,6 @@ impl ProviderPolicy {
         Self {
             id,
             scope,
-            requirements: BTreeSet::new(),
             effects: OperationEffect::ALL.into_iter().collect(),
             defaults: BTreeMap::new(),
             required_settings: BTreeMap::new(),

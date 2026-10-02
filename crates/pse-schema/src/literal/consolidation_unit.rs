@@ -6,6 +6,20 @@ use arrow_array::{Float32Array, Float64Array};
 use arrow_schema::{DataType, Field, IntervalUnit, TimeUnit, UnionFields, UnionMode};
 
 #[test]
+fn binary_literal_requires_canonical_lowercase_pairs() {
+    let field = Arc::new(Field::new("payload", DataType::Binary, false));
+    for payload in ["Ff", "00FF", "0", "gg", "0x00", "é0"] {
+        let document = serde_json::json!(["bytes", payload]).to_string();
+        assert!(NativeLiteral::from_json(Arc::clone(&field), &document).is_err());
+    }
+    for payload in ["", "00ff78"] {
+        let document = serde_json::json!(["bytes", payload]).to_string();
+        let literal = NativeLiteral::from_json(Arc::clone(&field), &document).unwrap();
+        assert_eq!(literal.as_json(), document);
+    }
+}
+
+#[test]
 fn scalar_adapter_keeps_nested_metadata_and_binding_uses_declared_execution_fields() {
     let registry = crate::registry().unwrap();
     let contract = crate::model::FieldContract::native(DataType::List(Arc::new(

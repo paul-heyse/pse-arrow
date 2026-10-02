@@ -10,6 +10,22 @@ use pse_modeling::{
 };
 use salsa::Setter;
 
+/// Bounded immutable body retention owned by the mathematics service. No database
+/// handles or attempt workers cross this interface; cache state never defines meaning.
+pub trait ModelingBodyRetention: std::fmt::Debug + Send + Sync + std::panic::RefUnwindSafe {
+    /// Capture a retention epoch before admission begins.
+    fn generation(&self) -> u64;
+    /// Look up an immutable body by its complete admitted semantic dependency key.
+    fn get(&self, key: pse_ids::roles::SemanticBodyHash) -> Option<Arc<AdmittedBody>>;
+    /// Retain actual allocation ownership on the returned body, whether or not cached.
+    fn retain(
+        &self,
+        generation: u64,
+        key: pse_ids::roles::SemanticBodyHash,
+        body: Arc<AdmittedBody>,
+    ) -> std::result::Result<Arc<AdmittedBody>, MathError>;
+}
+
 /// One interpreted package data document (ADR-0125), set when its admitted value changes.
 #[salsa::input]
 pub(super) struct DataDocumentInput {
@@ -61,6 +77,12 @@ struct TrackedDocuments<'a> {
     memo_limit: usize,
 }
 impl pse_modeling::document::Documents for TrackedDocuments<'_> {
+    fn field_spans(
+        &self,
+        declaration: DeclarationId,
+    ) -> Option<&BTreeMap<String, pse_authoring::SourceSpan>> {
+        self.documents.field_spans.get(&declaration)
+    }
     fn preflight(
         &self,
         _at: DeclarationId,
@@ -150,7 +172,8 @@ struct Request {
 }
 pub(super) struct State {
     pub(super) catalog: Catalog,
-    requests: BTreeMap<(DeclarationId, InstanceId), Request>,
+    requests: Vec<(Request, usize)>,
+    request_bytes: usize,
     pub(super) revision: Arc<ModelingRevision>,
     pub(super) input_bytes: usize,
 }
@@ -461,49 +484,13 @@ impl CompilerWorkspace {
             executable::configure(&mut self.db, self.limits.query_values);
             self.modeling = Some(State {
                 catalog,
-                requests: BTreeMap::new(),
+                requests: Vec::new(),
+                request_bytes: 0,
                 revision,
                 input_bytes,
             });
         }
         Ok(())
-    }
-    pub(super) fn recheck_modeling(
-        &mut self,
-        quantities: &QuantityRegistry,
-        preconditions: &PhysicalPreconditions,
-    ) -> Result<Option<(Arc<ModelingRevision>, usize)>> {
-        let Some(old) = self.modeling.as_ref().map(|state| state.revision.clone()) else {
-            return Ok(None);
-        };
-        // A document's plan converts through the next physical registry; its rows are
-        // admitted again only where that plan differs.
-        let checked = Arc::new(self.check_modeling(
-            &old.rows,
-            &old.scope,
-            &old.documents,
-            Some((quantities, preconditions)),
-        )?);
-        let next = revision(
-            old.rows.clone(),
-            old.scope.clone(),
-            old.documents.clone(),
-            checked,
-        );
-        let bytes = next.input_bytes;
-        Ok(Some((next, bytes)))
-    }
-    pub(super) fn set_checked_modeling(&mut self, checked: Option<(Arc<ModelingRevision>, usize)>) {
-        if let (Some(state), Some((revision, bytes))) = (&mut self.modeling, checked) {
-            if state.catalog.checked(&self.db) != &revision.checked {
-                state
-                    .catalog
-                    .set_checked(&mut self.db)
-                    .to(revision.checked.clone());
-            }
-            state.revision = revision;
-            state.input_bytes = bytes;
-        }
     }
     /// Specialize a finite root through tracked queries without constructing a solver or store.
     /// # Errors
@@ -566,28 +553,30 @@ impl CompilerWorkspace {
                     .map(|v| v.retained_bytes() + 128)
                     .sum::<usize>(),
             );
-        if binding_bytes
-            > self.limits.input_bytes.saturating_sub(state.input_bytes) / self.limits.query_values
-        {
+        // CompilerContext are immutable by complete root/instance/binding/limit meaning. A/B/A
+        // can fetch the original memo rather than overwriting a singleton root slot.
+        if let Some((request, _)) = state.requests.iter().find(|(r, _)| {
+            *r.root(&self.db) == root
+                && *r.instance(&self.db) == instance
+                && r.bindings(&self.db) == &bindings
+                && *r.limits(&self.db) == limits
+        }) {
+            return Ok((state.catalog, *request));
+        }
+        let bytes = binding_bytes.saturating_add(size_of::<Request>() + 128);
+        if bytes > self.limits.input_bytes.saturating_sub(state.input_bytes) {
             return Err(CompileError::Limit("modeling selection bindings"));
         }
-        let key = (root, instance);
-        let request = if let Some(request) = state.requests.get(&key).copied() {
-            if request.bindings(&self.db) != &bindings {
-                request.set_bindings(&mut self.db).to(bindings);
-            }
-            if request.limits(&self.db) != &limits {
-                request.set_limits(&mut self.db).to(limits);
-            }
-            request
-        } else {
-            if state.requests.len() >= self.limits.query_values {
-                return Err(CompileError::Limit("modeling root selections"));
-            }
-            let request = Request::new(&self.db, root, instance, bindings, limits);
-            state.requests.insert(key, request);
-            request
-        };
+        if state.request_bytes.saturating_add(bytes)
+            > self.limits.input_bytes.saturating_sub(state.input_bytes)
+        {
+            // Rotation releases only local handles; owned products remain valid.
+            self.rebuild(self.inputs.clone())?;
+            return self.modeling_request(root, instance, bindings, limits);
+        }
+        let request = Request::new(&self.db, root, instance, bindings, limits);
+        state.requests.push((request, bytes));
+        state.request_bytes = state.request_bytes.saturating_add(bytes);
         Ok((state.catalog, request))
     }
 }
@@ -603,7 +592,7 @@ pub use executable::{
     ModelingTestValue, ModelingValidityResult, ModelingVariableState, ObjectiveBound,
     PreparedModeling, SelectionEquivalence,
 };
-pub use flow::ModelingFlowSelection;
+pub use flow::{FlowConnectionDocument, FlowSelectionDocument, ModelingFlowSelection};
 
 #[cfg(test)]
 mod document_tests;
@@ -615,3 +604,6 @@ mod forms_tests;
 mod objective_tests;
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod reuse_tests;

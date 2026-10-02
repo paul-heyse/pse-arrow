@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Mechanical public workflow projection; all mathematical policy remains native.
-mod documents;
+use crate::documents;
 mod modeling;
 use documents::DocumentContent;
 mod routes;
@@ -13,7 +13,7 @@ pub(crate) use modeling::{
     NativeModelingNativeAnalysis, NativeModelingNonlinearExplanation, NativeModelingPackage,
     NativeModelingResult, NativeModelingTrajectory, NativeStudyReport,
 };
-pub(crate) use routes::{NativeEligibility, NativeIneligible, NativeRoute};
+use routes::{NativeEligibility, NativeRoute};
 mod strategies;
 use crate::inspection::{self, errors, runtime};
 use pse_runtime::{CancelSource, workflow as native};
@@ -29,7 +29,7 @@ use std::{
     time::Duration,
 };
 
-fn invalid(py: Python<'_>, message: impl Into<String>) -> PyErr {
+pub(crate) fn invalid(py: Python<'_>, message: impl Into<String>) -> PyErr {
     errors::diagnostic(py, &native::WorkflowError::Input(message.into()))
 }
 fn id(py: Python<'_>, value: &str) -> PyResult<pse_ids::SemanticId> {
@@ -141,10 +141,12 @@ impl NativeRuntime {
         if request.len() > self.owner.shared.budget().math.workspace_bytes / 4 {
             return Err(invalid(py, "cone request exceeds workspace allowance"));
         }
-        let request =
-            serde_json::from_slice::<strategies::AnalysisDocument<native::ConicRequest>>(request)
-                .map_err(|e| invalid(py, e.to_string()))?
-                .payload;
+        let request = documents::decode::<native::ConicRequest>(
+            py,
+            "cone request",
+            request,
+            self.owner.shared.budget().math.workspace_bytes / 4,
+        )?;
         let inner = blocking(
             py,
             &self.owner,
@@ -199,23 +201,32 @@ impl NativeRuntime {
         matches!(self.inner.durability(), native::Durability::Durable(_))
     }
     /// Observe the existing deployment pool and process memory report.
-    fn resource_usage(&self, py: Python<'_>) -> PyResult<inspection::ResourceReport> {
+    fn resource_usage(
+        &self,
+        py: Python<'_>,
+    ) -> PyResult<documents::DocumentValue<pse_runtime::ResourceReport>> {
         self.owner
             .shared
             .report()
-            .map(Into::into)
+            .map(documents::DocumentValue)
             .map_err(|error| errors::diagnostic(py, &error))
     }
     /// Durable attempts of the store, newest first, as `runtime.operational_attempts`:
     /// optionally those of one run and in the given registry `AttemptState` names.
-    #[pyo3(signature = (*, run_id=None, states=Vec::new(), limit=100))]
+    #[pyo3(signature = (*, run_id=None, states=Vec::new(), controls=None))]
     fn runs(
         &self,
         py: Python<'_>,
         run_id: Option<&str>,
         states: Vec<String>,
-        limit: i64,
+        controls: Option<&[u8]>,
     ) -> PyResult<inspection::TableStream> {
+        let native::InventoryControls { limit } = documents::controls(
+            py,
+            "runs",
+            controls,
+            self.owner.shared.budget().math.workspace_bytes,
+        )?;
         let filter = native::AttemptFilter {
             run: run_id.map(|r| id(py, r).map(Into::into)).transpose()?,
             states: states
@@ -240,12 +251,17 @@ impl NativeRuntime {
             async {
                 let pool = self.owner.shared.pool();
                 let token = cancel.token();
+                let validation = self
+                    .owner
+                    .sessions
+                    .validation_context(&self.owner.registry)?;
                 let bundle = pse_runtime::authoring_driver::document::load_package_documents_owned(
                     &documents,
                     &self.owner.registry,
                     pse_authoring::ParseBudget::default(),
                     &pool,
                     &token,
+                    &validation,
                 )?;
                 let owned =
                     pse_runtime::authoring_driver::document::OwnedDocumentSet::try_from_bundles(
@@ -264,13 +280,19 @@ impl NativeRuntime {
     }
     /// The store's durable studies, newest first, as `runtime.operational_studies`:
     /// optionally those in the given registry `StudyState` names.
-    #[pyo3(signature = (*, states=Vec::new(), limit=100))]
+    #[pyo3(signature = (*, states=Vec::new(), controls=None))]
     fn studies(
         &self,
         py: Python<'_>,
         states: Vec<String>,
-        limit: i64,
+        controls: Option<&[u8]>,
     ) -> PyResult<inspection::TableStream> {
+        let native::InventoryControls { limit } = documents::controls(
+            py,
+            "studies",
+            controls,
+            self.owner.shared.budget().math.workspace_bytes,
+        )?;
         let filter = native::StudyFilter {
             states: states
                 .iter()
@@ -283,13 +305,19 @@ impl NativeRuntime {
     }
     /// The store's durable jobs, newest first, as `runtime.operational_jobs`: optionally
     /// those in the given registry `JobState` names.
-    #[pyo3(signature = (*, states=Vec::new(), limit=100))]
+    #[pyo3(signature = (*, states=Vec::new(), controls=None))]
     fn jobs(
         &self,
         py: Python<'_>,
         states: Vec<String>,
-        limit: i64,
+        controls: Option<&[u8]>,
     ) -> PyResult<inspection::TableStream> {
+        let native::InventoryControls { limit } = documents::controls(
+            py,
+            "jobs",
+            controls,
+            self.owner.shared.budget().math.workspace_bytes,
+        )?;
         let filter = native::JobFilter {
             states: states
                 .iter()
@@ -349,14 +377,19 @@ impl NativeRuntime {
     }
     /// A durable attempt's stored progress events and incumbents in observation order,
     /// `page` of each stream at a time; with `follow`, until the attempt ends.
-    #[pyo3(signature = (attempt_id, *, follow=true, page=256))]
+    #[pyo3(signature = (attempt_id, *, controls=None))]
     fn progress(
         &self,
         py: Python<'_>,
         attempt_id: &str,
-        follow: bool,
-        page: usize,
+        controls: Option<&[u8]>,
     ) -> PyResult<NativeProgressStream> {
+        let native::ProgressControls { follow, page } = documents::controls(
+            py,
+            "progress",
+            controls,
+            self.owner.shared.budget().math.workspace_bytes,
+        )?;
         let attempt = id(py, attempt_id)?;
         let cancel = pse_columnar::CancellationToken::new();
         let stream = blocking(
@@ -399,7 +432,7 @@ impl NativeRuntime {
         })
     }
     fn capabilities(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
-        serde_json::to_vec(&self.inner.capabilities()).map_err(|e| invalid(py, e.to_string()))
+        documents::encode(py, &self.inner.capabilities())
     }
     fn clear_program_cache(&self) {
         self.inner.clear_program_cache();
@@ -409,15 +442,19 @@ impl NativeRuntime {
         if ticket.len() > self.owner.shared.budget().math.workspace_bytes / 4 {
             return Err(invalid(py, "publication ticket exceeds input allowance"));
         }
-        let ticket: native::PublicationTicket =
-            serde_json::from_slice(ticket).map_err(|e| invalid(py, e.to_string()))?;
+        let ticket: native::PublicationTicket = documents::decode(
+            py,
+            "operation",
+            ticket,
+            self.owner.shared.budget().math.workspace_bytes,
+        )?;
         let result = blocking(
             py,
             &self.owner,
             async { Ok::<_, native::WorkflowError>(self.inner.settle_publication(&ticket).await) },
             || {},
         )?;
-        serde_json::to_vec(&result).map_err(|e| invalid(py, e.to_string()))
+        documents::encode(py, &result)
     }
     /// Register a publication workspace, or return the one of that name with the same
     /// root; the workspace as JSON.
@@ -429,12 +466,12 @@ impl NativeRuntime {
             self.inner.register_workspace(name, root),
             || {},
         )?;
-        serde_json::to_vec(&workspace).map_err(|e| invalid(py, e.to_string()))
+        documents::encode(py, &workspace)
     }
     /// A registered workspace by name, as JSON.
     fn workspace(&self, py: Python<'_>, name: &str) -> PyResult<Vec<u8>> {
         let workspace = blocking(py, &self.owner, self.inner.workspace(name), || {})?;
-        serde_json::to_vec(&workspace).map_err(|e| invalid(py, e.to_string()))
+        documents::encode(py, &workspace)
     }
     /// The head of a workspace; `None` before its first publication.
     fn head(&self, py: Python<'_>, workspace_id: &str) -> PyResult<Option<String>> {
@@ -495,21 +532,33 @@ impl NativeRuntime {
                 .export_publication(publication, destination, valid_for, &cancel),
             || cancel.cancel(),
         )?;
-        serde_json::to_vec(&receipt).map_err(|e| invalid(py, e.to_string()))
+        documents::encode(py, &receipt)
     }
     /// Release an export's lease; whether it was still held.
     fn release_export(&self, py: Python<'_>, receipt: &[u8]) -> PyResult<bool> {
-        let receipt: native::ExportReceipt =
-            serde_json::from_slice(receipt).map_err(|e| invalid(py, e.to_string()))?;
+        let receipt: native::ExportReceipt = documents::decode(
+            py,
+            "operation",
+            receipt,
+            self.owner.shared.budget().math.workspace_bytes,
+        )?;
         blocking(py, &self.owner, self.inner.release_export(&receipt), || {})
     }
-    #[pyo3(signature=(steps, *, continue_independent=false))]
+    #[pyo3(signature=(steps, *, controls=None))]
     fn start(
         &self,
         py: Python<'_>,
         steps: Vec<PyRef<'_, NativePreparedOperation>>,
-        continue_independent: bool,
+        controls: Option<&[u8]>,
     ) -> PyResult<NativeRunHandle> {
+        let native::RunControls {
+            continue_independent,
+        } = documents::controls(
+            py,
+            "run",
+            controls,
+            self.owner.shared.budget().math.workspace_bytes,
+        )?;
         let steps = steps
             .into_iter()
             .map(|p| match &p.inner {
@@ -541,8 +590,8 @@ pub(crate) struct NativeStart {
 }
 #[pymethods]
 impl NativeStart {
-    fn snapshot_json(&self) -> String {
-        self.inner.snapshot().to_string()
+    fn snapshot(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
+        documents::encode(py, &self.inner.snapshot())
     }
 }
 /// Public handle remains usable after any individual asyncio waiter is cancelled.
@@ -602,7 +651,10 @@ impl NativeRunHandle {
     fn progress(&self) -> (Vec<ProgressEvent>, u64) {
         let (events, dropped) = self.inner.progress();
         (
-            events.into_iter().map(ProgressEvent::native).collect(),
+            events
+                .into_iter()
+                .map(|event| documents::DocumentValue(event.into()))
+                .collect(),
             dropped,
         )
     }
@@ -621,23 +673,11 @@ pub(crate) struct NativeRunResult {
 }
 #[pymethods]
 impl NativeRunResult {
-    #[pyo3(signature=(step=0))]
-    fn available_start(&self, step: usize) -> Option<NativeStart> {
-        match self.inner.report().ok()? {
-            native::RunReport::Modeling(r) => match &r.get(step)?.outcome {
-                pse_runtime::math::solves::Outcome::Native(r) => {
-                    r.warm_start.clone().map(|inner| NativeStart { inner })
-                }
-                _ => None,
-            },
-            native::RunReport::Fit(r) if step == 0 => r
-                .solve
-                .as_ref()?
-                .warm_start
-                .clone()
-                .map(|inner| NativeStart { inner }),
-            _ => None,
-        }
+    #[pyo3(signature=(step=None))]
+    fn available_start(&self, step: Option<usize>) -> Option<NativeStart> {
+        self.inner
+            .available_start(step)
+            .map(|inner| NativeStart { inner })
     }
     #[getter]
     fn usable(&self) -> bool {
@@ -660,14 +700,26 @@ impl NativeRunResult {
             .inner
             .completion()
             .map_err(|e| errors::diagnostic(py, e))?;
-        serde_json::to_vec(completed).map_err(|e| invalid(py, e.to_string()))
+        documents::encode(py, completed)
+    }
+    fn fit_profiles(&self, py: Python<'_>) -> PyResult<Option<Vec<u8>>> {
+        let report = self
+            .inner
+            .report()
+            .map_err(|error| errors::diagnostic(py, error))?;
+        match report {
+            native::RunReport::Fit(report) => {
+                documents::encode(py, &report.profile_document()).map(Some)
+            }
+            _ => Ok(None),
+        }
     }
     fn diagnostics(&self) -> Vec<inspection::DiagnosticReport> {
         match self.inner.completion() {
             Ok(completed) => completed
                 .diagnostics
                 .iter()
-                .map(|d| inspection::DiagnosticReport::observe(d))
+                .map(inspection::DiagnosticReport::observe)
                 .collect(),
             Err(e) => vec![inspection::DiagnosticReport::observe(e)],
         }
@@ -708,8 +760,12 @@ impl NativeRunResult {
         parent: Option<&str>,
         publication_id: Option<&str>,
     ) -> PyResult<NativePublicationAttempt> {
-        let workspace: native::Workspace =
-            serde_json::from_slice(workspace).map_err(|e| invalid(py, e.to_string()))?;
+        let workspace: native::Workspace = documents::decode(
+            py,
+            "operation",
+            workspace,
+            self.owner.shared.budget().math.workspace_bytes,
+        )?;
         let parent = parent.map(|p| id(py, p).map(Into::into)).transpose()?;
         let publication_id = publication_id
             .map(|p| id(py, p).map(Into::into))
@@ -728,7 +784,7 @@ impl NativeRunResult {
             owner: self.owner.clone(),
             attempt_id: pse_ids::SemanticId::from(attempt.attempt_id).to_hex(),
             publication_id: pse_ids::SemanticId::from(attempt.publication_id).to_hex(),
-            ticket: serde_json::to_vec(&attempt.ticket).map_err(|e| invalid(py, e.to_string()))?,
+            ticket: documents::encode(py, &attempt.ticket)?,
             inner: Mutex::new(Some(attempt)),
         })
     }
@@ -766,7 +822,7 @@ impl NativePublicationAttempt {
             })?;
         let cancel = pse_columnar::CancellationToken::new();
         let published = blocking(py, &self.owner, attempt.commit(&cancel), || cancel.cancel())?;
-        serde_json::to_vec(&published).map_err(|e| invalid(py, e.to_string()))
+        documents::encode(py, &published)
     }
 }
 
@@ -806,28 +862,32 @@ impl NativeStudyHandle {
     /// The study's status as JSON.
     fn status(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
         let status = blocking(py, &self.owner, self.inner.status(), || {})?;
-        serde_json::to_vec(&status).map_err(|e| invalid(py, e.to_string()))
+        documents::encode(py, &status)
     }
     /// Cancel the study; what the cancellation did, as JSON.
     fn cancel(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
         let cancelled = blocking(py, &self.owner, self.inner.cancel(), || {})?;
-        serde_json::to_vec(&cancelled).map_err(|e| invalid(py, e.to_string()))
+        documents::encode(py, &cancelled)
     }
     /// The study's publication as JSON once committed.
     fn result(&self, py: Python<'_>) -> PyResult<Option<Vec<u8>>> {
         blocking(py, &self.owner, self.inner.result(), || {})?
-            .map(|published| serde_json::to_vec(&published).map_err(|e| invalid(py, e.to_string())))
+            .map(|published| documents::encode(py, &published))
             .transpose()
     }
     /// Wait until the study is published, polling every `poll_seconds`, at most
     /// `timeout_seconds` when given; the publication as JSON.
-    #[pyo3(signature = (*, poll_seconds=0.5, timeout_seconds=None))]
-    fn wait(
-        &self,
-        py: Python<'_>,
-        poll_seconds: f64,
-        timeout_seconds: Option<f64>,
-    ) -> PyResult<Vec<u8>> {
+    #[pyo3(signature = (*, controls=None))]
+    fn wait(&self, py: Python<'_>, controls: Option<&[u8]>) -> PyResult<Vec<u8>> {
+        let native::StudyWaitControls {
+            poll_seconds,
+            timeout_seconds,
+        } = documents::controls(
+            py,
+            "study wait",
+            controls,
+            self.owner.shared.budget().math.workspace_bytes,
+        )?;
         let poll =
             Duration::try_from_secs_f64(poll_seconds).map_err(|e| invalid(py, e.to_string()))?;
         let timeout = timeout_seconds
@@ -852,7 +912,7 @@ impl NativeStudyHandle {
             },
             || {},
         )?;
-        serde_json::to_vec(&published).map_err(|e| invalid(py, e.to_string()))
+        documents::encode(py, &published)
     }
 }
 #[pymethods]
@@ -863,183 +923,7 @@ impl NativePhysicalContext {
     }
 }
 
-/// A new incumbent of a branch-and-bound search: its objective in original units under
-/// the post-solve convention, the search's bounds then, and, for a stored incumbent whose
-/// solution was kept for resumption, that solution's identity.
-#[pyclass(frozen, skip_from_py_object, module = "pse._native")]
-#[derive(Clone, Debug, PartialEq)]
-pub(crate) struct Incumbent {
-    objective: f64,
-    dual_bound: Option<f64>,
-    gap: Option<f64>,
-    nodes: Option<i64>,
-    seconds: Option<f64>,
-    solution_id: Option<String>,
-}
-impl Incumbent {
-    fn native(incumbent: &pse_backend_native::solve::IncumbentEvent) -> Self {
-        Self {
-            objective: incumbent.objective,
-            dual_bound: incumbent.dual_bound,
-            gap: incumbent.gap,
-            nodes: Some(incumbent.nodes),
-            seconds: Some(incumbent.seconds),
-            solution_id: None,
-        }
-    }
-}
-#[pymethods]
-impl Incumbent {
-    /// The incumbent's objective value.
-    #[getter]
-    fn objective(&self) -> f64 {
-        self.objective
-    }
-    /// The global dual bound in the objective's units; `None` while none is finite.
-    #[getter]
-    fn dual_bound(&self) -> Option<f64> {
-        self.dual_bound
-    }
-    /// The relative gap; `None` while it is not finite.
-    #[getter]
-    fn gap(&self) -> Option<f64> {
-        self.gap
-    }
-    /// Branch-and-bound nodes explored by then.
-    #[getter]
-    fn nodes(&self) -> Option<i64> {
-        self.nodes
-    }
-    /// The search's native running time then, in seconds.
-    #[getter]
-    fn seconds(&self) -> Option<f64> {
-        self.seconds
-    }
-    /// The stored solution it captured (32 hexadecimal digits), if one was kept.
-    #[getter]
-    fn solution_id(&self) -> Option<String> {
-        self.solution_id.clone()
-    }
-    fn __repr__(&self) -> String {
-        format!(
-            "Incumbent(objective={}, dual_bound={:?}, gap={:?}, nodes={:?})",
-            self.objective, self.dual_bound, self.gap, self.nodes
-        )
-    }
-}
-
-/// Where a stored event sits in its attempt's streams.
-#[derive(Clone, Copy, Debug)]
-struct Stored {
-    step: i32,
-    sequence: i64,
-    at: i64,
-}
-
-/// One bounded, owned progress event: observed in memory, or read back from the
-/// operational store with its step, stream sequence and observation time. An incumbent
-/// of a branch-and-bound search carries it typed. No native thread enters Python.
-#[pyclass(frozen, skip_from_py_object, module = "pse._native")]
-#[derive(Clone, Debug)]
-pub(crate) struct ProgressEvent {
-    phase: String,
-    elapsed_seconds: f64,
-    values: std::collections::BTreeMap<String, pse_backend_native::solve::Metric>,
-    incumbent: Option<Incumbent>,
-    stored: Option<Stored>,
-}
-impl ProgressEvent {
-    /// An event observed in memory.
-    pub(crate) fn native(event: pse_backend_native::solve::Event) -> Self {
-        Self {
-            incumbent: event.incumbent.as_ref().map(Incumbent::native),
-            phase: event.phase,
-            elapsed_seconds: event.elapsed.as_secs_f64(),
-            values: event.values,
-            stored: None,
-        }
-    }
-    /// A record read back from the operational store.
-    fn stored(record: &native::StreamRecord) -> Self {
-        let incumbent = match record {
-            native::StreamRecord::Incumbent(row) => Some(Incumbent {
-                objective: row.objective,
-                dual_bound: row.dual_bound,
-                gap: row.gap,
-                nodes: row.nodes,
-                seconds: row.seconds,
-                solution_id: row
-                    .solution_id
-                    .map(|id| pse_ids::SemanticId::from(id).to_hex()),
-            }),
-            native::StreamRecord::Progress(_) => None,
-        };
-        Self {
-            phase: record.phase().to_owned(),
-            elapsed_seconds: record.elapsed_seconds(),
-            values: record.values(),
-            incumbent,
-            stored: Some(Stored {
-                step: record.step(),
-                sequence: record.sequence(),
-                at: record.at(),
-            }),
-        }
-    }
-}
-#[pymethods]
-impl ProgressEvent {
-    #[getter]
-    fn phase(&self) -> &str {
-        &self.phase
-    }
-    #[getter]
-    fn elapsed_seconds(&self) -> f64 {
-        self.elapsed_seconds
-    }
-    /// The typed incumbent this event reports, if it reports one.
-    #[getter]
-    fn incumbent(&self) -> Option<Incumbent> {
-        self.incumbent.clone()
-    }
-    /// The step of the run that produced a stored event; `None` in memory.
-    #[getter]
-    fn step(&self) -> Option<i32> {
-        self.stored.map(|stored| stored.step)
-    }
-    /// A stored event's sequence number in its stream (progress events and incumbents
-    /// are numbered separately); `None` in memory.
-    #[getter]
-    fn sequence(&self) -> Option<i64> {
-        self.stored.map(|stored| stored.sequence)
-    }
-    /// When a stored event was observed, in microseconds since the Unix epoch; `None`
-    /// in memory.
-    #[getter]
-    fn at(&self) -> Option<i64> {
-        self.stored.map(|stored| stored.at)
-    }
-    #[pyo3(signature=() -> "dict[str, bool | int | float | str | dict[str, str]]")]
-    fn values<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, pyo3::types::PyDict>> {
-        use pse_backend_native::solve::Metric;
-        let dict = pyo3::types::PyDict::new(py);
-        for (k, v) in &self.values {
-            match v {
-                Metric::Real(v) => dict.set_item(k, v)?,
-                Metric::Integer(v) => dict.set_item(k, v)?,
-                Metric::Bool(v) => dict.set_item(k, v)?,
-                Metric::Text(v) => dict.set_item(k, v)?,
-                Metric::Unavailable(reason) => {
-                    let unavailable = pyo3::types::PyDict::new(py);
-                    unavailable.set_item("kind", v.kind().as_str())?;
-                    unavailable.set_item("reason", reason.as_str())?;
-                    dict.set_item(k, unavailable)?;
-                }
-            }
-        }
-        Ok(dict)
-    }
-}
+type ProgressEvent = documents::DocumentValue<native::ProgressEventDocument>;
 
 /// An open stored stream and the events of its last page not yet returned.
 #[derive(Debug)]
@@ -1121,9 +1005,11 @@ impl NativeProgressStream {
         let mut slot = self.slot(py)?;
         match page {
             Ok(Some(records)) if !matches!(*slot, ProgressSlot::Closed) => {
-                state
-                    .buffered
-                    .extend(records.iter().map(ProgressEvent::stored));
+                state.buffered.extend(
+                    records
+                        .iter()
+                        .map(|record| documents::DocumentValue(record.into())),
+                );
                 let event = state.buffered.pop_front();
                 *slot = ProgressSlot::Idle(state);
                 Ok(event)
@@ -1162,7 +1048,7 @@ impl SimulationSettings {
         clippy::too_many_arguments,
         reason = "mechanical keyword-only projection of native integration controls"
     )]
-    #[pyo3(signature=(*, start, end, samples, atol, parameter_scales, sensitivity=None, rtol=None, out_rtol=None, out_atol=None, initial_step=None, max_steps: "int | None"=None, max_events: "int | None"=None, time_limit=None, max_cells: "int | None"=None, method=None, trial_failures=None, numerics: "dict[str, object] | None"=None, diffsol=None, idas=None, adjoint=None))]
+    #[pyo3(signature=(*, start, end, samples, atol, parameter_scales, sensitivity=None, rtol=None, out_rtol=None, out_atol=None, initial_step=None, max_steps: "int | None"=None, max_events: "int | None"=None, time_limit=None, max_cells: "int | None"=None, method=None, trial_failures=None, numerics=None, diffsol=None, idas=None, adjoint=None))]
     fn new(
         py: Python<'_>,
         start: f64,
@@ -1181,7 +1067,7 @@ impl SimulationSettings {
         #[pyo3(from_py_with = inspection::inputs::extract)] max_cells: Option<usize>,
         method: Option<&str>,
         trial_failures: Option<&str>,
-        numerics: Option<&Bound<'_, pyo3::types::PyDict>>,
+        numerics: Option<documents::DocumentInput<pse_model::numerics::NumericalPolicy>>,
         diffsol: Option<&[u8]>,
         idas: Option<&[u8]>,
         adjoint: Option<&[u8]>,
@@ -1241,30 +1127,27 @@ impl SimulationSettings {
     /// The encoded Diffsol settings document in effect.
     #[getter]
     fn diffsol(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
-        serde_json::to_vec(&self.profile.diffsol).map_err(|e| invalid(py, e.to_string()))
+        documents::encode(py, &self.profile.diffsol)
     }
     /// The encoded IDAS settings document in effect.
     #[getter]
     fn idas(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
-        serde_json::to_vec(&self.profile.idas).map_err(|e| invalid(py, e.to_string()))
+        documents::encode(py, &self.profile.idas)
     }
     /// The encoded adjoint checkpoint settings document in effect.
     #[getter]
     fn adjoint(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
-        serde_json::to_vec(&self.profile.adjoint).map_err(|e| invalid(py, e.to_string()))
+        documents::encode(py, &self.profile.adjoint)
     }
     /// Round-trip the complete pinned native BDF and initialization options.
     fn to_json(&self, py: Python<'_>) -> PyResult<String> {
-        serde_json::to_string(&self.profile).map_err(|e| invalid(py, e.to_string()))
+        String::from_utf8(documents::encode(py, &self.profile)?)
+            .map_err(|error| invalid(py, error.to_string()))
     }
     #[staticmethod]
     fn from_json(py: Python<'_>, source: &str) -> PyResult<Self> {
-        if source.len() > 1 << 20 {
-            return Err(invalid(py, "simulation settings extent"));
-        }
-        serde_json::from_str(source)
+        documents::decode(py, "simulation settings", source.as_bytes(), 1 << 20)
             .map(|profile| Self { profile })
-            .map_err(|e| invalid(py, e.to_string()))
     }
 }
 #[derive(Clone, Debug)]
@@ -1346,7 +1229,8 @@ impl NativePreparedOperation {
             PreparedOperation::Modeling(p) => p
                 .solve
                 .request_identity()
-                .map_err(|e| errors::diagnostic(py, &e))?,
+                .map_err(|e| errors::diagnostic(py, &e))?
+                .as_id(),
             PreparedOperation::Simulation(s) => s.identity(),
             PreparedOperation::Fit(f) => f.identity(),
         }

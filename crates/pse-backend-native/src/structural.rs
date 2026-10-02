@@ -45,7 +45,7 @@ pub struct Assessment {
     /// Complete original constraints, including inequality roles and isolated rows.
     pub equations: Vec<Constraint>,
     /// The existing compiler-owned library matching; no second matching search.
-    pub witness: std::sync::Arc<StructuralAnalysis>,
+    pub witness: pse_math::SharedAllocation<StructuralAnalysis>,
     /// Named matching refusal, retained separately from the witness.
     pub refusal: Option<(Vec<pse_ids::SemanticId>, Vec<pse_ids::SemanticId>)>,
 }
@@ -55,7 +55,7 @@ impl Assessment {
         mode: Mode,
         variables: Vec<pse_ids::SemanticId>,
         equations: Vec<Constraint>,
-        witness: std::sync::Arc<StructuralAnalysis>,
+        witness: pse_math::SharedAllocation<StructuralAnalysis>,
     ) -> Result<Self, ProblemError> {
         if matches!(witness.scope, Scope::Partial(_)) {
             return Err(ProblemError::Contract(
@@ -565,20 +565,28 @@ mod tests {
                 .analyze(&std::sync::atomic::AtomicBool::new(false))
                 .unwrap(),
         );
-        let nonlinear =
-            Assessment::new(Mode::Nlp, vec![id(1)], equations.clone(), witness.clone()).unwrap();
+        let nonlinear = Assessment::new(
+            Mode::Nlp,
+            vec![id(1)],
+            equations.clone(),
+            witness.clone().into(),
+        )
+        .unwrap();
         assert!(nonlinear.admit().is_err());
         assert_eq!(nonlinear.equations.len(), 2);
         let linear = Assessment::new(
             Mode::NativeFeasibility,
             vec![id(1)],
             equations.clone(),
-            witness.clone(),
+            witness.clone().into(),
         )
         .unwrap();
         linear.admit().unwrap();
         assert!(linear.optimization_freedom().is_none());
-        assert!(std::sync::Arc::ptr_eq(&linear.witness, &nonlinear.witness));
+        assert!(pse_math::SharedAllocation::ptr_eq(
+            &linear.witness,
+            &nonlinear.witness
+        ));
         let facts = crate::routing::oracle_facts(
             &OracleContract {
                 identity: pse_ids::ContentHash::from_bytes([1; 32]),
@@ -608,7 +616,7 @@ mod tests {
                     mode(policy, &facts, crate::solve::SolveIntent::Root),
                     vec![id(1)],
                     equations.clone(),
-                    witness.clone()
+                    witness.clone().into()
                 )
                 .unwrap()
                 .admit()

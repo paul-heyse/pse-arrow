@@ -20,6 +20,7 @@ type Finish = fn(ErasedBuilder) -> Result<FieldCheckedBatch, RelationError>;
 pub(crate) fn encode_rows<R: RelationRow + Clone + pse_model::HeapUsage>(
     rows: &[R],
     registry: &Registry,
+    context: &crate::validate::ValidationContext,
     pool: &std::sync::Arc<dyn MemoryPool>,
     cancel: &CancellationToken,
 ) -> Result<FieldCheckedBatch, RelationError> {
@@ -35,7 +36,7 @@ pub(crate) fn encode_rows<R: RelationRow + Clone + pse_model::HeapUsage>(
                 .unwrap_or(0),
         )
         .map_err(CanonError::from)?;
-    let mut columns = Collection::new(registry, pool, cancel);
+    let mut columns = Collection::new(registry, pool, cancel, context);
     columns.ensure::<R>()?;
     for row in rows {
         cancel.checkpoint()?;
@@ -68,6 +69,7 @@ struct Columns {
 pub struct Collection<'a> {
     columns: BTreeMap<TypeId, Columns>,
     registry: &'a Registry,
+    context: &'a crate::validate::ValidationContext,
     pool: &'a std::sync::Arc<dyn MemoryPool>,
     cancel: &'a CancellationToken,
 }
@@ -87,10 +89,12 @@ impl<'a> Collection<'a> {
         registry: &'a Registry,
         pool: &'a std::sync::Arc<dyn MemoryPool>,
         cancel: &'a CancellationToken,
+        context: &'a crate::validate::ValidationContext,
     ) -> Self {
         Self {
             columns: BTreeMap::new(),
             registry,
+            context,
             pool,
             cancel,
         }
@@ -118,7 +122,7 @@ impl<'a> Collection<'a> {
         if self.columns.values().any(|columns| columns.key == key) {
             return Err(mismatch("one generated row type per collected relation"));
         }
-        let builder = Box::new(T::builder(self.registry, 0)?);
+        let builder = Box::new(T::builder(self.registry, 0, self.context)?);
         self.columns.insert(
             TypeId::of::<T>(),
             Columns {

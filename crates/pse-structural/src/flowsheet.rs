@@ -27,17 +27,8 @@ pub struct Connection {
     /// Source-port/destination-port physical bindings.
     pub bindings: Vec<(SemanticId, SemanticId)>,
 }
-/// User constraint on one explicit decision group. The serde spelling is its boundary name.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Policy {
-    /// Native optimizer may select it.
-    Free,
-    /// Every occurrence in this group is removed.
-    Mandatory,
-    /// This group cannot be selected.
-    Forbidden,
-}
+/// User constraint on one decision group, declared by the canonical registry vocabulary.
+pub use pse_model::generated::enums::TearPolicy as Policy;
 /// One decision may group several occurrences, but grouping is always declared.
 #[derive(Clone, Debug)]
 pub struct Decision {

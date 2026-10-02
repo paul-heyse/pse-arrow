@@ -37,7 +37,8 @@
 @id("e13b4b49efc04d179f6f6b32ad49530e") reconstruction density_root_polynomial for density_root_coordinates(T:Temperature,P:Pressure,rho:Density,n:Amount[chemistry.species],members:Set<chemistry.species>,pkg:properties.property_package,family:cubic.cubic_family)->DeltaPressure reference helmholtz.residual_reference=polynomial_pressure_scale();
 @id("0efcfe32a43747ae96d1fb03f374dae6") fn reduced_density_root_polynomial(t:Coordinate<density_root_coordinates.t>,p:Coordinate<density_root_coordinates.p>,r:Coordinate<density_root_coordinates.r>,n:Coordinate<density_root_coordinates.n>[chemistry.species],members:Set<chemistry.species>,pkg:properties.property_package,family:cubic.cubic_family)->Reduced<density_root_polynomial>=density_polynomial(t,p,r,n,members,pkg,family);
 @id("2b44308e5e0047f19a36f6802ae99a57") fn density_residual(T:Temperature,P:Pressure,rho:Density,n:Amount[chemistry.species],members:Set<chemistry.species>,pkg:properties.property_package,family:cubic.cubic_family)->DeltaPressure=reconstruct(density_root_polynomial,reduced_density_root_polynomial,T,P,rho,n,members,pkg,family);
-@id("01a0e17a4587742dba37029883951354") interface DensityRoot extends helmholtz.HelmholtzPhase {
+// The physical phase contract is shared by operational selection and explicit relational closure.
+@id("491745367d7e4f01a958a456e05278d8") interface PressureDensityPhase extends helmholtz.HelmholtzPhase {
 @id("510691c7f486481b8adfb3323137d850") param parameter_package:properties.property_package;
 @id("8ec1580333bf4a60b35fa8ebb8388b66") param family:cubic.cubic_family=cubic.pr;
 @id("7cb6ce8eaadc4827b8f349e78ef16970") param law:Fn(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy;
@@ -47,6 +48,13 @@
 @id("01a0e17a4587742dba37029b59248c6a") param density_lower:Scalar;
 @id("01a0e17a4587742dba37029c88c8eb09") param density_upper:Scalar;
 @id("01a0e17a4587742dba37029d8d49cec3") param density_start:Scalar;
+@id("01a0e17a4587742dba3702a74b2f5e34") annotation start rho(density_start*constants.density_unit);
+@id("01a0e1b78065727b91c0d5d969c5a0c2") annotation nominal rho(density_start*constants.density_unit);
+@id("01a0e17a4587742dba3702a3987c3535") annotation valid rho(density_lower*constants.density_unit,density_upper*constants.density_unit);
+@id("01a0e17a4587742dba3702a8903e21fb") annotation check rho(abs(pressure-target_pressure)<0.001{Pa});
+}
+// Operational selection retains its own density unknown, policy and selected-function binding.
+@id("01a0e17a4587742dba37029883951354") interface DensityRoot extends PressureDensityPhase {
 @id("01a0e17a4587742dba37029e28827903") implicit density select operational(coordinate=density_start*constants.density_unit) settings("native.kinsol.v1") {
 @id("01a0e17a4587742dba37029fb3c7f009") var coordinate:Density;
 @id("01a0e17a4587742dba3702a03f57d8c1") eq residual:density_residual(T,target_pressure,coordinate,amount,components,parameter_package,family)==0{Pa};
@@ -56,10 +64,6 @@
 @id("01a0e17a4587742dba3702a51fb460cd") annotation scale residual(inverseSum);
 }
 @id("01a0e17a4587742dba3702a657f77fb4") eq density_binding:rho==density.coordinate;
-@id("01a0e17a4587742dba3702a74b2f5e34") annotation start rho(density_start*constants.density_unit);
-@id("01a0e1b78065727b91c0d5d969c5a0c2") annotation nominal rho(density_start*constants.density_unit);
-@id("01a0e17a4587742dba3702a3987c3535") annotation valid rho(density_lower*constants.density_unit,density_upper*constants.density_unit);
-@id("01a0e17a4587742dba3702a8903e21fb") annotation check rho(abs(pressure-target_pressure)<0.001{Pa});
 }
 @id("01a0e17a4587742dba3702a9f82392ed") def InlineDensity(selected:Set<chemistry.species>,pkg:properties.property_package,law:Fn(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy,selected_family:cubic.cubic_family=cubic.pr):DensityRoot {
 @id("8418857723e746b9946cf293be59e3b6") override param parameter_package:properties.property_package=pkg;
@@ -137,5 +141,18 @@
 @id("01a0e1b4f60e71eab341886ff83b3baa") override param density_upper:Scalar=upper;
 @id("01a0e1b4f60e71eab3418870bc232ac6") override param density_start:Scalar=start;
 @id("01a0e1b4f60e71eab3418871e34f6039") realize density_policy on density using accelerated(cubic_roots);
+}
+// Explicit pressure-density equations select the bounded phase through the authored solve.
+@id("2df265171d4c46eba260c07183688f0a") def RelationalDensity(selected:Set<chemistry.species>,lower:Scalar,upper:Scalar,start:Scalar,pkg:properties.property_package,law:Fn(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy,selected_family:cubic.cubic_family=cubic.pr):PressureDensityPhase {
+@id("1d425bab513548bbb51f2681d5b602b1") override param parameter_package:properties.property_package=pkg;
+@id("1b90562b3ac24899a24bd5d7cd3210f5") override param family:cubic.cubic_family=selected_family;
+@id("11d407dd19114aa08fcd975824063fbf") override param law:Fn(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy=law;
+@id("659579bfbb6240e3b0b6f0d3cd66dda2") override param components:Set<chemistry.species>=selected;
+@id("28bd03a270fb4ef39c596bbe3300d7ee") override param density_lower:Scalar=lower;
+@id("3e151ee684e8466590d6e7490e089453") override param density_upper:Scalar=upper;
+@id("174f0f09f7834ef08cb450559164fbba") override param density_start:Scalar=start;
+@id("c81fde0a43e144cf936c28e3dd4c8a7f") eq pressure_closure:density_residual(T,target_pressure,rho,amount,components,parameter_package,family)==0{Pa};
+@id("65d7e828d64f4f1c96f4738fe795e6e8") annotation bounds rho(density_lower*constants.density_unit,density_upper*constants.density_unit);
+@id("41dac674e5394e1d96dac14a4816328f") annotation scale pressure_closure(inverseSum);
 }
 }

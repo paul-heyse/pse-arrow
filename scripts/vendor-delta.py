@@ -89,6 +89,18 @@ def main() -> None:
         text = text.replace(
             "[package]\n", "[package]\nautotests = false\nautobenches = false\n", 1
         )
+        # Keep the metadata validator on the consumer's exact published pin. Its
+        # current derive release replaces the future-incompatible error macro;
+        # validation remains library-owned, with no Cargo patch/replace table.
+        validator = manifest["workspace"]["dependencies"]["validator"]
+        previous = 'validator = { version = "0.19", features = ["derive"] }'
+        if text.count(previous) != 1:
+            raise SystemExit("Delta metadata validator declaration changed upstream")
+        text = text.replace(
+            previous,
+            f"validator = {{ version = {json.dumps(validator['version'])}, "
+            f"features = {json.dumps(validator['features'])} }}",
+        )
         core.write_text(text)
         subprocess.run(
             ["git", "apply", "--unsafe-paths", str(PATCH)], cwd=scratch, check=True

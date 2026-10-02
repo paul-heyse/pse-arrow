@@ -414,15 +414,7 @@ fn hex(text: &str) -> Result<Vec<u8>> {
             "binary payload requires lowercase hexadecimal byte pairs",
         ));
     }
-    text.as_bytes()
-        .as_chunks::<2>()
-        .0
-        .iter()
-        .map(|pair| {
-            let value = std::str::from_utf8(pair).map_err(|error| invalid(error.to_string()))?;
-            u8::from_str_radix(value, 16).map_err(|error| invalid(error.to_string()))
-        })
-        .collect()
+    hex::decode(text).map_err(|error| invalid(error.to_string()))
 }
 
 fn bits(text: &str, length: usize) -> Result<u64> {

@@ -261,6 +261,8 @@ pub struct InstanceBinding {
     pub instance: SemanticId,
     /// Reusable body identity.
     pub body: ContentHash,
+    /// Total body-local checked-member token to actual member attribution, including computed locals.
+    pub checked_members: BTreeMap<SemanticId, SemanticId>,
     /// Inputs in formal order, preserving multiplicity and aliasing.
     pub slots: Vec<SlotBinding>,
     /// Output contributions; repeated targets deliberately accumulate.
@@ -494,6 +496,7 @@ impl CaseStructure {
         for instance in &instances {
             slot_count = slot_count
                 .checked_add(instance.slots.len())
+                .and_then(|count| count.checked_add(instance.checked_members.len()))
                 .ok_or(MathError::Limit("case slots"))?;
             if slot_count > limits.slots || instance.contributions.is_empty() {
                 return Err(MathError::Limit("case slots or empty output layout"));
@@ -583,7 +586,7 @@ impl CaseStructure {
     }
     /// Structural identity includes bindings, physical units, selected inventories and class declarations.
     pub fn key(&self) -> ContentHash {
-        let mut h = FramedHasher::new(pse_ids::Frame::MathCaseStructureV5);
+        let mut h = FramedHasher::new(pse_ids::Frame::MathCaseStructureV6);
         h.u64(self.variables.len() as u64);
         for v in &self.variables {
             h.id(&v.port.id)
@@ -632,6 +635,10 @@ impl CaseStructure {
                 h.id(&s.source())
                     .u64(pse_ids::canonical_f64_bits(s.scale()))
                     .u64(pse_ids::canonical_f64_bits(s.offset()));
+            }
+            h.u64(b.checked_members.len() as u64);
+            for (token, actual) in &b.checked_members {
+                h.id(token).id(actual);
             }
             h.u64(b.contributions.len() as u64);
             for c in &b.contributions {
@@ -788,7 +795,7 @@ pub struct CaseLimits {
     pub rows: usize,
     /// Distinct specializations.
     pub bodies: usize,
-    /// Total bound formal slots, including aliases.
+    /// Total bound formal slots and checked-member attribution entries, including aliases.
     pub slots: usize,
 }
 impl Default for CaseLimits {

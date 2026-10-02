@@ -972,7 +972,7 @@ async fn private_quoted_namespaces_survive_capture_and_obey_native_cascade() {
 }
 
 #[test]
-fn policies_conjoin_requirements_restrict_effects_and_resolve_defaults_with_origins() {
+fn policies_restrict_effects_and_bytes_and_resolve_settings_with_origins() {
     use pse_engine::session::policy::EffectivePolicy;
     use pse_schema::model::provider::{
         OperationEffect as E, OperationPurpose as P, ProviderScope as S,
@@ -981,11 +981,9 @@ fn policies_conjoin_requirements_restrict_effects_and_resolve_defaults_with_orig
     root.defaults.insert("setting".into(), "root".into());
     root.max_bytes = Some(1024);
     root.effects.remove(&E::Publish);
-    root.requirements.insert(root.id);
     let mut a = policy(2, S::Catalog("a".into()));
     a.defaults.insert("setting".into(), "a".into());
     a.max_bytes = Some(512);
-    a.requirements.insert(a.id);
     let mut b = policy(3, S::Catalog("b".into()));
     b.defaults.insert("setting".into(), "b".into());
     assert!(EffectivePolicy::compose(P::Publish, [&root, &a, &b]).is_err());
@@ -999,7 +997,6 @@ fn policies_conjoin_requirements_restrict_effects_and_resolve_defaults_with_orig
         effective.setting_origins["setting"],
         [invocation.id].into_iter().collect()
     );
-    assert_eq!(effective.requirements.len(), 2);
     assert!(!effective.effects.contains(&E::Publish));
     assert_eq!(effective.max_bytes, Some(512));
     a.required_settings

@@ -239,6 +239,7 @@ pub(super) fn split(tree: &mut GeneratedTree, reg: &crate::Registry) -> Result<(
         format!("{MODEL}/mod.rs"),
         quote! {
             //! Plain semantic values projected from the registry.
+            #![allow(missing_docs, reason = "strum derives the const spelling conversion; as_str documents its contract")]
             #![allow(clippy::doc_markdown, reason = "registry documentation is projected verbatim")]
             #![allow(clippy::too_many_lines, reason = "complete generated tagged alternatives and relation inventories follow the registry")]
             #(#[doc = "Registry namespace values."] pub mod #modules;)*
@@ -393,12 +394,13 @@ fn native_facts(
             pub fn encode(
                 values: &pse_model::generated::facts::FactBatch,
                 registry: &pse_schema::Registry,
+                context: &crate::validate::ValidationContext,
                 pool: &std::sync::Arc<dyn pse_columnar::MemoryPool>,
                 cancel: &pse_columnar::CancellationToken,
             ) -> Result<crate::columnar::FieldCheckedBatch, crate::RelationError> {
                 match values {
                     #(pse_model::generated::facts::FactBatch::#variants(rows) =>
-                        crate::columnar::encode_rows(rows, registry, pool, cancel),)*
+                        crate::columnar::encode_rows(rows, registry, context, pool, cancel),)*
                 }
             }
         },

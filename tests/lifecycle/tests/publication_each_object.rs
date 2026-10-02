@@ -107,6 +107,7 @@ impl Fixture {
         value: i64,
     ) -> Result<publication_manifests::Row, EngineError> {
         let cancel = CancellationToken::new();
+        let validation = self.factory.validation_context(&self.registry)?;
         let mut batches = BTreeMap::new();
         for table in ["first", "second", "third"] {
             let spec = self
@@ -122,6 +123,7 @@ impl Fixture {
                         serde_json::json!(["i64", 1]),
                         serde_json::json!(["i64", value]),
                     ]],
+                    &validation,
                 )
                 .unwrap(),
             );
@@ -185,12 +187,14 @@ impl Fixture {
         let [batch] = result.batches() else {
             panic!("a candidate returns one record")
         };
-        Ok(
-            publication_manifests::View::try_from_batch_with_registry(&self.registry, batch)
-                .unwrap()
-                .row(0)
-                .unwrap(),
+        Ok(publication_manifests::View::try_from_batch_with_registry(
+            &self.registry,
+            batch,
+            &validation,
         )
+        .unwrap()
+        .row(0)
+        .unwrap())
     }
     async fn open(&self, record: &publication_manifests::Row) -> Publication {
         Publication::open(

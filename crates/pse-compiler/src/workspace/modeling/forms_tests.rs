@@ -202,7 +202,10 @@ fn derived_parameters_rebind_with_the_values_they_consume() {
     assert!(first.values_match(&start));
     let shared = first.rebind(&start, &cancel).unwrap();
     assert_eq!(shared.derived, first.derived);
-    assert!(Arc::ptr_eq(&shared.presolve, &first.presolve));
+    assert!(pse_math::SharedAllocation::ptr_eq(
+        &shared.presolve,
+        &first.presolve
+    ));
     // The parameter the enclosure consumed recomputes the derived M; the stale derived
     // entries in the caller's values are replaced, and the structure stays shared.
     let changed = with(p, 4.0);
@@ -210,9 +213,15 @@ fn derived_parameters_rebind_with_the_values_they_consume() {
     let rebound = first.rebind(&changed, &cancel).unwrap();
     assert!((rebound.derived.values[&cap] - 6.0 * (1.0 + 1e-6)).abs() < 1e-9);
     assert_eq!(rebound.derived.values[&floor], first.derived.values[&floor]);
-    assert!(Arc::ptr_eq(&rebound.derivation, &first.derivation));
+    assert!(pse_math::SharedAllocation::ptr_eq(
+        &rebound.derivation,
+        &first.derivation
+    ));
     assert!(Arc::ptr_eq(&rebound.plan, &first.plan));
-    assert!(!Arc::ptr_eq(&rebound.presolve, &first.presolve));
+    assert!(!pse_math::SharedAllocation::ptr_eq(
+        &rebound.presolve,
+        &first.presolve
+    ));
     assert!(rebound.values_match(&changed));
     assert_eq!(
         rebound.complete(&changed).scalars[&cap],

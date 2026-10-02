@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    67u8, 201u8, 159u8, 237u8, 5u8, 123u8, 203u8, 27u8, 18u8, 1u8, 84u8, 144u8, 227u8,
-    221u8, 243u8, 192u8, 119u8, 172u8, 214u8, 165u8, 160u8, 56u8, 247u8, 126u8, 66u8,
-    112u8, 165u8, 222u8, 255u8, 70u8, 54u8, 164u8,
+    146u8, 171u8, 232u8, 138u8, 18u8, 150u8, 134u8, 53u8, 0u8, 189u8, 247u8, 169u8, 64u8,
+    94u8, 109u8, 168u8, 102u8, 254u8, 202u8, 124u8, 92u8, 210u8, 120u8, 83u8, 216u8,
+    172u8, 236u8, 25u8, 119u8, 66u8, 60u8, 137u8,
 ]);
 impl crate::columnar::ArrowValue for ReferenceConversionRulesRow {
     fn append(
@@ -177,9 +177,17 @@ pub fn schema() -> Result<crate::SchemaRef, crate::RelationError> {
 /// Checks schema, recursive extension contracts and visible values.
 /// # Errors
 /// All independently actionable violations.
-pub fn validate(batch: &crate::RecordBatch) -> Result<(), Vec<crate::RelationError>> {
+pub fn validate(
+    batch: &crate::RecordBatch,
+    context: &crate::validate::ValidationContext,
+) -> Result<(), Vec<crate::RelationError>> {
     let reg = pse_schema::registry().map_err(|error| vec![error.into()])?;
-    crate::validate::validate_batch(reg, spec(reg).map_err(|error| vec![error])?, batch)
+    crate::validate::validate_batch(
+        reg,
+        spec(reg).map_err(|error| vec![error])?,
+        batch,
+        context,
+    )
 }
 impl crate::columnar::RelationRow for ReferenceConversionRulesRow {
     type Builder = ReferenceConversionRulesBuilder;
@@ -220,8 +228,9 @@ impl crate::columnar::RelationRow for ReferenceConversionRulesRow {
     fn builder(
         registry: &pse_schema::Registry,
         capacity: usize,
+        context: &crate::validate::ValidationContext,
     ) -> Result<Self::Builder, crate::RelationError> {
-        ReferenceConversionRulesBuilder::with_registry(registry, capacity)
+        ReferenceConversionRulesBuilder::with_registry(registry, capacity, context)
     }
     fn push(builder: &mut Self::Builder, row: Self) -> Result<(), crate::RelationError> {
         builder.push(row)
@@ -403,8 +412,9 @@ impl<'a> ReferenceConversionRulesView<'a> {
     /// A schema, field contract or local value violation.
     pub fn try_from_batch(
         batch: &'a crate::RecordBatch,
+        context: &crate::validate::ValidationContext,
     ) -> Result<Self, crate::RelationError> {
-        Self::try_from_batch_with_registry(pse_schema::registry()?, batch)
+        Self::try_from_batch_with_registry(pse_schema::registry()?, batch, context)
     }
     /// Admits a raw candidate with an explicitly bound registry.
     /// # Errors
@@ -412,8 +422,9 @@ impl<'a> ReferenceConversionRulesView<'a> {
     pub fn try_from_batch_with_registry(
         registry: &pse_schema::Registry,
         batch: &'a crate::RecordBatch,
+        context: &crate::validate::ValidationContext,
     ) -> Result<Self, crate::RelationError> {
-        crate::validate::validate_batch(registry, spec(registry)?, batch)
+        crate::validate::validate_batch(registry, spec(registry)?, batch, context)
             .map_err(|errors| crate::RelationError::Validation {
                 errors,
             })?;

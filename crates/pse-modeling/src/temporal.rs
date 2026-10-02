@@ -7,6 +7,48 @@ use pse_model::generated::enums::ModelingDeclarationKind as Kind;
 
 pub(crate) const COORDINATE: &str = "__temporal_coordinate";
 
+/// The domain authority of an authored or analysis-owned member coordinate.
+pub(crate) enum IndexDomain {
+    Authored {
+        position: usize,
+    },
+    Temporal {
+        policy: crate::DeclarationId,
+        axis: crate::DeclarationId,
+    },
+}
+
+pub(crate) fn index_domain(
+    package: &CheckedPackage,
+    declaration: crate::DeclarationId,
+    position: usize,
+) -> Result<IndexDomain> {
+    if let Some((policy, axis, _)) = package.temporal.get(&declaration) {
+        let owned = package.declarations[&declaration]
+            .value
+            .binding
+            .as_ref()
+            .and_then(|binding| binding.indices.first())
+            .is_some_and(|index| index.name == COORDINATE);
+        if !owned {
+            return Err(invalid(
+                *policy,
+                "analysis-owned temporal coordinate absent",
+            ));
+        }
+        if position == 0 {
+            return Ok(IndexDomain::Temporal {
+                policy: *policy,
+                axis: *axis,
+            });
+        }
+        return Ok(IndexDomain::Authored {
+            position: position - 1,
+        });
+    }
+    Ok(IndexDomain::Authored { position })
+}
+
 pub(crate) fn time_quantity(
     ty: &Type,
     context: &TypeContext<'_>,

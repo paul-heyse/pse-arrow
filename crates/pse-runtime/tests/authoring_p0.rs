@@ -72,7 +72,12 @@ fn package_dependency_resolution_keeps_the_callers_input_role_distinct() {
         support::registry(),
         std::sync::Arc::new(pse_columnar::GreedyMemoryPool::new(512 << 20)),
     );
-    let mut existing = authored::packages::Builder::with_registry(session.registry(), 1).unwrap();
+    let mut existing = authored::packages::Builder::with_registry(
+        session.registry(),
+        1,
+        &session.validation_context().unwrap(),
+    )
+    .unwrap();
     existing.push(package(99)).unwrap();
     let session = session
         .with_checked_role_inputs(
@@ -102,7 +107,12 @@ fn resolve(
     Vec<pse_relations::generated::normalized::package_graph::Row>,
     pse_runtime::authoring_driver::DriverError,
 > {
-    let mut builder = authored::packages::Builder::with_registry(session.registry(), rows.len())?;
+    let validation = session.validation_context()?;
+    let mut builder = authored::packages::Builder::with_registry(
+        session.registry(),
+        rows.len(),
+        validation.as_ref(),
+    )?;
     for row in rows {
         builder.push(row.clone())?;
     }

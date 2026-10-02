@@ -69,7 +69,7 @@ pub(super) async fn compatibility(
             .await?
             .into_iter()
             .map(|batch| {
-                FieldCheckedBatch::admit_in(registry, spec, batch, &validation, &cancel)
+                FieldCheckedBatch::admit(registry, spec, batch, &validation, &cancel)
                     .map_err(pse_columnar::external)
             })
             .collect::<Result<Vec<_>>>()?;

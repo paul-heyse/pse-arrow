@@ -197,6 +197,8 @@ fn constraints(schema: &Value) -> Vec<String> {
         ("exclusiveMaximum", "lt"),
         ("minLength", "min_length"),
         ("maxLength", "max_length"),
+        ("minItems", "min_length"),
+        ("maxItems", "max_length"),
     ] {
         if let Some(bound) = schema.get(keyword).filter(|v| v.is_number()) {
             meta.push(format!("{argument}={bound}"));
@@ -461,6 +463,8 @@ impl<'a> Emitter<'a> {
         if !names.is_empty() {
             source.push('\n');
         }
+        let mut keys = Vec::new();
+        let mut validation = Vec::new();
         for field in names {
             let property = &properties[&field];
             let annotation = self.annotation(property)?;
@@ -494,6 +498,11 @@ impl<'a> Emitter<'a> {
             } else {
                 (field.clone(), default)
             };
+            keys.push(format!(
+                "{}(self.{attribute})",
+                self.equality_key(property)?
+            ));
+            self.unique_validations(property, &format!("self.{attribute}"), 2, &mut validation)?;
             match default {
                 Some(default) => {
                     let _ = writeln!(source, "    {attribute}: {annotation} = {default}");
@@ -503,7 +512,273 @@ impl<'a> Emitter<'a> {
                 }
             }
         }
+        source.push_str("\n    def _pse_equality_key(self) -> v.EqualityKey:\n");
+        let _ = writeln!(
+            source,
+            "        return (type(self), ({}))",
+            keys.iter()
+                .map(|key| format!("{key},"))
+                .collect::<Vec<_>>()
+                .join(" ")
+        );
+        if !validation.is_empty() {
+            source.push_str("\n    def __post_init__(self) -> None:\n");
+            source.push_str(&validation.join("\n"));
+            source.push('\n');
+        }
         Ok(source)
+    }
+
+    /// Keys follow the declared element equality, including nested maps and records.
+    fn equality_key(&self, schema: &Value) -> Result<String, SchemaError> {
+        if let Some(name) = reference(schema) {
+            if self.vocabularies.contains_key(name) {
+                return Ok("v.scalar_key".into());
+            }
+            let definition = self
+                .definitions
+                .get(name)
+                .ok_or_else(|| error(format!("unknown definition {name}")))?;
+            if definition.get("properties").is_some()
+                || definition
+                    .get("oneOf")
+                    .or_else(|| definition.get("anyOf"))
+                    .and_then(Value::as_array)
+                    .is_some_and(|alternatives| tagged(alternatives).is_some())
+            {
+                return Ok("v.record_key".into());
+            }
+            return self.equality_key(definition);
+        }
+        if let Some(alternatives) = schema
+            .get("anyOf")
+            .or_else(|| schema.get("oneOf"))
+            .and_then(Value::as_array)
+        {
+            if tagged(alternatives).is_some() {
+                return Ok("v.record_key".into());
+            }
+            let nonnull = alternatives
+                .iter()
+                .filter(|member| types(member) != (vec![], true))
+                .collect::<Vec<_>>();
+            let nullable = nonnull.len() != alternatives.len();
+            let keys = nonnull
+                .iter()
+                .map(|member| self.equality_key(member))
+                .collect::<Result<Vec<_>, _>>()?;
+            let distinct = keys.iter().collect::<BTreeSet<_>>();
+            let key = if keys.is_empty() {
+                "v.scalar_key".into()
+            } else if distinct.len() == 1 {
+                keys[0].clone()
+            } else {
+                let mut expression = "v.scalar_key(value)".to_owned();
+                for (member, key) in nonnull.iter().zip(&keys).rev() {
+                    if key != "v.scalar_key" {
+                        let condition = self.key_condition(member)?;
+                        expression = format!("{key}(value) if {condition} else ({expression})");
+                    }
+                }
+                format!("(lambda value: {expression})")
+            };
+            return Ok(if nullable {
+                format!("v.optional_key({key})")
+            } else {
+                key
+            });
+        }
+        let (kinds, nullable) = types(schema);
+        let key = match kinds.as_slice() {
+            ["array"] => {
+                if let Some(items) = schema.get("prefixItems").and_then(Value::as_array) {
+                    let keys = items
+                        .iter()
+                        .map(|item| self.equality_key(item))
+                        .collect::<Result<Vec<_>, _>>()?;
+                    if keys.is_empty() {
+                        "v.tuple_key(())".into()
+                    } else {
+                        format!("v.tuple_key(({},))", keys.join(", "))
+                    }
+                } else {
+                    let item = schema
+                        .get("items")
+                        .ok_or_else(|| error("array key without items"))?;
+                    format!("v.sequence_key({})", self.equality_key(item)?)
+                }
+            }
+            ["object"] if schema.get("properties").is_some() => "v.record_key".into(),
+            ["object"] => {
+                let values = schema
+                    .get("additionalProperties")
+                    .filter(|value| value.is_object())
+                    .or_else(|| {
+                        schema
+                            .get("patternProperties")
+                            .and_then(Value::as_object)
+                            .filter(|map| map.len() == 1)
+                            .and_then(|map| map.values().next())
+                    })
+                    .ok_or_else(|| error("map key without typed values"))?;
+                format!(
+                    "v.mapping_key(v.scalar_key, {})",
+                    self.equality_key(values)?
+                )
+            }
+            _ => "v.scalar_key".into(),
+        };
+        Ok(if nullable {
+            format!("v.optional_key({key})")
+        } else {
+            key
+        })
+    }
+
+    fn key_condition(&self, schema: &Value) -> Result<String, SchemaError> {
+        if let Some(name) = reference(schema) {
+            let definition = self
+                .definitions
+                .get(name)
+                .ok_or_else(|| error(format!("unknown definition {name}")))?;
+            if definition.get("properties").is_some() {
+                return Ok(format!("isinstance(value, {name})"));
+            }
+            return self.key_condition(definition);
+        }
+        match types(schema).0.as_slice() {
+            ["array"] => Ok("isinstance(value, (tuple, list))".into()),
+            ["object"] => Ok("isinstance(value, dict)".into()),
+            _ => Err(error(
+                "mixed equality choice has no declared shape discriminator",
+            )),
+        }
+    }
+
+    /// Emit unique-items checks only from schema declarations; nested structs own theirs.
+    fn unique_validations(
+        &self,
+        schema: &Value,
+        value: &str,
+        depth: usize,
+        lines: &mut Vec<String>,
+    ) -> Result<(), SchemaError> {
+        if let Some(name) = reference(schema) {
+            if self.vocabularies.contains_key(name) {
+                return Ok(());
+            }
+            let definition = self
+                .definitions
+                .get(name)
+                .ok_or_else(|| error(format!("unknown definition {name}")))?;
+            if definition.get("properties").is_some() {
+                return Ok(());
+            }
+            return self.unique_validations(definition, value, depth, lines);
+        }
+        if let Some(alternatives) = schema
+            .get("anyOf")
+            .or_else(|| schema.get("oneOf"))
+            .and_then(Value::as_array)
+        {
+            if tagged(alternatives).is_some() {
+                return Ok(());
+            }
+            let nonnull = alternatives
+                .iter()
+                .filter(|member| types(member) != (vec![], true))
+                .collect::<Vec<_>>();
+            if let [member] = nonnull.as_slice() {
+                let mut nested = Vec::new();
+                self.unique_validations(member, value, depth + 1, &mut nested)?;
+                if !nested.is_empty() {
+                    lines.push(format!("{}if {value} is not None:", "    ".repeat(depth)));
+                    lines.extend(nested);
+                }
+            } else {
+                for member in nonnull {
+                    let mut nested = Vec::new();
+                    self.unique_validations(member, value, depth + 1, &mut nested)?;
+                    if !nested.is_empty() {
+                        lines.push(format!(
+                            "{}if {}:",
+                            "    ".repeat(depth),
+                            self.key_condition(member)?.replace("value", value)
+                        ));
+                        lines.extend(nested);
+                    }
+                }
+            }
+            return Ok(());
+        }
+        let (kinds, nullable) = types(schema);
+        if nullable {
+            let mut nonnull = schema.clone();
+            nonnull["type"] = Value::Array(
+                kinds
+                    .iter()
+                    .map(|kind| Value::String((*kind).into()))
+                    .collect(),
+            );
+            let mut nested = Vec::new();
+            self.unique_validations(&nonnull, value, depth + 1, &mut nested)?;
+            if !nested.is_empty() {
+                lines.push(format!("{}if {value} is not None:", "    ".repeat(depth)));
+                lines.extend(nested);
+            }
+            return Ok(());
+        }
+        if kinds == ["array"] {
+            if let Some(items) = schema.get("prefixItems").and_then(Value::as_array) {
+                if schema.get("uniqueItems") == Some(&Value::Bool(true)) {
+                    return Err(error(
+                        "unique heterogeneous positions need an explicit admitted element equality",
+                    ));
+                }
+                for (index, item) in items.iter().enumerate() {
+                    self.unique_validations(item, &format!("{value}[{index}]"), depth, lines)?;
+                }
+            } else if let Some(item) = schema.get("items") {
+                if schema.get("uniqueItems") == Some(&Value::Bool(true)) {
+                    lines.push(format!(
+                        "{}v.unique({})(self, None, {value})",
+                        "    ".repeat(depth),
+                        self.equality_key(item)?
+                    ));
+                }
+                let element = format!("_item_{depth}");
+                let mut nested = Vec::new();
+                self.unique_validations(item, &element, depth + 1, &mut nested)?;
+                if !nested.is_empty() {
+                    lines.push(format!("{}for {element} in {value}:", "    ".repeat(depth)));
+                    lines.extend(nested);
+                }
+            }
+        } else if kinds == ["object"] && schema.get("properties").is_none() {
+            let members = schema
+                .get("additionalProperties")
+                .filter(|member| member.is_object())
+                .or_else(|| {
+                    schema
+                        .get("patternProperties")
+                        .and_then(Value::as_object)
+                        .filter(|map| map.len() == 1)
+                        .and_then(|map| map.values().next())
+                });
+            if let Some(member) = members {
+                let element = format!("_item_{depth}");
+                let mut nested = Vec::new();
+                self.unique_validations(member, &element, depth + 1, &mut nested)?;
+                if !nested.is_empty() {
+                    lines.push(format!(
+                        "{}for {element} in {value}.values():",
+                        "    ".repeat(depth)
+                    ));
+                    lines.extend(nested);
+                }
+            }
+        }
+        Ok(())
     }
 
     /// The Python default of a property, when its schema states one.
@@ -607,20 +882,7 @@ impl<'a> Emitter<'a> {
                     .get("items")
                     .ok_or_else(|| error(format!("an array without items {schema}")))?;
                 let item = self.annotation(items)?;
-                let fixed = schema
-                    .get("minItems")
-                    .zip(schema.get("maxItems"))
-                    .and_then(|(low, high)| (low == high).then(|| low.as_u64()).flatten());
-                match fixed {
-                    Some(length) => annotated(
-                        &format!("tuple[{item}, ...]"),
-                        &[
-                            format!("min_length={length}"),
-                            format!("max_length={length}"),
-                        ],
-                    ),
-                    None => format!("tuple[{item}, ...]"),
-                }
+                annotated(&format!("tuple[{item}, ...]"), &constraints(schema))
             }
             ["object"] => {
                 if schema.get("properties").is_some() {
@@ -715,7 +977,7 @@ fn python(reg: &Registry, documents: &[Document]) -> Result<String, SchemaError>
         "\"\"\"Rust-owned boundary documents as frozen msgspec types (ADR-0116 Outcome 7).\n\nGenerated from the documents' JSON Schemas in `docs/generated/schema/`; the Rust serde\ntypes are the authority. Every enumeration is a registry vocabulary.\n\"\"\"\n\n",
     );
     source.push_str(
-        "from __future__ import annotations\n\nfrom typing import Annotated, Literal\n\nimport msgspec\n\nfrom pse.contracts import enums\n\n",
+        "from __future__ import annotations\n\nfrom typing import Annotated, Literal\n\nimport msgspec\n\nfrom pse.contracts import enums\nfrom pse.contracts import values as v\n\n",
     );
     for (name, annotation) in &emitter.aliases {
         let _ = write!(source, "{name} = {annotation}\n\n");
@@ -763,6 +1025,36 @@ mod tests {
         Document {
             name: "probe",
             schema,
+        }
+    }
+
+    #[test]
+    fn document_collections_keep_cardinality_and_declared_equality_keys() {
+        let registry = crate::registry().unwrap();
+        let schema = serde_json::json!({
+            "title":"UniqueProbe", "type":"object", "additionalProperties":false,
+            "required":["numbers", "records", "nested"],
+            "properties": {
+                "numbers":{"type":"array", "items":{"type":"number"}, "uniqueItems":true, "minItems":1, "maxItems":3},
+                "records":{"type":"array", "items":{"$ref":"#/$defs/Record"}, "uniqueItems":true},
+                "nested":{"type":"object", "additionalProperties":{"type":["array","null"], "items":{"type":"string"}, "uniqueItems":true}}
+            },
+            "$defs":{"Record":{"type":"object", "additionalProperties":false, "required":["values"], "properties":{
+                "values":{"type":"object", "additionalProperties":{"type":"array", "items":{"type":"number"}}}
+            }}}
+        });
+        let source = python(registry, &[document(schema)]).unwrap();
+        for expected in [
+            "numbers: Annotated[tuple[float, ...], msgspec.Meta(min_length=1, max_length=3)]",
+            "v.unique(v.scalar_key)(self, None, self.numbers)",
+            "v.unique(v.record_key)(self, None, self.records)",
+            "v.mapping_key(v.scalar_key, v.sequence_key(v.scalar_key))(self.values)",
+            "for _item_2 in self.nested.values():",
+            "if _item_2 is not None:",
+            "v.unique(v.scalar_key)(self, None, _item_2)",
+            "def _pse_equality_key(self) -> v.EqualityKey:",
+        ] {
+            assert!(source.contains(expected), "{expected}\n{source}");
         }
     }
 

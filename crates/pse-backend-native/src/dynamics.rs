@@ -396,6 +396,7 @@ pub(crate) struct Eliminated {
     pub(crate) parameters: Vec<f64>,
     /// The constraint multipliers `w` of `F_aaᵀ w = b_a`, scattered over the algebraic rows
     /// of the residual function and zero on its differential rows.
+    #[cfg(feature = "idas")]
     pub(crate) multipliers: Vec<f64>,
 }
 /// `Aᵀv` over a sparse matrix's columns.
@@ -486,6 +487,7 @@ pub(crate) fn eliminate(
     Ok(Eliminated {
         state: jump,
         parameters,
+        #[cfg(feature = "idas")]
         multipliers,
     })
 }
@@ -680,7 +682,7 @@ pub struct Profile {
     /// Maximum retained event records.
     pub max_events: usize,
     /// Cooperative outer time allowance, including callbacks and resets.
-    #[schemars(with = "ClosedDuration")]
+    #[schemars(with = "pse_model::document::ClosedDuration")]
     pub time_limit: Duration,
     /// Maximum retained scalar cells, including sensitivities and event states.
     pub max_cells: usize,
@@ -717,30 +719,16 @@ pub struct Profile {
     pub native: Arc<diffsol::OdeSolverOptions<f64>>,
 }
 
-/// Serde's standard Duration visitor refuses unknown fields; schemars's standard
-/// projection retains its integer bounds but omits that object closure.
-struct ClosedDuration;
-impl schemars::JsonSchema for ClosedDuration {
-    fn schema_name() -> std::borrow::Cow<'static, str> {
-        std::borrow::Cow::Borrowed("ClosedDuration")
-    }
-    fn json_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
-        let mut schema = <Duration as schemars::JsonSchema>::json_schema(generator);
-        schema.insert(
-            "additionalProperties".into(),
-            serde_json::Value::Bool(false),
-        );
-        schema
-    }
-}
 #[cfg(test)]
 mod duration_schema_unit {
     use super::*;
 
     #[test]
     fn dynamics_profile_duration_schema_matches_closed_serde_representation() {
-        let mut profile = Profile::default();
-        profile.time_limit = Duration::new(7, 123);
+        let profile = Profile {
+            time_limit: Duration::new(7, 123),
+            ..Profile::default()
+        };
         let encoded = serde_json::to_value(&profile).unwrap();
         assert_eq!(
             encoded["time_limit"],

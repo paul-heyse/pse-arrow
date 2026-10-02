@@ -131,9 +131,9 @@ pub fn validate_batch(
     reg: &Registry,
     spec: &RelationSpec,
     batch: &RecordBatch,
+    context: &ValidationContext,
 ) -> Result<(), Vec<RelationError>> {
     validate_schema(reg, spec, &batch.schema())?;
-    let context = ValidationContext::for_registry(reg).map_err(|error| vec![error])?;
     context
         .relation(reg, spec)
         .and_then(|prepared| prepared.evaluate(batch, 256, &pse_columnar::CancellationToken::new()))
@@ -151,8 +151,8 @@ pub fn validate_column(
     reg: &Registry,
     field: &Field,
     array: &dyn Array,
+    context: &ValidationContext,
 ) -> Result<(), Vec<RelationError>> {
-    let context = ValidationContext::for_registry(reg).map_err(|error| vec![error])?;
     let prepared = context.column(reg, field).map_err(|error| vec![error])?;
     array
         .to_data()

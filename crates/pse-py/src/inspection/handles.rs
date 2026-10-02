@@ -109,7 +109,10 @@ impl Publication {
     fn attempt_id(&self, py: Python<'_>) -> PyResult<String> {
         self.record(py, |record| record.attempt_id.to_string())
     }
-    fn tables(&self, py: Python<'_>) -> PyResult<Vec<super::TableName>> {
+    fn tables(
+        &self,
+        py: Python<'_>,
+    ) -> PyResult<Vec<crate::documents::DocumentValue<pse_runtime::TableName>>> {
         Ok(self
             .selected()
             .map_err(|error| errors::diagnostic(py, &error))?
@@ -117,7 +120,7 @@ impl Publication {
             .session()
             .inspection_tables()
             .into_iter()
-            .map(Into::into)
+            .map(|table| crate::documents::DocumentValue(table.into()))
             .collect())
     }
     fn table(
@@ -158,19 +161,30 @@ impl Publication {
         })
         .map_err(|error: EngineError| errors::diagnostic(py, &error))
     }
-    fn cache_usage(&self, py: Python<'_>) -> PyResult<Vec<super::CacheReport>> {
+    fn cache_usage(
+        &self,
+        py: Python<'_>,
+    ) -> PyResult<Vec<crate::documents::DocumentValue<pse_engine::cache_service::CacheReport>>>
+    {
         let report = self
             .runtime
             .shared
             .report()
             .map_err(|error| errors::diagnostic(py, &error))?;
-        Ok(report.caches.into_iter().map(Into::into).collect())
+        Ok(report
+            .caches
+            .into_iter()
+            .map(crate::documents::DocumentValue)
+            .collect())
     }
-    fn resource_usage(&self, py: Python<'_>) -> PyResult<super::ResourceReport> {
+    fn resource_usage(
+        &self,
+        py: Python<'_>,
+    ) -> PyResult<crate::documents::DocumentValue<pse_runtime::ResourceReport>> {
         self.runtime
             .shared
             .report()
-            .map(Into::into)
+            .map(crate::documents::DocumentValue)
             .map_err(|error| errors::diagnostic(py, &error))
     }
     /// Release the selection (and its catalog lease once no stream holds it); existing

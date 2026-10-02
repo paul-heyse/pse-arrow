@@ -75,6 +75,15 @@ class BasisRule(StrEnum):
     DECLARED_RESULT = "declared_result"
 
 
+class BoundActivity(StrEnum):
+    """The declared BoundActivity enumeration."""
+
+    INACTIVE = "inactive"
+    AT_LOWER = "at_lower"
+    AT_UPPER = "at_upper"
+    FIXED = "fixed"
+
+
 class BoundKind(StrEnum):
     """The declared BoundKind enumeration."""
 
@@ -2122,6 +2131,15 @@ class ReusePolicy(StrEnum):
     REQUIRE_REUSE = "require_reuse"
 
 
+class RowActivity(StrEnum):
+    """The declared RowActivity enumeration."""
+
+    INACTIVE = "inactive"
+    AT_LOWER = "at_lower"
+    AT_UPPER = "at_upper"
+    EQUALITY = "equality"
+
+
 class RuntimeTermination(StrEnum):
     """The declared RuntimeTermination enumeration."""
 
@@ -2371,6 +2389,14 @@ class TearMethod(StrEnum):
 
     HIGHS = "highs"
     UNWEIGHTED_HEURISTIC = "unweighted_heuristic"
+
+
+class TearPolicy(StrEnum):
+    """The declared TearPolicy enumeration."""
+
+    FREE = "free"
+    MANDATORY = "mandatory"
+    FORBIDDEN = "forbidden"
 
 
 class TerminationClass(StrEnum):

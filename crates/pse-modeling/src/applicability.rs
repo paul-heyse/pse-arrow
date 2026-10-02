@@ -120,7 +120,7 @@ pub(crate) fn admit(p: &CheckedPackage, c: &TypeContext<'_>) -> Result<()> {
                     "applicability owner is a declared scientific family or model",
                 ));
             }
-            let evidence = dsl::parse_expr(&v.evidence).map_err(|e| invalid(id, e.to_string()))?;
+            let evidence = p.expression_at(id, "applicability.evidence", 0)?.clone();
             let evidence_type = crate::expression::infer(&evidence, &env, p, c, id, None)?;
             if !matches!(evidence_type,Type::Entity(kind) if p.kinds.get(&kind).is_some_and(|k|k.provenance))
             {
@@ -137,9 +137,7 @@ pub(crate) fn admit(p: &CheckedPackage, c: &TypeContext<'_>) -> Result<()> {
                         && v.reason.is_none()
                         && v.alternatives.is_empty() =>
                 {
-                    let predicate =
-                        dsl::parse_predicate(v.predicate.as_deref().unwrap_or_default())
-                            .map_err(|e| invalid(id, e.to_string()))?;
+                    let predicate = p.predicate_at(id, "applicability.predicate", 0)?.clone();
                     crate::expression::predicate(&predicate, &env, p, c, id)?;
                 }
                 Kind::Interval
@@ -151,12 +149,7 @@ pub(crate) fn admit(p: &CheckedPackage, c: &TypeContext<'_>) -> Result<()> {
                         && v.reason.is_none()
                         && v.alternatives.is_empty() =>
                 {
-                    let predicate = interval_predicate(
-                        v.axis.as_deref().unwrap_or_default(),
-                        v.lower.as_deref().unwrap_or_default(),
-                        v.upper.as_deref().unwrap_or_default(),
-                        id,
-                    )?;
+                    let predicate = interval_predicate(p, id)?;
                     crate::expression::predicate(&predicate, &env, p, c, id)?;
                 }
                 Kind::Unknown
@@ -184,15 +177,20 @@ pub(crate) fn admit(p: &CheckedPackage, c: &TypeContext<'_>) -> Result<()> {
                     ));
                 }
             }
-            for application in v.alternatives.iter().chain(&v.dependencies) {
-                let e = dsl::parse_expr(application).map_err(|e| invalid(id, e.to_string()))?;
-                if crate::expression::infer(&e, &env, p, c, id, Some(&Type::Applicability))?
-                    != Type::Applicability
-                {
-                    return Err(invalid(
-                        id,
-                        "claim unions and dependencies require typed applicability applications",
-                    ));
+            for (role, sources) in [
+                ("applicability.alternatives", &v.alternatives),
+                ("applicability.dependencies", &v.dependencies),
+            ] {
+                for position in 0..sources.len() {
+                    let e = p.expression_at(id, role, position)?;
+                    if crate::expression::infer(e, &env, p, c, id, Some(&Type::Applicability))?
+                        != Type::Applicability
+                    {
+                        return Err(invalid(
+                            id,
+                            "claim unions and dependencies require typed applicability applications",
+                        ));
+                    }
                 }
             }
         }
@@ -246,12 +244,28 @@ pub(crate) fn admit(p: &CheckedPackage, c: &TypeContext<'_>) -> Result<()> {
     }
     Ok(())
 }
-pub(crate) fn interval_predicate(
-    axis: &str,
-    lower: &str,
-    upper: &str,
-    at: DeclarationId,
-) -> Result<Predicate> {
-    dsl::parse_predicate(&format!("({axis}) >= ({lower}) and ({axis}) <= ({upper})"))
-        .map_err(|e| invalid(at, e.to_string()))
+pub(crate) fn interval_predicate(p: &CheckedPackage, at: DeclarationId) -> Result<Predicate> {
+    let axis = p.expression_at(at, "applicability.axis", 0)?.clone();
+    let lower = p.expression_at(at, "applicability.lower", 0)?.clone();
+    let upper = p.expression_at(at, "applicability.upper", 0)?.clone();
+    let lower = Predicate {
+        span: axis.span,
+        kind: dsl::PredicateKind::Compare {
+            lhs: Box::new(axis.clone()),
+            op: dsl::CompareOp::Ge,
+            rhs: Box::new(lower),
+        },
+    };
+    let upper = Predicate {
+        span: axis.span,
+        kind: dsl::PredicateKind::Compare {
+            lhs: Box::new(axis.clone()),
+            op: dsl::CompareOp::Le,
+            rhs: Box::new(upper),
+        },
+    };
+    Ok(Predicate {
+        span: axis.span,
+        kind: dsl::PredicateKind::And(Box::new(lower), Box::new(upper)),
+    })
 }

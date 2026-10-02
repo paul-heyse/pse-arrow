@@ -29,8 +29,9 @@ use pse_runtime::{
     authoring_driver::document::{OwnedDocumentSet, load_package_documents_owned},
     math::{settings::SolveSettings, solves::Outcome},
     workflow::{
-        Durability, JobStart, LeasePolicy, ModelingJob, ModelingPackage, Operations, Processed,
-        RunDurability, RunReport, RunRequest, Runtime, StartSource, StoredStart,
+        Durability, JobStart, LeasePolicy, ModelingJob, ModelingPackage, Operations,
+        PhysicalContext, Processed, RunDurability, RunReport, RunRequest, Runtime, StartSource,
+        StoredStart,
     },
 };
 use std::{collections::BTreeMap, num::NonZeroUsize, path::Path, sync::Arc};
@@ -114,7 +115,6 @@ fn runtime() -> (Arc<SharedRuntime>, Runtime) {
     })
     .unwrap();
     let registry = pse_schema::shared_registry().unwrap();
-    pse_engine::validation::bind_defaults(&registry).unwrap();
     let sessions = Arc::new(
         shared
             .session_factory(pse_engine::session::native_engine_profile())
@@ -131,9 +131,13 @@ async fn package(
     runtime: &Runtime,
     physical: &BTreeMap<String, Vec<u8>>,
     modeling: &BTreeMap<String, Vec<u8>>,
-) -> ModelingPackage {
+) -> (ModelingPackage, PhysicalContext) {
     let pool = shared.pool();
     let cancel = pse_columnar::CancellationToken::new();
+    let validation = runtime
+        .sessions()
+        .validation_context(runtime.registry())
+        .unwrap();
     let load = |texts| {
         load_package_documents_owned(
             texts,
@@ -141,6 +145,7 @@ async fn package(
             pse_authoring::ParseBudget::default(),
             &pool,
             &cancel,
+            &validation,
         )
         .unwrap()
     };
@@ -152,7 +157,12 @@ async fn package(
         .unwrap();
     let modeling =
         OwnedDocumentSet::try_from_bundles(vec![load(modeling)], &pool, &cancel).unwrap();
-    runtime.modeling_from_documents(&modeling, context).unwrap()
+    (
+        runtime
+            .modeling_from_documents(&modeling, context.clone())
+            .unwrap(),
+        context,
+    )
 }
 
 fn settings() -> SolveSettings {
@@ -173,7 +183,7 @@ async fn worker_runs_authored_case_end_to_end() {
     let (physical, modeling) = sources();
     let (shared, local) = runtime();
     let local = local.with_durability(Durability::Durable(operations.clone()));
-    let package = package(&shared, &local, &physical, &modeling).await;
+    let (package, _) = package(&shared, &local, &physical, &modeling).await;
     let case = package
         .declarations()
         .iter()
@@ -187,7 +197,6 @@ async fn worker_runs_authored_case_end_to_end() {
         route: pse_model::generated::enums::ModelingAnalysisRoute::Steady,
         settings: settings(),
         start: JobStart::Fresh,
-        study: None,
     };
     let enqueued = operations
         .enqueue(&job, "square-end-to-end", RetryPolicy::ONCE, 0)
@@ -311,7 +320,7 @@ async fn durable_job_round_trips_a_package_with_a_data_document() {
     modeling.insert("data/target.parquet".to_owned(), target_document());
     let (shared, local) = runtime();
     let local = local.with_durability(Durability::Durable(operations.clone()));
-    let package = package(&shared, &local, &physical, &modeling).await;
+    let (package, _) = package(&shared, &local, &physical, &modeling).await;
     let case = package
         .declarations()
         .iter()
@@ -325,7 +334,6 @@ async fn durable_job_round_trips_a_package_with_a_data_document() {
         route: pse_model::generated::enums::ModelingAnalysisRoute::Steady,
         settings: settings(),
         start: JobStart::Fresh,
-        study: None,
     };
     // The stored bundle is the package's exact bytes, its Parquet document included.
     assert_eq!(
@@ -533,7 +541,7 @@ async fn long_scip_job(
 ) -> ModelingJob {
     let physical = physical_with_indicator();
     let modeling = discrete_sources(&market_split());
-    let package = package(shared, local, &physical, &modeling).await;
+    let (package, _) = package(shared, local, &physical, &modeling).await;
     let case = package
         .declarations()
         .iter()
@@ -553,7 +561,6 @@ async fn long_scip_job(
         route: pse_model::generated::enums::ModelingAnalysisRoute::Steady,
         settings,
         start,
-        study: None,
     }
 }
 
@@ -876,7 +883,6 @@ fn scip_runtime() -> (Arc<SharedRuntime>, Runtime) {
     })
     .unwrap();
     let registry = pse_schema::shared_registry().unwrap();
-    pse_engine::validation::bind_defaults(&registry).unwrap();
     let sessions = Arc::new(
         shared
             .session_factory(pse_engine::session::native_engine_profile())
@@ -906,7 +912,12 @@ const PARAMETRIC: &str = r#"package algebraic { def Root {
 /// holds the summary and every completed point's members.
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn study_parallel_workers_publish_once() {
-    use pse_runtime::workflow::{PackageSources, PointOverlay, StudyPlan, StudyPoint, StudyState};
+    use pse_model::study::{OccurrenceKey, StartPolicy};
+    use pse_runtime::workflow::{
+        BindingAssignment, BindingQuantity, BindingTarget, CaseOperation, OperationRequest,
+        PackageSources, PointOverlay, PreparationSettings, StudyPlan, StudyPoint, StudyPointPolicy,
+        StudyState,
+    };
     const POINTS: usize = 8;
     let database = TestDatabase::create().await.unwrap();
     let operations = Operations::connect(database.url(), "enqueuer", LeasePolicy::default())
@@ -915,7 +926,7 @@ async fn study_parallel_workers_publish_once() {
     let (physical, modeling) = sources_of(PARAMETRIC);
     let (shared, local) = runtime();
     let local = local.with_durability(Durability::Durable(operations.clone()));
-    let package = package(&shared, &local, &physical, &modeling).await;
+    let (package, context) = package(&shared, &local, &physical, &modeling).await;
     let case = package
         .declarations()
         .iter()
@@ -930,15 +941,39 @@ async fn study_parallel_workers_publish_once() {
         )
         .await
         .unwrap();
+    let scalar = context
+        .quantities()
+        .quantity_types()
+        .find(|quantity| quantity.name.as_deref() == Some("Scalar"))
+        .unwrap();
     let points = (0..POINTS)
         .map(|index| StudyPoint {
-            case,
+            operation: OperationRequest::DeclaredCase(CaseOperation {
+                case,
+                route: pse_model::generated::enums::ModelingAnalysisRoute::Steady,
+                settings: settings(),
+            }),
+            preparation: PreparationSettings::default(),
             overlay: PointOverlay {
                 // x = index + 2, inside the bounds.
-                values: BTreeMap::from([("a".to_owned(), ((index + 2) * (index + 2)) as f64)]),
-                parameters: BTreeMap::new(),
+                assignments: vec![BindingAssignment {
+                    target: BindingTarget::Path("a".into()),
+                    value: BindingQuantity {
+                        magnitude: pse_model::scalars::FiniteBound::try_new(
+                            ((index + 2) * (index + 2)) as f64,
+                        )
+                        .unwrap(),
+                        quantity: scalar.id.as_id(),
+                        unit: scalar.canonical_unit.as_id(),
+                    },
+                }],
             },
-            predecessor: None,
+            policy: StudyPointPolicy {
+                key: OccurrenceKey(u32::try_from(index).unwrap()),
+                dependencies: vec![],
+                start: StartPolicy::Fresh,
+                attempt_limit: 1,
+            },
         })
         .collect();
     let handle = local
@@ -949,7 +984,6 @@ async fn study_parallel_workers_publish_once() {
                     physical,
                     modeling: vec![modeling],
                 },
-                settings: settings(),
                 points,
                 retry: RetryPolicy::ONCE,
                 priority: 0,

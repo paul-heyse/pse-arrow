@@ -575,9 +575,9 @@ fn settings_documents_round_trip_every_variant() {
 }
 
 /// Settings identity is the serde data model of the typed document: field names and the
-/// registry and serde spellings, never Rust type names (ADR-0116 Outcome 9). These values
-/// were captured when the identity serializer stopped framing type names (Plan 22 B5); they
-/// change only when a document's encoding changes.
+/// registry and serde spellings, never Rust type names (ADR-0116 Outcome 9). ADR-0150
+/// versions canonical float identity; the finite historical vectors remain controlled
+/// under their original frames alongside the current typed-document vectors.
 #[test]
 fn settings_identity_is_type_name_independent() {
     use serde_json::json;
@@ -617,16 +617,47 @@ fn settings_identity_is_type_name_independent() {
             json!({"backend": "clarabel", "mode": "reusable_data"}),
         ),
     ];
+    #[derive(serde::Serialize)]
+    #[serde(transparent)]
+    struct RenamedSettings<'a>(Option<&'a BackendSettings>);
+    let mut historical = Vec::new();
     let mut observed = documents
         .into_iter()
         .map(|(label, document)| {
             let settings = serde_json::from_value::<BackendSettings>(document).unwrap();
-            (label, settings.identity().unwrap().to_prefixed())
+            let current = settings.identity().unwrap();
+            assert_eq!(
+                current,
+                pse_ids::document::of(
+                    pse_ids::Frame::BackendSettingsV5,
+                    &RenamedSettings(settings.document())
+                )
+                .unwrap(),
+                "Rust type names and transparent wrappers cannot change identity"
+            );
+            // Every float in these fixtures is finite: canonical framing therefore has
+            // the exact historical encoding under the historical context.
+            historical.push((
+                label,
+                pse_ids::document::of(pse_ids::Frame::BackendSettingsV4, &settings.document())
+                    .unwrap()
+                    .to_prefixed(),
+            ));
+            (label, current.to_prefixed())
         })
         .collect::<Vec<_>>();
     observed.push((
         "default",
         BackendSettings::Default.identity().unwrap().to_prefixed(),
+    ));
+    historical.push((
+        "default",
+        pse_ids::document::of(
+            pse_ids::Frame::BackendSettingsV4,
+            &BackendSettings::Default.document(),
+        )
+        .unwrap()
+        .to_prefixed(),
     ));
     let controls: Controls = serde_json::from_value(json!({
         "hessian": "limited_memory",
@@ -634,7 +665,13 @@ fn settings_identity_is_type_name_independent() {
     }))
     .unwrap();
     observed.push(("controls", controls.identity().unwrap().to_prefixed()));
-    let expected: Vec<(&str, String)> = [
+    historical.push((
+        "controls",
+        pse_ids::document::of(pse_ids::Frame::NativeControlsV2, &controls)
+            .unwrap()
+            .to_prefixed(),
+    ));
+    let historical_expected: Vec<(&str, String)> = [
         (
             "scip",
             "blake3:611480d096c386b314b60cb20ace70af661323f94b337d07c00578ea10295eff",
@@ -675,6 +712,48 @@ fn settings_identity_is_type_name_independent() {
     .into_iter()
     .map(|(label, identity)| (label, identity.to_owned()))
     .collect();
+    assert_eq!(historical, historical_expected);
+    let expected = [
+        (
+            "scip",
+            "blake3:9112367f376ff2354172d9fd75a15b1681babf8a5ce150884b12e03c52d86c72",
+        ),
+        (
+            "ipopt-spral",
+            "blake3:c8d2badf3dc6062d6fc81518b118fc7d303e3d23d9bf3d49c68d04b3018df50a",
+        ),
+        (
+            "ipopt-mumps",
+            "blake3:5a11a523d8f5ccc6ecc47f0d074dde4aaf8d8b0ee9a4c3acc70737efa4bb9f52",
+        ),
+        (
+            "highs",
+            "blake3:3893536a85a8ddc73942b4b0ee9cc886643c5c1dd06e3fa50bf505a9d341b493",
+        ),
+        (
+            "pounce",
+            "blake3:2bc4cf6ba35399fc7e91699cedda712a57c4db25a2333f614a3a4d4253f56d81",
+        ),
+        (
+            "kinsol",
+            "blake3:d2d46285fea4049ac20f5938aa5c60f06608481017e73255aa4e9e0cb33d4301",
+        ),
+        (
+            "clarabel",
+            "blake3:f3fb09bae3d811d458f129ed696951e36ee40b7eca2096dfdc8d68b7346a4c59",
+        ),
+        (
+            "default",
+            "blake3:6e4c1011c85f48b669a14f7d509c2bff7df3bdef0301f3bc741cd1bbd6fbd6be",
+        ),
+        (
+            "controls",
+            "blake3:864a5fbb98459a261b2db003e491ef6ab04a97b94519719515b82039cb2fe28d",
+        ),
+    ]
+    .into_iter()
+    .map(|(label, identity)| (label, identity.to_owned()))
+    .collect::<Vec<_>>();
     assert_eq!(observed, expected);
     // The time limit of the controls document is its seconds.
     assert_eq!(

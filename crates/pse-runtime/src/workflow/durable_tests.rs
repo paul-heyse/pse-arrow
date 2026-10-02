@@ -211,7 +211,9 @@ async fn startup_sweep_marks_expired_leases_stale() {
         attempt_id: pse_operations::mint_id(),
         run_id: pse_operations::mint_id(),
         kind: AttemptKind::Modeling,
-        request_identity: pse_ids::ContentHash::from_bytes([1; 32]),
+        operational_job_identity: pse_ids::roles::RecordedOperationalJobIdentity::current(
+            pse_ids::roles::OperationalJobHash::from(pse_ids::ContentHash::from_bytes([1; 32])),
+        ),
         preparation_identity: None,
         parent_attempt: None,
     };

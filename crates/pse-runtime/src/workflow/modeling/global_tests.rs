@@ -133,6 +133,68 @@ async fn price_taker_quadratic_cost_miqp() {
     assert_eq!(native.termination.assurance, Assurance::GlobalBound);
 }
 
+#[tokio::test]
+async fn limited_native_incumbent_is_original_feasible_and_explicitly_nonoptimal() {
+    use pse_model::generated::enums::{CandidateQualifier, CandidateUse, IncumbentPolicy};
+    let (package, root) = package(PRICE_TAKER);
+    let mut solver = profile(
+        SolveIntent::Optimize,
+        SolverSelection::Explicit(Backend::Scip),
+    );
+    // A deterministic solution-count limit ends native search at its first
+    // feasible incumbent, before claiming an optimality or gap certificate.
+    solver.controls.options.insert(
+        "limits/solutions".into(),
+        pse_backend_native::solve::OptionValue::Integer(1),
+    );
+    solver.numerics.incumbent = IncumbentPolicy::AcceptFeasible;
+    let result = solve(&package, &analysis(root, solver.clone())).await;
+    let Outcome::Native(native) = &result.outcome else {
+        panic!("{:?}", result.outcome)
+    };
+    assert_eq!(
+        native.termination.category,
+        pse_backend_native::solve::Termination::SolutionLimit,
+        "{native:?}"
+    );
+    assert!(native.candidate.is_some());
+    assert_eq!(
+        native.candidate.as_ref().unwrap().kind,
+        pse_backend_native::solve::CandidateKind::FeasiblePoint
+    );
+    assert_eq!(native.qualification, Qualification::Feasible);
+    assert!(result.accepted, "{:?}", result.validation_error);
+    assert_eq!(result.completion.decision.usability, CandidateUse::Usable);
+    assert!(
+        result
+            .completion
+            .decision
+            .qualifiers
+            .contains(&CandidateQualifier::AcceptedIncumbentFeasible)
+    );
+    assert!(result.checks.iter().all(|check| check.satisfied));
+    assert_ne!(native.termination.assurance, Assurance::GlobalBound);
+    assert!(
+        report(&result, "margin") < 22. - 1e-5,
+        "the limit incumbent unexpectedly proves the independently known optimum"
+    );
+
+    solver.numerics.incumbent = IncumbentPolicy::Refuse;
+    let refused = solve(&package, &analysis(root, solver)).await;
+    assert!(!refused.accepted);
+    let Outcome::Native(native) = &refused.outcome else {
+        panic!("{:?}", refused.outcome)
+    };
+    assert!(
+        native.candidate.is_some(),
+        "policy refusal must preserve the actual incumbent"
+    );
+    assert_eq!(
+        native.termination.category,
+        pse_backend_native::solve::Termination::SolutionLimit
+    );
+}
+
 /// A nested implicit block: y solves y² = x on [0.5, 3]. The objective
 /// (y − 1)²(y − 2.5)² + y/10 has two basins: its global minimum near y = 0.98 and a
 /// higher one near y = 2.49.

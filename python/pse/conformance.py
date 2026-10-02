@@ -24,13 +24,17 @@ import pyarrow as pa
 import pyarrow.ipc
 
 from pse import (
+    ConformanceControls,
     EngineSettings,
     ModelingConformance,
+    ModelingDiagnosticPolicy,
     ModelingDiagnosticSettings,
     ModelingLimits,
+    PureConformanceControls,
     Runtime,
     SolveControls,
     SolveSettings,
+    codec,
 )
 from pse.contracts.enums import NativeBackend, NativeSolveIntent, PresolvePolicyKind
 from pse.contracts.identities import DeclarationId
@@ -225,10 +229,14 @@ def run_once(
                 documents,
                 physical_documents,
                 engine,
-                maximum_fixtures=settings.maximum_fixtures,
-                maximum_checks=settings.maximum_checks,
+                controls=PureConformanceControls(
+                    maximum_fixtures=settings.maximum_fixtures,
+                    maximum_checks=settings.maximum_checks,
+                    fixtures=None
+                    if fixtures is None
+                    else tuple(fixture.to_hex() for fixture in fixtures),
+                ),
                 limits=limits,
-                fixtures=fixtures,
             )
         else:
             runtime = Runtime(engine)
@@ -242,18 +250,25 @@ def run_once(
                     presolve=PresolvePolicyKind(settings.presolve),
                     controls=SolveControls(time_limit=settings.time_limit_seconds),
                 ),
-                maximum_fixtures=settings.maximum_fixtures,
-                maximum_checks=settings.maximum_checks,
-                derivative_cells=settings.derivative_cells,
-                derivative_step=settings.derivative_step,
-                derivative_tolerance=settings.derivative_tolerance,
-                fixtures=fixtures,
-                diagnostics=(
-                    None
-                    if settings.diagnostics is None
-                    else ModelingDiagnosticSettings.from_json(
-                        Path(settings.diagnostics).read_text(encoding="utf-8")
-                    )
+                controls=ConformanceControls(
+                    maximum_fixtures=settings.maximum_fixtures,
+                    maximum_checks=settings.maximum_checks,
+                    derivative_cells=settings.derivative_cells,
+                    derivative_step=settings.derivative_step,
+                    derivative_tolerance=settings.derivative_tolerance,
+                    fixtures=None
+                    if fixtures is None
+                    else tuple(fixture.to_hex() for fixture in fixtures),
+                    diagnostics=(
+                        None
+                        if settings.diagnostics is None
+                        else codec.decode_json(
+                            ModelingDiagnosticSettings.from_json(
+                                Path(settings.diagnostics).read_text(encoding="utf-8")
+                            ).to_json(),
+                            ModelingDiagnosticPolicy,
+                        )
+                    ),
                 ),
             )
         if report is not None:

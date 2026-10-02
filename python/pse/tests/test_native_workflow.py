@@ -29,7 +29,13 @@ from pse.contracts.enums import (
     NativeSolveIntent,
     PresolvePolicyKind,
 )
-from pse.contracts.identities import DeclarationId, FitId, InstanceId, PublicationId
+from pse.contracts.identities import (
+    DeclarationId,
+    FitId,
+    InstanceId,
+    PublicationId,
+    WorkspaceId,
+)
 from pse.contracts.values import SemanticId
 
 #: A manifest dependency on the physical primitives fixture. Its document names
@@ -84,7 +90,9 @@ def test_explicit_cone_strategy_preserves_native_qualification(
         "objective_constant": 3.0,
     }
     prepared = runtime.prepare_conic(
-        request, physical, pse.SolveSettings(backend=NativeBackend.CLARABEL)
+        codec.decode_json(codec.encode_json(request), pse.ConicRequest),
+        physical,
+        pse.SolveSettings(backend=NativeBackend.CLARABEL),
     )
     assert [route.backend for route in prepared.routes] == ["clarabel"]
     result = prepared.run()
@@ -133,18 +141,19 @@ def test_explicit_primal_seed_and_transactional_initialization(
         backend=NativeBackend.KINSOL,
         presolve=PresolvePolicyKind.OFF,
     )
-    member = cast(
-        "list[dict[str, object]]", package.inspect(case, settings)["members"]
-    )[0]
-    x = SemanticId.from_hex(cast("str", member["id"]))
+    member = package.inspect(case, settings).members[0]
+    x = SemanticId.from_hex(member.id)
     prepared = package.prepare_solve(case, settings)
     assert prepared.eligibility
     explicit = prepared.with_primal_start({x: 1.0}).start().wait()
     seed = explicit.available_start()
     assert seed is not None
-    snapshot = json.loads(seed.snapshot_json())
-    assert snapshot["payload"]["primal"][0] == pytest.approx(2.0, abs=1e-6)
-    assert snapshot["origin"]["run"] == explicit.run_id.to_hex()
+    snapshot = codec.decode_json(seed.snapshot(), pse.WarmStartSnapshot)
+    assert isinstance(snapshot.payload, documents.WarmPayloadSnapshotRoot)
+    assert isinstance(snapshot.payload.primal[0], documents.ObservationReal)
+    assert snapshot.payload.primal[0].value == pytest.approx(2.0, abs=1e-6)
+    assert snapshot.origin is not None
+    assert snapshot.origin.run == explicit.run_id.to_hex()
     result = package.prepare_block_initialization(
         case,
         pse.SolveSettings(
@@ -154,11 +163,9 @@ def test_explicit_primal_seed_and_transactional_initialization(
     ).run()
     stage = result.initialization()
     assert stage is not None
-    assert stage["completed_stages"] == 1
-    assert cast("dict[str, float]", stage["original"])[x.to_hex()] == -1.0
-    assert cast("dict[str, float]", stage["solved_unknowns"])[
-        x.to_hex()
-    ] == pytest.approx(-2.0, abs=1e-6)
+    assert stage.completed_stages == 1
+    assert stage.original[x.to_hex()] == -1.0
+    assert stage.solved_unknowns[x.to_hex()] == pytest.approx(-2.0, abs=1e-6)
 
 
 @pytest.fixture(scope="module")
@@ -459,7 +466,9 @@ def test_fixed_fitting_sources_round_trip_and_use_shared_result_lifecycle(
     package = package.with_fit_declarations((fit,))
     job = package.prepare_fit(
         FitId(identity(158)),
-        pse.SolveSettings(intent=NativeSolveIntent.OPTIMIZE),
+        pse.FitPreparationDocument(
+            solver=pse.SolveSettings(intent=NativeSolveIntent.OPTIMIZE)
+        ),
     ).start()
     result = job.wait()
     rows = (
@@ -549,7 +558,7 @@ def test_completion_projection_and_pre_effect_publication_ticket(
     )
     assert completion.computation is None
     assert completion.solves[0].candidate_kind == "constant_evaluation"
-    assert completion.lineage[0].model_id == identity(101)
+    assert completion.lineage[0].model_id == identity(101).to_hex()
     assert not result.diagnostics()
     durable_runtime.clear_program_cache()
     assert result.completion == completion
@@ -557,7 +566,10 @@ def test_completion_projection_and_pre_effect_publication_ticket(
         f"ticket-{result.run_id.to_hex()}", tmp_path
     )
     assert durable_runtime.workspace(workspace.name) == workspace
-    assert durable_runtime.head(workspace.id) is None
+    assert (
+        durable_runtime.head(WorkspaceId(SemanticId.from_hex(workspace.workspace_id)))
+        is None
+    )
     # The publication attempt is the durable attempt; the ticket exists before any
     # effect.
     attempt = result.prepare_publication(
@@ -574,7 +586,7 @@ def test_completion_projection_and_pre_effect_publication_ticket(
     assert not tuple(tmp_path.iterdir())
     # Nothing was registered: the catalog proves nothing was committed.
     settled = durable_runtime.settle_publication(ticket)
-    assert isinstance(settled, pse.PublicationNoncommit)
+    assert isinstance(settled, pse.PublicationSettlementProvedNoncommit)
     assert settled == durable_runtime.settle_publication(ticket)
     assert not tuple(tmp_path.iterdir())
 
@@ -596,7 +608,7 @@ def test_compiler_failure_retains_typed_authored_source_span(
     assert report.boundary_class == "invalid_model"
     assert report.source_locations, (report.message, report.rule, report.source_ids)
     location = report.source_locations[0]
-    assert isinstance(location, pse.DiagnosticSourceLocation)
+    assert isinstance(location, pse.SourceLocation)
     assert location.start is not None
     assert location.end is not None
     assert 0 <= location.start <= location.end <= len(source)

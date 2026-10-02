@@ -190,7 +190,8 @@ fn clarabel_cones(cones: &[Cone]) -> Result<Vec<SupportedConeT<f64>>, ProblemErr
 /// # Errors
 /// The identity serializer refused a value.
 pub fn cone_key(cones: &[Cone]) -> Result<pse_ids::ContentHash, ProblemError> {
-    crate::identity::of(pse_ids::Frame::ConeLayoutV3, cones)
+    pse_ids::document::of(pse_ids::Frame::ConeLayoutV4, cones)
+        .map_err(|e| ProblemError::Internal(e.to_string()))
 }
 /// The KKT direct solver: Clarabel's serial QDLDL, or oneMKL Pardiso from the process's one
 /// linked oneMKL (ADR-0108), which admits more than one thread (blueprint §18.8). A
@@ -1232,7 +1233,7 @@ mod tests {
         let key = cone_key(&cones).unwrap();
         assert_eq!(
             key,
-            crate::identity::of(pse_ids::Frame::ConeLayoutV3, &cones).unwrap()
+            pse_ids::document::of(pse_ids::Frame::ConeLayoutV4, &cones).unwrap()
         );
         assert_ne!(
             key,

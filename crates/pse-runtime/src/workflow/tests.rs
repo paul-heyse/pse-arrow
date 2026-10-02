@@ -85,7 +85,6 @@ pub(super) fn runtime_on(memory: usize, math: crate::math::MathPolicy) -> Runtim
     })
     .unwrap();
     let registry = pse_schema::shared_registry().unwrap();
-    pse_engine::validation::bind_defaults(&registry).unwrap();
     let sessions = Arc::new(
         shared
             .session_factory(pse_engine::session::native_engine_profile())
@@ -96,7 +95,10 @@ pub(super) fn runtime_on(memory: usize, math: crate::math::MathPolicy) -> Runtim
 pub(super) fn physical() -> PhysicalContext {
     // Fixture only: production requires source-backed PhysicalInventory admission.
     let quantities = Arc::new(pse_quantity::standard::standard_registry().unwrap());
-    let preconditions = Arc::new(pse_quantity::PhysicalPreconditions::new(vec![]).unwrap());
+    let preconditions = Arc::new(
+        pse_quantity::PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions())
+            .unwrap(),
+    );
     PhysicalContext {
         key: pse_compiler::workspace::physical_identity(&quantities, &preconditions),
         quantities,

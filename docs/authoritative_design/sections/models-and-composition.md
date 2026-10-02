@@ -257,8 +257,9 @@ Unrelated descriptive manifest fields do not invalidate that reuse.
 > (required process-admission reuse slice implemented; decision remains proposed).
 
 A modeling package exposes immutable generated declarations. `with_declarations` admits a
-new revision against the same retained physical context; it cannot mutate the old checked
-product. The compiler's single Salsa workspace owns dependency tracking and reuse. A value
+new revision against the same retained physical context and registered accelerators; it
+cannot mutate the old checked product. The compiler's local Salsa workspace owns dependency tracking; immutable service products
+can be retained across fresh workspaces (§14.4). A value
 edit and a clean reconstruction must agree. Preparation keys include their declared semantic,
 physical, profile and resource-policy dependencies; a digest alone never admits a model.
 

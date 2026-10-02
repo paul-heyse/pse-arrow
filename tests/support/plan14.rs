@@ -130,6 +130,7 @@ pub(crate) async fn physical(owner: &WorkflowRuntime) -> pse_runtime::workflow::
         Default::default(),
         &pool,
         &owner.cancel,
+        &owner.sessions.validation_context(&owner.registry).unwrap(),
     )
     .unwrap();
     let documents = pse_runtime::authoring_driver::document::OwnedDocumentSet::try_from_bundles(
@@ -236,6 +237,7 @@ pub(crate) async fn seed_package_on(
             Default::default(),
             &pool,
             &owner.cancel,
+            &owner.sessions.validation_context(&owner.registry).unwrap(),
         )
         .unwrap()
     })

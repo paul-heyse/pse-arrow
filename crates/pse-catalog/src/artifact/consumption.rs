@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Native projection analysis establishes consumed fields before any simplifying
-//! optimizer can erase a read. Unknown extensions and policy requirements remain whole.
+//! optimizer can erase a read. Unknown extensions retain the complete relation.
 use super::{ArtifactPlan, dependencies, invalid};
 use datafusion::{
     common::TableReference,
@@ -20,9 +20,6 @@ pub(super) fn columns(
     artifact: &ArtifactPlan,
     cancel: &CancellationToken,
 ) -> Result<BTreeMap<String, BTreeSet<String>>, EngineError> {
-    if !artifact.session.effective_policy()?.requirements.is_empty() {
-        return Ok(BTreeMap::new());
-    }
     let mut columns: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
     let mut exact_selection = BTreeSet::new();
     for output in artifact.outputs.values() {

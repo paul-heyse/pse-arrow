@@ -116,9 +116,12 @@ impl PartitionStream for Dependencies {
                 ))
                 .await
                 .map_err(external)??;
-            let mut builder =
-                native_dependencies::Builder::with_registry(services.registry(), rows.len())
-                    .map_err(external)?;
+            let mut builder = native_dependencies::Builder::with_registry(
+                services.registry(),
+                rows.len(),
+                services.validation_context(),
+            )
+            .map_err(external)?;
             for row in rows {
                 cancel.checkpoint().map_err(external)?;
                 builder.push(row).map_err(external)?;

@@ -1531,387 +1531,388 @@ pub fn decode(
 pub fn encode(
     values: &pse_model::generated::facts::FactBatch,
     registry: &pse_schema::Registry,
+    context: &crate::validate::ValidationContext,
     pool: &std::sync::Arc<dyn pse_columnar::MemoryPool>,
     cancel: &pse_columnar::CancellationToken,
 ) -> Result<crate::columnar::FieldCheckedBatch, crate::RelationError> {
     match values {
         pse_model::generated::facts::FactBatch::r#AuthoredDocuments(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#AuthoredEntities(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#AuthoredFitCases(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#AuthoredModelingDeclarations(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#AuthoredNumericalRequirements(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#AuthoredPackageUnitSets(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#AuthoredPackages(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#NormalizedPackageGraph(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#NormalizedUnits(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#ProvenanceAssertions(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#ProvenanceDerivations(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#ReferenceAlgorithmArguments(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#ReferenceAlgorithmResults(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#ReferenceAlgorithmSpecs(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#ReferenceAliases(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#ReferenceArtifactProfiles(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#ReferenceBases(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#ReferenceConversionRules(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#ReferenceDimensions(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#ReferenceEngineProfiles(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#ReferenceFunctionCapabilities(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#ReferenceMathContext(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#ReferenceQuantityKinds(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#ReferenceQuantityOperationReductions(
             rows,
-        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#ReferenceQuantityOperations(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#ReferenceQuantityPreconditions(
             rows,
-        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#ReferenceQuantityTypes(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#ReferenceReferenceStates(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#ReferenceSchemaColumns(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#ReferenceSchemaDocumentSections(
             rows,
-        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#ReferenceSchemaDocuments(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#ReferenceSchemaEnumTypes(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#ReferenceSchemaEnums(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#ReferenceSchemaIdentities(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#ReferenceSchemaInvariants(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#ReferenceSchemaLogicalTypes(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#ReferenceSchemaMigrations(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#ReferenceSchemaRelations(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#ReferenceUnitSets(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#ReferenceUnits(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeArtifactDescriptors(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeArtifactMigrationLineage(
             rows,
-        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeCacheEntryStatistics(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeCacheStatistics(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeCandidateAssessments(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeChangeEvents(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeComputationRuns(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeDiagnosticsFindings(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeExecutionStatistics(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeFitConstraints(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeFitObservations(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeFitParameters(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeFitVariables(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeFittedParameterCells(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeIncumbents(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeInfeasibilityCertificates(
             rows,
-        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeLocalValidity(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeMaintenanceOutcomes(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeModelingChecks(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeModelingConformance(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeModelingDiagnosticSamples(
             rows,
-        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeModelingDiagnostics(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeModelingFindings(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeModelingFixtureStatus(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeModelingInitializations(
             rows,
-        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeModelingJacobianOptimization(
             rows,
-        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeModelingKnowledge(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeModelingKnowledgeNames(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeModelingLinearDiagnostics(
             rows,
-        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeModelingNonlinearExplanations(
             rows,
-        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeModelingParity(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeModelingReports(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeModelingTrajectoryModes(
             rows,
-        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeNativeDependencies(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeObjectiveLevels(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeOperationalAttemptTransitions(
             rows,
-        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeOperationalAttempts(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeOperationalIncumbents(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeOperationalJobs(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeOperationalOrphanCandidates(
             rows,
-        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeOperationalOrphanScans(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeOperationalProgressEvents(
             rows,
-        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeOperationalProgressValues(
             rows,
-        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeOperationalPublicationHeads(
             rows,
-        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeOperationalPublicationIntents(
             rows,
-        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeOperationalPublicationMembers(
             rows,
-        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeOperationalPublicationWindows(
             rows,
-        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeOperationalPublications(
             rows,
-        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeOperationalReaderLeases(
             rows,
-        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeOperationalResetRecords(
             rows,
-        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeOperationalRetentionMarks(
             rows,
-        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeOperationalRetiredInventory(
             rows,
-        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeOperationalSchemaSupportState(
             rows,
-        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeOperationalSettlements(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeOperationalSolutions(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeOperationalSourceBundles(
             rows,
-        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeOperationalSourceDocuments(
             rows,
-        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeOperationalStudies(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeOperationalStudyPointMembers(
             rows,
-        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeOperationalStudyPoints(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeOperationalWorkspaces(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeParameterCovariances(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeParameterIntervals(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeParametricSensitivities(
             rows,
-        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeProfilePoints(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimePropagatedCovariances(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimePublicationManifests(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeReducedHessians(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeResolvedNumerics(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeResponseDirections(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeResponseSensitivities(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeRetainedVersions(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeRouteDecisions(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeRunLineage(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeSimulationEvents(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeSimulationSamples(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeSolutionPool(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeSolveConstraints(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeSolveMetrics(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeSolveRuns(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeSolveVariables(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeSolverCapabilities(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeStructuralAssessments(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeStudyOutcomes(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeTrajectoryEndpoints(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeValidationFindings(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
     }
 }

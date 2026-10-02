@@ -3,7 +3,6 @@
 """Immutable occurrences, scientific permissions and durable study publication."""
 
 import uuid
-from datetime import timedelta
 from pathlib import Path
 
 import msgspec
@@ -15,6 +14,7 @@ from pse import codec
 from pse.contracts.documents import (
     BoundaryDiagnostic,
     ControllerOperation,
+    ObservationContracts,
     StudyRequest,
 )
 from pse.contracts.enums import (
@@ -27,7 +27,8 @@ from pse.contracts.enums import (
     StudyPointState,
     StudyState,
 )
-from pse.contracts.identities import DeclarationId
+from pse.contracts.identities import DeclarationId, PublicationId, WorkspaceId
+from pse.contracts.values import SemanticId
 from pse.tests.study_fixtures import assignment, physical_ids, point, request
 
 #: A manifest dependency on the physical primitives fixture. Its document names
@@ -110,7 +111,8 @@ def test_study_repeated_bindings_retain_distinct_occurrences_and_owned_results(
     results = [study.result(index) for index in range(2)]
     assert all(result is not None and result.usable for result in results)
     first, second = results
-    assert first is not None and second is not None
+    assert first is not None
+    assert second is not None
     assert first.run_id != second.run_id
     for index, key in enumerate((7, 11)):
         outcome = study.outcome(index)
@@ -169,12 +171,10 @@ def test_study_unusable_predecessor_retains_refusal_without_dispatch(
     assert failure is not None
     assert failure.rule == refused.diagnostic.rule
     assert failure.envelope is not None
-    assert (
-        codec.decode_json(failure.envelope, type(refused.diagnostic))
-        == refused.diagnostic
-    )
+    assert failure.envelope == refused.diagnostic
     independent = study.result(2)
-    assert independent is not None and independent.usable
+    assert independent is not None
+    assert independent.usable
     assert study.conclusion.availability == "partial"
     assert study.conclusion.lifecycle == "terminal"
     rows = pa.table(study.table()).to_pylist()
@@ -248,41 +248,82 @@ def test_study_physical_mismatch_preserves_full_boundary_envelope(
     report = raised.value.report
     assert report.rule == "study.binding.physical"
     assert report.stage == "study.binding"
-    assert report.envelope is not None
-    envelope = msgspec.json.decode(report.envelope, type=dict[str, object])
-    assert envelope["rule"] == report.rule
-    assert envelope["stage"] == report.stage
-    locations = msgspec.convert(envelope["locations"], type=list[dict[str, object]])
-    assert locations[0]["path"] == "a"
-    revision = locations[0]["revision"]
+    diagnostic = report.envelope
+    assert isinstance(diagnostic, BoundaryDiagnostic)
+    assert diagnostic.rule == report.rule
+    assert diagnostic.stage == report.stage
+    assert diagnostic.code == report.code
+    assert diagnostic.class_ == report.boundary_class
+    assert diagnostic.locations == report.source_locations
+    assert diagnostic.sources == report.source_ids
+    assert diagnostic.observations == report.observations
+    assert diagnostic.locations[0].path == "a"
+    assert diagnostic.locations[0].source in diagnostic.sources
+    revision = diagnostic.locations[0].revision
     assert isinstance(revision, str)
     assert report.source_locations[0].path == "a"
-    assert report.source_locations[0].revision == revision.removeprefix("blake3:")
-    operands = next(value for value in report.observations if value.name == "operands")
-    assert operands.kind == "contracts"
-    assert len(operands.contracts) == 2
-    assert operands.contracts[0][0] != operands.contracts[1][0]
-    observations = msgspec.convert(envelope["observations"], type=dict[str, object])
-    observation = msgspec.convert(observations["operands"], type=dict[str, object])
-    assert observation["kind"] == "contracts"
-    contracts = msgspec.convert(observation["value"], type=list[dict[str, object]])
-    assert len(contracts) == 2
-    for contract, (quantity, indices) in zip(
-        contracts, operands.contracts, strict=True
-    ):
-        encoded_quantity = msgspec.convert(contract["quantity"], type=list[int])
-        assert bytes(encoded_quantity).hex() == quantity
-        assert contract["indices"] == list(indices) == []
-    diagnostic = codec.decode_json(report.envelope, BoundaryDiagnostic)
-    assert diagnostic.rule == report.rule
+    assert revision.startswith("blake3:")
+    assert report.source_locations[0].revision == revision
+    operands = diagnostic.observations["operands"]
+    assert isinstance(operands, ObservationContracts)
+    assert len(operands.value) == 2
+    assert operands.value[0].quantity != operands.value[1].quantity
+    scalar, _ = _physical_ids("Scalar", "dimensionless")
+    assert bytes(operands.value[0].quantity).hex() == scalar
+    assert bytes(operands.value[1].quantity).hex() == length
+    for contract in operands.value:
+        assert len(contract.quantity) == 16
+        assert all(0 <= byte <= 255 for byte in contract.quantity)
+        assert contract.indices == ()
+    encoded = codec.encode_json(diagnostic)
+    assert codec.decode_json(encoded, BoundaryDiagnostic) == diagnostic
     nested = msgspec.structs.replace(diagnostic, causes=(diagnostic,))
-    assert codec.decode_json(codec.encode_json(nested), BoundaryDiagnostic) == nested
-    unknown = msgspec.json.decode(report.envelope, type=dict[str, object])
+    restored = codec.decode_json(codec.encode_json(nested), BoundaryDiagnostic)
+    assert restored == nested
+    assert restored.causes[0] == diagnostic
+    unknown = msgspec.json.decode(encoded, type=dict[str, object])
     unknown["unregistered"] = True
     with pytest.raises(msgspec.ValidationError, match="unregistered"):
         codec.decode_json(msgspec.json.encode(unknown), BoundaryDiagnostic)
+    indexed_operand = msgspec.structs.replace(
+        operands.value[0],
+        indices=((tuple(range(16)), tuple(range(16, 32)), tuple(range(32, 48))),),
+    )
+    indexed = msgspec.structs.replace(
+        diagnostic,
+        observations={
+            **diagnostic.observations,
+            "operands": ObservationContracts(
+                value=(indexed_operand, operands.value[1])
+            ),
+        },
+    )
+    indexed_encoded = codec.encode_json(indexed)
+    assert codec.decode_json(indexed_encoded, BoundaryDiagnostic) == indexed
+    for invalid_indices in (
+        [[list(range(16))] * 2],
+        [[list(range(16))] * 4],
+        [[[0] * 15, list(range(16)), list(range(16))]],
+        [[[0] * 17, list(range(16)), list(range(16))]],
+    ):
+        malformed = msgspec.json.decode(indexed_encoded, type=dict[str, object])
+        malformed_observations = msgspec.convert(
+            malformed["observations"], type=dict[str, object]
+        )
+        malformed_operands = msgspec.convert(
+            malformed_observations["operands"], type=dict[str, object]
+        )
+        malformed_contracts = msgspec.convert(
+            malformed_operands["value"], type=list[dict[str, object]]
+        )
+        malformed_contracts[0]["indices"] = invalid_indices
+        malformed_operands["value"] = malformed_contracts
+        malformed_observations["operands"] = malformed_operands
+        malformed["observations"] = malformed_observations
+        with pytest.raises(msgspec.ValidationError):
+            codec.decode_json(msgspec.json.encode(malformed), BoundaryDiagnostic)
     for length in (15, 17):
-        malformed = msgspec.json.decode(report.envelope, type=dict[str, object])
+        malformed = msgspec.json.decode(encoded, type=dict[str, object])
         malformed_observations = msgspec.convert(
             malformed["observations"], type=dict[str, object]
         )
@@ -330,7 +371,7 @@ def test_study_request_excludes_owner_seed_capability(
     inspection_settings: pse.EngineSettings,
 ) -> None:
     runtime = pse.Runtime(inspection_settings)
-    package, case = _package(runtime)
+    _package_owner, case = _package(runtime)
     document = codec.encode_json(request(point(case, pse.SolveSettings(), 0)))
     wire = msgspec.json.decode(document, type=dict[str, object])
     points = msgspec.convert(wire["points"], type=list[dict[str, object]])
@@ -391,7 +432,7 @@ def test_durable_study_publishes_once(
     # This process serves the queue: the points, then the study's finalization (and any
     # other job the shared store holds).
     assert runtime.work() >= 4
-    published = handle.wait(timeout=timedelta(seconds=60))
+    published = handle.wait(controls=pse.StudyWaitControls(timeout_seconds=60))
     status = runtime.study(handle.study_id).status()
     assert status.state == StudyState.PUBLISHED
     assert status.attempt_state == AttemptState.PARTIAL
@@ -408,9 +449,13 @@ def test_durable_study_publishes_once(
     assert refused.diagnostic is not None
     assert refused.diagnostic.rule == "study.dependency.unusable"
     assert published.attempt_id == status.attempt_id
-    assert runtime.head(workspace.id) == published.id
+    assert runtime.head(
+        WorkspaceId(SemanticId.from_hex(workspace.workspace_id))
+    ) == PublicationId(SemanticId.from_hex(published.publication_id))
 
-    publication = runtime.open(published.id)
+    publication = runtime.open(
+        PublicationId(SemanticId.from_hex(published.publication_id))
+    )
     outcomes = pa.table(
         publication.table("study", "runtime", "study_outcomes")
     ).to_pylist()
@@ -548,7 +593,9 @@ def test_flash_sweep_prepares_structure_once(
             )
         )
     )
-    study = package.study(definition, maximum_points=len(temperatures))
+    study = package.study(
+        definition, controls=pse.StudyRunControls(maximum_points=len(temperatures))
+    )
     assert study.count == len(temperatures)
     values = []
     for index in range(len(temperatures)):

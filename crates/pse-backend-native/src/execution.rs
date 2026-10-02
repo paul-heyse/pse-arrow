@@ -554,7 +554,8 @@ impl BackendSettings {
     /// # Errors
     /// A native settings serializer refused its value.
     pub fn identity(&self) -> Result<ContentHash, ProblemError> {
-        crate::identity::of(pse_ids::Frame::BackendSettingsV4, &self.document())
+        pse_ids::document::of(pse_ids::Frame::BackendSettingsV5, &self.document())
+            .map_err(|e| ProblemError::Internal(e.to_string()))
     }
 }
 

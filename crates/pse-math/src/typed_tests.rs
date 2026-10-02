@@ -158,6 +158,7 @@ fn canonical_numeric_admission_checks_math_literals_and_instance_values() {
         ..source_port.clone()
     };
     let binding = InstanceBinding {
+        checked_members: Default::default(),
         instance: source(),
         body: ContentHash::from_bytes([1; 32]),
         slots: vec![SlotBinding::new(&source_port, &formal, &registry).unwrap()],
@@ -375,6 +376,7 @@ fn aliases_and_affine_unit_bindings_preserve_body_reuse() {
     let slot = SlotBinding::new(&source_port, &target_port, &registry).unwrap();
     let h = ContentHash::from_bytes([1; 32]);
     let instance = InstanceBinding {
+        checked_members: Default::default(),
         instance: SemanticId::from_bytes([3; 16]),
         body: h,
         slots: vec![slot.clone(), slot],
@@ -460,6 +462,7 @@ fn connection_equation_binds_distinct_units_before_point_subtraction() {
     };
     assert!(SlotBinding::new(&cold, &hot, &registry).is_err());
     let instance = InstanceBinding {
+        checked_members: Default::default(),
         instance: SemanticId::from_bytes([3; 16]),
         body: ContentHash::from_bytes([1; 32]),
         slots: vec![

@@ -92,6 +92,34 @@ impl OwnedDocumentSet {
         Ok(())
     }
 
+    /// Re-admit retained native values in the caller's exact current validation context.
+    /// Registry/declaration equality alone cannot establish native predicate agreement.
+    /// # Errors
+    /// Changed declarations, actual native predicate refusal, cancellation or resources.
+    pub fn validate_context(
+        &self,
+        registry: &Registry,
+        validation: &pse_relations::validate::ValidationContext,
+        cancel: &CancellationToken,
+    ) -> Result<(), DriverError> {
+        self.validate_registry(registry)?;
+        for bundle in self.bundles() {
+            for (id, batch) in &bundle.batches {
+                let spec = registry
+                    .relation_by_id(*id)
+                    .ok_or_else(|| contract(None, "retained source relation missing"))?;
+                pse_relations::columnar::FieldCheckedBatch::admit(
+                    registry,
+                    spec,
+                    batch.batch().clone(),
+                    validation,
+                    cancel,
+                )?;
+            }
+        }
+        Ok(())
+    }
+
     /// Retain package owners without copying source bytes or parsed trees.
     ///
     /// # Errors
@@ -131,6 +159,7 @@ impl OwnedDocumentSet {
         budget: ParseBudget,
         pool: &Arc<dyn MemoryPool>,
         cancel: &CancellationToken,
+        validation: &pse_relations::validate::ValidationContext,
     ) -> Result<Self, DriverError> {
         self.validate_registry(registry)?;
         let Some(owner) = &self.0 else {
@@ -194,6 +223,7 @@ impl OwnedDocumentSet {
                 registry,
                 budget,
                 Some(&mut allocation),
+                validation,
             )?;
             bundle.retain_columns(pool, cancel)?;
             let lease = allocation.finish();
@@ -214,6 +244,7 @@ pub(super) fn retain_bundle(
     registry: &Registry,
     pool: &Arc<dyn MemoryPool>,
     cancel: &CancellationToken,
+    validation: &pse_relations::validate::ValidationContext,
 ) -> Result<OwnedDocumentBundle, DriverError> {
     let mut allocation = Allocation::new(pool, cancel);
     allocation.grow(add(
@@ -227,6 +258,18 @@ pub(super) fn retain_bundle(
                 "parsed source declaration differs from the registry",
             ));
         }
+    }
+    for (relation, batch) in &bundle.batches {
+        let spec = registry
+            .relation_by_id(*relation)
+            .ok_or_else(|| contract(None, "retained source relation missing"))?;
+        pse_relations::columnar::FieldCheckedBatch::admit(
+            registry,
+            spec,
+            batch.batch().clone(),
+            validation,
+            cancel,
+        )?;
     }
     // DocumentBundle has a private constructor and immutable shared data. This
     // retains the actual parsed value, not an arbitrary caller-created DTO.
@@ -260,6 +303,7 @@ pub fn load_package_sources_owned<'a>(
     budget: ParseBudget,
     pool: &Arc<dyn MemoryPool>,
     cancel: &CancellationToken,
+    validation: &pse_relations::validate::ValidationContext,
 ) -> Result<OwnedDocumentBundle, DriverError> {
     let mut allocation = Allocation::new(pool, cancel);
     allocation
@@ -292,7 +336,8 @@ pub fn load_package_sources_owned<'a>(
         relations: registry.relations().to_vec(),
         enums: registry.enums().to_vec(),
     });
-    let mut bundle = super::load::load_inventory(texts, registry, budget, Some(&mut allocation))?;
+    let mut bundle =
+        super::load::load_inventory(texts, registry, budget, Some(&mut allocation), validation)?;
     bundle.retain_columns(pool, cancel)?;
     cancel.checkpoint()?;
     allocation.retain(
@@ -326,6 +371,7 @@ pub fn load_package_documents_owned(
     budget: ParseBudget,
     pool: &Arc<dyn MemoryPool>,
     cancel: &CancellationToken,
+    validation: &pse_relations::validate::ValidationContext,
 ) -> Result<OwnedDocumentBundle, DriverError> {
     load_package_sources_owned(
         sources
@@ -335,6 +381,7 @@ pub fn load_package_documents_owned(
         budget,
         pool,
         cancel,
+        validation,
     )
 }
 
@@ -359,9 +406,19 @@ impl RegistryBinding {
 mod tests {
     use super::*;
 
+    fn fixture_validation(registry: &Registry) -> Arc<pse_relations::validate::ValidationContext> {
+        // This source-only fixture deliberately captures its fixed native session state.
+        Arc::new(pse_relations::validate::ValidationContext::new(
+            registry,
+            pse_engine::validation::NativeValidation(
+                datafusion::prelude::SessionContext::new().state(),
+            ),
+        ))
+    }
+
     #[test]
     fn registry_binding_compares_fields_even_when_identity_and_fingerprint_match() {
-        let registry = pse_engine::validation::registry().unwrap();
+        let registry = pse_schema::registry().unwrap();
         let mut binding = RegistryBinding {
             relations: registry.relations().to_vec(),
             enums: registry.enums().to_vec(),
@@ -378,8 +435,7 @@ mod tests {
     }
     #[test]
     fn editing_one_document_reuses_other_parser_owners() -> Result<(), DriverError> {
-        let registry =
-            pse_engine::validation::registry().map_err(pse_relations::RelationError::from)?;
+        let registry = pse_schema::registry().map_err(pse_relations::RelationError::from)?;
         let budget: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(512 << 20));
         let cancel = CancellationToken::new();
         let texts = BTreeMap::from([
@@ -393,6 +449,7 @@ mod tests {
             ParseBudget::default(),
             &budget,
             &cancel,
+            &fixture_validation(registry),
         )?;
         let original = OwnedDocumentSet::try_from_bundles(vec![part], &budget, &cancel)?;
         let source = original.bundles()[0]
@@ -414,6 +471,7 @@ mod tests {
             ParseBudget::default(),
             &budget,
             &cancel,
+            &fixture_validation(registry),
         )?;
         assert!(!original.same_owner(&edited));
         assert!(original.same_owner(&original.clone()));

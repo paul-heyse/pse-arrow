@@ -30,8 +30,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let workspace_root = manifest_dir.join("../..");
     let out_dir = PathBuf::from(env::var_os("OUT_DIR").unwrap_or_default());
 
-    stage(&workspace_root, &out_dir, "Cargo.lock", "cargo.lock");
-    stage(&workspace_root, &out_dir, "uv.lock", "uv.lock");
+    stage(
+        &workspace_root,
+        &out_dir,
+        "Cargo.lock",
+        "cargo.lock",
+        "PSE_CARGO_LOCK_SHA256",
+    )?;
+    stage(
+        &workspace_root,
+        &out_dir,
+        "uv.lock",
+        "uv.lock",
+        "PSE_UV_LOCK_SHA256",
+    )?;
 
     println!("cargo:rustc-env=PSE_RUSTC_VERSION={}", rustc_version());
     println!(
@@ -82,17 +94,29 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 /// Copies `<root>/<src>` to `<out_dir>/<dst>`, or writes an empty file when it is absent.
 /// The `rerun-if-changed` is emitted either way so the file appearing triggers a rebuild.
-fn stage(root: &Path, out_dir: &Path, src: &str, dst: &str) {
+fn stage(
+    root: &Path,
+    out_dir: &Path,
+    src: &str,
+    dst: &str,
+    checksum_env: &str,
+) -> std::io::Result<()> {
+    use sha2::{Digest, Sha256};
     let from = root.join(src);
     println!("cargo:rerun-if-changed={}", from.display());
-    let bytes = fs::read(&from).unwrap_or_default();
-    let to = out_dir.join(dst);
-    if let Err(err) = write_changed(&to, &bytes) {
-        println!(
-            "cargo:warning=pse-buildinfo: could not write {}: {err}",
-            to.display()
-        );
-    }
+    let bytes = match fs::read(&from) {
+        Ok(bytes) => bytes,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Vec::new(),
+        Err(error) => return Err(error),
+    };
+    write_changed(&out_dir.join(dst), &bytes)?;
+    let checksum = if bytes.is_empty() {
+        String::new()
+    } else {
+        hex::encode(Sha256::digest(&bytes))
+    };
+    println!("cargo:rustc-env={checksum_env}={checksum}");
+    Ok(())
 }
 
 /// Preserve Cargo's freshness inputs when a rerun produces identical provenance.

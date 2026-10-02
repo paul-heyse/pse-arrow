@@ -2,6 +2,7 @@
 # Copyright (c) 2026 Paul Heyse
 """Actual generated contract boundaries, including nested values and metadata."""
 
+from collections.abc import Callable, Hashable
 from typing import get_type_hints
 
 import attrs
@@ -358,3 +359,65 @@ def test_applicability_observation_retains_owner_and_scoped_permission() -> None
             [document | {"claim_owner_lineage": ["invalid-id"]}],
             runtime_contracts.RuntimeModelingChecksRow,
         )
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("key", "values"),
+    [
+        (contract_values.scalar_key, (0.0, -0.0)),
+        (
+            contract_values.tuple_key(
+                (
+                    contract_values.scalar_key,
+                    contract_values.sequence_key(contract_values.scalar_key),
+                )
+            ),
+            (("x", (0.0,)), ("x", (-0.0,))),
+        ),
+        (
+            contract_values.sequence_key(contract_values.scalar_key),
+            ((1.0, 0.0), (1.0, -0.0)),
+        ),
+        (
+            contract_values.mapping_key(
+                contract_values.scalar_key,
+                contract_values.sequence_key(contract_values.scalar_key),
+            ),
+            ({"a": (0.0,), "b": (2.0,)}, {"b": (2.0,), "a": (-0.0,)}),
+        ),
+    ],
+)
+def test_collection_keys_preserve_scalar_nested_and_mapping_equality(
+    key: Callable[[object], Hashable], values: tuple[object, ...]
+) -> None:
+    with pytest.raises(ValueError, match="uniqueness"):
+        contract_values.unique(key)(None, None, values)
+    contract_values.unique(key)(None, None, values[:1])
+
+
+@pytest.mark.unit
+def test_fixed_tuple_key_requires_exact_shape_and_keeps_position_meaning() -> None:
+    key = contract_values.tuple_key(
+        (contract_values.scalar_key, contract_values.scalar_key)
+    )
+    assert key((1, 2)) != key((2, 1))
+    for invalid in ((1,), (1, 2, 3), [1, 2]):
+        with pytest.raises(ValueError, match="exact arity"):
+            key(invalid)
+    assert contract_values.tuple_key(())(()) == (tuple, ())
+
+
+@pytest.mark.unit
+def test_generated_record_uniqueness_preserves_field_equality() -> None:
+    first = contract_values.QuantityValue(
+        value=0.0, unit_id=SemanticId(b"a" * 16), quantity_type_id=SemanticId(b"b" * 16)
+    )
+    second = contract_values.QuantityValue(
+        value=-0.0,
+        unit_id=SemanticId(b"a" * 16),
+        quantity_type_id=SemanticId(b"b" * 16),
+    )
+    assert first == second
+    with pytest.raises(ValueError, match="uniqueness"):
+        contract_values.unique(contract_values.record_key)(None, None, (first, second))

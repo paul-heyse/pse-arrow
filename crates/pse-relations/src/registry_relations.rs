@@ -21,8 +21,13 @@ pub fn materialize(reg: &Registry) -> Result<BTreeMap<RelationKey, RecordBatch>,
     if !*admitted {
         for (key, batch) in reg.schema_batches() {
             if let Some(spec) = reg.relation_by_key(*key) {
-                crate::validate::validate_batch(reg, spec, batch)
-                    .map_err(|errors| RelationError::Validation { errors })?;
+                crate::validate::validate_batch(
+                    reg,
+                    spec,
+                    batch,
+                    crate::validate::ValidationContext::local(reg)?.as_ref(),
+                )
+                .map_err(|errors| RelationError::Validation { errors })?;
             }
         }
         *admitted = true;
@@ -40,7 +45,7 @@ mod integrated_performance_unit {
     fn unchanged_reflection_keeps_its_completed_local_admission() {
         let registry = pse_schema::registry().unwrap();
         let spec = registry.relation("reference.schema_relations").unwrap();
-        let context = crate::validate::ValidationContext::for_registry(registry).unwrap();
+        let context = crate::validate::ValidationContext::local(registry).unwrap();
         let prepared = context.relation(registry, spec).unwrap();
         let first = materialize(registry).unwrap();
         let calls = prepared.evaluation_count();

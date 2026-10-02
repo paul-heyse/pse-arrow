@@ -31,7 +31,7 @@ fn specialized(fixture: &str, root_name: &str, demand: &[&str]) -> Arc<Specializ
     let declarations = crate::authored_transfer_tests::rows(&source);
     let root = crate::authored_transfer_tests::root(&declarations, "retention_fixture", root_name);
     let mut workspace = CompilerWorkspace::new(
-        crate::authored_transfer_tests::inputs(),
+        crate::authored_transfer_tests::context(),
         WorkspaceLimits::default(),
     )
     .unwrap();
@@ -61,7 +61,12 @@ fn call_id(model: &SpecializedModel, suffix: &str) -> SemanticId {
     let ExprKind::NamedCall { name, .. } = &expression.kind else {
         panic!("selected consumer remains a finite call: {expression:?}");
     };
-    SemanticId::parse_hex(name.strip_prefix("f_").unwrap()).unwrap()
+    SemanticId::parse_hex(
+        pse_authoring::dsl::render_path(name)
+            .strip_prefix("f_")
+            .unwrap(),
+    )
+    .unwrap()
 }
 fn contexts(model: &SpecializedModel) -> BTreeSet<DeclarationId> {
     model
@@ -94,7 +99,7 @@ fn prepared_body_ids(fixture: &str) -> BTreeSet<pse_ids::ContentHash> {
     let declarations = crate::authored_transfer_tests::rows(&source);
     let root = crate::authored_transfer_tests::root(&declarations, "retention_fixture", "Isolated");
     let mut workspace = CompilerWorkspace::new(
-        crate::authored_transfer_tests::inputs(),
+        crate::authored_transfer_tests::context(),
         WorkspaceLimits::default(),
     )
     .unwrap();

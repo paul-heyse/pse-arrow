@@ -114,18 +114,15 @@ pub(crate) async fn open_recorded_view(
                 != Some(&member.contract_fingerprint.to_hex())
             || properties.get(pse_schema::arrow::KEY_CONTRACT_VERSION)
                 != Some(&member.relation_version.to_string())
-            || properties.get(pse_schema::arrow::KEY_NAMESPACE) != Some(&member.schema_name)
-            || recorded.recorded().contract().relations[&member.relation_id]["relation"].as_str()
-                != Some(&format!(
-                    "{}.{}@{}",
-                    member.schema_name, member.table_name, member.relation_version
-                ))
         {
             return Err(DataFusionError::Plan(
-                "selected member contradicts recorded identity/version".into(),
+                "selected member contradicts recorded identity/version/fingerprint".into(),
             ));
         }
     }
+    // The descriptor's schema and table names are publication binding aliases. The recorded
+    // interpreter verifies the semantic relation name against its exact ID and
+    // version; an alias does not redeclare that identity.
     let state = Arc::new(recorded.bind(&state)?);
     let view = view(opened, recorded.layout(), state).await?;
     let view = if let Some(consumer) = consumer {

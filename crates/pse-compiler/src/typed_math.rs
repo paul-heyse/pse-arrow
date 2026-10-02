@@ -28,6 +28,19 @@ use std::{
 };
 use witness::WitnessPass;
 
+// Synthetic indicator arms are attributed by the enclosing domain/applicability owner.
+fn indicator_arms() -> (Expr, Expr) {
+    let literal = |value| Expr {
+        kind: ExprKind::Number(dsl::Number {
+            value,
+            exact_integer: None,
+            unit: None,
+        }),
+        span: dsl::Span::default(),
+    };
+    (literal(1.0), literal(0.0))
+}
+
 /// One formal scalar declaration, independent of global instance values.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Formal {
@@ -121,14 +134,62 @@ pub struct Request<'a> {
 /// Immutable physically admitted definition, independent of compilation options.
 #[derive(Clone, Debug, PartialEq)]
 pub struct AdmittedBody {
+    semantic_identity: Option<pse_ids::roles::SemanticBodyHash>,
     /// Durable semantic specification.
-    pub spec: BodySpec,
+    pub(crate) spec: BodySpec,
     /// Result's complete physical contract.
-    pub quantities: Vec<QuantityTypeId>,
+    pub(crate) quantities: Vec<QuantityTypeId>,
     /// Authored occurrence provenance.
-    pub occurrences: Vec<Occurrence>,
+    pub(crate) occurrences: Vec<Occurrence>,
     /// Symbolica regions and complete structural support, without mutable workspaces.
-    pub math: Arc<pse_math::guarded::PreparedBody>,
+    pub(crate) math: Arc<pse_math::guarded::PreparedBody>,
+}
+impl AdmittedBody {
+    /// Compiler-issued complete dependency identity, sealed against external mutation.
+    pub fn semantic_identity(&self) -> Option<pse_ids::roles::SemanticBodyHash> {
+        self.semantic_identity
+    }
+    pub(crate) fn for_semantic_identity(
+        mut self,
+        identity: pse_ids::roles::SemanticBodyHash,
+    ) -> Self {
+        self.semantic_identity = Some(identity);
+        self
+    }
+    /// Borrow its admitted specification without exposing mutation of its witness.
+    pub fn spec(&self) -> &BodySpec {
+        &self.spec
+    }
+    /// Ordered admitted output quantities.
+    pub fn quantities(&self) -> &[QuantityTypeId] {
+        &self.quantities
+    }
+    /// Immutable admitted mathematics; body clones retain original accounting.
+    pub fn math(&self) -> &Arc<pse_math::guarded::PreparedBody> {
+        &self.math
+    }
+    /// Known descriptor/vector allocation extent, excluding shared mathematics.
+    pub fn descriptor_bytes(&self) -> usize {
+        size_of::<Self>()
+            + self.spec.providers.capacity() * size_of::<ContentHash>()
+            + self.quantities.capacity() * size_of::<QuantityTypeId>()
+            + self.occurrences.capacity() * size_of::<Occurrence>()
+    }
+    /// Additional owned descriptor and math-handle wrappers when attaching an owner;
+    /// immutable library mathematics stays shared.
+    pub(crate) fn owner_attachment_bytes(&self) -> usize {
+        size_of::<Self>()
+            + size_of::<pse_math::guarded::PreparedBody>()
+            + 256
+            + self.spec.providers.len() * size_of::<ContentHash>()
+            + self.quantities.len() * size_of::<QuantityTypeId>()
+            + self.occurrences.len() * size_of::<Occurrence>()
+    }
+    /// Attach accounting without changing sealed scientific meaning.
+    pub fn with_owner(mut self, owner: Arc<dyn pse_math::AllocationOwner>) -> Self {
+        self.math = Arc::new(self.math.as_ref().clone().with_owner(owner));
+        self
+    }
 }
 /// An admitted definition and its immutable demand artifact (unit fixture only).
 #[cfg(test)]
@@ -273,7 +334,7 @@ impl Request<'_> {
             self.limits,
         )?;
         let mut paths = BTreeMap::new();
-        let mut hash = FramedHasher::new(pse_ids::Frame::MathTypedDefinitionV9);
+        let mut hash = FramedHasher::new(pse_ids::Frame::MathTypedDefinitionV10);
         hash.u64(self.formals.len() as u64);
         for (slot, formal) in self.formals.iter().enumerate() {
             if paths.insert(formal.path.clone(), slot).is_some() {
@@ -338,6 +399,7 @@ impl Request<'_> {
             policy: pse_math::binding::guarded_real_policy(),
         };
         Ok(AdmittedBody {
+            semantic_identity: None,
             spec,
             quantities,
             occurrences: lower.occurrences,
@@ -753,14 +815,26 @@ impl Lower<'_, '_> {
             ExprKind::Reduce { kind, binder, body } => {
                 self.reduce(expr, *kind, binder, body, builder, depth + 1, source)
             }
-            ExprKind::NamedCall { name, args } => {
-                self.function(name, args, &[], builder, depth + 1, source)
-            }
+            ExprKind::NamedCall { name, args } => self.function(
+                &dsl::render_path(name),
+                args,
+                &[],
+                builder,
+                depth + 1,
+                source,
+            ),
             ExprKind::Partial {
                 function,
                 wrt,
                 args,
-            } => self.function(function, args, wrt, builder, depth + 1, source),
+            } => self.function(
+                &dsl::render_path(function),
+                args,
+                wrt,
+                builder,
+                depth + 1,
+                source,
+            ),
             ExprKind::Kernel { name, args } => {
                 let call = self.request.providers.get(name).ok_or_else(|| {
                     MathError::Contract(
@@ -1046,8 +1120,7 @@ impl Lower<'_, '_> {
                 self.hash.u64(u64::from(*variable));
             }
             self.hash.str(&dsl::render_predicate(validity));
-            let yes = dsl::parse_expr("1").map_err(|e| MathError::Contract(e.to_string()))?;
-            let no = dsl::parse_expr("0").map_err(|e| MathError::Contract(e.to_string()))?;
+            let (yes, no) = indicator_arms();
             let predicate = builder.domain(lineage, |builder| {
                 self.conditional(validity, &yes, &no, builder, depth + 1, domain_source)
             });
@@ -1068,8 +1141,7 @@ impl Lower<'_, '_> {
             self.calls.push(f.id);
             let source = usage.node.claim.form;
             let plan = Arc::new(usage.node.clone());
-            let yes = dsl::parse_expr("1").map_err(|e| MathError::Contract(e.to_string()))?;
-            let no = dsl::parse_expr("0").map_err(|e| MathError::Contract(e.to_string()))?;
+            let (yes, no) = indicator_arms();
             let assumption = builder.applicability(plan, |builder| {
                 let predicates = usage
                     .predicates

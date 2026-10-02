@@ -144,11 +144,13 @@ pub fn load_package(
     root: &Path,
     registry: &Registry,
     budget: ParseBudget,
+    validation: &pse_relations::validate::ValidationContext,
 ) -> Result<DocumentBundle, DriverError> {
     load_package_documents(
         read::package_files(root, registry, &budget)?,
         registry,
         budget,
+        validation,
     )
 }
 
@@ -161,8 +163,9 @@ pub fn load_package_documents(
     sources: BTreeMap<String, Vec<u8>>,
     registry: &Registry,
     budget: ParseBudget,
+    validation: &pse_relations::validate::ValidationContext,
 ) -> Result<DocumentBundle, DriverError> {
-    load_inventory(sources, registry, budget, None)
+    load_inventory(sources, registry, budget, None, validation)
 }
 
 pub(super) fn load_inventory(
@@ -170,8 +173,9 @@ pub(super) fn load_inventory(
     registry: &Registry,
     budget: ParseBudget,
     allocation: Option<&mut super::allocation::Allocation<'_>>,
+    validation: &pse_relations::validate::ValidationContext,
 ) -> Result<DocumentBundle, DriverError> {
-    load_reusing(sources, None, registry, budget, allocation)
+    load_reusing(sources, None, registry, budget, allocation, validation)
 }
 
 /// The UTF-8 text of a text document.
@@ -186,11 +190,9 @@ pub(super) fn load_reusing(
     registry: &Registry,
     budget: ParseBudget,
     mut allocation: Option<&mut super::allocation::Allocation<'_>>,
+    validation: &pse_relations::validate::ValidationContext,
 ) -> Result<DocumentBundle, DriverError> {
     check_size(&sources, budget.max_bytes)?;
-    // Generated row admission may contain SQL checks. Their built-in function
-    // owner belongs to this native authoring boundary, never the pure registry.
-    pse_engine::validation::bind_defaults(registry)?;
     let checksum = package_checksum(&sources);
     let header_text = std::str::from_utf8(
         sources
@@ -276,16 +278,25 @@ pub(super) fn load_reusing(
             } else {
                 pse_authoring::language::IdentityPolicy::Explicit
             };
-            let rows = pse_authoring::language::parse(&text, id, policy, budget)?;
+            let (rows, fields) =
+                pse_authoring::language::parse_with_spans(&text, id, policy, budget)?;
             let mut spans = SpanIndex::default();
+            for (declaration, locations) in fields {
+                for (field, span) in locations {
+                    spans.insert(format!("/modeling-fields/{declaration}/{field}"), span);
+                }
+            }
             for (ordinal, row) in rows.iter().enumerate() {
                 spans.insert(
                     format!("/modeling_declarations/{ordinal}"),
                     SourceSpan::new(id, row.source_start as u32, row.source_end as u32),
                 );
             }
-            let mut builder =
-                authored::modeling_declarations::Builder::with_registry(registry, rows.len())?;
+            let mut builder = authored::modeling_declarations::Builder::with_registry(
+                registry,
+                rows.len(),
+                validation,
+            )?;
             for row in rows {
                 builder.push(row)?;
             }
@@ -325,7 +336,12 @@ pub(super) fn load_reusing(
         )?)?;
     }
     let entities = hydrate::documents(&mut documents, &package, registry)?;
-    let mut parts = project_documents(&mut documents, registry, allocation.as_deref_mut())?;
+    let mut parts = project_documents(
+        &mut documents,
+        registry,
+        allocation.as_deref_mut(),
+        validation,
+    )?;
     if let Some(funds) = allocation {
         funds.grow(memory::mul(entities.len() + documents.len(), 1024)?)?;
     }
@@ -335,8 +351,10 @@ pub(super) fn load_reusing(
         &documents,
         package.package_id,
         registry,
+        validation,
     )?;
     let batches = concatenate_parts(parts, registry)?;
+    crate::authoring_driver::p1::admit_references(&batches, registry)?;
     Ok(DocumentBundle(Arc::new(BundleData {
         package,
         documents,
@@ -551,6 +569,7 @@ fn project_documents(
     documents: &mut [Document],
     registry: &Registry,
     mut allocation: Option<&mut super::allocation::Allocation<'_>>,
+    validation: &pse_relations::validate::ValidationContext,
 ) -> Result<BTreeMap<SemanticId, Vec<FieldCheckedBatch>>, DriverError> {
     let mut parts = BTreeMap::<SemanticId, Vec<FieldCheckedBatch>>::new();
     for document in documents {
@@ -558,7 +577,28 @@ fn project_documents(
             continue;
         }
         if document.declaration.kind == DocumentKind::Modeling {
-            for (id, batch) in &document.batches {
+            for (id, batch) in &mut document.batches {
+                let spec = registry
+                    .relation_by_id(*id)
+                    .ok_or_else(|| contract(None, "modeling source relation missing"))?;
+                let cancel = pse_columnar::CancellationToken::new();
+                *batch = if let Some(owned) = batch.owned() {
+                    FieldCheckedBatch::admit_owned(
+                        registry,
+                        spec,
+                        owned.clone(),
+                        validation,
+                        &cancel,
+                    )?
+                } else {
+                    FieldCheckedBatch::admit(
+                        registry,
+                        spec,
+                        batch.batch().clone(),
+                        validation,
+                        &cancel,
+                    )?
+                };
                 parts.entry(*id).or_default().push(batch.clone());
             }
             continue;
@@ -570,6 +610,7 @@ fn project_documents(
             document.declaration.name,
             &document.value,
             registry,
+            validation,
         )?;
         for (id, values) in decoded {
             let spec = registry
@@ -619,8 +660,10 @@ fn append_source_inventory(
     documents: &[Document],
     package_id: pse_relations::generated::identities::PackageId,
     registry: &Registry,
+    validation: &pse_relations::validate::ValidationContext,
 ) -> Result<(), DriverError> {
-    let mut entity_builder = authored::entities::Builder::with_registry(registry, entities.len())?;
+    let mut entity_builder =
+        authored::entities::Builder::with_registry(registry, entities.len(), validation)?;
     for entity in entities {
         entity_builder.push(entity)?;
     }
@@ -629,7 +672,7 @@ fn append_source_inventory(
         .or_default()
         .push(entity_builder.finish()?);
     let mut document_builder =
-        authored::documents::Builder::with_registry(registry, documents.len())?;
+        authored::documents::Builder::with_registry(registry, documents.len(), validation)?;
     for document in documents {
         document_builder.push(authored::documents::Row {
             document_id: document.id,
@@ -652,6 +695,17 @@ fn append_source_inventory(
 #[cfg(test)]
 mod kernel_document_tests {
     use super::*;
+
+    fn fixture_validation(registry: &Registry) -> Arc<pse_relations::validate::ValidationContext> {
+        // This source-only fixture deliberately captures its fixed native session state.
+        Arc::new(pse_relations::validate::ValidationContext::new(
+            registry,
+            pse_engine::validation::NativeValidation(
+                datafusion::prelude::SessionContext::new().state(),
+            ),
+        ))
+    }
+
     fn named_sources(model: &[u8]) -> BTreeMap<String, Vec<u8>> {
         BTreeMap::from([
             (
@@ -687,33 +741,277 @@ mod kernel_document_tests {
         .rows()
         .unwrap()
     }
+    #[tokio::test]
+    async fn source_and_physical_boundaries_refuse_the_same_missing_registration() {
+        let registry = pse_schema::shared_registry().unwrap();
+        let pool: Arc<dyn pse_columnar::MemoryPool> =
+            Arc::new(pse_columnar::GreedyMemoryPool::new(64 << 20));
+        let thread = std::num::NonZeroUsize::new(1).unwrap();
+        let sessions = pse_testkit::factory(
+            pool.clone(),
+            pse_engine::session::ExecutionSettings::default(),
+            pse_engine::session::ThreadBudget {
+                pool_threads: thread,
+                target_partitions: thread,
+            },
+        )
+        .unwrap();
+        let validation = sessions.validation_context(&registry).unwrap();
+        let mut sources = BTreeMap::from([
+            ("package.toml".into(), include_bytes!("../../../../../tests/fixtures/packages/minimal_explicit/package.toml").to_vec()),
+            ("materials/quantity-kinds.yaml".into(), include_bytes!("../../../../../tests/fixtures/packages/minimal_explicit/materials/quantity-kinds.yaml").to_vec()),
+        ]);
+        let mut bundle = load_package_documents(
+            std::mem::take(&mut sources),
+            &registry,
+            ParseBudget::default(),
+            &validation,
+        )
+        .unwrap();
+        // Deliberately violate a private retained projection while preserving its native
+        // field evidence; both downstream boundaries must inspect actual reference facts.
+        Arc::make_mut(&mut bundle.0)
+            .batches
+            .remove(&authored::entities::RELATION_ID);
+        let cancel = pse_columnar::CancellationToken::new();
+        let part =
+            super::super::owned::retain_bundle(&bundle, &registry, &pool, &cancel, &validation)
+                .unwrap();
+        let documents =
+            super::super::OwnedDocumentSet::try_from_bundles(vec![part], &pool, &cancel).unwrap();
+        let headers = documents
+            .bundles()
+            .iter()
+            .map(|bundle| bundle.package.clone())
+            .collect::<Vec<_>>();
+        let limits = pse_authoring::p0::GraphLimits {
+            nodes: headers.len(),
+            edges: crate::authoring_driver::work::sources(documents.bundles()).unwrap() / 128,
+        };
+        let source = crate::authoring_driver::p1::source_batches(
+            documents.bundles(),
+            &registry,
+            &headers,
+            limits,
+        )
+        .unwrap_err();
+        let physical = crate::workflow::PhysicalContext::from_documents(
+            &documents, registry, &sessions, &cancel,
+        )
+        .await
+        .unwrap_err();
+        let DriverError::Rules(pse_rules::RuleError::References { violations: source }) = source
+        else {
+            panic!("typed source registration refusal");
+        };
+        let crate::workflow::WorkflowError::Authoring(DriverError::Rules(
+            pse_rules::RuleError::References {
+                violations: physical,
+            },
+        )) = physical
+        else {
+            panic!("typed physical registration refusal");
+        };
+        assert!(!source.is_empty());
+        assert_eq!(source, physical);
+    }
+
+    #[tokio::test]
+    async fn source_and_physical_boundaries_refuse_the_same_package_closure_and_cycle() {
+        let registry = pse_schema::shared_registry().unwrap();
+        let pool: Arc<dyn pse_columnar::MemoryPool> =
+            Arc::new(pse_columnar::GreedyMemoryPool::new(64 << 20));
+        let thread = std::num::NonZeroUsize::new(1).unwrap();
+        let sessions = pse_testkit::factory(
+            pool.clone(),
+            pse_engine::session::ExecutionSettings::default(),
+            pse_engine::session::ThreadBudget {
+                pool_threads: thread,
+                target_partitions: thread,
+            },
+        )
+        .unwrap();
+        let validation = sessions.validation_context(&registry).unwrap();
+        let original = load_package_documents(
+            named_sources(b"package q { def D {} }"),
+            &registry,
+            ParseBudget::default(),
+            &validation,
+        )
+        .unwrap();
+        for cycle in [false, true] {
+            let mut bundle = original.clone();
+            let header = &mut Arc::make_mut(&mut bundle.0).package;
+            let target = if cycle {
+                header.package_id
+            } else {
+                pse_relations::generated::identities::PackageId::from_bytes([99; 16])
+            };
+            header
+                .dependencies
+                .push(authored::packages::AuthoredPackagesFieldDependenciesItem {
+                    package_id: target,
+                    version_req: pse_authoring::language::exact_requirement(&header.version)
+                        .unwrap(),
+                });
+            let cancel = pse_columnar::CancellationToken::new();
+            let part =
+                super::super::owned::retain_bundle(&bundle, &registry, &pool, &cancel, &validation)
+                    .unwrap();
+            let documents =
+                super::super::OwnedDocumentSet::try_from_bundles(vec![part], &pool, &cancel)
+                    .unwrap();
+            let headers = documents
+                .bundles()
+                .iter()
+                .map(|bundle| bundle.package.clone())
+                .collect::<Vec<_>>();
+            let limits = pse_authoring::p0::GraphLimits {
+                nodes: headers.len(),
+                edges: crate::authoring_driver::work::sources(documents.bundles()).unwrap() / 128,
+            };
+            let source = crate::authoring_driver::p1::source_batches(
+                documents.bundles(),
+                &registry,
+                &headers,
+                limits,
+            )
+            .unwrap_err();
+            let physical = crate::workflow::PhysicalContext::from_documents(
+                &documents,
+                registry.clone(),
+                &sessions,
+                &cancel,
+            )
+            .await
+            .unwrap_err();
+            let DriverError::Authoring(pse_authoring::AuthoringError::Contract {
+                reason: source,
+                ..
+            }) = source
+            else {
+                panic!("source package closure refusal")
+            };
+            let crate::workflow::WorkflowError::Authoring(DriverError::Authoring(
+                pse_authoring::AuthoringError::Contract {
+                    reason: physical, ..
+                },
+            )) = physical
+            else {
+                panic!("physical package closure refusal")
+            };
+            assert_eq!(source, physical);
+            assert!(source.contains(if cycle {
+                "package dependency cycle at"
+            } else {
+                "package dependency target absent"
+            }));
+            if cycle {
+                assert!(source.contains(&target.to_string()));
+            }
+        }
+    }
+
+    #[test]
+    fn complete_source_package_context_retains_admitted_external_headers() {
+        let registry = pse_schema::shared_registry().unwrap();
+        let mut bundle = load_package_documents(
+            named_sources(b"package q { def D {} }"),
+            &registry,
+            ParseBudget::default(),
+            &fixture_validation(&registry),
+        )
+        .unwrap();
+        let mut external = bundle.package.clone();
+        external.package_id = pse_relations::generated::identities::PackageId::from_bytes([97; 16]);
+        external.name = "external".into();
+        Arc::make_mut(&mut bundle.0).package.dependencies.push(
+            authored::packages::AuthoredPackagesFieldDependenciesItem {
+                package_id: external.package_id,
+                version_req: pse_authoring::language::exact_requirement(&external.version).unwrap(),
+            },
+        );
+        let limits = pse_authoring::p0::GraphLimits { nodes: 2, edges: 1 };
+        let mut headers = vec![bundle.package.clone(), external];
+        assert!(
+            crate::authoring_driver::p1::source_batches(
+                std::slice::from_ref(&bundle),
+                &registry,
+                &headers,
+                limits
+            )
+            .is_ok()
+        );
+        headers[0].version = "2.0.0".into();
+        let refused = crate::authoring_driver::p1::source_batches(
+            std::slice::from_ref(&bundle),
+            &registry,
+            &headers,
+            limits,
+        )
+        .unwrap_err();
+        assert!(
+            matches!(refused, DriverError::Authoring(pse_authoring::AuthoringError::Contract { reason, .. }) if reason == "complete package context differs from submitted source header")
+        );
+    }
+
     #[test]
     fn document_reuse_policy_changes_match_clean_admission() {
         let registry = pse_schema::shared_registry().unwrap();
         let budget = ParseBudget::default();
         let mut sources = named_sources(b"package q { def D { var x: Scalar; } }");
-        let old = load_package_documents(sources.clone(), &registry, budget).unwrap();
+        let old = load_package_documents(
+            sources.clone(),
+            &registry,
+            budget,
+            &fixture_validation(&registry),
+        )
+        .unwrap();
         let header = String::from_utf8(sources["package.toml"].clone())
             .unwrap()
             .replace("id_policy = \"named\"", "id_policy = \"explicit\"");
         sources.insert("package.toml".into(), header.into_bytes());
-        let incremental =
-            load_reusing(sources.clone(), Some(&old), &registry, budget, None).unwrap_err();
-        let clean = load_package_documents(sources, &registry, budget).unwrap_err();
+        let incremental = load_reusing(
+            sources.clone(),
+            Some(&old),
+            &registry,
+            budget,
+            None,
+            &fixture_validation(&registry),
+        )
+        .unwrap_err();
+        let clean =
+            load_package_documents(sources, &registry, budget, &fixture_validation(&registry))
+                .unwrap_err();
         assert_eq!(incremental.to_string(), clean.to_string());
         let mut explicit = named_sources(b"@id(\"00000000000000000000000000000031\") package q { @id(\"00000000000000000000000000000032\") def D {} }");
         let header = String::from_utf8(explicit["package.toml"].clone())
             .unwrap()
             .replace("id_policy = \"named\"", "id_policy = \"explicit\"");
         explicit.insert("package.toml".into(), header.into_bytes());
-        let old = load_package_documents(explicit.clone(), &registry, budget).unwrap();
+        let old = load_package_documents(
+            explicit.clone(),
+            &registry,
+            budget,
+            &fixture_validation(&registry),
+        )
+        .unwrap();
         let header = String::from_utf8(explicit["package.toml"].clone())
             .unwrap()
             .replace("id_policy = \"explicit\"", "id_policy = \"named\"");
         explicit.insert("package.toml".into(), header.into_bytes());
-        let incremental =
-            load_reusing(explicit.clone(), Some(&old), &registry, budget, None).unwrap();
-        let clean = load_package_documents(explicit, &registry, budget).unwrap();
+        let incremental = load_reusing(
+            explicit.clone(),
+            Some(&old),
+            &registry,
+            budget,
+            None,
+            &fixture_validation(&registry),
+        )
+        .unwrap();
+        let clean =
+            load_package_documents(explicit, &registry, budget, &fixture_validation(&registry))
+                .unwrap();
         assert_eq!(modeling_rows(&incremental), modeling_rows(&clean));
         let original = old
             .documents
@@ -732,13 +1030,29 @@ mod kernel_document_tests {
         let registry = pse_schema::shared_registry().unwrap();
         let budget = ParseBudget::default();
         let mut sources = named_sources(b"package q { def D {} }");
-        let old = load_package_documents(sources.clone(), &registry, budget).unwrap();
+        let old = load_package_documents(
+            sources.clone(),
+            &registry,
+            budget,
+            &fixture_validation(&registry),
+        )
+        .unwrap();
         let header = String::from_utf8(sources["package.toml"].clone())
             .unwrap()
             .replace("Minimal explicit identity fixture.", "Updated description.");
         sources.insert("package.toml".into(), header.into_bytes());
-        let next = load_reusing(sources.clone(), Some(&old), &registry, budget, None).unwrap();
-        let clean = load_package_documents(sources, &registry, budget).unwrap();
+        let next = load_reusing(
+            sources.clone(),
+            Some(&old),
+            &registry,
+            budget,
+            None,
+            &fixture_validation(&registry),
+        )
+        .unwrap();
+        let clean =
+            load_package_documents(sources, &registry, budget, &fixture_validation(&registry))
+                .unwrap();
         let original = old
             .documents
             .iter()
@@ -774,7 +1088,13 @@ mod kernel_document_tests {
         writer.write(&batch).unwrap();
         writer.close().unwrap();
         sources.insert("data/bank.parquet".into(), bytes);
-        let old = load_package_documents(sources.clone(), &registry, budget).unwrap();
+        let old = load_package_documents(
+            sources.clone(),
+            &registry,
+            budget,
+            &fixture_validation(&registry),
+        )
+        .unwrap();
         let header = String::from_utf8(sources["package.toml"].clone())
             .unwrap()
             .replace(
@@ -782,9 +1102,18 @@ mod kernel_document_tests {
                 "01991d6a-13a0-7000-8000-000000000002",
             );
         sources.insert("package.toml".into(), header.into_bytes());
-        let incremental =
-            load_reusing(sources.clone(), Some(&old), &registry, budget, None).unwrap();
-        let clean = load_package_documents(sources, &registry, budget).unwrap();
+        let incremental = load_reusing(
+            sources.clone(),
+            Some(&old),
+            &registry,
+            budget,
+            None,
+            &fixture_validation(&registry),
+        )
+        .unwrap();
+        let clean =
+            load_package_documents(sources, &registry, budget, &fixture_validation(&registry))
+                .unwrap();
         assert_eq!(modeling_rows(&incremental), modeling_rows(&clean));
         assert_ne!(
             modeling_rows(&old)[0].declaration_id,
@@ -811,7 +1140,17 @@ mod kernel_document_tests {
             .iter()
             .map(|d| (d.path.clone(), d.bytes().to_vec()))
             .collect();
-        assert!(load_reusing(sources, Some(&incremental), &registry, tighter, None).is_err());
+        assert!(
+            load_reusing(
+                sources,
+                Some(&incremental),
+                &registry,
+                tighter,
+                None,
+                &fixture_validation(&registry)
+            )
+            .is_err()
+        );
     }
     #[test]
     fn pse_source_uses_generated_rows_and_original_ranges() {
@@ -830,15 +1169,25 @@ mod kernel_document_tests {
             ),
         ]);
         let mut serial = 10u8;
-        let edits =
-            super::super::assign_ids(&texts, &registry, ParseBudget::default(), &mut || {
+        let edits = super::super::assign_ids(
+            &texts,
+            &registry,
+            ParseBudget::default(),
+            &mut || {
                 serial += 1;
                 SemanticId::from_bytes([serial; 16])
-            })
-            .unwrap();
+            },
+            &fixture_validation(&registry),
+        )
+        .unwrap();
         super::super::apply_edits(&mut texts, &edits).unwrap();
-        let bundle =
-            load_package_documents(texts.clone(), &registry, ParseBudget::default()).unwrap();
+        let bundle = load_package_documents(
+            texts.clone(),
+            &registry,
+            ParseBudget::default(),
+            &fixture_validation(&registry),
+        )
+        .unwrap();
         let batch = &bundle.batches[&authored::modeling_declarations::RELATION_ID];
         let rows = authored::modeling_declarations::View::from_checked(batch)
             .unwrap()
@@ -860,7 +1209,13 @@ mod kernel_document_tests {
                 document.text().unwrap()[span.start as usize..span.end as usize].starts_with("@id")
             );
         }
-        let reparsed = load_package_documents(texts, &registry, ParseBudget::default()).unwrap();
+        let reparsed = load_package_documents(
+            texts,
+            &registry,
+            ParseBudget::default(),
+            &fixture_validation(&registry),
+        )
+        .unwrap();
         let again = authored::modeling_declarations::View::from_checked(
             &reparsed.batches[&authored::modeling_declarations::RELATION_ID],
         )

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Focused physical-context execution through the ordinary mathematical compiler.
-use crate::workspace::{CompilerWorkspace, Inputs, Profile, WorkspaceLimits};
+use crate::workspace::{CompilerContext, CompilerWorkspace, Profile, WorkspaceLimits};
 use pse_authoring::{
     ParseBudget,
     language::{IdentityPolicy, parse},
@@ -22,7 +22,7 @@ fn workspace(text: &str) -> (CompilerWorkspace, Vec<pse_modeling::Declaration>) 
         ParseBudget::default(),
     )
     .unwrap();
-    let inputs = Inputs {
+    let inputs = CompilerContext {
         quantities: Arc::new(pse_quantity::standard::standard_registry().unwrap()),
         preconditions: Arc::new(
             pse_quantity::PhysicalPreconditions::new(
@@ -30,13 +30,8 @@ fn workspace(text: &str) -> (CompilerWorkspace, Vec<pse_modeling::Declaration>) 
             )
             .unwrap(),
         ),
-        flows: BTreeMap::new(),
-        definitions: BTreeMap::new(),
-        domains: BTreeMap::new(),
-        groups: BTreeMap::new(),
+
         providers: BTreeMap::new(),
-        cases: BTreeMap::new(),
-        values: BTreeMap::new(),
     };
     let mut workspace = CompilerWorkspace::new(inputs, WorkspaceLimits::default()).unwrap();
     workspace

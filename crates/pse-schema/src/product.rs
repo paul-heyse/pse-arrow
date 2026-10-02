@@ -4,7 +4,7 @@
 //! Durable support closure over the sole registry declarations.
 use crate::{
     Registry, SchemaError,
-    model::{FieldContract, ReferenceContract},
+    model::{FieldContract, ReferenceContract, RelationSpec},
 };
 use pse_ids::SemanticId;
 use std::collections::BTreeSet;
@@ -32,24 +32,24 @@ pub fn support_closure(
         let mut fields = spec.columns.clone();
         while let Some(field) = fields.pop() {
             if let Some(reference) = ReferenceContract::for_contract(&field)? {
-                add(registry, &reference.relation, &mut pending)?;
+                add(registry, spec, &reference.relation, &mut pending)?;
             }
             // Source spans are implicit contracts, not ordinary scalar FKs.
             if field.extension().is_some_and(|extension| {
                 matches!(extension, crate::model::ExtensionUse::SourceSpan)
             }) {
-                add(registry, "authored.documents", &mut pending)?;
+                add(registry, spec, "authored.documents", &mut pending)?;
             }
             if field.extension().is_some_and(|extension| {
                 matches!(extension, crate::model::ExtensionUse::QuantityValue)
             }) {
-                add(registry, "reference.quantity_types", &mut pending)?;
-                add(registry, "reference.units", &mut pending)?;
+                add(registry, spec, "reference.quantity_types", &mut pending)?;
+                add(registry, spec, "reference.units", &mut pending)?;
             }
             fields.extend(FieldContract::children(&field));
         }
         for reference in &spec.foreign_keys {
-            add(registry, reference.target, &mut pending)?;
+            add(registry, spec, reference.target, &mut pending)?;
         }
         for invariant in registry
             .invariants()
@@ -57,21 +57,40 @@ pub fn support_closure(
             .filter(|value| value.relation == spec.key.qualified_name())
         {
             for input in &invariant.inputs {
-                add(registry, input, &mut pending)?;
+                add(registry, spec, input, &mut pending)?;
             }
         }
     }
     Ok(selected)
 }
-fn add(registry: &Registry, name: &str, pending: &mut Vec<SemanticId>) -> Result<(), SchemaError> {
-    let spec = registry
-        .relation(name)
-        .ok_or_else(|| SchemaError::UnknownReference {
+fn add(
+    registry: &Registry,
+    owner: &RelationSpec,
+    name: &str,
+    pending: &mut Vec<SemanticId>,
+) -> Result<(), SchemaError> {
+    let spec = referenced_relation(registry, owner, name).ok_or_else(|| {
+        SchemaError::UnknownReference {
             context: "product support".into(),
             reference: name.into(),
-        })?;
+        }
+    })?;
     pending.push(spec.id);
     Ok(())
+}
+
+pub(crate) fn referenced_relation<'a>(
+    registry: &'a Registry,
+    owner: &'a RelationSpec,
+    name: &str,
+) -> Option<&'a RelationSpec> {
+    // A self-reference belongs to the exact declaration being closed, even when
+    // the registry also contains a newer version of the same qualified name.
+    if name == owner.key.qualified_name() {
+        Some(owner)
+    } else {
+        registry.relation(name)
+    }
 }
 
 #[cfg(test)]

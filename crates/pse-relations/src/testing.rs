@@ -17,9 +17,10 @@ pub fn array_from_literals(
     registry: &Registry,
     field: &Field,
     values: &[Value],
+    context: &crate::validate::ValidationContext,
 ) -> Result<ArrayRef, RelationError> {
     let array = literal_array(field, values)?;
-    crate::validate::validate_column(registry, field, array.as_ref())
+    crate::validate::validate_column(registry, field, array.as_ref(), context)
         .map_err(|errors| RelationError::Validation { errors })?;
     Ok(array)
 }
@@ -45,9 +46,10 @@ pub fn batch_from_literals(
     registry: &Registry,
     spec: &RelationSpec,
     rows: &[Vec<Value>],
+    context: &crate::validate::ValidationContext,
 ) -> Result<RecordBatch, RelationError> {
     let batch = untrusted_batch_from_literals(registry, spec, rows)?;
-    crate::validate::validate_batch(registry, spec, &batch)
+    crate::validate::validate_batch(registry, spec, &batch, context)
         .map_err(|errors| RelationError::Validation { errors })?;
     Ok(batch)
 }
@@ -108,8 +110,9 @@ pub fn literals_from_batch(
     registry: &Registry,
     spec: &RelationSpec,
     batch: &RecordBatch,
+    context: &crate::validate::ValidationContext,
 ) -> Result<Vec<Vec<Value>>, RelationError> {
-    crate::validate::validate_batch(registry, spec, batch)
+    crate::validate::validate_batch(registry, spec, batch, context)
         .map_err(|errors| RelationError::Validation { errors })?;
     literal_rows(batch)
 }

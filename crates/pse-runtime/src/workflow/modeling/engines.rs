@@ -77,7 +77,15 @@ impl Default for ModelingInitialization {
 /// A fix is part of every stage and homotopy step's overlay and of no other step: the
 /// final original specification runs unfixed, and nothing a step fixes survives it
 /// (PS-08).
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(
+    Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+#[serde(
+    tag = "kind",
+    content = "values",
+    rename_all = "snake_case",
+    deny_unknown_fields
+)]
 pub enum DiscreteInitialization {
     /// Fix nothing: a step whose analysis cannot decide a free discrete variable refuses it.
     #[default]
@@ -488,7 +496,7 @@ struct Initializer<'a> {
     /// The last accepted attempt, which seeds the next one.
     accepted: Option<usize>,
     /// Unmodified members used to attribute a stage's replacements.
-    original: Arc<pse_modeling::specialize::SpecializedModel>,
+    original: pse_math::SharedAllocation<pse_modeling::specialize::SpecializedModel>,
     report: ModelingInitializationReport,
 }
 impl Initializer<'_> {

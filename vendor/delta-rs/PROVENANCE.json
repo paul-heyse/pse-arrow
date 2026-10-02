@@ -149,7 +149,7 @@
     "Cargo.toml": "416b59d0b05b55c42cd8063fbf3b6a2547d49ffadb2cd4246f3ff6a31d280c29",
     "LICENSE.txt": "a25917a221b6184dcb9e0701f91dde42acc495f69958a84e2a5860a5c0f21ddd",
     "README.md": "3cff8caf7fdc2f8b99c2e8e55f7cb66328d4f8ab0bc877b54913179b3d7164cf",
-    "crates/core/Cargo.toml": "a881c269c27f3c50638e0503e2812a2e3fcf4db5fd020c808cf296da8fd3871a",
+    "crates/core/Cargo.toml": "c5ca1c4c84f3cf0767d0f5e0b23dc5cfe73273c15abdfbf4dda9d0bbc958b56e",
     "crates/core/src/data_catalog/mod.rs": "4991d1a5911a00ed43d5d550b0c40921ded5dc076a32a9cffdb9bcf359504573",
     "crates/core/src/data_catalog/storage/mod.rs": "f1b8d7b9a62f1b37a931d9b490258f5a3b5e996de6322712a5390bd5ca5aa571",
     "crates/core/src/datafile/datafusion_ext.rs": "49bbcd5568d0772cb276370cab8d67debaaa03a0ffdb29e4fa2636265615d27f",

@@ -29,6 +29,8 @@ pub enum Syntax {
     Predicate(dsl::Predicate),
     /// A relation, including conditional equations.
     Equation(dsl::Equation),
+    /// Logic with retained source-bearing atoms and cardinality count expressions.
+    Logic(dsl::Proposition),
     /// Compile-time collections and named applications embed the expression grammar.
     Static(StaticValue),
 }
@@ -36,7 +38,7 @@ pub enum Syntax {
 /// Attribution and dependencies for one checked source field.
 #[derive(Clone, Debug, PartialEq)]
 pub struct CheckedExpression {
-    /// Complete source declaration range; AST spans remain expression-relative.
+    /// Exact parser field range when available; otherwise the programmatic declaration range.
     pub source: SourceSpan,
     /// Exact authored field text, independent of normalized mathematical syntax.
     pub text: String,
@@ -156,6 +158,26 @@ impl CheckedPackage {
             )),
         }
     }
+    /// Retained predicate at an exact declaration field and repeated-field position.
+    /// # Errors
+    /// The field is absent or uses another grammar.
+    pub fn predicate_at(
+        &self,
+        declaration: DeclarationId,
+        role: &str,
+        position: usize,
+    ) -> Result<&dsl::Predicate> {
+        match self
+            .expression_occurrence(declaration, role, position)
+            .map(|value| &value.syntax)
+        {
+            Some(Syntax::Predicate(predicate)) => Ok(predicate),
+            _ => Err(invalid(
+                declaration,
+                format!("checked predicate occurrence absent: {role}[{position}]"),
+            )),
+        }
+    }
     /// Retained static syntax for a precise field, including finite index membership.
     /// # Errors
     /// This field is absent or belongs to another syntax grammar.
@@ -176,92 +198,17 @@ impl CheckedPackage {
             )),
         }
     }
-    pub(crate) fn static_source(
-        &self,
-        declaration: DeclarationId,
-        source: &str,
-    ) -> Result<&StaticValue> {
-        self.expressions
-            .iter()
-            .find_map(|(key, value)| match &value.syntax {
-                Syntax::Static(syntax)
-                    if key.declaration == declaration && value.text == source =>
-                {
-                    Some(syntax)
-                }
-                _ => None,
-            })
-            .ok_or_else(|| {
-                invalid(
-                    declaration,
-                    format!("checked static occurrence absent: {source}"),
-                )
-            })
-    }
-    /// Retained expression syntax for an already checked source field.
+    /// Exact retained logic field, parsed once while checking its declaration.
     /// # Errors
-    /// The source is absent or belongs to a different grammar role.
-    pub fn expression(&self, declaration: DeclarationId, source: &str) -> Result<&dsl::Expr> {
-        self.expressions
-            .iter()
-            .find_map(|(key, value)| {
-                if key.declaration != declaration || value.text != source {
-                    return None;
-                }
-                match &value.syntax {
-                    Syntax::Expression(expression)
-                    | Syntax::Static(StaticValue::Expression(expression)) => Some(expression),
-                    _ => None,
-                }
-            })
-            .ok_or_else(|| {
-                invalid(
-                    declaration,
-                    format!("checked expression occurrence absent: {source}"),
-                )
-            })
-    }
-    /// Retained predicate syntax for an already checked source field.
-    /// # Errors
-    /// No predicate occurrence owns this text at the declaration.
-    pub fn predicate(&self, declaration: DeclarationId, source: &str) -> Result<&dsl::Predicate> {
-        self.expressions
-            .iter()
-            .find_map(|(key, value)| match &value.syntax {
-                Syntax::Predicate(predicate)
-                    if key.declaration == declaration && value.text == source =>
-                {
-                    Some(predicate)
-                }
-                _ => None,
-            })
-            .ok_or_else(|| {
-                invalid(
-                    declaration,
-                    format!("checked predicate occurrence absent: {source}"),
-                )
-            })
-    }
-    /// Retained equation syntax for an already checked source field.
-    /// # Errors
-    /// No equation occurrence owns this text at the declaration.
-    pub fn equation(&self, declaration: DeclarationId, source: &str) -> Result<&dsl::Equation> {
-        self.expressions
-            .iter()
-            .find_map(|(key, value)| match &value.syntax {
-                Syntax::Equation(equation)
-                    if key.declaration == declaration && value.text == source =>
-                {
-                    Some(equation)
-                }
-                _ => None,
-            })
-            .ok_or_else(|| {
-                invalid(
-                    declaration,
-                    format!("checked equation occurrence absent: {source}"),
-                )
-            })
+    /// The declaration does not own a checked logic proposition.
+    pub fn proposition_at(&self, declaration: DeclarationId) -> Result<&dsl::Proposition> {
+        match self
+            .expression_occurrence(declaration, "logic.proposition", 0)
+            .map(|value| &value.syntax)
+        {
+            Some(Syntax::Logic(value)) => Ok(value),
+            _ => Err(invalid(declaration, "checked logic occurrence absent")),
+        }
     }
 }
 
@@ -269,9 +216,82 @@ struct Collector<'a> {
     row: &'a Declaration,
     values: &'a mut Occurrences,
     indices: Vec<(String, String)>,
+    fields: Option<&'a BTreeMap<String, SourceSpan>>,
 }
 impl Collector<'_> {
-    fn insert(&mut self, role: &str, position: usize, text: &str, syntax: Syntax) {
+    fn source_span(&self, role: &str, position: usize) -> Result<SourceSpan> {
+        let Some(fields) = self.fields else {
+            return Ok(SourceSpan::new(
+                self.row.document_id,
+                self.row.source_start as u32,
+                self.row.source_end as u32,
+            ));
+        };
+        let span = {
+            let normalized = |path: &str| {
+                path.split('.')
+                    .filter(|part| part.parse::<usize>().is_err())
+                    .collect::<Vec<_>>()
+                    .join(".")
+            };
+            let role_indices = role
+                .split('.')
+                .filter_map(|part| part.parse::<usize>().ok())
+                .collect::<Vec<_>>();
+            let mut exact = fields
+                .iter()
+                .filter(|(path, _)| normalized(path) == normalized(role))
+                .collect::<Vec<_>>();
+            let indices = |path: &str| {
+                path.split('.')
+                    .filter_map(|part| part.parse::<usize>().ok())
+                    .collect::<Vec<_>>()
+            };
+            exact.sort_by_key(|(path, _)| indices(path));
+            let mut expected = role_indices.clone();
+            expected.push(position);
+            exact
+                .iter()
+                .find(|(path, _)| {
+                    (!role_indices.is_empty() && indices(path) == role_indices)
+                        || indices(path) == expected
+                })
+                .map(|(_, span)| **span)
+                .or_else(|| {
+                    if role_indices.is_empty() {
+                        exact.get(position).map(|(_, span)| **span)
+                    } else {
+                        None
+                    }
+                })
+        };
+        span.ok_or_else(|| {
+            invalid(
+                self.row.declaration_id,
+                format!("parser field source range absent: {role}[{position}]"),
+            )
+        })
+    }
+    fn failure(
+        &self,
+        role: &str,
+        position: usize,
+        message: impl std::fmt::Display,
+    ) -> crate::ModelingError {
+        let span = match self.source_span(role, position) {
+            Ok(span) => span,
+            Err(error) => return error,
+        };
+        crate::ModelingError::Located {
+            span,
+            name: self.row.name.clone(),
+            cause: Box::new(invalid(
+                self.row.declaration_id,
+                format!("{role}[{position}]: {message}"),
+            )),
+        }
+    }
+    fn insert(&mut self, role: &str, position: usize, text: &str, syntax: Syntax) -> Result<()> {
         self.values.insert(
             OccurrenceKey {
                 declaration: self.row.declaration_id,
@@ -279,11 +299,7 @@ impl Collector<'_> {
                 position,
             },
             CheckedExpression {
-                source: SourceSpan::new(
-                    self.row.document_id,
-                    self.row.source_start as u32,
-                    self.row.source_end as u32,
-                ),
+                source: self.source_span(role, position)?,
                 text: text.into(),
                 context: Vec::new(),
                 syntax,
@@ -294,38 +310,38 @@ impl Collector<'_> {
                 unresolved_references: BTreeSet::new(),
             },
         );
+        Ok(())
     }
     fn expression(&mut self, role: &str, position: usize, source: &str) -> Result<()> {
-        let syntax = dsl::parse_expr(source)
-            .map_err(|e| invalid(self.row.declaration_id, format!("{role}[{position}]: {e}")))?;
-        self.insert(role, position, source, Syntax::Expression(syntax));
+        let syntax = dsl::parse_expr(source).map_err(|e| self.failure(role, position, e))?;
+        self.insert(role, position, source, Syntax::Expression(syntax))?;
         Ok(())
     }
     fn predicate(&mut self, role: &str, position: usize, source: &str) -> Result<()> {
-        let syntax = dsl::parse_predicate(source)
-            .map_err(|e| invalid(self.row.declaration_id, format!("{role}[{position}]: {e}")))?;
-        self.insert(role, position, source, Syntax::Predicate(syntax));
+        let syntax = dsl::parse_predicate(source).map_err(|e| self.failure(role, position, e))?;
+        self.insert(role, position, source, Syntax::Predicate(syntax))?;
         Ok(())
     }
     fn equation(&mut self, role: &str, source: &str) -> Result<()> {
         self.equation_at(role, 0, source)
     }
     fn equation_at(&mut self, role: &str, position: usize, source: &str) -> Result<()> {
-        let syntax = dsl::parse_equation(source)
-            .map_err(|e| invalid(self.row.declaration_id, format!("{role}: {e}")))?;
-        self.insert(role, position, source, Syntax::Equation(syntax));
+        let syntax = dsl::parse_equation(source).map_err(|e| self.failure(role, position, e))?;
+        self.insert(role, position, source, Syntax::Equation(syntax))?;
         Ok(())
     }
     fn static_value(&mut self, role: &str, position: usize, source: &str) -> Result<()> {
-        let syntax = language::parse_static(source)
-            .map_err(|e| invalid(self.row.declaration_id, format!("{role}[{position}]: {e}")))?;
-        self.insert(role, position, source, Syntax::Static(syntax));
+        let syntax = language::parse_static(source).map_err(|e| self.failure(role, position, e))?;
+        self.insert(role, position, source, Syntax::Static(syntax))?;
         Ok(())
     }
 }
 
 /// Collect field roles explicitly: interchange strings that are labels or types are not expressions.
-pub(crate) fn collect(rows: &[Declaration]) -> Result<Occurrences> {
+pub(crate) fn collect(
+    rows: &[Declaration],
+    documents: &dyn crate::document::Documents,
+) -> Result<Occurrences> {
     let mut values = BTreeMap::new();
     for row in rows {
         let v = &row.value;
@@ -333,6 +349,7 @@ pub(crate) fn collect(rows: &[Declaration]) -> Result<Occurrences> {
             row,
             values: &mut values,
             indices: Vec::new(),
+            fields: documents.field_spans(row.declaration_id),
         };
         macro_rules! indices {
             ($value:expr, $role:expr) => {
@@ -385,11 +402,167 @@ pub(crate) fn collect(rows: &[Declaration]) -> Result<Occurrences> {
                     .enumerate()
                 {
                     c.expression("scope.fixture.modes.events.guard", position, &event.guard)?;
+                    c.expression(
+                        "scope.fixture.modes.events.tolerance",
+                        position,
+                        &event.tolerance,
+                    )?;
+                }
+                for (mode, value) in fixture.modes.iter().enumerate() {
+                    for (event, value) in value.events.iter().enumerate() {
+                        for (reset, value) in value.reset.iter().enumerate() {
+                            c.expression(
+                                &format!(
+                                    "scope.fixture.modes.{mode}.events.{event}.reset.{reset}.target"
+                                ),
+                                0,
+                                &value.target,
+                            )?;
+                            c.expression(&format!("scope.fixture.modes.{mode}.events.{event}.reset.{reset}.expression"), 0, &value.expression)?;
+                        }
+                    }
+                }
+                if let Some(integration) = &fixture.integration {
+                    for (position, source) in integration.samples.iter().enumerate() {
+                        c.expression("scope.fixture.integration.samples", position, source)?;
+                    }
+                    c.expression(
+                        "scope.fixture.integration.initial_step",
+                        0,
+                        &integration.initial_step,
+                    )?;
+                    for (position, value) in integration.quadratures.iter().enumerate() {
+                        c.expression(
+                            "scope.fixture.integration.quadratures.target",
+                            position,
+                            &value.target,
+                        )?;
+                        c.expression(
+                            "scope.fixture.integration.quadratures.absolute_tolerance",
+                            position,
+                            &value.absolute_tolerance,
+                        )?;
+                    }
+                    for (schedule, value) in integration.schedules.iter().enumerate() {
+                        c.expression(
+                            &format!("scope.fixture.integration.schedules.{schedule}.target"),
+                            0,
+                            &value.target,
+                        )?;
+                        for (position, source) in value.times.iter().enumerate() {
+                            c.expression(
+                                &format!("scope.fixture.integration.schedules.{schedule}.times"),
+                                position,
+                                source,
+                            )?;
+                        }
+                        for (position, source) in value.values.iter().enumerate() {
+                            c.expression(
+                                &format!("scope.fixture.integration.schedules.{schedule}.values"),
+                                position,
+                                source,
+                            )?;
+                        }
+                        if let Some(source) = &value.lower {
+                            c.expression(
+                                &format!("scope.fixture.integration.schedules.{schedule}.lower"),
+                                0,
+                                source,
+                            )?;
+                        }
+                        if let Some(source) = &value.upper {
+                            c.expression(
+                                &format!("scope.fixture.integration.schedules.{schedule}.upper"),
+                                0,
+                                source,
+                            )?;
+                        }
+                    }
+                }
+                if let Some(shooting) = &fixture.shooting {
+                    for (position, source) in shooting.nodes.iter().enumerate() {
+                        c.expression("scope.fixture.shooting.nodes", position, source)?;
+                    }
+                }
+                for (position, value) in fixture.specifications.iter().enumerate() {
+                    c.expression(
+                        "scope.fixture.specifications.target",
+                        position,
+                        &value.target,
+                    )?;
+                    if let Some(source) = &value.expression {
+                        c.expression("scope.fixture.specifications.expression", position, source)?;
+                    }
+                }
+                for (diagnostic, value) in fixture.diagnostics.iter().enumerate() {
+                    for (position, source) in value.members.iter().enumerate() {
+                        c.expression(
+                            &format!("scope.fixture.diagnostics.{diagnostic}.members"),
+                            position,
+                            source,
+                        )?;
+                    }
+                }
+                if let Some(expected) = &fixture.expected_failure {
+                    for (position, source) in expected.members.iter().enumerate() {
+                        c.expression("scope.fixture.expected_failure.members", position, source)?;
+                    }
+                    if let Some(applicability) = &expected.applicability {
+                        for (position, source) in applicability.variables.iter().enumerate() {
+                            c.expression(
+                                "scope.fixture.expected_failure.applicability.variables",
+                                position,
+                                source,
+                            )?;
+                        }
+                    }
+                    if let Some(validity) = &expected.validity {
+                        for (position, source) in validity.variables.iter().enumerate() {
+                            c.expression(
+                                "scope.fixture.expected_failure.validity.variables",
+                                position,
+                                source,
+                            )?;
+                        }
+                    }
+                    for (role, values) in [
+                        (
+                            "applicability",
+                            expected.applicability.as_ref().map(|v| &v.sets),
+                        ),
+                        ("validity", expected.validity.as_ref().map(|v| &v.sets)),
+                    ] {
+                        if let Some(values) = values {
+                            for (position, source) in values.iter().enumerate() {
+                                c.static_value(
+                                    &format!("scope.fixture.expected_failure.{role}.sets"),
+                                    position,
+                                    source,
+                                )?;
+                            }
+                        }
+                    }
                 }
             }
             for (i, parameter) in s.parameters.iter().enumerate() {
                 if let Some(source) = &parameter.default_value {
                     c.static_value("scope.parameters.default_value", i, source)?;
+                }
+            }
+            if let Some(branch) = &s.branch {
+                c.predicate("scope.branch", 0, branch)?;
+            }
+            if let Some(operation) = &s.operational {
+                for (position, anchor) in operation.anchors.iter().enumerate() {
+                    c.expression("scope.operational.anchors.target", position, &anchor.target)?;
+                    c.expression(
+                        "scope.operational.anchors.expression",
+                        position,
+                        &anchor.expression,
+                    )?;
+                }
+                if let Some(neighborhood) = &operation.neighborhood {
+                    c.predicate("scope.operational.neighborhood", 0, neighborhood)?;
                 }
             }
             if let Some(selection) = &s.selection {
@@ -409,6 +582,9 @@ pub(crate) fn collect(rows: &[Declaration]) -> Result<Occurrences> {
         if let Some(a) = &v.accumulator {
             indices!(a, "accumulator");
             c.expression("accumulator.tolerance", 0, &a.tolerance)?;
+            if let Some(source) = &a.boundary {
+                c.expression("accumulator.boundary", 0, source)?;
+            }
         }
         if let Some(a) = &v.contribution {
             indices!(a, "contribution");
@@ -517,19 +693,31 @@ pub(crate) fn collect(rows: &[Declaration]) -> Result<Occurrences> {
             c.expression("discretization.order", 0, &a.order)?;
         }
         if let Some(a) = &v.relaxation {
+            c.expression("relaxation.target", 0, &a.target)?;
             c.expression("relaxation.nominal", 0, &a.nominal)?;
         }
         if let Some(a) = &v.continuation {
+            c.expression("continuation.target", 0, &a.target)?;
             c.expression("continuation.start", 0, &a.start)?;
             c.expression("continuation.end", 0, &a.end)?;
+        }
+        if let Some(a) = &v.realization {
+            if let Some(function) = &a.function {
+                c.expression("realization.function", 0, function)?;
+            }
+            if let Some(argument) = &a.argument {
+                c.expression("realization.argument", 0, argument)?;
+            }
         }
         if let Some(a) = &v.ordered_set {
             indices!(a, "ordered_set");
             c.expression("ordered_set.member", 0, &a.member)?;
+            c.expression("ordered_set.weight", 0, &a.weight)?;
         }
         if let Some(a) = &v.cardinality {
             indices!(a, "cardinality");
             c.expression("cardinality.member", 0, &a.member)?;
+            c.expression("cardinality.count", 0, &a.count)?;
         }
         if let Some(a) = &v.piecewise {
             indices!(a, "piecewise");
@@ -549,6 +737,14 @@ pub(crate) fn collect(rows: &[Declaration]) -> Result<Occurrences> {
         }
         if let Some(a) = &v.logic {
             indices!(a, "logic");
+            let syntax = dsl::parse_proposition(&a.proposition)
+                .map_err(|error| c.failure("logic.proposition", 0, error))?;
+            c.insert(
+                "logic.proposition",
+                0,
+                &a.proposition,
+                Syntax::Logic(syntax),
+            )?;
         }
         if let Some(a) = &v.annotation {
             c.expression("annotation.target", 0, &a.target)?;
@@ -574,8 +770,55 @@ pub(crate) fn collect(rows: &[Declaration]) -> Result<Occurrences> {
                         }
                     }
                 }
+                Shape::Label => c.static_value("annotation.arguments", 0, &a.arguments[0])?,
                 _ => {}
             }
+        }
+        if let Some(a) = &v.attribute
+            && let Some(source) = &a.derived
+        {
+            c.expression("attribute.derived", 0, source)?;
+        }
+        if let Some(a) = &v.table {
+            for (position, column) in a.columns.iter().enumerate() {
+                if let Some(source) = &column.derived {
+                    c.expression("table.columns.derived", position, source)?;
+                }
+            }
+            for (position, source) in a.requirements.iter().enumerate() {
+                c.predicate("table.requirements", position, source)?;
+            }
+        }
+        if let Some(a) = &v.permission {
+            for (position, source) in a.targets.iter().enumerate() {
+                c.expression("permission.targets", position, source)?;
+            }
+        }
+        if let Some(a) = &v.applicability {
+            c.expression("applicability.evidence", 0, &a.evidence)?;
+            if let Some(source) = &a.predicate {
+                c.predicate("applicability.predicate", 0, source)?;
+            }
+            for (role, source) in [("axis", &a.axis), ("lower", &a.lower), ("upper", &a.upper)] {
+                if let Some(source) = source {
+                    c.expression(&format!("applicability.{role}"), 0, source)?;
+                }
+            }
+            for (role, sources) in [
+                ("alternatives", &a.alternatives),
+                ("dependencies", &a.dependencies),
+            ] {
+                for (position, source) in sources.iter().enumerate() {
+                    c.expression(&format!("applicability.{role}"), position, source)?;
+                }
+            }
+        }
+        if let Some(a) = &v.reference_translation {
+            c.expression("reference_translation.temperature", 0, &a.temperature)?;
+            c.expression("reference_translation.pressure", 0, &a.pressure)?;
+        }
+        if let Some(a) = &v.reconstruction {
+            c.expression("reconstruction.normalization", 0, &a.normalization)?;
         }
         if let Some(a) = &v.expectation {
             c.expression("expectation.actual", 0, &a.actual)?;
@@ -676,6 +919,9 @@ pub(crate) fn bind(p: &mut CheckedPackage) {
                 expression_bodies(e, &mut bodies)
             }
             Syntax::Predicate(p) => predicate_bodies(p, &mut bodies),
+            Syntax::Logic(p) => {
+                p.expressions(&mut |expression| expression_bodies(expression, &mut bodies))
+            }
             Syntax::Equation(e) => equation_bodies(e, &mut bodies),
             Syntax::Static(syntax) => static_parts(syntax, &mut |part| match part {
                 StaticPart::Expression(expression) => expression_bodies(expression, &mut bodies),
@@ -695,12 +941,15 @@ pub(crate) fn bind(p: &mut CheckedPackage) {
         let mut visit = |path: &dsl::Path| {
             let text = dsl::render_path(path);
             let mut prefixes = Vec::new();
+            let mut resolved = None;
             if path
                 .segments
                 .first()
                 .is_some_and(|segment| !formals.contains(&segment.name))
             {
                 for end in (1..=path.segments.len()).rev() {
+                    resolved = resolved
+                        .or_else(|| p.resolve_segments(key.declaration, &path.segments[..end]));
                     prefixes.push(
                         path.segments[..end]
                             .iter()
@@ -710,10 +959,10 @@ pub(crate) fn bind(p: &mut CheckedPackage) {
                     );
                 }
             }
-            paths.insert(text, prefixes);
+            paths.insert(text, (resolved, prefixes));
         };
         fn expression_paths(expression: &dsl::Expr, visit: &mut impl FnMut(&dsl::Path)) {
-            for path in expression.free_paths() {
+            for path in super::source_paths(expression) {
                 visit(path);
             }
         }
@@ -808,14 +1057,14 @@ pub(crate) fn bind(p: &mut CheckedPackage) {
         match &value.syntax {
             Syntax::Expression(e) => expression_paths(e, &mut visit),
             Syntax::Predicate(e) => predicate_paths(e, &mut visit),
+            Syntax::Logic(p) => {
+                p.expressions(&mut |expression| expression_paths(expression, &mut visit))
+            }
             Syntax::Equation(e) => equation(e, &mut visit),
             Syntax::Static(syntax) => static_paths(syntax, &BTreeSet::new(), &mut visit),
         }
-        for (path, prefixes) in paths {
-            if let Some(id) = prefixes
-                .iter()
-                .find_map(|name| p.resolve(key.declaration, name))
-            {
+        for (path, (resolved, prefixes)) in paths {
+            if let Some(id) = resolved {
                 value.dependencies.insert(id);
             } else if !matches!(path.as_str(), "true" | "false" | "missing")
                 && !prefixes
@@ -825,62 +1074,13 @@ pub(crate) fn bind(p: &mut CheckedPackage) {
                 value.unresolved_references.insert(path);
             }
         }
-        fn calls(expression: &dsl::Expr, names: &mut BTreeSet<String>) {
-            expression.walk(|node| match &node.kind {
-                dsl::ExprKind::NamedCall { name, .. }
-                | dsl::ExprKind::Partial { function: name, .. } => {
-                    names.insert(name.clone());
-                }
-                _ => {}
-            });
-        }
-        fn predicate_calls(predicate: &dsl::Predicate, names: &mut BTreeSet<String>) {
-            use dsl::PredicateKind as K;
-            match &predicate.kind {
-                K::Compare { lhs, rhs, .. } => {
-                    calls(lhs, names);
-                    calls(rhs, names);
-                }
-                K::In { expr, .. } | K::Atom(expr) => calls(expr, names),
-                K::And(a, b) | K::Or(a, b) => {
-                    predicate_calls(a, names);
-                    predicate_calls(b, names);
-                }
-                K::Not(p) => predicate_calls(p, names),
-                _ => {}
-            }
-        }
-        fn equation_calls(equation: &dsl::Equation, names: &mut BTreeSet<String>) {
-            match &equation.kind {
-                dsl::EquationKind::Relation { lhs, rhs, .. } => {
-                    calls(lhs, names);
-                    calls(rhs, names);
-                }
-                dsl::EquationKind::Conditional {
-                    guard,
-                    then,
-                    otherwise,
-                } => {
-                    predicate_calls(guard, names);
-                    equation_calls(then, names);
-                    equation_calls(otherwise, names);
-                }
-            }
-        }
         let mut names = BTreeSet::new();
-        match &value.syntax {
-            Syntax::Expression(e) | Syntax::Static(StaticValue::Expression(e)) => {
-                calls(e, &mut names)
-            }
-            Syntax::Predicate(e) => predicate_calls(e, &mut names),
-            Syntax::Equation(e) => equation_calls(e, &mut names),
-            Syntax::Static(syntax) => static_parts(syntax, &mut |part| match part {
-                StaticPart::Expression(expression) => calls(expression, &mut names),
-                StaticPart::Predicate(predicate) => predicate_calls(predicate, &mut names),
-                StaticPart::Name(name) => {
-                    names.insert(name.into());
+        if let Syntax::Static(syntax) = &value.syntax {
+            static_parts(syntax, &mut |part| {
+                if let StaticPart::Name(name) = part {
+                    names.insert(name.to_owned());
                 }
-            }),
+            });
         }
         value.dependencies.extend(
             names
@@ -903,6 +1103,13 @@ pub(crate) fn retained_bytes(values: &Occurrences) -> usize {
                 Syntax::Predicate(e) => crate::extent::predicate(e),
                 Syntax::Equation(e) => crate::extent::equation(e),
                 Syntax::Static(e) => static_bytes(e),
+                Syntax::Logic(p) => {
+                    let mut bytes = 0;
+                    p.expressions(&mut |expression| {
+                        bytes += super::retained_bytes(expression) + size_of::<dsl::Proposition>()
+                    });
+                    bytes
+                }
             };
             size_of::<(OccurrenceKey, CheckedExpression)>()
                 + 64
@@ -974,7 +1181,23 @@ fn static_bytes(value: &StaticValue) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
-    fn checked(text: &str) -> CheckedPackage {
+    struct SourceFields(BTreeMap<DeclarationId, BTreeMap<String, SourceSpan>>);
+    impl crate::document::Documents for SourceFields {
+        fn field_spans(&self, declaration: DeclarationId) -> Option<&BTreeMap<String, SourceSpan>> {
+            self.0.get(&declaration)
+        }
+        fn resolve(&self, _: pse_ids::SemanticId, _: &str) -> Option<pse_ids::SemanticId> {
+            None
+        }
+        fn admit(
+            &self,
+            plan: &std::sync::Arc<crate::document::DocumentPlan>,
+            document: pse_ids::SemanticId,
+        ) -> Result<std::sync::Arc<crate::document::DocumentTable>> {
+            crate::document::Documents::admit(&crate::document::NoDocuments, plan, document)
+        }
+    }
+    fn try_checked(text: &str) -> Result<CheckedPackage> {
         let (registry, _) = crate::kernel_types::physical();
         let preconditions = pse_quantity::PhysicalPreconditions::new(
             pse_quantity::generated::standard_preconditions(),
@@ -990,8 +1213,160 @@ mod tests {
                 scope: &crate::PhysicalScope::default(),
             },
         )
-        .unwrap()
     }
+    fn checked(text: &str) -> CheckedPackage {
+        try_checked(text).unwrap()
+    }
+    #[test]
+    fn intrinsic_callees_do_not_hide_equally_named_value_references() {
+        let expression = dsl::parse_expr("size(items)+size").unwrap();
+        assert_eq!(
+            super::super::references(&expression),
+            BTreeSet::from(["items".into(), "size".into()])
+        );
+        let package = checked(
+            "package p {entity kind item {} entity item a {} set items:Set<item>={a}; fn count()->Integer=size(items);}",
+        );
+        let function = package.entry("p.count").unwrap();
+        let occurrence = package
+            .expression_occurrence(function, "function.body", 0)
+            .unwrap();
+        assert!(occurrence.unresolved_references.is_empty());
+    }
+
+    #[test]
+    fn quoted_function_callees_bind_their_actual_declaration() {
+        let package = checked(
+            "package p {fn 'law table'<Q>(x:Q)->Q=x; def D {var x:Flow; eq e:'law table'(x)==x;} }",
+        );
+        let equation = package.entry("p.D.e").unwrap();
+        let function = package.entry("p.law table").unwrap();
+        let occurrence = package
+            .expression_occurrence(equation, "equation.expression", 0)
+            .unwrap();
+        assert!(occurrence.dependencies.contains(&function));
+        let dsl::EquationKind::Relation { lhs, .. } = &package
+            .equation_at(equation, "equation.expression", 0)
+            .unwrap()
+            .kind
+        else {
+            panic!("retained relation")
+        };
+        let dsl::ExprKind::NamedCall { name, .. } = &lhs.kind else {
+            panic!("retained typed callee")
+        };
+        assert_eq!(name.ident(), Some("law table"));
+        crate::specialize(
+            &package,
+            package.entry("p.D").unwrap(),
+            crate::InstanceId::from_id(pse_ids::SemanticId::NIL),
+            &crate::Bindings::default(),
+            crate::Limits::default(),
+        )
+        .unwrap();
+        let dotted =
+            "package p {fn 'law.table'<Q>(x:Q)->Q=x; def D {var x:Flow; eq e:'law.table'(x)==x;} }";
+        let package = checked(dotted);
+        crate::specialize(
+            &package,
+            package.entry("p.D").unwrap(),
+            crate::InstanceId::from_id(pse_ids::SemanticId::NIL),
+            &crate::Bindings::default(),
+            crate::Limits::default(),
+        )
+        .unwrap();
+        assert!(try_checked(&dotted.replace("'law.table'(x)", "law.table(x)")).is_err());
+        let recursive = try_checked("package p {fn 'law.table'(x:Scalar)->Scalar='law.table'(x);}")
+            .unwrap_err();
+        assert!(
+            recursive
+                .to_string()
+                .contains("recursive package function expansion")
+        );
+        checked(
+            "package p {fn 'law.table'(x:Scalar)->Scalar=x; fn consumer('law.table':Fn(x:Scalar)->Scalar,x:Scalar)->Scalar='law.table'(x);}",
+        );
+    }
+
+    #[test]
+    fn production_source_fields_all_keep_parser_attribution() {
+        let sources = [
+            include_str!("../../../../packages/reference/physical/models/math.pse"),
+            include_str!("../../../../packages/reference/thermodynamics/models/peng-robinson.pse"),
+            include_str!("../../../../packages/reference/campaign/models/cstr-dynamics.pse"),
+            include_str!("../../../../packages/reference/campaign/models/flash-diagnostics.pse"),
+        ];
+        for (index, text) in sources.into_iter().enumerate() {
+            let document = pse_ids::SemanticId::from_bytes([index as u8 + 1; 16]);
+            let (rows, spans) = language::parse_with_spans(
+                text,
+                document,
+                language::IdentityPolicy::Named,
+                pse_authoring::ParseBudget::default(),
+            )
+            .unwrap();
+            let occurrences = collect(&rows, &SourceFields(spans)).unwrap();
+            assert!(!occurrences.is_empty());
+            for occurrence in occurrences.values() {
+                assert_eq!(occurrence.source.document_id, document);
+                assert_eq!(
+                    &text[occurrence.source.start as usize..occurrence.source.end as usize],
+                    occurrence.text
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn parser_field_spans_survive_checking_repeated_inherited_fields() {
+        let text = "package p {interface Base {var x:Scalar;} def D extends Base {eq first:x==x; eq second:x==x;} }";
+        let document = pse_ids::SemanticId::from_bytes([19; 16]);
+        let (rows, field_spans) = language::parse_with_spans(
+            text,
+            document,
+            language::IdentityPolicy::Named,
+            pse_authoring::ParseBudget::default(),
+        )
+        .unwrap();
+        let quantities = pse_quantity::standard::standard_registry().unwrap();
+        let preconditions = pse_quantity::PhysicalPreconditions::new(
+            pse_quantity::generated::standard_preconditions(),
+        )
+        .unwrap();
+        let documents = SourceFields(field_spans);
+        let package = crate::check_with(
+            &rows,
+            &crate::TypeContext {
+                admissions: None,
+                formula_authority: None,
+                quantities: &quantities,
+                preconditions: &preconditions,
+                scope: &crate::PhysicalScope::default(),
+            },
+            &documents,
+        )
+        .unwrap();
+        let first = package.entry("p.D.first").unwrap();
+        let second = package.entry("p.D.second").unwrap();
+        let inherited = package.entry("p.Base.x").unwrap();
+        let occurrences = [first, second].map(|id| {
+            package
+                .expression_occurrence(id, "equation.expression", 0)
+                .unwrap()
+        });
+        for occurrence in occurrences {
+            assert_eq!(occurrence.source.document_id, document);
+            assert_eq!(
+                &text[occurrence.source.start as usize..occurrence.source.end as usize],
+                "x==x"
+            );
+            assert!(occurrence.dependencies.contains(&inherited));
+        }
+        assert_ne!(occurrences[0].source, occurrences[1].source);
+        assert_eq!(occurrences[0].context[0], first);
+        assert_eq!(occurrences[1].context[0], second);
+    }
+
     #[test]
     fn checked_occurrences_retain_roles_source_and_unresolved_index_bindings() {
         let p = checked(
@@ -1012,7 +1387,7 @@ mod tests {
         assert_eq!(a.index_obligations, [("j".into(), "Item".into())]);
         assert!(a.unresolved_references.contains("j"));
         assert!(std::ptr::eq(
-            p.equation(first, &a.text).unwrap(),
+            p.equation_at(first, "equation.expression", 0).unwrap(),
             match &a.syntax {
                 Syntax::Equation(e) => e,
                 _ => panic!("equation"),
@@ -1032,7 +1407,7 @@ mod tests {
             occurrence.context,
             [id, p.entry("p.Base").unwrap(), p.entry("p").unwrap()]
         );
-        assert!(p.expression(inherited, "1").is_ok());
+        assert!(p.expression_at(inherited, "binding.expression", 0).is_ok());
     }
     #[test]
     fn checked_occurrences_state_slot_indices_and_material_connectivity_have_no_scalar_port_type() {
@@ -1054,6 +1429,35 @@ mod tests {
         assert!(!p.types.contains_key(&state));
     }
     #[test]
+    fn malformed_repeated_fields_keep_the_exact_parser_range() {
+        for owner in ["first", "second"] {
+            let first = if owner == "first" { "1 +" } else { "1" };
+            let second = if owner == "second" { "1 +" } else { "1" };
+            let text = format!(
+                "package p {{def D {{param first:Scalar={first}; param second:Scalar={second};}} }}"
+            );
+            let document = pse_ids::SemanticId::from_bytes([20; 16]);
+            let (rows, field_spans) = language::parse_with_spans(
+                &text,
+                document,
+                language::IdentityPolicy::Named,
+                pse_authoring::ParseBudget::default(),
+            )
+            .unwrap();
+            let row = rows.iter().find(|row| row.name == owner).unwrap();
+            let expected = field_spans[&row.declaration_id]["binding.expression"];
+            let documents = SourceFields(field_spans);
+            let error = collect(&rows, &documents).unwrap_err();
+            let crate::ModelingError::Located { span, name, .. } = error else {
+                panic!("missing exact field location")
+            };
+            assert_eq!(name, owner);
+            assert_eq!(span, expected);
+            assert_eq!(&text[span.start as usize..span.end as usize], "1 +");
+        }
+    }
+
+    #[test]
     fn checked_occurrences_malformed_repeated_fields_name_each_owning_declaration() {
         let source = crate::kernel_types::source(
             "package p {def D {param first:Scalar=1; param second:Scalar=1;} }",
@@ -1063,7 +1467,7 @@ mod tests {
             let row = rows.iter_mut().find(|row| row.name == name).unwrap();
             let id = row.declaration_id;
             row.value.binding.as_mut().unwrap().expression = Some("1 +".into());
-            let error = collect(&rows).unwrap_err();
+            let error = collect(&rows, &crate::document::NoDocuments).unwrap_err();
             assert!(error.to_string().contains(&id.to_string()));
             assert!(error.to_string().contains("binding.expression[0]"));
         }

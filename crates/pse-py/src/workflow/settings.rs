@@ -9,7 +9,7 @@
 use super::invalid;
 use pse_backend_native::dynamics;
 use pse_runtime::math::{settings::SolveSettings, solves::SolverProfile};
-use pyo3::{prelude::*, types::PyDict};
+use pyo3::prelude::*;
 use serde::de::DeserializeOwned;
 
 /// Largest settings document accepted from Python.
@@ -17,10 +17,7 @@ const DOCUMENT_BYTES: usize = 1 << 20;
 
 /// Decode one typed settings document; its serde refusal is the Python error.
 fn document<T: DeserializeOwned>(py: Python<'_>, what: &str, bytes: &[u8]) -> PyResult<T> {
-    if bytes.len() > DOCUMENT_BYTES {
-        return Err(invalid(py, format!("{what} document extent")));
-    }
-    serde_json::from_slice(bytes).map_err(|e| invalid(py, format!("{what}: {e}")))
+    super::documents::decode(py, what, bytes, DOCUMENT_BYTES)
 }
 
 /// The solver profile of an encoded `SolveSettings` document, after native admission of the
@@ -53,27 +50,13 @@ pub(super) fn named<T: DeserializeOwned>(py: Python<'_>, what: &str, name: &str)
         .map_err(|e| invalid(py, format!("{what}: {e}")))
 }
 
-/// Bounded JSON projection of a Python value through the `json` module; string enums
-/// cross as their values.
-fn json_value(py: Python<'_>, value: &Bound<'_, PyAny>) -> PyResult<serde_json::Value> {
-    let text: String = py
-        .import("json")?
-        .call_method1("dumps", (value,))?
-        .extract()?;
-    if text.len() > DOCUMENT_BYTES {
-        return Err(invalid(py, "settings extent"));
-    }
-    serde_json::from_str(&text).map_err(|e| invalid(py, e.to_string()))
-}
-
 pub(super) fn numerical_policy(
     py: Python<'_>,
-    value: Option<&Bound<'_, PyDict>>,
+    value: Option<crate::documents::DocumentInput<pse_model::numerics::NumericalPolicy>>,
 ) -> PyResult<pse_model::numerics::NumericalPolicy> {
     let policy: pse_model::numerics::NumericalPolicy = match value {
         None => Default::default(),
-        Some(value) => serde_json::from_value(json_value(py, value.as_any())?)
-            .map_err(|e| invalid(py, e.to_string()))?,
+        Some(value) => value.0,
     };
     policy.validate().map_err(|e| invalid(py, e.to_string()))?;
     Ok(policy)

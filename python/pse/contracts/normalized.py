@@ -22,6 +22,9 @@ class NormalizedPackageGraphRow:
     dependency_package_ids: b.tuple[i.PackageId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
     derivation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.package_id), v.scalar_key(self.version), v.scalar_key(self.content_hash), v.scalar_key(self.depth), v.sequence_key(v.scalar_key)(self.dependency_package_ids), v.scalar_key(self.derivation_id),))
+
 
 @attrs.frozen(kw_only=True)
 class NormalizedUnitsFieldDefinitionItem:
@@ -30,6 +33,9 @@ class NormalizedUnitsFieldDefinitionItem:
     unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     num: b.int = attrs.field(validator=v.integer_range(-32768, 32767))
     den: b.int = attrs.field(validator=v.integer_range(-32768, 32767))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.unit_id), v.scalar_key(self.num), v.scalar_key(self.den),))
 
 
 @attrs.frozen(kw_only=True)
@@ -49,3 +55,6 @@ class NormalizedUnitsRow:
     doc: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     package_id: i.PackageId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     unit_set_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.unit_id), v.scalar_key(self.symbol), v.scalar_key(self.name), v.optional_key(v.sequence_key(v.record_key))(self.dimension), v.optional_key(v.scalar_key)(self.scale_to_canonical), v.optional_key(v.scalar_key)(self.offset_to_canonical), v.optional_key(v.scalar_key)(self.is_affine), v.optional_key(v.scalar_key)(self.reference_state_id), v.optional_key(v.sequence_key(v.record_key))(self.definition), v.scalar_key(self.system), v.scalar_key(self.doc), v.scalar_key(self.package_id), v.scalar_key(self.unit_set_id),))

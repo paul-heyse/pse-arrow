@@ -24,6 +24,23 @@ pub use implicit::{
 };
 pub use solve::{BoundStructure, ModelingCaseBindings, ModelingVariableState};
 
+fn symbol_expression(id: SemanticId) -> Expr {
+    Expr {
+        kind: ExprKind::Path(dsl::Path::single(symbol_name(id))),
+        span: Span::default(),
+    }
+}
+fn number_expression(value: f64) -> Expr {
+    Expr {
+        kind: ExprKind::Number(dsl::Number {
+            value,
+            exact_integer: None,
+            unit: None,
+        }),
+        span: Span::default(),
+    }
+}
+
 /// Numerical observation purpose. These do not add equations or fix variables.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ModelingHint {
@@ -267,16 +284,16 @@ pub enum ModelingOutput {
 /// Finite typed mathematics with semantic input/output coordinates.
 #[derive(Clone, Debug, PartialEq)]
 pub struct AdmittedModeling {
-    /// Inputs in the math body's exact order. Values are supplied separately.
+    /// CompilerContext in the math body's exact order. Values are supplied separately.
     pub inputs: Vec<SemanticId>,
     /// Outputs in the math body's exact order.
     pub outputs: Vec<ModelingOutput>,
     /// Existing typed math artifacts, shared by normalized consumer shape.
     pub bodies: BTreeMap<ContentHash, Arc<AdmittedBody>>,
     /// Semantic gathers and output contributions into the established case assembly.
-    pub case: Arc<CaseStructure>,
+    pub(super) case: Arc<CaseStructure>,
     /// Nested residual definitions, independent of mutable native workers.
-    pub implicit: BTreeMap<SemanticId, Arc<AdmittedImplicit>>,
+    pub(super) implicit: BTreeMap<SemanticId, Arc<AdmittedImplicit>>,
     /// Auxiliary original term rows and signs, outside public observable ordering.
     pub term_outputs: BTreeMap<SemanticId, Vec<(SemanticId, f64)>>,
 }
@@ -609,10 +626,7 @@ fn projection(
             state: derivative.state,
             equations: dynamic_rows.iter().map(|(id, _)| *id).collect(),
         });
-        p.expressions.push(
-            dsl::parse_expr(&symbol_name(derivative.rate))
-                .map_err(|e| CompileError::Missing(e.to_string()))?,
-        );
+        p.expressions.push(symbol_expression(derivative.rate));
         let state_name = symbol_name(derivative.state);
         let mut initial = None;
         for id in &model.initial_equations {
@@ -659,16 +673,12 @@ fn projection(
         .filter(|id| !model.derivatives.values().any(|d| d.rate == **id))
     {
         p.outputs.push(ModelingOutput::Member(*id));
-        p.expressions.push(
-            dsl::parse_expr(&symbol_name(*id)).map_err(|e| CompileError::Missing(e.to_string()))?,
-        );
+        p.expressions.push(symbol_expression(*id));
     }
     for node in order {
         let id = graph[node];
         p.outputs.push(ModelingOutput::Member(id));
-        p.expressions.push(
-            dsl::parse_expr(&symbol_name(id)).map_err(|e| CompileError::Missing(e.to_string()))?,
-        );
+        p.expressions.push(symbol_expression(id));
     }
     // `objective_bounds` (ADR-0111): each bounded level's row, assembled from β and the
     // level's member outputs.
@@ -682,10 +692,7 @@ fn projection(
                     pse_modeling::annotation::ObjectiveSense::Maximize => EquationSense::Ge,
                 },
             });
-            p.expressions.push(
-                dsl::parse_expr(&symbol_name(bound.parameter))
-                    .map_err(|e| CompileError::Missing(e.to_string()))?,
-            );
+            p.expressions.push(symbol_expression(bound.parameter));
         }
     }
     for balance in model.inventory_balances.values() {
@@ -757,14 +764,8 @@ fn projection(
                     Expr {
                         kind: ExprKind::Conditional {
                             guard: Box::new(predicate.clone()),
-                            then: Box::new(
-                                dsl::parse_expr("1")
-                                    .map_err(|e| CompileError::Missing(e.to_string()))?,
-                            ),
-                            otherwise: Box::new(
-                                dsl::parse_expr("0")
-                                    .map_err(|e| CompileError::Missing(e.to_string()))?,
-                            ),
+                            then: Box::new(number_expression(1.0)),
+                            otherwise: Box::new(number_expression(0.0)),
                         },
                         span: Span::default(),
                     },
@@ -785,10 +786,7 @@ fn projection(
                 .any(|o| matches!(o,ModelingOutput::Member(id) if *id==a.target))
         {
             p.outputs.push(ModelingOutput::Member(a.target));
-            p.expressions.push(
-                dsl::parse_expr(&symbol_name(a.target))
-                    .map_err(|e| CompileError::Missing(e.to_string()))?,
-            );
+            p.expressions.push(symbol_expression(a.target));
         }
     }
     let equations = p
@@ -1180,7 +1178,7 @@ impl CompilerWorkspace {
         let (catalog, request) = self.modeling_request(root, instance, bindings, limits)?;
         let result =
             salsa::Cancelled::catch(|| admitted(&self.db, self.inventory, catalog, request))
-                .map_err(|_| CompileError::Cancelled)?;
+                .map_err(|_| compiler_cancelled(&self.db))?;
         self.trim_queries()?;
         result
     }
@@ -1190,77 +1188,61 @@ impl CompilerWorkspace {
 #[derive(Clone, Debug)]
 pub struct PreparedModeling {
     projection: Arc<Projection>,
+    owned_implicit_view: Option<pse_math::SharedAllocation<AdmittedModeling>>,
     /// Instantiated members, demand chains, values and original closure terms.
-    pub model: Arc<SpecializedModel>,
+    pub model: pse_math::SharedAllocation<SpecializedModel>,
     /// Typed finite math with stable semantic input/output coordinates.
-    pub admitted: Arc<AdmittedModeling>,
-    /// Library matching and structural partition. This does not claim numerical rank.
-    pub structure: Arc<StructuralAnalysis>,
+    pub admitted: pse_math::SharedAllocation<AdmittedModeling>,
 }
-#[salsa::tracked(returns(clone),lru=64,heap_size=structure_heap)]
-fn structure(
-    db: &dyn CompilerDb,
-    inventory: Inventory,
-    catalog: Catalog,
-    request: Request,
-) -> Result<Arc<StructuralAnalysis>> {
-    let p = projection(db, inventory, catalog, request)?;
-    let body = admitted(db, inventory, catalog, request)?;
-    let mut rows = Vec::new();
-    let mut edges = Vec::new();
-    for (output, meaning) in p.outputs.iter().enumerate() {
-        if let Some((id, sense)) = meaning.constraint() {
-            let id = &id;
-            let (lower, upper) = match sense {
-                EquationSense::Eq => (Some(0.), Some(0.)),
-                EquationSense::Le => (None, Some(0.)),
-                EquationSense::Ge => (Some(0.), None),
-            };
-            rows.push(Constraint {
-                id: *id,
-                lower,
-                upper,
-            });
-            let mut columns = BTreeSet::new();
-            for occurrence in body.case.instances() {
-                for contribution in &occurrence.contributions {
-                    if contribution.target != Target::Row(*id) {
-                        continue;
-                    }
-                    for slot in
-                        &body.bodies[&occurrence.body].math.support().first[contribution.output]
-                    {
-                        columns.insert(occurrence.slots[*slot].source());
-                    }
-                }
-            }
-            for column in columns {
-                if p.free.contains_key(&column) {
-                    edges.push(Incidence {
-                        row: *id,
-                        column,
-                        instance: request.instance(db).as_id(),
-                        output,
-                    });
-                }
-            }
-        }
+impl AdmittedModeling {
+    /// Borrow the admitted case inventory without exporting its unowned Arc.
+    pub fn case(&self) -> &CaseStructure {
+        &self.case
     }
-    let incidence = CaseIncidence::new(
-        Scope::Whole(request.instance(db).as_id()),
-        rows,
-        p.free.keys().copied().collect(),
-        edges,
-        BTreeSet::new(),
-        GraphLimits {
-            nodes: 200_000,
-            edges: 1_000_000,
-        },
-    )?;
-    checkpoint(db);
-    let result = incidence.analyze(db.cancel());
-    checkpoint(db);
-    Ok(Arc::new(result?))
+    /// Borrow nested scientific descriptors; runtime aliases inherit their view owner.
+    pub fn implicit_systems(&self) -> impl Iterator<Item = &AdmittedImplicit> {
+        self.implicit.values().map(AsRef::as_ref)
+    }
+}
+impl PreparedModeling {
+    /// Child residual providers before consumers, retaining this admitted view's owner.
+    /// # Errors
+    /// A cyclic admitted provider dependency.
+    pub fn implicit_order(&self) -> Result<Vec<pse_math::SharedAllocation<AdmittedImplicit>>> {
+        self.implicit_order_for(None)
+    }
+    /// Retain only nested providers reachable from selected observation rows.
+    /// # Errors
+    /// A cyclic provider dependency or missing selected body.
+    pub fn implicit_order_for(
+        &self,
+        rows: Option<&BTreeSet<SemanticId>>,
+    ) -> Result<Vec<pse_math::SharedAllocation<AdmittedImplicit>>> {
+        Ok(self
+            .admitted
+            .implicit_order_for(rows)?
+            .into_iter()
+            .map(|value| self.admitted.share_child(value))
+            .collect())
+    }
+    /// Attach the runtime admission owner to independently escaping model/view aliases.
+    pub fn with_owner(mut self, owner: Arc<dyn pse_math::AllocationOwner>) -> Self {
+        let attached = self
+            .owned_implicit_view
+            .as_ref()
+            .is_some_and(|view| pse_math::SharedAllocation::ptr_eq(view, &self.admitted));
+        if !attached && !self.admitted.implicit.is_empty() {
+            let mut admitted = self.admitted.as_ref().clone();
+            for implicit in admitted.implicit.values_mut() {
+                *implicit = Arc::new(implicit.as_ref().clone().with_owner(owner.clone()));
+            }
+            self.admitted = self.admitted.share_child(Arc::new(admitted));
+            self.owned_implicit_view = Some(self.admitted.clone());
+        }
+        self.model = self.model.with_owner(owner.clone());
+        self.admitted = self.admitted.with_owner(owner);
+        self
+    }
 }
 impl CompilerWorkspace {
     /// Atomically prepare typed math, current values and structural evidence in one generation.
@@ -1282,15 +1264,14 @@ impl CompilerWorkspace {
         let result = salsa::Cancelled::catch(|| {
             let model = specialized(&self.db, catalog, request)?;
             let admitted = admitted(&self.db, self.inventory, catalog, request)?;
-            let structure = structure(&self.db, self.inventory, catalog, request)?;
             Ok(PreparedModeling {
                 projection: projection(&self.db, self.inventory, catalog, request)?,
-                model,
-                admitted,
-                structure,
+                owned_implicit_view: None,
+                model: model.into(),
+                admitted: admitted.into(),
             })
         })
-        .map_err(|_| CompileError::Cancelled)?;
+        .map_err(|_| compiler_cancelled(&self.db))?;
         self.trim_queries()?;
         result
     }
@@ -1300,10 +1281,12 @@ impl PreparedModeling {
     /// Conservative known product bytes, which the runtime charges for as long as the
     /// product is retained.
     pub fn retained_bytes(&self) -> usize {
-        self.model.retained_bytes()
+        2 * size_of::<Self>()
+            + 256
+            + self.model.retained_bytes()
             + projection_heap(&Ok(self.projection.clone()))
-            + admitted_heap(&Ok(self.admitted.clone()))
-            + structure_heap(&Ok(self.structure.clone()))
+            + admitted_allocation_bytes(&self.admitted)
+            + admitted_owner_attachment_bytes(&self.admitted)
     }
 }
 
@@ -1473,54 +1456,84 @@ fn projection_heap(value: &Result<Arc<Projection>>) -> usize {
                 .sum::<usize>()
     })
 }
+fn admitted_allocation_bytes(p: &AdmittedModeling) -> usize {
+    size_of::<AdmittedModeling>()
+        + p.inputs.capacity() * size_of::<SemanticId>()
+        + p.outputs.capacity() * size_of::<ModelingOutput>()
+        + p.outputs
+            .iter()
+            .map(|o| match o {
+                ModelingOutput::DynamicRate { equations, .. } => {
+                    equations.capacity() * size_of::<SemanticId>()
+                }
+                _ => 0,
+            })
+            .sum::<usize>()
+        + p.implicit
+            .values()
+            .map(|v| v.retained_bytes())
+            .sum::<usize>()
+        + p.term_outputs
+            .values()
+            .map(|v| size_of_val(v.as_slice()) + 128)
+            .sum::<usize>()
+        + p.bodies
+            .values()
+            .map(|b| b.math.retained_bytes() + b.descriptor_bytes())
+            .sum::<usize>()
+        + p.case
+            .instances()
+            .iter()
+            .map(|i| {
+                size_of_val(i)
+                    + i.checked_members.len() * (size_of::<(SemanticId, SemanticId)>() + 96)
+                    + size_of_val(i.slots.as_slice())
+                    + size_of_val(i.contributions.as_slice())
+            })
+            .sum::<usize>()
+        + size_of_val(p.case.variables())
+        + size_of_val(p.case.parameters())
+        + size_of_val(p.case.rows())
+}
 fn admitted_heap(value: &Result<Arc<AdmittedModeling>>) -> usize {
-    value.as_ref().map_or(0, |p| {
-        size_of::<AdmittedModeling>()
-            + p.inputs.capacity() * size_of::<SemanticId>()
-            + p.outputs.capacity() * size_of::<ModelingOutput>()
-            + p.outputs
-                .iter()
-                .map(|o| match o {
-                    ModelingOutput::DynamicRate { equations, .. } => {
-                        equations.capacity() * size_of::<SemanticId>()
-                    }
-                    _ => 0,
-                })
-                .sum::<usize>()
-            + p.implicit
-                .values()
-                .map(|v| v.retained_bytes())
-                .sum::<usize>()
-            + p.term_outputs
-                .values()
-                .map(|v| size_of_val(v.as_slice()) + 128)
-                .sum::<usize>()
-            + p.bodies
-                .values()
-                .map(|b| {
-                    b.math.retained_bytes()
-                        + b.quantities.capacity() * size_of::<QuantityTypeId>()
-                        + b.occurrences.capacity() * size_of::<Occurrence>()
-                })
-                .sum::<usize>()
-            + p.case
-                .instances()
-                .iter()
-                .map(|i| {
-                    size_of_val(i)
-                        + size_of_val(i.slots.as_slice())
-                        + size_of_val(i.contributions.as_slice())
-                })
-                .sum::<usize>()
-            + size_of_val(p.case.variables())
-            + size_of_val(p.case.parameters())
-            + size_of_val(p.case.rows())
-    })
+    value.as_ref().map_or(0, |p| admitted_allocation_bytes(p))
+}
+fn admitted_owner_attachment_bytes(p: &AdmittedModeling) -> usize {
+    if p.implicit.is_empty() {
+        return 0;
+    }
+    size_of::<AdmittedModeling>()
+        + 128
+        + p.inputs.len() * size_of::<SemanticId>()
+        + p.outputs.len() * size_of::<ModelingOutput>()
+        + p.outputs
+            .iter()
+            .map(|o| match o {
+                ModelingOutput::DynamicRate { equations, .. } => {
+                    equations.len() * size_of::<SemanticId>()
+                }
+                _ => 0,
+            })
+            .sum::<usize>()
+        + p.bodies.len() * (size_of::<(ContentHash, Arc<AdmittedBody>)>() + 128)
+        + p.term_outputs
+            .values()
+            .map(|v| {
+                size_of::<(SemanticId, Vec<(SemanticId, f64)>)>()
+                    + 128
+                    + v.len() * size_of::<(SemanticId, f64)>()
+            })
+            .sum::<usize>()
+        + p.implicit.len() * (size_of::<(SemanticId, Arc<AdmittedImplicit>)>() + 128)
+        + p.implicit
+            .values()
+            .map(|v| v.owner_attachment_bytes())
+            .sum::<usize>()
 }
 pub(super) fn configure(db: &mut CompilerDatabase, n: usize) {
     projection::set_lru_capacity(db, n);
     admitted::set_lru_capacity(db, n);
-    structure::set_lru_capacity(db, n);
+    grouped::configure(db, n);
 }
 
 impl PreparedModeling {

@@ -273,8 +273,8 @@ impl Engine<'_, '_> {
                 ),
             ));
         }
-        let member = |engine: &mut Self, path: &str| {
-            let targets = engine.annotation_targets(instance, path, env, at, false)?;
+        let member = |engine: &mut Self, expression: &Expr| {
+            let targets = engine.annotation_targets(instance, expression, env, at, false)?;
             match targets.as_slice() {
                 [(id, ty, local)] if engine.model.symbols.contains_key(id) => {
                     Ok((*id, ty.clone(), local.clone()))
@@ -284,31 +284,38 @@ impl Engine<'_, '_> {
         };
         let mut modes = Vec::with_capacity(contract.modes.len());
         let mut event_ordinal = 0;
-        for mode in &contract.modes {
+        for (mode_position, mode) in contract.modes.iter().enumerate() {
             let mut events = Vec::with_capacity(mode.events.len());
-            for event in &mode.events {
+            for (event_position, event) in mode.events.iter().enumerate() {
                 let expression =
                     self.p
                         .expression_at(at, "scope.fixture.modes.events.guard", event_ordinal)?;
-                event_ordinal += 1;
+
                 let ExprKind::Path(path) = &expression.kind else {
                     return Err(invalid(at, "an event guard names a member path"));
                 };
                 let name = dsl::render_path(path);
-                let (guard, ty, local) = member(self, &event.guard)?;
+                let (guard, ty, local) = member(self, &expression.clone())?;
                 if !matches!(ty, Type::Quantity(_)) {
                     return Err(invalid(at, "an event guard requires a physical type"));
                 }
                 let tolerance = self
-                    .eval(at, &local, &event.tolerance, Some(&ty))?
+                    .eval_field(
+                        at,
+                        &local,
+                        "scope.fixture.modes.events.tolerance",
+                        event_ordinal,
+                        Some(&ty),
+                    )?
                     .scalar(at)?;
                 if !tolerance.is_finite() || tolerance <= 0. {
                     return Err(invalid(at, "an event tolerance is positive and finite"));
                 }
+                event_ordinal += 1;
                 let mut reset = BTreeMap::new();
-                for assignment in &event.reset {
-                    let (target, ..) = member(self, &assignment.target)?;
-                    let (value, ..) = member(self, &assignment.expression)?;
+                for (reset_position, _assignment) in event.reset.iter().enumerate() {
+                    let (target, ..) = member(self, &self.p.expression_at(at, &format!("scope.fixture.modes.{mode_position}.events.{event_position}.reset.{reset_position}.target"), 0)?.clone())?;
+                    let (value, ..) = member(self, &self.p.expression_at(at, &format!("scope.fixture.modes.{mode_position}.events.{event_position}.reset.{reset_position}.expression"), 0)?.clone())?;
                     if self.model.symbols[&target].ty != self.model.symbols[&value].ty
                         || reset.insert(target, value).is_some()
                     {
@@ -380,10 +387,26 @@ impl Engine<'_, '_> {
             let samples = data
                 .samples
                 .iter()
-                .map(|s| self.eval(at, env, s, Some(&ty))?.scalar(at))
+                .enumerate()
+                .map(|(position, _)| {
+                    self.eval_field(
+                        at,
+                        env,
+                        "scope.fixture.integration.samples",
+                        position,
+                        Some(&ty),
+                    )?
+                    .scalar(at)
+                })
                 .collect::<Result<Vec<_>>>()?;
             let initial_step = self
-                .eval(at, env, &data.initial_step, Some(&ty))?
+                .eval_field(
+                    at,
+                    env,
+                    "scope.fixture.integration.initial_step",
+                    0,
+                    Some(&ty),
+                )?
                 .scalar(at)?;
             if !initial_step.is_finite()
                 || initial_step <= 0.
@@ -398,8 +421,21 @@ impl Engine<'_, '_> {
                 ));
             }
             let mut quadratures = BTreeMap::new();
-            for entry in &data.quadratures {
-                let targets = self.annotation_targets(instance, &entry.target, env, at, false)?;
+            for (position, _entry) in data.quadratures.iter().enumerate() {
+                let targets = self.annotation_targets(
+                    instance,
+                    &self
+                        .p
+                        .expression_at(
+                            at,
+                            "scope.fixture.integration.quadratures.target",
+                            position,
+                        )?
+                        .clone(),
+                    env,
+                    at,
+                    false,
+                )?;
                 let [(target, ty, local)] = targets.as_slice() else {
                     return Err(invalid(at, "one terminal integral per tolerance"));
                 };
@@ -411,7 +447,13 @@ impl Engine<'_, '_> {
                     .integral_of(*target)
                     .ok_or_else(|| invalid(at, "quadrature tolerance target is not an integral"))?;
                 let value = self
-                    .eval(at, local, &entry.absolute_tolerance, Some(ty))?
+                    .eval_field(
+                        at,
+                        local,
+                        "scope.fixture.integration.quadratures.absolute_tolerance",
+                        position,
+                        Some(ty),
+                    )?
                     .scalar(at)?;
                 if !value.is_finite() || value <= 0. || quadratures.insert(target, value).is_some()
                 {
@@ -429,8 +471,21 @@ impl Engine<'_, '_> {
             }
             let end = samples.last().copied().unwrap_or(lower);
             let mut schedules = Vec::with_capacity(data.schedules.len());
-            for entry in &data.schedules {
-                let targets = self.annotation_targets(instance, &entry.target, env, at, false)?;
+            for (schedule, entry) in data.schedules.iter().enumerate() {
+                let targets = self.annotation_targets(
+                    instance,
+                    &self
+                        .p
+                        .expression_at(
+                            at,
+                            &format!("scope.fixture.integration.schedules.{schedule}.target"),
+                            0,
+                        )?
+                        .clone(),
+                    env,
+                    at,
+                    false,
+                )?;
                 let [(target, target_ty, local)] = targets.as_slice() else {
                     return Err(invalid(at, "a scheduled input names one indexed scalar"));
                 };
@@ -453,12 +508,32 @@ impl Engine<'_, '_> {
                 let times = entry
                     .times
                     .iter()
-                    .map(|t| self.eval(at, env, t, Some(&ty))?.scalar(at))
+                    .enumerate()
+                    .map(|(position, _)| {
+                        self.eval_field(
+                            at,
+                            env,
+                            &format!("scope.fixture.integration.schedules.{schedule}.times"),
+                            position,
+                            Some(&ty),
+                        )?
+                        .scalar(at)
+                    })
                     .collect::<Result<Vec<_>>>()?;
                 let values = entry
                     .values
                     .iter()
-                    .map(|v| self.eval(at, local, v, Some(target_ty))?.scalar(at))
+                    .enumerate()
+                    .map(|(position, _)| {
+                        self.eval_field(
+                            at,
+                            local,
+                            &format!("scope.fixture.integration.schedules.{schedule}.values"),
+                            position,
+                            Some(target_ty),
+                        )?
+                        .scalar(at)
+                    })
                     .collect::<Result<Vec<_>>>()?;
                 if times.is_empty()
                     || values.len() != times.len() + 1
@@ -476,14 +551,25 @@ impl Engine<'_, '_> {
                 // A schedule held free is a shooting control within its bounds, starting
                 // from its authored values (ADR-0110 Outcome 5).
                 let control = if entry.free {
-                    let bound = |text: &Option<String>| {
+                    let bound = |role: &str, text: &Option<String>| {
                         text.as_ref()
-                            .map(|v| self.eval(at, local, v, Some(target_ty))?.scalar(at))
+                            .map(|_| {
+                                self.eval_field(
+                                    at,
+                                    local,
+                                    &format!(
+                                        "scope.fixture.integration.schedules.{schedule}.{role}"
+                                    ),
+                                    0,
+                                    Some(target_ty),
+                                )?
+                                .scalar(at)
+                            })
                             .transpose()
                     };
                     let control = ScheduleControl {
-                        lower: bound(&entry.lower)?,
-                        upper: bound(&entry.upper)?,
+                        lower: bound("lower", &entry.lower)?,
+                        upper: bound("upper", &entry.upper)?,
                     };
                     let lower = control.lower.unwrap_or(f64::NEG_INFINITY);
                     let upper = control.upper.unwrap_or(f64::INFINITY);
@@ -513,7 +599,11 @@ impl Engine<'_, '_> {
                 .shooting
                 .iter()
                 .flat_map(|s| &s.nodes)
-                .map(|t| self.eval(at, env, t, Some(&ty))?.scalar(at))
+                .enumerate()
+                .map(|(position, _)| {
+                    self.eval_field(at, env, "scope.fixture.shooting.nodes", position, Some(&ty))?
+                        .scalar(at)
+                })
                 .collect::<Result<Vec<_>>>()?;
             if nodes.windows(2).any(|w| w[0] >= w[1])
                 || nodes
@@ -540,7 +630,7 @@ impl Engine<'_, '_> {
         // Expected diagnostics name members by path; each resolves once to every coordinate
         // of an equation or variable member of the fixture's instance.
         let mut diagnostics = Vec::with_capacity(contract.diagnostics.len());
-        for expected in &contract.diagnostics {
+        for (diagnostic, expected) in contract.diagnostics.iter().enumerate() {
             if expected.members.is_empty() {
                 return Err(invalid(
                     at,
@@ -548,9 +638,22 @@ impl Engine<'_, '_> {
                 ));
             }
             let mut members = Vec::with_capacity(expected.members.len());
-            for path in &expected.members {
+            for (position, path) in expected.members.iter().enumerate() {
                 let ids = self
-                    .annotation_targets(instance, path, env, at, false)?
+                    .annotation_targets(
+                        instance,
+                        &self
+                            .p
+                            .expression_at(
+                                at,
+                                &format!("scope.fixture.diagnostics.{diagnostic}.members"),
+                                position,
+                            )?
+                            .clone(),
+                        env,
+                        at,
+                        false,
+                    )?
                     .into_iter()
                     .map(|(id, ..)| id)
                     .filter(|id| {
@@ -574,15 +677,24 @@ impl Engine<'_, '_> {
         }
         let mut specifications = BTreeMap::<String, FixtureValue>::new();
         let mut seen = BTreeSet::new();
-        for s in &contract.specifications {
-            let targets = self.annotation_targets(instance, &s.target, env, at, false)?;
+        for (position, s) in contract.specifications.iter().enumerate() {
+            let targets = self.annotation_targets(
+                instance,
+                &self
+                    .p
+                    .expression_at(at, "scope.fixture.specifications.target", position)?
+                    .clone(),
+                env,
+                at,
+                false,
+            )?;
             if targets.len() != 1 {
                 return Err(invalid(
                     at,
                     "fixture specifications require one indexed scalar path",
                 ));
             }
-            let (target, ty, local) = targets
+            let (target, _, local) = targets
                 .into_iter()
                 .next()
                 .ok_or_else(|| invalid(at, "empty fixture target"))?;
@@ -600,9 +712,11 @@ impl Engine<'_, '_> {
             if s.kind != Binding::Value && symbol.role != Kind::Variable {
                 return Err(invalid(at, "fixture fixedness/bounds require a variable"));
             }
-            if !matches!(ty, Type::Quantity(_)) {
-                return Err(invalid(at, "fixture requires a physical target"));
-            }
+            let ty = symbol.ty.clone();
+            let quantity = ty
+                .quantity_scheme()
+                .ok_or_else(|| invalid(at, "fixture requires a physical target"))?
+                .clone();
             let key = if s.kind == Binding::Free {
                 Binding::Fix
             } else {
@@ -617,7 +731,42 @@ impl Engine<'_, '_> {
             let value = s
                 .expression
                 .as_ref()
-                .map(|expr| self.eval(at, &local, expr, Some(&ty))?.scalar(at))
+                .map(|_| {
+                    if ty.physical_refinement().is_some() {
+                        let expression = self
+                            .p
+                            .expression_at(at, "scope.fixture.specifications.expression", position)?
+                            .clone();
+                        let expression = self.rewrite(instance, &expression, &local, &[at])?;
+                        let types = self
+                            .model
+                            .symbols
+                            .iter()
+                            .map(|(id, symbol)| (symbol_name(*id), symbol.ty.clone()))
+                            .collect();
+                        if crate::expression::infer(
+                            &expression,
+                            &types,
+                            &self.model.function_contracts(self.p),
+                            self.c,
+                            at,
+                            Some(&ty),
+                        )? != ty
+                        {
+                            return Err(invalid(at, "fixture physical type differs from target"));
+                        }
+                    }
+                    // Fixture data changes this existing symbol's numeric binding;
+                    // its admitted nominal owner remains on the symbol, not Value.
+                    self.eval_field(
+                        at,
+                        &local,
+                        "scope.fixture.specifications.expression",
+                        position,
+                        Some(&Type::Quantity(quantity)),
+                    )?
+                    .scalar(at)
+                })
                 .transpose()?;
             if matches!(s.kind, Binding::Value | Binding::Lower | Binding::Upper) && value.is_none()
             {
@@ -747,8 +896,15 @@ impl Engine<'_, '_> {
             let mut sets = applicability
                 .sets
                 .iter()
-                .map(|text| {
-                    let value = self.eval(at, env, text, None)?;
+                .enumerate()
+                .map(|(position, _)| {
+                    let value = self.eval_field(
+                        at,
+                        env,
+                        "scope.fixture.expected_failure.applicability.sets",
+                        position,
+                        None,
+                    )?;
                     self.p
                         .set_identity(&value)
                         .ok_or_else(|| invalid(at, "expected applicability set is not a record"))
@@ -780,8 +936,15 @@ impl Engine<'_, '_> {
             // A closure range names the members it bounds (Plan 23 H5).
             let Some(named) = &validity.form else {
                 let mut members = Vec::new();
-                for path in &validity.variables {
-                    members.extend(self.members(instance, at, path, env)?);
+                for (position, path) in validity.variables.iter().enumerate() {
+                    members.extend(self.members(
+                        instance,
+                        at,
+                        path,
+                        "scope.fixture.expected_failure.validity.variables",
+                        position,
+                        env,
+                    )?);
                 }
                 members.sort_unstable();
                 members.dedup();
@@ -829,8 +992,8 @@ impl Engine<'_, '_> {
             let mut sets = validity
                 .sets
                 .iter()
-                .map(|text| {
-                    let value = self.eval(at, env, text, None)?;
+                .enumerate().map(|(position, text)| {
+                    let value = self.eval_field(at, env, "scope.fixture.expected_failure.validity.sets", position, None)?;
                     self.p.set_identity(&value).ok_or_else(|| {
                         invalid(
                             at,
@@ -849,8 +1012,15 @@ impl Engine<'_, '_> {
             }
         } else {
             let mut members = BTreeSet::new();
-            for path in &expected.members {
-                members.extend(self.members(instance, at, path, env)?);
+            for (position, path) in expected.members.iter().enumerate() {
+                members.extend(self.members(
+                    instance,
+                    at,
+                    path,
+                    "scope.fixture.expected_failure.members",
+                    position,
+                    env,
+                )?);
             }
             ExpectedLineage::Members(members)
         };
@@ -865,9 +1035,17 @@ impl Engine<'_, '_> {
         instance: InstanceId,
         at: DeclarationId,
         path: &str,
+        role: &str,
+        position: usize,
         env: &Environment,
     ) -> Result<Vec<SemanticId>> {
-        let targets = self.annotation_targets(instance, path, env, at, false)?;
+        let targets = self.annotation_targets(
+            instance,
+            &self.p.expression_at(at, role, position)?.clone(),
+            env,
+            at,
+            false,
+        )?;
         if targets.is_empty() {
             return Err(invalid(
                 at,

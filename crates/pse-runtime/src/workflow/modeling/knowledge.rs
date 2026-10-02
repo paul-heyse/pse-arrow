@@ -22,7 +22,7 @@ pub struct ModelingKnowledge {
 }
 impl ModelingKnowledge {
     /// Identity of the exact admitted source, physical environment and data documents.
-    pub fn source_revision(&self) -> pse_ids::ContentHash {
+    pub fn source_revision(&self) -> pse_ids::roles::SourceRevisionHash {
         self.revision.identity()
     }
     /// Registry-declared cells, including their origins and typed values.
@@ -146,7 +146,8 @@ impl ModelingPackage {
             .math()
             .reserve("modeling:knowledge-projection", bytes)?;
         let pool = self.runtime.shared.pool();
-        let mut columns = Collection::new(&self.runtime.registry, &pool, cancel);
+        let validation = self.runtime.validation_context()?;
+        let mut columns = Collection::new(&self.runtime.registry, &pool, cancel, &validation);
         columns.ensure::<Row>().map_err(relation)?;
         visit(&mut |cell| {
             let mut keys = Vec::new();
@@ -174,7 +175,7 @@ impl ModelingPackage {
             let provenance = cell.provenance;
             columns
                 .push(Row {
-                    source_revision: self.revision.identity(),
+                    source_revision: self.revision.identity().as_id(),
                     owner_id: cell.owner,
                     row_index: i64::try_from(cell.row)
                         .map_err(|_| contract("knowledge row index"))?,
@@ -209,7 +210,8 @@ impl ModelingPackage {
             .into_values()
             .next()
             .ok_or_else(|| contract("knowledge relation absent"))?;
-        let mut columns = Collection::new(&self.runtime.registry, &pool, cancel);
+        let validation = self.runtime.validation_context()?;
+        let mut columns = Collection::new(&self.runtime.registry, &pool, cancel, &validation);
         use pse_model::generated::runtime::modeling_knowledge_names::Row as Name;
         columns.ensure::<Name>().map_err(relation)?;
         columns.ensure::<Declaration>().map_err(relation)?;
@@ -220,7 +222,7 @@ impl ModelingPackage {
                 .map_err(relation)?;
             columns
                 .push(Name {
-                    source_revision: self.revision.identity(),
+                    source_revision: self.revision.identity().as_id(),
                     name: name.into(),
                     declaration_id: declaration,
                 })

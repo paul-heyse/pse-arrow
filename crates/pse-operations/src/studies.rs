@@ -53,7 +53,7 @@ pub struct NewStudy {
 #[derive(Clone, Debug, PartialEq)]
 pub struct NewPoint {
     /// Reusable binding content identity; equal bindings can be requested repeatedly.
-    pub binding_hash: ContentHash,
+    pub binding_hash: pse_ids::roles::BindingHash,
     /// Mechanically derived occurrence policy from the immutable study definition.
     pub policy: PointPolicy,
     /// The point's job and first attempt.
@@ -75,13 +75,43 @@ pub struct StudyCreated {
     pub point_jobs: Vec<JobId>,
 }
 
+/// Claimed execution and occurrence revision to recheck under the durable locks.
+/// Possession of this value grants no dispatch or publication permission.
+#[derive(Clone, Copy, Debug)]
+pub struct DispatchFence<'a> {
+    /// Study whose immutable definition owns the occurrence.
+    pub study: StudyId,
+    /// Occurrence identity, independent of binding content.
+    pub key: OccurrenceKey,
+    /// Claimed point job.
+    pub job: JobId,
+    /// Current try owned by the worker.
+    pub attempt: AttemptId,
+    /// Worker whose live lease must still own the attempt.
+    pub worker: &'a str,
+    /// Revision observed during acquisition or after dispatch.
+    pub expected_revision: u64,
+}
+
+/// Scientific observation and exact owner ticket persisted before native publication.
+/// The ticket remains opaque to the durable adapter and its effect is initially unknown.
+#[derive(Debug)]
+pub struct PreEffectReceipt {
+    /// Operation-owned aggregate scientific permission.
+    pub scientific: ScientificFacts,
+    /// Typed diagnostic retained with the scientific observation.
+    pub diagnostic: Option<pse_model::diagnostic::BoundaryDiagnostic>,
+    /// Exact native publication ticket, interpreted only by its owner.
+    pub receipt: serde_json::Value,
+}
+
 /// One point with its job's state and current attempt.
 #[derive(Clone, Debug)]
 pub struct PointStatus {
     /// Occurrence identity, independent of position and binding content.
     pub point_index: u32,
     /// Reusable binding identity; duplicates are allowed.
-    pub binding_hash: ContentHash,
+    pub binding_hash: pse_ids::roles::BindingHash,
     /// Current point lifecycle.
     pub state: StudyPointState,
     /// Revision fences acquisition and dispatch.
@@ -344,12 +374,12 @@ macro_rules! point_status {
             decode_current(&row.outcome, "study_points.outcome")?;
         Ok::<_, OperationsError>(PointStatus {
             point_index: stored_index(row.point_index)?,
-            binding_hash: ContentHash::try_from_slice(&row.binding_hash).map_err(|error| {
-                OperationsError::CorruptValue {
+            binding_hash: ContentHash::try_from_slice(&row.binding_hash)
+                .map(pse_ids::roles::BindingHash::from)
+                .map_err(|error| OperationsError::CorruptValue {
                     column: "study_points.binding_hash",
                     detail: error.to_string(),
-                }
-            })?,
+                })?,
             revision: u64::try_from(row.revision).map_err(|error| {
                 OperationsError::CorruptValue {
                     column: "study_points.revision",
@@ -419,7 +449,7 @@ fn policy_snapshot(
                 .as_ref()
                 .filter(|(key, _)| *key == policy.key)
                 .map(|(_, fact)| fact.clone())
-                .or_else(|| match &policy.start {
+                .or(match &policy.start {
                     StartPolicy::Fresh => None,
                     StartPolicy::Continuation(edge) => Some(SeedFact {
                         role: edge.role,
@@ -434,6 +464,7 @@ fn policy_snapshot(
                 .termination_detail
                 .as_ref()
                 .and_then(|detail| detail.get("retry_failure"))
+                .filter(|value| !value.is_null())
                 .cloned()
                 .map(serde_json::from_value)
                 .transpose()
@@ -1210,7 +1241,7 @@ impl<'s> Studies<'s> {
                     &statements::InsertPointParams {
                         study_id: study.study_id,
                         point_index: index(point.policy.key.0)?,
-                        binding_hash: point.binding_hash,
+                        binding_hash: point.binding_hash.as_id(),
                         policy: &encode(&point.policy)?,
                         outcome: &encode(&stored_outcome(
                             &PointOutcome {
@@ -1333,14 +1364,17 @@ impl<'s> Studies<'s> {
     /// record the chosen start before native dispatch. A claim admits acquisition only.
     pub async fn admit_dispatch(
         &self,
-        study: StudyId,
-        key: OccurrenceKey,
-        job: JobId,
-        attempt: AttemptId,
-        worker: &str,
-        expected_revision: u64,
+        fence: DispatchFence<'_>,
         seed: Option<SeedFact>,
     ) -> Result<ActionKind, OperationsError> {
+        let DispatchFence {
+            study,
+            key,
+            job,
+            attempt,
+            worker,
+            expected_revision,
+        } = fence;
         let target = self.target();
         let mut client = self.store.client().await?;
         let tx = client.transaction().await.classify(target)?;
@@ -1413,16 +1447,22 @@ impl<'s> Studies<'s> {
     /// Persist the exact receipt before the native write begins, fenced by dispatch and lease.
     pub async fn record_receipt(
         &self,
-        study: StudyId,
-        key: OccurrenceKey,
-        job: JobId,
-        attempt: AttemptId,
-        worker: &str,
-        expected_revision: u64,
-        scientific: ScientificFacts,
-        diagnostic: Option<pse_model::diagnostic::BoundaryDiagnostic>,
-        receipt: serde_json::Value,
+        fence: DispatchFence<'_>,
+        observation: PreEffectReceipt,
     ) -> Result<(), OperationsError> {
+        let DispatchFence {
+            study,
+            key,
+            job,
+            attempt,
+            worker,
+            expected_revision,
+        } = fence;
+        let PreEffectReceipt {
+            scientific,
+            diagnostic,
+            receipt,
+        } = observation;
         let target = self.target();
         let mut client = self.store.client().await?;
         let tx = client.transaction().await.classify(target)?;
@@ -1535,15 +1575,14 @@ impl<'s> Studies<'s> {
             });
         }
         outcome.effect = effect;
-        if effect != EffectState::Unknown {
-            if let Some(attempt) = outcome
+        if effect != EffectState::Unknown
+            && let Some(attempt) = outcome
                 .attempts
                 .iter_mut()
                 .rev()
                 .find(|a| receipt_attempt.is_none_or(|id| a.attempt_id == Some(id)))
-            {
-                attempt.effect = effect;
-            }
+        {
+            attempt.effect = effect;
         }
         if effect == EffectState::Present && point.job_state == JobState::Waiting {
             let note = TransitionNote::by(ACTOR).because("present effect cannot be retried");
@@ -1878,7 +1917,8 @@ mod study_codec_unit {
             attempt_id: id,
             run_id: crate::mint_id(),
             kind: AttemptKind::Modeling,
-            request_identity: ContentHash::from_bytes([7; 32]),
+            operational_job_identity: ContentHash::from_bytes([7; 32]),
+            operational_job_frame: None,
             preparation_identity: None,
             state: AttemptState::Stale,
             state_version: 3,
@@ -2058,7 +2098,7 @@ mod study_codec_unit {
         }
         let point = PointStatus {
             point_index: 7,
-            binding_hash: ContentHash::from_bytes([4; 32]),
+            binding_hash: pse_ids::roles::BindingHash::from_bytes([4; 32]),
             state: StudyPointState::Completed,
             revision: 0,
             policy: None,

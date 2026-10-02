@@ -33,6 +33,7 @@ pub fn assign_ids(
     registry: &Registry,
     budget: ParseBudget,
     next: &mut dyn FnMut() -> SemanticId,
+    validation: &pse_relations::validate::ValidationContext,
 ) -> Result<Vec<DocumentEdit>, DriverError> {
     let text = |path: &str, bytes: &[u8]| {
         std::str::from_utf8(bytes)
@@ -117,7 +118,7 @@ pub fn assign_ids(
     let mut candidate = sources.clone();
     apply_edits(&mut candidate, &edits)?;
     // Exact typed decode validates both the inserted IDs and all retained data.
-    load::load_package_documents(candidate, registry, budget)?;
+    load::load_package_documents(candidate, registry, budget, validation)?;
     Ok(edits)
 }
 

@@ -553,7 +553,7 @@ impl Requirements<'_> {
         selection: SolverSelection,
         variables: Vec<pse_ids::SemanticId>,
         equations: Vec<pse_structural::incidence::Constraint>,
-        witness: std::sync::Arc<pse_structural::incidence::StructuralAnalysis>,
+        witness: pse_math::SharedAllocation<pse_structural::incidence::StructuralAnalysis>,
     ) -> Result<Decision, ProblemError> {
         let mut decision = self.decision(selection);
         let policy = match decision.selected {

@@ -117,17 +117,10 @@ def members(
     authored: pse.ModelingPackage, case: DeclarationId, settings: pse.SolveSettings
 ) -> dict[str, SemanticId]:
     """Every member of `case` by its lineage path."""
-    inspected = authored.inspect(case, settings)["members"]
-    assert isinstance(inspected, list)
+    inspected = authored.inspect(case, settings).members
     identities: dict[str, SemanticId] = {}
     for member in inspected:
-        assert isinstance(member, dict)
-        lineage = member["lineage"]
-        assert isinstance(lineage, dict)
-        path, identity = lineage["path"], member["id"]
-        assert isinstance(path, str)
-        assert isinstance(identity, str)
-        identities[path] = SemanticId.from_hex(identity)
+        identities[member.lineage.path] = SemanticId.from_hex(member.id)
     return identities
 
 

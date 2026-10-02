@@ -3,19 +3,14 @@
 """Source-independent joined computation and publication handles."""
 
 from collections.abc import Mapping
-from datetime import timedelta
 from types import TracebackType
 from typing import Self, TypeAlias
 
 import attrs
-import msgspec
 
 from pse import codec
 from pse._build import (
     DiagnosticReport,
-    NativeEligibility,
-    NativeRoute,
-    ProgressEvent,
     _NativePreparedOperation,
     _NativeProgressStream,
     _NativePublicationAttempt,
@@ -25,18 +20,24 @@ from pse._build import (
     _NativeStudyHandle,
 )
 from pse._inspection import TableStream
-from pse.contracts import runtime as result_contracts
 from pse.contracts.documents import (
+    Completion,
+    EligibilityDocument,
+    FitProfileDocument,
     PointStatus,
+    ProgressEventDocument,
+    Published,
+    RouteDocument,
     StudyCancel,
     StudyStatus,
+    StudyWaitControls,
+    Workspace,
 )
 from pse.contracts.identities import (
     AttemptId,
     PublicationId,
     RunId,
     StudyId,
-    WorkspaceId,
 )
 from pse.contracts.values import ContentHash, SemanticId
 
@@ -55,12 +56,12 @@ class PreparedOperation:
         return ContentHash.from_prefixed(self._handle.identity)
 
     @property
-    def route(self) -> NativeRoute:
+    def route(self) -> RouteDocument:
         """Admitted algebraic route, before native execution."""
         return self._handle.route
 
     @property
-    def eligibility(self) -> tuple[NativeEligibility, ...]:
+    def eligibility(self) -> tuple[EligibilityDocument, ...]:
         """Typed eligibility of every assessed backend, with registry reason codes."""
         return tuple(self._handle.eligibility)
 
@@ -93,88 +94,6 @@ class PublicationTicket:
     json: bytes
 
 
-class Workspace(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
-    """A registered publication workspace: one history with one head.
-
-    Its members are written under ``root_uri``.
-    """
-
-    workspace_id: str
-    name: str
-    root_uri: str
-
-    @property
-    def id(self) -> WorkspaceId:
-        """The workspace identity."""
-        return WorkspaceId(SemanticId.from_hex(self.workspace_id))
-
-
-class Published(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
-    """A committed publication: the head of its workspace when committed."""
-
-    publication_id: str
-    workspace_id: str
-    parent: str | None
-    attempt_id: str
-
-    @property
-    def id(self) -> PublicationId:
-        """The publication identity."""
-        return PublicationId(SemanticId.from_hex(self.publication_id))
-
-
-class ExportReceipt(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
-    """An export: the manifest location and the lease protecting its members.
-
-    The lease holds until ``expires_at`` (microseconds since the Unix epoch) or its
-    release.
-    """
-
-    publication_id: str
-    destination: str
-    lease_id: str
-    expires_at: int
-
-
-class PublicationCommitted(
-    msgspec.Struct, tag="committed", tag_field="status", frozen=True
-):
-    """The ticket's publication is visible."""
-
-    publication_id: str
-
-
-class PublicationNoncommit(
-    msgspec.Struct, tag="proved_noncommit", tag_field="status", frozen=True
-):
-    """Nothing was committed and nothing is in flight; the same ticket may commit."""
-
-
-class PublicationConflict(
-    msgspec.Struct, tag="conflict", tag_field="status", frozen=True
-):
-    """The ticket can never commit as prepared: re-prepare against ``head``."""
-
-    reason: str
-    head: str | None
-
-
-class PublicationUnresolved(
-    msgspec.Struct, tag="unresolved", tag_field="status", frozen=True
-):
-    """The catalog could not be reached; settle again later."""
-
-    reason: str
-
-
-PublicationSettlement: TypeAlias = (
-    PublicationCommitted
-    | PublicationNoncommit
-    | PublicationConflict
-    | PublicationUnresolved
-)
-
-
 @attrs.frozen
 class PublicationAttempt:
     """Explicit single-use publication of immutable results."""
@@ -202,17 +121,7 @@ class PublicationAttempt:
         A conflict raises; re-prepare with the same ``publication_id`` against the new
         head. An unresolved outcome raises; settle the ticket.
         """
-        return msgspec.json.decode(self._handle.commit(), type=Published)
-
-
-@attrs.frozen
-class RunCompletion:
-    """Registry-owned completion records shared with the durable Arrow projection."""
-
-    solves: tuple[result_contracts.RuntimeSolveRunsRow, ...]
-    computation: result_contracts.RuntimeComputationRunsRow | None
-    lineage: tuple[result_contracts.RuntimeRunLineageRow, ...]
-    assessments: tuple[result_contracts.RuntimeCandidateAssessmentsRow, ...]
+        return codec.decode_json(self._handle.commit(), Published)
 
 
 @attrs.frozen
@@ -221,7 +130,7 @@ class RunResult:
 
     _handle: _NativeRunResult
 
-    def available_start(self, step: int = 0) -> _NativeStart | None:
+    def available_start(self, step: int | None = None) -> _NativeStart | None:
         """Return available numerical seed data and its provenance."""
         return self._handle.available_start(step)
 
@@ -242,11 +151,15 @@ class RunResult:
         return self._handle.usable
 
     @property
-    def completion(self) -> RunCompletion:
+    def fit_profiles(self) -> FitProfileDocument | None:
+        """Retained profile chains, with worker failures and actual parallelism."""
+        data = self._handle.fit_profiles()
+        return None if data is None else codec.decode_json(data, FitProfileDocument)
+
+    @property
+    def completion(self) -> Completion:
         """Read the immutable joined assessment without evaluating the model again."""
-        wire = msgspec.json.decode(self._handle.completion(), type=dict[str, object])
-        wire.pop("diagnostics")
-        return codec.converter().structure(wire, RunCompletion)
+        return codec.decode_json(self._handle.completion(), Completion)
 
     def diagnostics(self) -> tuple[DiagnosticReport, ...]:
         """Structured native admission and execution failures, preserving causes."""
@@ -287,7 +200,7 @@ class RunResult:
         """
         return PublicationAttempt(
             self._handle.prepare_publication(
-                msgspec.json.encode(workspace),
+                codec.encode_json(workspace),
                 parent=None if parent is None else parent.to_hex(),
                 publication_id=None
                 if publication_id is None
@@ -325,7 +238,7 @@ class RunHandle:
         result = self._handle.result()
         return None if result is None else RunResult(result)
 
-    def progress(self) -> tuple[tuple[ProgressEvent, ...], int]:
+    def progress(self) -> tuple[tuple[ProgressEventDocument, ...], int]:
         """Observe bounded typed native events and actual dropped-event count."""
         events, dropped = self._handle.progress()
         return tuple(events), dropped
@@ -358,7 +271,7 @@ class ProgressStream:
     def __iter__(self) -> Self:
         return self
 
-    def __next__(self) -> ProgressEvent:
+    def __next__(self) -> ProgressEventDocument:
         event = self._handle.next_event()
         if event is None:
             raise StopIteration
@@ -405,31 +318,13 @@ class StudyHandle:
     def result(self) -> Published | None:
         """The study's publication once committed; ``None`` before."""
         published = self._handle.result()
-        return (
-            None
-            if published is None
-            else msgspec.json.decode(published, type=Published)
-        )
+        return None if published is None else codec.decode_json(published, Published)
 
-    def wait(
-        self,
-        *,
-        poll: timedelta = timedelta(milliseconds=500),
-        timeout: timedelta | None = None,
-    ) -> Published:
-        """Wait until the study is published.
-
-        Args:
-            poll: How often the study's state is read.
-            timeout: Give up after this long; wait indefinitely when ``None``.
-
-        Returns:
-            The study's one publication.
-        """
-        return msgspec.json.decode(
+    def wait(self, *, controls: StudyWaitControls | None = None) -> Published:
+        """Wait for the study's publication under Rust-owned observation timing."""
+        return codec.decode_json(
             self._handle.wait(
-                poll_seconds=poll.total_seconds(),
-                timeout_seconds=None if timeout is None else timeout.total_seconds(),
+                controls=None if controls is None else codec.encode_json(controls)
             ),
-            type=Published,
+            Published,
         )

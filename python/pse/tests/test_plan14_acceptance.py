@@ -7,7 +7,6 @@ import gc
 import subprocess
 import sys
 from pathlib import Path
-from typing import cast
 
 import pyarrow as pa
 import pytest
@@ -16,6 +15,7 @@ import pse
 from pse import codec
 from pse.contracts import authored
 from pse.contracts import runtime as runtime_contracts
+from pse.contracts.documents import Profile
 from pse.contracts.enums import (
     AttemptKind,
     AttemptState,
@@ -24,7 +24,7 @@ from pse.contracts.enums import (
     NativeSolveIntent,
     PresolvePolicyKind,
 )
-from pse.contracts.identities import DeclarationId
+from pse.contracts.identities import DeclarationId, PublicationId, WorkspaceId
 from pse.contracts.values import SemanticId
 
 
@@ -72,15 +72,8 @@ def test_public_native_process_and_exact_results(
     settings = pse.SolveSettings(
         backend=NativeBackend.IPOPT, intent=NativeSolveIntent.FEASIBLE_POINT
     )
-    members = cast(
-        "list[dict[str, object]]", package.inspect(case, settings)["members"]
-    )
-    coordinates = {
-        cast(
-            "str", cast("dict[str, object]", m["lineage"])["path"]
-        ): SemanticId.from_hex(cast("str", m["id"]))
-        for m in members
-    }
+    members = package.inspect(case, settings).members
+    coordinates = {m.lineage.path: SemanticId.from_hex(m.id) for m in members}
     prepared = package.prepare_solve(case, settings)
     handle = prepared.start()
 
@@ -217,11 +210,17 @@ def test_public_dynamic_and_transient_fit(
     ticket = command.ticket
     published = command.commit()
     settled = runtime.settle_publication(ticket)
-    assert isinstance(settled, pse.PublicationCommitted)
+    assert isinstance(settled, pse.PublicationSettlementCommitted)
     assert settled.publication_id == published.publication_id
-    assert runtime.head(workspace.id) == published.id
-    with runtime.open(published.id) as publication:
-        assert publication.publication_id == published.id
+    assert runtime.head(
+        WorkspaceId(SemanticId.from_hex(workspace.workspace_id))
+    ) == PublicationId(SemanticId.from_hex(published.publication_id))
+    with runtime.open(
+        PublicationId(SemanticId.from_hex(published.publication_id))
+    ) as publication:
+        assert publication.publication_id == PublicationId(
+            SemanticId.from_hex(published.publication_id)
+        )
         assert publication.attempt_id == joined.attempt_id
         assert ("artifact", "authored", "modeling_declarations") in {
             (name.catalog, name.schema, name.table) for name in publication.tables()
@@ -269,13 +268,19 @@ def test_public_dynamic_and_transient_fit(
     result = (
         package.prepare_fit(
             fit.fit_id,
-            pse.SolveSettings(
-                backend=NativeBackend.IPOPT,
-                intent=NativeSolveIntent.OPTIMIZE,
-                presolve=PresolvePolicyKind.OFF,
-                controls=pse.SolveControls(hessian=HessianMode.LIMITED_MEMORY),
+            pse.FitPreparationDocument(
+                solver=pse.SolveSettings(
+                    backend=NativeBackend.IPOPT,
+                    intent=NativeSolveIntent.OPTIMIZE,
+                    presolve=PresolvePolicyKind.OFF,
+                    controls=pse.SolveControls(hessian=HessianMode.LIMITED_MEMORY),
+                ),
+                simulations={
+                    fit.experiments[0].experiment_id.to_hex(): codec.decode_json(
+                        settings.to_json(), Profile
+                    )
+                },
             ),
-            {fit.experiments[0].experiment_id: settings},
         )
         .start()
         .wait()
@@ -311,6 +316,7 @@ class NoPyomo(importlib.abc.MetaPathFinder):
             raise AssertionError('production attempted to import Pyomo')
 sys.meta_path.insert(0, NoPyomo())
 import pse
+from pse.contracts.identities import WorkspaceId, PublicationId
 
 
 #: A manifest dependency on the physical primitives fixture. Its document names

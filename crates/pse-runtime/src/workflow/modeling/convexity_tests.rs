@@ -40,6 +40,32 @@ fn profile(selection: SolverSelection, convexity: ConvexityPolicy) -> SolverProf
     profile.convexity = convexity;
     profile
 }
+fn refused_class(error: &WorkflowError, backend: Backend) -> &[ProblemClass] {
+    let WorkflowError::Math(crate::math::MathRuntimeError::Solve(ProblemError::RouteRefused(
+        decision,
+    ))) = error
+    else {
+        panic!("expected a typed routing refusal: {error}");
+    };
+    assert_eq!(decision.selection, SolverSelection::Explicit(backend));
+    assert!(decision.selected.is_none());
+    assert!(matches!(
+        decision.refusal.as_ref(),
+        Some(pse_backend_native::routing::Refusal::Ineligible(refused)) if *refused == backend
+    ));
+    decision
+        .eligibility
+        .iter()
+        .find(|assessment| assessment.backend == backend)
+        .unwrap()
+        .reasons
+        .iter()
+        .find_map(|reason| match reason {
+            Ineligible::Class { problem } => Some(problem.as_slice()),
+            _ => None,
+        })
+        .unwrap()
+}
 async fn prepare(
     package: &ModelingPackage,
     root: DeclarationId,
@@ -160,12 +186,8 @@ async fn unrecognized_gibbs_maximization_not_routed_to_clarabel() {
         ),
     )
     .await;
-    match explicit {
-        Err(WorkflowError::Math(crate::math::MathRuntimeError::Solve(
-            ProblemError::Unsupported(message),
-        ))) => assert!(message.contains("problem class"), "{message}"),
-        other => panic!("expected a class refusal: {other:?}"),
-    }
+    let error = explicit.unwrap_err();
+    assert!(!refused_class(&error, Backend::Clarabel).is_empty());
     if let Ok(prepared) = prepare(
         &package,
         root,
@@ -203,11 +225,9 @@ const NEARLY_PSD: &str = "package p { def Root {
 async fn numerical_psd_only_under_explicit_policy() {
     let (package, root) = package(NEARLY_PSD);
     let highs = SolverSelection::Explicit(Backend::Highs);
-    let refused = |result: Result<ModelingSolvePreparation, WorkflowError>| match result {
-        Err(WorkflowError::Math(crate::math::MathRuntimeError::Solve(
-            ProblemError::Unsupported(message),
-        ))) => assert!(message.contains("nonconvex_quadratic"), "{message}"),
-        other => panic!("expected a class refusal: {other:?}"),
+    let refused = |result: Result<ModelingSolvePreparation, WorkflowError>| {
+        let error = result.unwrap_err();
+        assert!(refused_class(&error, Backend::Highs).contains(&ProblemClass::NonconvexQuadratic));
     };
     refused(prepare(&package, root, profile(highs, ConvexityPolicy::Exact)).await);
     let numerical = ConvexityPolicy::Numerical {

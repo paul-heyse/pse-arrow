@@ -842,7 +842,7 @@ mod retirement_unit {
         let truncated = bytes
             .split(|b| *b == b'\n')
             .take(2)
-            .flat_map(|line| line.iter().copied().chain([b'\n']))
+            .flat_map(|line| line.iter().copied().chain(*b"\n"))
             .collect::<Vec<_>>();
         std::fs::write(&path, truncated).unwrap();
         assert!(Store::inspect_reset_manifest(&path, 100).is_err());
@@ -883,7 +883,7 @@ mod retirement_journeys {
         let raw = db.session().await.unwrap();
         raw.execute(r#"
           INSERT INTO pse_ops.workspaces(workspace_id,name,root_uri,maintenance_epoch) VALUES('00000000-0000-0000-0000-000000000004','retirement','file:///retirement-owned/',9);
-          INSERT INTO pse_ops.attempts(attempt_id,run_id,kind,request_identity,state) VALUES('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000002','simulation',decode(repeat('17',32),'hex'),'completed');
+          INSERT INTO pse_ops.attempts(attempt_id,run_id,kind,operational_job_identity,state) VALUES('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000002','simulation',decode(repeat('17',32),'hex'),'completed');
           INSERT INTO pse_ops.publication_intents(publication_id,workspace_id,attempt_id,member_prefix) VALUES('00000000-0000-0000-0000-000000000005','00000000-0000-0000-0000-000000000004','00000000-0000-0000-0000-000000000001','file:///retirement-owned/members/original/');
           INSERT INTO pse_ops.publications(publication_id,workspace_id,attempt_id,kind) VALUES('00000000-0000-0000-0000-000000000005','00000000-0000-0000-0000-000000000004','00000000-0000-0000-0000-000000000001','relations');
           INSERT INTO pse_ops.publication_heads(workspace_id,publication_id) VALUES('00000000-0000-0000-0000-000000000004','00000000-0000-0000-0000-000000000005');
@@ -1075,7 +1075,7 @@ mod retirement_journeys {
             assert!(cut.reset(&receipt).await.is_err());
             assert!(proxy.fired());
             cut.close();
-            drop(proxy);
+            proxy.shutdown().await.unwrap();
             if point == FaultPoint::BeforeCommit {
                 assert_eq!(
                     raw.texts("SELECT to_jsonb(p)::text FROM pse_ops.publications p")

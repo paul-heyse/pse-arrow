@@ -65,6 +65,8 @@ async fn fixture(
     );
     let reg = Arc::new(builder.build().expect("registry"));
     let spec = reg.relation("authored.items").expect("relation");
+    let validation =
+        pse_relations::validate::ValidationContext::local(&reg).expect("local codec fixture");
     let batch = pse_relations::testing::batch_from_literals(
         &reg,
         spec,
@@ -73,6 +75,7 @@ async fn fixture(
             serde_json::json!(["enum", "one"]),
             serde_json::json!(["text", value]),
         ]],
+        &validation,
     )
     .expect("batch");
     let key = spec.key;

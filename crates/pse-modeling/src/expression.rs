@@ -22,11 +22,51 @@ use std::collections::{BTreeMap, BTreeSet};
 
 /// Referenced source paths in deterministic lexical traversal order.
 pub fn references(expression: &Expr) -> BTreeSet<String> {
-    expression
-        .free_paths()
+    source_paths(expression)
         .iter()
         .map(|p| dsl::render_path(p))
         .collect()
+}
+/// Source references exclude intrinsic callees while retaining equally named value paths.
+pub(crate) fn source_paths(expression: &Expr) -> Vec<&Path> {
+    let mut intrinsics = Vec::new();
+    expression.walk(|node| {
+        if let ExprKind::NamedCall { name, .. } = &node.kind
+            && intrinsic_callee(name)
+        {
+            intrinsics.push(std::ptr::from_ref(name));
+        }
+    });
+    expression
+        .free_paths()
+        .into_iter()
+        .filter(|path| !intrinsics.iter().any(|callee| std::ptr::eq(*callee, *path)))
+        .collect()
+}
+pub(crate) fn intrinsic_callee(path: &Path) -> bool {
+    matches!(
+        path.ident(),
+        Some(
+            "applicability_interval"
+                | "selection_closure"
+                | "selection_compatible"
+                | "set_of"
+                | "tuple"
+                | "require_present"
+                | "keys"
+                | "at"
+                | "size"
+                | "present"
+                | "implements"
+                | "provides"
+                | "union"
+                | "product"
+                | "reconstruct"
+                | "transfer"
+                | "reorient"
+                | "reflect"
+        )
+    )
 }
 /// Visit source paths, including actual argument and index expressions.
 pub fn walk(expression: &Expr, visit: &mut impl FnMut(&Path)) {
@@ -407,7 +447,7 @@ fn infer_expression(
                 )),
             }
         }
-        ExprKind::NamedCall { name, args } if name == "applicability_interval" => {
+        ExprKind::NamedCall { name, args } if name.is_ident("applicability_interval") => {
             if args.len() != 2 {
                 return Err(invalid(
                     at,
@@ -426,7 +466,7 @@ fn infer_expression(
             }
             Ok(Type::Applicability)
         }
-        ExprKind::NamedCall { name, args } if name == "tuple" => {
+        ExprKind::NamedCall { name, args } if name.is_ident("tuple") => {
             let expected_items = match expected {
                 Some(Type::Tuple(items)) => Some(items),
                 _ => None,
@@ -449,7 +489,7 @@ fn infer_expression(
             }
             Ok(Type::Tuple(types))
         }
-        ExprKind::NamedCall { name, args } if name == "set_of" => {
+        ExprKind::NamedCall { name, args } if name.is_ident("set_of") => {
             let formal = match expected {
                 Some(Type::Set(element)) => Some(element.as_ref()),
                 _ => None,
@@ -475,7 +515,7 @@ fn infer_expression(
                 .map(|element| Type::Set(Box::new(element)))
                 .ok_or_else(|| invalid(at, "empty set_of requires an expected set type"))
         }
-        ExprKind::NamedCall { name, args } if name == "selection_compatible" => {
+        ExprKind::NamedCall { name, args } if name.is_ident("selection_compatible") => {
             if args.len() != 3 {
                 return Err(invalid(at, "selection_compatible arity"));
             }
@@ -500,7 +540,7 @@ fn infer_expression(
             }
             Ok(Type::Boolean)
         }
-        ExprKind::NamedCall { name, args } if name == "selection_closure" => {
+        ExprKind::NamedCall { name, args } if name.is_ident("selection_closure") => {
             if args.len() != 3 {
                 return Err(invalid(
                     at,
@@ -533,7 +573,7 @@ fn infer_expression(
             }
             Ok(Type::Set(element))
         }
-        ExprKind::NamedCall { name, args } if name == "keys" => {
+        ExprKind::NamedCall { name, args } if name.is_ident("keys") => {
             if args.len() != 1 {
                 return Err(invalid(at, "keys arity"));
             }
@@ -541,7 +581,12 @@ fn infer_expression(
                 return Err(invalid(at, "keys requires a table declaration"));
             };
             let id = p
-                .resolve(at, &dsl::render_path(path))
+                .resolve_segments(at, &path.segments)
+                .filter(|_| {
+                    path.segments
+                        .iter()
+                        .all(|segment| segment.indices.is_empty())
+                })
                 .ok_or_else(|| invalid(at, "unknown table"))?;
             let table = p
                 .tables
@@ -553,7 +598,9 @@ fn infer_expression(
                 Type::Tuple(table.keys.iter().map(|k| k.ty.clone()).collect())
             })))
         }
-        ExprKind::NamedCall { name, args } if matches!(name.as_str(), "union" | "product") => {
+        ExprKind::NamedCall { name, args }
+            if matches!(name.ident().unwrap_or(""), "union" | "product") =>
+        {
             if args.len() != 2 {
                 return Err(invalid(at, "binary set operation arity"));
             }
@@ -563,7 +610,7 @@ fn infer_expression(
             let Type::Set(b) = infer(&args[1], env, p, context, at, None)? else {
                 return Err(invalid(at, "set required"));
             };
-            if name == "product" {
+            if name.is_ident("product") {
                 Ok(Type::Set(Box::new(Type::Tuple(vec![*a, *b]))))
             } else if a == b {
                 Ok(Type::Set(a))
@@ -571,7 +618,7 @@ fn infer_expression(
                 Err(invalid(at, "union element types differ"))
             }
         }
-        ExprKind::NamedCall { name, args } if name == "at" => {
+        ExprKind::NamedCall { name, args } if name.is_ident("at") => {
             if args.len() != 2 {
                 return Err(invalid(at, "tuple coordinate arity"));
             }
@@ -590,7 +637,7 @@ fn infer_expression(
             }
             Ok(values[n.value as usize].clone())
         }
-        ExprKind::NamedCall { name, args } if name == "require_present" => {
+        ExprKind::NamedCall { name, args } if name.is_ident("require_present") => {
             if args.len() != 1 {
                 return Err(invalid(at, "require_present takes one optional value"));
             }
@@ -599,7 +646,7 @@ fn infer_expression(
             };
             Ok(*inner)
         }
-        ExprKind::NamedCall { name, args } if name == "present" => {
+        ExprKind::NamedCall { name, args } if name.is_ident("present") => {
             if args.len() != 1
                 || !matches!(
                     infer(&args[0], env, p, context, at, None)?,
@@ -619,7 +666,7 @@ fn infer_expression(
             }
             Ok(Type::Boolean)
         }
-        ExprKind::NamedCall { name, args } if name == "size" => {
+        ExprKind::NamedCall { name, args } if name.is_ident("size") => {
             if args.len() != 1
                 || !matches!(infer(&args[0], env, p, context, at, None)?, Type::Set(_))
             {
@@ -628,7 +675,7 @@ fn infer_expression(
             Ok(Type::Integer)
         }
         ExprKind::NamedCall { name, args }
-            if matches!(name.as_str(), "implements" | "provides") =>
+            if matches!(name.ident().unwrap_or(""), "implements" | "provides") =>
         {
             if args.len() != 2 {
                 return Err(invalid(at, "capability query arity"));
@@ -640,9 +687,14 @@ fn infer_expression(
             let ExprKind::Path(path) = &args[1].kind else {
                 return Err(invalid(at, "capability name required"));
             };
-            if name == "implements"
+            if name.is_ident("implements")
                 && !p
-                    .resolve(at, &dsl::render_path(path))
+                    .resolve_segments(at, &path.segments)
+                    .filter(|_| {
+                        path.segments
+                            .iter()
+                            .all(|segment| segment.indices.is_empty())
+                    })
                     .is_some_and(|id| matches!(p.types.get(&id), Some(Type::Interface(_))))
             {
                 return Err(invalid(at, "interface name required"));
@@ -868,7 +920,7 @@ pub(crate) fn finite_reduction(
     Ok((kind, domain))
 }
 fn call(
-    name: &str,
+    name: &Path,
     args: &[Expr],
     wrt: &[Path],
     env: &BTreeMap<String, Type>,
@@ -876,7 +928,7 @@ fn call(
     context: &TypeContext<'_>,
     at: DeclarationId,
 ) -> Result<Type> {
-    if name == "reconstruct" {
+    if name.is_ident("reconstruct") {
         if !wrt.is_empty() {
             return Err(invalid(
                 at,
@@ -889,19 +941,29 @@ fn call(
                 "reconstruct requires a declared family and selected law",
             )
         })?;
-        let path = dsl::render_expr(family);
+        let ExprKind::Path(path) = &family.kind else {
+            return Err(invalid(
+                at,
+                "reconstruct requires a declared reconstruction family",
+            ));
+        };
         let selected = p
-            .resolve(at, &path)
+            .resolve_segments(at, &path.segments)
             .filter(|id| matches!(p.types.get(id), Some(Type::Reconstruction { .. })))
             .ok_or_else(|| invalid(at, "reconstruct requires a declared reconstruction family"))?;
-        let qualified = p
-            .names
-            .iter()
-            .find_map(|(name, id)| (*id == selected).then_some(name))
-            .ok_or_else(|| invalid(at, "reconstruction family is unnamed"))?;
-        return call(qualified, arguments, &[], env, p, context, at);
+        return call(
+            &p.declaration_path(selected),
+            arguments,
+            &[],
+            env,
+            p,
+            context,
+            at,
+        );
     }
-    if let Some(ty) = crate::contextual::call_type(name, args, env, p, context, at)? {
+    if let Some(ty) =
+        crate::contextual::call_type(name.ident().unwrap_or(""), args, env, p, context, at)?
+    {
         if !wrt.is_empty() {
             return Err(invalid(
                 at,
@@ -915,20 +977,20 @@ fn call(
         function
             .arguments
             .iter()
-            .any(|(argument, _)| argument == name)
+            .any(|(argument, _)| Some(argument.as_str()) == name.ident())
     });
-    let f = if let Some(function) = (!lexical_formal)
-        .then(|| p.resolve(at, name))
-        .flatten()
-        .and_then(|id| p.functions.get(&id))
+    let f = if let Some(function) = (!lexical_formal
+        && name
+            .segments
+            .iter()
+            .all(|segment| segment.indices.is_empty()))
+    .then(|| p.resolve_segments(at, &name.segments))
+    .flatten()
+    .and_then(|id| p.functions.get(&id))
     {
         function
     } else {
-        let expression = dsl::parse_expr(name).map_err(|e| invalid(at, e.to_string()))?;
-        let ExprKind::Path(path) = expression.kind else {
-            return Err(invalid(at, "function reference path required"));
-        };
-        let Type::Function { arguments, result } = path_type(&path, env, p, context, at)? else {
+        let Type::Function { arguments, result } = path_type(name, env, p, context, at)? else {
             return Err(invalid(at, "reference is not a function"));
         };
         indirect = crate::Function {
@@ -1213,30 +1275,30 @@ fn check_forms(
     p: &CheckedPackage,
     context: &TypeContext<'_>,
 ) -> Result<()> {
-    let typed = |source: &str, env: &BTreeMap<String, Type>| -> Result<Type> {
-        let e = p.expression(id, source)?;
+    let typed = |role: &str, env: &BTreeMap<String, Type>| -> Result<Type> {
+        let e = p.expression_at(id, role, 0)?;
         infer(e, env, p, context, id, None)
     };
     let indicator = || crate::indicator_type(context.quantities, id);
-    if let Some(condition) = row
+    if let Some(_condition) = row
         .value
         .equation
         .as_ref()
         .and_then(|e| e.condition.as_ref())
-        && typed(&condition.variable, env)? != indicator()?
+        && typed("equation.condition.variable", env)? != indicator()?
     {
         return Err(invalid(
             id,
             "an indicator condition names an indicator variable",
         ));
     }
-    if let Some(set) = &row.value.ordered_set
-        && !matches!(typed(&set.member, env)?, Type::Quantity(_))
+    if let Some(_set) = &row.value.ordered_set
+        && !matches!(typed("ordered_set.member", env)?, Type::Quantity(_))
     {
         return Err(invalid(id, "ordered set members are physical variables"));
     }
-    if let Some(c) = &row.value.cardinality
-        && !matches!(typed(&c.member, env)?, Type::Quantity(_))
+    if let Some(_c) = &row.value.cardinality
+        && !matches!(typed("cardinality.member", env)?, Type::Quantity(_))
     {
         return Err(invalid(id, "cardinality members are physical variables"));
     }
@@ -1245,12 +1307,19 @@ fn check_forms(
             return Err(invalid(id, "a piecewise function has one breakpoint index"));
         };
         let mut local = outer.clone();
-        let Type::Set(element) = index_domain_type(&index.domain, outer, p, context, id)? else {
+        let Type::Set(element) = index_domain_type(
+            p.static_at(id, "piecewise.indices.domain", 0)?,
+            outer,
+            p,
+            context,
+            id,
+        )?
+        else {
             return Err(invalid(id, "breakpoints range over a finite set"));
         };
         local.insert(index.name.clone(), *element);
-        if typed(&f.input, outer)? != typed(&f.abscissa, &local)?
-            || typed(&f.output, outer)? != typed(&f.ordinate, &local)?
+        if typed("piecewise.input", outer)? != typed("piecewise.abscissa", &local)?
+            || typed("piecewise.output", outer)? != typed("piecewise.ordinate", &local)?
         {
             return Err(invalid(
                 id,
@@ -1258,13 +1327,13 @@ fn check_forms(
             ));
         }
     }
-    if let Some(l) = &row.value.logic {
-        crate::logic::parse(&l.proposition).map_err(|e| invalid(id, e))?;
+    if row.value.logic.is_some() {
+        p.proposition_at(id)?;
     }
-    if let Some(c) = &row.value.complementarity
-        && [&c.first, &c.second]
+    if let Some(_c) = &row.value.complementarity
+        && ["complementarity.first", "complementarity.second"]
             .into_iter()
-            .map(|member| typed(member, env))
+            .map(|role| typed(role, env))
             .collect::<Result<Vec<_>>>()?
             .iter()
             .any(|ty| !matches!(ty, Type::Quantity(_)))
@@ -1299,16 +1368,16 @@ fn check_declarations(p: &CheckedPackage, context: &TypeContext<'_>) -> Result<(
             cursor = p.declarations[&owner].parent_id;
         }
         for owner in ancestors.into_iter().rev() {
-            if let Some(guard) = &p.declarations[&owner].value.guard {
-                let predicate = p.predicate(owner, &guard.predicate)?;
+            if let Some(_guard) = &p.declarations[&owner].value.guard {
+                let predicate = p.predicate_at(owner, "guard.predicate", 0)?;
                 env = refine(predicate, &env, p, context, owner)?;
             }
         }
         let indices = member_indices(row);
         let outer = env.clone();
-        for (name, domain) in indices {
+        for (position, (name, _domain)) in indices.into_iter().enumerate() {
             let (Type::Set(element) | Type::Continuous(_, element)) =
-                index_domain_type(domain, &env, p, context, *id)?
+                member_index_type(*id, position, &env, p, context)?
             else {
                 return Err(invalid(*id, "indexed member requires a finite set"));
             };
@@ -1316,27 +1385,27 @@ fn check_declarations(p: &CheckedPackage, context: &TypeContext<'_>) -> Result<(
         }
         check_forms(row, *id, &outer, &env, p, context)?;
         check_process_contracts(row, *id, &env, p, context)?;
-        if let Some(axis) = &row.value.continuous {
+        if let Some(_axis) = &row.value.continuous {
             let Type::Continuous(_, target) = &p.types[id] else {
                 return Err(invalid(*id, "continuous type absent"));
             };
-            for source in [&axis.lower, &axis.upper] {
-                let e = p.expression(*id, source)?;
+            for role in ["continuous.lower", "continuous.upper"] {
+                let e = p.expression_at(*id, role, 0)?;
                 if infer(e, &env, p, context, *id, Some(target))? != **target {
                     return Err(invalid(*id, "continuous bound type differs"));
                 }
             }
         }
         if let Some(scope) = &row.value.scope {
-            if let Some(selection) = &scope.selection {
-                let score = p.expression(*id, &selection.criterion)?;
+            if let Some(_selection) = &scope.selection {
+                let score = p.expression_at(*id, "scope.selection.criterion", 0)?;
                 let Type::Quantity(quantity) = infer(score, &env, p, context, *id, None)? else {
                     return Err(invalid(
                         *id,
                         "regime score requires a complete physical quantity",
                     ));
                 };
-                let tolerance = p.expression(*id, &selection.tolerance)?;
+                let tolerance = p.expression_at(*id, "scope.selection.tolerance", 0)?;
                 let expected = Type::Quantity(Scheme::Delta(Box::new(quantity)));
                 if infer(tolerance, &env, p, context, *id, Some(&expected))? != expected {
                     // Concrete types and delta schemes can name the same physical type.
@@ -1361,8 +1430,14 @@ fn check_declarations(p: &CheckedPackage, context: &TypeContext<'_>) -> Result<(
                     }
                 }
             }
-            if let Some(eligible) = &scope.eligibility {
-                predicate(p.predicate(*id, eligible)?, &env, p, context, *id)?;
+            if let Some(_eligible) = &scope.eligibility {
+                predicate(
+                    p.predicate_at(*id, "scope.eligibility", 0)?,
+                    &env,
+                    p,
+                    context,
+                    *id,
+                )?;
             }
         }
         if let Some(scheme) = &row.value.difference_scheme {
@@ -1381,8 +1456,8 @@ fn check_declarations(p: &CheckedPackage, context: &TypeContext<'_>) -> Result<(
             if !matches!(grid.scheme.as_str(), "integrated" | "stationary") {
                 crate::continuous::scheme(p, *id, &grid.scheme)?;
             }
-            for source in [&grid.elements, &grid.order] {
-                let e = p.expression(*id, source)?;
+            for role in ["discretization.elements", "discretization.order"] {
+                let e = p.expression_at(*id, role, 0)?;
                 if infer(e, &env, p, context, *id, Some(&Type::Integer))? != Type::Integer {
                     return Err(invalid(*id, "mesh sizes must be exact integers"));
                 }
@@ -1427,8 +1502,14 @@ fn check_declarations(p: &CheckedPackage, context: &TypeContext<'_>) -> Result<(
             if p.declarations[&target].value.equation.is_none() {
                 return Err(invalid(*id, "elastic target must be an equation"));
             }
-            let ty = crate::annotation::target_type(p, context, *id, &v.target, &env)?;
-            let e = p.expression(*id, &v.nominal)?;
+            let ty = crate::annotation::target_type(
+                p,
+                context,
+                *id,
+                p.expression_at(*id, "relaxation.target", 0)?,
+                &env,
+            )?;
+            let e = p.expression_at(*id, "relaxation.nominal", 0)?;
             if infer(e, &env, p, context, *id, Some(&ty))? != ty {
                 return Err(invalid(*id, "elastic nominal must have residual units"));
             }
@@ -1445,12 +1526,18 @@ fn check_declarations(p: &CheckedPackage, context: &TypeContext<'_>) -> Result<(
                     "continuation target must be a physical runtime parameter",
                 ));
             }
-            let ty = crate::annotation::target_type(p, context, *id, &v.target, &env)?;
+            let ty = crate::annotation::target_type(
+                p,
+                context,
+                *id,
+                p.expression_at(*id, "continuation.target", 0)?,
+                &env,
+            )?;
             if !matches!(ty, Type::Quantity(_)) {
                 return Err(invalid(*id, "continuation cannot change structural facts"));
             }
-            for text in [&v.start, &v.end] {
-                let e = p.expression(*id, text)?;
+            for role in ["continuation.start", "continuation.end"] {
+                let e = p.expression_at(*id, role, 0)?;
                 if infer(e, &env, p, context, *id, Some(&ty))? != ty {
                     return Err(invalid(*id, "continuation endpoint physical type differs"));
                 }
@@ -1512,7 +1599,14 @@ fn check_declarations(p: &CheckedPackage, context: &TypeContext<'_>) -> Result<(
             for guard in &f.envelopes {
                 predicate(&guard.predicate, &env, p, context, *id)?;
             }
-            let zero = dsl::parse_expr("0").map_err(|e| invalid(*id, e.to_string()))?;
+            let zero = Expr {
+                kind: ExprKind::Number(dsl::Number {
+                    value: 0.,
+                    exact_integer: Some(0),
+                    unit: None,
+                }),
+                span: Default::default(),
+            };
             let dependency_expression = if let Some(validity) = &domain {
                 Expr {
                     kind: ExprKind::Conditional {
@@ -1528,43 +1622,8 @@ fn check_declarations(p: &CheckedPackage, context: &TypeContext<'_>) -> Result<(
             {
                 // Runtime state is explicit. Immutable package data may be referenced
                 // through the admitted lexical/import closure, in bodies and domains alike.
-                let mut dependencies = dependency_expression;
-                dependencies.try_walk_mut(|node| -> Result<()> {
-                    let name = match &node.kind {
-                        ExprKind::NamedCall { name, .. }
-                        | ExprKind::Partial { function: name, .. } => name,
-                        _ => return Ok(()),
-                    };
-                    if p.resolve(*id, name)
-                        .is_some_and(|id| p.functions.contains_key(&id))
-                        || matches!(
-                            name.as_str(),
-                            "selection_closure"
-                                | "set_of"
-                                | "tuple"
-                                | "require_present"
-                                | "keys"
-                                | "at"
-                                | "size"
-                                | "present"
-                                | "implements"
-                                | "provides"
-                                | "union"
-                                | "product"
-                                | "reconstruct"
-                        )
-                    {
-                        return Ok(());
-                    }
-                    let callee = dsl::parse_expr(name).map_err(|e| invalid(*id, e.to_string()))?;
-                    node.kind = ExprKind::Binary {
-                        op: BinaryOp::Add,
-                        lhs: Box::new(callee),
-                        rhs: Box::new(node.clone()),
-                    };
-                    Ok(())
-                })?;
-                for path in dependencies.free_paths() {
+                let dependencies = dependency_expression;
+                for path in source_paths(&dependencies) {
                     if path.segments.len() == 1
                         && path.segments[0].indices.is_empty()
                         && matches!(path.segments[0].name.as_str(), "missing" | "true" | "false")
@@ -1577,18 +1636,11 @@ fn check_declarations(p: &CheckedPackage, context: &TypeContext<'_>) -> Result<(
                         .is_some_and(|s| f.arguments.iter().any(|(name, _)| *name == s.name));
                     let immutable = (1..=path.segments.len())
                         .rev()
-                        .find_map(|end| {
-                            let name = path.segments[..end]
-                                .iter()
-                                .map(|s| s.name.as_str())
-                                .collect::<Vec<_>>()
-                                .join(".");
-                            p.resolve(*id, &name)
-                        })
+                        .find_map(|end| p.resolve_segments(*id, &path.segments[..end]))
                         .is_some_and(|value| {
                             use pse_model::generated::enums::ModelingDeclarationKind as K;
                             let declaration = &p.declarations[&value];
-                            matches!(
+                            (p.functions.contains_key(&value) || matches!(
                                 declaration.value.kind,
                                 K::Entity
                                     | K::Set
@@ -1596,10 +1648,14 @@ fn check_declarations(p: &CheckedPackage, context: &TypeContext<'_>) -> Result<(
                                     | K::Enum
                                     | K::EntityKind
                                     | K::Constant
-                                    | K::Function
                                     | K::Reconstruction
-                            ) && declaration.parent_id.is_some_and(|parent| {
-                                p.declarations[&parent].value.kind == K::Package
+                            )) && declaration.parent_id.is_some_and(|parent| {
+                                let owner = &p.declarations[&parent];
+                                // Reconstructed bodies call their map's checked slots.
+                                // Their immutable authority is the package-owned map.
+                                owner.value.kind == K::Package
+                                    || (matches!(p.functions.get(&value).and_then(|function| function.physical_operation.as_ref()), Some(crate::PhysicalOperation::Coordinate { map, .. }) if *map == parent)
+                                        && owner.parent_id.is_some_and(|package| p.declarations[&package].value.kind == K::Package))
                             })
                         });
                     let physical = (1..=path.segments.len()).any(|end| {
@@ -1613,7 +1669,10 @@ fn check_declarations(p: &CheckedPackage, context: &TypeContext<'_>) -> Result<(
                     if !explicit && !immutable && !physical {
                         return Err(invalid(
                             *id,
-                            "pure function requires explicit runtime arguments or immutable package data",
+                            format!(
+                                "pure function requires explicit runtime arguments or immutable package data: {}",
+                                dsl::render_path(path)
+                            ),
                         ));
                     }
                 }
@@ -1648,8 +1707,8 @@ fn check_declarations(p: &CheckedPackage, context: &TypeContext<'_>) -> Result<(
             && let Some(expected) = p.types.get(id)
             && expected.quantity_scheme().is_some()
         {
-            for source in b.expression.iter() {
-                let expr = p.expression(*id, source)?;
+            for _source in b.expression.iter() {
+                let expr = p.expression_at(*id, "binding.expression", 0)?;
                 let actual = infer(expr, &env, p, context, *id, Some(expected))?;
                 if &actual != expected {
                     return Err(invalid(
@@ -1665,14 +1724,19 @@ fn check_declarations(p: &CheckedPackage, context: &TypeContext<'_>) -> Result<(
             // Whole-family annotations bind the target's coordinates just like
             // specialization does; their expressions are scalar at each coordinate.
             let mut env = env.clone();
-            let target_declaration =
-                crate::annotation::target_declaration(p, context, *id, &a.target, &env)?;
+            let target_declaration = crate::annotation::target_declaration(
+                p,
+                context,
+                *id,
+                p.expression_at(*id, "annotation.target", 0)?,
+                &env,
+            )?;
             if crate::annotation::shape(a, *id)? == Shape::Connectivity {
                 crate::annotation::connectivity_limits(a, *id)?;
                 let target = match target_declaration {
                     Some(target) => target,
                     None => indexed_declaration_reference(
-                        p.expression(*id, &a.target)?,
+                        p.expression_at(*id, "annotation.target", 0)?,
                         &env,
                         p,
                         context,
@@ -1689,9 +1753,9 @@ fn check_declarations(p: &CheckedPackage, context: &TypeContext<'_>) -> Result<(
                 let declaration = &p.declarations[&target];
                 let indices = member_indices(declaration);
                 let mut target_env = declaration_environment(p, context, target)?;
-                for (name, domain) in indices {
+                for (position, (name, _domain)) in indices.into_iter().enumerate() {
                     let (Type::Set(element) | Type::Continuous(_, element)) =
-                        index_domain_type(domain, &target_env, p, context, target)?
+                        member_index_type(target, position, &target_env, p, context)?
                     else {
                         return Err(invalid(*id, "annotation index domain must be a set"));
                     };
@@ -1699,7 +1763,13 @@ fn check_declarations(p: &CheckedPackage, context: &TypeContext<'_>) -> Result<(
                     env.insert(name.clone(), *element);
                 }
             }
-            let target = crate::annotation::target_type(p, context, *id, &a.target, &env)?;
+            let target = crate::annotation::target_type(
+                p,
+                context,
+                *id,
+                p.expression_at(*id, "annotation.target", 0)?,
+                &env,
+            )?;
             use crate::annotation::{AnnotationKind as Kind, Shape};
             let shape = crate::annotation::shape(a, *id)?;
             let equation_target = target_declaration
@@ -1733,30 +1803,36 @@ fn check_declarations(p: &CheckedPackage, context: &TypeContext<'_>) -> Result<(
                 }
                 Shape::Expressions(count) => count,
                 Shape::Label => {
-                    crate::annotation::label(&a.arguments[0], *id)?;
+                    crate::annotation::label(p.static_at(*id, "annotation.arguments", 0)?, *id)?;
                     0
                 }
                 Shape::Scheme => 0,
                 Shape::Predicate => {
-                    predicate(p.predicate(*id, &a.arguments[0])?, &env, p, context, *id)?;
+                    predicate(
+                        p.predicate_at(*id, "annotation.arguments", 0)?,
+                        &env,
+                        p,
+                        context,
+                        *id,
+                    )?;
                     0
                 }
             };
-            for argument in &a.arguments[..numeric] {
-                let expression = p.expression(*id, argument)?;
+            for position in 0..numeric {
+                let expression = p.expression_at(*id, "annotation.arguments", position)?;
                 if infer(expression, &env, p, context, *id, Some(&target))? != target {
                     return Err(invalid(*id, "annotation type differs from target"));
                 }
             }
         }
         if let Some(expectation) = &row.value.expectation {
-            let actual = p.expression(*id, &expectation.actual)?;
-            let expected = p.expression(*id, &expectation.expected)?;
+            let actual = p.expression_at(*id, "expectation.actual", 0)?;
+            let expected = p.expression_at(*id, "expectation.expected", 0)?;
             let actual = infer(actual, &env, p, context, *id, None)?;
             if infer(expected, &env, p, context, *id, Some(&actual))? != actual {
                 return Err(invalid(*id, "test expectation types differ"));
             }
-            let tolerance = p.expression(*id, &expectation.tolerance)?;
+            let tolerance = p.expression_at(*id, "expectation.tolerance", 0)?;
             let delta = Scheme::Delta(Box::new(
                 actual
                     .quantity_scheme()
@@ -1775,8 +1851,8 @@ fn check_declarations(p: &CheckedPackage, context: &TypeContext<'_>) -> Result<(
             if infer(tolerance, &env, p, context, *id, Some(&delta))? != delta {
                 return Err(invalid(*id, "expectation tolerance type differs"));
             }
-            if let Some(relative) = &expectation.relative_tolerance {
-                let relative = p.expression(*id, relative)?;
+            if let Some(_relative) = &expectation.relative_tolerance {
+                let relative = p.expression_at(*id, "expectation.relative_tolerance", 0)?;
                 let scalar = Type::Quantity(Scheme::Concrete(
                     context.quantities.neutral_dimensionless().ok_or_else(|| {
                         invalid(*id, "relative tolerance requires a neutral scalar type")
@@ -1787,8 +1863,8 @@ fn check_declarations(p: &CheckedPackage, context: &TypeContext<'_>) -> Result<(
                 }
             }
         }
-        let check_eq = |source: &str| -> Result<()> {
-            let e = p.equation(*id, source)?;
+        let check_eq = |role: &str| -> Result<()> {
+            let e = p.equation_at(*id, role, 0)?;
             fn eq(
                 e: &dsl::Equation,
                 env: &BTreeMap<String, Type>,
@@ -1818,38 +1894,32 @@ fn check_declarations(p: &CheckedPackage, context: &TypeContext<'_>) -> Result<(
             }
             eq(e, &env, p, context, *id)
         };
-        if let Some(e) = &row.value.equation {
-            check_eq(&e.expression)?;
+        if let Some(_e) = &row.value.equation {
+            check_eq("equation.expression")?;
         }
-        if let Some(e) = row
+        if let Some(_e) = row
             .value
             .binding
             .as_ref()
             .and_then(|b| b.defined_by.as_ref())
         {
-            check_eq(e)?;
+            check_eq("binding.defined_by")?;
         }
         // A kind's requirement binds its entity and attributes; entity admission types it
         // (Plan 23 D0).
         let kind_requirement = row
             .parent_id
             .is_some_and(|parent| p.kinds.contains_key(&parent));
-        for source in row
-            .value
-            .guard
-            .as_ref()
-            .map(|g| &g.predicate)
-            .into_iter()
-            .chain(
-                row.value
-                    .requirement
-                    .as_ref()
-                    .filter(|_| !kind_requirement)
-                    .map(|r| &r.predicate),
-            )
-        {
-            let pred = p.predicate(*id, source)?;
-            predicate(pred, &env, p, context, *id)?;
+        for (role, present) in [
+            ("guard.predicate", row.value.guard.is_some()),
+            (
+                "requirement.predicate",
+                row.value.requirement.is_some() && !kind_requirement,
+            ),
+        ] {
+            if present {
+                predicate(p.predicate_at(*id, role, 0)?, &env, p, context, *id)?;
+            }
         }
     }
     Ok(())
@@ -1881,8 +1951,81 @@ pub(crate) fn member_indices(row: &crate::Declaration) -> Vec<(&String, &String)
     Vec::new()
 }
 
-fn index_domain_type(
-    source: &str,
+fn member_index_type(
+    declaration: DeclarationId,
+    position: usize,
+    env: &BTreeMap<String, Type>,
+    package: &CheckedPackage,
+    context: &TypeContext<'_>,
+) -> Result<Type> {
+    match crate::temporal::index_domain(package, declaration, position)? {
+        crate::temporal::IndexDomain::Temporal { policy, axis } => package
+            .types
+            .get(&axis)
+            .cloned()
+            .ok_or_else(|| invalid(policy, "resolved temporal axis type absent")),
+        crate::temporal::IndexDomain::Authored { position } => index_domain_type(
+            package.static_at(
+                declaration,
+                &member_index_role(&package.declarations[&declaration]),
+                position,
+            )?,
+            env,
+            package,
+            context,
+            declaration,
+        ),
+    }
+}
+
+pub(crate) fn member_index_role(row: &crate::Declaration) -> String {
+    macro_rules! role { ($($field:ident),+) => { $(if row.value.$field.is_some() { return concat!(stringify!($field), ".indices.domain").into(); })+ }; }
+    role!(
+        binding,
+        equation,
+        accumulator,
+        contribution,
+        boundary,
+        exchange,
+        coordinate_slot,
+        ordered_set,
+        cardinality,
+        piecewise,
+        logic,
+        complementarity,
+        state_specification,
+        state_port,
+        inventory_balance,
+        connection
+    );
+    String::new()
+}
+
+pub(crate) fn member_index_names(row: &crate::Declaration) -> Vec<&str> {
+    macro_rules! names { ($($field:ident),+) => { $(if let Some(value) = &row.value.$field { return value.indices.iter().map(|index| index.name.as_str()).collect(); })+ }; }
+    names!(
+        binding,
+        equation,
+        accumulator,
+        contribution,
+        boundary,
+        exchange,
+        coordinate_slot,
+        ordered_set,
+        cardinality,
+        piecewise,
+        logic,
+        complementarity,
+        state_specification,
+        state_port,
+        inventory_balance,
+        connection
+    );
+    Vec::new()
+}
+
+pub(crate) fn index_domain_type(
+    value: &pse_authoring::language::StaticValue,
     env: &BTreeMap<String, Type>,
     p: &CheckedPackage,
     c: &TypeContext<'_>,
@@ -1945,11 +2088,12 @@ fn index_domain_type(
                 .ok_or_else(|| invalid(at, "unknown index domain constructor")),
         }
     }
-    syntax(p.static_source(at, source)?, env, p, c, at)
+    syntax(value, env, p, c, at)
 }
 
 fn process_index_environment(
     indices: impl IntoIterator<Item = (String, String)>,
+    role: &str,
     env: &BTreeMap<String, Type>,
     p: &CheckedPackage,
     c: &TypeContext<'_>,
@@ -1960,14 +2104,16 @@ fn process_index_environment(
         .into_iter()
         .map(|(name, _)| name.clone())
         .collect::<BTreeSet<_>>();
-    for (name, domain) in indices {
+    for (position, (name, _domain)) in indices.into_iter().enumerate() {
         if !bound.insert(name.clone()) {
             return Err(invalid(
                 at,
                 "process slot index shadows an existing binding",
             ));
         }
-        let Type::Set(element) = index_domain_type(&domain, &local, p, c, at)? else {
+        let Type::Set(element) =
+            index_domain_type(p.static_at(at, role, position)?, &local, p, c, at)?
+        else {
             return Err(invalid(at, "process slot indices require finite sets"));
         };
         local.insert(name, *element);
@@ -1998,14 +2144,14 @@ fn same_process_type(
 }
 
 fn process_value(
-    source: &str,
+    expression: &Expr,
     expected: &Type,
     env: &BTreeMap<String, Type>,
     p: &CheckedPackage,
     c: &TypeContext<'_>,
     at: DeclarationId,
 ) -> Result<()> {
-    let actual = infer(p.expression(at, source)?, env, p, c, at, Some(expected))?;
+    let actual = infer(expression, env, p, c, at, Some(expected))?;
     if !same_process_type(&actual, expected, c, at)? {
         return Err(invalid(
             at,
@@ -2026,14 +2172,19 @@ fn check_process_contracts(
         let mut ancestors = BTreeSet::from([at]);
         let mut owner = at;
         let mut local = env.clone();
-        while let Some(source) = p.declarations[&owner]
+        while let Some(_source) = p.declarations[&owner]
             .value
             .state_specification
             .as_ref()
             .and_then(|state| state.extends.as_ref())
         {
-            let base =
-                indexed_declaration_reference(p.expression(owner, source)?, &local, p, c, owner)?;
+            let base = indexed_declaration_reference(
+                p.expression_at(owner, "state_specification.extends", 0)?,
+                &local,
+                p,
+                c,
+                owner,
+            )?;
             if p.declarations[&base].value.state_specification.is_none() {
                 return Err(invalid(
                     at,
@@ -2044,9 +2195,12 @@ fn check_process_contracts(
                 return Err(invalid(at, "recursive state specification extension"));
             }
             local = declaration_environment(p, c, base)?;
-            for (name, domain) in member_indices(&p.declarations[&base]) {
+            for (position, (name, _domain)) in member_indices(&p.declarations[&base])
+                .into_iter()
+                .enumerate()
+            {
                 let (Type::Set(element) | Type::Continuous(_, element)) =
-                    index_domain_type(domain, &local, p, c, base)?
+                    member_index_type(base, position, &local, p, c)?
                 else {
                     return Err(invalid(base, "state index requires a set"));
                 };
@@ -2054,9 +2208,16 @@ fn check_process_contracts(
             }
             owner = base;
         }
-        process_value(&state.supplied, &Type::Boolean, env, p, c, at)?;
+        process_value(
+            p.expression_at(at, "state_specification.supplied", 0)?,
+            &Type::Boolean,
+            env,
+            p,
+            c,
+            at,
+        )?;
         let mut names = BTreeSet::new();
-        for slot in &state.coordinates {
+        for (position, slot) in state.coordinates.iter().enumerate() {
             if !names.insert(slot.name.as_str()) {
                 return Err(invalid(at, "duplicate state coordinate"));
             }
@@ -2064,12 +2225,20 @@ fn check_process_contracts(
                 slot.indices
                     .iter()
                     .map(|i| (i.name.clone(), i.domain.clone())),
+                &format!("state_specification.coordinates.{position}.indices.domain"),
                 env,
                 p,
                 c,
                 at,
             )?;
-            let target = infer(p.expression(at, &slot.target)?, &local, p, c, at, None)?;
+            let target = infer(
+                p.expression_at(at, "state_specification.coordinates.target", position)?,
+                &local,
+                p,
+                c,
+                at,
+                None,
+            )?;
             if target.quantity_scheme().is_none() {
                 return Err(invalid(
                     at,
@@ -2078,7 +2247,7 @@ fn check_process_contracts(
             }
         }
         names.clear();
-        for slot in &state.reconstructions {
+        for (position, slot) in state.reconstructions.iter().enumerate() {
             if !names.insert(slot.name.as_str()) {
                 return Err(invalid(at, "duplicate state reconstruction"));
             }
@@ -2086,6 +2255,7 @@ fn check_process_contracts(
                 slot.indices
                     .iter()
                     .map(|i| (i.name.clone(), i.domain.clone())),
+                &format!("state_specification.reconstructions.{position}.indices.domain"),
                 env,
                 p,
                 c,
@@ -2093,7 +2263,7 @@ fn check_process_contracts(
             )?;
             fn relation(
                 e: &dsl::Equation,
-                tolerance: &str,
+                tolerance: &Expr,
                 env: &BTreeMap<String, Type>,
                 p: &CheckedPackage,
                 c: &TypeContext<'_>,
@@ -2124,8 +2294,12 @@ fn check_process_contracts(
                 }
             }
             relation(
-                p.equation(at, &slot.equation)?,
-                &slot.tolerance,
+                p.equation_at(at, "state_specification.reconstructions.equation", position)?,
+                p.expression_at(
+                    at,
+                    "state_specification.reconstructions.tolerance",
+                    position,
+                )?,
                 &local,
                 p,
                 c,
@@ -2133,7 +2307,7 @@ fn check_process_contracts(
             )?;
         }
         names.clear();
-        for slot in &state.transports {
+        for (position, slot) in state.transports.iter().enumerate() {
             if !names.insert(slot.name.as_str()) {
                 return Err(invalid(at, "duplicate state transported observation"));
             }
@@ -2141,19 +2315,39 @@ fn check_process_contracts(
                 slot.indices
                     .iter()
                     .map(|i| (i.name.clone(), i.domain.clone())),
+                &format!("state_specification.transports.{position}.indices.domain"),
                 env,
                 p,
                 c,
                 at,
             )?;
-            let target = infer(p.expression(at, &slot.expression)?, &local, p, c, at, None)?;
+            let target = infer(
+                p.expression_at(at, "state_specification.transports.expression", position)?,
+                &local,
+                p,
+                c,
+                at,
+                None,
+            )?;
             let tolerance_type = Type::Quantity(delta(scheme(&target, at)?));
-            process_value(&slot.tolerance, &tolerance_type, &local, p, c, at)?;
+            process_value(
+                p.expression_at(at, "state_specification.transports.tolerance", position)?,
+                &tolerance_type,
+                &local,
+                p,
+                c,
+                at,
+            )?;
         }
     }
-    if let Some(port) = &row.value.state_port {
-        let target =
-            indexed_declaration_reference(p.expression(at, &port.specification)?, env, p, c, at)?;
+    if let Some(_port) = &row.value.state_port {
+        let target = indexed_declaration_reference(
+            p.expression_at(at, "state_port.specification", 0)?,
+            env,
+            p,
+            c,
+            at,
+        )?;
         if p.declarations[&target].value.state_specification.is_none() {
             return Err(invalid(at, "state port requires a state specification"));
         }
@@ -2163,8 +2357,22 @@ fn check_process_contracts(
             .types
             .get(&at)
             .ok_or_else(|| invalid(at, "inventory contract type absent"))?;
-        process_value(&balance.inventory, expected, env, p, c, at)?;
-        let axis = infer(p.expression(at, &balance.axis)?, env, p, c, at, None)?;
+        process_value(
+            p.expression_at(at, "inventory_balance.inventory", 0)?,
+            expected,
+            env,
+            p,
+            c,
+            at,
+        )?;
+        let axis = infer(
+            p.expression_at(at, "inventory_balance.axis", 0)?,
+            env,
+            p,
+            c,
+            at,
+            None,
+        )?;
         let (Type::Continuous(_, axis) | Type::Set(axis)) = axis else {
             return Err(invalid(at, "inventory balance requires a continuous axis"));
         };
@@ -2173,11 +2381,25 @@ fn check_process_contracts(
             Box::new(delta(inventory.clone())),
             Box::new(delta(scheme(&axis, at)?)),
         ));
-        process_value(&balance.flux, &flux, env, p, c, at)?;
+        process_value(
+            p.expression_at(at, "inventory_balance.flux", 0)?,
+            &flux,
+            env,
+            p,
+            c,
+            at,
+        )?;
         let difference = Type::Quantity(delta(inventory));
-        process_value(&balance.tolerance, &difference, env, p, c, at)?;
+        process_value(
+            p.expression_at(at, "inventory_balance.tolerance", 0)?,
+            &difference,
+            env,
+            p,
+            c,
+            at,
+        )?;
         let mut events = BTreeSet::new();
-        for (position, transfer) in balance.transfers.iter().enumerate() {
+        for (position, _transfer) in balance.transfers.iter().enumerate() {
             let event = p.expression_at(at, "inventory_balance.transfers.event", position)?;
             let target = indexed_declaration_reference(event, env, p, c, at)?;
             let ExprKind::Path(path) = &event.kind else {
@@ -2198,12 +2420,20 @@ fn check_process_contracts(
             if !events.insert((target, dsl::render_path(path))) {
                 return Err(invalid(at, "duplicate inventory event transfer"));
             }
-            process_value(&transfer.expression, &difference, env, p, c, at)?;
+            process_value(
+                p.expression_at(at, "inventory_balance.transfers.expression", position)?,
+                &difference,
+                env,
+                p,
+                c,
+                at,
+            )?;
         }
     }
-    if let Some(connection) = &row.value.connection {
-        let endpoints = [&connection.from, &connection.to]
-            .map(|source| indexed_declaration_reference(p.expression(at, source)?, env, p, c, at));
+    if let Some(_connection) = &row.value.connection {
+        let endpoints = ["connection.from", "connection.to"].map(|role| {
+            indexed_declaration_reference(p.expression_at(at, role, 0)?, env, p, c, at)
+        });
         let from = endpoints[0].as_ref().map_err(Clone::clone)?;
         let to = endpoints[1].as_ref().map_err(Clone::clone)?;
         let source = &p.declarations[from].value;
@@ -2237,14 +2467,14 @@ pub(crate) fn indexed_declaration_reference(
     let mut prefix = String::new();
     let mut selected = None;
     let mut current_type = None;
-    for segment in &path.segments {
+    for (position, segment) in path.segments.iter().enumerate() {
         if !prefix.is_empty() {
             prefix.push('.');
         }
         prefix.push_str(&segment.name);
         let id = if let Some(ty) = &current_type {
             member_declaration(ty, &segment.name, p, at)?
-        } else if let Some(id) = p.resolve(at, &prefix) {
+        } else if let Some(id) = p.resolve_segments(at, &path.segments[..=position]) {
             id
         } else if let Some(ty) = env.get(&prefix).filter(|_| segment.indices.is_empty()) {
             current_type = Some(ty.clone());
@@ -2262,6 +2492,26 @@ pub(crate) fn indexed_declaration_reference(
             id,
         )?;
         current_type = env.get(&prefix).or_else(|| p.types.get(&id)).cloned();
+        if current_type.is_none()
+            && p.declarations[&id].value.kind
+                == pse_model::generated::enums::ModelingDeclarationKind::Child
+        {
+            // An unannotated child still has a checked constructor occurrence.
+            // Resolve only its nominal source contract; selected arguments and
+            // instantiated/indexed port identities remain specialization obligations.
+            use pse_authoring::language::StaticValue;
+            let constructor = match p.static_at(id, "binding.expression", 0)? {
+                StaticValue::Apply { name, .. } => p.resolve(id, name),
+                StaticValue::Expression(Expr {
+                    kind: ExprKind::NamedCall { name, .. },
+                    ..
+                }) => p.resolve_segments(id, &name.segments),
+                _ => None,
+            };
+            if let Some(target) = constructor {
+                current_type = Some(Type::Definition(p.preset_definition(target)?));
+            }
+        }
         selected = Some(id);
     }
     selected.ok_or_else(|| invalid(at, "empty contextual declaration reference"))
@@ -2279,9 +2529,9 @@ fn check_member_indices(
         return Err(invalid(at, "member index arity"));
     }
     let mut local = declaration_environment(p, c, id)?;
-    for (index, (name, domain)) in segment.indices.iter().zip(indices) {
+    for (position, (index, (name, _domain))) in segment.indices.iter().zip(indices).enumerate() {
         let (Type::Set(element) | Type::Continuous(_, element)) =
-            index_domain_type(domain, &local, p, c, id)?
+            member_index_type(id, position, &local, p, c)?
         else {
             return Err(invalid(id, "index domain must be a set"));
         };
@@ -2316,12 +2566,13 @@ fn path_type(
         .map(|s| s.name.as_str())
         .collect::<Vec<_>>()
         .join(".");
-    if path.segments.iter().all(|s| s.indices.is_empty())
+    if path.segments.len() == 1
+        && path.segments.iter().all(|s| s.indices.is_empty())
         && let Some(ty) = env.get(&qualified)
     {
         // A declared indexed member still requires coordinates; lexical values do not.
         if !p
-            .resolve(at, &qualified)
+            .resolve_segments(at, &path.segments)
             .is_some_and(|id| !member_indices(&p.declarations[&id]).is_empty())
         {
             return Ok(ty.clone());
@@ -2337,9 +2588,12 @@ fn path_type(
             prefix.push('.');
         }
         prefix.push_str(&segment.name);
-        let declaration = p.resolve(at, &prefix);
+        let declaration = p.resolve_segments(at, &path.segments[..=position]);
         if let Some(ty) = env
             .get(&prefix)
+            .filter(|_| {
+                position == 0 || declaration.is_some() || p.physical_name(at, &prefix).is_some()
+            })
             .cloned()
             .or_else(|| declaration.and_then(|id| p.types.get(&id).cloned()))
         {
@@ -2358,6 +2612,11 @@ fn path_type(
         });
         if let Some(refined) = env.get(&prefix)
             && (position > 0 || !segment.indices.is_empty())
+            && !p
+                .resolve_segments(at, &path.segments[..=position])
+                .is_some_and(|id| {
+                    segment.indices.is_empty() && !member_indices(&p.declarations[&id]).is_empty()
+                })
         {
             ty = refined.clone();
             declaration = None;
@@ -2428,9 +2687,9 @@ fn path_type(
             if segment.indices.is_empty() && !indices.is_empty() {
                 let mut axes = Vec::new();
                 let mut local = declaration_environment(p, c, id)?;
-                for (name, domain) in &indices {
+                for (position, (name, _domain)) in indices.iter().enumerate() {
                     let (Type::Set(element) | Type::Continuous(_, element)) =
-                        index_domain_type(domain, &local, p, c, id)?
+                        member_index_type(id, position, &local, p, c)?
                     else {
                         return Err(invalid(id, "index domain must be a set"));
                     };
@@ -2538,20 +2797,26 @@ fn refine(
         }
         PredicateKind::Atom(expression) => {
             if let ExprKind::NamedCall { name, args } = &expression.kind {
-                if name == "present"
+                if name.is_ident("present")
                     && args.len() == 1
                     && let ExprKind::Path(path) = &args[0].kind
                     && let Type::Optional(inner) = infer(&args[0], &env, p, c, at, None)?
                 {
                     env.insert(dsl::render_path(path), *inner);
                 }
-                if name == "implements"
+                if name.is_ident("implements")
                     && args.len() == 2
                     && let (ExprKind::Path(target), ExprKind::Path(contract)) =
                         (&args[0].kind, &args[1].kind)
                 {
                     let id = p
-                        .resolve(at, &dsl::render_path(contract))
+                        .resolve_segments(at, &contract.segments)
+                        .filter(|_| {
+                            contract
+                                .segments
+                                .iter()
+                                .all(|segment| segment.indices.is_empty())
+                        })
                         .ok_or_else(|| invalid(at, "interface refinement"))?;
                     if !matches!(p.types.get(&id), Some(Type::Interface(_))) {
                         return Err(invalid(at, "interface refinement requires an interface"));
@@ -2610,14 +2875,26 @@ fn objective_members(
             )
             .map_err(|e| invalid(id, e.to_string()))?,
     ));
-    for (source, expected) in [
-        (&members.weight, &scalar),
-        (&members.normalization, target),
-        (&members.absolute_tolerance, &difference),
-        (&members.relative_tolerance, &scalar),
+    for (role, source, expected) in [
+        ("annotation.objective.weight", &members.weight, &scalar),
+        (
+            "annotation.objective.normalization",
+            &members.normalization,
+            target,
+        ),
+        (
+            "annotation.objective.absolute_tolerance",
+            &members.absolute_tolerance,
+            &difference,
+        ),
+        (
+            "annotation.objective.relative_tolerance",
+            &members.relative_tolerance,
+            &scalar,
+        ),
     ] {
-        if let Some(source) = source {
-            let expression = p.expression(id, source)?;
+        if let Some(_source) = source {
+            let expression = p.expression_at(id, role, 0)?;
             if infer(expression, env, p, context, id, Some(expected))? != *expected {
                 return Err(invalid(id, "objective member type differs"));
             }

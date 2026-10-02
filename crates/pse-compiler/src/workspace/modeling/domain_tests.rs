@@ -16,7 +16,7 @@ pub(super) fn power() -> QuantityTypeId {
     quantity("e1f2106da9eb4fe0aa2749fa5469fa1a")
 }
 pub(super) fn setup(text: &str) -> (CompilerWorkspace, DeclarationId) {
-    let input = super::super::tests::inputs();
+    let input = crate::authored_transfer_tests::context();
     let names = PhysicalScope::default();
     let rows = parse(
         text,
@@ -144,7 +144,7 @@ fn integer_requires_count_or_indicator_type() {
         ParseBudget::default(),
     )
     .unwrap();
-    let input = super::super::tests::inputs();
+    let input = crate::authored_transfer_tests::context();
     let mut w = CompilerWorkspace::new(input, WorkspaceLimits::default()).unwrap();
     assert!(w.publish_modeling(rows, PhysicalScope::default()).is_err());
 }

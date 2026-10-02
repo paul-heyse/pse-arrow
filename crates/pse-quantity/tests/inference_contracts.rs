@@ -240,8 +240,8 @@ fn missing_and_ambiguous_compositions_never_use_dimension_only_fallback() {
     let operands = [operand(2, &scalar), operand(2, &scalar)];
     assert!(matches!(
         infer(&OpRequest::Mul, &operands, &fixture(0)),
-        Err(QuantityError::OperationUnsupported {
-            ordered_matches: 0,
+        Err(QuantityError::InferencePrecondition {
+            rule: "physical.named_boundary",
             ..
         })
     ));
@@ -491,7 +491,10 @@ fn registered_sum_contract_changes_kind_and_never_falls_back_after_refusal() {
     // A shape-only scalar of the original kind exists, but must not mask a broken contraction.
     assert!(matches!(
         infer(&request, &operands, &missing_result),
-        Err(QuantityError::UnregisteredResultType { .. })
+        Err(QuantityError::InferencePrecondition {
+            rule: "physical.named_boundary",
+            ..
+        })
     ));
     let wrong = OpRequest::Reduce {
         kind: ReductionKind::Sum,

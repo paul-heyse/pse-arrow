@@ -20,6 +20,8 @@
     clippy::print_stdout,
     reason = "a standalone measurement harness fails on invalid setup and emits its records"
 )]
+#[path = "k4/preparation.rs"]
+mod k4_preparation;
 #[path = "native_process/phases.rs"]
 mod phases;
 #[allow(
@@ -60,10 +62,18 @@ async fn seed(owner: &WorkflowRuntime, bench: &BTreeMap<String, String>) -> Mode
     };
     let root = repository().join("packages/reference");
     let pool = owner.runtime.pool();
+    let validation = owner.sessions.validation_context(&owner.registry).unwrap();
     let documents = |names: &[&str], bench: Option<&BTreeMap<String, String>>| {
         let mut bundles = names
             .iter()
-            .map(|name| load_package(&root.join(name), &owner.registry, Default::default()))
+            .map(|name| {
+                load_package(
+                    &root.join(name),
+                    &owner.registry,
+                    Default::default(),
+                    &validation,
+                )
+            })
             .collect::<Result<Vec<_>, _>>()
             .unwrap();
         if let Some(texts) = bench {
@@ -75,11 +85,12 @@ async fn seed(owner: &WorkflowRuntime, bench: &BTreeMap<String, String>) -> Mode
                         .collect(),
                     &owner.registry,
                     Default::default(),
+                    &validation,
                 )
                 .unwrap(),
             );
         }
-        load_bundles_owned(&bundles, &owner.registry, &pool, &owner.cancel).unwrap()
+        load_bundles_owned(&bundles, &owner.registry, &pool, &owner.cancel, &validation).unwrap()
     };
     let runtime = Runtime::from_shared(
         owner.runtime.clone(),
@@ -119,15 +130,20 @@ async fn seed(owner: &WorkflowRuntime, bench: &BTreeMap<String, String>) -> Mode
 }
 
 /// Ordered membership of the published bank, read from its authored set declaration.
-fn bank_members(registry: &pse_schema::Registry) -> Vec<String> {
+fn bank_members(owner: &WorkflowRuntime) -> Vec<String> {
     use pse_authoring::language::{StaticValue, parse_static};
     use pse_relations::{
         columnar::RelationRow, generated::authored::modeling_declarations as wire,
     };
     let bundle = pse_runtime::authoring_driver::document::load_package(
         &repository().join("packages/reference/data/gross-sadowski-2001"),
-        registry,
+        &owner.registry,
         Default::default(),
+        owner
+            .sessions
+            .validation_context(&owner.registry)
+            .unwrap()
+            .as_ref(),
     )
     .unwrap();
     let row = wire::Row::rows(&bundle.batches[&wire::RELATION_ID])
@@ -350,12 +366,11 @@ async fn prepare(
         let bodies: Vec<_> = admitted
             .bodies
             .values()
-            .map(|b| &b.math)
+            .map(|b| b.math())
             .chain(
                 admitted
-                    .implicit
-                    .values()
-                    .flat_map(|i| i.bodies().map(|b| &b.math)),
+                    .implicit_systems()
+                    .flat_map(|i| i.bodies().map(|b| b.math())),
             )
             .collect();
         let plan = &prepared.model.case.compiled().plan;
@@ -441,11 +456,31 @@ fn preparation(c: &mut Criterion) {
         .enable_all()
         .build()
         .unwrap();
+    if let Some(workload) = selected
+        .as_deref()
+        .and_then(|id| workloads.iter().find(|w| w["id"] == id))
+        .filter(|w| w["model"] == "scalar-k4")
+    {
+        k4_preparation::measure(c, workload, output.as_deref(), &phases);
+        return;
+    }
+    if selected.is_none() && measuring {
+        for workload in workloads.iter().filter(|w| w["model"] == "scalar-k4") {
+            k4_preparation::measure(c, workload, output.as_deref(), &phases);
+        }
+    }
     // Workloads take deterministic prefixes of one declared published bank.
-    let bench = bench_package(
-        &bank_members(&pse_schema::shared_registry().unwrap()),
-        &workloads,
-    );
+    let bench = {
+        let owner = WorkflowRuntime::with_threads(std::num::NonZeroUsize::new(1).unwrap()).unwrap();
+        bench_package(
+            &bank_members(&owner),
+            &workloads
+                .iter()
+                .filter(|w| w["model"] != "scalar-k4")
+                .cloned()
+                .collect::<Vec<_>>(),
+        )
+    };
     let mut group = c.benchmark_group("modeling_preparation");
     group
         .sample_size(10)
@@ -454,7 +489,7 @@ fn preparation(c: &mut Criterion) {
         .measurement_time(Duration::from_secs(1));
     for workload in workloads.iter().filter(|w| match selected.as_deref() {
         Some(id) => w["id"] == id,
-        None => measuring || w["smoke"] == true,
+        None => (measuring || w["smoke"] == true) && w["model"] != "scalar-k4",
     }) {
         let id = workload["id"].as_str().unwrap();
         let mut records = Vec::new();

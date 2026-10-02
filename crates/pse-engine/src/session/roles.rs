@@ -204,8 +204,13 @@ impl EngineSession {
                 .relation_by_key(key)
                 .ok_or_else(|| invalid("role input declaration is absent"))?;
             let batch = pse_columnar::owned_buffer::copy_batch(&batch, &result.pool, cancel)?;
-            let input =
-                pse_relations::columnar::FieldCheckedBatch::admit(&result.registry, spec, batch)?;
+            let input = pse_relations::columnar::FieldCheckedBatch::admit(
+                &result.registry,
+                spec,
+                batch,
+                result.validation_context()?.as_ref(),
+                cancel,
+            )?;
             let table: Arc<dyn TableProvider> = Arc::new(ImmutableTable::candidate(input.clone()));
             result
                 .bindings

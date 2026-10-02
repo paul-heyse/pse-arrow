@@ -193,8 +193,13 @@ impl EngineSession {
                     }
                     columns.push((
                         (*name).to_owned(),
-                        output::checked_array_literal(self.registry(), column, bound.array())
-                            .map_err(engine)?,
+                        output::checked_array_literal(
+                            self.registry(),
+                            column,
+                            bound.array(),
+                            self.validation_context()?.as_ref(),
+                        )
+                        .map_err(engine)?,
                     ));
                     origins.insert((*name).to_owned(), MappingSource::Target);
                 }
@@ -392,9 +397,9 @@ fn apply_mapping(
                             None,
                             vec![presence.clone()],
                             vec![value],
-                            Some(Box::new(lit(ScalarValue::try_from(source.data_type())
-                                .map_err(datafusion::common::DataFusionError::from)
-                                .map_err(engine)?))),
+                            Some(Box::new(lit(
+                                ScalarValue::try_from(source.data_type()).map_err(engine)?
+                            ))),
                         )
                         .end()
                         .map_err(engine)?
@@ -483,17 +488,18 @@ fn apply_mapping(
                                 session.registry(),
                                 column,
                                 row.target[slot].array(),
+                                session.validation_context()?.as_ref(),
                             )
                             .map_err(engine)?,
                         );
                     }
-                    let null = ScalarValue::try_from(target_fields[slot].data_type())
-                        .map_err(datafusion::common::DataFusionError::from)
-                        .map_err(engine)?;
+                    let null =
+                        ScalarValue::try_from(target_fields[slot].data_type()).map_err(engine)?;
                     let fallback = output::checked_literal(
                         session.registry(),
                         &(*column).clone().optional(),
                         null,
+                        session.validation_context()?.as_ref(),
                     )
                     .map_err(engine)?;
                     let expression = output::same_field_cases(

@@ -17,7 +17,7 @@ use std::{
 #[derive(Clone, Debug)]
 pub struct ModelingRevision {
     admitted: Arc<pse_compiler::workspace::ModelingRevision>,
-    identity: pse_ids::ContentHash,
+    identity: pse_ids::roles::SourceRevisionHash,
     _lease: Arc<AllocationLease>,
 }
 impl ModelingRevision {
@@ -36,7 +36,10 @@ impl ModelingRevision {
             ))
         })
     }
-    pub(crate) fn identity(&self) -> pse_ids::ContentHash {
+    pub(crate) fn retained_bytes(&self) -> usize {
+        self.admitted.retained_bytes() + size_of::<Self>() + 128
+    }
+    pub(crate) fn identity(&self) -> pse_ids::roles::SourceRevisionHash {
         self.identity
     }
     pub(crate) fn declarations(&self) -> &[Declaration] {
@@ -70,7 +73,7 @@ pub(crate) fn source_revision(
     documents: &pse_modeling::document::DocumentInventory,
     physical: &pse_ids::ContentHash,
     names: &BTreeMap<String, SemanticId>,
-) -> pse_ids::ContentHash {
+) -> pse_ids::roles::SourceRevisionHash {
     use pse_model::SemanticFrame;
     let mut source = pse_ids::FramedHasher::new(pse_ids::Frame::ModelingSourceRevisionV4);
     source.u64(rows.len() as u64);
@@ -86,14 +89,14 @@ pub(crate) fn source_revision(
     for (name, id) in names {
         source.str(name).id(id);
     }
-    source.finish_hash()
+    pse_ids::roles::SourceRevisionHash::from_id(source.finish_hash())
 }
 /// Kernel products retain memory after the workspace generation rotates.
 #[derive(Clone, Debug)]
 pub struct ModelingPreparation {
     product: PreparedModeling,
     solved: Solved,
-    _lease: Arc<AllocationLease>,
+    _owner: Arc<super::products::ProductOwner>,
 }
 impl ModelingPreparation {
     /// Source lineage, original values, typed mathematics and structural evidence.
@@ -132,7 +135,7 @@ pub struct ModelingTermEvidence {
 #[derive(Clone, Debug)]
 pub struct ModelingInner {
     /// The checked implicit system.
-    pub admitted: Arc<pse_compiler::workspace::AdmittedImplicit>,
+    pub admitted: pse_math::SharedAllocation<pse_compiler::workspace::AdmittedImplicit>,
     /// Numerical configuration of each residual alternative, by residual.
     pub configurations: BTreeMap<SemanticId, pse_math::implicit::Configuration>,
 }
@@ -274,7 +277,7 @@ impl MathService {
                     let dependencies = item
                         .admitted
                         .bodies()
-                        .flat_map(|b| b.math.providers())
+                        .flat_map(|b| b.math().providers())
                         .map(pse_kernels::ProviderSpec::key)
                         .collect::<Vec<_>>();
                     let descriptor = item
@@ -592,22 +595,18 @@ impl MathService {
             // Every product is shared; only the recorded fixed and parameter values follow
             // the new values, which needs no worker.
             let rebound = compiled.rebind(&values, &Arc::new(AtomicBool::new(false)))?;
+            let bytes = rebound.rebind_allocation_bytes(&compiled);
             return Ok(Self::own_rebind(
                 prepared,
                 rebound,
-                self.reserve("math:rebind", 0)?,
+                self.reserve("math:rebind", bytes)?,
             ));
         }
         let control = FlightCancellation::default();
         let operation =
             self.job_retained(1, self.policy.worker_bytes, control.clone(), move |flag| {
                 let rebound = compiled.rebind(&values, &flag)?;
-                let bytes = rebound.presolve.bytes()
-                    + rebound
-                        .coefficients
-                        .as_ref()
-                        .map_or(0, |c| c.retained_bytes())
-                    + rebound.derived.retained_bytes();
+                let bytes = rebound.rebind_allocation_bytes(&compiled);
                 Ok((rebound, bytes))
             });
         tokio::pin!(operation);
@@ -698,10 +697,11 @@ impl MathService {
         tokio::pin!(operation);
         let (product, lease) = tokio::select! {result=&mut operation=>result?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
         let solved = lineage.solved(root, instance)?;
+        let owner = self.own_modeling_product(&product, lease)?;
         Ok(ModelingPreparation {
-            product,
+            product: product.with_owner(owner.clone()),
             solved,
-            _lease: lease,
+            _owner: owner,
         })
     }
 }
@@ -730,6 +730,7 @@ mod tests {
     fn documents(bytes: &[u8]) -> DocumentInventory {
         let id = pse_ids::named_id(SemanticId::from_bytes([5; 16]), "data/t.parquet");
         DocumentInventory {
+            field_spans: BTreeMap::new(),
             packages: BTreeMap::new(),
             documents: BTreeMap::from([(
                 id,
@@ -762,6 +763,7 @@ mod tests {
                 &ContentHash::from_bytes([0; 32]),
                 &BTreeMap::new()
             )
+            .as_id()
             .to_hex(),
             "30df31c5f268df111f7875c912d9c492bca249e249b07cbd27dc49b719372401"
         );

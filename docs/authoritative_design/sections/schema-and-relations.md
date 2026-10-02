@@ -275,11 +275,19 @@ Admission happens in stages, and each stage establishes only its own facts:
    `pse_relations::validate`). Storage-type compatibility or Arrow's `equals_datatype`
    never establishes a declared field, because both ignore names, metadata or nullability.
 2. **Value and domain conditions.** Declared native predicates are bound once against
-   the actual invocation (`pse_engine::session::checks`, `pse_engine::validation`).
-3. **Relational obligations.** Keys, foreign keys, closure and coverage run as one native
-   diagnostic query compiled from the registry (`pse_rules::invariants`). The same
-   declaration-owned interpretation of keys and visible references
-   (`pse_schema::obligations`) serves publication admission in `pse-catalog`.
+   the actual invocation through an explicit immutable `ValidationContext` created by
+   its actual engine factory or session. Local contexts refuse SQL predicates requiring
+   unavailable runtime semantics. Generated builders and views receive that owner.
+3. **Relational obligations.** Publication admission consumes declaration-owned keys and
+   visible references (`pse_schema::obligations`) in `pse-catalog`. Source and physical
+   admission call the shared Rust closure/reference/acyclicity predicates in `pse-rules`;
+   neither relies on an imagined global SQL enforcement stage. Registry invariant queries
+   remain explicit inspection operations where declared.
+
+> Supplement: [ADR-0150](../../adr/0150-checked-admission-and-owned-reuse.md)
+> (proposed; authorized implementation). Context-owned memo slots build outside the map
+> lock, share independent completion and refuse same-chain or cross-worker wait cycles
+> with typed implementation keys. No process-global installer supplies admission meaning.
 
 A property holds only when one of three things establishes it:
 
@@ -713,7 +721,7 @@ parity only, not numerical equivalence.
 > [ADR-0100](../../adr/0100-modeling-functions-and-accounting.md) (proposed).
 
 `pse-modeling` owns pure checking and specialization over generated declaration values.
-`pse-compiler` owns the single Salsa workspace and mathematical lowering. Runtime package
+`pse-compiler` owns local Salsa dependency tracking and mathematical lowering. Runtime package
 admission supplies the immutable dependency closure and physical context. Checking,
 specialization and numerical execution have separate owners and lifetimes.
 

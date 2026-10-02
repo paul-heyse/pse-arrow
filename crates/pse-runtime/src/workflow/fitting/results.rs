@@ -31,6 +31,7 @@ impl RunResult {
             _ => return Err(contract("fit report mismatch")),
         };
         let registry = &self.runtime.registry;
+        let validation = self.runtime.validation_context()?;
         let staging = pse_columnar::MemoryConsumer::new("workflow:fit-encoding")
             .register(&self.runtime.shared.pool());
         staging
@@ -40,7 +41,8 @@ impl RunResult {
                     .ok_or_else(|| contract("fit encoding extent"))?,
             )
             .map_err(|e| WorkflowError::Math(e.into()))?;
-        let mut header = computation_runs::Builder::with_registry(registry, 1).map_err(relation)?;
+        let mut header =
+            computation_runs::Builder::with_registry(registry, 1, &validation).map_err(relation)?;
         header
             .push(
                 self.completion()
@@ -51,15 +53,18 @@ impl RunResult {
             )
             .map_err(relation)?;
         let mut parameters =
-            fit_parameters::Builder::with_registry(registry, 0).map_err(relation)?;
+            fit_parameters::Builder::with_registry(registry, 0, &validation).map_err(relation)?;
         let mut observations =
-            fit_observations::Builder::with_registry(registry, 0).map_err(relation)?;
+            fit_observations::Builder::with_registry(registry, 0, &validation).map_err(relation)?;
         let mut responses =
-            response_sensitivities::Builder::with_registry(registry, 0).map_err(relation)?;
-        let mut metrics = solve_metrics::Builder::with_registry(registry, 0).map_err(relation)?;
-        let mut states = fit_variables::Builder::with_registry(registry, 0).map_err(relation)?;
+            response_sensitivities::Builder::with_registry(registry, 0, &validation)
+                .map_err(relation)?;
+        let mut metrics =
+            solve_metrics::Builder::with_registry(registry, 0, &validation).map_err(relation)?;
+        let mut states =
+            fit_variables::Builder::with_registry(registry, 0, &validation).map_err(relation)?;
         let mut constraints =
-            fit_constraints::Builder::with_registry(registry, 0).map_err(relation)?;
+            fit_constraints::Builder::with_registry(registry, 0, &validation).map_err(relation)?;
         for (ei, e) in p.experiments.iter().enumerate() {
             if let Experiment::Steady(s) = e {
                 let experiment = p.declaration.experiments[ei].experiment_id;
@@ -305,14 +310,15 @@ impl RunResult {
             crate::workflow::results::push_native_metrics(&mut metrics, self.run_id, 0, s, events)?;
         }
         let mut certificates =
-            infeasibility_certificates::Builder::with_registry(registry, 0).map_err(relation)?;
+            infeasibility_certificates::Builder::with_registry(registry, 0, &validation)
+                .map_err(relation)?;
         if let Some(row) = report
             .and_then(|r| r.solve.as_ref())
             .and_then(|s| crate::workflow::results::certificate_row(self.run_id, 0, s))
         {
             certificates.push(row).map_err(relation)?;
         }
-        let mut batches = uncertainty(registry, self.run_id, p, report.map(|r| &**r))?;
+        let mut batches = uncertainty(registry, &validation, self.run_id, p, report.map(|r| &**r))?;
         batches.extend([
             (
                 fit_variables::RELATION_ID,
@@ -347,11 +353,12 @@ impl RunResult {
                 certificates.finish().map_err(relation)?,
             ),
         ]);
-        batches.extend(source.fit_declarations.tables(registry)?);
+        batches.extend(source.fit_declarations.tables(registry, &validation)?);
         use pse_relations::generated::runtime::{modeling_checks, modeling_reports};
-        let mut checks = modeling_checks::Builder::with_registry(registry, 0).map_err(relation)?;
+        let mut checks =
+            modeling_checks::Builder::with_registry(registry, 0, &validation).map_err(relation)?;
         let mut reports =
-            modeling_reports::Builder::with_registry(registry, 0).map_err(relation)?;
+            modeling_reports::Builder::with_registry(registry, 0, &validation).map_err(relation)?;
         if let Some(report) = report {
             for row in &report.checks {
                 checks.push(row.clone()).map_err(relation)?;
@@ -379,20 +386,23 @@ impl RunResult {
 /// rows of the certified ones; the response directions whenever the responses exist.
 fn uncertainty(
     registry: &pse_schema::Registry,
+    validation: &pse_relations::validate::ValidationContext,
     run_id: RunId,
     p: &FitProblem,
     report: Option<&FitReport>,
 ) -> Result<BTreeMap<SemanticId, FieldCheckedBatch>, WorkflowError> {
-    let mut validity = local_validity::Builder::with_registry(registry, 0).map_err(relation)?;
+    let mut validity =
+        local_validity::Builder::with_registry(registry, 0, validation).map_err(relation)?;
     let mut covariances =
-        parameter_covariances::Builder::with_registry(registry, 0).map_err(relation)?;
+        parameter_covariances::Builder::with_registry(registry, 0, validation).map_err(relation)?;
     let mut intervals =
-        parameter_intervals::Builder::with_registry(registry, 0).map_err(relation)?;
-    let mut points = profile_points::Builder::with_registry(registry, 0).map_err(relation)?;
+        parameter_intervals::Builder::with_registry(registry, 0, validation).map_err(relation)?;
+    let mut points =
+        profile_points::Builder::with_registry(registry, 0, validation).map_err(relation)?;
     let mut directions =
-        response_directions::Builder::with_registry(registry, 0).map_err(relation)?;
-    let mut propagated =
-        propagated_covariances::Builder::with_registry(registry, 0).map_err(relation)?;
+        response_directions::Builder::with_registry(registry, 0, validation).map_err(relation)?;
+    let mut propagated = propagated_covariances::Builder::with_registry(registry, 0, validation)
+        .map_err(relation)?;
     let predictions = p
         .profile
         .uncertainty
@@ -716,8 +726,13 @@ impl RunResult {
             .reserve("fit:parameter-export", bytes)?;
         let pool = self.runtime.shared.pool();
         let cancel = pse_columnar::CancellationToken::default();
-        let mut builder =
-            pse_relations::columnar::Collection::new(&self.runtime.registry, &pool, &cancel);
+        let validation = self.runtime.validation_context()?;
+        let mut builder = pse_relations::columnar::Collection::new(
+            &self.runtime.registry,
+            &pool,
+            &cancel,
+            &validation,
+        );
         builder.ensure::<cells::Row>().map_err(relation)?;
         for (i, parameter) in problem.declaration.parameters.iter().enumerate() {
             let value = if parameter.fixed {
@@ -736,7 +751,7 @@ impl RunResult {
                 .push(cells::Row {
                     run_id: self.run_id,
                     fit_id: problem.declaration.fit_id,
-                    source_revision: prepared.source.revision.identity(),
+                    source_revision: prepared.source.revision.identity().as_id(),
                     fit_source: problem.source_identity,
                     parameter_id: parameter.symbol_id,
                     quantity_type_id: problem.parameter_ports[i].quantity.as_id(),

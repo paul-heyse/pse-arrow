@@ -21,6 +21,11 @@ pub(crate) async fn values(
     columns: &[&FieldContract],
     values: &[serde_json::Value],
 ) -> pse_ids::ContentHash {
+    let context = SessionContext::new();
+    let validation = pse_relations::validate::ValidationContext::new(
+        registry,
+        pse_engine::validation::NativeValidation(context.state()),
+    );
     let fields = columns
         .iter()
         .map(|column| pse_schema::arrow::field_for(registry, column).unwrap())
@@ -33,12 +38,13 @@ pub(crate) async fn values(
                 registry,
                 field,
                 std::slice::from_ref(value),
+                &validation,
             )
             .unwrap()
         })
         .collect();
     let batch = RecordBatch::try_new(Arc::new(Schema::new(fields)), arrays).unwrap();
-    let batches = SessionContext::new()
+    let batches = context
         .read_batch(batch)
         .unwrap()
         .select(vec![pse_relations::identity::key(

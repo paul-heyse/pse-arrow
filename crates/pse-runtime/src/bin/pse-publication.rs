@@ -157,7 +157,6 @@ fn runtime(cli: &Cli) -> Result<Runtime, String> {
     })
     .map_err(|e| format!("runtime budget: {e}"))?;
     let registry = pse_schema::shared_registry().map_err(|e| format!("registry: {e}"))?;
-    pse_engine::validation::bind_defaults(&registry).map_err(|e| format!("validation: {e}"))?;
     let sessions = Arc::new(
         shared
             .session_factory(pse_engine::session::native_engine_profile())

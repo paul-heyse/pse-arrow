@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 2u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    21u8, 155u8, 133u8, 192u8, 181u8, 19u8, 143u8, 188u8, 10u8, 79u8, 223u8, 255u8, 46u8,
-    162u8, 226u8, 191u8, 78u8, 137u8, 187u8, 68u8, 183u8, 56u8, 125u8, 150u8, 165u8,
-    246u8, 53u8, 18u8, 195u8, 249u8, 135u8, 120u8,
+    250u8, 24u8, 74u8, 123u8, 37u8, 254u8, 245u8, 232u8, 146u8, 44u8, 237u8, 233u8,
+    159u8, 193u8, 125u8, 227u8, 2u8, 152u8, 46u8, 194u8, 140u8, 53u8, 9u8, 170u8, 1u8,
+    2u8, 228u8, 174u8, 44u8, 84u8, 50u8, 149u8,
 ]);
 impl crate::columnar::ArrowValue for AuthoredPackagesFieldDependenciesItem {
     fn append(
@@ -216,9 +216,17 @@ pub fn schema() -> Result<crate::SchemaRef, crate::RelationError> {
 /// Checks schema, recursive extension contracts and visible values.
 /// # Errors
 /// All independently actionable violations.
-pub fn validate(batch: &crate::RecordBatch) -> Result<(), Vec<crate::RelationError>> {
+pub fn validate(
+    batch: &crate::RecordBatch,
+    context: &crate::validate::ValidationContext,
+) -> Result<(), Vec<crate::RelationError>> {
     let reg = pse_schema::registry().map_err(|error| vec![error.into()])?;
-    crate::validate::validate_batch(reg, spec(reg).map_err(|error| vec![error])?, batch)
+    crate::validate::validate_batch(
+        reg,
+        spec(reg).map_err(|error| vec![error])?,
+        batch,
+        context,
+    )
 }
 impl crate::columnar::RelationRow for AuthoredPackagesRow {
     type Builder = AuthoredPackagesBuilder;
@@ -256,8 +264,9 @@ impl crate::columnar::RelationRow for AuthoredPackagesRow {
     fn builder(
         registry: &pse_schema::Registry,
         capacity: usize,
+        context: &crate::validate::ValidationContext,
     ) -> Result<Self::Builder, crate::RelationError> {
-        AuthoredPackagesBuilder::with_registry(registry, capacity)
+        AuthoredPackagesBuilder::with_registry(registry, capacity, context)
     }
     fn push(builder: &mut Self::Builder, row: Self) -> Result<(), crate::RelationError> {
         builder.push(row)
@@ -451,8 +460,9 @@ impl<'a> AuthoredPackagesView<'a> {
     /// A schema, field contract or local value violation.
     pub fn try_from_batch(
         batch: &'a crate::RecordBatch,
+        context: &crate::validate::ValidationContext,
     ) -> Result<Self, crate::RelationError> {
-        Self::try_from_batch_with_registry(pse_schema::registry()?, batch)
+        Self::try_from_batch_with_registry(pse_schema::registry()?, batch, context)
     }
     /// Admits a raw candidate with an explicitly bound registry.
     /// # Errors
@@ -460,8 +470,9 @@ impl<'a> AuthoredPackagesView<'a> {
     pub fn try_from_batch_with_registry(
         registry: &pse_schema::Registry,
         batch: &'a crate::RecordBatch,
+        context: &crate::validate::ValidationContext,
     ) -> Result<Self, crate::RelationError> {
-        crate::validate::validate_batch(registry, spec(registry)?, batch)
+        crate::validate::validate_batch(registry, spec(registry)?, batch, context)
             .map_err(|errors| crate::RelationError::Validation {
                 errors,
             })?;

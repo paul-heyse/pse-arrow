@@ -84,7 +84,10 @@ impl Sources {
     )]
     async fn load(root: &Path, packages: &[String], declaration: &Registry) -> Result<Self> {
         let registry = Arc::new(pse_schema::catalog::assemble()?);
-        pse_engine::validation::bind_defaults(&registry)?;
+        ensure!(
+            registry.fingerprint() == declaration.fingerprint(),
+            "physical fixture registry differs from the generator declaration"
+        );
         let spill = tempfile::tempdir()?;
         let one = NonZeroUsize::new(1).context("positive thread count")?;
         let runtime = SharedRuntime::build(ResourceBudget {
@@ -103,6 +106,8 @@ impl Sources {
         })?;
         let cancel = CancellationToken::new();
         let pool = runtime.pool();
+        let factory = runtime.session_factory(native_engine_profile())?;
+        let validation = factory.validation_context(&registry)?;
         let mut bundles = Vec::new();
         for path in packages {
             ensure!(
@@ -111,15 +116,17 @@ impl Sources {
             );
             bundles.push(load_package(
                 &root.join(path),
-                declaration,
+                &registry,
                 ParseBudget::default(),
+                &validation,
             )?);
         }
         let documents = pse_runtime::authoring_driver::document::load_bundles_owned(
             &bundles,
-            declaration,
+            &registry,
             &pool,
             &cancel,
+            &validation,
         )?;
         let mut checked = BTreeMap::new();
         for spec in registry.relations().iter().filter(|spec| {
@@ -146,12 +153,11 @@ impl Sources {
                 .context("registry source declaration")?;
             checked.insert(
                 key,
-                FieldCheckedBatch::admit(&registry, spec, batch)?.retained(&pool, &cancel)?,
+                FieldCheckedBatch::admit(&registry, spec, batch, &validation, &cancel)?
+                    .retained(&pool, &cancel)?,
             );
         }
-        let session = runtime
-            .session_factory(native_engine_profile())?
-            .candidate_checked(checked.clone(), registry, &cancel)?;
+        let session = factory.candidate_checked(checked.clone(), registry, &cancel)?;
         let packages = checked
             .get(&authored::packages::spec(session.registry())?.key)
             .context("package headers absent")?;

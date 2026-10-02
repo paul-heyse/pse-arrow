@@ -67,20 +67,6 @@ async fn prepared_rounds(rows: usize, rounds: usize) -> serde_json::Value {
     let spec = registry.relation("authored.round_values").unwrap();
     let key = spec.key;
     let schema = Arc::new(pse_schema::arrow::relation_schema(&registry, spec).unwrap());
-    let empty =
-        FieldCheckedBatch::admit(&registry, spec, RecordBatch::new_empty(schema.clone())).unwrap();
-    let values = FieldCheckedBatch::admit(
-        &registry,
-        spec,
-        RecordBatch::try_new(
-            schema,
-            vec![Arc::new(Int64Array::from(
-                (0..i64::try_from(rows).unwrap()).collect::<Vec<_>>(),
-            ))],
-        )
-        .unwrap(),
-    )
-    .unwrap();
     let peak = Arc::new(PeakRecordingPool::new(Arc::new(GreedyMemoryPool::new(
         256 << 20,
     ))));
@@ -106,7 +92,30 @@ async fn prepared_rounds(rows: usize, rounds: usize) -> serde_json::Value {
     .with_query_planner(Arc::new(pse_engine::session::planner::UnifiedPlanner::new(
         pse_catalog::assembly::planners(),
     )));
+    let validation = factory.validation_context(&registry).unwrap();
     let cancel = CancellationToken::new();
+    let empty = FieldCheckedBatch::admit(
+        &registry,
+        spec,
+        RecordBatch::new_empty(schema.clone()),
+        &validation,
+        &cancel,
+    )
+    .unwrap();
+    let values = FieldCheckedBatch::admit(
+        &registry,
+        spec,
+        RecordBatch::try_new(
+            schema,
+            vec![Arc::new(Int64Array::from(
+                (0..i64::try_from(rows).unwrap()).collect::<Vec<_>>(),
+            ))],
+        )
+        .unwrap(),
+        &validation,
+        &cancel,
+    )
+    .unwrap();
     let session = factory
         .candidate(BTreeMap::new(), registry, &cancel)
         .unwrap();

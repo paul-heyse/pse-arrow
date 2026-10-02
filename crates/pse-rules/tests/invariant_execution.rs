@@ -50,7 +50,9 @@ fn session_with_observation(
     .unwrap()
 }
 #[expect(clippy::unwrap_used, reason = "fixed test fixture admission")]
-fn packages(registry: &Registry, count: usize) -> BTreeMap<RelationKey, RecordBatch> {
+fn packages(registry: &Arc<Registry>, count: usize) -> BTreeMap<RelationKey, RecordBatch> {
+    let fixture = session(registry, &BTreeMap::new());
+    let validation = fixture.validation_context().unwrap();
     let spec = registry.relation("authored.packages").unwrap();
     let row = vec![
         serde_json::json!(["id", (SemanticId::from_bytes([7; 16])).to_hex()]),
@@ -64,41 +66,9 @@ fn packages(registry: &Registry, count: usize) -> BTreeMap<RelationKey, RecordBa
     ];
     BTreeMap::from([(
         spec.key,
-        pse_relations::testing::batch_from_literals(registry, spec, &vec![row; count]).unwrap(),
+        pse_relations::testing::batch_from_literals(registry, spec, &vec![row; count], &validation)
+            .unwrap(),
     )])
-}
-
-#[tokio::test]
-async fn provider_requirements_execute_the_same_primary_key_obligation_before_scalar_queries() {
-    use pse_schema::model::provider::{ProviderPolicy, ProviderScope};
-    let registry = Arc::new(pse_schema::catalog::assemble().unwrap());
-    let required = registry
-        .invariants()
-        .iter()
-        .find(|invariant| {
-            invariant.relation == "authored.packages" && invariant.name == "unique:pk"
-        })
-        .unwrap()
-        .id;
-    let factory = pse_testkit::factory(
-        Arc::new(pse_columnar::GreedyMemoryPool::new(64 << 20)),
-        ExecutionSettings::default(),
-        budget(),
-    )
-    .unwrap()
-    .with_requirement_planner(Arc::new(pse_rules::invariants::RegistryRequirementPlanner));
-    for (count, valid) in [(0, true), (1, true), (2, false)] {
-        let cancel = CancellationToken::new();
-        let mut policy = ProviderPolicy::new(SemanticId::from_bytes([8; 16]), ProviderScope::Root);
-        policy.requirements.insert(required);
-        let session = factory
-            .candidate(packages(&registry, count), Arc::clone(&registry), &cancel)
-            .unwrap()
-            .with_policy(policy)
-            .unwrap();
-        let prepared = session.prepare_sql("SELECT 42", &cancel).await.unwrap();
-        assert_eq!(prepared.execute(&cancel).await.is_ok(), valid);
-    }
 }
 
 #[tokio::test]
@@ -157,9 +127,9 @@ async fn p2_keeps_candidate_duplicates_and_never_invents_execution_or_snapshot_i
         .to_string();
     assert!(observed.contains("Aggregate"));
     assert!(observed.contains("pse_row_key"));
-    // Both declared package uniqueness and dependency closure execute, including
-    // the empty dependency list's valid zero-membership case.
-    assert_eq!(report.check_count(), 2);
+    // P2 executes the declared package uniqueness obligation. Exact dependency
+    // closure belongs to P0 package admission, before these candidate bindings.
+    assert_eq!(report.check_count(), 1);
     let valid = packages(&registry, 1);
     assert!(
         run_invariants(
@@ -346,6 +316,8 @@ async fn native_integrity_program_reports_duplicates_references_and_nested_ordin
         ],
     ));
     let registry = Arc::new(builder.build().unwrap());
+    let fixture = session(&registry, &BTreeMap::new());
+    let validation = fixture.validation_context().unwrap();
     let target = registry.relation("authored.integrity_target").unwrap();
     let source = registry.relation("authored.integrity_source").unwrap();
     let invalid = vec![
@@ -369,6 +341,7 @@ async fn native_integrity_program_reports_duplicates_references_and_nested_ordin
                     vec![serde_json::json!(["u64", 1])],
                     vec![serde_json::json!(["u64", 1])],
                 ],
+                &validation,
             )
             .unwrap(),
         ),
@@ -402,6 +375,7 @@ async fn native_integrity_program_reports_duplicates_references_and_nested_ordin
                         serde_json::json!(["struct", vec![serde_json::json!(["null", null])]]),
                     ],
                 ],
+                &validation,
             )
             .unwrap(),
         ),

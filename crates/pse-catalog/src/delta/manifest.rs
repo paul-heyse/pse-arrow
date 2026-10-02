@@ -51,8 +51,8 @@ pub fn prepare_manifest(
         });
     }
     let registry = Arc::clone(session.registry());
-    pse_engine::validation::bind_defaults(&registry)?;
-    let mut builder = publication_manifests::Builder::with_registry(&registry, 1)?;
+    let validation = session.validation_context()?;
+    let mut builder = publication_manifests::Builder::with_registry(&registry, 1, &validation)?;
     builder.push(record)?;
     let session = session.with_checked_workspace(
         BTreeMap::from([(publication_manifests::RELATION_KEY, builder.finish()?)]),
@@ -145,9 +145,11 @@ pub async fn read_manifest(
     if batch.num_rows() != 1 {
         return Err(invalid("an export manifest holds exactly one row"));
     }
-    // The row's SQL checks run on the engine's validation planner.
-    pse_engine::validation::bind_defaults(registry).map_err(external)?;
-    publication_manifests::View::try_from_batch_with_registry(registry, &batch)
+    let validation = pse_relations::validate::ValidationContext::new(
+        registry,
+        pse_engine::validation::NativeValidation(state.as_ref().clone()),
+    );
+    publication_manifests::View::try_from_batch_with_registry(registry, &batch, &validation)
         .map_err(external)?
         .row(0)
         .map_err(external)

@@ -73,7 +73,7 @@ pub struct AdmittedBindingEntry {
 #[serde(deny_unknown_fields)]
 pub struct AdmittedBinding {
     /// Exact revision that admitted member identity and role.
-    pub revision: ContentHash,
+    pub revision: pse_ids::roles::SourceRevisionHash,
     /// Physical interpretation context.
     pub context: ContentHash,
     /// Entries in member identity order.
@@ -81,7 +81,7 @@ pub struct AdmittedBinding {
 }
 impl AdmittedBinding {
     /// Content identity is independent of source spelling, supplied representation and occurrence.
-    pub fn identity(&self) -> ContentHash {
+    pub fn identity(&self) -> pse_ids::roles::BindingHash {
         let mut h = FramedHasher::new(pse_ids::Frame::StudyBindingV1);
         h.hash(&self.context).u64(self.entries.len() as u64);
         for (member, entry) in &self.entries {
@@ -90,7 +90,7 @@ impl AdmittedBinding {
                 .bool(entry.parameter)
                 .u64(entry.canonical.into_inner().to_bits());
         }
-        h.finish_hash()
+        pse_ids::roles::BindingHash::from(h.finish_hash())
     }
     /// Canonical scalar projection; consumers perform no unit conversion.
     pub fn values(&self) -> BTreeMap<SemanticId, f64> {
@@ -249,7 +249,7 @@ impl ModelingPackage {
                 .locations
                 .push(pse_model::diagnostic::SourceLocation {
                     source: member,
-                    revision: Some(self.revision.identity()),
+                    revision: Some(self.revision.identity().as_id()),
                     path: match target {
                         BindingTarget::Path(path) => path.clone(),
                         BindingTarget::Member(id) => id.to_string(),
@@ -665,7 +665,7 @@ mod binding_admission_unit {
         assert_eq!(error.rule, DiagnosticRule::StudyBindingDuplicate);
         assert_eq!(
             error.locations[0].revision,
-            Some(package.revision.identity())
+            Some(package.revision.identity().as_id())
         );
     }
     #[tokio::test]
@@ -723,7 +723,7 @@ mod binding_admission_unit {
         assert_eq!(decoded.locations[0].path, "temperature");
         assert_eq!(
             decoded.locations[0].revision,
-            Some(package.revision.identity())
+            Some(package.revision.identity().as_id())
         );
     }
     #[tokio::test]
@@ -811,6 +811,11 @@ mod binding_admission_unit {
     #[tokio::test]
     async fn same_dimension_wrong_basis_datum_and_subject_refuse_complete_contracts() {
         use pse_quantity::QuantityTypeId;
+        enum Difference {
+            Basis,
+            Datum,
+            Subject,
+        }
         let mut context = physical();
         let original = context
             .quantities
@@ -819,52 +824,54 @@ mod binding_admission_unit {
             .unwrap()
             .clone();
         let mut builder = context.quantities.to_builder();
-        let controls: Vec<_> = ["basis", "datum", "subject"]
-            .into_iter()
-            .map(|difference| {
-                let mut control = original.clone();
-                control.id =
-                    QuantityTypeId::from_id(pse_ids::named_id(original.id.as_id(), difference));
-                control.name = Some(format!("Wrong{difference}"));
-                match difference {
-                    "basis" => {
-                        control.key.basis = Some(
-                            context
-                                .quantities
-                                .bases()
-                                .find(|b| Some(b.id) != original.key.basis)
-                                .unwrap()
-                                .id,
-                        )
-                    }
-                    "datum" => {
-                        control.key.reference_state = Some(
-                            context
-                                .quantities
-                                .reference_states()
-                                .find(|r| Some(r.id) != original.key.reference_state)
-                                .unwrap()
-                                .id,
-                        )
-                    }
-                    "subject" => {
-                        control.key.subject_kind = Some(
-                            context
-                                .quantities
-                                .entity_kinds()
-                                .find(|e| Some(e.id) != original.key.subject_kind)
-                                .unwrap()
-                                .id,
-                        )
-                    }
-                    _ => unreachable!(),
+        let controls: Vec<_> = [
+            (Difference::Basis, "basis"),
+            (Difference::Datum, "datum"),
+            (Difference::Subject, "subject"),
+        ]
+        .into_iter()
+        .map(|(difference, name)| {
+            let mut control = original.clone();
+            control.id = QuantityTypeId::from_id(pse_ids::named_id(original.id.as_id(), name));
+            control.name = Some(format!("Wrong{name}"));
+            match difference {
+                Difference::Basis => {
+                    control.key.basis = Some(
+                        context
+                            .quantities
+                            .bases()
+                            .find(|b| Some(b.id) != original.key.basis)
+                            .unwrap()
+                            .id,
+                    )
                 }
-                assert_eq!(control.key.kind, original.key.kind);
-                assert_eq!(control.canonical_unit, original.canonical_unit);
-                builder.quantity_type(control.clone());
-                control
-            })
-            .collect();
+                Difference::Datum => {
+                    control.key.reference_state = Some(
+                        context
+                            .quantities
+                            .reference_states()
+                            .find(|r| Some(r.id) != original.key.reference_state)
+                            .unwrap()
+                            .id,
+                    )
+                }
+                Difference::Subject => {
+                    control.key.subject_kind = Some(
+                        context
+                            .quantities
+                            .entity_kinds()
+                            .find(|e| Some(e.id) != original.key.subject_kind)
+                            .unwrap()
+                            .id,
+                    )
+                }
+            }
+            assert_eq!(control.key.kind, original.key.kind);
+            assert_eq!(control.canonical_unit, original.canonical_unit);
+            builder.quantity_type(control.clone());
+            control
+        })
+        .collect();
         context.quantities = std::sync::Arc::new(builder.build().unwrap());
         context.key =
             pse_compiler::workspace::physical_identity(&context.quantities, &context.preconditions);
@@ -901,7 +908,7 @@ mod binding_admission_unit {
             assert_eq!(operands[1].quantity, *control.id.as_id().as_bytes());
             assert_eq!(
                 diagnostic.locations[0].revision,
-                Some(package.revision.identity())
+                Some(package.revision.identity().as_id())
             );
             assert_eq!(diagnostic.locations[0].path, "temperature");
         }

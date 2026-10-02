@@ -22,21 +22,18 @@ use std::{
 };
 
 /// One successful expression compilation, shared without holding the map lock.
-type PreparedCell = Arc<Mutex<Option<Arc<PreparedLocalContract>>>>;
+struct PreparedCell(Result<Arc<PreparedLocalContract>, Arc<RelationError>>);
 
 /// An immutable native implementation owner. Changing state requires a new context.
 #[derive(Debug)]
 pub struct ValidationContext {
     owner: Arc<()>,
     state: Arc<dyn super::planner::ValidationPlanner>,
-    prepared: Mutex<HashMap<SchemaRef, PreparedCell>>,
+    prepared: Mutex<HashMap<SchemaRef, u64>>,
+    implementations: pse_schema::ImplementationCache,
+    successful: std::sync::atomic::AtomicUsize,
     columns: Mutex<HashMap<Field, Arc<PreparedLocalContract>>>,
     relations: Mutex<BTreeMap<pse_ids::SemanticId, Arc<PreparedLocalContract>>>,
-}
-// The private key prevents another subsystem installing a different default policy.
-struct DefaultValidationContext {
-    local: Arc<ValidationContext>,
-    native: std::sync::OnceLock<Arc<ValidationContext>>,
 }
 impl ValidationContext {
     /// Capture the actual function, rewrite and configuration bindings for preparation.
@@ -48,39 +45,26 @@ impl ValidationContext {
             owner: registry.implementation_owner(),
             state: Arc::new(state),
             prepared: Mutex::new(HashMap::new()),
+            implementations: Default::default(),
+            successful: std::sync::atomic::AtomicUsize::new(0),
             columns: Mutex::new(HashMap::new()),
             relations: Mutex::new(BTreeMap::new()),
         }
     }
-    /// Registry-owned native defaults for generated construction and raw relation admission.
-    /// Explicit sessions use `new`, never this default cache.
+    /// Deliberately local validation: SQL/native obligations require an explicit engine context.
     /// # Errors
-    /// A poisoned registry cache.
-    pub fn for_registry(registry: &Registry) -> Result<Arc<Self>, RelationError> {
-        let owner = Self::defaults(registry)?;
-        Ok(owner.native.get().unwrap_or(&owner.local).clone())
-    }
-    fn defaults(registry: &Registry) -> Result<Arc<DefaultValidationContext>, RelationError> {
-        Ok(registry.derived_implementation(|| {
-            Ok(DefaultValidationContext {
-                local: Arc::new(Self::new(registry, super::planner::LocalPlanner)),
-                native: std::sync::OnceLock::new(),
-            })
-        })?)
-    }
-    /// Install the registry's immutable native SQL binding at its engine-owned boundary.
-    /// Repeated installation keeps the first owner; explicit sessions use `new`.
-    /// # Errors
-    /// Registry cache failure.
-    pub fn install_default(
-        registry: &Registry,
-        planner: impl super::planner::ValidationPlanner + 'static,
-    ) -> Result<(), RelationError> {
-        let defaults = Self::defaults(registry)?;
-        defaults
-            .native
-            .get_or_init(|| Arc::new(Self::new(registry, planner)));
-        Ok(())
+    /// Registry memo construction fails.
+    pub fn local(registry: &Registry) -> Result<Arc<Self>, RelationError> {
+        struct Local(Arc<ValidationContext>);
+        Ok(registry
+            .derived_implementation(|| {
+                Ok(Local(Arc::new(Self::new(
+                    registry,
+                    super::planner::LocalPlanner,
+                ))))
+            })?
+            .0
+            .clone())
     }
     /// Prepare the actual declared relation once inside this context.
     /// # Errors
@@ -155,19 +139,30 @@ impl ValidationContext {
                 "context belongs to another registry",
             ));
         }
-        let cell = self
-            .prepared
-            .lock()
-            .map_err(|_| super::mismatch("validation context", "prepared cache lock poisoned"))?
-            .entry(schema.clone())
-            .or_default()
-            .clone();
-        let mut prepared = cell
-            .lock()
-            .map_err(|_| super::mismatch("validation context", "prepared entry lock poisoned"))?;
-        if let Some(found) = prepared.as_ref() {
-            return Ok(found.clone());
-        }
+        let key = {
+            let mut slots = self.prepared.lock().map_err(|_| {
+                super::mismatch("validation context", "prepared cache lock poisoned")
+            })?;
+            let next = u64::try_from(slots.len()).map_err(|_| {
+                super::mismatch("validation context", "preparation slot extent overflows")
+            })?;
+            *slots.entry(schema.clone()).or_insert(next)
+        };
+        let prepared = self.implementations.get_at(key, || {
+            let result = self.construct(registry, schema);
+            if result.is_ok() {
+                self.successful
+                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            }
+            Ok(PreparedCell(result.map_err(Arc::new)))
+        })?;
+        prepared.0.clone().map_err(RelationError::Preparation)
+    }
+    fn construct(
+        &self,
+        registry: &Registry,
+        schema: SchemaRef,
+    ) -> Result<Arc<PreparedLocalContract>, RelationError> {
         for field in schema.fields() {
             super::validate_field(registry, field)
                 .map_err(|errors| RelationError::Validation { errors })?;
@@ -190,7 +185,6 @@ impl ValidationContext {
             nodes,
             evaluations: std::sync::atomic::AtomicUsize::new(0),
         });
-        *prepared = Some(Arc::clone(&contract));
         Ok(contract)
     }
     fn predicate(
@@ -206,19 +200,7 @@ impl ValidationContext {
     /// # Errors
     /// A poisoned preparation lock.
     pub fn prepared_count(&self) -> Result<usize, RelationError> {
-        let cells: Vec<_> = self
-            .prepared
-            .lock()
-            .map_err(|_| super::mismatch("validation context", "prepared cache lock poisoned"))?
-            .values()
-            .cloned()
-            .collect();
-        cells.iter().try_fold(0, |count, cell| {
-            let prepared = cell.lock().map_err(|_| {
-                super::mismatch("validation context", "prepared entry lock poisoned")
-            })?;
-            Ok(count + usize::from(prepared.is_some()))
-        })
+        Ok(self.successful.load(std::sync::atomic::Ordering::Relaxed))
     }
 }
 

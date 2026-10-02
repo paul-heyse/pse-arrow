@@ -7,18 +7,19 @@ This is the one module allowed to import :mod:`pse._native` (ast-grep rule
 the typed build and immutable inspection adapters, so the extension's surface
 has a single typed gate.
 
-The extension embeds the two lockfiles as bytes (``pse-buildinfo``); this module
-hashes them with :mod:`hashlib` so the sha256 twins can be checked against the
-checkout without a second hasher in Rust. ``lockfile_hash`` (blake3, the manifest
-form) stays empty until ``pse-ids`` wires it through the catalog in phase 1;
-``build_info_matches_checkout`` only compares the fields that are populated.
+The extension embeds the exact lockfiles. Its Rust build producer records their
+external SHA256 checksums, and the generated BuildInfo document carries those
+captured values alongside compiler, profile and source provenance.
 """
 
-import hashlib
+from __future__ import annotations
 
-import msgspec
+from typing import TYPE_CHECKING
 
 from pse import _native, contracts
+
+if TYPE_CHECKING:
+    from pse.contracts.documents import BuildInfo
 
 # The same native import gateway carries the immutable inspection capabilities.
 semantic_id_from_hex = _native.semantic_id_from_hex
@@ -28,19 +29,8 @@ content_hash_to_prefixed = _native.content_hash_to_prefixed
 
 EngineSettings = _native.EngineSettings
 CacheSettings = _native.CacheSettings
-CacheReport = _native.CacheReport
-ResourceReport = _native.ResourceReport
-ResourceConsumer = _native.ResourceConsumer
-TableName = _native.TableName
 InspectionError = _native.InspectionError
 DiagnosticReport = _native.DiagnosticReport
-DiagnosticCause = _native.DiagnosticCause
-DiagnosticContext = _native.DiagnosticContext
-DiagnosticAnnotation = _native.DiagnosticAnnotation
-DiagnosticSpan = _native.DiagnosticSpan
-DiagnosticSourceLocation = _native.DiagnosticSourceLocation
-DiagnosticNote = _native.DiagnosticNote
-DiagnosticObservation = _native.DiagnosticObservation
 _NativePublication = _native.Publication
 _NativeTableStream = _native.TableStream
 _NativePhysicalContext = _native.NativePhysicalContext
@@ -72,12 +62,7 @@ _NativeRunHandle = _native.NativeRunHandle
 _NativeStudyHandle = _native.NativeStudyHandle
 _NativeRunResult = _native.NativeRunResult
 _NativePublicationAttempt = _native.NativePublicationAttempt
-NativeRoute = _native.NativeRoute
-NativeEligibility = _native.NativeEligibility
-NativeIneligible = _native.NativeIneligible
 NativeStrategyAttempt = _native.NativeStrategyAttempt
-ProgressEvent = _native.ProgressEvent
-Incumbent = _native.Incumbent
 _NativeProgressStream = _native.NativeProgressStream
 
 
@@ -85,45 +70,9 @@ def _open_export(location: str, settings: EngineSettings) -> _NativePublication:
     return _native.open_export(location, settings)
 
 
-class BuildInfo(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
-    """Provenance of the ``pse._native`` extension module in this environment.
-
-    Attributes:
-        version: The workspace version, which is also the wheel version.
-        rustc_version: The compiler that produced the extension.
-        profile: The Cargo profile the extension was built with.
-        git_sha: The commit the extension was built from, empty when unknown.
-        lockfile_hash: blake3 digest over both lockfiles, empty in phase 0.
-        cargo_lock_sha256: sha256 of the ``Cargo.lock`` embedded at build time.
-        uv_lock_sha256: sha256 of the ``uv.lock`` embedded at build time.
-    """
-
-    version: str
-    rustc_version: str
-    profile: str
-    git_sha: str
-    lockfile_hash: str
-    cargo_lock_sha256: str
-    uv_lock_sha256: str
-
-
 def build_info() -> BuildInfo:
-    """Return the compiled extension's build provenance as a frozen struct.
-
-    Returns:
-        The structured form of ``pse._native.build_info()``.
-
-    Raises:
-        msgspec.ValidationError: If the extension returns a shape this version
-            of the Python package does not know, which means the wheel and the
-            source tree disagree.
-    """
-    raw = dict(_native.build_info())
-    cargo_lock = raw.pop("cargo_lock_bytes", b"")
-    uv_lock = raw.pop("uv_lock_bytes", b"")
-    raw["cargo_lock_sha256"] = _sha256(cargo_lock)
-    raw["uv_lock_sha256"] = _sha256(uv_lock)
-    return msgspec.convert(raw, BuildInfo)
+    """Observe the compiled extension's Rust-owned provenance document."""
+    return _native.build_info()
 
 
 def native_version() -> str:
@@ -133,13 +82,6 @@ def native_version() -> str:
         The extension's own version string.
     """
     return _native.__version__
-
-
-def _sha256(data: bytes | str) -> str:
-    """Hex sha256 of the embedded lockfile bytes, or the empty string when absent."""
-    if isinstance(data, str):
-        data = data.encode()
-    return hashlib.sha256(data).hexdigest() if data else ""
 
 
 def _check_native_compatibility(package_version: str) -> None:

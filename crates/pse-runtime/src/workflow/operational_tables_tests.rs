@@ -32,10 +32,13 @@ fn instant(micros: i64) -> ScalarValue {
     ScalarValue::TimestampMicrosecond(Some(micros), Some("UTC".into()))
 }
 
-fn columns_match<S: Pushdown>(registry: &Registry) {
+fn columns_match<S: Pushdown>(
+    registry: &Registry,
+    validation: &pse_relations::validate::ValidationContext,
+) {
     let relation = <S::Row as RelationRow>::relation(registry).unwrap();
     assert_eq!(relation.key.name, format!("operational_{}", S::TABLE));
-    let schema = schema_of::<S>(registry).unwrap();
+    let schema = schema_of::<S>(registry, validation).unwrap();
     for (name, kind) in S::COLUMNS {
         let field = schema.field_with_name(name).unwrap();
         let expected = match kind {
@@ -49,20 +52,22 @@ fn columns_match<S: Pushdown>(registry: &Registry) {
 
 #[test]
 fn pushdown_columns_are_the_registry_columns() {
-    let registry = registry();
-    columns_match::<AttemptScan>(&registry);
-    columns_match::<TransitionScan>(&registry);
-    columns_match::<JobScan>(&registry);
-    columns_match::<ProgressEventScan>(&registry);
-    columns_match::<ProgressValueScan>(&registry);
-    columns_match::<IncumbentScan>(&registry);
-    columns_match::<SolutionScan>(&registry);
-    columns_match::<StudyScan>(&registry);
-    columns_match::<StudyPointScan>(&registry);
-    columns_match::<WorkspaceScan>(&registry);
-    columns_match::<PublicationScan>(&registry);
-    columns_match::<PublicationMemberScan>(&registry);
-    columns_match::<SettlementScan>(&registry);
+    let runtime = runtime();
+    let registry = &runtime.registry;
+    let validation = runtime.validation_context().unwrap();
+    columns_match::<AttemptScan>(registry, &validation);
+    columns_match::<TransitionScan>(registry, &validation);
+    columns_match::<JobScan>(registry, &validation);
+    columns_match::<ProgressEventScan>(registry, &validation);
+    columns_match::<ProgressValueScan>(registry, &validation);
+    columns_match::<IncumbentScan>(registry, &validation);
+    columns_match::<SolutionScan>(registry, &validation);
+    columns_match::<StudyScan>(registry, &validation);
+    columns_match::<StudyPointScan>(registry, &validation);
+    columns_match::<WorkspaceScan>(registry, &validation);
+    columns_match::<PublicationScan>(registry, &validation);
+    columns_match::<PublicationMemberScan>(registry, &validation);
+    columns_match::<SettlementScan>(registry, &validation);
 }
 
 #[test]
@@ -147,10 +152,17 @@ fn recognized_predicates_become_the_typed_filter() {
 /// Register `attempts` in a plain DataFusion context over `store`.
 fn context(store: &Store, batch_size: usize) -> SessionContext {
     let context = SessionContext::new_with_config(SessionConfig::new().with_batch_size(batch_size));
+    let registry = registry();
+    let validation = Arc::new(pse_relations::validate::ValidationContext::new(
+        &registry,
+        pse_engine::validation::NativeValidation(context.state()),
+    ));
     context
         .register_table(
             "attempts",
-            Arc::new(OperationalTable::<AttemptScan>::new(store.clone(), registry()).unwrap()),
+            Arc::new(
+                OperationalTable::<AttemptScan>::new(store.clone(), registry, validation).unwrap(),
+            ),
         )
         .unwrap();
     context
@@ -211,7 +223,9 @@ async fn attempts(store: &Store) -> (Vec<AttemptId>, SemanticId) {
                 pse_operations::mint_id()
             },
             kind: AttemptKind::Modeling,
-            request_identity: pse_ids::ContentHash::from_bytes([1; 32]),
+            operational_job_identity: pse_ids::roles::RecordedOperationalJobIdentity::current(
+                pse_ids::roles::OperationalJobHash::from(pse_ids::ContentHash::from_bytes([1; 32])),
+            ),
             preparation_identity: None,
             parent_attempt: None,
         };
@@ -428,7 +442,9 @@ async fn running(runtime: &Runtime) -> (Store, AttemptId) {
         attempt_id: pse_operations::mint_id(),
         run_id: pse_operations::mint_id(),
         kind: AttemptKind::Modeling,
-        request_identity: pse_ids::ContentHash::from_bytes([2; 32]),
+        operational_job_identity: pse_ids::roles::RecordedOperationalJobIdentity::current(
+            pse_ids::roles::OperationalJobHash::from(pse_ids::ContentHash::from_bytes([2; 32])),
+        ),
         preparation_identity: None,
         parent_attempt: None,
     };

@@ -136,7 +136,11 @@ fn check_python_candidate(root: &Path, tree: &GeneratedTree, mode: Option<&str>)
 /// crates' serde types (ADR-0116 Outcome 7).
 #[cfg(feature = "package-fixtures")]
 fn document_schemas(registry: &pse_schema::Registry) -> Result<GeneratedTree> {
-    Ok(documents::generate(registry, &schemas::documents())?)
+    let mut tree = documents::generate(registry, &schemas::documents())?;
+    let fixtures = schemas::boundary_fixtures()?;
+    tree.roots.extend(fixtures.roots);
+    tree.files.extend(fixtures.files);
+    Ok(tree)
 }
 
 #[cfg(not(feature = "package-fixtures"))]
@@ -446,7 +450,8 @@ mod tests {
                 "pse-model",
                 "pse-authoring",
                 "pse-catalog",
-                "pse-runtime"
+                "pse-runtime",
+                "pse-columnar"
             ]
             .map(|name| PathBuf::from(format!("crates/{name}/src/generated")))
         );

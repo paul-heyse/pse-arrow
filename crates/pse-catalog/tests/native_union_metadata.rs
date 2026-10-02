@@ -74,7 +74,14 @@ async fn union_key_and_payload_retains_shared_meaning_before_distinct() {
         .unwrap();
         inputs.insert(
             spec.key,
-            FieldCheckedBatch::admit(&registry, spec, batch).unwrap(),
+            FieldCheckedBatch::admit(
+                &registry,
+                spec,
+                batch,
+                &fixture_validation(&registry),
+                &CancellationToken::new(),
+            )
+            .unwrap(),
         );
     }
     let cancel = CancellationToken::new();
@@ -225,4 +232,16 @@ async fn union_key_and_payload_retains_shared_meaning_before_distinct() {
             .collect::<BTreeSet<_>>();
         assert_eq!(values, BTreeSet::from([1, 2]));
     }
+}
+
+// Deliberate fixed native owner for isolated caller-supplied fixture rows.
+fn fixture_validation(
+    registry: &pse_schema::Registry,
+) -> pse_relations::validate::ValidationContext {
+    pse_relations::validate::ValidationContext::new(
+        registry,
+        pse_engine::validation::NativeValidation(
+            datafusion::prelude::SessionContext::new().state(),
+        ),
+    )
 }

@@ -6,7 +6,7 @@
     reason = "focused checked scientific contract assertions"
 )]
 use crate::{
-    authored_transfer_tests::{inputs, root, rows},
+    authored_transfer_tests::{context, root, rows},
     workspace::{CompilerWorkspace, ModelingOutput, WorkspaceLimits},
 };
 use pse_kernels::DerivativeOrder;
@@ -98,7 +98,7 @@ fn source() -> String {
 fn specialize(text: &str, name: &str) -> Result<Arc<SpecializedModel>, String> {
     let declarations = rows(text);
     let id = root(&declarations, "scientific_reaction_fixture", name);
-    let mut workspace = CompilerWorkspace::new(inputs(), WorkspaceLimits::default()).unwrap();
+    let mut workspace = CompilerWorkspace::new(context(), WorkspaceLimits::default()).unwrap();
     workspace
         .publish_modeling(declarations, PhysicalScope::default())
         .map_err(|e| e.to_string())?;
@@ -112,7 +112,7 @@ fn specialize(text: &str, name: &str) -> Result<Arc<SpecializedModel>, String> {
         .map_err(|e| e.to_string())
 }
 fn contributions(text: &str, point: &str) -> Vec<(String, f64)> {
-    let input = inputs();
+    let input = context();
     let registry = input.quantities.clone();
     let declarations = rows(text);
     let id = root(&declarations, "scientific_reaction_fixture", point);
@@ -325,7 +325,7 @@ fn scientific_composition_elemental_control_volume_uses_guarded_authoritative_co
     let text = source();
     let values = contributions(&text, "ElementalPoint")
         .into_iter()
-        .filter(|(id, _)| id == "7d548e7975f8416ba6fa490f86cddc2a")
+        .filter(|(id, _)| id == "3179567b6666534189196d4d9a90eae9")
         .map(|(_, v)| v)
         .collect::<Vec<_>>();
     assert_eq!(values.len(), 1);
@@ -362,7 +362,7 @@ package invalid_projection {
   override let coefficient[r in reactions,j in components]:ReactionStoichiometry=0{1};
  }
 }"#;
-    let mut workspace = CompilerWorkspace::new(inputs(), WorkspaceLimits::default()).unwrap();
+    let mut workspace = CompilerWorkspace::new(context(), WorkspaceLimits::default()).unwrap();
     let error = workspace
         .publish_modeling(rows(&text), PhysicalScope::default())
         .unwrap_err()
@@ -437,7 +437,7 @@ fn costing_point(name: &str) -> Result<(), String> {
     );
     let declarations = rows(&text);
     let id = root(&declarations, "scientific_costing_fixture", name);
-    let mut workspace = CompilerWorkspace::new(inputs(), WorkspaceLimits::default()).unwrap();
+    let mut workspace = CompilerWorkspace::new(context(), WorkspaceLimits::default()).unwrap();
     workspace
         .publish_modeling(declarations, PhysicalScope::default())
         .map_err(|e| e.to_string())?;
@@ -501,7 +501,7 @@ fn scientific_seed_constant_parameter_reads_require_exact_unknown_permission() {
             "scientific_reaction_fixture",
             "ConstantPoint",
         );
-        let mut workspace = CompilerWorkspace::new(inputs(), WorkspaceLimits::default()).unwrap();
+        let mut workspace = CompilerWorkspace::new(context(), WorkspaceLimits::default()).unwrap();
         workspace
             .publish_modeling(declarations, PhysicalScope::default())
             .map_err(|e| e.to_string())?;

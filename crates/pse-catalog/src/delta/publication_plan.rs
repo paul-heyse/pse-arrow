@@ -15,7 +15,7 @@ use datafusion::{
 };
 use deltalake::{DeltaTable, kernel::transaction::CommitProperties, protocol::SaveMode};
 use pse_ids::SemanticId;
-use pse_relations::generated::runtime::publication_manifests;
+use pse_relations::{generated::runtime::publication_manifests, validate::ValidationContext};
 use pse_schema::Registry;
 use std::sync::Arc;
 
@@ -61,8 +61,9 @@ pub fn candidate(
     header: publication_manifests::Row,
     members: Vec<Member>,
     registry: Arc<Registry>,
+    validation: &ValidationContext,
 ) -> Result<LogicalPlan> {
-    compose(header, members, registry, None).map(|(plan, _)| plan)
+    compose(header, members, registry, None, validation).map(|(plan, _)| plan)
 }
 
 pub(crate) fn plan_bound(
@@ -71,12 +72,14 @@ pub(crate) fn plan_bound(
     registry: Arc<Registry>,
     operation_id: SemanticId,
     dependencies: Vec<pse_relations::generated::runtime::native_dependencies::Row>,
+    validation: &ValidationContext,
 ) -> Result<(LogicalPlan, super::ticket::PublicationTicket)> {
     compose(
         header,
         members,
         registry,
         Some(&(operation_id, dependencies)),
+        validation,
     )
     .and_then(|(plan, ticket)| {
         Ok((
@@ -94,14 +97,13 @@ fn compose(
         SemanticId,
         Vec<pse_relations::generated::runtime::native_dependencies::Row>,
     )>,
+    validation: &ValidationContext,
 ) -> Result<(LogicalPlan, Option<super::ticket::PublicationTicket>)> {
     if !header.members.is_empty() || members.is_empty() {
         return Err(invalid(
             "publication composition needs an empty member header and explicit members",
         ));
     }
-    // The record's declared row checks are SQL: bind this registry's native validation.
-    pse_engine::validation::bind_defaults(&registry).map_err(external)?;
     let mut names = std::collections::BTreeSet::new();
     let mut candidate = header.clone();
     let mut inputs = Vec::new();
@@ -128,7 +130,9 @@ fn compose(
             attempts.push(attempt);
         }
         candidate.members.push(descriptor.clone());
-        inputs.push(Arc::new(describe(outcome, &header, descriptor, &registry)?));
+        inputs.push(Arc::new(describe(
+            outcome, &header, descriptor, &registry, validation,
+        )?));
     }
     super::admission::admit_profile(&candidate, &registry)?;
     let union = if inputs.len() == 1 {
@@ -154,7 +158,7 @@ fn compose(
                 .alias("members"),
         ],
     )?);
-    let literal = manifest_batch(header, &registry)?;
+    let literal = manifest_batch(header, &registry, validation)?;
     let layout = DurableLayout::new(literal.schema())?;
     let expressions = literal
         .schema()
@@ -251,10 +255,11 @@ fn describe(
     header: &publication_manifests::Row,
     descriptor: Descriptor,
     registry: &Registry,
+    validation: &ValidationContext,
 ) -> Result<LogicalPlan> {
     let mut sample = header.clone();
     sample.members = vec![descriptor.clone()];
-    let batch = manifest_batch(sample, registry)?;
+    let batch = manifest_batch(sample, registry, validation)?;
     let list = batch
         .column_by_name("members")
         .and_then(|c| c.as_any().downcast_ref::<ListArray>())
@@ -286,9 +291,10 @@ fn describe(
 fn manifest_batch(
     row: publication_manifests::Row,
     registry: &Registry,
+    validation: &ValidationContext,
 ) -> Result<datafusion::arrow::array::RecordBatch> {
     let mut builder =
-        publication_manifests::Builder::with_registry(registry, 1).map_err(external)?;
+        publication_manifests::Builder::with_registry(registry, 1, validation).map_err(external)?;
     builder.push(row).map_err(external)?;
     Ok(builder.finish().map_err(external)?.into_batch())
 }

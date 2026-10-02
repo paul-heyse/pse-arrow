@@ -894,7 +894,7 @@ for crate::generated::r#runtime::r#operational_attempts::RuntimeOperationalAttem
                 "attempt_id",
                 "run_id",
                 "kind",
-                "request_identity",
+                "operational_job_identity",
                 "preparation_identity",
                 "state",
                 "state_version",
@@ -915,13 +915,14 @@ for crate::generated::r#runtime::r#operational_attempts::RuntimeOperationalAttem
                 "updated_at",
                 "started_at",
                 "finished_at",
+                "operational_job_frame",
             ],
         )?;
         let row = Self {
             r#attempt_id: record.value()?,
             r#run_id: record.value()?,
             r#kind: record.value()?,
-            r#request_identity: record.value()?,
+            r#operational_job_identity: record.value()?,
             r#preparation_identity: record.value()?,
             r#state: record.value()?,
             r#state_version: record.value()?,
@@ -942,6 +943,7 @@ for crate::generated::r#runtime::r#operational_attempts::RuntimeOperationalAttem
             r#updated_at: record.micros()?,
             r#started_at: record.opt_micros()?,
             r#finished_at: record.opt_micros()?,
+            r#operational_job_frame: record.value()?,
         };
         record.finish()?;
         Ok(row)

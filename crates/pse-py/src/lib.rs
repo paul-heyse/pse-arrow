@@ -20,34 +20,17 @@
 //! consumers; opening checks exact declarations under one explicit process budget.
 
 use pyo3::prelude::*;
-use pyo3::types::{PyBytes, PyDict};
 
+mod documents;
+mod enums;
 mod identities;
 mod inspection;
 mod workflow;
 
-/// Build provenance of the compiled extension.
-///
-/// Keys: `version`, `rustc_version`, `profile`, `git_sha`, `lockfile_hash`,
-/// `cargo_lock_bytes`, `uv_lock_bytes`. The lockfiles cross as the bytes that were
-/// embedded at build time; `pse._build` hashes them on the Python side (hashlib) so that
-/// no second hasher exists in Rust — `pse-ids` is the sole hasher (blueprint §5.1) and the
-/// blake3 `lockfile_hash` is wired through `pse-catalog`'s manifest in phase 1.
+/// Captured build provenance projected from its Rust-owned document.
 #[pyfunction]
-#[pyo3(signature = () -> "dict[str, str | bytes]")]
-fn build_info(py: Python<'_>) -> PyResult<Bound<'_, PyDict>> {
-    let dict = PyDict::new(py);
-    dict.set_item("version", pse_buildinfo::VERSION)?;
-    dict.set_item("rustc_version", pse_buildinfo::RUSTC_VERSION)?;
-    dict.set_item("profile", pse_buildinfo::PROFILE)?;
-    dict.set_item("git_sha", pse_buildinfo::GIT_SHA)?;
-    dict.set_item("lockfile_hash", "")?;
-    dict.set_item(
-        "cargo_lock_bytes",
-        PyBytes::new(py, pse_buildinfo::CARGO_LOCK),
-    )?;
-    dict.set_item("uv_lock_bytes", PyBytes::new(py, pse_buildinfo::UV_LOCK))?;
-    Ok(dict)
+fn build_info() -> documents::DocumentValue<pse_buildinfo::BuildInfo> {
+    documents::DocumentValue(pse_buildinfo::BuildInfo::captured())
 }
 
 /// Compiled registry identity; does not assemble or inspect the runtime registry.
@@ -67,25 +50,22 @@ mod _native {
             semantic_id_to_hex,
         },
         inspection::{
-            CacheReport, CacheSettings, DiagnosticAnnotation, DiagnosticCause, DiagnosticContext,
-            DiagnosticNote, DiagnosticObservation, DiagnosticReport, DiagnosticSourceLocation,
-            DiagnosticSpan, EngineSettings, InspectionError, Publication, ResourceConsumer,
-            ResourceReport, TableName, TableStream, open_export,
+            CacheSettings, DiagnosticReport, EngineSettings, InspectionError, Publication,
+            TableStream, open_export,
         },
         registry_fingerprint,
         workflow::{
-            Incumbent, ModelingDiagnosticSettings, ModelingLimits, NativeAttempt,
-            NativeEligibility, NativeIneligible, NativeModelingConformance,
+            ModelingDiagnosticSettings, ModelingLimits, NativeAttempt, NativeModelingConformance,
             NativeModelingDiagnosticSamples, NativeModelingDiagnostics,
             NativeModelingElasticAttempt, NativeModelingInitialization,
             NativeModelingInitializationAttempt, NativeModelingKnowledge,
             NativeModelingNativeAnalysis, NativeModelingNonlinearExplanation,
             NativeModelingPackage, NativeModelingResult, NativeModelingTrajectory,
             NativePhysicalContext, NativePreparedFlow, NativePreparedOperation,
-            NativePreparedStrategy, NativeProgressStream, NativePublicationAttempt, NativeRoute,
+            NativePreparedStrategy, NativeProgressStream, NativePublicationAttempt,
             NativeRunHandle, NativeRunResult, NativeRuntime, NativeStart, NativeStrategyAttempt,
             NativeStrategyResult, NativeStudyHandle, NativeStudyReport, OperationalStore,
-            ProgressEvent, SimulationSettings,
+            SimulationSettings,
         },
     };
 

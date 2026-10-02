@@ -453,7 +453,10 @@ async fn nonzero_clock_smooth_scheduled_and_state_reset_fits_share_response_cont
         assert_eq!(exported.len(), 1);
         assert_eq!(exported[0].run_id, result.run_id);
         assert_eq!(exported[0].fit_id, FitId::from(id(73)));
-        assert_eq!(exported[0].source_revision, package.revision.identity());
+        assert_eq!(
+            exported[0].source_revision,
+            package.revision.identity().as_id()
+        );
         assert!((exported[0].value - 3.).abs() < 1e-4);
         assert!(result.usable());
         assert!(
@@ -629,7 +632,7 @@ async fn transient_fit(
     package: &crate::workflow::ModelingPackage,
     profile: FitProfile,
 ) -> Arc<crate::workflow::RunResult> {
-    package
+    let prepared = package
         .prepare_fit(
             FitId::from(id(73)),
             profile,
@@ -638,12 +641,45 @@ async fn transient_fit(
             &crate::CancelSource::new(),
         )
         .await
-        .unwrap()
-        .start()
-        .unwrap()
-        .wait()
-        .await
-        .unwrap()
+        .unwrap();
+    assert_bound_dynamic_provider_demands(&prepared.problem);
+    prepared.start().unwrap().wait().await.unwrap()
+}
+
+/// The programs admitted to native callbacks and the bound workers must agree on
+/// their demand, including inner residual minima and explicit provider partials.
+#[cfg(any(feature = "solver-ipopt", feature = "solver-idas"))]
+fn assert_bound_dynamic_provider_demands(problem: &FitProblem) -> usize {
+    let mut checked = 0;
+    for experiment in &problem.experiments {
+        let Experiment::Transient(simulation) = experiment else {
+            continue;
+        };
+        for function in simulation.program.programs.iter() {
+            let providers = &simulation.program.modes[function.mode].providers;
+            for body in function.case.assembly.bodies().values() {
+                for (key, order) in body
+                    .provider_demands(function.case.assembly.order())
+                    .unwrap()
+                {
+                    let admitted = body
+                        .providers()
+                        .iter()
+                        .find(|spec| spec.key() == key)
+                        .unwrap();
+                    let bound = providers.get(&key).unwrap().spec();
+                    bound.check_bound(admitted, order).unwrap_or_else(|error| {
+                        panic!(
+                            "{:?} provider {} requires {order:?}, bound {:?}: {error}",
+                            function.function, admitted.id, bound.derivatives
+                        )
+                    });
+                    checked += 1;
+                }
+            }
+        }
+    }
+    checked
 }
 /// S3 through Y4b: an exact-Hessian transient fit, whose Hessian comes from IDAS
 /// second-order adjoints, reads its covariance from its own KKT analysis and labels it
@@ -668,6 +704,7 @@ async fn exact_transient_covariance_matches_gauss_newton() {
     let crate::workflow::RunReport::Fit(report) = result.report().unwrap() else {
         panic!("missing fit")
     };
+    assert!(report.candidate.is_some(), "{report:?}");
     assert!(
         (report.candidate.as_ref().unwrap()[0] - 2.).abs() < 1e-5,
         "{report:?}"
@@ -734,7 +771,7 @@ fn curved_source(
     physical.key =
         pse_compiler::workspace::physical_identity(&physical.quantities, &physical.preconditions);
     let mut rows = pse_authoring::language::parse(
-        "package p { def Decay { domain t: Time from 0{s} to 2{s}; discretize grid on t using integrated(elements=1,order=1); param k: Scalar = 1; param a: Scalar = 2; var x[i in t]: Scalar; var z[i in t]: Scalar; eq rate[i in t]: d(x[i])/di == -z[i]/1{s}; eq closure[i in t]: z[i] == k*x[i]*x[i]; eq initial: x[0{s}] == a; annotation start x(1); annotation start z(1); annotation report x(\"state\"); annotation report z(\"closure\"); } }",
+        "package p { test Decay fixture { dof 0; route integrated; procedure integrate; integrate samples(0{s},2{s}) relative(1e-8) normalized_absolute(1e-10) step(1e-5{s}); } { domain t: Time from 0{s} to 2{s}; discretize grid on t using integrated(elements=1,order=1); param k: Scalar = 1; param a: Scalar = 2; var x[i in t]: Scalar; var z[i in t]: Scalar; eq rate[i in t]: d(x[i])/di == -z[i]/1{s}; eq closure[i in t]: z[i] == k*x[i]*x[i]; eq initial: x[0{s}] == a; annotation start x(1); annotation start z(1); annotation report x(\"state\"); annotation report z(\"closure\"); } }",
         id(20),
         pse_authoring::language::IdentityPolicy::Named,
         pse_authoring::ParseBudget::default(),
@@ -853,6 +890,7 @@ async fn exact_transient_fit_hessian_matches_finite_difference() {
         panic!("transient experiment")
     };
     assert_eq!(s.program.contract.derivatives, DerivativeOrder::Second);
+    assert!(assert_bound_dynamic_provider_demands(&problem) > 0);
     let mut execution = Execution::new(
         Arc::new(AtomicBool::new(false)),
         &problem.profile.solver.controls,

@@ -58,6 +58,7 @@ Derived in: pse-math.
 |---|---|---|
 | `MathBodyV1` | `pse.math.body.v1` | An expression body key, never over printed atoms or process-global identifiers. |
 | `MathCaseStructureV5` | `pse.math.case-structure.v5` | A bound case's structure: bindings, units, inventories, class declarations, the requirements its lowerings place on the route, and its objectives with their lexicographic degradations. |
+| `MathCaseStructureV6` | `pse.math.case-structure.v6` | Complete checked-member instance bindings, separate from shared mathematics. |
 | `MathCaseValuesV1` | `pse.math.case-values.v1` | A bound case's values, separate from structure and prepared arithmetic. |
 | `MathGuardedRealV1` | `pse.math.guarded-real.v1` | The compiler-owned guarded-real interpretation policy. |
 | `MathBoundFactsV2` | `pse.math.bound-facts.v2` | Shared bound facts of a presolve analysis. |
@@ -104,9 +105,16 @@ Derived in: pse-compiler.
 | `MathTypedDefinitionV7` | `pse.math.typed-definition.v7` | Checked expression occurrences and complete contextual admission products. |
 | `MathTypedDefinitionV8` | `pse.math.typed-definition.v8` | Scientific applicability effect stages, selected records and named permissions. |
 | `MathTypedDefinitionV9` | `pse.math.typed-definition.v9` | Scientific parameter source prerequisites retained through numeric input lowering. |
+| `MathTypedDefinitionV10` | `pse.math.typed-definition.v10` | Checked-member tokens in normalized typed closure validity. |
 | `CompilerModelingViewV2` | `pse.compiler.modeling-view.v2` | A prepared view of a compiled modeling structure. |
+| `CompilerModelingViewV3` | `pse.compiler.modeling-view.v3` | Mathematical view and compiler profile, with revision attribution bound separately. |
 | `CompilerModelingParametricV1` | `pse.compiler.modeling-parametric.v1` | The parametric projection of a prepared modeling view over requested parameters. |
 | `ModelingConsumerBodyV2` | `pse.modeling.consumer-body.v2` | A grouped consumer body, its expressions and validity ranges in canonical spelling (ADR-0123 Outcome 8). |
+| `ModelingConsumerBodyV3` | `pse.modeling.consumer-body.v3` | Canonical complete identity under ADR-0150. |
+| `ModelingConsumerBodyV4` | `pse.modeling.consumer-body.v4` | Body-local checked-member tokens, with actual members bound by instances. |
+| `ModelingCheckedMemberV1` | `pse.modeling.checked-member.v1` | A normalized local checked-member path, independent of actual instance identity. |
+| `ModelingSourceOccurrenceV1` | `pse.modeling.source-occurrence.v1` | Exact declaration-field occurrence attribution, separate from local body operation IDs. |
+| `ModelingPackageAdmissionV1` | `pse.modeling.package-admission.v1` | Exact source bundle closure and physical admission scope for durable package reuse. |
 | `ModelingImplicitResidualV4` | `pse.modeling.implicit-residual.v4` | An implicit residual, its terms, hints and guards in canonical spelling, function validity and data-layer guards with their envelopes, policies and lineages included (ADR-0123 Outcomes 4 and 8, Plan 23 H5). |
 | `ModelingImplicitOperationV1` | `pse.modeling.implicit-operation.v1` | Selected mathematical operation, excluding incidental numerical starts. |
 | `ModelingImplicitResidualV5` | `pse.modeling.implicit-residual.v5` | Admitted relation/function selector, anchor and derivative capabilities. |
@@ -151,7 +159,9 @@ Derived in: pse-backend-native.
 | Frame | Spelling | Meaning |
 |---|---|---|
 | `BackendSettingsV4` | `pse.backend.settings.v4` | Complete backend settings, derived from serde. |
+| `BackendSettingsV5` | `pse.backend.settings.v5` | Canonical complete identity under ADR-0150. |
 | `ConeLayoutV3` | `pse.cone.layout.v3` | A cone sequence layout in the pse encoding. |
+| `ConeLayoutV4` | `pse.cone.layout.v4` | Cone layout with canonical NaNs and retained signed zeros/infinities. |
 | `ConeLoweredRowV1` | `pse.cone.lowered-row.v1` | The lower-bound cone row of a two-sided coefficient row lowered to cone form. |
 | `ConeRecognizedV1` | `pse.cone.recognized.v1` | A recognized convex program's cone form: its auxiliary columns, atom rows and contract (ADR-0121). |
 | `FactorableDomainV1` | `pse.factorable.domain.v1` | A factorable problem's variable domains. |
@@ -161,10 +171,13 @@ Derived in: pse-backend-native.
 | `JacobianDiagnosticLayoutV1` | `pse.jacobian-diagnostic.layout.v1` | A Jacobian diagnostic problem family's pattern and domains. |
 | `JacobianDiagnosticProblemV1` | `pse.jacobian-diagnostic.problem.v1` | A Jacobian diagnostic problem. |
 | `NativeAccuracyV3` | `pse.native.accuracy.v3` | Resolved native accuracy budgets. |
+| `NativeAccuracyV4` | `pse.native.accuracy.v4` | Canonical complete identity under ADR-0150. |
 | `NativeBuildV1` | `pse.native.build.v1` | Every linked adapter's native build. |
 | `NativeControlsV2` | `pse.native.controls.v2` | Native solve controls. |
+| `NativeControlsV3` | `pse.native.controls.v3` | Canonical complete identity under ADR-0150. |
 | `NativeIpoptBuildV1` | `pse.native.ipopt.build.v1` | The linked Ipopt build. |
 | `NativeSeedV2` | `pse.native.seed.v2` | A seed's content, without its execution origin. |
+| `NativeSeedV3` | `pse.native.seed.v3` | Canonical complete identity under ADR-0150. |
 | `NativeStructuralScopeV1` | `pse.native.structural-scope.v1` | A structural analysis scope over a residual Jacobian. |
 | `PresolvePolicyV1` | `pse.presolve.policy.v1` | Presolve options. |
 | `PresolveTransformationV3` | `pse.presolve.transformation.v3` | A presolve transformation. |
@@ -184,15 +197,20 @@ Derived in: pse-runtime.
 | `CompletedRequestV2` | `pse.completed.request.v2` | A completed step's request lineage. |
 | `DurableHorizonRequestV1` | `pse.durable.horizon_request.v1` | A durable rolling horizon's request: its plant, loop and stage templates (Plan 22 Y5c). |
 | `DurableJobRequestV2` | `pse.durable.job_request.v2` | A durable job request. |
+| `DurableJobRequestV3` | `pse.durable.job_request.v3` | Canonical role-typed operational job request, with explicit nonfinite framing. |
 | `DurableModelingRequestV1` | `pse.durable.modeling_request.v1` | A durable modeling request. |
 | `DurableStudyRequestV1` | `pse.durable.study_request.v1` | A durable study's request: its definition (Plan 22 O7). |
+| `DurableStudyRequestV2` | `pse.durable.study_request.v2` | Canonical study request including unrestricted submitted numerical settings. |
 | `DurableStudyPointBindingV1` | `pse.durable.study_point_binding.v1` | The value bindings of one durable study point (Plan 22 O7). |
 | `DynamicProfileV6` | `pse.dynamic.profile.v6` | A dynamic simulation profile, with its scheduled inputs and typed sensitivity; its IDAS settings carry no sign constraints. |
 | `DynamicProfileV7` | `pse.dynamic.profile.v7` | Dynamic profile including explicit endpoint requirement. |
+| `DynamicProfileV8` | `pse.dynamic.profile.v8` | Typed integration profile and resolved method in canonical document framing. |
 | `ExplicitConicV4` | `pse.explicit-conic.v4` | An explicit conic request; its quadratic is certified exactly, so it carries no Gram witness. |
+| `ExplicitConicV5` | `pse.explicit-conic.v5` | Explicit cone request under canonical document floating point framing. |
 | `FitCoordinateV1` | `pse.fit.coordinate.v1` | A fitting coordinate alias of an experiment and source. |
 | `FitPreparedV1` | `pse.fit.prepared.v1` | A prepared fit. |
 | `FitProfileV3` | `pse.fit.profile.v3` | A fit profile: its solver profile, rank tolerance, cell budget, derivative source, simulation profiles and requested intervals. |
+| `FitProfileV4` | `pse.fit.profile.v4` | Fit profile using canonical numeric and uncertainty document framing. |
 | `FitSourceV1` | `pse.fit.source.v1` | A fit source. |
 | `ModelingDynamicModesV1` | `pse.modeling.dynamic-modes.v1` | Compiled simulation modes. |
 | `ModelingDynamicV2` | `pse.modeling.dynamic.v2` | A modeling dynamic simulation, with the derivative order of its functions, its integration parameter values, event directions and state signs. |
@@ -209,14 +227,18 @@ Derived in: pse-runtime.
 | `ShootingProblemV1` | `pse.shooting.problem.v1` | A shooting NLP: its simulation, method, nodes, controls, rows and objective. |
 | `SolvePreparationV1` | `pse.solve.preparation.v1` | A solve's compilation and normalization, before a seed is attached. |
 | `SolveRequestV1` | `pse.solve.request.v1` | A complete selected solve request. |
+| `SolveRequestV2` | `pse.solve.request.v2` | Scientific solve request with canonical typed seed content. |
 | `SolveSeedPreparationV1` | `pse.solve.seed_preparation.v1` | The preparation a stored seed is keyed by. |
 | `SolverConicDataV1` | `pse.solver.conic-data.v1` | Conic solver data. |
 | `SolverConicLayoutV3` | `pse.solver.conic-layout.v3` | A conic solver layout. |
 | `SolverConicSessionV1` | `pse.solver.conic-session.v1` | A conic solver session. |
+| `SolverConicSessionV2` | `pse.solver.conic-session.v2` | Cone session controls with canonical document and numeric framing. |
 | `SolverCoordinatesV1` | `pse.solver.coordinates.v1` | A solver session's coordinates. |
 | `SolverDataV1` | `pse.solver.data.v1` | A solver session's data. |
 | `SolverProfileV3` | `pse.solver.profile.v3` | A complete effective solver request profile. |
+| `SolverProfileV4` | `pse.solver.profile.v4` | Canonical complete identity under ADR-0150. |
 | `SolverSessionV1` | `pse.solver.session.v1` | A native solver session's compatibility. |
+| `SolverSessionV2` | `pse.solver.session.v2` | Native session controls with canonical document and numeric framing. |
 
 ## Operational store
 

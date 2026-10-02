@@ -44,6 +44,24 @@
       "realization": "nested",
       "body_slots": 65536,
       "body_occurrences": 1048576
+    },
+    {
+      "id": "k4-scalar-preparation",
+      "model": "scalar-k4"
+    },
+    {
+      "id": "k4-retention-pressure",
+      "model": "scalar-k4",
+      "pressure": true,
+      "retention_bytes": 65536,
+      "variants": 64
+    },
+    {
+      "id": "k4-retention-bypass",
+      "model": "scalar-k4",
+      "pressure": true,
+      "retention_bytes": 1,
+      "variants": 8
     }
   ]
 }

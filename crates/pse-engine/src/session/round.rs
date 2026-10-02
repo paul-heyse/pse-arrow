@@ -353,13 +353,20 @@ mod tests {
         let registry = registry.build().unwrap();
         let spec = registry.relation("authored.inputs").unwrap();
         let schema = Arc::new(pse_schema::arrow::relation_schema(&registry, spec).unwrap());
-        let empty =
-            FieldCheckedBatch::admit(&registry, spec, RecordBatch::new_empty(schema.clone()))
-                .unwrap();
+        let empty = FieldCheckedBatch::admit(
+            &registry,
+            spec,
+            RecordBatch::new_empty(schema.clone()),
+            &pse_relations::validate::ValidationContext::local(&registry).unwrap(),
+            &CancellationToken::new(),
+        )
+        .unwrap();
         let values = FieldCheckedBatch::admit(
             &registry,
             spec,
             RecordBatch::try_new(schema, vec![Arc::new(Int64Array::from(vec![3, 7]))]).unwrap(),
+            &pse_relations::validate::ValidationContext::local(&registry).unwrap(),
+            &CancellationToken::new(),
         )
         .unwrap();
         (registry, empty, values)

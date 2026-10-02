@@ -1,0 +1,216 @@
+{
+  "cancelled_attempt": {
+    "version": 2,
+    "cause": {
+      "kind": "error",
+      "diagnostic": {
+        "code": "runtime.cancelled",
+        "causes": [],
+        "class": "cancelled",
+        "severity": "error",
+        "stage": "workflow",
+        "sources": [],
+        "rule": "math.cancelled",
+        "observations": {
+          "detail": {
+            "kind": "text",
+            "value": "math work cancelled"
+          }
+        },
+        "locations": [],
+        "validity": null,
+        "applicability": []
+      }
+    },
+    "point": {
+      "attempt_id": null,
+      "lifecycle": "cancelled",
+      "diagnostic": {
+        "code": "runtime.cancelled",
+        "causes": [],
+        "class": "cancelled",
+        "severity": "error",
+        "stage": "workflow",
+        "sources": [],
+        "rule": "math.cancelled",
+        "observations": {
+          "detail": {
+            "kind": "text",
+            "value": "math work cancelled"
+          }
+        },
+        "locations": [],
+        "validity": null,
+        "applicability": []
+      },
+      "scientific": {
+        "usable": false,
+        "candidate_use": null,
+        "seed_permission": false
+      },
+      "start": null,
+      "effect": "absent"
+    },
+    "retry_failure": null,
+    "effect": "absent"
+  },
+  "cancelled_partial": {
+    "availability": "partial",
+    "lifecycle": "cancelled"
+  },
+  "event_ended_trajectory": {
+    "assessments": [],
+    "diagnostics": [],
+    "solves": [],
+    "computation": {
+      "run_id": "07070707070707070707070707070707",
+      "kind": "simulation",
+      "source_identity": "blake3:0808080808080808080808080808080808080808080808080808080808080808",
+      "profile_identity": "blake3:0909090909090909090909090909090909090909090909090909090909090909",
+      "state": "native",
+      "termination": null,
+      "trajectory_termination": "event",
+      "backend": "diffsol",
+      "native_code": null,
+      "native_status": null,
+      "qualification": "feasible",
+      "candidate_kind": null,
+      "candidate_available": true,
+      "feasible": true,
+      "completed_time": 0.125,
+      "completed_samples": 1,
+      "estimate_qualified": null,
+      "response_available": null,
+      "response_rank": null,
+      "response_condition": null,
+      "validation_error": null,
+      "error": null
+    },
+    "lineage": []
+  },
+  "failed_attempt": {
+    "version": 2,
+    "cause": {
+      "kind": "error",
+      "diagnostic": {
+        "code": "workflow.input",
+        "causes": [],
+        "class": "invalid_model",
+        "severity": "error",
+        "stage": "workflow",
+        "sources": [],
+        "rule": "workflow.input",
+        "observations": {
+          "detail": {
+            "kind": "text",
+            "value": "native workflow contract: selected binding refused before dispatch"
+          }
+        },
+        "locations": [],
+        "validity": null,
+        "applicability": []
+      }
+    },
+    "point": {
+      "attempt_id": null,
+      "lifecycle": "failed",
+      "diagnostic": {
+        "code": "workflow.input",
+        "causes": [],
+        "class": "invalid_model",
+        "severity": "error",
+        "stage": "workflow",
+        "sources": [],
+        "rule": "workflow.input",
+        "observations": {
+          "detail": {
+            "kind": "text",
+            "value": "native workflow contract: selected binding refused before dispatch"
+          }
+        },
+        "locations": [],
+        "validity": null,
+        "applicability": []
+      },
+      "scientific": {
+        "usable": false,
+        "candidate_use": null,
+        "seed_permission": false
+      },
+      "start": null,
+      "effect": "absent"
+    },
+    "retry_failure": null,
+    "effect": "absent"
+  },
+  "incumbent": {
+    "phase": "incumbent",
+    "elapsed_seconds": 0.125,
+    "values": {},
+    "incumbent": {
+      "objective": 12.0,
+      "dual_bound": 11.5,
+      "gap": 0.04,
+      "nodes": 9007199254740993,
+      "seconds": 0.125,
+      "solution_id": null
+    },
+    "step": null,
+    "sequence": null,
+    "at": null
+  },
+  "partial": {
+    "availability": "partial",
+    "lifecycle": "terminal"
+  },
+  "pre_result_refusal": {
+    "code": "workflow.input",
+    "causes": [],
+    "class": "invalid_model",
+    "severity": "error",
+    "stage": "workflow",
+    "sources": [],
+    "rule": "workflow.input",
+    "observations": {
+      "detail": {
+        "kind": "text",
+        "value": "native workflow contract: selected binding refused before dispatch"
+      }
+    },
+    "locations": [],
+    "validity": null,
+    "applicability": []
+  },
+  "qualified_incumbent": {
+    "assessments": [],
+    "diagnostics": [],
+    "solves": [
+      {
+        "run_id": "07070707070707070707070707070707",
+        "step": 0,
+        "model_id": null,
+        "revision": null,
+        "case_id": null,
+        "instance_id": null,
+        "backend": "scip",
+        "native_code": null,
+        "native_status": null,
+        "state": "native",
+        "termination": "node_limit",
+        "assurance": "none",
+        "qualification": "gap_qualified",
+        "candidate_kind": "feasible_point",
+        "feasible": true,
+        "objective": 12.0,
+        "objective_sense": "minimize",
+        "objective_quantity_id": null,
+        "validation_error": null,
+        "error": null,
+        "transformation": null,
+        "commitment": null
+      }
+    ],
+    "computation": null,
+    "lineage": []
+  }
+}

@@ -225,6 +225,7 @@ async fn new_collection_constraint_has_one_decision_across_local_native_delta_an
         let record = pse_relations::generated::runtime::publication_manifests::View::try_from_batch_with_registry(
             &registry,
             &completed.batches()[0],
+            &artifact.session().validation_context().unwrap(),
         )
         .unwrap()
         .row(0)

@@ -7,24 +7,20 @@ from datetime import timedelta
 from pathlib import Path
 
 import attrs
-import msgspec
 import pyarrow as pa
 
 from pse import codec
 from pse._build import (
     EngineSettings,
     OperationalStore,
-    ResourceReport,
     _NativePhysicalContext,
     _NativeRuntime,
 )
 from pse._inspection import Publication, TableStream
 from pse._modeling import ModelingPackage
 from pse._runs import (
-    ExportReceipt,
     PreparedOperation,
     ProgressStream,
-    PublicationSettlement,
     PublicationTicket,
     RunHandle,
     RunResult,
@@ -33,10 +29,18 @@ from pse._runs import (
 )
 from pse._strategies import (
     PreparedStrategy,
-    _AnalysisDocument,
 )
 from pse.contracts import runtime as result_contracts
-from pse.contracts.documents import SolveSettings
+from pse.contracts.documents import (
+    ConicRequest,
+    ExportReceipt,
+    InventoryControls,
+    ProgressControls,
+    PublicationSettlement,
+    ResourceReport,
+    RunControls,
+    SolveSettings,
+)
 from pse.contracts.enums import AttemptState, JobState, StudyState
 from pse.contracts.identities import (
     AttemptId,
@@ -86,14 +90,14 @@ class Runtime:
         *,
         run_id: RunId | None = None,
         states: Sequence[AttemptState] = (),
-        limit: int = 100,
+        controls: InventoryControls | None = None,
     ) -> tuple[OperationalAttempt, ...]:
         """List the store's durable attempts, newest first; they survive restarts.
 
         Args:
             run_id: Only the attempts of this run.
             states: Only attempts in these lifecycle states; every state when empty.
-            limit: At most this many attempts.
+            controls: Rust-owned page limits.
 
         Returns:
             One registry ``runtime.operational_attempts`` row per attempt.
@@ -102,7 +106,7 @@ class Runtime:
             self._handle.runs(
                 run_id=None if run_id is None else run_id.to_hex(),
                 states=[AttemptState(state).value for state in states],
-                limit=limit,
+                controls=None if controls is None else codec.encode_json(controls),
             )
         )
         return tuple(
@@ -113,20 +117,21 @@ class Runtime:
         self,
         *,
         states: Sequence[StudyState] = (),
-        limit: int = 100,
+        controls: InventoryControls | None = None,
     ) -> tuple[OperationalStudy, ...]:
         """List the store's durable studies, newest first.
 
         Args:
             states: Only studies in these states; every state when empty.
-            limit: At most this many studies.
+            controls: Rust-owned page limits.
 
         Returns:
             One registry ``runtime.operational_studies`` row per study.
         """
         stream = TableStream(
             self._handle.studies(
-                states=[StudyState(state).value for state in states], limit=limit
+                states=[StudyState(state).value for state in states],
+                controls=None if controls is None else codec.encode_json(controls),
             )
         )
         return tuple(
@@ -137,20 +142,21 @@ class Runtime:
         self,
         *,
         states: Sequence[JobState] = (),
-        limit: int = 100,
+        controls: InventoryControls | None = None,
     ) -> tuple[OperationalJob, ...]:
         """List the store's durable jobs, newest first.
 
         Args:
             states: Only jobs in these states; every state when empty.
-            limit: At most this many jobs.
+            controls: Rust-owned page limits.
 
         Returns:
             One registry ``runtime.operational_jobs`` row per job.
         """
         stream = TableStream(
             self._handle.jobs(
-                states=[JobState(state).value for state in states], limit=limit
+                states=[JobState(state).value for state in states],
+                controls=None if controls is None else codec.encode_json(controls),
             )
         )
         return tuple(codec.structure_rows(pa.table(stream).to_pylist(), OperationalJob))
@@ -189,21 +195,14 @@ class Runtime:
         )
 
     def progress(
-        self, attempt_id: AttemptId, *, follow: bool = True, page: int = 256
+        self, attempt_id: AttemptId, *, controls: ProgressControls | None = None
     ) -> ProgressStream:
-        """Stream a durable attempt's stored progress events and incumbents.
-
-        Args:
-            attempt_id: The attempt.
-            follow: Wait for new events until the attempt stops working; otherwise
-                end after the events stored now.
-            page: At most this many events of each stream are read and held at once.
-
-        Returns:
-            An iterator of events in observation order; close it to stop.
-        """
+        """Observe stored progress under Rust-owned page and follow controls."""
         return ProgressStream(
-            self._handle.progress(attempt_id.to_hex(), follow=follow, page=page)
+            self._handle.progress(
+                attempt_id.to_hex(),
+                controls=None if controls is None else codec.encode_json(controls),
+            )
         )
 
     def study(self, study_id: StudyId) -> StudyHandle:
@@ -246,11 +245,7 @@ class Runtime:
 
     def capabilities(self) -> tuple[SolverCapability, ...]:
         """Discover linked native libraries without PATH or optional Python probes."""
-        return tuple(
-            codec.converter().structure(
-                msgspec.json.decode(self._handle.capabilities()), list[SolverCapability]
-            )
-        )
+        return codec.decode_rows_json(self._handle.capabilities(), SolverCapability)
 
     def clear_program_cache(self) -> None:
         """Release retained programs while keeping active prepared workers valid."""
@@ -261,8 +256,8 @@ class Runtime:
 
         Nothing is prepared, written or solved again.
         """
-        return msgspec.json.decode(
-            self._handle.settle_publication(ticket.json), type=PublicationSettlement
+        return codec.decode_json(
+            self._handle.settle_publication(ticket.json), PublicationSettlement
         )
 
     def register_workspace(self, name: str, root: str | Path) -> Workspace:
@@ -277,13 +272,11 @@ class Runtime:
             The registered workspace.
         """
         uri = root.resolve().as_uri() + "/" if isinstance(root, Path) else root
-        return msgspec.json.decode(
-            self._handle.register_workspace(name, uri), type=Workspace
-        )
+        return codec.decode_json(self._handle.register_workspace(name, uri), Workspace)
 
     def workspace(self, name: str) -> Workspace:
         """Return a registered workspace by name."""
-        return msgspec.json.decode(self._handle.workspace(name), type=Workspace)
+        return codec.decode_json(self._handle.workspace(name), Workspace)
 
     def head(self, workspace_id: WorkspaceId) -> PublicationId | None:
         """Return a workspace's head; ``None`` before its first publication."""
@@ -324,40 +317,40 @@ class Runtime:
             if isinstance(destination, Path)
             else destination
         )
-        return msgspec.json.decode(
+        return codec.decode_json(
             self._handle.export_publication(
                 publication_id.to_hex(), uri, valid_for.total_seconds()
             ),
-            type=ExportReceipt,
+            ExportReceipt,
         )
 
     def release_export(self, receipt: ExportReceipt) -> bool:
         """Release an export's lease; returns whether it was still held."""
-        return self._handle.release_export(msgspec.json.encode(receipt))
+        return self._handle.release_export(codec.encode_json(receipt))
 
     def prepare_conic(
         self,
-        request: Mapping[str, object],
+        request: ConicRequest,
         physical: "PhysicalContext",
         settings: SolveSettings,
     ) -> PreparedStrategy:
         """Admit explicit library cone geometry and an exact quadratic witness."""
         return PreparedStrategy(
             self._handle.prepare_conic(
-                codec.encode_json(_AnalysisDocument(dict(request))),
+                codec.encode_json(request),
                 physical._handle,  # noqa: SLF001 - same native boundary
                 codec.encode_json(settings),
             )
         )
 
     def start(
-        self, cases: Sequence[PreparedOperation], *, continue_independent: bool = False
+        self, cases: Sequence[PreparedOperation], *, controls: RunControls | None = None
     ) -> RunHandle:
         """Run a finite sequence on the existing completion-owned native pipeline."""
         return RunHandle(
             self._handle.start(
                 [c._handle for c in cases],  # noqa: SLF001 - same native boundary
-                continue_independent=continue_independent,
+                controls=None if controls is None else codec.encode_json(controls),
             )
         )
 

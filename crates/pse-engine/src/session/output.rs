@@ -286,6 +286,7 @@ pub fn checked_literal(
     registry: &Registry,
     column: &FieldContract,
     scalar: ScalarValue,
+    context: &pse_relations::validate::ValidationContext,
 ) -> Result<Expr> {
     let field = pse_schema::arrow::field_for(registry, column).map_err(schema_error)?;
     if scalar.data_type() != *field.data_type() {
@@ -296,10 +297,15 @@ pub fn checked_literal(
             scalar.data_type(),
         )));
     }
-    pse_relations::validate::validate_column(registry, &field, scalar.to_array()?.as_ref())
-        .map_err(|errors| {
-            pse_columnar::external(pse_relations::RelationError::Validation { errors })
-        })?;
+    pse_relations::validate::validate_column(
+        registry,
+        &field,
+        scalar.to_array()?.as_ref(),
+        context,
+    )
+    .map_err(|errors| {
+        pse_columnar::external(pse_relations::RelationError::Validation { errors })
+    })?;
     Ok(Expr::Literal(scalar, Some(FieldMetadata::from(&field))))
 }
 
@@ -314,13 +320,14 @@ pub fn checked_array_literal(
     registry: &Registry,
     column: &FieldContract,
     array: &datafusion::arrow::array::ArrayRef,
+    context: &pse_relations::validate::ValidationContext,
 ) -> Result<Expr> {
     let field =
         Arc::new(pse_schema::arrow::field_for(registry, column).map_err(pse_columnar::external)?);
     let scalar = pse_schema::NativeLiteral::new(field, Arc::clone(array))
         .and_then(|literal| literal.scalar())
         .map_err(pse_columnar::external)?;
-    checked_literal(registry, column, scalar)
+    checked_literal(registry, column, scalar, context)
 }
 
 /// Check an actual native field against its expected output obligation. The target
@@ -519,7 +526,7 @@ mod consolidation_unit {
 
     #[test]
     fn declared_output_rejects_forged_contract_without_executing_a_plan() -> Result<()> {
-        let registry = crate::validation::registry().map_err(schema_error)?;
+        let registry = pse_schema::registry().map_err(schema_error)?;
         let original = registry
             .relation("reference.dimensions")
             .ok_or_else(|| invalid("fixture relation missing"))?;

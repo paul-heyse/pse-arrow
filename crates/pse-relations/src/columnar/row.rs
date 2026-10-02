@@ -30,6 +30,7 @@ pub trait RelationRow: Sized + 'static {
     fn builder(
         registry: &pse_schema::Registry,
         capacity: usize,
+        context: &crate::validate::ValidationContext,
     ) -> Result<Self::Builder, RelationError>;
     /// Encode the row directly into native columns; finish performs domain admission.
     /// # Errors
@@ -78,14 +79,17 @@ impl<R: RelationRow> RowBuilder<R> {
     /// Open empty columns using the built-in declaration.
     /// # Errors
     /// Registry or Arrow layout failure.
-    pub fn new() -> Result<Self, RelationError> {
-        Self::with_capacity(0)
+    pub fn new(context: &crate::validate::ValidationContext) -> Result<Self, RelationError> {
+        Self::with_capacity(0, context)
     }
     /// Open native columns with initial row capacity.
     /// # Errors
     /// Registry or Arrow layout failure.
-    pub fn with_capacity(capacity: usize) -> Result<Self, RelationError> {
-        Self::with_registry(pse_schema::registry()?, capacity)
+    pub fn with_capacity(
+        capacity: usize,
+        context: &crate::validate::ValidationContext,
+    ) -> Result<Self, RelationError> {
+        Self::with_registry(pse_schema::registry()?, capacity, context)
     }
     /// Bind once to an exact immutable declaration owner.
     /// # Errors
@@ -93,6 +97,7 @@ impl<R: RelationRow> RowBuilder<R> {
     pub fn with_registry(
         registry: &pse_schema::Registry,
         capacity: usize,
+        context: &crate::validate::ValidationContext,
     ) -> Result<Self, RelationError> {
         let spec = R::relation(registry)?;
         let schema = pse_schema::arrow::relation_schema_ref(registry, spec)?;
@@ -102,6 +107,7 @@ impl<R: RelationRow> RowBuilder<R> {
                 registry.contract(spec)?,
                 schema,
                 capacity,
+                context,
             )?,
             marker: std::marker::PhantomData,
         })

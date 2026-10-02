@@ -5,9 +5,9 @@
 
 import builtins as b
 import math
-from collections.abc import Callable
+from collections.abc import Callable, Hashable, Mapping
 from datetime import UTC, datetime
-from typing import Never, Self
+from typing import Never, Protocol, Self, runtime_checkable
 
 import attrs
 
@@ -77,15 +77,70 @@ def integer_range(lower: int, upper: int) -> Callable[[object, object, object], 
     return validate
 
 
-def collection(minimum: int, maximum: int | None, *, unique: bool) -> Callable[[object, object, object], None]:
-    """Validate visible collection cardinality and declared member uniqueness."""
+EqualityKey = Hashable
+
+
+@runtime_checkable
+class _KeyedRecord(Protocol):
+    def _pse_equality_key(self) -> EqualityKey: ...
+
+
+def scalar_key(value: object) -> EqualityKey:
+    """Validated scalar equality, including equal positive and negative zero."""
+    if not isinstance(value, Hashable):
+        _reject("declared scalar requires a hashable value")
+    return value
+
+
+def record_key(value: object) -> EqualityKey:
+    """A generated record selects the key of each declared field."""
+    if not isinstance(value, _KeyedRecord):
+        _reject("declared record lacks its generated equality key")
+    # The generated protocol deliberately keeps this implementation hook private.
+    return value._pse_equality_key()  # noqa: SLF001
+
+
+def optional_key(key: Callable[[object], EqualityKey]) -> Callable[[object], EqualityKey]:
+    return lambda value: None if value is None else key(value)
+
+
+def sequence_key(key: Callable[[object], EqualityKey]) -> Callable[[object], EqualityKey]:
+    def project(value: object) -> EqualityKey:
+        if not isinstance(value, (tuple, list)):
+            _reject("declared sequence requires a tuple or list")
+        return (type(value), tuple(key(item) for item in value))
+    return project
+
+
+def tuple_key(keys: tuple[Callable[[object], EqualityKey], ...]) -> Callable[[object], EqualityKey]:
+    """Fixed-position tuple equality uses each position's declared projection."""
+    def project(value: object) -> EqualityKey:
+        if not isinstance(value, tuple) or len(value) != len(keys):
+            _reject("declared tuple requires its exact arity")
+        return (type(value), tuple(key(item) for key, item in zip(keys, value, strict=True)))
+    return project
+
+
+def mapping_key(key: Callable[[object], EqualityKey], member: Callable[[object], EqualityKey]) -> Callable[[object], EqualityKey]:
+    """Mapping equality ignores insertion order and keeps nested member equality."""
+    def project(value: object) -> EqualityKey:
+        if not isinstance(value, Mapping):
+            _reject("declared mapping requires a mapping")
+        return frozenset((key(k), member(v)) for k, v in value.items())
+    return project
+
+
+def unique(key: Callable[[object], EqualityKey]) -> Callable[[object, object, object], None]:
+    """Linear-time uniqueness over the contract's admitted element equality."""
     def validate(_instance: object, _attribute: object, value: object) -> None:
         if not isinstance(value, tuple):
             _reject("collection requires a tuple")
-        if len(value) < minimum or (maximum is not None and len(value) > maximum):
-            _reject("collection violates cardinality")
-        if unique and any(item in value[:index] for index, item in enumerate(value)):
-            _reject("collection violates uniqueness")
+        seen: set[EqualityKey] = set()
+        for item in value:
+            projected = key(item)
+            if projected in seen:
+                _reject("collection violates uniqueness")
+            seen.add(projected)
     return validate
 
 
@@ -106,6 +161,9 @@ class DimensionVectorItem:
     num: b.int = attrs.field(validator=integer_range(-32768, 32767))
     den: b.int = attrs.field(validator=integer_range(-32768, 32767))
 
+    def _pse_equality_key(self) -> EqualityKey:
+        return (type(self), (scalar_key(self.num), scalar_key(self.den),))
+
 
 @attrs.frozen(kw_only=True)
 class QuantityValue:
@@ -115,6 +173,9 @@ class QuantityValue:
     quantity_type_id: SemanticId = attrs.field(validator=attrs.validators.instance_of(SemanticId))
     unit_id: SemanticId = attrs.field(validator=attrs.validators.instance_of(SemanticId))
 
+    def _pse_equality_key(self) -> EqualityKey:
+        return (type(self), (scalar_key(self.value), scalar_key(self.quantity_type_id), scalar_key(self.unit_id),))
+
 
 @attrs.frozen(kw_only=True)
 class Bound:
@@ -122,6 +183,9 @@ class Bound:
 
     kind: e.BoundKind = attrs.field(validator=attrs.validators.instance_of(e.BoundKind))
     value: b.float | None = attrs.field(validator=attrs.validators.optional(finite_float))
+
+    def _pse_equality_key(self) -> EqualityKey:
+        return (type(self), (scalar_key(self.kind), optional_key(scalar_key)(self.value),))
 
 
 @attrs.frozen(kw_only=True)
@@ -131,3 +195,6 @@ class SourceSpan:
     document_id: SemanticId = attrs.field(validator=attrs.validators.instance_of(SemanticId))
     start: b.int = attrs.field(validator=integer_range(0, 4294967295))
     end: b.int = attrs.field(validator=integer_range(0, 4294967295))
+
+    def _pse_equality_key(self) -> EqualityKey:
+        return (type(self), (scalar_key(self.document_id), scalar_key(self.start), scalar_key(self.end),))

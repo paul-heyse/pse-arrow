@@ -102,12 +102,19 @@ pub(super) struct Rows {
     propagated: propagated::Builder,
 }
 impl Rows {
-    pub(super) fn new(registry: &pse_schema::Registry) -> Result<Self, WorkflowError> {
+    pub(super) fn new(
+        registry: &pse_schema::Registry,
+        validation: &pse_relations::validate::ValidationContext,
+    ) -> Result<Self, WorkflowError> {
         Ok(Self {
-            validity: validity::Builder::with_registry(registry, 0).map_err(relation)?,
-            sensitivities: sensitivities::Builder::with_registry(registry, 0).map_err(relation)?,
-            hessians: hessians::Builder::with_registry(registry, 0).map_err(relation)?,
-            propagated: propagated::Builder::with_registry(registry, 0).map_err(relation)?,
+            validity: validity::Builder::with_registry(registry, 0, validation)
+                .map_err(relation)?,
+            sensitivities: sensitivities::Builder::with_registry(registry, 0, validation)
+                .map_err(relation)?,
+            hessians: hessians::Builder::with_registry(registry, 0, validation)
+                .map_err(relation)?,
+            propagated: propagated::Builder::with_registry(registry, 0, validation)
+                .map_err(relation)?,
         })
     }
     /// The rows of one step that requested sensitivities.

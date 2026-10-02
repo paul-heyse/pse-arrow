@@ -17,6 +17,6 @@
 @id("2ed407471d154508a8e6db87779f4b90") fn bt_feed(j:chemistry.species)->Scalar=feeds[j];
 @id("f622163224f64cecaa98b10d0952aa16") test tpd_ideal oracle references.analytic_ideal_tangent_plane fixture {dof 2; route steady; procedure solve; intent certify;} {
 @id("4fdb92718b0840589294cd7b11f68fc0") child root:phase_stability.TangentPlaneStability=phase_stability.TangentPlaneStability(selected=vessel_fixtures.alkanes,law=helmholtz.ideal,feed=vessel_fixtures.fraction);
-@id("42c7c868378e407f97d1fa652302d315") expect root.tpd==0 tolerance 0.000001;
+@id("42c7c868378e407f97d1fa652302d315") expect root.tpd==0{1} tolerance 0.000001{1};
 }
 }

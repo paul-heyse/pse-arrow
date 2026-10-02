@@ -158,7 +158,7 @@ fn native_key_expression_has_no_text_encoding_path() {
 
 #[test]
 fn native_output_cannot_relabel_an_ordinary_hash_or_another_key_encoding() {
-    let registry = pse_engine::validation::registry().unwrap();
+    let registry = pse_schema::registry().unwrap();
     let expected = pse_schema::arrow::field_for(
         registry,
         &pse_schema::model::FieldContract::row_key().with_name("key"),

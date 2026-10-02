@@ -72,7 +72,21 @@ impl PhysicalContext {
         sessions: &pse_engine::session::EngineFactory,
         cancel: &pse_columnar::CancellationToken,
     ) -> Result<Self, WorkflowError> {
-        documents.validate_registry(&registry)?;
+        documents.validate_context(
+            &registry,
+            sessions.validation_context(&registry)?.as_ref(),
+            cancel,
+        )?;
+        let headers = documents
+            .bundles()
+            .iter()
+            .map(|bundle| bundle.package.clone())
+            .collect::<Vec<_>>();
+        let limits = pse_authoring::p0::GraphLimits {
+            nodes: headers.len(),
+            edges: crate::authoring_driver::work::sources(documents.bundles())? / 128,
+        };
+        crate::authoring_driver::p1::admit_package_closure(documents.bundles(), &headers, limits)?;
         // ADR-0123 Outcome 6: the package whose physical document declares quantity types
         // declares their names; one package declares the inventory (register R-51).
         let declaring = documents
@@ -99,7 +113,12 @@ impl PhysicalContext {
                 ));
             }
         };
-        let batches = crate::authoring_driver::p1::source_batches(documents.bundles(), &registry)?;
+        let batches = crate::authoring_driver::p1::source_batches(
+            documents.bundles(),
+            &registry,
+            &headers,
+            limits,
+        )?;
         let keys = crate::physical::input_keys(&registry);
         let roots = keys
             .iter()

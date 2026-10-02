@@ -5,10 +5,10 @@
 -- heartbeats and the stale sweep. Legality is the transition table in lifecycle.rs; these
 -- statements apply what it allows, under the attempt's row lock.
 
---! insert_attempt (preparation_identity?, parent_attempt?)
+--! insert_attempt (preparation_identity?, parent_attempt?, operational_job_frame?)
 INSERT INTO pse_ops.attempts
-    (attempt_id, run_id, kind, request_identity, preparation_identity, state, parent_attempt)
-VALUES (:attempt_id, :run_id, :kind, :request_identity, :preparation_identity, :state,
+    (attempt_id, run_id, kind, operational_job_identity, operational_job_frame, preparation_identity, state, parent_attempt)
+VALUES (:attempt_id, :run_id, :kind, :operational_job_identity, :operational_job_frame, :preparation_identity, :state,
         :parent_attempt);
 
 --! insert_transition (from_state?, actor?, reason?)

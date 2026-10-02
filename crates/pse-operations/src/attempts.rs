@@ -48,8 +48,8 @@ pub struct NewAttempt {
     pub run_id: RunId,
     /// What the attempt computes.
     pub kind: AttemptKind,
-    /// The request identity (blueprint §5.1).
-    pub request_identity: ContentHash,
+    /// Operational request evidence, distinct from published scientific lineage (blueprint §5.1).
+    pub operational_job_identity: pse_ids::roles::RecordedOperationalJobIdentity,
     /// The preparation identity, when preparation happened before registration.
     pub preparation_identity: Option<ContentHash>,
     /// The attempt this one supersedes or retries.
@@ -280,7 +280,8 @@ pub(crate) async fn insert(
                 attempt_id: attempt.attempt_id,
                 run_id: attempt.run_id,
                 kind: attempt.kind,
-                request_identity: attempt.request_identity,
+                operational_job_identity: attempt.operational_job_identity.digest,
+                operational_job_frame: attempt.operational_job_identity.frame.as_deref(),
                 preparation_identity: attempt.preparation_identity,
                 state: lifecycle::INITIAL,
                 parent_attempt: attempt.parent_attempt,

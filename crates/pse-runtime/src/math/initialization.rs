@@ -21,7 +21,7 @@ use std::{
 /// Compiled predecessor-ordered blocks, with explicit conditional input coordinates.
 #[derive(Clone, Debug)]
 pub struct PreparedInitialization {
-    quantities: Arc<pse_quantity::QuantityRegistry>,
+    quantities: pse_math::SharedAllocation<pse_quantity::QuantityRegistry>,
     targets: Vec<pse_math::numerics::TargetSpec>,
     requirements: Arc<Vec<pse_math::numerics::SourcedRequirement>>,
     blocks: Vec<ConditionalBlock>,
@@ -34,6 +34,7 @@ struct ConditionalBlock {
     boundary: pse_structural::initialization::Block,
     view: pse_compiler::workspace::PreparedBlock,
     executable: Arc<ExecutableCase>,
+    owner: Arc<super::products::ProductOwner>,
 }
 impl PreparedInitialization {
     /// Resolve every conditional block before worker acquisition. No fallback follows a failed attempt.
@@ -463,7 +464,7 @@ impl MathService {
                 feasibility: accuracy.feasibility,
             },
         )?;
-        let profile_key = super::solves::profile_key(&profile)?;
+        let profile_key = super::solves::profile_key(&profile)?.as_id();
         Ok(PreparedConditionalUnit {
             view,
             executable,
@@ -517,7 +518,7 @@ impl MathService {
             })
             .collect::<Result<_, _>>()?;
         let oracle = native::assembled::AlgebraicOracle::new(worker, values.clone())?
-            .with_structural_analysis(prepared.view.structure.clone())
+            .with_structural_analysis(prepared.view.structure.clone().into())
             .with_normalization(prepared.normalization.clone())?;
         oracle.admit_nle()?;
         let mut nested = execution.clone();
@@ -701,45 +702,6 @@ impl MathService {
             progress,
         })
     }
-    /// Prepare conditional demands through the same Salsa database and artifact cache.
-    pub async fn prepare_initialization(
-        self: &Arc<Self>,
-        workspace: Workspace,
-        revision: pse_compiler::workspace::Inputs,
-        id: SemanticId,
-        profile: Profile,
-        order: pse_kernels::DerivativeOrder,
-    ) -> Result<PreparedInitialization, MathRuntimeError> {
-        let quantities = revision.quantities.clone();
-        let targets = revision
-            .cases
-            .get(&id)
-            .ok_or_else(|| native::ProblemError::Contract("unknown initialization case".into()))?
-            .structure
-            .numerical_targets(&quantities)?;
-        let (products, lease) = self
-            .job_retained(
-                1,
-                super::WITHIN_WORKSPACE,
-                FlightCancellation::default(),
-                move |_| {
-                    let _lease = workspace.lease;
-                    let mut compiler = workspace.compiler.lock().map_err(|_| {
-                        MathRuntimeError::Infrastructure("compiler lock poisoned".into())
-                    })?;
-                    compiler.publish(revision)?;
-                    let products = compiler.prepare_initialization_blocks(id, profile, order)?;
-                    let bytes = products
-                        .iter()
-                        .try_fold(0usize, |n, p| n.checked_add(p.plan.retained_bytes()))
-                        .ok_or(MathRuntimeError::Limit("initialization product extent"))?;
-                    Ok((products, bytes))
-                },
-            )
-            .await?;
-        self.own_initialization(products, lease, quantities, targets, Vec::new())
-            .await
-    }
     /// Reuse the same conditional engine with an authored case's selected physical bindings.
     pub async fn prepare_modeling_initialization(
         self: &Arc<Self>,
@@ -789,7 +751,7 @@ impl MathService {
         self: &Arc<Self>,
         products: Arc<Vec<pse_compiler::workspace::PreparedBlock>>,
         lease: Arc<pse_columnar::AllocationLease>,
-        quantities: Arc<pse_quantity::QuantityRegistry>,
+        quantities: pse_math::SharedAllocation<pse_quantity::QuantityRegistry>,
         targets: Vec<pse_math::numerics::TargetSpec>,
         requirements: Vec<pse_math::numerics::SourcedRequirement>,
     ) -> Result<PreparedInitialization, MathRuntimeError> {
@@ -797,6 +759,7 @@ impl MathService {
             vec![3, Arc::as_ptr(&products) as usize],
             products.clone(),
             lease,
+            Vec::new(),
         )?;
         let mut blocks = Vec::with_capacity(products.len());
         for block in products.iter() {
@@ -812,6 +775,7 @@ impl MathService {
             blocks.push(ConditionalBlock {
                 boundary: block.boundary.clone(),
                 view,
+                owner: owner.clone(),
                 executable: Arc::new(ExecutableCase {
                     assembly,
                     _artifacts: artifacts,
@@ -1078,7 +1042,7 @@ impl MathService {
     async fn bind_block(
         self: &Arc<Self>,
         block: &ConditionalBlock,
-        quantities: Arc<pse_quantity::QuantityRegistry>,
+        quantities: pse_math::SharedAllocation<pse_quantity::QuantityRegistry>,
         values: CaseValues,
         driver: &crate::CancelSource,
     ) -> Result<Preparation, MathRuntimeError> {
@@ -1087,19 +1051,42 @@ impl MathService {
         let operation =
             self.job_retained(1, self.policy.worker_bytes, control.clone(), move |flag| {
                 let bound = view.bind(quantities, &values, &flag)?;
-                let bytes = bound.presolve.bytes()
-                    + bound
-                        .coefficients
-                        .as_ref()
-                        .map_or(0, |c| c.retained_bytes());
+                // The block plan, structural witness, descriptors and registry already
+                // have owners. Only this first binding's products and wrappers escape.
+                let bytes = block_binding_bytes(&bound);
                 Ok((bound, bytes))
             });
         tokio::pin!(operation);
         let (bound, lease) = tokio::select! {result=&mut operation=>result?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
-        let prepared = self.own_preparation((bound, lease))?;
-        let _ = prepared.executable.set(block.executable.clone());
-        Ok(prepared)
+        let executable = Arc::new(std::sync::OnceLock::from(block.executable.clone()));
+        Ok(Self::own_binding(
+            block.owner.clone(),
+            bound,
+            lease,
+            executable,
+        ))
     }
+}
+
+fn block_binding_bytes(bound: &pse_compiler::workspace::PreparedCase) -> usize {
+    // The same wrapper allowance as a value rebind, plus all newly allocated first-bind
+    // products. Empty occurrence/derivation/derived containers are new here too.
+    2 * size_of::<pse_compiler::workspace::PreparedCase>()
+        + 1024
+        + bound.binding_bytes()
+        + bound.presolve.bytes()
+        + 32
+        + bound.provenance_bytes()
+        + bound.derivation.retained_bytes()
+        + size_of::<pse_compiler::workspace::Derivation>()
+        + 32
+        + bound.derived.retained_bytes()
+        + size_of::<pse_compiler::workspace::Derived>()
+        + 32
+        + bound
+            .coefficients
+            .as_ref()
+            .map_or(0, |c| c.retained_bytes() + 32)
 }
 
 pub(crate) fn commit_block(
@@ -1136,6 +1123,137 @@ mod tests {
     use std::sync::atomic::AtomicBool;
     fn id(v: u8) -> SemanticId {
         SemanticId::from_bytes([v; 16])
+    }
+    #[tokio::test]
+    async fn first_block_binding_retains_shared_parents_until_last_alias() {
+        pse_math::initialize().unwrap();
+        let service = super::super::tests::service();
+        let baseline = service.pool.reserved();
+        let registry = Arc::new(
+            pse_quantity::QuantityRegistryBuilder::new()
+                .build()
+                .unwrap(),
+        );
+        let registry_bytes = registry.allocation_extent();
+        let registry_lease = service
+            .reserve("math:test-registry", registry_bytes)
+            .unwrap();
+        let quantities =
+            pse_math::SharedAllocation::from(registry.clone()).with_owner(registry_lease);
+        let cancel = Arc::new(AtomicBool::new(false));
+        let structure = Arc::new(
+            pse_math::binding::CaseStructure::new(
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                None,
+                Default::default(),
+            )
+            .unwrap(),
+        );
+        let plan = Arc::new(
+            pse_math::assembly::CasePlan::prepare(
+                structure,
+                BTreeMap::new(),
+                &registry,
+                pse_kernels::DerivativeOrder::First,
+                Default::default(),
+                &cancel,
+            )
+            .unwrap(),
+        );
+        let witness = Arc::new(
+            pse_structural::incidence::CaseIncidence::new(
+                pse_structural::projection::Scope::Whole(id(7)),
+                vec![],
+                vec![],
+                vec![],
+                BTreeSet::new(),
+                pse_structural::projection::GraphLimits {
+                    nodes: 10,
+                    edges: 10,
+                },
+            )
+            .unwrap()
+            .analyze(&cancel)
+            .unwrap(),
+        );
+        let view = pse_compiler::workspace::PreparedBlock {
+            boundary: pse_structural::initialization::Block {
+                id: pse_structural::incidence::BlockId(pse_ids::ContentHash::from_bytes([8; 32])),
+                members: pse_structural::incidence::Part {
+                    rows: vec![],
+                    columns: vec![],
+                },
+                inputs: vec![],
+            },
+            plan: plan.clone(),
+            structure: witness,
+            artifacts: Arc::new(vec![]),
+        };
+        let lease = service
+            .reserve("math:test-initialization", plan.retained_bytes())
+            .unwrap();
+        let prepared = service
+            .own_initialization(Arc::new(vec![view]), lease, quantities, vec![], vec![])
+            .await
+            .unwrap();
+        drop(plan);
+        drop(registry);
+        let parents = service.pool.reserved();
+        // Filling the existing test pool must still refuse worker admission, with no
+        // retained binding or parent charge lost by the failed first attempt.
+        let pressure = service
+            .reserve("math:test-pressure", (512 << 20) - parents)
+            .unwrap();
+        assert!(matches!(
+            service
+                .bind_block(
+                    &prepared.blocks[0],
+                    prepared.quantities.clone(),
+                    CaseValues {
+                        scalars: BTreeMap::new()
+                    },
+                    &crate::CancelSource::new(),
+                )
+                .await,
+            Err(MathRuntimeError::Pool(_))
+        ));
+        drop(pressure);
+        assert_eq!(service.pool.reserved(), parents);
+        let bound = service
+            .bind_block(
+                &prepared.blocks[0],
+                prepared.quantities.clone(),
+                CaseValues {
+                    scalars: BTreeMap::new(),
+                },
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            service.pool.reserved() - parents,
+            block_binding_bytes(bound.compiled())
+        );
+        assert!(Arc::ptr_eq(
+            &bound.compiled().plan,
+            &prepared.blocks[0].view.plan
+        ));
+        assert!(Arc::ptr_eq(
+            bound.executable.get().unwrap(),
+            &prepared.blocks[0].executable
+        ));
+        let binding_alias = bound.compiled().coefficient_values.clone();
+        let registry_alias = bound.compiled().quantities.clone();
+        drop(prepared);
+        drop(bound);
+        assert!(service.pool.reserved() > baseline + registry_bytes);
+        drop(binding_alias);
+        assert!(service.pool.reserved() > baseline);
+        drop(registry_alias);
+        assert_eq!(service.pool.reserved(), baseline);
     }
     #[test]
     fn block_commit_is_atomic_and_requires_native_success_plus_original_quality() {

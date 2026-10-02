@@ -161,6 +161,8 @@ frames! {
         /// requirements its lowerings place on the route, and its objectives with their
         /// lexicographic degradations.
         MathCaseStructureV5 => "pse.math.case-structure.v5",
+        /// Complete checked-member instance bindings, separate from shared mathematics.
+        MathCaseStructureV6 => "pse.math.case-structure.v6",
         /// A bound case's values, separate from structure and prepared arithmetic.
         MathCaseValuesV1 => "pse.math.case-values.v1",
         /// The compiler-owned guarded-real interpretation policy.
@@ -249,13 +251,27 @@ frames! {
         MathTypedDefinitionV8 => "pse.math.typed-definition.v8",
         /// Scientific parameter source prerequisites retained through numeric input lowering.
         MathTypedDefinitionV9 => "pse.math.typed-definition.v9",
+        /// Checked-member tokens in normalized typed closure validity.
+        MathTypedDefinitionV10 => "pse.math.typed-definition.v10",
         /// A prepared view of a compiled modeling structure.
         CompilerModelingViewV2 => "pse.compiler.modeling-view.v2",
+        /// Mathematical view and compiler profile, with revision attribution bound separately.
+        CompilerModelingViewV3 => "pse.compiler.modeling-view.v3",
         /// The parametric projection of a prepared modeling view over requested parameters.
         CompilerModelingParametricV1 => "pse.compiler.modeling-parametric.v1",
         /// A grouped consumer body, its expressions and validity ranges in canonical spelling
         /// (ADR-0123 Outcome 8).
         ModelingConsumerBodyV2 => "pse.modeling.consumer-body.v2",
+        /// Canonical complete identity under ADR-0150.
+        ModelingConsumerBodyV3 => "pse.modeling.consumer-body.v3",
+        /// Body-local checked-member tokens, with actual members bound by instances.
+        ModelingConsumerBodyV4 => "pse.modeling.consumer-body.v4",
+        /// A normalized local checked-member path, independent of actual instance identity.
+        ModelingCheckedMemberV1 => "pse.modeling.checked-member.v1",
+        /// Exact declaration-field occurrence attribution, separate from local body operation IDs.
+        ModelingSourceOccurrenceV1 => "pse.modeling.source-occurrence.v1",
+        /// Exact source bundle closure and physical admission scope for durable package reuse.
+        ModelingPackageAdmissionV1 => "pse.modeling.package-admission.v1",
         /// An implicit residual, its terms, hints and guards in canonical spelling, function
         /// validity and data-layer guards with their envelopes, policies and lineages included
         /// (ADR-0123 Outcomes 4 and 8, Plan 23 H5).
@@ -332,8 +348,12 @@ frames! {
     "native solvers" ("pse-backend-native") {
         /// Complete backend settings, derived from serde.
         BackendSettingsV4 => "pse.backend.settings.v4",
+        /// Canonical complete identity under ADR-0150.
+        BackendSettingsV5 => "pse.backend.settings.v5",
         /// A cone sequence layout in the pse encoding.
         ConeLayoutV3 => "pse.cone.layout.v3",
+        /// Cone layout with canonical NaNs and retained signed zeros/infinities.
+        ConeLayoutV4 => "pse.cone.layout.v4",
         /// The lower-bound cone row of a two-sided coefficient row lowered to cone form.
         ConeLoweredRowV1 => "pse.cone.lowered-row.v1",
         /// A recognized convex program's cone form: its auxiliary columns, atom rows and
@@ -353,14 +373,20 @@ frames! {
         JacobianDiagnosticProblemV1 => "pse.jacobian-diagnostic.problem.v1",
         /// Resolved native accuracy budgets.
         NativeAccuracyV3 => "pse.native.accuracy.v3",
+        /// Canonical complete identity under ADR-0150.
+        NativeAccuracyV4 => "pse.native.accuracy.v4",
         /// Every linked adapter's native build.
         NativeBuildV1 => "pse.native.build.v1",
         /// Native solve controls.
         NativeControlsV2 => "pse.native.controls.v2",
+        /// Canonical complete identity under ADR-0150.
+        NativeControlsV3 => "pse.native.controls.v3",
         /// The linked Ipopt build.
         NativeIpoptBuildV1 => "pse.native.ipopt.build.v1",
         /// A seed's content, without its execution origin.
         NativeSeedV2 => "pse.native.seed.v2",
+        /// Canonical complete identity under ADR-0150.
+        NativeSeedV3 => "pse.native.seed.v3",
         /// A structural analysis scope over a residual Jacobian.
         NativeStructuralScopeV1 => "pse.native.structural-scope.v1",
         /// Presolve options.
@@ -389,10 +415,14 @@ frames! {
         DurableHorizonRequestV1 => "pse.durable.horizon_request.v1",
         /// A durable job request.
         DurableJobRequestV2 => "pse.durable.job_request.v2",
+        /// Canonical role-typed operational job request, with explicit nonfinite framing.
+        DurableJobRequestV3 => "pse.durable.job_request.v3",
         /// A durable modeling request.
         DurableModelingRequestV1 => "pse.durable.modeling_request.v1",
         /// A durable study's request: its definition (Plan 22 O7).
         DurableStudyRequestV1 => "pse.durable.study_request.v1",
+        /// Canonical study request including unrestricted submitted numerical settings.
+        DurableStudyRequestV2 => "pse.durable.study_request.v2",
         /// The value bindings of one durable study point (Plan 22 O7).
         DurableStudyPointBindingV1 => "pse.durable.study_point_binding.v1",
         /// A dynamic simulation profile, with its scheduled inputs and typed sensitivity; its
@@ -400,9 +430,13 @@ frames! {
         DynamicProfileV6 => "pse.dynamic.profile.v6",
         /// Dynamic profile including explicit endpoint requirement.
         DynamicProfileV7 => "pse.dynamic.profile.v7",
+        /// Typed integration profile and resolved method in canonical document framing.
+        DynamicProfileV8 => "pse.dynamic.profile.v8",
         /// An explicit conic request; its quadratic is certified exactly, so it carries no
         /// Gram witness.
         ExplicitConicV4 => "pse.explicit-conic.v4",
+        /// Explicit cone request under canonical document floating point framing.
+        ExplicitConicV5 => "pse.explicit-conic.v5",
         /// A fitting coordinate alias of an experiment and source.
         FitCoordinateV1 => "pse.fit.coordinate.v1",
         /// A prepared fit.
@@ -410,6 +444,8 @@ frames! {
         /// A fit profile: its solver profile, rank tolerance, cell budget, derivative source,
         /// simulation profiles and requested intervals.
         FitProfileV3 => "pse.fit.profile.v3",
+        /// Fit profile using canonical numeric and uncertainty document framing.
+        FitProfileV4 => "pse.fit.profile.v4",
         /// A fit source.
         FitSourceV1 => "pse.fit.source.v1",
         /// Compiled simulation modes.
@@ -446,6 +482,8 @@ frames! {
         SolvePreparationV1 => "pse.solve.preparation.v1",
         /// A complete selected solve request.
         SolveRequestV1 => "pse.solve.request.v1",
+        /// Scientific solve request with canonical typed seed content.
+        SolveRequestV2 => "pse.solve.request.v2",
         /// The preparation a stored seed is keyed by.
         SolveSeedPreparationV1 => "pse.solve.seed_preparation.v1",
         /// Conic solver data.
@@ -454,14 +492,20 @@ frames! {
         SolverConicLayoutV3 => "pse.solver.conic-layout.v3",
         /// A conic solver session.
         SolverConicSessionV1 => "pse.solver.conic-session.v1",
+        /// Cone session controls with canonical document and numeric framing.
+        SolverConicSessionV2 => "pse.solver.conic-session.v2",
         /// A solver session's coordinates.
         SolverCoordinatesV1 => "pse.solver.coordinates.v1",
         /// A solver session's data.
         SolverDataV1 => "pse.solver.data.v1",
         /// A complete effective solver request profile.
         SolverProfileV3 => "pse.solver.profile.v3",
+        /// Canonical complete identity under ADR-0150.
+        SolverProfileV4 => "pse.solver.profile.v4",
         /// A native solver session's compatibility.
         SolverSessionV1 => "pse.solver.session.v1",
+        /// Native session controls with canonical document and numeric framing.
+        SolverSessionV2 => "pse.solver.session.v2",
     }
 
     "operational store" ("pse-operations, pse-codegen") {
@@ -576,6 +620,14 @@ impl FramedHasher {
         self.part(&v.to_le_bytes())
     }
 
+    /// Canonical hashing float; NaN payloads collapse, signed zero remains distinct.
+    pub fn f64(&mut self, value: f64) -> &mut Self {
+        self.u64(crate::canonical_f64_bits(value))
+    }
+    /// Canonical 32-bit hashing float.
+    pub fn f32(&mut self, value: f32) -> &mut Self {
+        self.u32(crate::canonical_f32_bits(value))
+    }
     /// One part: a single byte, `1` for true and `0` for false, length-prefixed.
     pub fn bool(&mut self, v: bool) -> &mut Self {
         self.part(&[u8::from(v)])

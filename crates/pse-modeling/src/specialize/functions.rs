@@ -142,7 +142,7 @@ impl Engine<'_, '_> {
         &self,
         instance: InstanceId,
         at: DeclarationId,
-        name: &str,
+        name: &Path,
         env: &Environment,
     ) -> Result<DeclarationId> {
         self.resolve_function_binding(instance, at, name, env, &mut BTreeSet::new())
@@ -151,15 +151,23 @@ impl Engine<'_, '_> {
         &self,
         instance: InstanceId,
         at: DeclarationId,
-        name: &str,
+        name: &Path,
         env: &Environment,
         stack: &mut BTreeSet<(InstanceId, DeclarationId, Vec<SemanticId>)>,
     ) -> Result<DeclarationId> {
-        if let Some(Value::Function(id)) = env.get(name) {
+        let rendered = dsl::render_path(name);
+        if let Some(Value::Function(id)) = env.get(&rendered) {
             return Ok(*id);
         }
         if self.p.functions.contains_key(&at) {
-            return match self.eval(at, env, name, None)? {
+            return match self.eval_ast(
+                at,
+                env,
+                &Expr {
+                    kind: ExprKind::Path(name.clone()),
+                    span: Span::default(),
+                },
+            )? {
                 Value::Function(id) => Ok(id),
                 _ => Err(invalid(
                     at,
@@ -167,7 +175,10 @@ impl Engine<'_, '_> {
                 )),
             };
         }
-        let expression = dsl::parse_expr(name).map_err(|error| invalid(at, error.to_string()))?;
+        let expression = Expr {
+            kind: ExprKind::Path(name.clone()),
+            span: Span::default(),
+        };
         if let ExprKind::Path(path) = &expression.kind
             && let Ok((owner, member, coordinates)) =
                 self.resolve_path(instance, at, path, env, false)
@@ -190,14 +201,14 @@ impl Engine<'_, '_> {
                 if stack.len() >= self.limits.depth || !stack.insert(key.clone()) {
                     return Err(invalid(member, "recursive function parameter binding"));
                 }
-                let source = row
-                    .value
-                    .binding
-                    .as_ref()
-                    .and_then(|binding| binding.expression.as_deref())
-                    .ok_or_else(|| {
-                        invalid(member, "function parameter requires an implementation")
-                    })?;
+                let ExprKind::Path(source) =
+                    &self.p.expression_at(member, "binding.expression", 0)?.kind
+                else {
+                    return Err(invalid(
+                        member,
+                        "function parameter requires a checked path implementation",
+                    ));
+                };
                 let local = coordinates_env(&self.states[&owner].env, &coordinates);
                 let result = self.resolve_function_binding(owner, member, source, &local, stack)?;
                 stack.remove(&key);
@@ -207,15 +218,15 @@ impl Engine<'_, '_> {
         }
         if let Some(id) = self.states[&instance]
             .members
-            .get(name)
+            .get(&rendered)
             .copied()
-            .or_else(|| self.p.resolve(at, name))
+            .or_else(|| self.p.resolve_segments(at, &name.segments))
             .filter(|id| self.p.functions.contains_key(id))
         {
             return Ok(id);
         }
         if let Value::Function(id) = self
-            .eval(at, env, name, None)
+            .eval_ast(at, env, &expression)
             .map_err(|e| invalid(at, format!("function {name}: {e}")))?
         {
             return Ok(id);
@@ -306,7 +317,10 @@ impl Engine<'_, '_> {
                 body: Some(body),
             });
         Ok(Expr {
-            kind: ExprKind::NamedCall { name, args: vec![] },
+            kind: ExprKind::NamedCall {
+                name: Path::single(name),
+                args: vec![],
+            },
             span: Span::default(),
         })
     }
@@ -379,6 +393,7 @@ impl Engine<'_, '_> {
             .as_ref()
             .ok_or_else(|| invalid(member, "indexed physical member required"))?;
         let coordinates = self.coordinates(
+            instance,
             member,
             &state.env,
             binding
@@ -585,8 +600,20 @@ impl Engine<'_, '_> {
                     indexed.insert(name.clone(), flattened);
                 }
                 Type::Function { .. } => {
-                    let selected =
-                        self.resolve_function(instance, at, &dsl::render_expr(expr), env)?;
+                    let selected = self.resolve_function(
+                        instance,
+                        at,
+                        match &expr.kind {
+                            ExprKind::Path(path) => path,
+                            _ => {
+                                return Err(invalid(
+                                    at,
+                                    "function argument requires a checked path",
+                                ));
+                            }
+                        },
+                        env,
+                    )?;
                     if let Some(operation) = &mut contract.physical_operation {
                         operation.bind_response_witness(name, selected, self.p, at)?;
                     }
@@ -597,12 +624,11 @@ impl Engine<'_, '_> {
                 }
                 _ => {
                     let value = self
-                        .eval(
+                        .eval_ast_with(
                             chain.last().copied().unwrap_or(function),
                             env,
-                            &dsl::render_expr(expr),
-                            Some(ty),
-                        )
+                            expr,
+                            Some(ty))
                         .map_err(|e| match ty {
                             // ADR-0123 Outcome 2: a `Ref` is static at specialization.
                             Type::Entity(_) => invalid(
@@ -636,12 +662,7 @@ impl Engine<'_, '_> {
                     .indices
                     .iter()
                     .map(|e| {
-                        self.eval(
-                            chain.last().copied().unwrap_or(function),
-                            env,
-                            &dsl::render_expr(e),
-                            None,
-                        )
+                        self.eval_ast_with(chain.last().copied().unwrap_or(function), env, e, None)
                     })
                     .collect::<Result<Vec<_>>>()?;
                 selectors
@@ -683,7 +704,7 @@ impl Engine<'_, '_> {
                 reader: self.reader,
                 selections: Some(&self.selection_collector),
             }
-            .text(&dsl::render_expr(&external.output), Some(&Type::Integer))?;
+            .expr(&external.output, Some(&Type::Integer), 0)?;
             let Value::Integer(output) = output else {
                 return Err(invalid(
                     function,
@@ -825,10 +846,13 @@ impl Engine<'_, '_> {
         }
         self.model.functions.insert(name.clone(), function);
         Ok(if selected.is_empty() {
-            ExprKind::NamedCall { name, args: actual }
+            ExprKind::NamedCall {
+                name: Path::single(name),
+                args: actual,
+            }
         } else {
             ExprKind::Partial {
-                function: name,
+                function: Path::single(name),
                 wrt: selected,
                 args: actual,
             }

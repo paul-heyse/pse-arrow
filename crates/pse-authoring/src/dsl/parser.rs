@@ -6,7 +6,7 @@
 use super::DslError;
 use super::ast::{
     BinaryOp, Binder, CompareOp, Equation, EquationKind, EquationSense, Expr, ExprKind, Function,
-    Number, Path, PathSegment, Predicate, PredicateKind, ReduceKind, Span,
+    Number, Path, PathSegment, Predicate, PredicateKind, Proposition, ReduceKind, Span,
 };
 use super::lexer::{Kind, Token, syntax, tokenize};
 use pse_quantity::{Ratio, UnitProduct};
@@ -253,7 +253,15 @@ impl<'a> Cursor<'a> {
             self.ident()?
         };
         if quoted {
-            return Ok(ExprKind::Path(self.path_tail(name)?));
+            let path = self.path_tail(name)?;
+            return if self.eat("(") {
+                Ok(ExprKind::NamedCall {
+                    name: path,
+                    args: self.arguments()?,
+                })
+            } else {
+                Ok(ExprKind::Path(path))
+            };
         }
         if matches!(
             name.as_str(),
@@ -330,7 +338,7 @@ impl<'a> Cursor<'a> {
                 });
             }
             if name == "partial" {
-                let function = super::render_path(&self.path()?);
+                let function = self.path()?;
                 self.expect(",")?;
                 let mut wrt = vec![self.path()?];
                 while self.eat(",") {
@@ -347,7 +355,10 @@ impl<'a> Cursor<'a> {
             }
             let args = self.arguments()?;
             let Some(function) = Function::parse(&name) else {
-                return Ok(ExprKind::NamedCall { name, args });
+                return Ok(ExprKind::NamedCall {
+                    name: Path::single(name),
+                    args,
+                });
             };
             if function == Function::Broadcast
                 && !matches!(args.as_slice(), [_, Expr { kind: ExprKind::Path(path), .. }]
@@ -359,9 +370,8 @@ impl<'a> Cursor<'a> {
         }
         let path = self.path_tail(name)?;
         if self.eat("(") {
-            let name = super::render_path(&path);
             return Ok(ExprKind::NamedCall {
-                name,
+                name: path,
                 args: self.arguments()?,
             });
         }
@@ -642,6 +652,54 @@ impl<'a> Cursor<'a> {
             },
         })
     }
+    fn proposition(&mut self, min: u8) -> Result<Proposition, DslError> {
+        self.enter()?;
+        let mut lhs = if self.eat("not") {
+            Proposition::Not(Box::new(self.proposition(5)?))
+        } else if self.eat("(") {
+            let inner = self.proposition(0)?;
+            self.expect(")")?;
+            inner
+        } else if self.eat("exactly") {
+            self.expect("(")?;
+            let count = self.expr()?;
+            self.expect(",")?;
+            let mut values = vec![self.proposition(0)?];
+            while self.eat(",") {
+                values.push(self.proposition(0)?);
+            }
+            self.expect(")")?;
+            Proposition::Exactly(count, values)
+        } else {
+            let expression = self.primary()?;
+            if !matches!(expression.kind, ExprKind::Path(_)) {
+                return Err(self.error("binary variable path"));
+            }
+            Proposition::Atom(expression)
+        };
+        loop {
+            let (precedence, right) = match self.token().map(|token| token.text) {
+                Some("implies") => (1, true),
+                Some("or") => (2, false),
+                Some("xor") => (3, false),
+                Some("and") => (4, false),
+                _ => break,
+            };
+            if precedence < min {
+                break;
+            }
+            self.position += 1;
+            let rhs = self.proposition(if right { precedence } else { precedence + 1 })?;
+            lhs = match precedence {
+                1 => Proposition::Implies(Box::new(lhs), Box::new(rhs)),
+                2 => Proposition::Or(vec![lhs, rhs]),
+                3 => Proposition::Xor(Box::new(lhs), Box::new(rhs)),
+                _ => Proposition::And(vec![lhs, rhs]),
+            };
+        }
+        self.depth -= 1;
+        Ok(lhs)
+    }
     fn equation(&mut self) -> Result<Equation, DslError> {
         self.enter()?;
         let start = self.at();
@@ -712,4 +770,14 @@ pub fn parse_predicate(text: &str) -> Result<Predicate, DslError> {
     let result = cursor.predicate(0)?;
     cursor.finish()?;
     Ok(result)
+}
+
+/// Parse logic with the same tokenizer, quoted paths and arithmetic count grammar.
+/// # Errors
+/// Malformed logic, non-path atoms or exceeded parser budgets.
+pub fn parse_proposition(text: &str) -> Result<Proposition, DslError> {
+    let mut cursor = Cursor::new(text)?;
+    let value = cursor.proposition(0)?;
+    cursor.finish()?;
+    Ok(value)
 }

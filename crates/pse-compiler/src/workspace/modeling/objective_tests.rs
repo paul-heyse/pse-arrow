@@ -384,7 +384,7 @@ fn dimensional_weighted_sum_refused() {
     let (mut workspace, root) = setup(&source("b(maximize, weight = 0.5, normalization = 2{W})"));
     let error = prepare(&mut workspace, root, None).unwrap_err().to_string();
     assert!(
-        error.contains("nonzero datum") && error.contains("e1f2106da9eb4fe0aa2749fa5469fa1a"),
+        error.contains("physical.affine_product") && error.contains("nonzero-datum point"),
         "{error}"
     );
     // Normalized and weighted, the level minimizes 0.25·a − 0.5·c/2: the maximized

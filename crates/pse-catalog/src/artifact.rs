@@ -330,7 +330,7 @@ impl ArtifactPlan {
             ));
         }
         // Bind the selected output into the requesting environment, preserving its
-        // current resource limits, policies, requirements and function implementations.
+        // current resource limits, policies, native obligations and function implementations.
         let mut session = self.session.clone();
         let source = publication
             .session()
@@ -508,6 +508,7 @@ impl ArtifactPlan {
                 self.operation_id
             },
             self.dependencies(cancel)?,
+            session.validation_context()?.as_ref(),
         )
         .map_err(pse_engine::session::engine)?;
         Ok((session.prepare(plan, cancel)?, ticket))

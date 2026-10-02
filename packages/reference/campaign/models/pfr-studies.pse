@@ -26,7 +26,7 @@
 @id("01a0ee447c1375339658c593b536c71c") eq adiabatic:reactor.heat_duty==0{W};
 @id("01a0ee447c1375339658c5947167a910") eq isobaric:reactor.delta_pressure==0{Pa};
 @id("01a0ee447c1375339658c595bafef2b2") let ester:MolarDensity=reactor.outlet_concentration[chem.ethyl_acetate];
-@id("01a0ee447c1375339658c5964f775af2") let released:Power=reactor.heat_of_reaction;
+@id("01a0ee447c1375339658c5964f775af2") let released:EnergyTransferRate=reactor.heat_of_reaction;
 @id("01a0ee447c1375339658c5971e379faa") annotation report ester("outlet ethyl acetate");
 @id("01a0ee447c1375339658c59843756029") annotation report released("heat of reaction over the reactor");
 }

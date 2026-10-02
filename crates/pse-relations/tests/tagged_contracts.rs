@@ -34,7 +34,8 @@ fn tagged_consumption_round_trips_and_rejects_missing_or_overlapping_arms() {
         Consumption::from_whole(),
         Consumption::from_columns(columns.clone()),
     ];
-    let mut builder = arguments::Builder::new().unwrap();
+    let mut builder =
+        arguments::Builder::new(&validation(pse_schema::registry().unwrap())).unwrap();
     for value in &values {
         builder.push(row(value.clone())).unwrap();
     }
@@ -46,7 +47,7 @@ fn tagged_consumption_round_trips_and_rejects_missing_or_overlapping_arms() {
             .unwrap(),
         values.into_iter().map(row).collect::<Vec<_>>()
     );
-    arguments::validate(batch.batch()).unwrap();
+    arguments::validate(batch.batch(), &validation(pse_schema::registry().unwrap())).unwrap();
     for value in [
         Consumption {
             kind: InputConsumptionKind::Columns,
@@ -58,7 +59,8 @@ fn tagged_consumption_round_trips_and_rejects_missing_or_overlapping_arms() {
         },
     ] {
         assert!(value.selected().is_err());
-        let mut invalid = arguments::Builder::new().unwrap();
+        let mut invalid =
+            arguments::Builder::new(&validation(pse_schema::registry().unwrap())).unwrap();
         invalid.push(row(value)).unwrap();
         assert!(invalid.finish().is_err());
     }
@@ -66,7 +68,8 @@ fn tagged_consumption_round_trips_and_rejects_missing_or_overlapping_arms() {
 
 #[test]
 fn tagged_consumption_ignores_masked_payload_and_rejects_visible_overlap() {
-    let mut builder = arguments::Builder::new().unwrap();
+    let mut builder =
+        arguments::Builder::new(&validation(pse_schema::registry().unwrap())).unwrap();
     builder
         .push(row(Consumption::from_columns(Columns {
             names: vec!["hidden".into()],
@@ -101,13 +104,23 @@ fn tagged_consumption_ignores_masked_payload_and_rejects_visible_overlap() {
         let mut columns = batch.columns().to_vec();
         columns[position] = Arc::new(candidate);
         let candidate = pse_relations::RecordBatch::try_new(batch.schema(), columns).unwrap();
-        assert_eq!(arguments::validate(&candidate).is_ok(), masked);
+        assert_eq!(
+            arguments::validate(&candidate, &validation(pse_schema::registry().unwrap())).is_ok(),
+            masked
+        );
         if masked {
-            let row = arguments::View::try_from_batch(&candidate)
-                .unwrap()
-                .row(0)
-                .unwrap();
+            let row = arguments::View::try_from_batch(
+                &candidate,
+                &validation(pse_schema::registry().unwrap()),
+            )
+            .unwrap()
+            .row(0)
+            .unwrap();
             assert_eq!(row.consumption.selected().unwrap(), Selected::Whole);
         }
     }
 }
+
+#[path = "support/validation.rs"]
+mod native_validation;
+use native_validation::validation;

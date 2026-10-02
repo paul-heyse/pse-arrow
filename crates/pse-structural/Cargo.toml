@@ -17,6 +17,8 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+pse-model.workspace = true
+schemars.workspace = true
 pse-kernels.workspace = true
 pse-quantity.workspace = true
 pounce-presolve.workspace = true

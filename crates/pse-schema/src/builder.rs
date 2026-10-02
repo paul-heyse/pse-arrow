@@ -679,11 +679,21 @@ impl RegistryBuilder {
                     });
                 }
             }
+            if let Some(default) = decl.default_member
+                && (decl.source.is_some() || !members.contains(default))
+            {
+                return Err(SchemaError::InvalidDeclaration {
+                    context: format!("enum {} default", decl.name),
+                    reason: "a generated default must name a member of a registry-owned enum"
+                        .to_owned(),
+                });
+            }
             out.push(EnumSpec {
                 id: registry_id(&format!("enum:{}", decl.name)),
                 name: decl.name,
                 idaes_source: decl.idaes_source,
                 source: decl.source,
+                default_member: decl.default_member,
                 members: decl.members.clone(),
             });
         }
@@ -1429,6 +1439,29 @@ mod tests {
             builder.build().unwrap_err(),
             SchemaError::DuplicateDeclaration { kind: "enum", .. }
         ));
+    }
+
+    #[test]
+    fn enum_defaults_require_a_declared_member_and_preserve_the_fingerprint() {
+        let declaration = || EnumDecl::platform("X", vec![EnumMember::new("a", "a member")]);
+        let build = |decl| {
+            let mut builder = RegistryBuilder::new();
+            builder.declare_enum(decl);
+            builder.build()
+        };
+        let ordinary = build(declaration()).unwrap();
+        let defaulted = build(declaration().with_default("a")).unwrap();
+        assert_eq!(ordinary.fingerprint(), defaulted.fingerprint());
+        assert_eq!(defaulted.enum_spec("X").unwrap().default_member, Some("a"));
+        for invalid in [
+            declaration().with_default("absent"),
+            EnumDecl::sourced("owner::X", vec![EnumMember::new("a", "a member")]).with_default("a"),
+        ] {
+            assert!(matches!(
+                build(invalid),
+                Err(SchemaError::InvalidDeclaration { .. })
+            ));
+        }
     }
 
     #[test]

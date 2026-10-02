@@ -56,16 +56,6 @@ pub use crate::generated::enums::StudyContinuationPermission as ContinuationPerm
 pub use crate::generated::enums::StudySeedNeed as SeedNeed;
 /// Explicit fallback choice for an unavailable continuation seed.
 pub use crate::generated::enums::StudyUnavailableSeedPolicy as UnavailableSeedPolicy;
-impl Default for ContinuationPermission {
-    fn default() -> Self {
-        Self::RequireUsable
-    }
-}
-impl Default for UnavailableSeedPolicy {
-    fn default() -> Self {
-        Self::Refuse
-    }
-}
 /// One selected predecessor role; never an arbitrary first result.
 #[derive(
     Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,

@@ -15,7 +15,6 @@ pub(crate) struct Witness {
         crate::provider::binding::BindingKey,
         Arc<crate::provider::binding::TableBinding>,
     )>,
-    requirement_planner: Option<Arc<dyn super::policy::RequirementPlanner>>,
     purpose: pse_schema::model::provider::OperationPurpose,
     sources: Vec<(
         Arc<dyn datafusion::catalog::TableProvider>,
@@ -57,7 +56,6 @@ impl Witness {
                 .iter()
                 .map(|(key, binding)| (key.clone(), binding))
                 .collect(),
-            requirement_planner: session.requirement_planner.clone(),
             purpose: session.purpose,
             sources: session
                 .bindings
@@ -95,8 +93,7 @@ impl Witness {
     ) -> Result<Self, EngineError> {
         use datafusion::{common::tree_node::TreeNodeRecursion, logical_expr::LogicalPlan};
         let mut witness = Self::capture(session)?;
-        let mut opaque = session.bindings.resolutions().next().is_some()
-            || !session.effective_policy()?.requirements.is_empty();
+        let mut opaque = session.bindings.resolutions().next().is_some();
         super::traversal::visit(
             input,
             super::traversal::Purpose::Evidence,
@@ -180,7 +177,7 @@ impl Witness {
                     };
                     size_of_val(policy)
                         + names
-                        + (policy.requirements.len() + policy.effects.len()) * 128
+                        + policy.effects.len() * 128
                         + policy
                             .defaults
                             .iter()
@@ -233,11 +230,6 @@ impl Witness {
                             && !b.provider.is::<datafusion::datasource::MemTable>()
                     })
                 }))
-            && match (&self.requirement_planner, &session.requirement_planner) {
-                (None, None) => true,
-                (Some(a), Some(b)) => Arc::ptr_eq(a, b),
-                _ => false,
-            }
             && (!values
                 || self
                     .sources

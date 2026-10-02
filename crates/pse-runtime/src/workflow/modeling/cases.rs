@@ -170,7 +170,8 @@ fn admission_identity(
         .hash(&numerics.key)
         .hash(
             &crate::math::solves::profile_key(solver)
-                .map_err(crate::math::MathRuntimeError::from)?,
+                .map_err(crate::math::MathRuntimeError::from)?
+                .as_id(),
         );
     for artifact in model.case.compiled().artifacts.iter() {
         hash.hash(&artifact.key());
@@ -289,8 +290,7 @@ impl ModelingPackage {
         let product = model.compiled();
         let inner_unknowns = product
             .admitted
-            .implicit
-            .values()
+            .implicit_systems()
             .flat_map(|i| i.unknowns.iter().copied())
             .collect::<BTreeSet<_>>();
         let mut values = CaseValues {
@@ -308,7 +308,7 @@ impl ModelingPackage {
         let is_variable = |id: &SemanticId| {
             product
                 .admitted
-                .case
+                .case()
                 .variables()
                 .iter()
                 .any(|v| v.port.id == *id)
@@ -347,7 +347,7 @@ impl ModelingPackage {
             if !value.is_finite()
                 || !product
                     .admitted
-                    .case
+                    .case()
                     .parameters()
                     .iter()
                     .any(|p| p.id == id)
@@ -415,7 +415,7 @@ impl ModelingPackage {
                 .filter(|(_, _, _, row)| {
                     product
                         .admitted
-                        .case
+                        .case()
                         .instances()
                         .iter()
                         .filter(|i| i.instance == *row)
@@ -507,7 +507,7 @@ impl ModelingPackage {
         let inner = Inner::of(product);
         let id = |path: &str| specialized.paths.get(path).copied();
         let mut free = BTreeMap::new();
-        for declared in product.admitted.case.variables() {
+        for declared in product.admitted.case().variables() {
             if !declared.domain.is_discrete() || inner.contains(&declared.port.id) {
                 continue;
             }
@@ -1163,14 +1163,12 @@ impl Inner {
         Self {
             unknowns: product
                 .admitted
-                .implicit
-                .values()
+                .implicit_systems()
                 .flat_map(|i| i.unknowns.iter().copied())
                 .collect(),
             rows: product
                 .admitted
-                .implicit
-                .values()
+                .implicit_systems()
                 .flat_map(|i| i.residuals.iter().flat_map(|r| r.rows.iter().copied()))
                 .collect(),
         }
@@ -1204,7 +1202,7 @@ fn hints(
 fn variables(product: &pse_compiler::workspace::PreparedModeling) -> BTreeSet<SemanticId> {
     product
         .admitted
-        .case
+        .case()
         .variables()
         .iter()
         .map(|v| v.port.id)

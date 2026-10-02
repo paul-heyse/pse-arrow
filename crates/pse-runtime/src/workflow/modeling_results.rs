@@ -49,8 +49,9 @@ impl RunResult {
             .shared
             .math()
             .reserve("modeling:solve-export", bytes)?;
-        let mut run_rows =
-            runs::Builder::with_registry(registry, requests.len()).map_err(relation)?;
+        let validation = self.runtime.validation_context()?;
+        let mut run_rows = runs::Builder::with_registry(registry, requests.len(), &validation)
+            .map_err(relation)?;
         for row in &self
             .completion()
             .map_err(|e| contract(e.to_string()))?
@@ -60,7 +61,9 @@ impl RunResult {
         }
         let pool = self.runtime.shared.pool();
         let cancel = pse_columnar::CancellationToken::new();
-        let mut collection = pse_relations::columnar::Collection::new(registry, &pool, &cancel);
+        let validation = self.runtime.validation_context()?;
+        let mut collection =
+            pse_relations::columnar::Collection::new(registry, &pool, &cancel, &validation);
         collection
             .ensure::<modeling_checks::Row>()
             .map_err(relation)?;
@@ -70,19 +73,22 @@ impl RunResult {
         collection
             .ensure::<modeling_findings::Row>()
             .map_err(relation)?;
-        let mut variable_rows = variables::Builder::with_registry(registry, 0).map_err(relation)?;
+        let mut variable_rows =
+            variables::Builder::with_registry(registry, 0, &validation).map_err(relation)?;
         let mut constraint_rows =
-            constraints::Builder::with_registry(registry, 0).map_err(relation)?;
-        let mut metric_rows = metrics::Builder::with_registry(registry, 0).map_err(relation)?;
-        let mut pool_rows = pool::Builder::with_registry(registry, 0).map_err(relation)?;
+            constraints::Builder::with_registry(registry, 0, &validation).map_err(relation)?;
+        let mut metric_rows =
+            metrics::Builder::with_registry(registry, 0, &validation).map_err(relation)?;
+        let mut pool_rows =
+            pool::Builder::with_registry(registry, 0, &validation).map_err(relation)?;
         let mut certificate_rows =
-            certificates::Builder::with_registry(registry, 0).map_err(relation)?;
-        let mut local = super::local_analysis::Rows::new(registry)?;
+            certificates::Builder::with_registry(registry, 0, &validation).map_err(relation)?;
+        let mut local = super::local_analysis::Rows::new(registry, &validation)?;
         // A durable run publishes its incumbent stream as the store held it when the
         // attempt ended (Plan 22 I13); an ephemeral run keeps its retained incumbents in
         // runtime.solve_metrics.
         let mut incumbent_rows =
-            incumbents::Builder::with_registry(registry, 0).map_err(relation)?;
+            incumbents::Builder::with_registry(registry, 0, &validation).map_err(relation)?;
         if let super::RunDurability::Durable(record) = &self.durability {
             let stored = record
                 .incumbents
@@ -395,8 +401,8 @@ impl RunResult {
                         }
                     }
                 }
-                let mut builder =
-                    wire::Builder::with_registry(registry, rows.len()).map_err(relation)?;
+                let mut builder = wire::Builder::with_registry(registry, rows.len(), &validation)
+                    .map_err(relation)?;
                 for row in rows.into_values() {
                     builder.push(row).map_err(relation)?;
                 }

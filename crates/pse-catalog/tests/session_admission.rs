@@ -67,8 +67,13 @@ fn fixture() -> (EngineSession, RecordBatch, Arc<dyn MemoryPool>) {
             serde_json::json!(["text", "c"]),
         ],
     ];
-    let batch = pse_relations::testing::batch_from_literals(&registry, spec, &rows)
-        .expect("schema admitted duplicates");
+    let batch = pse_relations::testing::batch_from_literals(
+        &registry,
+        spec,
+        &rows,
+        &fixture_validation(&registry),
+    )
+    .expect("schema admitted duplicates");
     let budget: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(8 << 20));
     let pool: Arc<dyn MemoryPool> = budget.clone();
     let runtime: Arc<RuntimeEnv> = Arc::new(
@@ -178,4 +183,16 @@ async fn actual_settings_and_owned_result_lifetimes_are_checked() {
     assert!(budget.reserved() > 0, "detached array retains reservation");
     drop(array);
     assert_eq!(budget.reserved(), 0);
+}
+
+// Deliberate fixed native owner for isolated caller-supplied fixture rows.
+fn fixture_validation(
+    registry: &pse_schema::Registry,
+) -> pse_relations::validate::ValidationContext {
+    pse_relations::validate::ValidationContext::new(
+        registry,
+        pse_engine::validation::NativeValidation(
+            datafusion::prelude::SessionContext::new().state(),
+        ),
+    )
 }

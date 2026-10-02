@@ -51,6 +51,23 @@ impl AllocationLease {
     pub fn size(&self) -> usize {
         self.reservation.size()
     }
+    /// Transfer a unique reservation into disjoint allocation leases without returning
+    /// capacity to the pool. An invalid extent or shared lease is returned intact.
+    pub fn partition(self: Arc<Self>, sizes: &[usize]) -> Result<Vec<Arc<Self>>, Arc<Self>> {
+        let Some(total) = sizes.iter().try_fold(0usize, |n, s| n.checked_add(*s)) else {
+            return Err(self);
+        };
+        if total > self.size() {
+            return Err(self);
+        }
+        match Arc::try_unwrap(self) {
+            Ok(owner) => Ok(sizes
+                .iter()
+                .map(|size| Self::new(owner.reservation.split(*size)))
+                .collect()),
+            Err(owner) => Err(owner),
+        }
+    }
 }
 
 /// Shared cancellation for asynchronous work and synchronous compilation loops.
@@ -194,6 +211,24 @@ mod pivot_unit {
         drop(owner);
         assert_eq!(pool.reserved(), 80);
         std::thread::spawn(move || drop(reader)).join().unwrap();
+        assert_eq!(pool.reserved(), 0);
+    }
+    #[test]
+    fn partition_transfers_unique_capacity_and_refuses_shared_or_excess_extents() {
+        let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(128));
+        let reserve = MemoryConsumer::new("unit:partition").register(&pool);
+        reserve.try_grow(128).unwrap();
+        let owner = AllocationLease::new(reserve);
+        let reader = owner.clone();
+        let owner = owner.partition(&[64, 64]).unwrap_err();
+        assert_eq!(pool.reserved(), 128);
+        drop(reader);
+        let owner = owner.partition(&[129]).unwrap_err();
+        let mut children = owner.partition(&[80, 48]).unwrap();
+        assert_eq!(pool.reserved(), 128);
+        drop(children.pop());
+        assert_eq!(pool.reserved(), 80);
+        drop(children);
         assert_eq!(pool.reserved(), 0);
     }
     #[test]

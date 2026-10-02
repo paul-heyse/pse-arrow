@@ -275,12 +275,13 @@ fn finding(
         .relation(check.relation)
         .ok_or_else(|| internal("finding relation absent"))?
         .id;
-    let (key, subjects) = finding_values(&input, registry, target, relation)?;
+    let (key, subjects) = finding_values(&input, registry, target, relation, session)?;
     let check_id = constant(
         registry,
         target,
         "check_id",
         ScalarValue::FixedSizeBinary(16, Some(check.id.as_bytes().to_vec())),
+        session,
     )?;
     let finding_id = scalar::named_id(scalar::named_id(check_id.clone(), lit(status)), key.clone());
     let output = vec![
@@ -290,6 +291,7 @@ fn finding(
             target,
             "run_id",
             ScalarValue::FixedSizeBinary(16, None),
+            session,
         )?
         .alias("run_id"),
         check_id.alias("check_id"),
@@ -298,6 +300,7 @@ fn finding(
             target,
             "severity",
             ScalarValue::Utf8(Some(check.severity.as_str().to_owned())),
+            session,
         )?
         .alias("severity"),
         subjects.alias("subjects"),
@@ -307,9 +310,10 @@ fn finding(
             target,
             "message",
             ScalarValue::Utf8(Some(message.to_owned())),
+            session,
         )?
         .alias("message"),
-        empty_list(registry, target, "next_steps")?.alias("next_steps"),
+        empty_list(registry, target, "next_steps", session)?.alias("next_steps"),
     ];
     Ok(LogicalPlan::Projection(
         Projection::try_new(output, Arc::new(input)).map_err(engine)?,
@@ -337,12 +341,14 @@ fn row_evidence(
         registry,
         &execution,
         ScalarValue::try_from(field.data_type()).map_err(engine)?,
+        session.validation_context()?.as_ref(),
     )
     .map_err(engine)?;
     let identity = checked_literal(
         registry,
         &pse_schema::model::FieldContract::id(),
         ScalarValue::FixedSizeBinary(16, Some(relation.as_bytes().to_vec())),
+        session.validation_context()?.as_ref(),
     )
     .map_err(engine)?;
     let value = datafusion::functions::core::expr_fn::named_struct(vec![
@@ -372,6 +378,7 @@ fn finding_values(
     registry: &Registry,
     target: &RelationSpec,
     relation: pse_ids::SemanticId,
+    session: &EngineSession,
 ) -> Result<(Expr, Expr), RuleError> {
     let columns = input.schema().columns();
     let names = columns
@@ -406,7 +413,7 @@ fn finding_values(
         .map(|(_, expression)| expression.clone())
         .collect::<Vec<_>>();
     let subjects = if ids.is_empty() {
-        empty_list(registry, target, "subjects")?
+        empty_list(registry, target, "subjects", session)?
     } else {
         scalar::id_list(ids)
     };
@@ -418,14 +425,26 @@ fn constant(
     spec: &RelationSpec,
     name: &str,
     value: ScalarValue,
+    session: &EngineSession,
 ) -> Result<Expr, RuleError> {
     let column = spec
         .column(name)
         .ok_or_else(|| internal("diagnostic field absent"))?;
-    checked_literal(registry, column, value).map_err(engine)
+    checked_literal(
+        registry,
+        column,
+        value,
+        session.validation_context()?.as_ref(),
+    )
+    .map_err(engine)
 }
 
-fn empty_list(registry: &Registry, spec: &RelationSpec, name: &str) -> Result<Expr, RuleError> {
+fn empty_list(
+    registry: &Registry,
+    spec: &RelationSpec,
+    name: &str,
+    session: &EngineSession,
+) -> Result<Expr, RuleError> {
     let column = spec
         .column(name)
         .ok_or_else(|| internal("diagnostic list field absent"))?;
@@ -437,5 +456,11 @@ fn empty_list(registry: &Registry, spec: &RelationSpec, name: &str) -> Result<Ex
     let mut list =
         ListBuilder::new(make_builder(child.data_type(), 0)).with_field(Arc::clone(child));
     list.append(true);
-    checked_literal(registry, column, ScalarValue::List(Arc::new(list.finish()))).map_err(engine)
+    checked_literal(
+        registry,
+        column,
+        ScalarValue::List(Arc::new(list.finish())),
+        session.validation_context()?.as_ref(),
+    )
+    .map_err(engine)
 }

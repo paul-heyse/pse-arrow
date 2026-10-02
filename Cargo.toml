@@ -183,12 +183,16 @@ nutype = { version = "=0.8.0", features = ["serde", "derive_unchecked"] }
 bytes = "=1.12.1"
 chrono = { version = "=0.4.45", default-features = false, features = ["std"] }
 serde-saphyr = "=1.2.0"
+# The generated Delta source override uses this pin for its metadata validation.
+# validator_derive 0.20.1 replaces the future-incompatible proc-macro-error2.
+validator = { version = "=0.20.0", features = ["derive"] }
 toml = { version = "=1.1.6", default-features = false, features = [
   "parse",
   "serde",
   "display",
 ] }
 strum = { version = "=0.28.0", features = ["derive"] }
+hex = "=0.4.3"
 winnow = { version = "=1.0.4", default-features = false, features = ["std"] }
 sqlparser = "=0.62.0"
 libtest-mimic = "=0.8.2"

@@ -29,7 +29,7 @@ use std::collections::BTreeMap;
 #[serde(deny_unknown_fields)]
 pub struct OperationSource {
     /// Immutable modeling revision, including included scientific data.
-    pub revision: ContentHash,
+    pub revision: pse_ids::roles::SourceRevisionHash,
     /// Complete admitted physical context identity.
     pub physical_context: ContentHash,
 }
@@ -58,7 +58,7 @@ impl OperationSource {
 }
 
 /// Serialization of the existing compiler/expansion controls, with no second defaults.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct PreparationSettings {
     /// Existing evaluator profile, encoded through its complete remote projection.
@@ -69,14 +69,6 @@ pub struct PreparationSettings {
     #[serde(with = "LimitsWire")]
     #[schemars(with = "LimitsWire")]
     pub limits: Limits,
-}
-impl Default for PreparationSettings {
-    fn default() -> Self {
-        Self {
-            compiler: Profile::default(),
-            limits: Limits::default(),
-        }
-    }
 }
 #[derive(serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(remote = "Profile", deny_unknown_fields)]
@@ -307,7 +299,7 @@ pub enum OperationRequest {
     /// Existing shared-parameter fitting owner.
     Fit(FitOperation),
     /// Existing closed-loop horizon owner.
-    Horizon(HorizonOperation),
+    Horizon(Box<HorizonOperation>),
 }
 /// Registry-owned expected products; these roles never assert result availability.
 pub use pse_model::generated::enums::StudyResultRole;
@@ -472,7 +464,7 @@ impl StudyOperation {
                 .locations
                 .push(pse_model::diagnostic::SourceLocation {
                     source: target,
-                    revision: Some(self.source.revision),
+                    revision: Some(self.source.revision.as_id()),
                     path: target.to_string(),
                     name: None,
                     start: None,
@@ -942,7 +934,7 @@ mod study_operation_unit {
         StudyOperation {
             version: Version,
             source: OperationSource {
-                revision: ContentHash::from_bytes([3; 32]),
+                revision: ContentHash::from_bytes([3; 32]).into(),
                 physical_context: ContentHash::from_bytes([4; 32]),
             },
             preparation: PreparationSettings::default(),

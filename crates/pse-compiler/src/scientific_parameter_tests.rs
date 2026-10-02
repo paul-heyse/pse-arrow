@@ -41,7 +41,7 @@ fn check(name: &str) {
         .unwrap()
         .declaration_id;
     let mut workspace = CompilerWorkspace::new(
-        crate::authored_transfer_tests::inputs(),
+        crate::authored_transfer_tests::context(),
         WorkspaceLimits::default(),
     )
     .unwrap();

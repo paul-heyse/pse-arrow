@@ -22,11 +22,17 @@ required preserving operational transition.
 [25f is complete](25f-studies-diagnostics-and-continuation.md#outcome-recorded-after-implementation),
 with shared occurrence policy/definitions, typed diagnostics, physical binding admission,
 durable effect recovery and generated study boundaries. Required 25g/25h/25i/25j slices are
-implemented and tested; I4 is complete and the wider companion scope stays partial.
+implemented and tested; subsequent companion closure is linked below.
 [25g is complete](25g-durable-contract-evolution.md#outcome-recorded-after-implementation),
 with recorded interpretation, separate reader/writer/migration capabilities, portable predicates,
 explicit store lifecycle, inventory-backed reset and protected bounded orphan discovery.
-The next work is [25h's authoring and admission ownership scope](25h-authoring-and-admission-ownership.md#packets).
+The integrated
+[25h](25h-authoring-and-admission-ownership.md#outcome-recorded-after-implementation),
+[25i](25i-identity-reuse-and-resource-ownership.md#outcome-recorded-after-implementation)
+and [25j](25j-generated-boundaries-and-library-consolidation.md#outcome-recorded-after-implementation)
+implementation is complete, with scoped verification and remaining qualification limits in
+those Outcomes. The remaining stage is
+[25k: Integrated qualification and closure](25k-integrated-qualification-and-closure.md).
 The series reserves full integration and qualification for 25k after all functional
 work, including real PostgreSQL preservation/restart and mixed-operation journeys, with focused
 checks and immediate deletion of replaced mechanisms during the pivot.

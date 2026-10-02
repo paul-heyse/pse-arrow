@@ -17,6 +17,7 @@ from pse.contracts.enums import (
     PresolvePolicyKind,
     ReusePolicy,
 )
+from pse.contracts.identities import PublicationId, WorkspaceId
 from pse.contracts.values import SemanticId
 
 #: A manifest dependency on the physical primitives fixture. Its document names
@@ -116,7 +117,7 @@ def test_authored_solve_join_warm_start_checks_and_publication(
     ticket = command.ticket
     published = command.commit()
     settled = runtime.settle_publication(ticket)
-    assert isinstance(settled, pse.PublicationCommitted)
+    assert isinstance(settled, pse.PublicationSettlementCommitted)
     assert settled.publication_id == published.publication_id
     following = package.prepare_solve(
         case,
@@ -137,13 +138,17 @@ def test_authored_solve_join_warm_start_checks_and_publication(
     assert {row["step"] for row in sequence_checks} == {0, 1}
     assert {row["sample_index"] for row in sequence_checks} == {0}
     assert sequence.available_start(1) is not None
-    sequence_command = sequence.prepare_publication(workspace, parent=published.id)
+    sequence_command = sequence.prepare_publication(
+        workspace, parent=PublicationId(SemanticId.from_hex(published.publication_id))
+    )
     sequence_published = sequence_command.commit()
     sequence_settled = runtime.settle_publication(sequence_command.ticket)
-    assert isinstance(sequence_settled, pse.PublicationCommitted)
+    assert isinstance(sequence_settled, pse.PublicationSettlementCommitted)
     assert sequence_settled.publication_id == sequence_published.publication_id
     assert sequence_published.parent == published.publication_id
-    assert runtime.head(workspace.id) == sequence_published.id
+    assert runtime.head(
+        WorkspaceId(SemanticId.from_hex(workspace.workspace_id))
+    ) == PublicationId(SemanticId.from_hex(sequence_published.publication_id))
     sequence_cancelled = runtime.start([prepared, following])
     sequence_cancelled.cancel()
     sequence_partial = sequence_cancelled.wait()

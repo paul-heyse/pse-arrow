@@ -65,6 +65,7 @@ fn parameterized(
             variables,
             (0..parameters.len()).map(parameter_port).collect(),
             vec![InstanceBinding {
+                checked_members: Default::default(),
                 instance: id(9),
                 body: key,
                 slots,
@@ -158,11 +159,9 @@ impl Parameterized {
             ))?;
         if facts {
             let cancel = Arc::new(AtomicBool::new(false));
-            oracle = oracle.with_presolve_facts(Arc::new(assembly.presolve_facts(
-                &self.values,
-                100_000,
-                &cancel,
-            )?))?;
+            oracle = oracle.with_presolve_facts(
+                Arc::new(assembly.presolve_facts(&self.values, 100_000, &cancel)?).into(),
+            )?;
         }
         Ok(Box::new(oracle))
     }

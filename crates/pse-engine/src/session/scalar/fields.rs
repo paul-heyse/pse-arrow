@@ -38,7 +38,7 @@ fn declare(kind: Kind, nullable: bool) -> std::result::Result<FieldRef, pse_sche
     let column = FieldContract::payload("value", logical, "Exact native diagnostic codec output.")
         .with_nullable(nullable);
     Ok(Arc::new(
-        pse_schema::arrow::field_for(crate::validation::registry()?, &column)?
+        pse_schema::arrow::field_for(pse_schema::registry()?, &column)?
             .with_name(Codec::new(kind).name()),
     ))
 }

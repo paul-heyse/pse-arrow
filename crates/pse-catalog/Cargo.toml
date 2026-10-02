@@ -43,6 +43,7 @@ miette.workspace = true
 pse-workspace-hack.workspace = true
 
 [dev-dependencies]
+validator.workspace = true
 datafusion-catalog.workspace = true
 pse-testkit.workspace = true
 pse-relations = { workspace = true, features = ["test-support"] }

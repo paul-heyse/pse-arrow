@@ -108,6 +108,26 @@ pub enum DerivativeOrder {
 }
 #[cfg(test)]
 mod requirement_tests;
+/// The independent capability that refused an implicit derivative demand.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DerivativeCapability {
+    /// Partials implemented by the residual program.
+    Residual,
+    /// Established regularity of the selected root's neighborhood.
+    SelectorNeighborhood,
+    /// Established smoothness of the implicit output.
+    OutputSmoothness,
+}
+impl DerivativeCapability {
+    /// Stable name of the capability, independent of the rendered error message.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Residual => "residual derivative",
+            Self::SelectorNeighborhood => "selector neighborhood",
+            Self::OutputSmoothness => "output smoothness",
+        }
+    }
+}
 /// Independent facts and demand for one selected implicit operation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct DerivativeRequirements {
@@ -134,25 +154,37 @@ impl DerivativeRequirements {
         requested_output: DerivativeOrder,
     ) -> Result<Self, ProviderError> {
         if requested_output > residual_available {
-            return Err(ProviderError::Contract(
-                "implicit residual derivative order unavailable".into(),
-            ));
+            return Err(ProviderError::DerivativeUnavailable {
+                capability: DerivativeCapability::Residual,
+                requested: requested_output,
+                available: residual_available,
+                members: Vec::new(),
+            });
         }
         if requested_output > selector_neighborhood {
-            return Err(ProviderError::Contract(
-                "implicit selector neighborhood does not support requested derivatives".into(),
-            ));
+            return Err(ProviderError::DerivativeUnavailable {
+                capability: DerivativeCapability::SelectorNeighborhood,
+                requested: requested_output,
+                available: selector_neighborhood,
+                members: Vec::new(),
+            });
         }
         if requested_output > output_smoothness {
-            return Err(ProviderError::Contract(
-                "implicit output smoothness does not support requested derivatives".into(),
-            ));
+            return Err(ProviderError::DerivativeUnavailable {
+                capability: DerivativeCapability::OutputSmoothness,
+                requested: requested_output,
+                available: output_smoothness,
+                members: Vec::new(),
+            });
         }
         let residual_compilation = inner_minimum.max(requested_output);
         if residual_compilation > residual_available {
-            return Err(ProviderError::Contract(
-                "implicit residual derivative order unavailable".into(),
-            ));
+            return Err(ProviderError::DerivativeUnavailable {
+                capability: DerivativeCapability::Residual,
+                requested: residual_compilation,
+                available: residual_available,
+                members: Vec::new(),
+            });
         }
         Ok(Self {
             residual_available,
@@ -369,9 +401,21 @@ pub enum ProviderError {
     /// A bounded demand cannot be admitted.
     #[error("provider resource limit: {0}")]
     Limit(&'static str),
-    /// Invalid registration or missing derivative implementation.
+    /// Invalid registration, binding or physical contract.
     #[error("provider contract: {0}")]
     Contract(String),
+    /// A valid implicit operation requests an unavailable derivative capability.
+    #[error("implicit {} does not support requested derivatives: requested {requested:?}, available {available:?}", .capability.as_str())]
+    DerivativeUnavailable {
+        /// Capability that refuses this demand.
+        capability: DerivativeCapability,
+        /// Required order, including a selected inner algorithm's residual minimum.
+        requested: DerivativeOrder,
+        /// Established order for the refusing capability.
+        available: DerivativeOrder,
+        /// Actual selected unknown identities, attached by the binding owner.
+        members: Vec<SemanticId>,
+    },
     /// Inadmissible trial point.
     #[error("provider trial rejected: {0}")]
     Trial(String),
@@ -413,6 +457,9 @@ impl ProviderError {
                 s.capacity()
             }
             Self::OutsideEnvelope { axis, .. } => axis.capacity(),
+            Self::DerivativeUnavailable { members, .. } => {
+                members.capacity() * size_of::<SemanticId>()
+            }
             Self::Cancelled | Self::Limit(_) | Self::RegimeCrossing { .. } => 0,
         })
     }
@@ -433,6 +480,7 @@ pse_diagnostics::impl_diagnostic! {
         Self::Cancelled => pse_diagnostics::DiagnosticCode::RuntimeCancelled,
         Self::Limit(_) => pse_diagnostics::DiagnosticCode::RuntimeResourceLimit,
         Self::Contract(_) => pse_diagnostics::DiagnosticCode::KernelUnboundParameter,
+        Self::DerivativeUnavailable { .. } => pse_diagnostics::DiagnosticCode::CapabilityBackend,
         Self::Terminal(_) => pse_diagnostics::DiagnosticCode::RuntimeInfrastructure,
         Self::Trial(_) | Self::OutsideEnvelope {..} | Self::Singular(_) | Self::RegimeCrossing {..} => pse_diagnostics::DiagnosticCode::MathProvider,
     }) },
@@ -447,6 +495,13 @@ pse_diagnostics::impl_diagnostic! {
                 for (key,value) in [("provider_value",value),("provider_lower",lower),("provider_upper",upper)] {facts.observe(key,O::Number(*value));}
             }
             Self::RegimeCrossing {selector,bound,selected} => facts.sources.extend([*selector.as_bytes(),*bound.as_bytes(),*selected.as_bytes()]),
+            Self::DerivativeUnavailable {capability, requested, available, members} => {
+                facts.sources.extend(members.iter().map(|member| *member.as_bytes()));
+                facts.observe("derivative_capability", O::Text(capability.as_str().into()));
+                let order = |order| match order { DerivativeOrder::Value => 0, DerivativeOrder::First => 1, DerivativeOrder::Second => 2 };
+                facts.observe("requested_derivative_order", O::Integer(order(*requested)));
+                facts.observe("available_derivative_order", O::Integer(order(*available)));
+            }
             Self::Cancelled | Self::Limit(_) | Self::Contract(_) | Self::Trial(_) | Self::Singular(_) | Self::Terminal(_) => {}
         }
         facts

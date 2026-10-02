@@ -47,7 +47,10 @@ pub(crate) fn batch(registry: &Registry, count: u64, offset: u64) -> pse_relatio
             ]
         })
         .collect::<Vec<_>>();
-    pse_relations::testing::batch_from_literals(registry, spec, &rows).expect("typed rows")
+    let validation = pse_relations::validate::ValidationContext::local(registry)
+        .expect("local primitive fixture");
+    pse_relations::testing::batch_from_literals(registry, spec, &rows, &validation)
+        .expect("typed rows")
 }
 pub(crate) fn session(
     runtime: &pse_runtime::SharedRuntime,

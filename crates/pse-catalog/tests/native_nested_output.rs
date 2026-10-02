@@ -20,7 +20,11 @@ fn primitive_nested_labels_are_inferred_but_semantic_children_are_not() {
         &registry,
         &FieldContract::payload(
             "values",
-            FieldContract::list(FieldContract::native(DataType::Int64)),
+            FieldContract::native(DataType::List(Arc::new(Field::new(
+                "item",
+                DataType::Int64,
+                false,
+            )))),
             "Primitive array",
         ),
     )
@@ -31,6 +35,16 @@ fn primitive_nested_labels_are_inferred_but_semantic_children_are_not() {
         false,
     );
     assert!(check_field_output(&native, &primitive).is_ok());
+    let collection = pse_schema::arrow::field_for(
+        &registry,
+        &FieldContract::payload(
+            "values",
+            FieldContract::list(FieldContract::native(DataType::Int64)),
+            "Explicit ordered collection",
+        ),
+    )
+    .unwrap();
+    assert!(check_field_output(&native, &collection).is_err());
     let semantic = pse_schema::arrow::field_for(
         &registry,
         &FieldContract::payload(
@@ -182,6 +196,7 @@ async fn native_array_selection_retains_child_fields_and_index_null_behavior() {
             "Actual IDs.",
         ),
         ScalarValue::List(Arc::clone(&value)),
+        &session.validation_context().unwrap(),
     )
     .unwrap();
     let nested_column = FieldContract::payload(
@@ -204,6 +219,7 @@ async fn native_array_selection_retains_child_fields_and_index_null_behavior() {
         session.registry(),
         &nested_column,
         ScalarValue::List(Arc::new(nested)),
+        &session.validation_context().unwrap(),
     )
     .unwrap();
     let tuple = session
@@ -325,6 +341,7 @@ async fn nested_scalar_materialization_is_visible_after_constant_folding() {
             "Established identity children.",
         ),
         scalar,
+        &session.validation_context().unwrap(),
     )
     .unwrap();
     let plan = LogicalPlanBuilder::values(vec![vec![lit(1_u64)], vec![lit(2_u64)]])
@@ -394,7 +411,14 @@ async fn native_collection_preserves_fields_through_ordered_distinct_and_grouped
         ],
     )
     .unwrap();
-    let checked = FieldCheckedBatch::admit(session.registry(), spec, batch).unwrap();
+    let checked = FieldCheckedBatch::admit(
+        session.registry(),
+        spec,
+        batch,
+        &session.validation_context().unwrap(),
+        &CancellationToken::new(),
+    )
+    .unwrap();
     let cancel = CancellationToken::new();
     let session = session
         .with_checked_workspace(BTreeMap::from([(key, checked)]), &cancel)

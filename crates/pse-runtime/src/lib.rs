@@ -36,6 +36,8 @@ pub mod budget;
 pub mod cancel;
 pub mod env;
 pub mod error;
+pub mod inspection_documents;
+pub use inspection_documents::{ResourceConsumer, TableName};
 pub mod peak;
 pub mod session_factory;
 pub mod settings;

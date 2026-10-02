@@ -377,7 +377,10 @@ pub(crate) async fn requeue(
         attempt_id: next,
         run_id: prior.run_id,
         kind: prior.kind,
-        request_identity: prior.request_identity,
+        operational_job_identity: pse_ids::roles::RecordedOperationalJobIdentity::recorded(
+            prior.operational_job_identity,
+            prior.operational_job_frame,
+        ),
         preparation_identity: prior.preparation_identity,
         parent_attempt: Some(previous),
     };

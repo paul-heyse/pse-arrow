@@ -79,12 +79,17 @@ fn header(byte: u8, kind: PublicationKind) -> publication_manifests::Row {
 }
 fn record(
     registry: &Registry,
+    validation: &pse_relations::validate::ValidationContext,
     completed: &pse_engine::session::CompletedComputation,
 ) -> publication_manifests::Row {
-    publication_manifests::View::try_from_batch_with_registry(registry, &completed.batches()[0])
-        .unwrap()
-        .row(0)
-        .unwrap()
+    publication_manifests::View::try_from_batch_with_registry(
+        registry,
+        &completed.batches()[0],
+        validation,
+    )
+    .unwrap()
+    .row(0)
+    .unwrap()
 }
 fn migration(source: &Registry, target: &Registry, include_two: bool) -> MemberMigration {
     let source_field = pse_schema::arrow::relation_schema(
@@ -185,7 +190,11 @@ async fn source(
             cancel,
         )
         .unwrap();
-    record(&registry, &candidate.execute(cancel).await.unwrap())
+    record(
+        &registry,
+        &artifact.session().validation_context().unwrap(),
+        &candidate.execute(cancel).await.unwrap(),
+    )
 }
 #[tokio::test]
 async fn explicit_migration_checks_transient_output_publishes_lineage_and_preserves_source_on_failure()
@@ -205,6 +214,8 @@ async fn explicit_migration_checks_transient_output_publishes_lineage_and_preser
     let old = registry(1);
     let current = registry(2);
     let original = source(&factory, old.clone(), &root, &cancel).await;
+    let source_member = original.members[0].clone();
+    let source_version = source_member.delta_version;
     let opened = Publication::open_recorded(
         PublicationSelection {
             record: original.clone(),
@@ -286,7 +297,11 @@ async fn explicit_migration_checks_transient_output_publishes_lineage_and_preser
         )
         .unwrap();
     assert_eq!(ticket.candidate().members.len(), 2);
-    let migrated = record(&current, &candidate.execute(&cancel).await.unwrap());
+    let migrated = record(
+        &current,
+        &artifact.session().validation_context().unwrap(),
+        &candidate.execute(&cancel).await.unwrap(),
+    );
     let mut changed = migration(&old, &current, true);
     if let MigrationStep::RecodeDomain {
         mapping:
@@ -352,12 +367,16 @@ async fn explicit_migration_checks_transient_output_publishes_lineage_and_preser
     let view = artifact_migration_lineage::View::try_from_batch_with_registry(
         target.session().registry(),
         batch.batch(),
+        &target.session().validation_context().unwrap(),
     )
     .unwrap();
     assert_eq!(
         view.row(0).unwrap().source_publication_id,
         original.publication_id
     );
+    assert_eq!(view.row(0).unwrap().source_member, source_member);
+    assert!(stream.next_batch(&cancel).await.unwrap().is_none());
+    drop(stream);
     let original_again = Publication::open(
         PublicationSelection {
             record: original.clone(),
@@ -371,7 +390,13 @@ async fn explicit_migration_checks_transient_output_publishes_lineage_and_preser
     .await
     .unwrap();
     assert_eq!(original_again.record(), &original);
-    assert_eq!(original.members[0].delta_version, 0);
+    assert_eq!(
+        original_again
+            .member(&name("migration_values"))
+            .unwrap()
+            .delta_version,
+        source_version
+    );
     let mut stream = original_again
         .relation_stream(&name("migration_values"), &cancel)
         .await
@@ -388,4 +413,5 @@ async fn explicit_migration_checks_transient_output_publishes_lineage_and_preser
             .collect::<Vec<_>>(),
         vec![Some(1), Some(2)]
     );
+    assert!(stream.next_batch(&cancel).await.unwrap().is_none());
 }

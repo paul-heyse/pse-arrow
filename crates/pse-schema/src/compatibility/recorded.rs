@@ -76,12 +76,27 @@ fn descriptions(
 }
 fn named<'a>(
     relations: &'a BTreeMap<SemanticId, Relation>,
+    owner: &'a Relation,
     name: &str,
 ) -> Result<&'a Relation, CompatibilityError> {
-    relations
+    if owner
+        .relation
+        .rsplit_once('@')
+        .map(|(qualified, _)| qualified)
+        == Some(name)
+    {
+        return Ok(owner);
+    }
+    let mut matching = relations
         .values()
-        .find(|r| r.relation.rsplit_once('@').map(|(n, _)| n) == Some(name))
-        .ok_or_else(|| malformed(format!("missing support relation {name}")))
+        .filter(|r| r.relation.rsplit_once('@').map(|(n, _)| n) == Some(name));
+    let relation = matching
+        .next()
+        .ok_or_else(|| malformed(format!("missing support relation {name}")))?;
+    if matching.next().is_some() {
+        return Err(malformed(format!("ambiguous support relation {name}")));
+    }
+    Ok(relation)
 }
 fn local_columns(relation: &Relation, columns: &[String]) -> Result<(), CompatibilityError> {
     let distinct: BTreeSet<_> = columns.iter().collect();
@@ -96,10 +111,11 @@ fn local_columns(relation: &Relation, columns: &[String]) -> Result<(), Compatib
 }
 fn add_name(
     relations: &BTreeMap<SemanticId, Relation>,
+    owner: &Relation,
     name: &str,
     dependencies: &mut BTreeSet<SemanticId>,
 ) -> Result<(), CompatibilityError> {
-    dependencies.insert(named(relations, name)?.id);
+    dependencies.insert(named(relations, owner, name)?.id);
     Ok(())
 }
 fn field_support(
@@ -186,10 +202,10 @@ fn field_support(
             }
         }
         match name.as_str() {
-            "pse.source_span" => add_name(relations, "authored.documents", dependencies)?,
+            "pse.source_span" => add_name(relations, owner, "authored.documents", dependencies)?,
             "pse.quantity_value" => {
-                add_name(relations, "reference.quantity_types", dependencies)?;
-                add_name(relations, "reference.units", dependencies)?;
+                add_name(relations, owner, "reference.quantity_types", dependencies)?;
+                add_name(relations, owner, "reference.units", dependencies)?;
             }
             _ => {}
         }
@@ -198,7 +214,7 @@ fn field_support(
         let (name, column) = text
             .rsplit_once('.')
             .ok_or_else(|| malformed("invalid scalar reference"))?;
-        let target = named(relations, name)?;
+        let target = named(relations, owner, name)?;
         local_columns(target, &[column.to_owned()])?;
         dependencies.insert(target.id);
     }
@@ -207,7 +223,7 @@ fn field_support(
         if reference.columns.is_empty() || reference.canonical().map_err(malformed)? != *text {
             return Err(malformed("invalid correlated reference"));
         }
-        let target = named(relations, &reference.relation)?;
+        let target = named(relations, owner, &reference.relation)?;
         local_columns(
             target,
             &reference
@@ -259,7 +275,7 @@ fn validated_graph(
                 .parse::<u32>()
                 .ok()
                 .is_none_or(|v| v == 0 || v.to_string() != version)
-            || !names.insert(name)
+            || !names.insert(&relation.relation)
             || *id != relation.id
             || relation.id
                 != crate::builder::registry_id(&format!("relation:{}", relation.relation))
@@ -334,7 +350,7 @@ fn validated_graph(
             }
             local_columns(relation, &invariant.keys)?;
             for input in &invariant.inputs {
-                add_name(&relations, input, &mut dependencies)?;
+                add_name(&relations, relation, input, &mut dependencies)?;
             }
         }
         for reference in relation.foreign_keys.values() {

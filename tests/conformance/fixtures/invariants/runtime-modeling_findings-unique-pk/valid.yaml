@@ -3,15 +3,18 @@
   "rows": {
     "runtime.modeling_findings": [
       {
+        "applicability": "[\"list\",[]]",
+        "causes": "[\"list\",[]]",
         "class": "[\"enum\",\"invalid_model\"]",
+        "code": "[\"enum\",\"authoring.parse\"]",
         "locations": "[\"list\",[]]",
         "observations": "[\"list\",[]]",
         "ordinal": "[\"i64\",1]",
-        "rule": "[\"text\",\"value-1\"]",
+        "rule": "[\"enum\",\"authoring.budget\"]",
         "run_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "severity": "[\"enum\",\"error\"]",
         "sources": "[\"list\",[]]",
-        "stage": "[\"text\",\"value-1\"]",
+        "stage": "[\"enum\",\"workflow\"]",
         "validity": "[\"struct\",[[\"enum\",\"form\"],[\"id\",\"01010101010101010101010101010101\"],[\"id\",\"01010101010101010101010101010101\"],[\"list\",[]],[\"list\",[]],[\"list\",[]]]]"
       }
     ]

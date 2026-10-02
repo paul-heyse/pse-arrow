@@ -56,6 +56,7 @@ pub struct FieldCheckedBatch {
 mod foundation_unit {
     #![allow(clippy::unwrap_used, reason = "isolated checked-transform fixture")]
     use super::*;
+    use crate::native::execution::context::SessionContext;
     use pse_schema::model::{Authority, FieldContract, Namespace, RelationDecl, SnapshotClass};
     #[test]
     fn checked_selection_and_strict_cast_reestablish_only_local_evidence() {
@@ -93,6 +94,8 @@ mod foundation_unit {
                     vec![Arc::new(arrow_array::StringArray::from(values))],
                 )
                 .unwrap(),
+                &crate::validate::ValidationContext::new(&registry, SessionContext::new().state()),
+                &pse_columnar::CancellationToken::new(),
             )
             .unwrap()
         };
@@ -123,7 +126,13 @@ mod foundation_unit {
                 .is_err()
         );
         let cast = taken
-            .cast_readmit_reserved(&registry, number, &pool, &cancel)
+            .cast_readmit_reserved(
+                &registry,
+                number,
+                &pool,
+                &cancel,
+                &crate::validate::ValidationContext::new(&registry, SessionContext::new().state()),
+            )
             .unwrap();
         assert_eq!(
             cast.batch()
@@ -135,7 +144,16 @@ mod foundation_unit {
         );
         assert!(
             input(vec!["bad"])
-                .cast_readmit_reserved(&registry, number, &pool, &cancel)
+                .cast_readmit_reserved(
+                    &registry,
+                    number,
+                    &pool,
+                    &cancel,
+                    &crate::validate::ValidationContext::new(
+                        &registry,
+                        SessionContext::new().state()
+                    )
+                )
                 .is_err()
         );
         let reader = cast.slice(1, 1).unwrap();
@@ -159,7 +177,7 @@ impl FieldCheckedBatch {
     /// a registry-default SQL environment for the selected session.
     /// # Errors
     /// Foreign context, schema/value failure or cancellation.
-    pub fn admit_in(
+    pub fn admit(
         registry: &pse_schema::Registry,
         spec: &pse_schema::model::RelationSpec,
         batch: RecordBatch,
@@ -183,14 +201,14 @@ impl FieldCheckedBatch {
     /// Transfer native allocation ownership while admitting in the exact selected context.
     /// # Errors
     /// Foreign context, schema/value failure or cancellation.
-    pub fn admit_owned_in(
+    pub fn admit_owned(
         registry: &pse_schema::Registry,
         spec: &pse_schema::model::RelationSpec,
         batch: pse_columnar::owned_buffer::OwnedRecordBatch,
         context: &crate::validate::ValidationContext,
         cancel: &pse_columnar::CancellationToken,
     ) -> Result<Self, RelationError> {
-        let mut checked = Self::admit_in(registry, spec, batch.batch().clone(), context, cancel)?;
+        let mut checked = Self::admit(registry, spec, batch.batch().clone(), context, cancel)?;
         checked.owned = Some(batch);
         Ok(checked)
     }
@@ -256,6 +274,7 @@ impl FieldCheckedBatch {
         spec: &pse_schema::model::RelationSpec,
         pool: &Arc<dyn pse_columnar::MemoryPool>,
         cancel: &pse_columnar::CancellationToken,
+        context: &crate::validate::ValidationContext,
     ) -> Result<Self, RelationError> {
         cancel.checkpoint()?;
         let schema = pse_schema::arrow::relation_schema_ref(registry, spec)?;
@@ -298,7 +317,13 @@ impl FieldCheckedBatch {
         if let Some(owned) = &self.owned {
             scope.import(owned)?;
         }
-        Self::admit_owned(registry, spec, scope.attach_reserved(batch, reservation)?)
+        Self::admit_owned(
+            registry,
+            spec,
+            scope.attach_reserved(batch, reservation)?,
+            context,
+            cancel,
+        )
     }
     /// Compare the exact checked row domain and retained semantic authority.
     /// Equal values in different arrays are not the same source owner.
@@ -371,6 +396,7 @@ impl FieldCheckedBatch {
         spec: &pse_schema::model::RelationSpec,
         positions: &[usize],
         cancel: &pse_columnar::CancellationToken,
+        context: &crate::validate::ValidationContext,
     ) -> Result<Self, RelationError> {
         cancel.checkpoint()?;
         registry.admit_contract(&self.contract)?;
@@ -397,7 +423,7 @@ impl FieldCheckedBatch {
             .map(|(name, _)| format!("check:{name}"))
             .collect::<std::collections::BTreeSet<_>>();
         if !missing.is_empty() {
-            crate::validate::ValidationContext::for_registry(registry)?
+            context
                 .relation(registry, spec)?
                 .evaluate_missing_checks(&batch, &missing, cancel)?
                 .require_valid()?;
@@ -418,33 +444,11 @@ impl FieldCheckedBatch {
         })
     }
 
-    /// Isolate caller-owned raw buffers and admit their values once under the exact
-    /// declaration. Both the copy and validation scratch are reserved before use;
-    /// the returned immutable buffers retain only their own allocation claim.
-    /// # Errors
-    /// Declaration/value failure, cancellation, resource exhaustion or invalid storage.
-    pub fn admit_external(
-        registry: &pse_schema::Registry,
-        spec: &pse_schema::model::RelationSpec,
-        batch: &RecordBatch,
-        pool: &Arc<dyn pse_columnar::MemoryPool>,
-        cancel: &pse_columnar::CancellationToken,
-    ) -> Result<Self, RelationError> {
-        Self::admit_external_in(
-            registry,
-            spec,
-            batch,
-            crate::validate::ValidationContext::for_registry(registry)?.as_ref(),
-            pool,
-            cancel,
-        )
-    }
-
     /// Isolate raw buffers and admit through the selected immutable engine context.
     /// The copy and validation scratch retain the same bounds as registry admission.
     /// # Errors
     /// Foreign context, invalid fields/values, cancellation or allocation refusal.
-    pub fn admit_external_in(
+    pub fn admit_external(
         registry: &pse_schema::Registry,
         spec: &pse_schema::model::RelationSpec,
         batch: &RecordBatch,
@@ -459,7 +463,7 @@ impl FieldCheckedBatch {
             .map_err(pse_columnar::CanonError::from)?;
         cancel.checkpoint()?;
         let isolated = pse_columnar::owned_buffer::OwnedRecordBatch::copy(batch, pool, cancel)?;
-        let input = Self::admit_owned_in(registry, spec, isolated, context, cancel)?;
+        let input = Self::admit_owned(registry, spec, isolated, context, cancel)?;
         cancel.checkpoint()?;
         Ok(input)
     }
@@ -475,6 +479,8 @@ impl FieldCheckedBatch {
         spec: &pse_schema::model::RelationSpec,
         batch: &pse_columnar::owned_buffer::OwnedRecordBatch,
         positions: &[usize],
+        context: &crate::validate::ValidationContext,
+        cancel: &pse_columnar::CancellationToken,
     ) -> Result<Self, RelationError> {
         let projected = batch.project(positions)?;
         let schema = pse_schema::arrow::relation_schema_ref(registry, spec)?;
@@ -483,42 +489,9 @@ impl FieldCheckedBatch {
             registry,
             spec,
             projected.with_schema_metadata(schema.metadata().clone())?,
+            context,
+            cancel,
         )
-    }
-
-    /// Check external native values once while transferring their existing result
-    /// allocation claim. Ownership alone never establishes local field validity.
-    /// # Errors
-    /// A different declaration, physical layout or invalid local value.
-    pub fn admit_owned(
-        registry: &pse_schema::Registry,
-        spec: &pse_schema::model::RelationSpec,
-        batch: pse_columnar::owned_buffer::OwnedRecordBatch,
-    ) -> Result<Self, RelationError> {
-        let mut checked = Self::admit(registry, spec, batch.batch().clone())?;
-        checked.owned = Some(batch);
-        Ok(checked)
-    }
-
-    /// Admits one raw candidate under its exact authoritative relation declaration.
-    /// Local field and extension predicates execute once before this capability exists.
-    ///
-    /// # Errors
-    /// A different registry declaration, physical layout, field or local value violation.
-    pub fn admit(
-        registry: &pse_schema::Registry,
-        spec: &pse_schema::model::RelationSpec,
-        batch: RecordBatch,
-    ) -> Result<Self, RelationError> {
-        let contract = registry.contract(spec)?;
-        crate::validate::validate_batch(registry, spec, &batch)
-            .map_err(|errors| RelationError::Validation { errors })?;
-        Ok(Self {
-            relation_id: spec.id,
-            contract,
-            batch,
-            owned: None,
-        })
     }
 
     /// Concatenates actual checked columns under one exact relation declaration.
@@ -830,6 +803,7 @@ impl BatchBuilder {
         contract: pse_schema::resolved_contract::RelationContractHandle,
         schema: SchemaRef,
         capacity: usize,
+        context: &crate::validate::ValidationContext,
     ) -> Result<Self, RelationError> {
         let spec = registry
             .relation_by_id(contract.relation_id())
@@ -840,8 +814,7 @@ impl BatchBuilder {
             .map(|field| storage::make(field.data_type(), capacity))
             .collect::<Result<_, _>>()?;
         Ok(Self {
-            prepared: crate::validate::ValidationContext::for_registry(registry)?
-                .relation(registry, spec)?,
+            prepared: context.relation(registry, spec)?,
             relation_id: contract.relation_id(),
             contract,
             schema,
@@ -950,12 +923,17 @@ impl BatchBuilder {
 mod consolidation_unit {
     use super::*;
     use crate::generated::reference::dimensions;
+    use crate::native::execution::context::SessionContext;
 
     #[test]
     fn generated_builders_views_and_foreign_rebinding_retain_native_columns()
     -> Result<(), RelationError> {
         let registry = pse_schema::catalog::assemble()?;
-        let mut builder = dimensions::Builder::with_registry(&registry, 1)?;
+        let mut builder = dimensions::Builder::with_registry(
+            &registry,
+            1,
+            &crate::validate::ValidationContext::new(&registry, SessionContext::new().state()),
+        )?;
         builder.push(dimensions::Row {
             ordinal: 0,
             name: "length".into(),
@@ -989,7 +967,11 @@ mod consolidation_unit {
 
     #[test]
     fn empty_batches_and_incompatible_generated_views_are_distinct() -> Result<(), RelationError> {
-        let checked = dimensions::Builder::new()?.finish()?;
+        let checked = dimensions::Builder::new(&crate::validate::ValidationContext::new(
+            pse_schema::registry().unwrap(),
+            SessionContext::new().state(),
+        ))?
+        .finish()?;
         assert_eq!(dimensions::View::from_checked(&checked)?.rows()?.len(), 0);
         assert!(
             crate::generated::reference::schema_enum_types::View::from_checked(&checked).is_err()
@@ -1000,7 +982,10 @@ mod consolidation_unit {
     #[test]
     fn changed_projection_cannot_reuse_parent_admission() -> Result<(), RelationError> {
         let registry = pse_schema::registry()?;
-        let mut builder = dimensions::Builder::new()?;
+        let mut builder = dimensions::Builder::new(&crate::validate::ValidationContext::new(
+            pse_schema::registry().unwrap(),
+            SessionContext::new().state(),
+        ))?;
         builder.push(dimensions::Row {
             ordinal: 0,
             name: "length".into(),
@@ -1008,7 +993,14 @@ mod consolidation_unit {
         let checked = builder.finish()?;
         let projected = checked.batch().project(&[1])?;
         assert!(
-            FieldCheckedBatch::admit(registry, dimensions::spec(registry)?, projected).is_err()
+            FieldCheckedBatch::admit(
+                registry,
+                dimensions::spec(registry)?,
+                projected,
+                &crate::validate::ValidationContext::new(registry, SessionContext::new().state()),
+                &pse_columnar::CancellationToken::new()
+            )
+            .is_err()
         );
         Ok(())
     }
@@ -1017,6 +1009,7 @@ mod consolidation_unit {
 #[cfg(test)]
 mod integrated_performance_unit {
     use super::*;
+    use crate::native::execution::context::SessionContext;
     use arrow_array::{BooleanArray, Int64Array};
     use pse_schema::model::{Authority, FieldContract, Namespace, RelationDecl, SnapshotClass};
 
@@ -1048,13 +1041,7 @@ mod integrated_performance_unit {
                 .checks(checks),
             );
         }
-        let registry = registry.build().unwrap();
-        crate::validate::ValidationContext::install_default(
-            &registry,
-            datafusion::prelude::SessionContext::new().state(),
-        )
-        .unwrap();
-        registry
+        registry.build().unwrap()
     }
 
     #[test]
@@ -1068,23 +1055,52 @@ mod integrated_performance_unit {
             )
             .unwrap()
         };
-        let source = FieldCheckedBatch::admit(&registry, spec, batch()).unwrap();
+        let source = FieldCheckedBatch::admit(
+            &registry,
+            spec,
+            batch(),
+            &crate::validate::ValidationContext::new(&registry, SessionContext::new().state()),
+            &pse_columnar::CancellationToken::new(),
+        )
+        .unwrap();
         assert!(source.same_source(&source.clone()));
-        assert!(!source.same_source(&FieldCheckedBatch::admit(&registry, spec, batch()).unwrap()));
+        assert!(
+            !source.same_source(
+                &FieldCheckedBatch::admit(
+                    &registry,
+                    spec,
+                    batch(),
+                    &crate::validate::ValidationContext::new(
+                        &registry,
+                        SessionContext::new().state()
+                    ),
+                    &pse_columnar::CancellationToken::new()
+                )
+                .unwrap()
+            )
+        );
         assert!(!source.same_source(&source.slice(0, 1).unwrap()));
     }
     #[test]
     fn checked_handoffs_preserve_evidence_but_not_cross_chunk_keys() {
         let registry = registry();
         let spec = registry.relation("authored.values").unwrap();
-        let validation = crate::validate::ValidationContext::for_registry(&registry).unwrap();
+        let validation =
+            crate::validate::ValidationContext::new(&registry, SessionContext::new().state());
         let prepared = validation.relation(&registry, spec).unwrap();
         let batch = RecordBatch::try_new(
             prepared.schema().clone(),
             vec![Arc::new(Int64Array::from(vec![0, 1, 2]))],
         )
         .unwrap();
-        let checked = FieldCheckedBatch::admit(&registry, spec, batch).unwrap();
+        let checked = FieldCheckedBatch::admit(
+            &registry,
+            spec,
+            batch,
+            &validation,
+            &pse_columnar::CancellationToken::new(),
+        )
+        .unwrap();
         let calls = prepared.evaluation_count();
         let pool: Arc<dyn pse_columnar::MemoryPool> =
             Arc::new(pse_columnar::GreedyMemoryPool::new(1 << 20));
@@ -1099,7 +1115,7 @@ mod integrated_performance_unit {
         assert_eq!(selected.batch().num_rows(), 1);
         let sliced = checked.slice(0, 1).unwrap();
         let projected = sliced
-            .project_exact(&registry, spec, &[0], &cancel)
+            .project_exact(&registry, spec, &[0], &cancel, &validation)
             .unwrap();
         let duplicate = FieldCheckedBatch::concat(&registry, spec, &[selected, projected]).unwrap();
         assert_eq!(duplicate.batch().num_rows(), 2);
@@ -1126,20 +1142,20 @@ mod integrated_performance_unit {
         );
         assert!(
             checked
-                .project_exact(&registry, spec, &[1], &cancel)
+                .project_exact(&registry, spec, &[1], &cancel, &validation)
                 .is_err()
         );
         let strict = registry.relation("authored.positive").unwrap();
         assert!(
             checked
-                .project_exact(&registry, strict, &[0], &cancel)
+                .project_exact(&registry, strict, &[0], &cancel, &validation)
                 .is_err()
         );
         assert!(
             checked
                 .slice(1, 2)
                 .unwrap()
-                .project_exact(&registry, strict, &[0], &cancel)
+                .project_exact(&registry, strict, &[0], &cancel, &validation)
                 .is_ok()
         );
         assert!(Arc::ptr_eq(
@@ -1159,6 +1175,8 @@ mod integrated_performance_unit {
             &registry,
             spec,
             RecordBatch::try_new(schema, vec![Arc::new(Int64Array::from(vec![7]))]).unwrap(),
+            &crate::validate::ValidationContext::new(&registry, SessionContext::new().state()),
+            &pse_columnar::CancellationToken::new(),
         )
         .unwrap();
         let context = SessionContext::new();

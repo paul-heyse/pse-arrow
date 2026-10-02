@@ -100,7 +100,9 @@ pub struct BodyLimits {
     /// Formal inputs plus barrier result slots. The process-global formal pool extends up
     /// to this allowance; the default is the initially registered chunk.
     pub slots: usize,
-    /// Construction operations, including repeated occurrences.
+    /// Construction operations, including repeated occurrences, schedule validation,
+    /// support derivatives and propagated support entries. Support analysis consumes
+    /// the allowance left by authored body construction, rather than a second budget.
     pub occurrences: usize,
 }
 impl Default for BodyLimits {
@@ -1580,12 +1582,18 @@ impl<'a> BodyBuilder<'a> {
             .iter()
             .map(|value| self.materialize(value.atom.clone(), value.source))
             .collect::<Result<Vec<_>, _>>()?;
-        let mut body = PreparedBody::new(
+        let mut remaining = self
+            .limits
+            .occurrences
+            .checked_sub(self.occurrences)
+            .ok_or(MathError::Limit("body occurrences"))?;
+        let mut body = PreparedBody::new_with_allowance(
             self.inputs,
             self.next_slot,
             output_slots,
             self.stages,
             self.provider_order,
+            &mut remaining,
         )?;
         body.set_effects(outputs.iter().map(|v| v.effects.clone()).collect());
         body.set_occurrences(self.occurrences);

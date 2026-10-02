@@ -30,6 +30,7 @@ pub fn relation_plan(
     budget: ParseBudget,
     pool: Arc<dyn MemoryPool>,
     cancel: CancellationToken,
+    validation: Arc<pse_relations::validate::ValidationContext>,
 ) -> Result<LogicalPlan> {
     let spec = registry
         .relation_by_id(relation)
@@ -53,6 +54,7 @@ pub fn relation_plan(
         budget,
         pool,
         cancel,
+        validation,
     )?);
     let grouped = LogicalPlanBuilder::from(documents)
         .aggregate(

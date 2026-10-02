@@ -59,7 +59,10 @@ pub(super) fn structure(name: &str, fields: &[(String, TokenStream, String)]) ->
         .map(|(name, _, _)| ident(name))
         .collect::<Vec<_>>();
     let types = fields.iter().map(|(_, ty, _)| ty).collect::<Vec<_>>();
-    let docs = fields.iter().map(|(_, _, doc)| doc).collect::<Vec<_>>();
+    let docs = fields
+        .iter()
+        .map(|(name, _, doc)| if doc.trim().is_empty() { name } else { doc })
+        .collect::<Vec<_>>();
     let count = names.len();
     let positions = (0..count).collect::<Vec<_>>();
     let equality = if count == 0 {

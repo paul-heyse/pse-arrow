@@ -6,6 +6,22 @@
 //! is refused, never reinterpreted. A change to a document's encoding is a new `N`.
 use std::borrow::Cow;
 
+/// Schema projection of serde's closed standard-duration representation.
+/// Integer widths and fields come from schemars's Duration projection; serde's
+/// standard visitor owns decoding, overflow and unknown-field refusal.
+#[derive(Debug)]
+pub struct ClosedDuration;
+impl schemars::JsonSchema for ClosedDuration {
+    fn schema_name() -> Cow<'static, str> {
+        Cow::Borrowed("ClosedDuration")
+    }
+    fn json_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        let mut schema = <std::time::Duration as schemars::JsonSchema>::json_schema(generator);
+        schema.insert("additionalProperties".into(), false.into());
+        schema
+    }
+}
+
 /// The version field of a document at version `N`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Version<const N: u32>;

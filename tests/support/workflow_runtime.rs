@@ -30,6 +30,12 @@ impl WorkflowRuntime {
     pub(crate) fn with_threads(
         workers: NonZeroUsize,
     ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+        Self::with_math(workers, Default::default())
+    }
+    pub(crate) fn with_math(
+        workers: NonZeroUsize,
+        math: pse_runtime::math::MathPolicy,
+    ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         let registry = pse_schema::shared_registry()?;
         let spill = tempfile::tempdir()?;
         let threads = ThreadBudget {
@@ -51,16 +57,10 @@ impl WorkflowRuntime {
             threads,
             execution: ExecutionSettings::default(),
             cache,
-            math: Default::default(),
+            math,
             hashing_may_use_pool: false,
         })?;
-        let sessions = Arc::new(
-            runtime
-                .session_factory(native_engine_profile())?
-                .with_requirement_planner(Arc::new(
-                    pse_rules::invariants::RegistryRequirementPlanner,
-                )),
-        );
+        let sessions = Arc::new(runtime.session_factory(native_engine_profile())?);
         Ok(Self {
             registry,
             sessions,

@@ -73,6 +73,15 @@ Member names are canonical string values; declaration order is presentation only
 | `cancel` | `` | false |
 | `declared_result` | `` | false |
 
+## `BoundActivity`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `inactive` | `` | false |
+| `at_lower` | `` | false |
+| `at_upper` | `` | false |
+| `fixed` | `` | false |
+
 ## `BoundKind`
 
 | Member | IDAES name | Deprecated |
@@ -2122,6 +2131,15 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `allow_rebuild` | `` | false |
 | `require_reuse` | `` | false |
 
+## `RowActivity`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `inactive` | `` | false |
+| `at_lower` | `` | false |
+| `at_upper` | `` | false |
+| `equality` | `` | false |
+
 ## `RuntimeTermination`
 
 | Member | IDAES name | Deprecated |
@@ -2372,6 +2390,14 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 |---|---|---|
 | `highs` | `` | false |
 | `unweighted_heuristic` | `` | false |
+
+## `TearPolicy`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `free` | `` | false |
+| `mandatory` | `` | false |
+| `forbidden` | `` | false |
 
 ## `TerminationClass`
 

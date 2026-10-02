@@ -103,7 +103,8 @@ pub(crate) async fn publish(
         .map(|(command, _ticket)| command)
         .unwrap();
     let result = command.execute(&cancel).await.unwrap();
-    let record = admitted(&registry, result.batches());
+    let validation = factory.validation_context(&registry).unwrap();
+    let record = admitted(&registry, result.batches(), &validation);
     drop(result);
     drop(artifact);
     // Keep the shared fixture's stack bounded as member opens gain concurrency.
@@ -129,11 +130,12 @@ pub(crate) async fn publish(
 pub(crate) fn admitted(
     registry: &Registry,
     batches: &[pse_columnar::owned_buffer::OwnedRecordBatch],
+    validation: &pse_relations::validate::ValidationContext,
 ) -> publication_manifests::Row {
     let [batch] = batches else {
         panic!("a publication candidate returns one record")
     };
-    publication_manifests::View::try_from_batch_with_registry(registry, batch)
+    publication_manifests::View::try_from_batch_with_registry(registry, batch, validation)
         .unwrap()
         .row(0)
         .unwrap()

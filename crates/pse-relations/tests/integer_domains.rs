@@ -59,7 +59,8 @@ fn registry_metadata_is_signed_and_enforces_its_declared_widths() {
                 pse_relations::validate::validate_column(
                     registry,
                     field,
-                    &Int64Array::from(vec![value])
+                    &Int64Array::from(vec![value]),
+                    &validation(registry)
                 )
                 .is_ok(),
                 valid,
@@ -87,7 +88,13 @@ fn visible_values_obey_bounds_while_null_parents_mask_children() {
             Some(NullBuffer::from(vec![visible])),
         );
         assert_eq!(
-            pse_relations::validate::validate_column(&registry, &field, &structure).is_ok(),
+            pse_relations::validate::validate_column(
+                &registry,
+                &field,
+                &structure,
+                &validation(&registry)
+            )
+            .is_ok(),
             valid,
             "{value}/{visible}"
         );
@@ -122,7 +129,13 @@ fn source_span_offsets_reject_negative_oversized_and_reversed_ranges() {
             None,
         );
         assert_eq!(
-            pse_relations::validate::validate_column(registry, &field, &structure).is_ok(),
+            pse_relations::validate::validate_column(
+                registry,
+                &field,
+                &structure,
+                &validation(registry)
+            )
+            .is_ok(),
             valid,
             "{start}..{end}"
         );
@@ -169,7 +182,8 @@ fn ordinal_domain_rejects_negative_values_and_missing_domain_metadata() {
             pse_relations::validate::validate_column(
                 registry,
                 &field,
-                &Int64Array::from(vec![value])
+                &Int64Array::from(vec![value]),
+                &validation(registry)
             )
             .is_ok(),
             valid
@@ -181,3 +195,7 @@ fn ordinal_domain_rejects_negative_values_and_missing_domain_metadata() {
         .remove(pse_schema::model::integer_range::KEY_INTEGER_RANGE);
     assert!(pse_relations::validate::validate_field(registry, &missing).is_err());
 }
+
+#[path = "support/validation.rs"]
+mod native_validation;
+use native_validation::validation;

@@ -181,12 +181,14 @@ pub struct ModelingConformanceReport {
     pub releases: BTreeMap<DeclarationId, Option<DeclarationId>>,
     pub(super) registry: Arc<pse_schema::Registry>,
     pub(super) pool: Arc<dyn pse_columnar::MemoryPool>,
+    validation: Arc<pse_relations::validate::ValidationContext>,
     _owner: pse_columnar::MemoryReservation,
 }
 impl ModelingConformanceReport {
     pub(super) fn new(
         registry: Arc<pse_schema::Registry>,
         pool: Arc<dyn pse_columnar::MemoryPool>,
+        validation: Arc<pse_relations::validate::ValidationContext>,
         fixtures: &[DeclarationId],
         cap: usize,
     ) -> Result<Self, WorkflowError> {
@@ -232,6 +234,7 @@ impl ModelingConformanceReport {
             selection: ModelingFixtureSelection::Package,
             registry,
             pool,
+            validation,
             _owner: owner,
         })
     }
@@ -721,7 +724,7 @@ impl ModelingConformanceReport {
                 fixture,
                 Kind::Closure,
                 Status::NotApplicable,
-                "no conservation closure obligations",
+                "no evaluated conservation closure checks",
                 oracle,
                 cap,
             );
@@ -731,7 +734,7 @@ impl ModelingConformanceReport {
                 fixture,
                 Kind::Expectation,
                 Status::NotApplicable,
-                "no authored expectations",
+                "no evaluated expectation checks",
                 oracle,
                 cap,
             );
@@ -761,7 +764,7 @@ impl ModelingConformanceReport {
                     oracle,
                     cap,
                 );
-                let variables = &model.admitted.case;
+                let variables = &model.admitted.case();
                 let fixed = data
                     .map(|f| {
                         f.specifications
@@ -993,8 +996,12 @@ impl ModelingConformanceReport {
             .map_err(pse_columnar::CanonError::from)
             .map_err(pse_relations::RelationError::from)
             .map_err(relation)?;
-        let mut columns =
-            pse_relations::columnar::Collection::new(&self.registry, &self.pool, &cancel);
+        let mut columns = pse_relations::columnar::Collection::new(
+            &self.registry,
+            &self.pool,
+            &cancel,
+            &self.validation,
+        );
         columns.ensure::<T>().map_err(relation)?;
         for row in rows {
             columns.push(row.clone()).map_err(relation)?;
@@ -1036,6 +1043,7 @@ impl ModelingPackage {
         let mut report = ModelingConformanceReport::new(
             self.runtime.registry.clone(),
             self.runtime.shared.pool(),
+            self.runtime.validation_context()?,
             &fixtures
                 .iter()
                 .map(|r| r.declaration_id)
@@ -1975,6 +1983,10 @@ mod tests {
         let mut report = ModelingConformanceReport::new(
             pse_schema::shared_registry().unwrap(),
             pool.clone(),
+            pse_relations::validate::ValidationContext::local(
+                &pse_schema::shared_registry().unwrap(),
+            )
+            .unwrap(),
             &ids,
             1,
         )
@@ -2042,6 +2054,10 @@ mod tests {
         let mut report = ModelingConformanceReport::new(
             pse_schema::shared_registry().unwrap(),
             pool.clone(),
+            pse_relations::validate::ValidationContext::local(
+                &pse_schema::shared_registry().unwrap(),
+            )
+            .unwrap(),
             &[id],
             1,
         )
@@ -2588,8 +2604,12 @@ mod tests {
  {child root:D=D; expect root.x==4 tolerance 1e-8;}
  }"#;
         let run = |text: String| async move {
+            let mut execution = policy();
+            execution.solver.selection = pse_backend_native::solve::SolverSelection::Explicit(
+                pse_backend_native::solve::Backend::Ipopt,
+            );
             package(&text)
-                .conform(policy(), &crate::CancelSource::new())
+                .conform(execution, &crate::CancelSource::new())
                 .await
                 .unwrap()
         };
@@ -2608,7 +2628,12 @@ mod tests {
         let expected = format!(" failure {} members(root.e);", failure.class.as_str());
         // Expected, the failure passes and the intact specification is solved and checked.
         let intact = run(source.replace("FAILURE", &expected)).await;
-        assert!(intact.passed(), "{:?}", intact.checks);
+        assert!(
+            intact.passed(),
+            "checks={:?}; failures={:?}",
+            intact.checks,
+            intact.failures
+        );
         assert_eq!(intact.results.len(), 1);
         assert!(intact.results.values().next().unwrap().accepted);
         assert!(intact.checks.iter().any(|c| c.kind == Kind::Check
@@ -3277,6 +3302,10 @@ mod tests {
             include_str!("../../../../../packages/reference/seed-data/models/price-taker.pse"),
             include_str!("../../../../../packages/reference/data/references/models/references.pse"),
             include_str!("../../../../../packages/reference/domain/models/provenance.pse"),
+            include_str!("../../../../../packages/reference/domain/models/properties.pse"),
+            include_str!("../../../../../packages/reference/domain/models/constants.pse"),
+            include_str!("../../../../../packages/reference/physical/models/chemistry.pse"),
+            include_str!("../../../../../packages/reference/physical/models/compatibility.pse"),
         ]
         .into_iter()
         .flat_map(|text| {
@@ -3295,7 +3324,8 @@ mod tests {
             .unwrap()
             .declaration_id;
         let physical = super::super::super::tests::physical();
-        let package = super::super::super::tests::runtime()
+        // Admit the complete imported schema closure alongside its checked projection.
+        let package = super::super::super::tests::runtime_with_workspace(64 << 20)
             .modeling_package(rows, physical)
             .unwrap();
         let mut policy = policy();

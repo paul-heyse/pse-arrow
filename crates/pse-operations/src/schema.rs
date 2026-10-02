@@ -320,7 +320,9 @@ async fn current_plan(
         if history == "catalog" && source == "fresh-v25f" {
             catalog.drain(..1);
         }
-        if history == "operations" && source == "fresh-v25f" {
+        if history == "operations" && source == "fresh-v25g" {
+            operations.drain(..6);
+        } else if history == "operations" && source == "fresh-v25f" {
             operations.drain(..5);
         } else if history == "operations" && source == "fresh-v25e" {
             operations.drain(..4);
@@ -379,6 +381,8 @@ const STUDY_MIGRATION_SOURCE: &str =
     "60293f46ba51830bb2a376d9554cae582e4f715234fa7163c38e372994de915b";
 const INVENTORY_MIGRATION_SOURCE: &str =
     "bb4d7025a28c62d4cef788de61277b31b4c1ae88fa6f0160d94dcc6f521cd759";
+const JOB_IDENTITY_MIGRATION_SOURCE: &str =
+    "7a1649ecfeec229fd3fa87f96e8eb7239003146c66783edb6a0f9b66ea6f3d4e";
 const PLAN25F_OPERATIONS: &str = "13dd4f91810792475382a021425807a8ef42551bc2eaea71d6f9a8702009d00a";
 const FRESH_PLAN25E_ORIGIN: &str =
     "fresh-v25e:60293f46ba51830bb2a376d9554cae582e4f715234fa7163c38e372994de915b";
@@ -389,6 +393,9 @@ mod plan25e_layout {
 }
 mod plan25f_layout {
     include!("../test-fixtures/plan25f/layout.rs");
+}
+mod plan25g_layout {
+    include!("../test-fixtures/plan25g/layout.rs");
 }
 const PENDING_PREFIX: &str = "pse.ops.transition.v1 ";
 const CATALOG_HISTORY: &str = "pse_ops.catalog_schema_history";
@@ -443,6 +450,10 @@ fn transitions() -> Result<(Vec<refinery::Migration>, Vec<refinery::Migration>),
             migration(
                 "V6__retirement_ready",
                 include_str!("../migrations/V6__retirement_ready.sql"),
+            )?,
+            migration(
+                "V7__operational_job_identity",
+                include_str!("../migrations/V7__operational_job_identity.sql"),
             )?,
         ],
     ))
@@ -528,7 +539,7 @@ pub(crate) async fn verify_ready(
         } else {
             matches!(
                 source.as_str(),
-                "fresh" | "fresh-v25e" | "fresh-v25f" | STUDY_MIGRATION_SOURCE
+                "fresh" | "fresh-v25e" | "fresh-v25f" | "fresh-v25g" | STUDY_MIGRATION_SOURCE
             )
         };
         if !known_source {
@@ -546,6 +557,8 @@ pub(crate) async fn verify_ready(
                     catalog.as_slice()
                 },
             )
+        } else if source == "fresh-v25g" {
+            (OPERATIONS_HISTORY, &operations[6..])
         } else if source == "fresh-v25f" {
             (OPERATIONS_HISTORY, &operations[5..])
         } else if source == "fresh-v25e" {
@@ -704,17 +717,40 @@ async fn verify_layout(
     target: &crate::error::Target,
     legacy: bool,
 ) -> Result<(), OperationsError> {
-    verify_progress_layout(client, target, !legacy, !legacy, !legacy, !legacy, !legacy).await
+    verify_progress_layout(
+        client,
+        target,
+        LayoutCheckpoint {
+            support: !legacy,
+            inventory: !legacy,
+            operations_version: if legacy { 0 } else { 7 },
+        },
+    )
+    .await
 }
+
+/// Physical generation at one admitted catalog/operations history checkpoint.
+/// Catalog support and inventory evolve independently of the operations history.
+struct LayoutCheckpoint {
+    support: bool,
+    inventory: bool,
+    operations_version: i32,
+}
+
 async fn verify_progress_layout(
     client: &tokio_postgres::Client,
     target: &crate::error::Target,
-    support: bool,
-    node_limit: bool,
-    shooting: bool,
-    study_policy: bool,
-    inventory: bool,
+    checkpoint: LayoutCheckpoint,
 ) -> Result<(), OperationsError> {
+    let LayoutCheckpoint {
+        support,
+        inventory,
+        operations_version,
+    } = checkpoint;
+    let node_limit = operations_version >= 2;
+    let shooting = operations_version >= 3;
+    let study_policy = operations_version >= 5;
+    let job_identity = operations_version >= 7;
     let rows = client.query("SELECT c.relname::text,a.attname::text,a.attnum::int,format_type(a.atttypid,a.atttypmod),NOT a.attnotnull FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='pse_ops' AND c.relkind IN ('r','p') AND a.attnum>0 AND NOT a.attisdropped AND c.relname <> ALL($1) ORDER BY c.relname,a.attnum", &[&vec!["catalog_schema_history", "operations_schema_history"]]).await.classify(target)?;
     let actual = rows
         .iter()
@@ -728,8 +764,10 @@ async fn verify_progress_layout(
             )
         })
         .collect::<Vec<_>>();
-    let columns = if inventory {
+    let columns = if job_identity {
         crate::generated::layout::COLUMNS
+    } else if inventory {
+        plan25g_layout::COLUMNS
     } else if study_policy {
         plan25f_layout::COLUMNS
     } else {
@@ -757,8 +795,10 @@ async fn verify_progress_layout(
             )
         })
         .collect::<Vec<_>>();
-    let declared_constraints = if inventory {
+    let declared_constraints = if job_identity {
         crate::generated::layout::CONSTRAINTS
+    } else if inventory {
+        plan25g_layout::CONSTRAINTS
     } else if study_policy {
         plan25f_layout::CONSTRAINTS
     } else {
@@ -777,7 +817,7 @@ async fn verify_progress_layout(
         ));
     }
     let constraints=client.query("SELECT COALESCE(c.relname,t.typname),k.conname::text,k.contype::text,pg_get_constraintdef(k.oid,true) FROM pg_constraint k LEFT JOIN pg_class c ON c.oid=k.conrelid LEFT JOIN pg_type t ON t.oid=k.contypid JOIN pg_namespace n ON n.oid=k.connamespace WHERE n.nspname='pse_ops' AND k.convalidated AND k.conenforced AND COALESCE(c.relname,t.typname) <> ALL($1) ORDER BY COALESCE(c.relname,t.typname),k.conname", &[&vec!["catalog_schema_history","operations_schema_history"]]).await.classify(target)?;
-    let actual = constraints
+    let mut actual = constraints
         .iter()
         .map(|row| {
             (
@@ -788,7 +828,9 @@ async fn verify_progress_layout(
             )
         })
         .collect::<Vec<_>>();
-    let frozen = if inventory {
+    let frozen = if job_identity {
+        include_str!("../migrations/plan25h-constraint-signatures.json")
+    } else if inventory {
         include_str!("../migrations/plan25g-constraint-signatures.json")
     } else if study_policy {
         include_str!("../migrations/plan25f-constraint-signatures.json")
@@ -797,17 +839,55 @@ async fn verify_progress_layout(
     } else {
         include_str!("../migrations/plan25d-constraint-signatures.json")
     };
-    let expected: Vec<(String, String, String, String)> =
-        serde_json::from_str(frozen).map_err(|error| {
+    let mut expected: Vec<(String, String, String, String)> = serde_json::from_str(frozen)
+        .map_err(|error| {
             refuse(
                 MigrationRefusal::Drift,
                 format!("invalid immutable constraint declaration: {error}"),
             )
         })?;
+    // PostgreSQL 18 assigns these six NOT NULL names a `1` suffix when immutable
+    // V5 recreates study_points while its predecessor table still exists. Admit only
+    // that exact historical naming artifact; V7 normalizes it in the same transaction.
+    if study_policy && !job_identity {
+        for (table, name, kind, definition) in &mut actual {
+            for column in [
+                "binding_hash",
+                "job_id",
+                "point_index",
+                "state",
+                "study_id",
+                "updated_at",
+            ] {
+                let canonical = format!("study_points_{column}_not_null");
+                if table == "study_points"
+                    && kind == "n"
+                    && *name == format!("{canonical}1")
+                    && *definition == format!("NOT NULL {column}")
+                {
+                    *name = canonical;
+                }
+            }
+        }
+    }
+    actual.sort();
+    expected.sort();
     if actual != expected {
         return Err(refuse(
             MigrationRefusal::Drift,
-            "canonical constraint/domain definitions differ from the immutable declared transition",
+            format!(
+                "canonical constraint/domain definitions differ from the immutable declared transition; unexpected={:?}; missing={:?}",
+                actual
+                    .iter()
+                    .filter(|row| !expected.contains(row))
+                    .take(3)
+                    .collect::<Vec<_>>(),
+                expected
+                    .iter()
+                    .filter(|row| !actual.contains(row))
+                    .take(3)
+                    .collect::<Vec<_>>()
+            ),
         ));
     }
     let domains=client.query("SELECT t.typname::text,format_type(t.typbasetype,t.typtypmod),t.typnotnull FROM pg_type t JOIN pg_namespace n ON n.oid=t.typnamespace WHERE n.nspname='pse_ops' AND t.typtype='d' ORDER BY t.typname", &[]).await.classify(target)?;
@@ -928,8 +1008,10 @@ async fn verify_progress_layout(
         .iter()
         .map(|row| row.get::<_, String>(0))
         .collect::<Vec<_>>();
-    let enums = if inventory {
+    let enums = if job_identity {
         crate::generated::layout::ENUMS
+    } else if inventory {
+        plan25g_layout::ENUMS
     } else if study_policy {
         plan25f_layout::ENUMS
     } else {
@@ -982,7 +1064,7 @@ fn admit_prefix(
         (MIGRATION_SOURCE, false) => catalog == 0 && operations == 0,
         (MIGRATION_SOURCE, true) => {
             catalog <= 2
-                && operations <= 6
+                && operations <= 7
                 && (operations == 0 || catalog >= 1)
                 && (catalog < 2 || operations >= 5)
                 && (operations < 6 || catalog == 2)
@@ -990,14 +1072,14 @@ fn admit_prefix(
         (STUDY_MIGRATION_SOURCE, false) => catalog == 1 && operations == 4,
         (STUDY_MIGRATION_SOURCE, true) => {
             (1..=2).contains(&catalog)
-                && (4..=6).contains(&operations)
+                && (4..=7).contains(&operations)
                 && (catalog < 2 || operations >= 5)
                 && (operations < 6 || catalog == 2)
         }
         (FRESH_PLAN25E_ORIGIN, false) => catalog == 0 && operations == 0,
         (FRESH_PLAN25E_ORIGIN, true) => {
             catalog <= 1
-                && operations <= 2
+                && operations <= 3
                 && (catalog == 0 || operations >= 1)
                 && (operations < 2 || catalog == 1)
         }
@@ -1102,7 +1184,9 @@ async fn verify_intermediate_support(
                 !inventory || operation_version >= 6,
             ),
             "operations" => (
-                if operation_version >= 5 {
+                if operation_version >= 7 {
+                    crate::generated::OPERATIONS_FINGERPRINT_HEX
+                } else if operation_version >= 5 {
                     PLAN25F_OPERATIONS
                 } else {
                     PLAN25E_OPERATIONS
@@ -1184,6 +1268,13 @@ impl Store {
             .and_then(|c| c.split_once(' '))
             .filter(|(_, target)| *target == SCHEMA_FINGERPRINT_HEX)
             .map(|(source, _)| source);
+        if source == Some(JOB_IDENTITY_MIGRATION_SOURCE)
+            || pending_source == Some(JOB_IDENTITY_MIGRATION_SOURCE)
+        {
+            return self
+                .inspect_job_identity_transition(client, pending_source.is_some())
+                .await;
+        }
         if source == Some(INVENTORY_MIGRATION_SOURCE)
             || pending_source == Some(INVENTORY_MIGRATION_SOURCE)
         {
@@ -1213,7 +1304,8 @@ impl Store {
             origin = FRESH_PLAN25E_ORIGIN;
         }
         let is_pending = pending_source.is_some();
-        if !include_str!("../migrations/V6__retirement_ready.sql").contains(SCHEMA_FINGERPRINT_HEX)
+        if !include_str!("../migrations/V7__operational_job_identity.sql")
+            .contains(SCHEMA_FINGERPRINT_HEX)
             || !include_str!("../migrations/V2__catalog_retirement_inventory.sql")
                 .contains(crate::generated::CATALOG_FINGERPRINT_HEX)
         {
@@ -1256,13 +1348,14 @@ impl Store {
                     "fresh Plan 25e transition requires fresh support provenance",
                 ));
             }
-        } else if origin == STUDY_MIGRATION_SOURCE && operations_prefix == 4 {
-            if verify_plan25e_support(client, self.target()).await? {
-                return Err(refuse(
-                    MigrationRefusal::NotReady,
-                    "upgraded Plan 25e transition cannot claim fresh support provenance",
-                ));
-            }
+        } else if origin == STUDY_MIGRATION_SOURCE
+            && operations_prefix == 4
+            && verify_plan25e_support(client, self.target()).await?
+        {
+            return Err(refuse(
+                MigrationRefusal::NotReady,
+                "upgraded Plan 25e transition cannot claim fresh support provenance",
+            ));
         }
         let inventory = if fresh25e {
             catalog_prefix >= 1
@@ -1280,18 +1373,10 @@ impl Store {
         verify_progress_layout(
             client,
             self.target(),
-            fresh25e || catalog_prefix > 0,
-            fresh25e || operations_prefix >= 2,
-            fresh25e || operations_prefix >= 3,
-            if fresh25e {
-                operations_prefix >= 1
-            } else {
-                operations_prefix >= 5
-            },
-            if fresh25e {
-                catalog_prefix >= 1
-            } else {
-                catalog_prefix >= 2
+            LayoutCheckpoint {
+                support: fresh25e || catalog_prefix > 0,
+                inventory,
+                operations_version: op_version,
             },
         )
         .await?;
@@ -1309,6 +1394,115 @@ impl Store {
                 OPERATIONS_HISTORY,
                 crate::generated::OPERATIONS_FINGERPRINT_HEX,
                 operations_prefix,
+                &operations,
+            ),
+            shared_version: crate::generated::SHARED_VERSION,
+            ready: false,
+        })
+    }
+
+    /// Inspect the V6 predecessor without retagging its recorded digest provenance.
+    async fn inspect_job_identity_transition(
+        &self,
+        client: &tokio_postgres::Client,
+        pending: bool,
+    ) -> Result<MigrationPlan, OperationsError> {
+        let rows = client.query("SELECT history,shared_version,target,ready,source FROM pse_ops.schema_support_state ORDER BY history", &[]).await.classify(self.target())?;
+        if rows.len() != 2 {
+            return Err(refuse(
+                MigrationRefusal::NotReady,
+                "V6 support owners are missing",
+            ));
+        }
+        let (mut catalog, mut operations) = transitions()?;
+        for (row, history) in rows.iter().zip(["catalog", "operations"]) {
+            let owner: String = row.try_get(0).classify(self.target())?;
+            let shared: i32 = row.try_get(1).classify(self.target())?;
+            let target: String = row.try_get(2).classify(self.target())?;
+            let ready: bool = row.try_get(3).classify(self.target())?;
+            let origin: String = row.try_get(4).classify(self.target())?;
+            if owner != history
+                || shared != crate::generated::SHARED_VERSION
+                || !ready
+                || target
+                    != if history == "catalog" {
+                        crate::generated::CATALOG_FINGERPRINT_HEX
+                    } else {
+                        PLAN25F_OPERATIONS
+                    }
+            {
+                return Err(refuse(
+                    MigrationRefusal::NotReady,
+                    "V6 owned support differs from recorded predecessor",
+                ));
+            }
+            if history == "catalog" {
+                match origin.as_str() {
+                    "fresh" => catalog.clear(),
+                    "fresh-v25f" => {
+                        catalog.drain(..1);
+                    }
+                    MIGRATION_SOURCE => {}
+                    _ => {
+                        return Err(refuse(
+                            MigrationRefusal::UnknownSource,
+                            "unsupported V6 catalog lineage",
+                        ));
+                    }
+                }
+            } else {
+                match origin.as_str() {
+                    "fresh" => {
+                        operations.drain(..6);
+                    }
+                    "fresh-v25f" => {
+                        operations.drain(..5);
+                    }
+                    "fresh-v25e" => {
+                        operations.drain(..4);
+                    }
+                    STUDY_MIGRATION_SOURCE => {}
+                    _ => {
+                        return Err(refuse(
+                            MigrationRefusal::UnknownSource,
+                            "unsupported V6 operations lineage",
+                        ));
+                    }
+                }
+            }
+        }
+        let cp = history_prefix(client, &catalog, CATALOG_HISTORY, self.target()).await?;
+        let op = history_prefix(client, &operations, OPERATIONS_HISTORY, self.target()).await?;
+        if cp != catalog.len() || op != operations.len() - 1 {
+            return Err(refuse(
+                MigrationRefusal::ChecksumConflict,
+                "V6 committed histories differ from source provenance",
+            ));
+        }
+        verify_progress_layout(
+            client,
+            self.target(),
+            LayoutCheckpoint {
+                support: true,
+                inventory: true,
+                operations_version: 6,
+            },
+        )
+        .await?;
+        Ok(MigrationPlan {
+            source: JOB_IDENTITY_MIGRATION_SOURCE.into(),
+            target: SCHEMA_FINGERPRINT_HEX.into(),
+            pending,
+            catalog: history_plan(
+                CATALOG_HISTORY,
+                crate::generated::CATALOG_FINGERPRINT_HEX,
+                cp,
+                &catalog,
+            ),
+            operations: history_plan(
+                OPERATIONS_HISTORY,
+                crate::generated::OPERATIONS_FINGERPRINT_HEX,
+                op,
                 &operations,
             ),
             shared_version: crate::generated::SHARED_VERSION,
@@ -1378,7 +1572,7 @@ impl Store {
         let cp = history_prefix(client, &catalog, CATALOG_HISTORY, self.target()).await?;
         let op = history_prefix(client, &operations, OPERATIONS_HISTORY, self.target()).await?;
         let initial_catalog = catalog.len() - 1;
-        let initial_operations = operations.len() - 1;
+        let initial_operations = operations.len() - 2;
         if cp < initial_catalog
             || op < initial_operations
             || (!pending && (cp != initial_catalog || op != initial_operations))
@@ -1406,7 +1600,19 @@ impl Store {
                 ));
             }
         }
-        verify_progress_layout(client, self.target(), true, true, true, true, inventory).await?;
+        verify_progress_layout(
+            client,
+            self.target(),
+            LayoutCheckpoint {
+                support: true,
+                inventory,
+                operations_version: operations
+                    .get(op.saturating_sub(1))
+                    .filter(|_| op > 0)
+                    .map_or(5, refinery::Migration::version),
+            },
+        )
+        .await?;
         Ok(MigrationPlan {
             source: INVENTORY_MIGRATION_SOURCE.into(),
             target: SCHEMA_FINGERPRINT_HEX.into(),
@@ -1528,11 +1734,11 @@ impl Store {
             verify_progress_layout(
                 &session.client,
                 self.target(),
-                true,
-                true,
-                true,
-                false,
-                false,
+                LayoutCheckpoint {
+                    support: true,
+                    inventory: false,
+                    operations_version: 4,
+                },
             )
             .await?;
         }
@@ -1553,11 +1759,11 @@ impl Store {
             verify_progress_layout(
                 &session.client,
                 self.target(),
-                true,
-                true,
-                true,
-                true,
-                false,
+                LayoutCheckpoint {
+                    support: true,
+                    inventory: false,
+                    operations_version: 5,
+                },
             )
             .await?;
             // V5's immutable ready record is the exact supported 25f checkpoint. Restore the
@@ -1643,7 +1849,7 @@ mod schema_unit {
                 .iter()
                 .map(|s| s.version)
                 .collect::<Vec<_>>(),
-            [4, 5, 2, 6]
+            [4, 5, 2, 6, 7]
         );
         for mutated in 0..5 {
             let mut changed = plan.clone();

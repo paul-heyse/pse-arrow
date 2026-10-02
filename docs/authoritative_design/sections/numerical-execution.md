@@ -388,7 +388,7 @@ Execution settings are identified through serde, never through a hand-written fi
 `Controls::identity` (option values keep their native type and exact float bits),
 `BackendSettings::identity` and `ResolvedAccuracy::key`. A new field therefore enters
 identity without an edit to a hashing function. The solver profile identity
-(`pse.solver.profile.v3`) frames the native session profile ([§17.6](#section-17-6)), every
+(`pse.solver.profile.v4`) frames the native session profile ([§17.6](#section-17-6)), every
 control, the linked native build (library versions, the solver-image manifest and the
 numerical contract, `pse.native.build.v1`; [§18.3](#section-18-3)) and the selection by its
 registry spelling.
@@ -398,7 +398,7 @@ published in `runtime.run_lineage`) frames the revision, instance, preparation, 
 request, profile and resolved policy together with the start the step actually used:
 whether it reused retained native state, its predecessor attempt, whether the start was
 submitted, the submitted seed by content and any partial start. Seed content
-(`WarmStart::content_key`, `pse.native.seed.v2`, which frames an NLP seed's barrier value
+(`WarmStart::content_key`, `pse.native.seed.v3`, which frames an NLP seed's barrier value
 and working set) excludes the run that produced the seed. The same request
 seeded differently is therefore a different lineage, and the same seed produced by another
 run is the same lineage ([§20.3](identity-and-publication.md#section-20-3)).
@@ -895,7 +895,7 @@ restart stays near the seed. These options are reserved, and the restart that ra
 (`AppliedRestart`) is a typed seed transformation in the start receipt
 ([§17.6](#section-17-6)). The barrier value travels in authored objective units and is
 scaled like the objective natively; a seed's content identity frames it together with the
-working set (`pse.native.seed.v2`).
+working set (`pse.native.seed.v3`).
 
 POUNCE's active-set SQP method also accepts a working set with the primal-dual iterate. A
 working set indexes native rows and bounds, so it passes through presolve only under the
@@ -1275,6 +1275,11 @@ native stack, live jobs and flights.
   event handler, integrator step boundaries). HiGHS' QP solver and PDLP never poll the interrupt
   callback, so they stop only at their native time limit. A long native factorization
   completes before teardown.
+- Profile-chain worker panic and scheduling failure are typed outcomes, with actual
+  parallelism recorded. A started chain is never silently replayed; partial spawn recovery
+  assigns only unstarted chain indices to the surviving workers. Registered accelerators
+  survive immutable package edits. [ADR-0150](../../adr/0150-checked-admission-and-owned-reuse.md)
+  records this implemented ownership change; decision status remains proposed.
 - KINSOL is serial. Clarabel is serial with QDLDL and runs its MKL Pardiso KKT solver on
   admitted MKL threads (`conic::admit_threads`), so its record is `parallel` only in a build
   with `clarabel-pardiso`; the owning worker's MKL-local thread count is set for the solve

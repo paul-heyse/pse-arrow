@@ -822,6 +822,63 @@ fn kernel_fixture_specs_are_physical_data_and_oracles_are_sources() {
 }
 
 #[test]
+fn kernel_fixture_transfer_bindings_preserve_actual_owners_and_refuse_other_contracts() {
+    let text = r#"package p {
+      param supplied_heat:EnergyTransferRate=25{W};
+      def Cell {
+        boundary wall;
+        var heat:Transfer<EnergyTransferRate,wall,Into>;
+        param label:Text="label";
+      }
+      test sample fixture {
+        dof 0;
+        fix hot.heat=25{W}; lower hot.heat=0{W}; upper hot.heat=30{W};
+        fix cold.heat=0{W};
+      } {child hot:Cell=Cell(); child cold:Cell=Cell();}
+    }"#;
+    let model = run(text, "p.sample", Bindings::default()).unwrap();
+    let fixture = model.fixtures.values().next().unwrap();
+    let hot = &fixture.specifications["hot.heat"];
+    let cold = &fixture.specifications["cold.heat"];
+    assert_eq!(hot.value, Some(25.));
+    assert_eq!(hot.fixed, Some(true));
+    assert_eq!(hot.lower, Some(0.));
+    assert_eq!(hot.upper, Some(30.));
+    assert_eq!(cold.value, Some(0.));
+    let owner = |target| {
+        let symbol = &model.symbols[&target];
+        let Some(PhysicalRefinement::Transfer {
+            boundary: BoundaryRef::Bound { instance, .. },
+            direction: TransferDirection::Into,
+        }) = symbol.ty.physical_refinement()
+        else {
+            panic!("fixture transfer retains its bound owner and direction")
+        };
+        assert_eq!(*instance, symbol.lineage.instance);
+        *instance
+    };
+    assert_ne!(owner(hot.target), owner(cold.target));
+    for expression in [
+        "25{mol/s}",
+        "transfer(supplied_heat,cold.wall,Into)",
+        "transfer(supplied_heat,hot.wall,OutOf)",
+    ] {
+        let invalid = text.replace(
+            "fix hot.heat=25{W};",
+            &format!("fix hot.heat={expression};"),
+        );
+        assert!(run(&invalid, "p.sample", Bindings::default()).is_err());
+    }
+    let nonphysical = text.replace("fix hot.heat=25{W};", "value hot.label=\"label\";");
+    assert!(
+        run(&nonphysical, "p.sample", Bindings::default())
+            .unwrap_err()
+            .to_string()
+            .contains("fixture requires a physical target")
+    );
+}
+
+#[test]
 fn kernel_inherited_guarded_members_have_contracts_without_early_activation() {
     let text = "package p { interface Optional {param enabled:Boolean=false; when enabled {var x:Scalar;}} def Child(flag:Boolean):Optional {override param enabled:Boolean=flag; when enabled {eq value:x==2;}} def Root {child yes:Child=Child(flag=true); child no:Child=Child(flag=false); let observed:Scalar=yes.x; annotation report observed(\"selected value\"); annotation report yes.x(\"active child\");} }";
     let model = run(text, "p.Root", Bindings::default()).unwrap();

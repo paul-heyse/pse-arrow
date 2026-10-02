@@ -253,7 +253,6 @@ impl Resolve {
                 exhaustive: matches!(self.request, ResolutionRequest::All),
             });
             let (result, count) = bind_resolved(&scoped, &native, generation, cancel).await?;
-            result.check_requirements(cancel).await?;
             *self
                 .output
                 .lock()

@@ -5,6 +5,9 @@
 /// Classified failures at the effectful document and relation boundary.
 #[derive(Debug, thiserror::Error)]
 pub enum AuthoringDriverError {
+    /// Shared reference/closure admission with exact affected identities.
+    #[error(transparent)]
+    Rules(#[from] pse_rules::RuleError),
     /// Pure authoring syntax, identity, budget or reference failure.
     #[error(transparent)]
     Authoring(#[from] pse_authoring::AuthoringError),
@@ -25,7 +28,7 @@ pse_diagnostics::impl_diagnostic! {
     AuthoringDriverError,
     code(_this) { None },
     forward(this) { match this {
-        Self::Authoring(value)=>Some(value), Self::Catalog(value)=>Some(value),
+        Self::Rules(value)=>Some(value), Self::Authoring(value)=>Some(value), Self::Catalog(value)=>Some(value),
         Self::Resource(value)=>Some(value), Self::Allocation(value)=>Some(value),
         Self::Relation(value)=>Some(value),
     } },

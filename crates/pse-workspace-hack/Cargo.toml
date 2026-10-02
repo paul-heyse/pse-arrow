@@ -130,6 +130,7 @@ zlib-rs = { version = "0.6", default-features = false, features = ["std"] }
 aho-corasick = { version = "1", default-features = false, features = ["perf-literal", "std"] }
 blake3 = { version = "1", features = ["rayon"] }
 cc = { version = "1", default-features = false, features = ["parallel"] }
+digest = { version = "0.11", features = ["alloc", "oid"] }
 either = { version = "1", default-features = false, features = ["use_std"] }
 form_urlencoded = { version = "1", default-features = false, features = ["std"] }
 icu_locale_core = { version = "2", default-features = false, features = ["zerovec"] }
@@ -137,7 +138,6 @@ icu_provider = { version = "2", default-features = false, features = ["baked"] }
 idna = { version = "1", default-features = false, features = ["compiled_data", "std"] }
 memchr = { version = "2", default-features = false, features = ["std"] }
 miette = { version = "7" }
-once_cell = { version = "1" }
 percent-encoding = { version = "2", default-features = false, features = ["std"] }
 potential_utf = { version = "0.1", default-features = false, features = ["zerovec"] }
 proc-macro2 = { version = "1" }
@@ -153,6 +153,7 @@ smallvec = { version = "1", default-features = false, features = ["const_generic
 syn-7b89eefb6aaa9bf3 = { package = "syn", version = "3", features = ["extra-traits", "full", "visit", "visit-mut"] }
 syn-f595c2ba2a3f28df = { package = "syn", version = "2", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
 tinystr = { version = "0.8", default-features = false, features = ["zerovec"] }
+typenum = { version = "1", default-features = false, features = ["const-generics"] }
 url = { version = "2" }
 yoke = { version = "0.8", default-features = false, features = ["derive"] }
 zerofrom = { version = "0.1", default-features = false, features = ["derive"] }

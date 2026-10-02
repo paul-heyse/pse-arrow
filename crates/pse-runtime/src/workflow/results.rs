@@ -295,7 +295,10 @@ pub(super) fn push_native_metrics(
             step,
             "start",
             "available",
-            &Metric::Text(seed.snapshot().to_string()),
+            &Metric::Text(
+                serde_json::to_string(&seed.snapshot())
+                    .map_err(|error| contract(format!("seed snapshot encoding: {error}")))?,
+            ),
         )?;
     }
     for (name, value) in &native.metrics {

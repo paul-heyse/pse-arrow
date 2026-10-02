@@ -91,7 +91,11 @@ def pse_sets(runtime: pse.Runtime) -> Sets:
     settings = pse.SolveSettings(intent=NativeSolveIntent.ROOT)
     names = row_names(authored, case, settings)
     (report,) = support.rows(
-        authored.diagnose_jacobian(case, settings, maximum_attempts=16).table()
+        authored.diagnose_jacobian(
+            case,
+            settings,
+            controls=pse.JacobianDiagnosticControls(maximum_attempts=16),
+        ).table()
     )
     assert report["complete"], report
     nominals = {

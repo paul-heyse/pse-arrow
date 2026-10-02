@@ -457,7 +457,7 @@ fn function_reference_types_and_partial_selectors_roundtrip() {
         .collect::<Vec<_>>();
     assert_eq!(
         names.into_iter().collect::<std::collections::BTreeSet<_>>(),
-        ["j", "k", "a", "b"]
+        ["f", "j", "k", "a", "b"]
             .into_iter()
             .map(str::to_owned)
             .collect()
@@ -1399,7 +1399,7 @@ fn fixture_route_procedure_endpoint_roundtrip_and_legacy_refusal() {
 
 #[test]
 fn fixture_diagnostics_refuses_unknown_authored_rule_before_specialization() {
-    let source = r#"package p { def D { var x: Scalar; eq e: x == 1; } test t fixture { dof 0; route steady; procedure solve; diagnose "jacobian.paralell_rows" at(root.x); } { child root: D = D(); } }"#;
+    let source = r#"package p { def D { var x: Scalar; eq e: x == 1; } test t fixture { dof 0; route steady; procedure solve; diagnose "jacobian.unknown_rows" at(root.x); } { child root: D = D(); } }"#;
     let error = parse(
         source,
         SemanticId::NIL,
@@ -1408,4 +1408,39 @@ fn fixture_diagnostics_refuses_unknown_authored_rule_before_specialization() {
     )
     .unwrap_err();
     assert!(matches!(error, crate::AuthoringError::Syntax { .. }));
+}
+
+#[test]
+fn exact_payload_field_spans_keep_repeated_text_distinct() {
+    let source = "package p { def Root { eq first: x == x; eq second: x == x; logic selected: 'left valve' implies right; } }";
+    let (rows, spans) = parse_with_spans(
+        source,
+        SemanticId::NIL,
+        IdentityPolicy::Named,
+        ParseBudget::default(),
+    )
+    .unwrap();
+    let equations = rows
+        .iter()
+        .filter(|row| row.value.equation.is_some())
+        .collect::<Vec<_>>();
+    let ranges = equations
+        .iter()
+        .map(|row| spans[&row.declaration_id]["equation.expression"])
+        .collect::<Vec<_>>();
+    assert_eq!(
+        &source[ranges[0].start as usize..ranges[0].end as usize],
+        "x == x"
+    );
+    assert_eq!(
+        &source[ranges[1].start as usize..ranges[1].end as usize],
+        "x == x"
+    );
+    assert_ne!(ranges[0], ranges[1]);
+    let logic = rows.iter().find(|row| row.value.logic.is_some()).unwrap();
+    let span = spans[&logic.declaration_id]["logic.proposition"];
+    assert_eq!(
+        &source[span.start as usize..span.end as usize],
+        "'left valve' implies right"
+    );
 }

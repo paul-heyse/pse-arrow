@@ -38,7 +38,12 @@ fn rows(mutation: &str) -> Vec<documents::Row> {
 async fn native_parser_defers_invalid_sources_and_retains_typed_failures() {
     for mutation in ["syntax", "package", "identity", "duplicate", "budget"] {
         let context = SessionContext::new();
-        let mut builder = documents::Builder::new().unwrap();
+        let registry = pse_schema::shared_registry().unwrap();
+        let validation = std::sync::Arc::new(pse_relations::validate::ValidationContext::new(
+            &registry,
+            pse_engine::validation::NativeValidation(context.state()),
+        ));
+        let mut builder = documents::Builder::new(&validation).unwrap();
         for row in rows(mutation) {
             builder.push(row).unwrap();
         }
@@ -59,10 +64,11 @@ async fn native_parser_defers_invalid_sources_and_retains_typed_failures() {
         let plan = pse_runtime::authoring_driver::native::relation_plan(
             source,
             packages::RELATION_ID,
-            &pse_schema::shared_registry().unwrap(),
+            &registry,
             budget,
             resources.clone(),
             CancellationToken::default(),
+            validation,
         )
         .unwrap();
         assert!(plan.display_indent().to_string().contains("pse_parse_"));
@@ -89,7 +95,12 @@ async fn native_parser_defers_invalid_sources_and_retains_typed_failures() {
 async fn native_parser_observes_cancellation_and_shared_resource_limits() {
     for cancelled in [false, true] {
         let context = SessionContext::new();
-        let mut builder = documents::Builder::new().unwrap();
+        let registry = pse_schema::shared_registry().unwrap();
+        let validation = std::sync::Arc::new(pse_relations::validate::ValidationContext::new(
+            &registry,
+            pse_engine::validation::NativeValidation(context.state()),
+        ));
+        let mut builder = documents::Builder::new(&validation).unwrap();
         builder.push(rows("").remove(0)).unwrap();
         let input = context
             .read_batch(builder.finish().unwrap().into_batch())
@@ -105,10 +116,11 @@ async fn native_parser_observes_cancellation_and_shared_resource_limits() {
         let plan = pse_runtime::authoring_driver::native::relation_plan(
             input,
             packages::RELATION_ID,
-            &pse_schema::shared_registry().unwrap(),
+            &registry,
             ParseBudget::default(),
             resources.clone(),
             cancel.clone(),
+            validation,
         )
         .unwrap();
         let state = context.state();

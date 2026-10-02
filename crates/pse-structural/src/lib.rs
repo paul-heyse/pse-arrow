@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Complete graph projections and certified structural analysis.
-/// Complete immutable dependency projections and library analysis.
+/// Shared semantic scope, finite graph limits and analysis failures.
 pub mod projection;
 
 /// Complete physical process-flow graph and explicit tear-decision groups.

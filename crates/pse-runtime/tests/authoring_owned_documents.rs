@@ -110,9 +110,15 @@ impl MemoryPool for ObservedBudget {
 
 #[test]
 fn owned_loader_matches_actual_rows_and_spans_and_retains_only_shared_owners() {
-    let registry = pse_engine::validation::registry().unwrap();
+    let registry = pse_schema::registry().unwrap();
     let texts = sources();
-    let ordinary = load_package_documents(bytes(&texts), registry, ParseBudget::default()).unwrap();
+    let ordinary = load_package_documents(
+        bytes(&texts),
+        registry,
+        ParseBudget::default(),
+        &fixture_validation(registry),
+    )
+    .unwrap();
     let budget = Arc::new(ObservedBudget::new(512 * 1024 * 1024));
     let cancel = CancellationToken::new();
     let owned = load_package_documents_owned(
@@ -121,6 +127,7 @@ fn owned_loader_matches_actual_rows_and_spans_and_retains_only_shared_owners() {
         ParseBudget::default(),
         &budget.pool(),
         &cancel,
+        &fixture_validation(registry),
     )
     .unwrap();
     assert_eq!(
@@ -170,7 +177,7 @@ fn owned_loader_matches_actual_rows_and_spans_and_retains_only_shared_owners() {
 
 #[test]
 fn tiny_budget_refuses_before_parsing_long_scalar_and_invalid_syntax() {
-    let registry = pse_engine::validation::registry().unwrap();
+    let registry = pse_schema::registry().unwrap();
     let texts = BTreeMap::from([(
         "package.toml".to_owned(),
         format!("not TOML {}", "x".repeat(512 * 1024)),
@@ -182,6 +189,7 @@ fn tiny_budget_refuses_before_parsing_long_scalar_and_invalid_syntax() {
         ParseBudget::default(),
         &budget,
         &CancellationToken::new(),
+        &fixture_validation(registry),
     )
     .unwrap_err();
     assert_eq!(
@@ -194,7 +202,7 @@ fn tiny_budget_refuses_before_parsing_long_scalar_and_invalid_syntax() {
 
 #[test]
 fn cancellation_after_reservation_releases_every_phase() {
-    let registry = pse_engine::validation::registry().unwrap();
+    let registry = pse_schema::registry().unwrap();
     let cancel = CancellationToken::new();
     let mut budget = ObservedBudget::new(512 * 1024 * 1024);
     budget.cancel_after_grow = Some(cancel.clone());
@@ -204,6 +212,7 @@ fn cancellation_after_reservation_releases_every_phase() {
         ParseBudget::default(),
         &budget.pool(),
         &cancel,
+        &fixture_validation(registry),
     )
     .unwrap_err();
     assert!(
@@ -216,13 +225,19 @@ fn cancellation_after_reservation_releases_every_phase() {
 
 #[test]
 fn parser_aliases_are_preserved_and_their_expanded_rows_are_validated() {
-    let registry = pse_engine::validation::registry().unwrap();
+    let registry = pse_schema::registry().unwrap();
     let mut texts = sources();
     let constants = texts.get_mut("materials/quantity-kinds.yaml").unwrap();
     *constants = constants
         .replace("name: probe", "name: &name probe")
         .replace("doc: Synthetic parser fixture.", "doc: *name");
-    let expected = load_package_documents(bytes(&texts), registry, ParseBudget::default()).unwrap();
+    let expected = load_package_documents(
+        bytes(&texts),
+        registry,
+        ParseBudget::default(),
+        &fixture_validation(registry),
+    )
+    .unwrap();
     let budget = Arc::new(ObservedBudget::new(512 * 1024 * 1024));
     let owned = load_package_documents_owned(
         &bytes(&texts),
@@ -230,6 +245,7 @@ fn parser_aliases_are_preserved_and_their_expanded_rows_are_validated() {
         ParseBudget::default(),
         &budget.pool(),
         &CancellationToken::new(),
+        &fixture_validation(registry),
     )
     .unwrap();
     assert_eq!(
@@ -255,6 +271,7 @@ fn parser_aliases_are_preserved_and_their_expanded_rows_are_validated() {
         ParseBudget::default(),
         &plain_budget.pool(),
         &CancellationToken::new(),
+        &fixture_validation(registry),
     )
     .unwrap();
     assert!(
@@ -271,7 +288,7 @@ fn parser_aliases_are_preserved_and_their_expanded_rows_are_validated() {
 
 #[test]
 fn eight_kib_long_scalar_does_not_reserve_the_maximum_parser_node_budget() {
-    let registry = pse_engine::validation::registry().unwrap();
+    let registry = pse_schema::registry().unwrap();
     let text = header().replace("Minimal explicit identity fixture.", &"a".repeat(8192));
     let texts = BTreeMap::from([("package.toml".to_owned(), text)]);
     let budget = ObservedBudget::new(8 * 1024 * 1024);
@@ -281,6 +298,7 @@ fn eight_kib_long_scalar_does_not_reserve_the_maximum_parser_node_budget() {
         ParseBudget::default(),
         &budget.pool(),
         &CancellationToken::new(),
+        &fixture_validation(registry),
     )
     .unwrap();
     assert_eq!(owned.bundle().package.doc.len(), 8192);
@@ -318,7 +336,7 @@ fn a_clone_iterator_cannot_understate_actual_source_allocation() {
             }
         }
     }
-    let registry = pse_engine::validation::registry().unwrap();
+    let registry = pse_schema::registry().unwrap();
     let text = "x".repeat(256 * 1024);
     let budget: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(2048));
     let error = load_package_sources_owned(
@@ -330,6 +348,7 @@ fn a_clone_iterator_cannot_understate_actual_source_allocation() {
         ParseBudget::default(),
         &budget,
         &CancellationToken::new(),
+        &fixture_validation(registry),
     )
     .unwrap_err();
     assert_eq!(
@@ -342,7 +361,7 @@ fn a_clone_iterator_cannot_understate_actual_source_allocation() {
 
 #[test]
 fn long_qualified_names_reserve_expansion_before_identity_hydration() {
-    let registry = pse_engine::validation::registry().unwrap();
+    let registry = pse_schema::registry().unwrap();
     let mut constants = String::from("quantity_kinds:\n");
     for ordinal in 0..24 {
         assert!(
@@ -368,6 +387,7 @@ fn long_qualified_names_reserve_expansion_before_identity_hydration() {
         ParseBudget::default(),
         &small,
         &CancellationToken::new(),
+        &fixture_validation(registry),
     )
     .unwrap_err();
     assert_eq!(
@@ -384,6 +404,7 @@ fn long_qualified_names_reserve_expansion_before_identity_hydration() {
         ParseBudget::default(),
         &budget,
         &CancellationToken::new(),
+        &fixture_validation(registry),
     )
     .unwrap();
     let batch = &owned.bundle().batches[&pse_relations::generated::authored::entities::RELATION_ID];
@@ -398,4 +419,16 @@ fn long_qualified_names_reserve_expansion_before_identity_hydration() {
     }
     drop(owned);
     assert_eq!(budget.reserved(), 0);
+}
+
+fn fixture_validation(
+    registry: &pse_schema::Registry,
+) -> Arc<pse_relations::validate::ValidationContext> {
+    // This source-only fixture deliberately captures its fixed native session state.
+    Arc::new(pse_relations::validate::ValidationContext::new(
+        registry,
+        pse_engine::validation::NativeValidation(
+            datafusion::prelude::SessionContext::new().state(),
+        ),
+    ))
 }

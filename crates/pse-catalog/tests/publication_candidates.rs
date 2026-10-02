@@ -57,8 +57,11 @@ fn fixture(root: &url::Url) -> (EngineFactory, Arc<RuntimeEnv>) {
 }
 
 /// The declared rows of a package and one entity of it (or of a missing package).
-fn sources(dangling: bool) -> BTreeMap<pse_schema::model::RelationKey, RecordBatch> {
-    let mut package = packages::Builder::new().unwrap();
+fn sources(
+    dangling: bool,
+    validation: &pse_relations::validate::ValidationContext,
+) -> BTreeMap<pse_schema::model::RelationKey, RecordBatch> {
+    let mut package = packages::Builder::new(validation).unwrap();
     package
         .push(packages::Row {
             package_id: identity(10).into(),
@@ -71,7 +74,7 @@ fn sources(dangling: bool) -> BTreeMap<pse_schema::model::RelationKey, RecordBat
             doc: String::new(),
         })
         .unwrap();
-    let mut entity = entities::Builder::new().unwrap();
+    let mut entity = entities::Builder::new(validation).unwrap();
     entity
         .push(entities::Row {
             entity_id: identity(11),
@@ -130,7 +133,11 @@ async fn candidate(
     let cancel = CancellationToken::new();
     let registry = pse_schema::shared_registry().unwrap();
     let session = factory
-        .candidate(sources(dangling), Arc::clone(&registry), &cancel)
+        .candidate(
+            sources(dangling, &factory.validation_context(&registry).unwrap()),
+            Arc::clone(&registry),
+            &cancel,
+        )
         .unwrap();
     let mut outputs = BTreeMap::new();
     let mut destinations = BTreeMap::new();
@@ -172,12 +179,14 @@ async fn candidate(
     let completed = command.execute(&cancel).await?;
     let batches = completed.batches();
     assert_eq!(batches.len(), 1);
-    Ok(
-        publication_manifests::View::try_from_batch_with_registry(&registry, &batches[0])
-            .unwrap()
-            .row(0)
-            .unwrap(),
+    Ok(publication_manifests::View::try_from_batch_with_registry(
+        &registry,
+        &batches[0],
+        &artifact.session().validation_context().unwrap(),
     )
+    .unwrap()
+    .row(0)
+    .unwrap())
 }
 
 #[tokio::test]
@@ -416,7 +425,9 @@ async fn declared_table(factory: &EngineFactory, location: &url::Url, appends: u
             .candidate(
                 BTreeMap::from([(
                     packages::RELATION_KEY,
-                    sources(false)[&packages::RELATION_KEY].clone(),
+                    sources(false, &factory.validation_context(&registry).unwrap())
+                        [&packages::RELATION_KEY]
+                        .clone(),
                 )]),
                 Arc::clone(&registry),
                 &cancel,
@@ -559,6 +570,7 @@ async fn collect_keeps_protected_versions_on_memory_store() {
     let outcome = pse_relations::generated::runtime::maintenance_outcomes::View::try_from_batch_with_registry(
         &registry,
         &outcome.batches()[0],
+        &session.validation_context().unwrap(),
     )
     .unwrap()
     .row(0)

@@ -129,9 +129,9 @@ register crates.
 | `pse-model` | Registry-generated plain semantic values, enums and typed ids, without Arrow; validated scalar settings; the store value mapping behind its `postgres` feature |
 | `pse-authoring` | Modeling language and shared expression grammar, spans and parse budgets, identity assignment, exact package resolution |
 | `pse-kernels` | Generic external-function contracts, typed shapes, derivative/smoothness declarations and attempt-local workers ([§9](physical-semantics.md#section-9)) |
-| `pse-structural` | Complete immutable graph projections; incidence, matching/DM/BTF, flowsheet and initialization projections ([§15](numerical-execution.md#section-15)) |
+| `pse-structural` | Selected incidence, matching/DM/BTF, flowsheet and initialization analysis ([§15](numerical-execution.md#section-15)) |
 | `pse-math` | Physically admitted Symbolica bodies, guarded evaluation, coefficients, sparse assembly and library bindings ([§7](mathematics-and-compilation.md#section-7)) |
-| `pse-compiler` | The single Salsa workspace, admitted revision reuse, mathematical lowering and bounded preparation ([§14](mathematics-and-compilation.md#section-14)) |
+| `pse-compiler` | Local Salsa workspaces, admitted immutable product reuse, mathematical lowering and bounded preparation ([§14](mathematics-and-compilation.md#section-14)) |
 | `pse-backend-native` | Class-specific native adapters: Ipopt, POUNCE, POUNCE-convex, KINSOL, HiGHS, Clarabel, SCIP, Diffsol and IDAS, plus tears, presolve and quality ([§18](numerical-execution.md#section-18)) |
 | `pse-ipopt-sys` | Generated raw Ipopt C bindings; the build script emits link directives only |
 | `pse-columnar` | Arrow canonicalization, owned buffers, reservations, cancellation and native error adapters |

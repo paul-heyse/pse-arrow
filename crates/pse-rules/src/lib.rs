@@ -5,8 +5,9 @@
 // 128; its `recursion_depth_exceeding_limit` future-incompatibility lint asks for more.
 #![recursion_limit = "256"]
 
-//! Registry-declared relational invariants and engine requirement planning.
+//! Declared relational checks and explicit boundary reference admission.
 pub mod errmap;
 pub mod error;
 pub mod invariants;
+pub mod references;
 pub use crate::error::RuleError;

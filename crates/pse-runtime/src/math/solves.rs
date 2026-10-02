@@ -208,7 +208,7 @@ impl PreparedSolve {
     /// Immutable compilation and normalization selected before attaching a seed.
     pub fn preparation_identity(&self) -> Result<pse_ids::ContentHash, ProblemError> {
         let mut h = FramedHasher::new(pse_ids::Frame::SolvePreparationV1);
-        h.hash(&profile_key(&self.profile)?)
+        h.hash(&profile_key(&self.profile)?.as_id())
             .hash(&self.numerics.key);
         match &self.representation {
             Representation::Algebraic(AlgebraicCase {
@@ -274,8 +274,8 @@ impl PreparedSolve {
         Some(h.finish_hash())
     }
     /// Complete selected request, including explicit seed payload and compatibility data.
-    pub fn request_identity(&self) -> Result<pse_ids::ContentHash, ProblemError> {
-        let mut h = FramedHasher::new(pse_ids::Frame::SolveRequestV1);
+    pub fn request_identity(&self) -> Result<pse_ids::roles::LineageRequestHash, ProblemError> {
+        let mut h = FramedHasher::new(pse_ids::Frame::SolveRequestV2);
         h.hash(&self.preparation_identity()?)
             .hash(&self.numerics.key);
         if let Some(compatibility) = &self.compatibility {
@@ -288,11 +288,11 @@ impl PreparedSolve {
             h.bool(false);
         }
         if let Some(start) = &self.explicit_start {
-            h.bool(true).str(&start.snapshot().to_string());
+            h.bool(true).hash(&start.content_key());
         } else {
             h.bool(false);
         }
-        Ok(h.finish_hash())
+        Ok(pse_ids::roles::LineageRequestHash::from(h.finish_hash()))
     }
     /// Construct a primal-only explicit seed in semantic source coordinates.
     pub fn with_primal_start(
@@ -772,7 +772,7 @@ fn hash_session(h: &mut FramedHasher, p: &SolverProfile) -> Result<(), ProblemEr
             h.u64(0);
         }
         ConvexityPolicy::Numerical { absolute, relative } => {
-            h.u64(1).u64(absolute.to_bits()).u64(relative.to_bits());
+            h.u64(1).f64(absolute).f64(relative);
         }
     }
     let session = Controls {
@@ -829,7 +829,7 @@ fn compatibility(
     for pattern in [plan.jacobian_pattern(), plan.hessian_pattern()] {
         layout.hash(&pse_math::sparse::pattern_key(pattern));
     }
-    let mut profile = FramedHasher::new(pse_ids::Frame::SolverSessionV1);
+    let mut profile = FramedHasher::new(pse_ids::Frame::SolverSessionV2);
     hash_session(&mut profile, p)?;
     profile.hash(&numerics.key);
     let mut data = FramedHasher::new(pse_ids::Frame::SolverDataV1);
@@ -1347,7 +1347,7 @@ impl MathService {
         let mut h = FramedHasher::new(pse_ids::Frame::SolverConicLayoutV3);
         h.hash(&numerics.key).hash(&normalization.key());
         h.hash(&problem.contract.identity);
-        let mut session = FramedHasher::new(pse_ids::Frame::SolverConicSessionV1);
+        let mut session = FramedHasher::new(pse_ids::Frame::SolverConicSessionV2);
         hash_session(&mut session, &profile)?;
         h.hash(&native::conic::cone_key(&problem.cones)?);
         for v in &problem.contract.variables {
@@ -2585,8 +2585,8 @@ impl execution::OriginalModel for OriginalCase<'_> {
 /// session profile, every control through serde (F09), the selection, whose backend is
 /// named by its registry spelling, and the linked native build (library versions, image
 /// manifest and numerical contract, ADR-0108 item 14).
-pub(crate) fn profile_key(p: &SolverProfile) -> Result<pse_ids::ContentHash, ProblemError> {
-    let mut h = FramedHasher::new(pse_ids::Frame::SolverProfileV3);
+pub(crate) fn profile_key(p: &SolverProfile) -> Result<pse_ids::roles::ProfileHash, ProblemError> {
+    let mut h = FramedHasher::new(pse_ids::Frame::SolverProfileV4);
     hash_session(&mut h, p)?;
     h.hash(&p.controls.identity()?)
         .hash(&execution::LINKED.build_identity());
@@ -2610,10 +2610,10 @@ pub(crate) fn profile_key(p: &SolverProfile) -> Result<pse_ids::ContentHash, Pro
         // A propagation is identified by its complete serde encoding (F09); a request
         // without one keeps its identity.
         if let Some(propagation) = &request.propagation {
-            let encoded = serde_json::to_string(propagation)
-                .map_err(|e| ProblemError::Internal(format!("propagation encoding: {e}")))?;
-            h.str("propagation").str(&encoded);
+            h.str("propagation");
+            pse_ids::document::frame(&mut h, propagation)
+                .map_err(|e| ProblemError::Internal(e.to_string()))?;
         }
     }
-    Ok(h.finish_hash())
+    Ok(pse_ids::roles::ProfileHash::from_id(h.finish_hash()))
 }

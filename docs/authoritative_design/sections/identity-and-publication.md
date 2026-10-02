@@ -168,24 +168,35 @@ the durable attempt of the run it publishes ([§20.2](#section-20-2)).
 
 **Frame catalog.** Every keyed context is a variant of `pse_ids::Frame`, declared once with
 its exact spelling, area and meaning. `FramedHasher::new`, `derive_id`, `derive_hash`, the
-keyed preimage entry points and the native adapters' `identity::of` take a `Frame`, so no
+keyed preimage entry points and the document serializer `pse_ids::document::of` take a `Frame`, so no
 context is a literal at a call site. A new meaning or derivation version is a new variant,
 never a new spelling for an existing one. Spellings are unique (`frame_spellings_unique`)
 and unchanged against the list captured when the catalog replaced the literals, 104
 production contexts (`frame_spellings_unchanged`); the catalog grows only by deliberate new
 variants. The [generated frame reference](../../generated/frames.md) lists it by area.
 
-**Document identity.** A Rust-owned document's identity is framed from its typed value by
-`pse-backend-native::identity::of`: field names, variant spellings and exact float bits,
-never Rust type names, and a newtype frames as the value it wraps. Two JSON texts that
-decode to one typed value frame identically whatever their key order, and renaming a type
-moves no identity (`settings_identity_is_type_name_independent`). Removing the type names
-moved six frames to new versions, each replacing its predecessor:
-`pse.backend.settings.v4`, `pse.native.controls.v2`, `pse.native.accuracy.v3`,
-`pse.cone.layout.v3`, `pse.explicit-conic.v3` and `pse.durable.job_request.v2` (DP-24). A
-durable job's request identity is framed from the typed job, never from the text of a
-JSON value whose key order depends on the build graph
-(`job_request_identity_independent_of_key_order`).
+**Document identity.** `pse_ids::document` frames Rust-owned typed values, field names and
+variant spellings without Rust type names. NaN payloads canonicalize; signed zero and
+infinities stay distinct. Key-order-independent serialization belongs to this one owner.
+Changed unrestricted-float/settings/warm-start/profile preimages take new named frame
+versions; finite admitted domains whose preimages remain unchanged keep their frames.
+Historical frame spellings and recorded digests are immutable facts.
+
+Source revision, admitted closure, semantic body, prepared view, binding, profile, lineage
+request and operational job hashes are distinct types. `.as_id()` is the explicit lowering
+at a stored/raw transport boundary. `RecordedOperationalJobIdentity` retains a digest and
+its optional recorded frame; unknown/older proof cannot satisfy a current operational key.
+The preserving operations V7 migration renames `request_identity` to
+`operational_job_identity`, retains every historical byte and adds nullable
+`operational_job_frame`. New attempts record `DurableJobRequestV3`; history lacking frame
+proof stays unknown rather than receiving an invented version. Queued job identity includes its
+explicit idempotency scope; direct attempts include run and attempt identities; study jobs include
+their declared occurrence. V7 also normalizes only the six independently verified PostgreSQL 18
+NOT NULL constraint names suffixed by the immutable V5 table recreation. Historical SQL
+checksums remain unchanged, and current layouts require the canonical names.
+
+> Supplement: [ADR-0150](../../adr/0150-checked-admission-and-owned-reuse.md)
+> (proposed; authorized implementation).
 
 **Admitted study binding identity.** ADR-0148 (proposed; authorized Plan 25f implementation)
 adds `pse.study.binding.v1`. It frames physical context and ordered member identities, expected

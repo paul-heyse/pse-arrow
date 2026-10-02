@@ -67,11 +67,15 @@ impl Engine<'_, '_> {
         env: &Environment,
     ) -> Result<()> {
         let at = row.declaration_id;
-        if let Some(v) = &row.value.relaxation {
-            for (target, ty, local) in
-                self.annotation_targets(instance, &v.target, env, at, false)?
-            {
-                let nominal = self.eval(at, &local, &v.nominal, Some(&ty))?;
+        if let Some(_v) = &row.value.relaxation {
+            for (target, ty, local) in self.annotation_targets(
+                instance,
+                &self.p.expression_at(at, "relaxation.target", 0)?.clone(),
+                env,
+                at,
+                false,
+            )? {
+                let nominal = self.eval_field(at, &local, "relaxation.nominal", 0, Some(&ty))?;
                 if nominal.scalar(at)? <= 0.0 {
                     return Err(invalid(at, "elastic nominal must be positive"));
                 }
@@ -85,12 +89,16 @@ impl Engine<'_, '_> {
                 }
             }
         }
-        if let Some(v) = &row.value.continuation {
-            for (target, ty, local) in
-                self.annotation_targets(instance, &v.target, env, at, false)?
-            {
-                let start = self.eval(at, &local, &v.start, Some(&ty))?;
-                let end = self.eval(at, &local, &v.end, Some(&ty))?;
+        if let Some(_v) = &row.value.continuation {
+            for (target, ty, local) in self.annotation_targets(
+                instance,
+                &self.p.expression_at(at, "continuation.target", 0)?.clone(),
+                env,
+                at,
+                false,
+            )? {
+                let start = self.eval_field(at, &local, "continuation.start", 0, Some(&ty))?;
+                let end = self.eval_field(at, &local, "continuation.end", 0, Some(&ty))?;
                 let lineage = self.lineage(instance, row, &[at]);
                 if self
                     .model

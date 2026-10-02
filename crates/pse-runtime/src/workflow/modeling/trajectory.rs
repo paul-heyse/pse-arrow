@@ -44,8 +44,13 @@ impl ModelingTrajectory {
                 })
                 .ok_or_else(|| contract("trajectory row scratch extent"))?,
         )?;
-        let mut columns =
-            pse_relations::columnar::Collection::new(&p.runtime.registry, &pool, &cancel);
+        let validation = p.runtime.validation_context()?;
+        let mut columns = pse_relations::columnar::Collection::new(
+            &p.runtime.registry,
+            &pool,
+            &cancel,
+            &validation,
+        );
         columns
             .ensure::<computation_runs::Row>()
             .map_err(relation)?;
@@ -152,8 +157,10 @@ impl ModelingTrajectory {
             .push(computation_runs::Row {
                 run_id: self.run_id,
                 kind,
-                source_identity: p.source.revision.identity(),
-                profile_identity: super::super::super::dynamics::profile_identity(&p.profile),
+                source_identity: p.source.revision.identity().as_id(),
+                profile_identity: super::super::super::dynamics::profile_identity(&p.profile)
+                    .map_err(crate::math::MathRuntimeError::from)?
+                    .as_id(),
                 state: NativeRunState::Native,
                 termination: None,
                 trajectory_termination: Some(r.termination),
@@ -193,10 +200,10 @@ impl ModelingTrajectory {
             .map(|id| {
                 product
                     .admitted
-                    .case
+                    .case()
                     .parameters()
                     .iter()
-                    .chain(product.admitted.case.variables().iter().map(|v| &v.port))
+                    .chain(product.admitted.case().variables().iter().map(|v| &v.port))
                     .find(|v| v.id == *id)
                     .ok_or_else(|| contract("trajectory parameter port absent"))
             })
@@ -221,7 +228,7 @@ impl ModelingTrajectory {
                 };
                 let row = product
                     .admitted
-                    .case
+                    .case()
                     .rows()
                     .iter()
                     .find(|r| r.id == *id)

@@ -93,6 +93,89 @@ pub fn context() -> Result<&'static SymbolicContext, MathError> {
 pub trait AllocationOwner: std::fmt::Debug + Send + Sync + 'static {}
 impl<T: std::fmt::Debug + Send + Sync + 'static> AllocationOwner for T {}
 
+/// Retain a previous accounting anchor when adding another consumer owner.
+/// Public attachment never downgrades the allocation's original lifetime.
+pub fn retain_allocation_owner(
+    previous: Option<std::sync::Arc<dyn AllocationOwner>>,
+    owner: std::sync::Arc<dyn AllocationOwner>,
+) -> std::sync::Arc<dyn AllocationOwner> {
+    match previous {
+        Some(previous) if !std::sync::Arc::ptr_eq(&previous, &owner) => {
+            std::sync::Arc::new((previous, owner))
+        }
+        Some(previous) => previous,
+        None => owner,
+    }
+}
+
+/// Immutable shared allocation whose clones retain its accounting owner.
+/// The inner Arc is deliberately inaccessible to consumers.
+#[derive(Debug)]
+pub struct SharedAllocation<T> {
+    value: std::sync::Arc<T>,
+    owner: Option<std::sync::Arc<dyn AllocationOwner>>,
+}
+impl<T> Clone for SharedAllocation<T> {
+    fn clone(&self) -> Self {
+        Self {
+            value: self.value.clone(),
+            owner: self.owner.clone(),
+        }
+    }
+}
+impl<T: PartialEq> PartialEq for SharedAllocation<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.value == other.value
+    }
+}
+impl<T> From<std::sync::Arc<T>> for SharedAllocation<T> {
+    fn from(value: std::sync::Arc<T>) -> Self {
+        Self { value, owner: None }
+    }
+}
+impl<T> std::ops::Deref for SharedAllocation<T> {
+    type Target = T;
+    fn deref(&self) -> &T {
+        &self.value
+    }
+}
+impl<T> AsRef<T> for SharedAllocation<T> {
+    fn as_ref(&self) -> &T {
+        &self.value
+    }
+}
+impl<T> SharedAllocation<T> {
+    /// Share a child allocation already covered by this admission's owner without
+    /// allocating another owner wrapper or exposing the parent's raw Arc.
+    pub fn share_child<U>(&self, value: std::sync::Arc<U>) -> SharedAllocation<U> {
+        SharedAllocation {
+            value,
+            owner: self.owner.clone(),
+        }
+    }
+    /// Local allocation address, never a scientific identity.
+    pub fn allocation_identity(&self) -> usize {
+        std::sync::Arc::as_ptr(&self.value) as usize
+    }
+    /// Whether consumers share the original payload allocation.
+    pub fn ptr_eq(a: &Self, b: &Self) -> bool {
+        std::sync::Arc::ptr_eq(&a.value, &b.value)
+    }
+    /// Attach the admission owner before publication. Clones retain it, and adding
+    /// another owner cannot release a previously attached allocation lease.
+    pub fn with_owner(mut self, owner: std::sync::Arc<dyn AllocationOwner>) -> Self {
+        self.owner = Some(retain_allocation_owner(self.owner.take(), owner));
+        self
+    }
+}
+impl<T: std::fmt::Debug + Send + Sync + 'static> SharedAllocation<T> {
+    /// Erased allocation anchor for local accounting. It retains the attached owner
+    /// even when this alias outlives every typed consumer.
+    pub fn allocation_payload(&self) -> std::sync::Arc<dyn AllocationOwner> {
+        std::sync::Arc::new(self.clone())
+    }
+}
+
 /// Runtime facts, distinct from declared dependency pins and case policy.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MathEnvironment {

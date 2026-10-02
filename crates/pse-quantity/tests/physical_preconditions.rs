@@ -210,7 +210,18 @@ fn actual_contracts_select_disjoint_rules_and_reject_overlap_or_cross_normalizat
                 .result,
             registry.neutral_dimensionless().expect("neutral")
         );
-        assert!(divide(&registry, left, right).is_err());
+        if left == component {
+            let result = divide(&registry, left, right).expect("component fraction of mixture");
+            assert_eq!(result.result, ids::quantity("mole_fraction"));
+            assert!(matches!(result.selected,
+                pse_quantity::infer::OperationSelection::Registered { operation, .. }
+                if operation == pse_quantity::OperationId::from_id(
+                    pse_ids::SemanticId::parse_hex("0c532d7b69bb436b85ff4dcdecd49ad2").unwrap()
+                )
+            ));
+        } else {
+            assert!(divide(&registry, left, right).is_err());
+        }
         assert!(divide(&registry, right, left).is_err());
     }
     assert!(

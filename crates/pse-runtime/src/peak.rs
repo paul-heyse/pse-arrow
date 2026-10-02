@@ -26,11 +26,12 @@ macro_rules! resource_report_fields {
 macro_rules! report {
     ($( $(#[$meta:meta])* $field:ident: $ty:ty),*; consumers: $consumers:ident; caches: $caches:ident;) => {
         /// Pool counters do not claim global allocator coverage.
-        #[derive(Clone, Debug, PartialEq, Eq)]
+        #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+        #[serde(deny_unknown_fields)]
         pub struct ResourceReport {
             $( $(#[$meta])* pub $field: $ty, )*
             /// Largest current consumers, decreasing by bytes then increasing by owner name.
-            pub $consumers: Vec<(String, usize)>,
+            pub $consumers: Vec<crate::ResourceConsumer>,
             /// Native retained capacities and hits, without cloning cached values.
             pub $caches: Vec<pse_engine::cache_service::CacheReport>,
         }

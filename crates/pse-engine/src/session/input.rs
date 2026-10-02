@@ -112,6 +112,8 @@ impl RelationPlan {
                 session.registry(),
                 spec,
                 super::output::restore_relation_metadata(batch, &schema)?,
+                session.validation_context()?.as_ref(),
+                cancel,
             )?);
         }
         Ok(RelationFacts {
@@ -256,7 +258,13 @@ impl RelationPlan {
                 .ownership()
                 .export(batch, services.pool(), cancel)?
                 .with_schema_metadata(schema.metadata().clone())?;
-            batches.push(FieldCheckedBatch::admit_owned(registry, spec, owned)?);
+            batches.push(FieldCheckedBatch::admit_owned(
+                registry,
+                spec,
+                owned,
+                services.validation_context(),
+                cancel,
+            )?);
         }
         let checked =
             FieldCheckedBatch::concat_reserved(registry, spec, &batches, services.pool(), cancel)?;

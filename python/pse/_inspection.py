@@ -10,16 +10,18 @@ import attrs
 import pyarrow as pa
 
 from pse._build import (
-    CacheReport,
     DiagnosticReport,
     EngineSettings,
-    ResourceReport,
-    TableName,
     _NativePublication,
     _NativeTableStream,
     _open_export,
 )
 from pse._transfer import FieldTransfer, compare_schemas
+from pse.contracts.documents import (
+    CacheReport,
+    ResourceReport,
+    TableName,
+)
 from pse.contracts.identities import AttemptId, PublicationId, WorkspaceId
 from pse.contracts.values import SemanticId
 

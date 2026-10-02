@@ -70,7 +70,9 @@ async fn fixture(
             ]
         })
         .collect::<Vec<_>>();
-    let batch = pse_relations::testing::batch_from_literals(&registry, spec, &rows).unwrap();
+    let validation = pse_relations::validate::ValidationContext::local(&registry).unwrap();
+    let batch =
+        pse_relations::testing::batch_from_literals(&registry, spec, &rows, &validation).unwrap();
     let batch = batch.slice(1, if empty { 0 } else { 3 });
     let key = spec.key;
     let (publication, directory, budget) =

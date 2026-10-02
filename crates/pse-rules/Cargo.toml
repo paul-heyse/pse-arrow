@@ -3,7 +3,7 @@
 
 [package]
 name = "pse-rules"
-description = "Registry-declared relational invariants and engine requirement planning."
+description = "Registry-declared relational invariants and typed source boundary predicates."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -17,6 +17,7 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+pse-authoring.workspace = true
 pse-columnar.workspace = true
 pse-engine.workspace = true
 pse-diagnostics.workspace = true

@@ -72,7 +72,7 @@ impl ScalarUDFImpl for Element {
                 "Actual index-tuple member identity.",
             );
             element = element.optional();
-            let registry = crate::validation::registry().map_err(pse_columnar::external)?;
+            let registry = pse_schema::registry().map_err(pse_columnar::external)?;
             return pse_schema::arrow::field_for(registry, &element)
                 .map(Arc::new)
                 .map_err(pse_columnar::external);

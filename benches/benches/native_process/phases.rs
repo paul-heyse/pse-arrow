@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Bounded observations of synchronous production spans, including cache misses only.
+//! Bounded observations of production spans, including cache misses and Delta writes.
 use std::{
     collections::BTreeMap,
     sync::{Arc, Mutex},
@@ -28,7 +28,9 @@ impl Phases {
 }
 impl<S: Subscriber + for<'a> LookupSpan<'a>> Layer<S> for Phases {
     fn on_new_span(&self, attributes: &Attributes<'_>, id: &Id, context: Context<'_, S>) {
-        if attributes.metadata().name().starts_with("pse.case.") {
+        if attributes.metadata().name().starts_with("pse.case.")
+            || attributes.metadata().name() == "pse.delta.write_attempt"
+        {
             context
                 .span(id)
                 .unwrap()

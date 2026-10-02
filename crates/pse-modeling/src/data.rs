@@ -881,10 +881,11 @@ fn schema(
                     ),
                 ));
             }
-            if let Some(expression) = &column.derived {
+            if let Some(_expression) = &column.derived {
                 derived.push((
                     position,
-                    dsl::parse_expr(expression).map_err(|e| invalid(id, e.to_string()))?,
+                    p.expression_at(id, "table.columns.derived", position)?
+                        .clone(),
                 ));
             }
             Ok(Column {
@@ -1055,10 +1056,10 @@ fn schema(
     let requirements = declaration
         .requirements
         .iter()
-        .map(|text| {
-            dsl::parse_predicate(text)
-                .map(|predicate| (text.clone(), predicate))
-                .map_err(|e| invalid(id, e.to_string()))
+        .enumerate()
+        .map(|(position, text)| {
+            p.predicate_at(id, "table.requirements", position)
+                .map(|predicate| (text.clone(), predicate.clone()))
         })
         .collect::<Result<Vec<_>>>()?;
     // ADR-0123 Outcome 3: completeness names every key once, over a set, a range or open.
@@ -1839,7 +1840,15 @@ fn domain(
                     reader: Reader::Admission(None),
                     selections: None,
                 };
-                let Value::Set(members) = evaluator.text(&name, None)? else {
+                let Value::Set(members) = evaluator.expr(
+                    &dsl::Expr {
+                        kind: dsl::ExprKind::Path(p.declaration_path(id)),
+                        span: dsl::Span::default(),
+                    },
+                    None,
+                    0,
+                )?
+                else {
                     return Err(invalid(at, format!("{name} is not a finite set")));
                 };
                 members
@@ -2095,30 +2104,29 @@ fn uniqueness(
 
 /// The tables a declaration's text reads, directly or through the functions and static
 /// bindings it names.
-fn tables_read(p: &CheckedPackage, owner: DeclarationId, text: &str) -> BTreeSet<DeclarationId> {
+fn tables_read(
+    p: &CheckedPackage,
+    owner: DeclarationId,
+    position: usize,
+) -> BTreeSet<DeclarationId> {
     let mut read = BTreeSet::new();
     let mut visited = BTreeSet::new();
-    let mut pending = vec![(owner, text.to_owned())];
-    while let Some((owner, text)) = pending.pop() {
-        for id in crate::check::dependency_paths(p, owner, &text) {
-            if !visited.insert(id) {
-                continue;
-            }
-            if p.tables.contains_key(&id) {
-                read.insert(id);
-            }
-            let row = &p.declarations[&id];
-            if let Some(function) = &row.value.function {
-                pending.extend(
-                    function
-                        .body
-                        .iter()
-                        .chain(&function.validity)
-                        .map(|t| (id, t.clone())),
-                );
-            }
-            if let Some(binding) = &row.value.binding {
-                pending.extend(binding.expression.iter().map(|t| (id, t.clone())));
+    let mut pending = p
+        .expression_occurrence(owner, "table.columns.derived", position)
+        .map(|occurrence| crate::check::dependency_syntax(p, owner, &occurrence.syntax))
+        .unwrap_or_default()
+        .into_iter()
+        .collect::<Vec<_>>();
+    while let Some(id) = pending.pop() {
+        if !visited.insert(id) {
+            continue;
+        }
+        if p.tables.contains_key(&id) {
+            read.insert(id);
+        }
+        for role in ["function.body", "function.validity", "binding.expression"] {
+            if let Some(occurrence) = p.expression_occurrence(id, role, 0) {
+                pending.extend(crate::check::dependency_syntax(p, id, &occurrence.syntax));
             }
         }
     }
@@ -2148,12 +2156,13 @@ fn table_order(
             }
         }
         if let Some(declaration) = &p.declarations[id].value.table {
-            for column in declaration
+            for (position, _) in declaration
                 .columns
                 .iter()
-                .filter_map(|c| c.derived.as_ref())
+                .enumerate()
+                .filter(|(_, column)| column.derived.is_some())
             {
-                reads.extend(tables_read(p, *id, column));
+                reads.extend(tables_read(p, *id, position));
             }
         }
         reads.remove(id);

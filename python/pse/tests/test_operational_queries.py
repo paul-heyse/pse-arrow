@@ -85,7 +85,9 @@ def test_progress_stream_python(
     assert attempt is not None
     # Follow the live attempt: the stream ends once the attempt has ended and every
     # stored event was read.
-    with runtime.progress(attempt, follow=True, page=4) as stream:
+    with runtime.progress(
+        attempt, controls=pse.ProgressControls(follow=True, page=4)
+    ) as stream:
         assert stream.attempt_id == attempt
         followed = list(stream)
     result = handle.wait()
@@ -106,11 +108,13 @@ def test_progress_stream_python(
         assert event.step == 0
         assert event.phase
         assert event.elapsed_seconds >= 0
-        assert isinstance(event.values(), dict)
+        assert isinstance(event.values, dict)
         # An interior-point solve has no incumbents.
         assert event.incumbent is None
     # Without following, the stream reads what is stored and ends.
-    stored = list(runtime.progress(attempt, follow=False))
+    stored = list(
+        runtime.progress(attempt, controls=pse.ProgressControls(follow=False))
+    )
     assert [(e.sequence, e.phase) for e in stored] == [
         (e.sequence, e.phase) for e in followed
     ]
@@ -118,7 +122,9 @@ def test_progress_stream_python(
     events, _ = handle.progress()
     assert all(event.step is None and event.sequence is None for event in events)
     # A closed stream reads nothing more.
-    closed = runtime.progress(attempt, follow=False, page=1)
+    closed = runtime.progress(
+        attempt, controls=pse.ProgressControls(follow=False, page=1)
+    )
     closed.close()
     assert list(closed) == []
 
@@ -151,13 +157,15 @@ def test_jobs_and_studies_listed_and_queried(
     point_attempts = {point.attempt_id for point in status.points}
 
     # The study's point jobs and its waiting finalization are listed, newest first.
-    queued = runtime.jobs(states=(JobState.QUEUED,), limit=1000)
+    queued = runtime.jobs(
+        states=(JobState.QUEUED,), controls=pse.InventoryControls(limit=1000)
+    )
     assert point_attempts <= {job.attempt_id.to_hex() for job in queued}
     assert all(job.state == JobState.QUEUED for job in queued)
-    newest = runtime.jobs(limit=1000)
+    newest = runtime.jobs(controls=pse.InventoryControls(limit=1000))
     enqueued = [job.enqueued_at for job in newest]
     assert enqueued == sorted(enqueued, reverse=True)
-    assert len(runtime.jobs(limit=1)) == 1
+    assert len(runtime.jobs(controls=pse.InventoryControls(limit=1))) == 1
     assert any(study.study_id == handle.study_id for study in runtime.studies())
 
     # SQL over pse_ops: the study's points joined with their jobs and attempts.

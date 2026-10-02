@@ -31,7 +31,7 @@ fallible provider calls and source attribution.
 | Library algebra starts at the typed definition | `pse-compiler::typed_math` lowers the authored AST through `pse-math::typed::BodyBuilder`; no intermediate IR is produced or stored. |
 | Specialization-local bodies | A body covers one definition and its consumed finite membership, never the whole model. Identical bodies are shared across instances; a changed shape can require new compilation. |
 | Libraries own mathematics | Symbolica/Numerica own arithmetic, normalization, derivative composition and evaluators; faer owns sparse patterns and products; native solvers own iteration ([§18](numerical-execution.md#section-18)). |
-| Explicit effects | Symbolic initialization, native compilation and evaluation are effects outside tracked Salsa queries ([§14.3](#section-14-3)); the one process-global effect a tracked query may cause is the append-only growth of the formal-symbol pool (below). |
+| Explicit effects | Symbolic initialization, native compilation and evaluation are effects outside tracked Salsa queries ([§14.3](#section-14-3)); service-local retention/accounting effects preserve admitted meaning and cannot memoize transient refusal; the one process-global effect a tracked query may cause is the append-only growth of the formal-symbol pool (below). |
 
 Unknowns are symbols bound to case variables, never nulls in a value column. Every scalar
 input and output carries a complete physical type ([§8](physical-semantics.md#section-8)),
@@ -366,12 +366,16 @@ Modeling documents use `pse-authoring::language`; embedded expressions use
 identity and span. The checked package owns resolved types, visibility and physical context;
 consumers cannot mutate a checked product or substitute a foreign physical revision.
 
-Checking retains expression, predicate, equation and static-domain syntax by declaration,
-field role and ordinal. Each occurrence keeps its declaration range, lexical/import context,
-physical admission and dependencies; indexed obligations remain explicit until specialization.
-Process states, indexed connections and inventory balances consume these retained occurrences
-with their actual bindings. Earlier general specialization and body consumers still require
-the remaining checked-occurrence migration; this slice does not establish its completion.
+Checking retains expressions, predicates, equations, logic and static-domain syntax by
+actual declaration, field role and structural ordinal. Exact payload-field byte ranges
+remain revision attribution. Each occurrence retains lexical/import context, physical
+admission and dependencies; indexed obligations remain explicit until specialization.
+All specialization and body consumers use those checked occurrences. Logic extends the
+same quoted-path/count predicate grammar. Synthetic expressions are AST nodes carrying
+the originating operation, rather than formatted text parsed through a second front door.
+
+> Supplement: [ADR-0150](../../adr/0150-checked-admission-and-owned-reuse.md)
+> (proposed; authorized implementation).
 
 The language admits packages, entity kinds/entities, enumerations, sets, tables, functions,
 interfaces, definitions, presets, children, equations, accumulators, contributions, ports,
@@ -420,8 +424,8 @@ lifetimes, and each has a distinct identity scope
 | Package admission | runtime modeling admission ([§22](models-and-composition.md#section-22)) | exact package closure, generic declarations, physical inventory and its names | immutable checked revision | source loading and bounded admission |
 | Generic specialization | `pse-modeling`, tracked by compiler modeling queries | checked package, root/instance, bindings, analysis and limits | demanded members, equations, named lowerings of constraint forms, complementarity and disjunctions, objective levels with their level bounds, lineage, checks and reports | none |
 | Input publication | `CompilerWorkspace` | checked package/context and lowered case inputs | Salsa input revisions | validated before setters |
-| Definition admission | `admitted` query → `typed_math::Request::admit` | definition source, formals, domains, groups, providers, contextual literal types, physical registry | `AdmittedBody`: `BodySpec`, types, occurrences, `PreparedBody` | none |
-| Case planning | `plan` query → `CasePlan::prepare` | case structure, semantic bodies | immutable `CasePlan` with faer patterns and local demands | none; no evaluators |
+| Body admission | `modeling::executable::grouped::semantic_body` query → `typed_math::Request::admit` | complete normalized body inputs, called functions, providers, physical operations and limits | `AdmittedBody`: `BodySpec`, types, occurrences, `PreparedBody` | optional ownership/retention attachment; transient refusal is not memoized |
+| Case planning | selected-view preparation → `CasePlan::prepare` | case structure, semantic bodies | immutable `CasePlan` with faer patterns and local demands | none; no evaluators |
 | Modeling view and rebind | `PreparedModeling::bound_structure`, `CompilerWorkspace::prepare_modeling_view`, `PreparedCase::rebind` | bound case structure, derivation rules, case values | a `PreparedCase` view identified by `view_key`, whose value products are rebound per values ([§14.4](#section-14-4)), and on a sensitivity request its parametric program (`pse.compiler.modeling-parametric.v1`, [§15.5.1](numerical-execution.md#section-15-5-1)) | none; no evaluators |
 | Structure and facts | `structure`, `coefficients`, `presolve_facts`, `problem_facts` queries | plan, consumed fixed/parameter values | `StructuralAnalysis`, coefficient/presolve/class facts | none |
 | Artifact requests | `artifacts` query | plan demands, `Profile`, math environment | keyed `ArtifactRequest`s | none |
@@ -446,24 +450,22 @@ the [native workflow guide](../../dev/native-workflow.md).
 
 ### 14.2 Relational invariants
 
-Set-oriented integrity over relations remains in Arrow/DataFusion. The registry declares
-invariants as native DataFusion SQL returning offending keys
-(`pse_schema::model::invariant::InvariantSpec`) and declares residual construction
-obligations ([§4.6](schema-and-relations.md#section-4-6)). `pse-relations::validate`
-lowers declared row predicates and reference, ordinal, quantity and source-span obligations
-to native plans; scalar predicates also persist as Delta `CHECK`s. The engine binds
-registry invariants into bounded obligation plans at admission and publication
-([§22.2](models-and-composition.md#section-22-2)). `pse-rules::invariants` executes the same
-declarations for Python inspection requirement planning and physical-fixture validation.
+Set-oriented integrity over relations remains in Arrow/DataFusion. Declared registry
+invariant queries support explicit inspection, and declaration-owned residual obligations
+serve publication admission ([§4.6](schema-and-relations.md#section-4-6)). Row predicates
+are prepared under the actual immutable validation context; scalar predicates also persist
+as Delta `CHECK`s. Source and physical loading each call shared Rust entity/reference and
+acyclicity predicates. Their duplicate registry SQL declarations and the inactive
+requirement-planner/provider-policy bridge are removed.
 
-There is no production rule engine or recursive inference executor. Operand-level physical
-prerequisites are not relational queries: they are `PhysicalPrecondition` predicates
-checked against actual operands during typed inference ([§7.3](#section-7-3)). A future
-recursive-inference consumer needs its own reviewed contract.
+Operand-level physical prerequisites are `PhysicalPrecondition` predicates checked against
+actual operands during typed inference ([§7.3](#section-7-3)). There is no production rule
+engine or recursive inference executor. A future recursive-inference consumer needs its
+own reviewed contract.
 
-**Source owners:** `crates/pse-schema/src/model/invariant.rs`,
-`crates/pse-relations/src/validate/`, `crates/pse-engine/src/session/obligation.rs`,
-`crates/pse-rules/src/invariants.rs`.
+**Source owners:** `crates/pse-relations/src/validate/`,
+`crates/pse-engine/src/validation.rs`, `crates/pse-rules/src/{references,invariants}.rs`,
+`crates/pse-runtime/src/authoring_driver/p1.rs` and `workflow/physical.rs`.
 
 ### 14.3 The preparation engine and ownership
 
@@ -492,24 +494,32 @@ produce no observation. A later numerical case-value change retains declared sou
 result qualification for changed values belongs to §19.3 and Plan 25e/25f. Parameter-read,
 finite-function, dispatch-body and typed-definition identities include the prerequisite contract.
 
-`CompilerWorkspace` is a single-writer owner of one Salsa database. Callers serialize
-access; no database clone, Salsa handle or partial input batch escapes. Tracked queries are
-pure: they may read inputs, parse, admit and plan, but never construct native evaluators,
-touch caches, run solvers or write data. The one process-global effect admission may cause
-is appending chunks to the formal-symbol pool, which is append-only and fixes the
-registration order of its symbols ([§7.1](#section-7-1)). Cancellation is checked between
-steps, surfaces as `CompileError::Cancelled`, and is never memoized as a result. Errors are typed
-(`Missing`, `Syntax`, `Math`, `Structure`, `Limit`, `Cancelled`) with diagnostic codes
-([§23](operations-and-validation.md#section-23)).
+`CompilerWorkspace` is a single-writer owner of one local Salsa database. No database
+clone or Salsa handle escapes. `CompilerContext` contains the immutable quantity registry,
+physical preconditions and provider declarations; the raw Inputs/case/flow front door and
+its unused tracked queries are removed. Checked modeling revisions and immutable selected
+bindings supply preparation. Complete body inputs include normalized AST, formals,
+physical operations, transitive called functions, provider descriptors and admission limits.
+A/B/A selections coexist; one mutable root slot cannot overwrite their meaning.
 
-Salsa inputs carry the complete selected inventory: checked modeling packages and bindings, quantity
-registry, physical preconditions, definitions, domains, groups, external capability descriptors,
-cases, fixed/parameter values (as canonical bits) and the math environment identity.
-Negative lookups are tracked, so creating a previously missing name invalidates its
-readers. Revision preparation publishes selected inputs under the runtime's compiler lock,
-so a shared workspace cannot mix two revisions during one preparation. Returned products
-(`PreparedCase`, `CasePlan`, artifact requests) are owned values that outlive a workspace
-generation and keep their own allocation owner.
+Tracked mathematical preparation is mathematically pure: complete immutable inputs determine
+the admitted mathematics. It constructs no mutable evaluator, runs no solver and writes no
+data. A service retention attachment is selected once before revision publication; its
+infrastructure lookup, counters and allocation accounting do have effects. A compiler-issued
+private witness binds each cacheable body to its complete semantic key and physical closure;
+callbacks cannot replace that proof or mutate the admitted meaning. Owner attachment may change
+accounting only. The attachment holds the service weakly; transient allocation refusal unwinds
+the query as cancellation and returns its typed cause, so the same semantic inputs can retry.
+Cancellation is never memoized as a result. The append-only formal-symbol pool retains its
+registration-order contract (§7.1).
+
+Returned `PreparedCase`, `CasePlan` and artifact requests own their immutable mathematics,
+value bindings and current revision attribution independently of workspace generations.
+No unused whole-model structural query remains: structural evidence belongs to the
+consumed selected view.
+
+> Supplement: [ADR-0150](../../adr/0150-checked-admission-and-owned-reuse.md)
+> (proposed; authorized implementation).
 
 Physical preparation consumes immutable checked products. Source functions retain
 physical operation admissions by structural expression occurrence: body-relative preorder
@@ -616,9 +626,8 @@ or measure process RSS.
 
 Salsa reuse is valid only when a fresh workspace given the same admitted inputs would
 produce an equal product. Queries depend on exact fields, including absence; unchanged
-results backdate so unrelated edits do not propagate. Durability follows semantic
-stability: environment, registry and preconditions are high; definitions, domains, groups,
-providers, cases and flows are medium; values are low.
+results backdate so unrelated edits do not propagate. Immutable context and checked revisions supply complete semantic inputs; binding inputs
+retain each selected value independently. Salsa handles remain local.
 
 | Change | Re-admitted or recomputed | Reused |
 |---|---|---|
@@ -635,12 +644,13 @@ providers, cases and flows are medium; values are low.
 structure from values. `PreparedModeling::bound_structure` applies the case's variable
 states, admits discrete domains and tightens their bounds inward, returning the recorded
 tightenings beside the structure ([§7.5](#section-7-5)), and excludes observation rows; it
-reads no value. `PreparedModeling::view_key` (`pse.compiler.modeling-view.v2`) is the
+reads no value. `PreparedModeling::view_key` (`pse.compiler.modeling-view.v3`) is the
 complete identity of the view prepared from that structure: the bound structure key,
-including native constraint forms; every admitted body with its source occurrences; the rules
+including native constraint forms; every admitted mathematical body; the rules
 of the derived realization parameters; the derivative order; the evaluator profile; and the
 physical context. Equal keys give equal plans, structural analyses, derivations, artifact
-requests and provenance. `CompilerWorkspace::prepare_modeling_view` prepares the view and
+requests. Current revision attribution is rebound separately.
+`CompilerWorkspace::prepare_modeling_view` prepares the view and
 binds its first values.
 
 `PreparedCase::rebind` binds later values to the same view. The plan, structural analysis,
@@ -658,16 +668,19 @@ programs are value-free: `prepare_modeling_observations` returns a plan with its
 requests (`PreparedFunctions`) and builds no presolve or coefficient projection, because
 every evaluation binds its own values.
 
-The runtime keeps these products per package revision (`workflow/modeling/views.rs`): up to
-16 solver views and 16 observation programs, each keyed by its view key and evicted least
-recently used first. The first request for a structure prepares it; every later one rebinds
-(`MathService::rebind`), which runs no job when no consumed value changed and otherwise
-rebuilds only the value products on one admitted worker. A new package revision starts with
-no views. A study of five points that differ only in values therefore prepares one view
-(`value_only_study_prepares_once`). A sensitivity request's parametric program is prepared
-once per view and parameter set and cached with the view. A smoothing width that references
-a parameter, and the bound parameter β of an objective level, are values of this kind: a
-continuation of the width, or a new β, rebinds without preparing another structure.
+The shared `MathService` retains immutable admitted package snapshots, semantic bodies,
+solver views, observation and parametric programs in a byte-bounded DataFusion
+`DefaultCache`. Fixed-count package LRUs are removed. Keys include the consumed physical,
+provider, profile and admission dependencies; package retention also binds actual registry
+and engine-context owners. Mutable workspaces, evaluators and cancellation remain
+attempt-owned. Exact package reconstruction obtains a fresh workspace over the admitted
+snapshot; a fresh revision always rebinds its own occurrence attribution over reused math.
+
+Cache size measures retained reachable payload with positive entry overhead. Unique
+allocation leases follow shared mathematical storage, value products and attribution
+owners independently of eviction. Rebinding retains unchanged provenance and only charges
+new bindings; an escaped alias keeps its lease after cache clear or workspace rotation.
+Job reservations partition by transfer before retention, without a release/reacquire gap.
 
 A complete physical-inventory identity conservatively re-admits all bodies after any
 registry change; a finer consumed-physical fingerprint would be an optimization, not a

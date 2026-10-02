@@ -82,8 +82,11 @@ fn runtime_handles_and_platform_consumers_share_one_finite_pool() {
     assert_eq!(report.pool_peak_bytes, 64);
     assert_eq!(report.pool_reserved_now, 64);
     assert_eq!(
-        report.top_consumers.first(),
-        Some(&("session:first".to_owned(), 64))
+        report
+            .top_consumers
+            .first()
+            .map(|consumer| (consumer.name.as_str(), consumer.reserved_bytes)),
+        Some(("session:first", 64))
     );
     drop(first);
     drop(second);

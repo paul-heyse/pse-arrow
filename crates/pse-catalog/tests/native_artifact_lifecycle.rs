@@ -63,12 +63,17 @@ fn header(publication: u8, kind: PublicationKind) -> publication_manifests::Row 
 /// The admitted record an executed candidate returns.
 fn admitted(
     registry: &Registry,
+    validation: &pse_relations::validate::ValidationContext,
     completed: &pse_engine::session::CompletedComputation,
 ) -> publication_manifests::Row {
-    publication_manifests::View::try_from_batch_with_registry(registry, &completed.batches()[0])
-        .unwrap()
-        .row(0)
-        .unwrap()
+    publication_manifests::View::try_from_batch_with_registry(
+        registry,
+        &completed.batches()[0],
+        validation,
+    )
+    .unwrap()
+    .row(0)
+    .unwrap()
 }
 /// Open exactly the members a (catalog-granted) record selects.
 async fn open(
@@ -193,7 +198,11 @@ async fn explicit_product_reopens_after_eviction_and_refuses_another_descriptor(
         .map(|(command, _ticket)| command)
         .unwrap();
     let result = command.execute(&cancel).await.unwrap();
-    let record = admitted(&registry, &result);
+    let record = admitted(
+        &registry,
+        &artifact.session().validation_context().unwrap(),
+        &result,
+    );
     drop(result);
     drop(artifact);
     // A fresh native factory cannot inherit producer cells or mutable old providers.
@@ -300,11 +309,22 @@ async fn exact_reuse_cdf_and_maintenance_share_native_ownership() {
             .unwrap()
     };
     let first = publish().execute(&cancel).await.unwrap();
-    let record = admitted(&registry, &first);
+    let record = admitted(
+        &registry,
+        &artifact.session().validation_context().unwrap(),
+        &first,
+    );
     drop(first);
     // Re-preparing the same composition recovers its written members.
     let retry = publish().execute(&cancel).await.unwrap();
-    assert_eq!(admitted(&registry, &retry), record);
+    assert_eq!(
+        admitted(
+            &registry,
+            &artifact.session().validation_context().unwrap(),
+            &retry
+        ),
+        record
+    );
     drop(retry);
     let publication = open(&record, registry.clone(), &factory, &cancel).await;
     let reused = artifact

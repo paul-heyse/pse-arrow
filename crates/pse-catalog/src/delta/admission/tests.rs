@@ -100,7 +100,7 @@ fn identity(value: u8) -> SemanticId {
 
 #[test]
 fn complete_artifact_profiles_refuse_missing_members_but_allow_explicit_partial_collections() {
-    let registry = pse_engine::validation::registry().unwrap();
+    let registry = pse_schema::registry().unwrap();
     let mut request = record();
     admit_profile(&request, registry).unwrap();
     request.kind = PublicationKind::Source;

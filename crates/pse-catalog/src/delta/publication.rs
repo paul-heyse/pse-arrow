@@ -155,7 +155,6 @@ impl Publication {
         if let Some(owner) = owner {
             session.retain_owner(owner);
         }
-        session.check_requirements(cancel).await?;
         Ok(Self {
             record,
             session,
@@ -448,14 +447,14 @@ fn verify_recorded_inventory(
     Ok(())
 }
 
-/// Every exact input opens under its declared contract.
+/// Every exact provenance input opens under its verified recorded contract.
 pub(super) async fn verify_inputs(
     inputs: &[pse_relations::generated::structures::MemberDescriptor],
-    registry: &Registry,
     state: Arc<SessionState>,
 ) -> Result<()> {
-    // Inputs and members are the one registry structure `MemberDescriptor`.
-    bind_members(inputs, registry, state).await?;
+    // A migration can consume a recorded predecessor absent from the current
+    // registry. Candidate outputs still receive current consumer admission.
+    bind_interpreted_members(inputs, None, state).await?;
     Ok(())
 }
 

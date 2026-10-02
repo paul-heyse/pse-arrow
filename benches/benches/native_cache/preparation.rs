@@ -91,6 +91,8 @@ impl Fixture {
                 ))],
             )
             .unwrap(),
+            self.base.validation_context().unwrap().as_ref(),
+            &self.cancel,
         )
         .unwrap()
     }

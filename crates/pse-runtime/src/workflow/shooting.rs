@@ -22,7 +22,9 @@ use pse_backend_native::{
     dynamics::DynamicSensitivity,
     solve::{Compatibility, Execution, HessianMode},
 };
-use pse_ids::{ContentHash, FramedHasher, SemanticId};
+#[cfg(test)]
+use pse_ids::ContentHash;
+use pse_ids::{FramedHasher, SemanticId};
 use pse_kernels::{DerivativeOrder, Port};
 use pse_math::{normalization::Normalization, numerics::TargetSpec};
 use pse_model::generated::{enums::NumericalTarget, identities::RunId};
@@ -123,7 +125,7 @@ pub struct ShootingProblem {
     tolerances: native::quality::Tolerances,
     accuracy: native::solve::ResolvedAccuracy,
     route: native::routing::Route,
-    pub(super) profile_key: ContentHash,
+    pub(super) profile_key: pse_ids::roles::ProfileHash,
     numerics: pse_model::numerics::ResolvedNumericalPolicy,
 }
 /// The outcome of a shooting solve.
@@ -263,7 +265,7 @@ impl ShootingProblem {
             .model()
             .compiled()
             .admitted
-            .case
+            .case()
             .parameters()
             .iter()
             .map(|p| (p.id, (p.quantity, p.unit)))
@@ -321,7 +323,7 @@ impl ShootingProblem {
                     .model()
                     .compiled()
                     .admitted
-                    .case
+                    .case()
                     .rows()
                     .iter()
                     .find(|r| r.id == *id)
@@ -536,7 +538,8 @@ impl ShootingProblem {
             .str("profile")
             .hash(
                 &crate::math::solves::profile_key(&request.solver)
-                    .map_err(crate::math::MathRuntimeError::from)?,
+                    .map_err(crate::math::MathRuntimeError::from)?
+                    .as_id(),
             )
             .hash(&numerics.key);
         let mut identity = FramedHasher::new(pse_ids::Frame::ShootingProblemV1);
@@ -584,7 +587,7 @@ impl ShootingProblem {
             tolerances,
             accuracy,
             route: native::routing::Route::Constant,
-            profile_key: session.finish_hash(),
+            profile_key: pse_ids::roles::ProfileHash::from_id(session.finish_hash()),
             numerics,
         };
         problem.pattern = problem.jacobian_structure()?;
@@ -1129,7 +1132,7 @@ impl ShootingProblem {
                     normalization: &self.normalization,
                     compatibility: Compatibility {
                         layout: self.contract.identity,
-                        profile: self.profile_key,
+                        profile: self.profile_key.as_id(),
                         data: h.finish_hash(),
                         backend,
                     },
@@ -1406,11 +1409,14 @@ impl ShootingProblem {
     pub(super) fn numerics(&self) -> &pse_model::numerics::ResolvedNumericalPolicy {
         &self.numerics
     }
-    pub(super) fn request_identity(&self, initial: Option<&[f64]>) -> ContentHash {
+    pub(super) fn request_identity(
+        &self,
+        initial: Option<&[f64]>,
+    ) -> pse_ids::roles::LineageRequestHash {
         let mut identity = FramedHasher::new(pse_ids::Frame::ShootingProblemV1);
         identity
             .hash(&self.contract.identity)
-            .hash(&self.profile_key)
+            .hash(&self.profile_key.as_id())
             .bool(initial.is_some());
         if let Some(initial) = initial {
             identity.u64(initial.len() as u64);
@@ -1418,7 +1424,7 @@ impl ShootingProblem {
                 identity.u64(pse_ids::canonical_f64_bits(*value));
             }
         }
-        identity.finish_hash()
+        pse_ids::roles::LineageRequestHash::from(identity.finish_hash())
     }
     pub(super) fn job_bytes(&self) -> Result<usize, crate::math::MathRuntimeError> {
         self.simulation

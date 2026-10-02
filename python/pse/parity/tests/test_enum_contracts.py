@@ -29,6 +29,12 @@ BINDINGS = msgspec.toml.decode(
     (Path(__file__).parents[1] / "enum-bindings.toml").read_bytes(), type=Bindings
 ).enums
 
+# These scientific declarations have local meaning and no IDAES parity target.
+LOCAL_ENUMS = {
+    "CompositionKnowledge": ("Unknown", "Complete"),
+    "ExtentNormalization": ("AsAuthored",),
+}
+
 
 @pytest.fixture(scope="module")
 def admitted_names(
@@ -43,7 +49,9 @@ def admitted_names(
         for row in package.declarations()
         if row.value.enumeration is not None
     }
-    assert set(declared) == set(BINDINGS)
+    assert not (set(BINDINGS) & set(LOCAL_ENUMS))
+    assert set(declared) == set(BINDINGS) | set(LOCAL_ENUMS)
+    assert {name: declared[name] for name in LOCAL_ENUMS} == LOCAL_ENUMS
     names = dict(enums.IDAES_NAMES)
     assert set(names) == {"ConstraintScalingScheme"}
     for name, binding in BINDINGS.items():

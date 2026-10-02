@@ -310,6 +310,8 @@ async fn native_codecs_preserve_exact_values_and_output_schema_inside_the_plan()
             source,
             batch,
             &[0, 1, 2, 3],
+            &session.validation_context().unwrap(),
+            &cancel,
         )
         .unwrap();
         let actual_ids = checked
@@ -351,10 +353,11 @@ async fn native_codecs_preserve_exact_values_and_output_schema_inside_the_plan()
 
 #[test]
 fn explicit_literal_and_output_declarations_refuse_unproved_semantic_meaning() {
-    let registry = pse_engine::validation::registry().unwrap();
+    let registry = pse_schema::registry().unwrap();
+    let validation = pse_relations::validate::ValidationContext::local(registry).unwrap();
     let units = registry.relation("reference.units").unwrap();
     let id = units.column("unit_id").unwrap();
-    assert!(checked_literal(registry, id, ScalarValue::UInt64(Some(9))).is_err());
+    assert!(checked_literal(registry, id, ScalarValue::UInt64(Some(9)), &validation).is_err());
     let plan = LogicalPlanBuilder::empty(true)
         .project(vec![
             Expr::Literal(ScalarValue::FixedSizeBinary(16, Some(vec![1; 16])), None)
@@ -408,18 +411,21 @@ fn explicit_literal_and_output_declarations_refuse_unproved_semantic_meaning() {
 fn conditional_identity_keeps_meaning_and_only_common_relation_annotations() {
     use datafusion::logical_expr::{ExprSchemable, lit};
     use pse_engine::session::output::same_field_case;
-    let registry = pse_engine::validation::registry().unwrap();
+    let registry = pse_schema::registry().unwrap();
+    let validation = pse_relations::validate::ValidationContext::local(registry).unwrap();
     let schema = datafusion::common::DFSchema::empty();
     let key = checked_literal(
         registry,
         &FieldContract::key("key", FieldContract::id(), "Identity"),
         ScalarValue::FixedSizeBinary(16, Some(vec![1; 16])),
+        &validation,
     )
     .unwrap();
     let absent = checked_literal(
         registry,
         &FieldContract::payload("optional", FieldContract::id(), "Optional identity").optional(),
         ScalarValue::FixedSizeBinary(16, None),
+        &validation,
     )
     .unwrap();
     let expression = same_field_case(&schema, lit(true), key.clone(), absent).unwrap();
@@ -447,15 +453,23 @@ fn conditional_identity_keeps_meaning_and_only_common_relation_annotations() {
 async fn conditional_enum_literals_keep_the_declared_string_domain_and_values() {
     use datafusion::logical_expr::lit;
     let registry = Arc::new(pse_schema::catalog::assemble().unwrap());
+    let validation = pse_relations::validate::ValidationContext::local(&registry).unwrap();
     let truth = FieldContract::payload("truth", FieldContract::enumeration("TruthValue"), "Guard");
     let value = |text: &str| {
-        checked_literal(&registry, &truth, ScalarValue::Utf8(Some(text.to_owned()))).unwrap()
+        checked_literal(
+            &registry,
+            &truth,
+            ScalarValue::Utf8(Some(text.to_owned())),
+            &validation,
+        )
+        .unwrap()
     };
     assert!(
         checked_literal(
             &registry,
             &truth,
-            ScalarValue::Utf8(Some("not-a-member".to_owned()))
+            ScalarValue::Utf8(Some("not-a-member".to_owned())),
+            &validation
         )
         .is_err()
     );

@@ -1,0 +1,19 @@
+{
+  "invariant": "runtime.operational_orphan_candidates:unique:pk",
+  "rows": {
+    "runtime.operational_orphan_candidates": [
+      {
+        "claim_epoch": "[\"i64\",1]",
+        "discovery_epoch": "[\"i64\",1]",
+        "disposition": "[\"enum\",\"discovered\"]",
+        "evidence": "[\"text\",\"value-1\"]",
+        "generation": "[\"i64\",1]",
+        "ownership": "[\"enum\",\"attributable\"]",
+        "prefix": "[\"text\",\"value-1\"]",
+        "protections": "[\"text\",\"value-1\"]",
+        "scan_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

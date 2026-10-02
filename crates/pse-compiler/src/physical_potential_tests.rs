@@ -7,7 +7,7 @@
     reason = "focused physical-potential unit assertions"
 )]
 
-use crate::workspace::{CompilerWorkspace, Inputs, Profile, WorkspaceLimits};
+use crate::workspace::{CompilerContext, CompilerWorkspace, Profile, WorkspaceLimits};
 use pse_authoring::{
     ParseBudget,
     language::{IdentityPolicy, parse},
@@ -50,7 +50,7 @@ fn workspace() -> (CompilerWorkspace, Vec<pse_modeling::Declaration>) {
         ParseBudget::default(),
     )
     .unwrap();
-    let input = Inputs {
+    let input = CompilerContext {
         quantities: Arc::new(pse_quantity::standard::standard_registry().unwrap()),
         preconditions: Arc::new(
             pse_quantity::PhysicalPreconditions::new(
@@ -58,13 +58,8 @@ fn workspace() -> (CompilerWorkspace, Vec<pse_modeling::Declaration>) {
             )
             .unwrap(),
         ),
-        flows: BTreeMap::new(),
-        definitions: BTreeMap::new(),
-        domains: BTreeMap::new(),
-        groups: BTreeMap::new(),
+
         providers: BTreeMap::new(),
-        cases: BTreeMap::new(),
-        values: BTreeMap::new(),
     };
     let mut workspace = CompilerWorkspace::new(input, WorkspaceLimits::default()).unwrap();
     workspace

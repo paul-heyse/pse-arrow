@@ -35,7 +35,6 @@ struct Preparation {
     volatile: bool,
     started: std::sync::atomic::AtomicBool,
     effects: std::collections::BTreeSet<pse_schema::model::provider::OperationEffect>,
-    requirements: bool,
     terminal: TerminalDemand,
 }
 
@@ -240,17 +239,6 @@ impl EngineSession {
             })
     }
 
-    fn bound_requirements(&self) -> Result<bool, EngineError> {
-        let requirements = !self.effective_policy()?.requirements.is_empty();
-        if requirements && self.requirement_planner.is_none() {
-            return Err(EngineError::Admission {
-                path: "provider.requirements".to_owned(),
-                reason: "required invariants have no bound native implementation".to_owned(),
-            });
-        }
-        Ok(requirements)
-    }
-
     fn prepare_scoped(
         &self,
         plan: LogicalPlan,
@@ -260,7 +248,6 @@ impl EngineSession {
         terminal: TerminalDemand,
     ) -> Result<PreparedComputation, EngineError> {
         cancel.checkpoint()?;
-        let requirements = self.bound_requirements()?;
         // Native expressions already own their actual function implementations.
         // The SQL name registry is needed for resolution and diagnostic decoding,
         // not for restricting executable plans to registered function names.
@@ -285,8 +272,7 @@ impl EngineSession {
             })?
         };
         let (plan, mut volatile, mut effects) = self.admit_and_isolate(plan, cancel, origin)?;
-        let pure = !requirements
-            && !volatile
+        let pure = !volatile
             && effects
                 .iter()
                 .all(|effect| *effect == pse_schema::model::provider::OperationEffect::Read);
@@ -358,7 +344,6 @@ impl EngineSession {
             volatile,
             started: std::sync::atomic::AtomicBool::new(false),
             effects,
-            requirements,
             terminal,
         })))
     }
@@ -785,11 +770,6 @@ impl PreparedComputation {
     > {
         cancel.checkpoint()?;
         let session = &self.0.session;
-        let requirements = if self.0.requirements {
-            session.prepare_requirements(cancel).await?
-        } else {
-            None
-        };
         let effectful = self.0.effects.iter().any(|effect| {
             matches!(
                 effect,
@@ -799,15 +779,8 @@ impl PreparedComputation {
             )
         });
         let native = self.0.optimized.clone();
-        let contract = |plan| {
-            super::contract::ExecutionContract::plan(
-                plan,
-                requirements
-                    .as_ref()
-                    .map(|plan| plan.optimized_plan().clone()),
-                self.0.effects.clone(),
-            )
-        };
+        let contract =
+            |plan| super::contract::ExecutionContract::plan(plan, None, self.0.effects.clone());
         // DataFusion requires EXPLAIN at the root. The inspected operation
         // retains its contract, without executing either child while explaining.
         let execution_plan = match native {
@@ -1405,6 +1378,11 @@ impl CompletedComputation {
                     registry,
                     spec,
                     batch.clone(),
+                    &pse_relations::validate::ValidationContext::new(
+                        registry,
+                        crate::validation::NativeValidation(self.state.clone()),
+                    ),
+                    cancel,
                 )?)
             })
             .collect::<Result<Vec<_>, EngineError>>()?;

@@ -6,7 +6,7 @@ use pse_backend_native::{
     ProblemError,
     dynamics::{self as native, Function, Oracle},
 };
-use pse_ids::{ContentHash, FramedHasher, SemanticId};
+use pse_ids::{FramedHasher, SemanticId};
 use pse_math::{assembly::CaseWorker, binding::CaseValues};
 use std::{
     collections::BTreeMap,
@@ -601,11 +601,17 @@ impl Oracle for DynamicWorker {
     }
 }
 
-pub(crate) fn profile_identity(p: &SimulationProfile) -> ContentHash {
-    let mut h = FramedHasher::new(pse_ids::Frame::DynamicProfileV7);
-    h.str(&native::profile_json(p).to_string())
-        .hash(&p.numerics.key());
-    h.finish_hash()
+pub(crate) fn profile_identity(
+    p: &SimulationProfile,
+) -> Result<pse_ids::roles::ProfileHash, ProblemError> {
+    let mut h = FramedHasher::new(pse_ids::Frame::DynamicProfileV8);
+    pse_ids::document::frame(&mut h, p)
+        .map_err(|error| ProblemError::Internal(error.to_string()))?;
+    h.str("resolved_method");
+    pse_ids::document::frame(&mut h, &p.resolved_method().ok())
+        .map_err(|error| ProblemError::Internal(error.to_string()))?;
+    h.hash(&p.numerics.key());
+    Ok(pse_ids::roles::ProfileHash::from_id(h.finish_hash()))
 }
 
 #[cfg(test)]
@@ -616,17 +622,26 @@ mod tests {
         let base = SimulationProfile::default();
         let mut selected = base.clone();
         selected.method = native::Method::Idas;
-        assert_ne!(profile_identity(&base), profile_identity(&selected));
-        let idas = profile_identity(&selected);
+        assert_ne!(
+            profile_identity(&base).unwrap(),
+            profile_identity(&selected).unwrap()
+        );
+        let idas = profile_identity(&selected).unwrap();
         selected.trial_failures = native::TrialPolicy::Recoverable;
-        assert_ne!(idas, profile_identity(&selected));
+        assert_ne!(idas, profile_identity(&selected).unwrap());
         selected = base.clone();
         selected.samples.reverse();
         if base.samples.len() > 1 {
-            assert_ne!(profile_identity(&base), profile_identity(&selected));
+            assert_ne!(
+                profile_identity(&base).unwrap(),
+                profile_identity(&selected).unwrap()
+            );
         }
         selected = base.clone();
         selected.time_limit += std::time::Duration::from_nanos(1);
-        assert_ne!(profile_identity(&base), profile_identity(&selected));
+        assert_ne!(
+            profile_identity(&base).unwrap(),
+            profile_identity(&selected).unwrap()
+        );
     }
 }

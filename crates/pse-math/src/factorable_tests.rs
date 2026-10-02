@@ -128,6 +128,7 @@ fn case(
             variables,
             vec![],
             vec![InstanceBinding {
+                checked_members: Default::default(),
                 instance: id(9),
                 body: key,
                 slots,

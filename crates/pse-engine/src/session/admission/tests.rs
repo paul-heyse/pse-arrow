@@ -280,7 +280,7 @@ async fn recursive_join_terms_transport_their_declared_schema_metadata() {
 #[test]
 fn delta_view_adaptation_requires_its_exact_durable_descriptor() {
     use datafusion::arrow::datatypes::{DataType, Schema};
-    let registry = crate::validation::registry().unwrap();
+    let registry = pse_schema::registry().unwrap();
     let execution = pse_schema::arrow::field_for(
         registry,
         &FieldContract::payload("path", FieldContract::native(DataType::Utf8), "source path"),
@@ -345,10 +345,18 @@ fn fixture() -> (Registry, Arc<dyn TableProvider>, LogicalPlan) {
             serde_json::json!(["u64", 0]),
             serde_json::json!(["list", vec![serde_json::json!(["enum", "liquid"])]]),
         ]],
+        &pse_relations::validate::ValidationContext::local(&registry).unwrap(),
     )
     .unwrap();
     let table: Arc<dyn TableProvider> = Arc::new(ImmutableTable::candidate(
-        pse_relations::columnar::FieldCheckedBatch::admit(&registry, spec, batch).unwrap(),
+        pse_relations::columnar::FieldCheckedBatch::admit(
+            &registry,
+            spec,
+            batch,
+            &pse_relations::validate::ValidationContext::local(&registry).unwrap(),
+            &CancellationToken::new(),
+        )
+        .unwrap(),
     ));
     let plan = LogicalPlanBuilder::scan("labels", provider_as_source(Arc::clone(&table)), None)
         .unwrap()
@@ -577,6 +585,7 @@ async fn executed_unnest_exports_the_exact_source_enum_contract() {
             session.registry(),
             &expected,
             batch.column(0).as_ref(),
+            &session.validation_context().unwrap(),
         )
         .unwrap();
     }

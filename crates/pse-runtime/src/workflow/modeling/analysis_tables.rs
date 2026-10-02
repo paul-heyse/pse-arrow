@@ -115,7 +115,8 @@ fn export(
     )?;
     let pool = runtime.shared.pool();
     let cancel = pse_columnar::CancellationToken::new();
-    let mut columns = Collection::new(&runtime.registry, &pool, &cancel);
+    let validation = runtime.validation_context()?;
+    let mut columns = Collection::new(&runtime.registry, &pool, &cancel, &validation);
     build(&mut columns)?;
     Ok(columns
         .finish()

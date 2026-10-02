@@ -1,0 +1,15 @@
+{
+  "invariant": "runtime.operational_reset_records:unique:pk",
+  "rows": {
+    "runtime.operational_reset_records": [
+      {
+        "inventory_rows": "[\"i64\",1]",
+        "manifest_digest": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]",
+        "manifest_uri": "[\"text\",\"value-1\"]",
+        "reset_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "source_fingerprint": "[\"text\",\"value-1\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

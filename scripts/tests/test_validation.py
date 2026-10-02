@@ -509,6 +509,23 @@ class ValidationTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 case_measure.samples(source)
 
+    def test_case_selection_preserves_default_and_refuses_unknown_identity(
+        self,
+    ) -> None:
+        declarations = (
+            {"workloads": [{"id": "process"}, {"id": "durable"}]},
+            {"workloads": [{"id": "preparation"}]},
+        )
+        self.assertEqual(len(case_measure.selected_workloads(declarations, [])), 3)
+        self.assertEqual(
+            case_measure.selected_workloads(declarations, ["durable", "durable"]),
+            [{"id": "durable"}],
+        )
+        with self.assertRaisesRegex(ValueError, "unknown measurement cases"):
+            case_measure.selected_workloads(declarations, ["absent"])
+        with self.assertRaisesRegex(ValueError, "identities must be unique"):
+            case_measure.selected_workloads((declarations[0], declarations[0]), [])
+
     def test_native_command_preserves_filter_and_full_feature_graph(self) -> None:
         selection = "test(=a) or test(=b); $(touch injected)"
         command = native_tests.rust_command("list", ["-E", selection])

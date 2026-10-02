@@ -565,6 +565,7 @@ pub(crate) fn scan_of<S: Pushdown>(filters: &[Expr]) -> Option<S> {
 pub(crate) struct OperationalTable<S> {
     store: Store,
     registry: Arc<pse_schema::Registry>,
+    validation: Arc<pse_relations::validate::ValidationContext>,
     schema: SchemaRef,
     scan: PhantomData<fn() -> S>,
 }
@@ -578,9 +579,9 @@ fn external(error: impl std::error::Error + Send + Sync + 'static) -> DataFusion
 /// are bound first: the builders validate every page with them.
 fn schema_of<S: Pushdown>(
     registry: &pse_schema::Registry,
+    validation: &pse_relations::validate::ValidationContext,
 ) -> Result<SchemaRef, pse_relations::RelationError> {
-    pse_engine::validation::bind_defaults(registry)?;
-    let empty = S::Row::finish(S::Row::builder(registry, 0)?)?;
+    let empty = S::Row::finish(S::Row::builder(registry, 0, validation)?)?;
     Ok(pse_engine::session::query_schema::schema(
         empty.batch().schema().as_ref(),
     ))
@@ -594,11 +595,13 @@ impl<S: Pushdown> OperationalTable<S> {
     pub(crate) fn new(
         store: Store,
         registry: Arc<pse_schema::Registry>,
+        validation: Arc<pse_relations::validate::ValidationContext>,
     ) -> Result<Self, pse_relations::RelationError> {
         Ok(Self {
             store,
-            schema: schema_of::<S>(&registry)?,
+            schema: schema_of::<S>(&registry, &validation)?,
             registry,
+            validation,
             scan: PhantomData,
         })
     }
@@ -652,6 +655,7 @@ impl<S: Pushdown> TableProvider for OperationalTable<S> {
             let plan: Arc<dyn ExecutionPlan> = Arc::new(OperationalScanExec::<S> {
                 store: self.store.clone(),
                 registry: Arc::clone(&self.registry),
+                validation: Arc::clone(&self.validation),
                 scan: scan_of::<S>(filters),
                 projection: projection.cloned(),
                 limit,
@@ -674,6 +678,7 @@ impl<S: Pushdown> TableProvider for OperationalTable<S> {
 pub(crate) struct OperationalScanExec<S> {
     store: Store,
     registry: Arc<pse_schema::Registry>,
+    validation: Arc<pse_relations::validate::ValidationContext>,
     /// The typed filter the statement runs with; `None` when no row can match.
     scan: Option<S>,
     projection: Option<Vec<usize>>,
@@ -701,6 +706,7 @@ struct Cursor<S: Scan> {
     scan: S,
     store: Store,
     registry: Arc<pse_schema::Registry>,
+    validation: Arc<pse_relations::validate::ValidationContext>,
     projection: Option<Vec<usize>>,
     after: Option<S::Key>,
     remaining: Option<usize>,
@@ -729,7 +735,8 @@ impl<S: Pushdown> Cursor<S> {
             return Ok(None);
         };
         self.after = Some(S::key(last));
-        let mut builder = S::Row::builder(&self.registry, rows.len()).map_err(external)?;
+        let mut builder =
+            S::Row::builder(&self.registry, rows.len(), &self.validation).map_err(external)?;
         for row in rows {
             S::Row::push(&mut builder, row).map_err(external)?;
         }
@@ -803,6 +810,7 @@ impl<S: Pushdown> ExecutionPlan for OperationalScanExec<S> {
             scan,
             store: self.store.clone(),
             registry: Arc::clone(&self.registry),
+            validation: Arc::clone(&self.validation),
             projection: self.projection.clone(),
             after: None,
             remaining: self.limit,
@@ -825,9 +833,11 @@ type NamedTable = (&'static str, Arc<dyn TableProvider>);
 fn table<S: Pushdown>(
     store: &Store,
     registry: &Arc<pse_schema::Registry>,
+    validation: &Arc<pse_relations::validate::ValidationContext>,
 ) -> Result<NamedTable, WorkflowError> {
     let table =
-        OperationalTable::<S>::new(store.clone(), Arc::clone(registry)).map_err(super::relation)?;
+        OperationalTable::<S>::new(store.clone(), Arc::clone(registry), Arc::clone(validation))
+            .map_err(super::relation)?;
     Ok((S::TABLE, Arc::new(table)))
 }
 
@@ -835,21 +845,22 @@ fn table<S: Pushdown>(
 fn tables(
     store: &Store,
     registry: &Arc<pse_schema::Registry>,
+    validation: &Arc<pse_relations::validate::ValidationContext>,
 ) -> Result<Vec<NamedTable>, WorkflowError> {
     Ok(vec![
-        table::<AttemptScan>(store, registry)?,
-        table::<TransitionScan>(store, registry)?,
-        table::<JobScan>(store, registry)?,
-        table::<ProgressEventScan>(store, registry)?,
-        table::<ProgressValueScan>(store, registry)?,
-        table::<IncumbentScan>(store, registry)?,
-        table::<SolutionScan>(store, registry)?,
-        table::<StudyScan>(store, registry)?,
-        table::<StudyPointScan>(store, registry)?,
-        table::<WorkspaceScan>(store, registry)?,
-        table::<PublicationScan>(store, registry)?,
-        table::<PublicationMemberScan>(store, registry)?,
-        table::<SettlementScan>(store, registry)?,
+        table::<AttemptScan>(store, registry, validation)?,
+        table::<TransitionScan>(store, registry, validation)?,
+        table::<JobScan>(store, registry, validation)?,
+        table::<ProgressEventScan>(store, registry, validation)?,
+        table::<ProgressValueScan>(store, registry, validation)?,
+        table::<IncumbentScan>(store, registry, validation)?,
+        table::<SolutionScan>(store, registry, validation)?,
+        table::<StudyScan>(store, registry, validation)?,
+        table::<StudyPointScan>(store, registry, validation)?,
+        table::<WorkspaceScan>(store, registry, validation)?,
+        table::<PublicationScan>(store, registry, validation)?,
+        table::<PublicationMemberScan>(store, registry, validation)?,
+        table::<SettlementScan>(store, registry, validation)?,
     ])
 }
 
@@ -862,7 +873,11 @@ impl Runtime {
     pub fn operational_tables(&self) -> Result<Vec<NamedTable>, WorkflowError> {
         match &self.durability {
             Durability::Ephemeral => Ok(Vec::new()),
-            Durability::Durable(operations) => tables(operations.store(), &self.registry),
+            Durability::Durable(operations) => tables(
+                operations.store(),
+                &self.registry,
+                &self.sessions.validation_context(&self.registry)?,
+            ),
         }
     }
 
@@ -878,7 +893,15 @@ impl Runtime {
         cancel: &pse_columnar::CancellationToken,
     ) -> Result<EngineSession, WorkflowError> {
         let mut session = session.clone();
-        for (name, provider) in self.operational_tables()? {
+        let providers = match &self.durability {
+            Durability::Ephemeral => Vec::new(),
+            Durability::Durable(operations) => tables(
+                operations.store(),
+                &self.registry,
+                &session.validation_context()?,
+            )?,
+        };
+        for (name, provider) in providers {
             session = session.with_provider(
                 TableReference::partial(OPERATIONAL_SCHEMA, name),
                 provider,

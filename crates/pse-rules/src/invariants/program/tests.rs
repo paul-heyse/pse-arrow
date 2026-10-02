@@ -163,7 +163,6 @@ async fn native_query_binding_rejects_hidden_missing_and_unused_inputs() {
     reason = "one duplicate-key fixture compares separate and batched registry/native obligations"
 )]
 async fn native_duplicate_keys_produce_one_typed_finding() {
-    use pse_engine::session::policy::RequirementPlanner;
     let registry = Arc::new(pse_schema::catalog::assemble().unwrap());
     let spec = registry.relation("authored.packages").unwrap();
     let row = vec![
@@ -178,7 +177,16 @@ async fn native_duplicate_keys_produce_one_typed_finding() {
     ];
     let rows = BTreeMap::from([(
         spec.key,
-        pse_relations::testing::batch_from_literals(&registry, spec, &[row.clone(), row]).unwrap(),
+        pse_relations::testing::batch_from_literals(
+            &registry,
+            spec,
+            &[row.clone(), row],
+            session(&registry, BTreeMap::new())
+                .validation_context()
+                .unwrap()
+                .as_ref(),
+        )
+        .unwrap(),
     )]);
     let session = session(&registry, rows.clone());
     let invariant = registry
@@ -265,29 +273,4 @@ async fn native_duplicate_keys_produce_one_typed_finding() {
             usize::from(id == invariant.id)
         );
     }
-    let plan = crate::invariants::RegistryRequirementPlanner
-        .plan(&mixed, &selected, &cancel)
-        .await
-        .unwrap();
-    let error = mixed
-        .prepare(plan, &cancel)
-        .unwrap()
-        .execute(&cancel)
-        .await
-        .unwrap_err();
-    assert!(
-        pse_diagnostics::diagnostic_leaves(&error)
-            .iter()
-            .any(|leaf| {
-                leaf.diagnostic_code() == Some(pse_diagnostics::DiagnosticCode::SchemaAdmission)
-            })
-    );
-    let mut missing = selected;
-    missing.insert(SemanticId::NIL);
-    assert!(
-        crate::invariants::RegistryRequirementPlanner
-            .plan(&mixed, &missing, &cancel)
-            .await
-            .is_err()
-    );
 }

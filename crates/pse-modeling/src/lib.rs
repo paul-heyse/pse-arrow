@@ -16,7 +16,6 @@ pub mod expression;
 mod extent;
 pub mod external;
 pub mod knowledge;
-pub mod logic;
 pub mod measurement;
 pub mod physical_operations;
 pub mod provenance;
@@ -40,7 +39,7 @@ pub enum ModelingError {
     /// The declaration owner retains its source witness when admission fails.
     #[error("{cause}")]
     Located {
-        /// Original document and complete declaration byte range.
+        /// Original document and exact field range when available; otherwise the declaration range.
         span: pse_authoring::SourceSpan,
         /// Authored declaration name.
         name: String,

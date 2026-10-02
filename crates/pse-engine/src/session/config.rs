@@ -194,7 +194,6 @@ pub(super) fn policy_semantics_equal(
     }
     a.id == b.id
         && a.scope == b.scope
-        && a.requirements == b.requirements
         && a.effects == b.effects
         && semantic(&a.defaults).eq(semantic(&b.defaults))
         && semantic(&a.required_settings).eq(semantic(&b.required_settings))

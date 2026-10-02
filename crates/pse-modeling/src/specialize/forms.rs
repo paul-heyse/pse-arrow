@@ -9,7 +9,7 @@
 //! keeps the authored structure as [`NativeConstraint`] metadata that routing refuses on
 //! a backend without the handler.
 use super::*;
-use crate::logic::Proposition;
+use pse_authoring::dsl::Proposition;
 use pse_model::{
     forms::{LogicOperand, NativeConstraint},
     generated::enums::{
@@ -93,13 +93,13 @@ pub enum DerivedRule {
 /// A declared realization with its parsed argument.
 #[derive(Clone, Debug, PartialEq)]
 pub(super) enum Realized {
-    BigM(String),
+    BigM(Expr),
     DerivedBigM(f64),
     Hull(Option<f64>),
     /// The authored smoothing function and width expression of a complementarity.
     Smooth {
-        function: String,
-        width: String,
+        function: Path,
+        width: Expr,
     },
     Other(Policy),
 }
@@ -211,11 +211,30 @@ impl Engine<'_, '_> {
             ));
         }
         let realized = match (v.policy, v.argument.as_deref()) {
-            (Policy::Smooth, Some(width)) => Realized::Smooth {
-                function: v.function.clone().unwrap_or_default(),
-                width: width.into(),
+            (Policy::Smooth, Some(_)) => Realized::Smooth {
+                function: match &self
+                    .p
+                    .expression_at(declaration, "realization.function", 0)?
+                    .kind
+                {
+                    ExprKind::Path(path) => path.clone(),
+                    _ => {
+                        return Err(invalid(
+                            declaration,
+                            "smoothing function requires a checked path",
+                        ));
+                    }
+                },
+                width: self
+                    .p
+                    .expression_at(declaration, "realization.argument", 0)?
+                    .clone(),
             },
-            (Policy::BigM, Some(m)) => Realized::BigM(m.into()),
+            (Policy::BigM, Some(_)) => Realized::BigM(
+                self.p
+                    .expression_at(declaration, "realization.argument", 0)?
+                    .clone(),
+            ),
             (Policy::DerivedBigM, margin) => {
                 let margin = margin
                     .map(number)
@@ -501,11 +520,11 @@ impl Engine<'_, '_> {
     fn binary_operand(
         &mut self,
         instance: InstanceId,
-        text: &str,
+        role: &str,
         env: &Environment,
         at: DeclarationId,
     ) -> Result<SemanticId> {
-        let expression = dsl::parse_expr(text).map_err(|e| invalid(at, e.to_string()))?;
+        let expression = self.p.expression_at(at, role, 0)?.clone();
         let expression = self.rewrite(instance, &expression, env, &[at])?;
         symbol_reference(&expression)
             .filter(|id| {
@@ -514,7 +533,32 @@ impl Engine<'_, '_> {
                     .get(id)
                     .is_some_and(|s| s.role == Kind::Variable && s.domain == Domain::Binary)
             })
-            .ok_or_else(|| invalid(at, format!("{text} must name a binary variable")))
+            .ok_or_else(|| invalid(at, format!("{role} must name a binary variable")))
+    }
+    fn binary_operand_ast(
+        &mut self,
+        instance: InstanceId,
+        expression: &Expr,
+        env: &Environment,
+        at: DeclarationId,
+    ) -> Result<SemanticId> {
+        let expression = self.rewrite(instance, expression, env, &[at])?;
+        symbol_reference(&expression)
+            .filter(|id| {
+                self.model
+                    .symbols
+                    .get(id)
+                    .is_some_and(|s| s.role == Kind::Variable && s.domain == Domain::Binary)
+            })
+            .ok_or_else(|| {
+                invalid(
+                    at,
+                    format!(
+                        "{} must name a binary variable",
+                        dsl::render_expr(&expression)
+                    ),
+                )
+            })
     }
     fn record(
         &mut self,
@@ -552,7 +596,7 @@ impl Engine<'_, '_> {
             .and_then(|e| e.condition.clone())
             .ok_or_else(|| invalid(at, "indicator condition absent"))?;
         let local = coordinates_env(env, coordinates);
-        let variable = self.binary_operand(instance, &condition.variable, &local, at)?;
+        let variable = self.binary_operand(instance, "equation.condition.variable", &local, at)?;
         let EquationKind::Relation { lhs, sense, rhs } = equation.kind else {
             return Err(invalid(at, "an indicator constraint is a relation"));
         };
@@ -623,9 +667,8 @@ impl Engine<'_, '_> {
         let ty = self.type_of(&residual, &contracts, source)?;
         let mut variables = Vec::new();
         let (residual, upper, lower) = match realized {
-            Realized::BigM(text) => {
-                let m = dsl::parse_expr(text).map_err(|e| invalid(source, e.to_string()))?;
-                let m = self.rewrite(instance, &m, env, &[source])?;
+            Realized::BigM(expression) => {
+                let m = self.rewrite(instance, expression, env, &[source])?;
                 let types = self
                     .model
                     .symbols
@@ -922,14 +965,14 @@ impl Engine<'_, '_> {
                         ));
                     }
                     for coordinates in self.coordinates(
+                        instance,
                         child,
                         env,
                         e.indices
                             .iter()
                             .map(|i| (i.name.as_str(), i.domain.as_str())),
                     )? {
-                        let equation = dsl::parse_equation(&e.expression)
-                            .map_err(|e| invalid(child, e.to_string()))?;
+                        let equation = self.p.equation_at(child, "equation.expression", 0)?.clone();
                         let equation = self.rewrite_equation(
                             instance,
                             &equation,
@@ -1251,11 +1294,15 @@ impl Engine<'_, '_> {
                 }
             }
             ExprKind::NamedCall { name, args }
-                if self.model.functions.get(name).is_some_and(|f| {
-                    f.reduction
-                        .as_ref()
-                        .is_some_and(|r| r.kind == pse_quantity::ReductionKind::Sum)
-                }) =>
+                if self
+                    .model
+                    .functions
+                    .get(&dsl::render_path(name))
+                    .is_some_and(|f| {
+                        f.reduction
+                            .as_ref()
+                            .is_some_and(|r| r.kind == pse_quantity::ReductionKind::Sum)
+                    }) =>
             {
                 args.iter()
                     .map(|a| self.classify(a, variables, memo))
@@ -1361,6 +1408,7 @@ impl Engine<'_, '_> {
         };
         let mut members = Vec::new();
         for coordinates in self.coordinates(
+            instance,
             at,
             env,
             v.indices
@@ -1368,8 +1416,10 @@ impl Engine<'_, '_> {
                 .map(|i| (i.name.as_str(), i.domain.as_str())),
         )? {
             let local = coordinates_env(env, &coordinates);
-            let member = self.variable_operand(instance, &v.member, &local, at)?;
-            let weight = self.eval(at, &local, &v.weight, None)?.scalar(at)?;
+            let member = self.variable_operand(instance, "ordered_set.member", &local, at)?;
+            let weight = self
+                .eval_field(at, &local, "ordered_set.weight", 0, None)?
+                .scalar(at)?;
             members.push((member, weight));
         }
         members.sort_by(|a, b| a.1.total_cmp(&b.1));
@@ -1412,11 +1462,11 @@ impl Engine<'_, '_> {
     fn variable_operand(
         &mut self,
         instance: InstanceId,
-        text: &str,
+        role: &str,
         env: &Environment,
         at: DeclarationId,
     ) -> Result<SemanticId> {
-        let expression = dsl::parse_expr(text).map_err(|e| invalid(at, e.to_string()))?;
+        let expression = self.p.expression_at(at, role, 0)?.clone();
         let expression = self.rewrite(instance, &expression, env, &[at])?;
         symbol_reference(&expression)
             .filter(|id| {
@@ -1425,7 +1475,7 @@ impl Engine<'_, '_> {
                     .get(id)
                     .is_some_and(|s| s.role == Kind::Variable && s.expression.is_none())
             })
-            .ok_or_else(|| invalid(at, format!("{text} must name a variable")))
+            .ok_or_else(|| invalid(at, format!("{role} must name a variable")))
     }
     /// Member `i` may be nonzero only while its binary `z` allows: `L·z ≤ x ≤ U·z` over
     /// finite case bounds. SOS1 selects one member; SOS2 one segment of two neighbours.
@@ -1544,7 +1594,9 @@ impl Engine<'_, '_> {
             .cardinality
             .clone()
             .ok_or_else(|| invalid(at, "cardinality payload"))?;
-        let count = self.eval(at, env, &v.count, None)?.scalar(at)?;
+        let count = self
+            .eval_field(at, env, "cardinality.count", 0, None)?
+            .scalar(at)?;
         if !(count.is_finite()
             && count >= 0.0
             && count.fract() == 0.0
@@ -1554,6 +1606,7 @@ impl Engine<'_, '_> {
         }
         let mut members = Vec::new();
         for coordinates in self.coordinates(
+            instance,
             at,
             env,
             v.indices
@@ -1561,7 +1614,7 @@ impl Engine<'_, '_> {
                 .map(|i| (i.name.as_str(), i.domain.as_str())),
         )? {
             let local = coordinates_env(env, &coordinates);
-            members.push(self.variable_operand(instance, &v.member, &local, at)?);
+            members.push(self.variable_operand(instance, "cardinality.member", &local, at)?);
         }
         let realized = self.realization(Form::Cardinality, instance, at)?;
         let lineage = self.lineage(instance, row, &[at]);
@@ -1677,14 +1730,15 @@ impl Engine<'_, '_> {
         if v.indices.len() != 1 {
             return Err(invalid(at, "a piecewise function has one breakpoint index"));
         }
-        let rewrite = |engine: &mut Self, text: &str, local: &Environment| -> Result<Expr> {
-            let e = dsl::parse_expr(text).map_err(|e| invalid(at, e.to_string()))?;
+        let rewrite = |engine: &mut Self, role: &str, local: &Environment| -> Result<Expr> {
+            let e = engine.p.expression_at(at, role, 0)?.clone();
             engine.rewrite(instance, &e, local, &[at])
         };
-        let output = rewrite(self, &v.output, env)?;
-        let input = rewrite(self, &v.input, env)?;
+        let output = rewrite(self, "piecewise.output", env)?;
+        let input = rewrite(self, "piecewise.input", env)?;
         let mut points = Vec::new();
         for coordinates in self.coordinates(
+            instance,
             at,
             env,
             v.indices
@@ -1693,8 +1747,8 @@ impl Engine<'_, '_> {
         )? {
             let local = coordinates_env(env, &coordinates);
             points.push((
-                rewrite(self, &v.abscissa, &local)?,
-                rewrite(self, &v.ordinate, &local)?,
+                rewrite(self, "piecewise.abscissa", &local)?,
+                rewrite(self, "piecewise.ordinate", &local)?,
             ));
         }
         if points.len() < 2 {
@@ -1907,7 +1961,7 @@ impl Engine<'_, '_> {
         env: &Environment,
     ) -> Result<()> {
         let at = row.declaration_id;
-        let v = row
+        let _v = row
             .value
             .complementarity
             .clone()
@@ -1916,15 +1970,15 @@ impl Engine<'_, '_> {
         let local = coordinates_env(env, coordinates);
         let base = member_id(instance, at, coordinates);
         let lineage = self.lineage(instance, row, &[at]);
-        let member = |engine: &mut Self, text: &str| -> Result<(Expr, Type)> {
-            let parsed = dsl::parse_expr(text).map_err(|e| invalid(at, e.to_string()))?;
-            let expression = engine.rewrite(instance, &parsed, &local, &[at])?;
+        let member = |engine: &mut Self, role: &str| -> Result<(Expr, Type)> {
+            let parsed = engine.p.expression_at(at, role, 0)?;
+            let expression = engine.rewrite(instance, parsed, &local, &[at])?;
             let contracts = engine.model.function_contracts(engine.p);
             let ty = engine.type_of(&expression, &contracts, at)?;
             Ok((expression, ty))
         };
-        let (first, first_ty) = member(self, &v.first)?;
-        let (second, second_ty) = member(self, &v.second)?;
+        let (first, first_ty) = member(self, "complementarity.first")?;
+        let (second, second_ty) = member(self, "complementarity.second")?;
         let mut rows = Vec::new();
         let mut variables = Vec::new();
         let nonnegative = |engine: &mut Self,
@@ -1946,11 +2000,21 @@ impl Engine<'_, '_> {
         let equivalence = match &realized {
             Realized::Smooth { function, width } => {
                 // The smoothing function is the package's, called as authored.
-                let call = dsl::parse_expr(&format!(
-                    "{function}(({}), ({}), ({width}))",
-                    v.first, v.second
-                ))
-                .map_err(|e| invalid(at, e.to_string()))?;
+                let call = Expr {
+                    kind: ExprKind::NamedCall {
+                        name: function.clone(),
+                        args: vec![
+                            self.p
+                                .expression_at(at, "complementarity.first", 0)?
+                                .clone(),
+                            self.p
+                                .expression_at(at, "complementarity.second", 0)?
+                                .clone(),
+                            width.clone(),
+                        ],
+                    },
+                    span: Span::default(),
+                };
                 let smoothed = self.rewrite(instance, &call, &local, &[at])?;
                 let contracts = self.model.function_contracts(self.p);
                 let ty = self.type_of(&smoothed, &contracts, at)?;
@@ -2041,12 +2105,7 @@ impl Engine<'_, '_> {
         env: &Environment,
     ) -> Result<()> {
         let at = row.declaration_id;
-        let v = row
-            .value
-            .logic
-            .clone()
-            .ok_or_else(|| invalid(at, "logic payload"))?;
-        let proposition = crate::logic::parse(&v.proposition).map_err(|e| invalid(at, e))?;
+        let proposition = self.p.proposition_at(at)?.clone();
         let realized = self.realization(Form::Logic, instance, at)?;
         let native = realized == Realized::Other(Policy::Native);
         let mut lowering = LogicLowering {
@@ -2129,8 +2188,8 @@ impl LogicLowering {
         p: &Proposition,
     ) -> Result<(SemanticId, bool)> {
         Ok(match p {
-            Proposition::Atom(text) => (
-                engine.binary_operand(self.instance, text, &self.env, self.at)?,
+            Proposition::Atom(expression) => (
+                engine.binary_operand_ast(self.instance, expression, &self.env, self.at)?,
                 false,
             ),
             Proposition::Not(inner) => {
@@ -2258,7 +2317,7 @@ impl LogicLowering {
             }
             Proposition::Exactly(count, ps) => {
                 let k = engine
-                    .eval(self.at, &self.env, count, None)?
+                    .eval_ast(self.at, &self.env, count)?
                     .scalar(self.at)?;
                 if !(k.is_finite() && k >= 0.0 && k.fract() == 0.0) {
                     return Err(invalid(

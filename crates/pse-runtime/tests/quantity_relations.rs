@@ -4,7 +4,7 @@
 //! Actual package columns enter one native physical inventory.
 #![allow(clippy::unwrap_used, reason = "explicit native physical fixtures")]
 use pse_columnar::CancellationToken;
-use pse_engine::session::{EngineSession, ExecutionSettings, ThreadBudget};
+use pse_engine::session::{EngineFactory, EngineSession, ExecutionSettings, ThreadBudget};
 use pse_ids::SemanticId;
 use pse_quantity::standard::ids;
 use pse_relations::{
@@ -15,7 +15,10 @@ use pse_runtime::physical::{PhysicalInventory, input_keys};
 use pse_schema::{Registry, model::RelationKey};
 use std::{collections::BTreeMap, num::NonZeroUsize, path::Path, sync::Arc};
 
-fn inputs(registry: &Registry) -> BTreeMap<RelationKey, FieldCheckedBatch> {
+fn inputs(
+    registry: &Registry,
+    validation: &pse_relations::validate::ValidationContext,
+) -> BTreeMap<RelationKey, FieldCheckedBatch> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .unwrap()
@@ -26,6 +29,7 @@ fn inputs(registry: &Registry) -> BTreeMap<RelationKey, FieldCheckedBatch> {
             &root.join("packages/reference").join(name),
             registry,
             pse_authoring::ParseBudget::default(),
+            validation,
         )
         .unwrap()
     });
@@ -47,11 +51,7 @@ fn inputs(registry: &Registry) -> BTreeMap<RelationKey, FieldCheckedBatch> {
         })
         .collect()
 }
-fn session(
-    registry: &Arc<Registry>,
-    rows: BTreeMap<RelationKey, FieldCheckedBatch>,
-    cancel: &CancellationToken,
-) -> EngineSession {
+fn factory() -> EngineFactory {
     let one = NonZeroUsize::new(1).unwrap();
     pse_testkit::factory(
         Arc::new(pse_columnar::GreedyMemoryPool::new(8usize << 30)),
@@ -62,15 +62,25 @@ fn session(
         },
     )
     .unwrap()
-    .candidate_checked(rows, Arc::clone(registry), cancel)
-    .unwrap()
+}
+fn session(
+    factory: &EngineFactory,
+    registry: &Arc<Registry>,
+    rows: BTreeMap<RelationKey, FieldCheckedBatch>,
+    cancel: &CancellationToken,
+) -> EngineSession {
+    factory
+        .candidate_checked(rows, Arc::clone(registry), cancel)
+        .unwrap()
 }
 
 #[tokio::test]
 async fn actual_reference_inventory_retains_explicit_context_and_full_physical_types() {
     let registry = Arc::new(pse_schema::catalog::assemble().unwrap());
+    let factory = factory();
+    let validation = factory.validation_context(&registry).unwrap();
     let cancel = CancellationToken::new();
-    let session = session(&registry, inputs(&registry), &cancel);
+    let session = session(&factory, &registry, inputs(&registry, &validation), &cancel);
     let actual = PhysicalInventory::load(&session, &registry, &cancel)
         .await
         .unwrap();
@@ -90,8 +100,10 @@ async fn reference_datum_subject_requires_an_actual_authored_entity() {
         authored::modeling_declarations, enums::ModelingDeclarationKind,
     };
     let registry = Arc::new(pse_schema::catalog::assemble().unwrap());
+    let factory = factory();
+    let validation = factory.validation_context(&registry).unwrap();
     let cancel = CancellationToken::new();
-    let rows = inputs(&registry);
+    let rows = inputs(&registry, &validation);
     let declarations = registry.relation("authored.modeling_declarations").unwrap();
     let declared = modeling_declarations::View::from_checked(&rows[&declarations.key])
         .unwrap()
@@ -117,14 +129,19 @@ async fn reference_datum_subject_requires_an_actual_authored_entity() {
         (Some(kind), false),
         (Some(SemanticId::from_bytes([254; 16]).into()), false),
     ] {
-        let mut builder = reference::reference_states::Builder::new().unwrap();
+        let mut builder = reference::reference_states::Builder::with_registry(
+            &registry,
+            references.len(),
+            &validation,
+        )
+        .unwrap();
         for mut row in references.clone() {
             row.subject_id = subject;
             builder.push(row).unwrap();
         }
         let mut candidate = rows.clone();
         candidate.insert(spec.key, builder.finish().unwrap());
-        let session = session(&registry, candidate, &cancel);
+        let session = session(&factory, &registry, candidate, &cancel);
         let result = PhysicalInventory::load(&session, &registry, &cancel).await;
         assert_eq!(result.is_ok(), accepted, "subject {subject:?}: {result:?}");
         if let Ok(inventory) = result {
@@ -146,8 +163,10 @@ async fn mixture_normalization_preserves_differences_and_requires_actual_fractio
     };
 
     let registry = Arc::new(pse_schema::catalog::assemble().unwrap());
+    let factory = factory();
+    let validation = factory.validation_context(&registry).unwrap();
     let cancel = CancellationToken::new();
-    let session = session(&registry, inputs(&registry), &cancel);
+    let session = session(&factory, &registry, inputs(&registry, &validation), &cancel);
     let physical = PhysicalInventory::load(&session, &registry, &cancel)
         .await
         .unwrap();
@@ -219,8 +238,10 @@ async fn energy_density_cancels_molar_basis_and_preserves_thermochemical_datum()
         infer::{OpRequest, Operand, infer_with_evidence},
     };
     let registry = Arc::new(pse_schema::catalog::assemble().unwrap());
+    let factory = factory();
+    let validation = factory.validation_context(&registry).unwrap();
     let cancel = CancellationToken::new();
-    let session = session(&registry, inputs(&registry), &cancel);
+    let session = session(&factory, &registry, inputs(&registry, &validation), &cancel);
     let physical = PhysicalInventory::load(&session, &registry, &cancel)
         .await
         .unwrap();
@@ -254,7 +275,29 @@ async fn energy_density_cancels_molar_basis_and_preserves_thermochemical_datum()
             .reference_state
     );
     assert!(infer(density, quantity("553e33a36c6245619508d88d585c148b")).is_err());
-    assert!(infer(density, quantity("d5bb3d48b9804f2f8d5a6f0a7cadaee8")).is_err());
+    let difference = quantity("d5bb3d48b9804f2f8d5a6f0a7cadaee8");
+    let result = infer(density, difference).unwrap();
+    assert!(matches!(result.selected,
+        pse_quantity::infer::OperationSelection::Registered { operation, .. }
+        if operation == pse_quantity::OperationId::from_id(
+            SemanticId::parse_hex("49b6321de7bc455fb63416082283c5a6").unwrap()
+        )
+    ));
+    let actual = &physical
+        .quantities()
+        .quantity_type(result.result)
+        .unwrap()
+        .key;
+    assert_eq!(actual.basis, None);
+    assert_eq!(
+        actual.reference_state,
+        physical
+            .quantities()
+            .quantity_type(difference)
+            .unwrap()
+            .key
+            .reference_state
+    );
 }
 
 #[tokio::test]
@@ -264,8 +307,10 @@ async fn inlet_pressure_equality_has_an_indexed_absolute_difference_contract() {
         infer::{OpRequest, Operand, infer},
     };
     let registry = Arc::new(pse_schema::catalog::assemble().unwrap());
+    let factory = factory();
+    let validation = factory.validation_context(&registry).unwrap();
     let cancel = CancellationToken::new();
-    let session = session(&registry, inputs(&registry), &cancel);
+    let session = session(&factory, &registry, inputs(&registry, &validation), &cancel);
     let physical = PhysicalInventory::load(&session, &registry, &cancel)
         .await
         .unwrap();
@@ -322,8 +367,10 @@ async fn inlet_pressure_equality_has_an_indexed_absolute_difference_contract() {
 #[tokio::test]
 async fn normalized_unit_union_requires_complete_exact_definitions() {
     let registry = Arc::new(pse_schema::catalog::assemble().unwrap());
+    let factory = factory();
+    let validation = factory.validation_context(&registry).unwrap();
     let cancel = CancellationToken::new();
-    let original = inputs(&registry);
+    let original = inputs(&registry, &validation);
     let unit_spec = reference::units::spec(&registry).unwrap();
     // An atomic unit: a defined unit authors no scale to change (ADR-0124).
     let unit = reference::units::View::from_checked(&original[&unit_spec.key])
@@ -335,7 +382,8 @@ async fn normalized_unit_union_requires_complete_exact_definitions() {
         .unwrap();
     for changed in [false, true] {
         let mut rows = original.clone();
-        let mut builder = normalized::units::Builder::with_registry(&registry, 1).unwrap();
+        let mut builder =
+            normalized::units::Builder::with_registry(&registry, 1, &validation).unwrap();
         builder
             .push(normalized::units::Row {
                 unit_id: unit.unit_id,
@@ -359,7 +407,7 @@ async fn normalized_unit_union_requires_complete_exact_definitions() {
             .unwrap();
         let spec = normalized::units::spec(&registry).unwrap();
         rows.insert(spec.key, builder.finish().unwrap());
-        let session = session(&registry, rows, &cancel);
+        let session = session(&factory, &registry, rows, &cancel);
         let result = PhysicalInventory::load(&session, &registry, &cancel).await;
         assert_eq!(result.is_ok(), !changed);
     }
@@ -368,10 +416,12 @@ async fn normalized_unit_union_requires_complete_exact_definitions() {
 #[tokio::test]
 async fn missing_context_is_not_inferred_and_cancellation_propagates() {
     let registry = Arc::new(pse_schema::catalog::assemble().unwrap());
+    let factory = factory();
+    let validation = factory.validation_context(&registry).unwrap();
     let cancel = CancellationToken::new();
-    let mut rows = inputs(&registry);
+    let mut rows = inputs(&registry, &validation);
     rows.remove(&reference::math_context::spec(&registry).unwrap().key);
-    let session = session(&registry, rows, &cancel);
+    let session = session(&factory, &registry, rows, &cancel);
     let physical = PhysicalInventory::load(&session, &registry, &cancel)
         .await
         .unwrap();

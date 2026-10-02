@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("a1b1595e38404adbb092d6057acb585d") package unit_fixtures {
+@id("e3112da7a9f64635aaa01a929b2392e7") use cubic @"1.0.0";
 @id("6bb6f44c2aa246449c8505463912ba45") use correlations @"1.0.0";
 @id("5c5ed2bd90fa4b7197fb7f0261cf4349") use properties @"1.0.0";
 @id("b4039ea4f9f84803abea94903a6d6b65") use compatibility @"1.0.0";
@@ -15,13 +16,16 @@
 @id("db444a9883f74a7eb6dd4345f1d457a7") use units @"1.0.0";
 @id("e28b9664b43c49509f3d875c7c706ad0") use equilibrium @"1.0.0";
 @id("f591d98a41124e9f825326d9c1070315") use bt_pr @"1.0.0";
+@id("9250212b36844614974ab375f4c3e62c") use peng_robinson @"1.0.0";
 @id("3becf482fd74475b9dc7e93294d842c8") use saponification @"1.0.0";
 @id("b830019bfa0b4ae4aedc6e65a723ab08") use chem @"1.0.0";
 // Start the bubble estimate away from the fixed inlet temperature: a forward
 // derivative sample must not straddle the 0.0001 K smoothing transition.
 // This changes only the initial iterate, not the equations or oracle conditions.
-@id("ecb5f19e10f948de9aa1215714c8370e") test heater_bt oracle references.idaes_test_heater_bt fixture {dof 0; route steady; procedure solve; fix root.inlet.flow=5{mol/s}; fix root.inlet.T=365{K}; value root.inlet.bubble=364{K}; fix root.inlet.pressure=101325{Pa}; fix root.inlet.z[chem.benzene]=0.5{1}; fix root.inlet.z[chem.toluene]=0.5{1}; fix root.heat=-5000{W}; value root.inlet.epsilon_bubble=0.0001{K}; value root.inlet.epsilon_dew=0.0001{K}; value root.outlet.epsilon_bubble=0.0001{K}; value root.outlet.epsilon_dew=0.0001{K}; fix root.delta_pressure=0{Pa};} {
-@id("b0311cea4fd24457830509ecb2322ad7") child root:units.Heater=units.Heater(inlet_pkg=bt_pr.BT_PR(defined_state=true),outlet_pkg=bt_pr.BT_PR(defined_state=false));
+@id("ecb5f19e10f948de9aa1215714c8370e") test heater_bt oracle references.idaes_test_heater_bt fixture {dof 0; route steady; procedure solve; fix root.inlet.flow=5{mol/s}; fix root.inlet.T=365{K}; value root.inlet.bubble=364{K}; fix root.inlet.pressure=101325{Pa}; fix root.inlet.z[chem.benzene]=0.5{1}; fix root.inlet.z[chem.toluene]=0.5{1}; fix root.heat=-5000{W}; value root.inlet.epsilon_bubble=0.0001{K}; value root.inlet.epsilon_dew=0.0001{K}; value root.outlet.epsilon_bubble=0.0001{K}; value root.outlet.epsilon_dew=0.0001{K}; fix root.delta_pressure=0{Pa};policy {limits body_occurrences(1000000); } } {
+// These exact selected critical records and predictive zero rule declare unknown applicability.
+@id("6183bd7273904918ac378f6bbdf5654c") permission selected_unknown_fit families(cubic.critical_point,properties.predictive_rule) allow_unknown true allow_extrapolation false;
+@id("b0311cea4fd24457830509ecb2322ad7") child root:units.Heater=units.Heater(inlet_pkg=bt_pr.BT_PR(defined_state=true,density=peng_robinson.RelationalDensity),outlet_pkg=bt_pr.BT_PR(defined_state=false,density=peng_robinson.RelationalDensity));
 @id("b4ce65d7ccea4978b74782655b6d46bb") expect root.outlet.flow==5{mol/s} tolerance 0.001{mol/s};
 @id("65c099908e834fef98f2569479bfd6ab") expect root.outlet.T==358.6{K} tolerance 0.1{K};
 @id("ed4a461b7734425892f818857853f6ac") expect root.outlet.pressure==101325{Pa} tolerance 0.001{Pa};
@@ -122,8 +126,10 @@
 }
 @id("c2e968823f614ca284ee4cba0dcd9181") use heat_exchange @"1.0.0";
 // Use the same off-transition bubble estimate as the PR heater fixture.
-@id("262dd921b1bb4dd992d911cf8dcd3d92") test heat_exchanger_bt_cocurrent oracle references.idaes_test_heat_exchanger_bt fixture {dof 0; route steady; procedure solve; fix root.hot.inlet.flow=5{mol/s}; fix root.hot.inlet.T=365{K}; value root.hot.inlet.bubble=364{K}; fix root.hot.inlet.pressure=101325{Pa}; fix root.hot.inlet.z[chem.benzene]=0.5{1}; fix root.hot.inlet.z[chem.toluene]=0.5{1}; fix root.hot.delta_pressure=0{Pa}; value root.hot.inlet.epsilon_bubble=0.0001{K}; value root.hot.inlet.epsilon_dew=0.0001{K}; value root.hot.outlet.epsilon_bubble=0.0001{K}; value root.hot.outlet.epsilon_dew=0.0001{K}; fix root.cold.inlet.flow=1{mol/s}; fix root.cold.inlet.T=300{K}; fix root.cold.inlet.pressure=101325{Pa}; fix root.cold.inlet.z[chem.benzene]=0.5{1}; fix root.cold.inlet.z[chem.toluene]=0.5{1}; fix root.cold.delta_pressure=0{Pa}; value root.cold.inlet.epsilon_bubble=0.0001{K}; value root.cold.inlet.epsilon_dew=0.0001{K}; value root.cold.outlet.epsilon_bubble=0.0001{K}; value root.cold.outlet.epsilon_dew=0.0001{K}; fix root.area=1{m^2}; fix root.coefficient=100{W/(m^2*K)};} {
-@id("a043e8c6fe1f459fac761c55c499b317") child root:heat_exchange.HeatExchanger=heat_exchange.HeatExchanger(hot_inlet_pkg=bt_pr.BT_PR(defined_state=true),hot_outlet_pkg=bt_pr.BT_PR(defined_state=false),cold_inlet_pkg=bt_pr.BT_PR(defined_state=true,minimum=300{K}),cold_outlet_pkg=bt_pr.BT_PR(defined_state=false,minimum=300{K}),cocurrent=true);
+@id("262dd921b1bb4dd992d911cf8dcd3d92") test heat_exchanger_bt_cocurrent oracle references.idaes_test_heat_exchanger_bt fixture {dof 0; route steady; procedure solve; fix root.hot.inlet.flow=5{mol/s}; fix root.hot.inlet.T=365{K}; value root.hot.inlet.bubble=364{K}; fix root.hot.inlet.pressure=101325{Pa}; fix root.hot.inlet.z[chem.benzene]=0.5{1}; fix root.hot.inlet.z[chem.toluene]=0.5{1}; fix root.hot.delta_pressure=0{Pa}; value root.hot.inlet.epsilon_bubble=0.0001{K}; value root.hot.inlet.epsilon_dew=0.0001{K}; value root.hot.outlet.epsilon_bubble=0.0001{K}; value root.hot.outlet.epsilon_dew=0.0001{K}; fix root.cold.inlet.flow=1{mol/s}; fix root.cold.inlet.T=300{K}; fix root.cold.inlet.pressure=101325{Pa}; fix root.cold.inlet.z[chem.benzene]=0.5{1}; fix root.cold.inlet.z[chem.toluene]=0.5{1}; fix root.cold.delta_pressure=0{Pa}; value root.cold.inlet.epsilon_bubble=0.0001{K}; value root.cold.inlet.epsilon_dew=0.0001{K}; value root.cold.outlet.epsilon_bubble=0.0001{K}; value root.cold.outlet.epsilon_dew=0.0001{K}; fix root.area=1{m^2}; fix root.coefficient=100{W/(m^2*K)};policy {limits body_occurrences(1000000); } } {
+// These exact selected critical records and predictive zero rule declare unknown applicability.
+@id("5cc5ad53401447d3995bfc4c797cb795") permission selected_unknown_fit families(cubic.critical_point,properties.predictive_rule) allow_unknown true allow_extrapolation false;
+@id("a043e8c6fe1f459fac761c55c499b317") child root:heat_exchange.HeatExchanger=heat_exchange.HeatExchanger(hot_inlet_pkg=bt_pr.BT_PR(defined_state=true,density=peng_robinson.RelationalDensity),hot_outlet_pkg=bt_pr.BT_PR(defined_state=false,density=peng_robinson.RelationalDensity),cold_inlet_pkg=bt_pr.BT_PR(defined_state=true,minimum=300{K},density=peng_robinson.RelationalDensity),cold_outlet_pkg=bt_pr.BT_PR(defined_state=false,minimum=300{K},density=peng_robinson.RelationalDensity),cocurrent=true);
 @id("3a7f7aba89cb47a0b992fb8212833251") expect root.hot.outlet.T==359.4{K} tolerance 0.1{K};
 @id("fa9b11ec6bb54b57b89f5d4b9f395792") expect root.cold.outlet.T==331.6111111111111{K} tolerance 0.1{K};
 @id("4b7434a1b379460d97d1705c139f1612") expect root.hot.outlet.flow==5{mol/s} tolerance 0.001{mol/s};

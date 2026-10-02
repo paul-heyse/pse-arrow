@@ -49,48 +49,6 @@ impl PreparedInitializationStrategy {
     }
 }
 
-/// One declared mathematical realization of a causal unit.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
-pub enum CausalUnitRealization {
-    /// Authored output functions with every free dependency declared at the boundary.
-    ExplicitMap,
-    /// Original owned residuals, local solved coordinates and one declared root procedure.
-    Conditional {
-        /// Complete selected original unit equality identities.
-        residuals: BTreeSet<SemanticId>,
-        /// Remaining local free coordinates after boundary inputs are fixed.
-        unknowns: BTreeSet<SemanticId>,
-        /// The canonical solver settings document; defaults resolve in its existing owner.
-        solver: Box<crate::math::settings::SolveSettings>,
-    },
-}
-/// Explicit causal direction and admitted mathematical realization for one unit.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct CausalUnitRequest {
-    /// Owning selected flow node.
-    pub node: SemanticId,
-    /// Input ports; their coordinates are owned by the authored port declarations.
-    pub inputs: BTreeSet<SemanticId>,
-    /// Output ports; their expressions are owned by the authored port declarations.
-    pub outputs: BTreeSet<SemanticId>,
-    /// A unit equation solve is declared independently of an explicit function map.
-    pub realization: CausalUnitRealization,
-}
-/// Concrete tear witness and causal directions; native KINSOL owns all recycle iteration.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RecycleRequest {
-    /// Exact selected tear decision groups, obtainable through select_tears.
-    pub tears: BTreeSet<SemanticId>,
-    /// Complete admitted causal unit inventory.
-    pub units: Vec<CausalUnitRequest>,
-    /// Native Anderson history; zero means unaccelerated fixed point.
-    pub anderson: usize,
-    /// Native fixed-point damping in (0,1].
-    pub damping: pse_model::scalars::Fraction,
-}
 #[derive(Clone, Debug)]
 struct UnitProgram {
     declaration: CausalUnitRequest,
@@ -644,7 +602,7 @@ impl ModelingPackage {
             .collect();
         let initial = tears.iter().map(|p| all_inputs[p]).collect();
         let mut h = FramedHasher::new(pse_ids::Frame::CausalMapV2);
-        h.hash(&self.revision.identity())
+        h.hash(&self.revision.identity().as_id())
             .hash(&resolved.model.case.compiled().plan.structure().key())
             .hash(&resolved.model.values.identity())
             .hash(&graph.key())
@@ -801,6 +759,9 @@ fn expand_unit_ports(
 pub(in crate::workflow) mod reference_fixture;
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod integrated_journey;
 
 /// The execution boundary supplies identities; callers never parse formatted IDs
 /// from the compiler or adapter's message to recover a selected-unit witness.

@@ -66,7 +66,6 @@ fn ephemeral() -> Runtime {
     })
     .unwrap();
     let registry = pse_schema::shared_registry().unwrap();
-    pse_engine::validation::bind_defaults(&registry).unwrap();
     let sessions = Arc::new(
         shared
             .session_factory(pse_engine::session::native_engine_profile())
@@ -96,7 +95,10 @@ async fn finished_attempt(runtime: &Runtime) -> AttemptId {
         attempt_id: pse_operations::mint_id(),
         run_id: pse_operations::mint_id(),
         kind: AttemptKind::Simulation,
-        request_identity: pse_ids::ContentHash::from_bytes([1; 32]),
+        operational_job_identity: pse_ids::roles::RecordedOperationalJobIdentity::recorded(
+            pse_ids::ContentHash::from_bytes([1; 32]),
+            None,
+        ),
         preparation_identity: None,
         parent_attempt: None,
     };
@@ -140,7 +142,8 @@ fn name(schema: &str, table: &str) -> ResolvedTableReference {
 fn artifact(runtime: &Runtime, package: &str) -> ArtifactPlan {
     let cancel = CancellationToken::new();
     let registry = runtime.registry().clone();
-    let mut packages = packages::Builder::new().unwrap();
+    let validation = runtime.sessions().validation_context(&registry).unwrap();
+    let mut packages = packages::Builder::new(&validation).unwrap();
     packages
         .push(packages::Row {
             package_id: identity(10).into(),
@@ -153,7 +156,7 @@ fn artifact(runtime: &Runtime, package: &str) -> ArtifactPlan {
             doc: String::new(),
         })
         .unwrap();
-    let mut entities = entities::Builder::new().unwrap();
+    let mut entities = entities::Builder::new(&validation).unwrap();
     entities
         .push(entities::Row {
             entity_id: identity(11),

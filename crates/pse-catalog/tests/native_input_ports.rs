@@ -54,7 +54,14 @@ async fn named_ports_keep_versions_distinct_and_alias_only_unique_provider_names
             vec![Arc::new(UInt64Array::from(values))],
         )
         .unwrap();
-        FieldCheckedBatch::admit(&registry, spec, batch).unwrap()
+        FieldCheckedBatch::admit(
+            &registry,
+            spec,
+            batch,
+            &fixture_validation(&registry),
+            &CancellationToken::new(),
+        )
+        .unwrap()
     };
     let factory = pse_testkit::factory(
         Arc::new(pse_columnar::GreedyMemoryPool::new(64 << 20)),
@@ -124,4 +131,14 @@ async fn named_ports_keep_versions_distinct_and_alias_only_unique_provider_names
         }
         assert!(session.scan_role("absent").is_err());
     }
+}
+
+// Deliberate fixed native owner for isolated caller-supplied fixture rows.
+fn fixture_validation(registry: &Registry) -> pse_relations::validate::ValidationContext {
+    pse_relations::validate::ValidationContext::new(
+        registry,
+        pse_engine::validation::NativeValidation(
+            datafusion::prelude::SessionContext::new().state(),
+        ),
+    )
 }

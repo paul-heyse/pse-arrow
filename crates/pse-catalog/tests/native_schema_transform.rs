@@ -155,8 +155,21 @@ fn fixture(values: &[serde_json::Value]) -> EngineSession {
             ]
         })
         .collect::<Vec<_>>();
-    let batch = pse_relations::testing::batch_from_literals(&registry, source, &rows).unwrap();
-    let checked = FieldCheckedBatch::admit(&registry, source, batch).unwrap();
+    let batch = pse_relations::testing::batch_from_literals(
+        &registry,
+        source,
+        &rows,
+        &fixture_validation(&registry),
+    )
+    .unwrap();
+    let checked = FieldCheckedBatch::admit(
+        &registry,
+        source,
+        batch,
+        &fixture_validation(&registry),
+        &CancellationToken::new(),
+    )
+    .unwrap();
     pse_testkit::factory(
         Arc::new(pse_columnar::GreedyMemoryPool::new(64 << 20)),
         ExecutionSettings::default(),
@@ -192,9 +205,13 @@ async fn declared_schema_edits_preserve_rows_and_exact_defaults_in_the_native_pl
     let result = complete
         .checked_relation(session.registry(), target, &cancel)
         .unwrap();
-    let mut rows =
-        pse_relations::testing::literals_from_batch(session.registry(), target, result.batch())
-            .unwrap();
+    let mut rows = pse_relations::testing::literals_from_batch(
+        session.registry(),
+        target,
+        result.batch(),
+        &session.validation_context().unwrap(),
+    )
+    .unwrap();
     rows.sort_by_key(|row| row[0].to_string());
     assert_eq!(rows.len(), 2);
     for (index, row) in rows.iter().enumerate() {
@@ -286,4 +303,16 @@ async fn narrowing_nullability_fails_execution_on_an_actual_null() {
         .prepare_schema_transform("authored.samples@1->2", "source", &cancel)
         .unwrap();
     assert!(prepared.execute(&cancel).await.is_err());
+}
+
+// Deliberate fixed native owner for isolated caller-supplied fixture rows.
+fn fixture_validation(
+    registry: &pse_schema::Registry,
+) -> pse_relations::validate::ValidationContext {
+    pse_relations::validate::ValidationContext::new(
+        registry,
+        pse_engine::validation::NativeValidation(
+            datafusion::prelude::SessionContext::new().state(),
+        ),
+    )
 }

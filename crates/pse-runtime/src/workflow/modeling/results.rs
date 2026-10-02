@@ -905,8 +905,13 @@ impl ModelingResult {
                 .max()
                 .unwrap_or(0),
         )?;
-        let mut columns =
-            pse_relations::columnar::Collection::new(&self.runtime.registry, &pool, &cancel);
+        let validation = self.runtime.validation_context()?;
+        let mut columns = pse_relations::columnar::Collection::new(
+            &self.runtime.registry,
+            &pool,
+            &cancel,
+            &validation,
+        );
         columns.ensure::<ModelingCheck>().map_err(relation)?;
         columns.ensure::<ModelingReport>().map_err(relation)?;
         columns
@@ -1049,7 +1054,8 @@ mod tests {
             value: -3.,
         };
         let registry = pse_schema::registry().unwrap();
-        let mut builder = ModelingReport::builder(registry, 1).unwrap();
+        let validation = pse_relations::validate::ValidationContext::local(registry).unwrap();
+        let mut builder = ModelingReport::builder(registry, 1, &validation).unwrap();
         ModelingReport::push(&mut builder, report.clone()).unwrap();
         let rows = ModelingReport::finish(builder).unwrap();
         assert_eq!(ModelingReport::rows(&rows).unwrap(), vec![report]);

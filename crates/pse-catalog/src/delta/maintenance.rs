@@ -204,7 +204,16 @@ pub(super) async fn apply_maintenance(
         .map_err(external)?
     };
     drop(retained);
-    let mut output = maintenance_outcomes::Builder::new().map_err(external)?;
+    let services = state
+        .config()
+        .get_extension::<pse_engine::session::execution::NativeExecutionContext>()
+        .ok_or_else(|| invalid("maintenance requires actual native execution context"))?;
+    let mut output = maintenance_outcomes::Builder::with_registry(
+        services.registry(),
+        1,
+        services.validation_context(),
+    )
+    .map_err(external)?;
     output
         .push(maintenance_outcomes::Row {
             table_uri: location.to_string(),

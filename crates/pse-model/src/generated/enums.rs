@@ -12,8 +12,21 @@
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -22,9 +35,11 @@
 pub enum ArtifactReconstruction {
     ///none
     #[serde(rename = "none")]
+    #[strum(serialize = "none")]
     None,
     ///exact_release
     #[serde(rename = "exact_release")]
+    #[strum(serialize = "exact_release")]
     ExactRelease,
 }
 impl crate::SemanticEq for ArtifactReconstruction {
@@ -34,13 +49,15 @@ impl crate::SemanticEq for ArtifactReconstruction {
 }
 impl ArtifactReconstruction {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::None, Self::ExactRelease];
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::None => "none",
-            Self::ExactRelease => "exact_release",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -77,19 +94,11 @@ impl schemars::JsonSchema for ArtifactReconstruction {
         schemars::json_schema!({ "type" : "string", "enum" : ["none", "exact_release"] })
     }
 }
-impl core::str::FromStr for ArtifactReconstruction {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "none" => Ok(Self::None),
-            "exact_release" => Ok(Self::ExactRelease),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ArtifactReconstruction).to_owned(),
-                    enumeration: stringify!(ArtifactReconstruction).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ArtifactReconstruction {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ArtifactReconstruction),
+            value: value.to_owned(),
         }
     }
 }
@@ -103,8 +112,21 @@ impl core::str::FromStr for ArtifactReconstruction {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -113,12 +135,15 @@ impl core::str::FromStr for ArtifactReconstruction {
 pub enum AssertionStatus {
     ///pass
     #[serde(rename = "pass")]
+    #[strum(serialize = "pass")]
     Pass,
     ///fail
     #[serde(rename = "fail")]
+    #[strum(serialize = "fail")]
     Fail,
     ///obsolete
     #[serde(rename = "obsolete")]
+    #[strum(serialize = "obsolete")]
     Obsolete,
 }
 impl crate::SemanticEq for AssertionStatus {
@@ -128,14 +153,15 @@ impl crate::SemanticEq for AssertionStatus {
 }
 impl AssertionStatus {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 3usize] = [Self::Pass, Self::Fail, Self::Obsolete];
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Pass => "pass",
-            Self::Fail => "fail",
-            Self::Obsolete => "obsolete",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -174,20 +200,11 @@ impl schemars::JsonSchema for AssertionStatus {
         )
     }
 }
-impl core::str::FromStr for AssertionStatus {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "pass" => Ok(Self::Pass),
-            "fail" => Ok(Self::Fail),
-            "obsolete" => Ok(Self::Obsolete),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(AssertionStatus).to_owned(),
-                    enumeration: stringify!(AssertionStatus).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl AssertionStatus {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(AssertionStatus),
+            value: value.to_owned(),
         }
     }
 }
@@ -201,8 +218,21 @@ impl core::str::FromStr for AssertionStatus {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -211,21 +241,27 @@ impl core::str::FromStr for AssertionStatus {
 pub enum AttemptKind {
     ///modeling
     #[serde(rename = "modeling")]
+    #[strum(serialize = "modeling")]
     Modeling,
     ///simulation
     #[serde(rename = "simulation")]
+    #[strum(serialize = "simulation")]
     Simulation,
     ///shooting
     #[serde(rename = "shooting")]
+    #[strum(serialize = "shooting")]
     Shooting,
     ///fit
     #[serde(rename = "fit")]
+    #[strum(serialize = "fit")]
     Fit,
     ///study
     #[serde(rename = "study")]
+    #[strum(serialize = "study")]
     Study,
     ///study_finalization
     #[serde(rename = "study_finalization")]
+    #[strum(serialize = "study_finalization")]
     StudyFinalization,
 }
 impl crate::SemanticEq for AttemptKind {
@@ -235,24 +271,15 @@ impl crate::SemanticEq for AttemptKind {
 }
 impl AttemptKind {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 6usize] = [
-        Self::Modeling,
-        Self::Simulation,
-        Self::Shooting,
-        Self::Fit,
-        Self::Study,
-        Self::StudyFinalization,
-    ];
+    pub const ALL: [Self; 6usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<6usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Modeling => "modeling",
-            Self::Simulation => "simulation",
-            Self::Shooting => "shooting",
-            Self::Fit => "fit",
-            Self::Study => "study",
-            Self::StudyFinalization => "study_finalization",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -298,23 +325,11 @@ impl schemars::JsonSchema for AttemptKind {
         )
     }
 }
-impl core::str::FromStr for AttemptKind {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "modeling" => Ok(Self::Modeling),
-            "simulation" => Ok(Self::Simulation),
-            "shooting" => Ok(Self::Shooting),
-            "fit" => Ok(Self::Fit),
-            "study" => Ok(Self::Study),
-            "study_finalization" => Ok(Self::StudyFinalization),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(AttemptKind).to_owned(),
-                    enumeration: stringify!(AttemptKind).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl AttemptKind {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(AttemptKind),
+            value: value.to_owned(),
         }
     }
 }
@@ -328,8 +343,21 @@ impl core::str::FromStr for AttemptKind {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -338,30 +366,39 @@ impl core::str::FromStr for AttemptKind {
 pub enum AttemptState {
     ///planned
     #[serde(rename = "planned")]
+    #[strum(serialize = "planned")]
     Planned,
     ///queued
     #[serde(rename = "queued")]
+    #[strum(serialize = "queued")]
     Queued,
     ///running
     #[serde(rename = "running")]
+    #[strum(serialize = "running")]
     Running,
     ///completed
     #[serde(rename = "completed")]
+    #[strum(serialize = "completed")]
     Completed,
     ///partial
     #[serde(rename = "partial")]
+    #[strum(serialize = "partial")]
     Partial,
     ///failed
     #[serde(rename = "failed")]
+    #[strum(serialize = "failed")]
     Failed,
     ///cancelled
     #[serde(rename = "cancelled")]
+    #[strum(serialize = "cancelled")]
     Cancelled,
     ///stale
     #[serde(rename = "stale")]
+    #[strum(serialize = "stale")]
     Stale,
     ///superseded
     #[serde(rename = "superseded")]
+    #[strum(serialize = "superseded")]
     Superseded,
 }
 impl crate::SemanticEq for AttemptState {
@@ -371,30 +408,15 @@ impl crate::SemanticEq for AttemptState {
 }
 impl AttemptState {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 9usize] = [
-        Self::Planned,
-        Self::Queued,
-        Self::Running,
-        Self::Completed,
-        Self::Partial,
-        Self::Failed,
-        Self::Cancelled,
-        Self::Stale,
-        Self::Superseded,
-    ];
+    pub const ALL: [Self; 9usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<9usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Planned => "planned",
-            Self::Queued => "queued",
-            Self::Running => "running",
-            Self::Completed => "completed",
-            Self::Partial => "partial",
-            Self::Failed => "failed",
-            Self::Cancelled => "cancelled",
-            Self::Stale => "stale",
-            Self::Superseded => "superseded",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -446,26 +468,11 @@ impl schemars::JsonSchema for AttemptState {
         )
     }
 }
-impl core::str::FromStr for AttemptState {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "planned" => Ok(Self::Planned),
-            "queued" => Ok(Self::Queued),
-            "running" => Ok(Self::Running),
-            "completed" => Ok(Self::Completed),
-            "partial" => Ok(Self::Partial),
-            "failed" => Ok(Self::Failed),
-            "cancelled" => Ok(Self::Cancelled),
-            "stale" => Ok(Self::Stale),
-            "superseded" => Ok(Self::Superseded),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(AttemptState).to_owned(),
-                    enumeration: stringify!(AttemptState).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl AttemptState {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(AttemptState),
+            value: value.to_owned(),
         }
     }
 }
@@ -530,8 +537,133 @@ impl crate::SemanticFrame for BasisRule {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum BoundActivity {
+    ///inactive
+    #[serde(rename = "inactive")]
+    #[strum(serialize = "inactive")]
+    Inactive,
+    ///at_lower
+    #[serde(rename = "at_lower")]
+    #[strum(serialize = "at_lower")]
+    AtLower,
+    ///at_upper
+    #[serde(rename = "at_upper")]
+    #[strum(serialize = "at_upper")]
+    AtUpper,
+    ///fixed
+    #[serde(rename = "fixed")]
+    #[strum(serialize = "fixed")]
+    Fixed,
+}
+impl crate::SemanticEq for BoundActivity {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl BoundActivity {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 4usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<4usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        self.into_str()
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Inactive => 0usize,
+            Self::AtLower => 1usize,
+            Self::AtUpper => 2usize,
+            Self::Fixed => 3usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Inactive => None,
+            Self::AtLower => None,
+            Self::AtUpper => None,
+            Self::Fixed => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for BoundActivity {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(BoundActivity))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(BoundActivity)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["inactive", "at_lower", "at_upper", "fixed"] }
+        )
+    }
+}
+impl BoundActivity {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(BoundActivity),
+            value: value.to_owned(),
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -540,9 +672,11 @@ impl crate::SemanticFrame for BasisRule {
 pub enum BoundKind {
     ///finite
     #[serde(rename = "finite")]
+    #[strum(serialize = "finite")]
     Finite,
     ///unbounded
     #[serde(rename = "unbounded")]
+    #[strum(serialize = "unbounded")]
     Unbounded,
 }
 impl crate::SemanticEq for BoundKind {
@@ -552,13 +686,15 @@ impl crate::SemanticEq for BoundKind {
 }
 impl BoundKind {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Finite, Self::Unbounded];
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Finite => "finite",
-            Self::Unbounded => "unbounded",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -593,19 +729,11 @@ impl schemars::JsonSchema for BoundKind {
         schemars::json_schema!({ "type" : "string", "enum" : ["finite", "unbounded"] })
     }
 }
-impl core::str::FromStr for BoundKind {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "finite" => Ok(Self::Finite),
-            "unbounded" => Ok(Self::Unbounded),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(BoundKind).to_owned(),
-                    enumeration: stringify!(BoundKind).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl BoundKind {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(BoundKind),
+            value: value.to_owned(),
         }
     }
 }
@@ -619,8 +747,21 @@ impl core::str::FromStr for BoundKind {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -629,15 +770,19 @@ impl core::str::FromStr for BoundKind {
 pub enum BoundStatus {
     ///interior
     #[serde(rename = "interior")]
+    #[strum(serialize = "interior")]
     Interior,
     ///at_lower
     #[serde(rename = "at_lower")]
+    #[strum(serialize = "at_lower")]
     AtLower,
     ///at_upper
     #[serde(rename = "at_upper")]
+    #[strum(serialize = "at_upper")]
     AtUpper,
     ///violated
     #[serde(rename = "violated")]
+    #[strum(serialize = "violated")]
     Violated,
 }
 impl crate::SemanticEq for BoundStatus {
@@ -647,20 +792,15 @@ impl crate::SemanticEq for BoundStatus {
 }
 impl BoundStatus {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 4usize] = [
-        Self::Interior,
-        Self::AtLower,
-        Self::AtUpper,
-        Self::Violated,
-    ];
+    pub const ALL: [Self; 4usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<4usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Interior => "interior",
-            Self::AtLower => "at_lower",
-            Self::AtUpper => "at_upper",
-            Self::Violated => "violated",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -702,21 +842,11 @@ impl schemars::JsonSchema for BoundStatus {
         )
     }
 }
-impl core::str::FromStr for BoundStatus {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "interior" => Ok(Self::Interior),
-            "at_lower" => Ok(Self::AtLower),
-            "at_upper" => Ok(Self::AtUpper),
-            "violated" => Ok(Self::Violated),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(BoundStatus).to_owned(),
-                    enumeration: stringify!(BoundStatus).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl BoundStatus {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(BoundStatus),
+            value: value.to_owned(),
         }
     }
 }
@@ -730,8 +860,21 @@ impl core::str::FromStr for BoundStatus {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -740,15 +883,19 @@ impl core::str::FromStr for BoundStatus {
 pub enum CandidateBoundOrigin {
     ///global_export
     #[serde(rename = "global_export")]
+    #[strum(serialize = "global_export")]
     GlobalExport,
     ///linear_program
     #[serde(rename = "linear_program")]
+    #[strum(serialize = "linear_program")]
     LinearProgram,
     ///mixed_integer
     #[serde(rename = "mixed_integer")]
+    #[strum(serialize = "mixed_integer")]
     MixedInteger,
     ///conic_program
     #[serde(rename = "conic_program")]
+    #[strum(serialize = "conic_program")]
     ConicProgram,
 }
 impl crate::SemanticEq for CandidateBoundOrigin {
@@ -758,20 +905,15 @@ impl crate::SemanticEq for CandidateBoundOrigin {
 }
 impl CandidateBoundOrigin {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 4usize] = [
-        Self::GlobalExport,
-        Self::LinearProgram,
-        Self::MixedInteger,
-        Self::ConicProgram,
-    ];
+    pub const ALL: [Self; 4usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<4usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::GlobalExport => "global_export",
-            Self::LinearProgram => "linear_program",
-            Self::MixedInteger => "mixed_integer",
-            Self::ConicProgram => "conic_program",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -815,21 +957,11 @@ impl schemars::JsonSchema for CandidateBoundOrigin {
         )
     }
 }
-impl core::str::FromStr for CandidateBoundOrigin {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "global_export" => Ok(Self::GlobalExport),
-            "linear_program" => Ok(Self::LinearProgram),
-            "mixed_integer" => Ok(Self::MixedInteger),
-            "conic_program" => Ok(Self::ConicProgram),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(CandidateBoundOrigin).to_owned(),
-                    enumeration: stringify!(CandidateBoundOrigin).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl CandidateBoundOrigin {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(CandidateBoundOrigin),
+            value: value.to_owned(),
         }
     }
 }
@@ -843,8 +975,21 @@ impl core::str::FromStr for CandidateBoundOrigin {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -853,18 +998,23 @@ impl core::str::FromStr for CandidateBoundOrigin {
 pub enum CandidateQualifier {
     ///accepted_incumbent_feasible
     #[serde(rename = "accepted_incumbent_feasible")]
+    #[strum(serialize = "accepted_incumbent_feasible")]
     AcceptedIncumbentFeasible,
     ///accepted_incumbent_within_gap
     #[serde(rename = "accepted_incumbent_within_gap")]
+    #[strum(serialize = "accepted_incumbent_within_gap")]
     AcceptedIncumbentWithinGap,
     ///closure_allowed
     #[serde(rename = "closure_allowed")]
+    #[strum(serialize = "closure_allowed")]
     ClosureAllowed,
     ///applicability_unknown_allowed
     #[serde(rename = "applicability_unknown_allowed")]
+    #[strum(serialize = "applicability_unknown_allowed")]
     ApplicabilityUnknownAllowed,
     ///applicability_extrapolation_allowed
     #[serde(rename = "applicability_extrapolation_allowed")]
+    #[strum(serialize = "applicability_extrapolation_allowed")]
     ApplicabilityExtrapolationAllowed,
 }
 impl crate::SemanticEq for CandidateQualifier {
@@ -874,24 +1024,15 @@ impl crate::SemanticEq for CandidateQualifier {
 }
 impl CandidateQualifier {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 5usize] = [
-        Self::AcceptedIncumbentFeasible,
-        Self::AcceptedIncumbentWithinGap,
-        Self::ClosureAllowed,
-        Self::ApplicabilityUnknownAllowed,
-        Self::ApplicabilityExtrapolationAllowed,
-    ];
+    pub const ALL: [Self; 5usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<5usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::AcceptedIncumbentFeasible => "accepted_incumbent_feasible",
-            Self::AcceptedIncumbentWithinGap => "accepted_incumbent_within_gap",
-            Self::ClosureAllowed => "closure_allowed",
-            Self::ApplicabilityUnknownAllowed => "applicability_unknown_allowed",
-            Self::ApplicabilityExtrapolationAllowed => {
-                "applicability_extrapolation_allowed"
-            }
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -938,24 +1079,11 @@ impl schemars::JsonSchema for CandidateQualifier {
         )
     }
 }
-impl core::str::FromStr for CandidateQualifier {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "accepted_incumbent_feasible" => Ok(Self::AcceptedIncumbentFeasible),
-            "accepted_incumbent_within_gap" => Ok(Self::AcceptedIncumbentWithinGap),
-            "closure_allowed" => Ok(Self::ClosureAllowed),
-            "applicability_unknown_allowed" => Ok(Self::ApplicabilityUnknownAllowed),
-            "applicability_extrapolation_allowed" => {
-                Ok(Self::ApplicabilityExtrapolationAllowed)
-            }
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(CandidateQualifier).to_owned(),
-                    enumeration: stringify!(CandidateQualifier).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl CandidateQualifier {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(CandidateQualifier),
+            value: value.to_owned(),
         }
     }
 }
@@ -969,8 +1097,21 @@ impl core::str::FromStr for CandidateQualifier {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -979,54 +1120,71 @@ impl core::str::FromStr for CandidateQualifier {
 pub enum CandidateRefusal {
     ///no_candidate
     #[serde(rename = "no_candidate")]
+    #[strum(serialize = "no_candidate")]
     NoCandidate,
     ///validation_failed
     #[serde(rename = "validation_failed")]
+    #[strum(serialize = "validation_failed")]
     ValidationFailed,
     ///infeasible
     #[serde(rename = "infeasible")]
+    #[strum(serialize = "infeasible")]
     Infeasible,
     ///unqualified
     #[serde(rename = "unqualified")]
+    #[strum(serialize = "unqualified")]
     Unqualified,
     ///native_outcome
     #[serde(rename = "native_outcome")]
+    #[strum(serialize = "native_outcome")]
     NativeOutcome,
     ///model_checks
     #[serde(rename = "model_checks")]
+    #[strum(serialize = "model_checks")]
     ModelChecks,
     ///closure_unavailable
     #[serde(rename = "closure_unavailable")]
+    #[strum(serialize = "closure_unavailable")]
     ClosureUnavailable,
     ///closure_unclosed
     #[serde(rename = "closure_unclosed")]
+    #[strum(serialize = "closure_unclosed")]
     ClosureUnclosed,
     ///applicability_unavailable
     #[serde(rename = "applicability_unavailable")]
+    #[strum(serialize = "applicability_unavailable")]
     ApplicabilityUnavailable,
     ///applicability_denied
     #[serde(rename = "applicability_denied")]
+    #[strum(serialize = "applicability_denied")]
     ApplicabilityDenied,
     ///endpoint_unavailable
     #[serde(rename = "endpoint_unavailable")]
+    #[strum(serialize = "endpoint_unavailable")]
     EndpointUnavailable,
     ///coverage_unavailable
     #[serde(rename = "coverage_unavailable")]
+    #[strum(serialize = "coverage_unavailable")]
     CoverageUnavailable,
     ///bound_unavailable
     #[serde(rename = "bound_unavailable")]
+    #[strum(serialize = "bound_unavailable")]
     BoundUnavailable,
     ///gap_exceeded
     #[serde(rename = "gap_exceeded")]
+    #[strum(serialize = "gap_exceeded")]
     GapExceeded,
     ///least_infeasible
     #[serde(rename = "least_infeasible")]
+    #[strum(serialize = "least_infeasible")]
     LeastInfeasible,
     ///relaxed_incumbent
     #[serde(rename = "relaxed_incumbent")]
+    #[strum(serialize = "relaxed_incumbent")]
     RelaxedIncumbent,
     ///incumbent_refused
     #[serde(rename = "incumbent_refused")]
+    #[strum(serialize = "incumbent_refused")]
     IncumbentRefused,
 }
 impl crate::SemanticEq for CandidateRefusal {
@@ -1036,46 +1194,15 @@ impl crate::SemanticEq for CandidateRefusal {
 }
 impl CandidateRefusal {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 17usize] = [
-        Self::NoCandidate,
-        Self::ValidationFailed,
-        Self::Infeasible,
-        Self::Unqualified,
-        Self::NativeOutcome,
-        Self::ModelChecks,
-        Self::ClosureUnavailable,
-        Self::ClosureUnclosed,
-        Self::ApplicabilityUnavailable,
-        Self::ApplicabilityDenied,
-        Self::EndpointUnavailable,
-        Self::CoverageUnavailable,
-        Self::BoundUnavailable,
-        Self::GapExceeded,
-        Self::LeastInfeasible,
-        Self::RelaxedIncumbent,
-        Self::IncumbentRefused,
-    ];
+    pub const ALL: [Self; 17usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<17usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::NoCandidate => "no_candidate",
-            Self::ValidationFailed => "validation_failed",
-            Self::Infeasible => "infeasible",
-            Self::Unqualified => "unqualified",
-            Self::NativeOutcome => "native_outcome",
-            Self::ModelChecks => "model_checks",
-            Self::ClosureUnavailable => "closure_unavailable",
-            Self::ClosureUnclosed => "closure_unclosed",
-            Self::ApplicabilityUnavailable => "applicability_unavailable",
-            Self::ApplicabilityDenied => "applicability_denied",
-            Self::EndpointUnavailable => "endpoint_unavailable",
-            Self::CoverageUnavailable => "coverage_unavailable",
-            Self::BoundUnavailable => "bound_unavailable",
-            Self::GapExceeded => "gap_exceeded",
-            Self::LeastInfeasible => "least_infeasible",
-            Self::RelaxedIncumbent => "relaxed_incumbent",
-            Self::IncumbentRefused => "incumbent_refused",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -1147,34 +1274,11 @@ impl schemars::JsonSchema for CandidateRefusal {
         )
     }
 }
-impl core::str::FromStr for CandidateRefusal {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "no_candidate" => Ok(Self::NoCandidate),
-            "validation_failed" => Ok(Self::ValidationFailed),
-            "infeasible" => Ok(Self::Infeasible),
-            "unqualified" => Ok(Self::Unqualified),
-            "native_outcome" => Ok(Self::NativeOutcome),
-            "model_checks" => Ok(Self::ModelChecks),
-            "closure_unavailable" => Ok(Self::ClosureUnavailable),
-            "closure_unclosed" => Ok(Self::ClosureUnclosed),
-            "applicability_unavailable" => Ok(Self::ApplicabilityUnavailable),
-            "applicability_denied" => Ok(Self::ApplicabilityDenied),
-            "endpoint_unavailable" => Ok(Self::EndpointUnavailable),
-            "coverage_unavailable" => Ok(Self::CoverageUnavailable),
-            "bound_unavailable" => Ok(Self::BoundUnavailable),
-            "gap_exceeded" => Ok(Self::GapExceeded),
-            "least_infeasible" => Ok(Self::LeastInfeasible),
-            "relaxed_incumbent" => Ok(Self::RelaxedIncumbent),
-            "incumbent_refused" => Ok(Self::IncumbentRefused),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(CandidateRefusal).to_owned(),
-                    enumeration: stringify!(CandidateRefusal).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl CandidateRefusal {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(CandidateRefusal),
+            value: value.to_owned(),
         }
     }
 }
@@ -1188,8 +1292,21 @@ impl core::str::FromStr for CandidateRefusal {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -1198,18 +1315,23 @@ impl core::str::FromStr for CandidateRefusal {
 pub enum CandidateUse {
     ///usable
     #[serde(rename = "usable")]
+    #[strum(serialize = "usable")]
     Usable,
     ///qualified_unclosed
     #[serde(rename = "qualified_unclosed")]
+    #[strum(serialize = "qualified_unclosed")]
     QualifiedUnclosed,
     ///seed_only
     #[serde(rename = "seed_only")]
+    #[strum(serialize = "seed_only")]
     SeedOnly,
     ///diagnostic_only
     #[serde(rename = "diagnostic_only")]
+    #[strum(serialize = "diagnostic_only")]
     DiagnosticOnly,
     ///unusable
     #[serde(rename = "unusable")]
+    #[strum(serialize = "unusable")]
     Unusable,
 }
 impl crate::SemanticEq for CandidateUse {
@@ -1219,22 +1341,15 @@ impl crate::SemanticEq for CandidateUse {
 }
 impl CandidateUse {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 5usize] = [
-        Self::Usable,
-        Self::QualifiedUnclosed,
-        Self::SeedOnly,
-        Self::DiagnosticOnly,
-        Self::Unusable,
-    ];
+    pub const ALL: [Self; 5usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<5usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Usable => "usable",
-            Self::QualifiedUnclosed => "qualified_unclosed",
-            Self::SeedOnly => "seed_only",
-            Self::DiagnosticOnly => "diagnostic_only",
-            Self::Unusable => "unusable",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -1278,22 +1393,11 @@ impl schemars::JsonSchema for CandidateUse {
         )
     }
 }
-impl core::str::FromStr for CandidateUse {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "usable" => Ok(Self::Usable),
-            "qualified_unclosed" => Ok(Self::QualifiedUnclosed),
-            "seed_only" => Ok(Self::SeedOnly),
-            "diagnostic_only" => Ok(Self::DiagnosticOnly),
-            "unusable" => Ok(Self::Unusable),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(CandidateUse).to_owned(),
-                    enumeration: stringify!(CandidateUse).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl CandidateUse {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(CandidateUse),
+            value: value.to_owned(),
         }
     }
 }
@@ -1307,8 +1411,21 @@ impl core::str::FromStr for CandidateUse {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -1317,15 +1434,19 @@ impl core::str::FromStr for CandidateUse {
 pub enum ChangeKind {
     ///insert
     #[serde(rename = "insert")]
+    #[strum(serialize = "insert")]
     Insert,
     ///delete
     #[serde(rename = "delete")]
+    #[strum(serialize = "delete")]
     Delete,
     ///update_preimage
     #[serde(rename = "update_preimage")]
+    #[strum(serialize = "update_preimage")]
     UpdatePreimage,
     ///update_postimage
     #[serde(rename = "update_postimage")]
+    #[strum(serialize = "update_postimage")]
     UpdatePostimage,
 }
 impl crate::SemanticEq for ChangeKind {
@@ -1335,20 +1456,15 @@ impl crate::SemanticEq for ChangeKind {
 }
 impl ChangeKind {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 4usize] = [
-        Self::Insert,
-        Self::Delete,
-        Self::UpdatePreimage,
-        Self::UpdatePostimage,
-    ];
+    pub const ALL: [Self; 4usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<4usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Insert => "insert",
-            Self::Delete => "delete",
-            Self::UpdatePreimage => "update_preimage",
-            Self::UpdatePostimage => "update_postimage",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -1390,21 +1506,11 @@ impl schemars::JsonSchema for ChangeKind {
         )
     }
 }
-impl core::str::FromStr for ChangeKind {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "insert" => Ok(Self::Insert),
-            "delete" => Ok(Self::Delete),
-            "update_preimage" => Ok(Self::UpdatePreimage),
-            "update_postimage" => Ok(Self::UpdatePostimage),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ChangeKind).to_owned(),
-                    enumeration: stringify!(ChangeKind).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ChangeKind {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ChangeKind),
+            value: value.to_owned(),
         }
     }
 }
@@ -1418,8 +1524,21 @@ impl core::str::FromStr for ChangeKind {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -1428,9 +1547,11 @@ impl core::str::FromStr for ChangeKind {
 pub enum ClarabelDirect {
     ///Clarabel's built-in quasidefinite LDLᵀ; factorizes on one thread.
     #[serde(rename = "qdldl")]
+    #[strum(serialize = "qdldl")]
     Qdldl,
     ///oneMKL Pardiso from the process's one linked oneMKL (LP64, GNU threading); admits more than one thread.
     #[serde(rename = "mkl_pardiso")]
+    #[strum(serialize = "mkl_pardiso")]
     MklPardiso,
 }
 impl crate::SemanticEq for ClarabelDirect {
@@ -1440,13 +1561,15 @@ impl crate::SemanticEq for ClarabelDirect {
 }
 impl ClarabelDirect {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Qdldl, Self::MklPardiso];
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Qdldl => "qdldl",
-            Self::MklPardiso => "mkl_pardiso",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -1481,19 +1604,11 @@ impl schemars::JsonSchema for ClarabelDirect {
         schemars::json_schema!({ "type" : "string", "enum" : ["qdldl", "mkl_pardiso"] })
     }
 }
-impl core::str::FromStr for ClarabelDirect {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "qdldl" => Ok(Self::Qdldl),
-            "mkl_pardiso" => Ok(Self::MklPardiso),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ClarabelDirect).to_owned(),
-                    enumeration: stringify!(ClarabelDirect).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ClarabelDirect {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ClarabelDirect),
+            value: value.to_owned(),
         }
     }
 }
@@ -1507,8 +1622,21 @@ impl core::str::FromStr for ClarabelDirect {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -1517,12 +1645,15 @@ impl core::str::FromStr for ClarabelDirect {
 pub enum ClarabelMergeMethod {
     ///No merging.
     #[serde(rename = "none")]
+    #[strum(serialize = "none")]
     None,
     ///Merge a clique into its parent.
     #[serde(rename = "parent_child")]
+    #[strum(serialize = "parent_child")]
     ParentChild,
     ///Clique-graph merging.
     #[serde(rename = "clique_graph")]
+    #[strum(serialize = "clique_graph")]
     CliqueGraph,
 }
 impl crate::SemanticEq for ClarabelMergeMethod {
@@ -1532,14 +1663,15 @@ impl crate::SemanticEq for ClarabelMergeMethod {
 }
 impl ClarabelMergeMethod {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 3usize] = [Self::None, Self::ParentChild, Self::CliqueGraph];
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::None => "none",
-            Self::ParentChild => "parent_child",
-            Self::CliqueGraph => "clique_graph",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -1580,20 +1712,11 @@ impl schemars::JsonSchema for ClarabelMergeMethod {
         )
     }
 }
-impl core::str::FromStr for ClarabelMergeMethod {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "none" => Ok(Self::None),
-            "parent_child" => Ok(Self::ParentChild),
-            "clique_graph" => Ok(Self::CliqueGraph),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ClarabelMergeMethod).to_owned(),
-                    enumeration: stringify!(ClarabelMergeMethod).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ClarabelMergeMethod {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ClarabelMergeMethod),
+            value: value.to_owned(),
         }
     }
 }
@@ -1607,8 +1730,21 @@ impl core::str::FromStr for ClarabelMergeMethod {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -1617,9 +1753,11 @@ impl core::str::FromStr for ClarabelMergeMethod {
 pub enum ClarabelMode {
     ///Native presolve/chordal preprocessing may change the native layout.
     #[serde(rename = "single_solve")]
+    #[strum(serialize = "single_solve")]
     SingleSolve,
     ///Preserve structure for Clarabel's data update API: native presolve, input zero-dropping and chordal decomposition are disabled.
     #[serde(rename = "reusable_data")]
+    #[strum(serialize = "reusable_data")]
     ReusableData,
 }
 impl crate::SemanticEq for ClarabelMode {
@@ -1629,13 +1767,15 @@ impl crate::SemanticEq for ClarabelMode {
 }
 impl ClarabelMode {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::SingleSolve, Self::ReusableData];
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::SingleSolve => "single_solve",
-            Self::ReusableData => "reusable_data",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -1672,19 +1812,11 @@ impl schemars::JsonSchema for ClarabelMode {
         )
     }
 }
-impl core::str::FromStr for ClarabelMode {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "single_solve" => Ok(Self::SingleSolve),
-            "reusable_data" => Ok(Self::ReusableData),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ClarabelMode).to_owned(),
-                    enumeration: stringify!(ClarabelMode).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ClarabelMode {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ClarabelMode),
+            value: value.to_owned(),
         }
     }
 }
@@ -1698,8 +1830,21 @@ impl core::str::FromStr for ClarabelMode {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -1708,15 +1853,19 @@ impl core::str::FromStr for ClarabelMode {
 pub enum ClosureAssessment {
     ///not_required
     #[serde(rename = "not_required")]
+    #[strum(serialize = "not_required")]
     NotRequired,
     ///closed
     #[serde(rename = "closed")]
+    #[strum(serialize = "closed")]
     Closed,
     ///unclosed
     #[serde(rename = "unclosed")]
+    #[strum(serialize = "unclosed")]
     Unclosed,
     ///unavailable
     #[serde(rename = "unavailable")]
+    #[strum(serialize = "unavailable")]
     Unavailable,
 }
 impl crate::SemanticEq for ClosureAssessment {
@@ -1726,20 +1875,15 @@ impl crate::SemanticEq for ClosureAssessment {
 }
 impl ClosureAssessment {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 4usize] = [
-        Self::NotRequired,
-        Self::Closed,
-        Self::Unclosed,
-        Self::Unavailable,
-    ];
+    pub const ALL: [Self; 4usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<4usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::NotRequired => "not_required",
-            Self::Closed => "closed",
-            Self::Unclosed => "unclosed",
-            Self::Unavailable => "unavailable",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -1781,21 +1925,11 @@ impl schemars::JsonSchema for ClosureAssessment {
         )
     }
 }
-impl core::str::FromStr for ClosureAssessment {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "not_required" => Ok(Self::NotRequired),
-            "closed" => Ok(Self::Closed),
-            "unclosed" => Ok(Self::Unclosed),
-            "unavailable" => Ok(Self::Unavailable),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ClosureAssessment).to_owned(),
-                    enumeration: stringify!(ClosureAssessment).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ClosureAssessment {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ClosureAssessment),
+            value: value.to_owned(),
         }
     }
 }
@@ -1809,8 +1943,21 @@ impl core::str::FromStr for ClosureAssessment {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -1819,9 +1966,11 @@ impl core::str::FromStr for ClosureAssessment {
 pub enum ClosurePolicy {
     ///require_closed
     #[serde(rename = "require_closed")]
+    #[strum(serialize = "require_closed")]
     RequireClosed,
     ///allow_unclosed
     #[serde(rename = "allow_unclosed")]
+    #[strum(serialize = "allow_unclosed")]
     AllowUnclosed,
 }
 impl crate::SemanticEq for ClosurePolicy {
@@ -1831,13 +1980,15 @@ impl crate::SemanticEq for ClosurePolicy {
 }
 impl ClosurePolicy {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::RequireClosed, Self::AllowUnclosed];
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::RequireClosed => "require_closed",
-            Self::AllowUnclosed => "allow_unclosed",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -1874,19 +2025,11 @@ impl schemars::JsonSchema for ClosurePolicy {
         )
     }
 }
-impl core::str::FromStr for ClosurePolicy {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "require_closed" => Ok(Self::RequireClosed),
-            "allow_unclosed" => Ok(Self::AllowUnclosed),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ClosurePolicy).to_owned(),
-                    enumeration: stringify!(ClosurePolicy).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ClosurePolicy {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ClosurePolicy),
+            value: value.to_owned(),
         }
     }
 }
@@ -1934,8 +2077,21 @@ impl crate::SemanticFrame for CompositionBasis {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -1944,12 +2100,15 @@ impl crate::SemanticFrame for CompositionBasis {
 pub enum ComputationKind {
     ///simulation
     #[serde(rename = "simulation")]
+    #[strum(serialize = "simulation")]
     Simulation,
     ///fit
     #[serde(rename = "fit")]
+    #[strum(serialize = "fit")]
     Fit,
     ///shooting
     #[serde(rename = "shooting")]
+    #[strum(serialize = "shooting")]
     Shooting,
 }
 impl crate::SemanticEq for ComputationKind {
@@ -1959,14 +2118,15 @@ impl crate::SemanticEq for ComputationKind {
 }
 impl ComputationKind {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 3usize] = [Self::Simulation, Self::Fit, Self::Shooting];
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Simulation => "simulation",
-            Self::Fit => "fit",
-            Self::Shooting => "shooting",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -2005,20 +2165,11 @@ impl schemars::JsonSchema for ComputationKind {
         )
     }
 }
-impl core::str::FromStr for ComputationKind {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "simulation" => Ok(Self::Simulation),
-            "fit" => Ok(Self::Fit),
-            "shooting" => Ok(Self::Shooting),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ComputationKind).to_owned(),
-                    enumeration: stringify!(ComputationKind).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ComputationKind {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ComputationKind),
+            value: value.to_owned(),
         }
     }
 }
@@ -2032,8 +2183,21 @@ impl core::str::FromStr for ComputationKind {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -2042,18 +2206,23 @@ impl core::str::FromStr for ComputationKind {
 pub enum ConstraintScalingScheme {
     ///harmonicMean
     #[serde(rename = "harmonicMean")]
+    #[strum(serialize = "harmonicMean")]
     HarmonicMean,
     ///inverseSum
     #[serde(rename = "inverseSum")]
+    #[strum(serialize = "inverseSum")]
     InverseSum,
     ///inverseRSS
     #[serde(rename = "inverseRSS")]
+    #[strum(serialize = "inverseRSS")]
     InverseRSS,
     ///inverseMaximum
     #[serde(rename = "inverseMaximum")]
+    #[strum(serialize = "inverseMaximum")]
     InverseMaximum,
     ///inverseMinimum
     #[serde(rename = "inverseMinimum")]
+    #[strum(serialize = "inverseMinimum")]
     InverseMinimum,
 }
 impl crate::SemanticEq for ConstraintScalingScheme {
@@ -2063,22 +2232,15 @@ impl crate::SemanticEq for ConstraintScalingScheme {
 }
 impl ConstraintScalingScheme {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 5usize] = [
-        Self::HarmonicMean,
-        Self::InverseSum,
-        Self::InverseRSS,
-        Self::InverseMaximum,
-        Self::InverseMinimum,
-    ];
+    pub const ALL: [Self; 5usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<5usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::HarmonicMean => "harmonicMean",
-            Self::InverseSum => "inverseSum",
-            Self::InverseRSS => "inverseRSS",
-            Self::InverseMaximum => "inverseMaximum",
-            Self::InverseMinimum => "inverseMinimum",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -2124,22 +2286,11 @@ impl schemars::JsonSchema for ConstraintScalingScheme {
         )
     }
 }
-impl core::str::FromStr for ConstraintScalingScheme {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "harmonicMean" => Ok(Self::HarmonicMean),
-            "inverseSum" => Ok(Self::InverseSum),
-            "inverseRSS" => Ok(Self::InverseRSS),
-            "inverseMaximum" => Ok(Self::InverseMaximum),
-            "inverseMinimum" => Ok(Self::InverseMinimum),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ConstraintScalingScheme).to_owned(),
-                    enumeration: stringify!(ConstraintScalingScheme).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ConstraintScalingScheme {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ConstraintScalingScheme),
+            value: value.to_owned(),
         }
     }
 }
@@ -2170,8 +2321,21 @@ impl crate::SemanticFrame for ConversionKind {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -2180,9 +2344,11 @@ impl crate::SemanticFrame for ConversionKind {
 pub enum CovarianceApproximation {
     ///The inverse reduced Hessian of the fit's exact KKT analysis.
     #[serde(rename = "exact")]
+    #[strum(serialize = "exact")]
     Exact,
     ///The Gauss–Newton covariance from the response singular value decomposition; it neglects residual curvature.
     #[serde(rename = "gauss_newton")]
+    #[strum(serialize = "gauss_newton")]
     GaussNewton,
 }
 impl crate::SemanticEq for CovarianceApproximation {
@@ -2192,13 +2358,15 @@ impl crate::SemanticEq for CovarianceApproximation {
 }
 impl CovarianceApproximation {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Exact, Self::GaussNewton];
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Exact => "exact",
-            Self::GaussNewton => "gauss_newton",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -2235,19 +2403,11 @@ impl schemars::JsonSchema for CovarianceApproximation {
         schemars::json_schema!({ "type" : "string", "enum" : ["exact", "gauss_newton"] })
     }
 }
-impl core::str::FromStr for CovarianceApproximation {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "exact" => Ok(Self::Exact),
-            "gauss_newton" => Ok(Self::GaussNewton),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(CovarianceApproximation).to_owned(),
-                    enumeration: stringify!(CovarianceApproximation).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl CovarianceApproximation {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(CovarianceApproximation),
+            value: value.to_owned(),
         }
     }
 }
@@ -2278,8 +2438,21 @@ impl crate::SemanticFrame for DerivationGranularity {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -2288,21 +2461,27 @@ impl crate::SemanticFrame for DerivationGranularity {
 pub enum DerivedQuantity {
     ///Physical parameter derivatives of a regular square root solution, or the primal/dual solution and optimal value of an optimizing NLP.
     #[serde(rename = "parametric_sensitivity")]
+    #[strum(serialize = "parametric_sensitivity")]
     ParametricSensitivity,
     ///The reduced Hessian over declared parameters: the second derivative of the optimal value.
     #[serde(rename = "reduced_hessian")]
+    #[strum(serialize = "reduced_hessian")]
     ReducedHessian,
     ///The covariance of fitted parameters under the declared statistical model.
     #[serde(rename = "parameter_covariance")]
+    #[strum(serialize = "parameter_covariance")]
     ParameterCovariance,
     ///The Wald confidence intervals of the fitted parameters, from their covariance.
     #[serde(rename = "wald_interval")]
+    #[strum(serialize = "wald_interval")]
     WaldInterval,
     ///The profile-likelihood confidence intervals of the fitted parameters, from adaptive pin chains.
     #[serde(rename = "profile_interval")]
+    #[strum(serialize = "profile_interval")]
     ProfileInterval,
     ///Parameter covariance propagated to outputs, Σ_y = J·Σ_θ·Jᵀ.
     #[serde(rename = "propagated_covariance")]
+    #[strum(serialize = "propagated_covariance")]
     PropagatedCovariance,
 }
 impl crate::SemanticEq for DerivedQuantity {
@@ -2312,24 +2491,15 @@ impl crate::SemanticEq for DerivedQuantity {
 }
 impl DerivedQuantity {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 6usize] = [
-        Self::ParametricSensitivity,
-        Self::ReducedHessian,
-        Self::ParameterCovariance,
-        Self::WaldInterval,
-        Self::ProfileInterval,
-        Self::PropagatedCovariance,
-    ];
+    pub const ALL: [Self; 6usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<6usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::ParametricSensitivity => "parametric_sensitivity",
-            Self::ReducedHessian => "reduced_hessian",
-            Self::ParameterCovariance => "parameter_covariance",
-            Self::WaldInterval => "wald_interval",
-            Self::ProfileInterval => "profile_interval",
-            Self::PropagatedCovariance => "propagated_covariance",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -2376,23 +2546,11 @@ impl schemars::JsonSchema for DerivedQuantity {
         )
     }
 }
-impl core::str::FromStr for DerivedQuantity {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "parametric_sensitivity" => Ok(Self::ParametricSensitivity),
-            "reduced_hessian" => Ok(Self::ReducedHessian),
-            "parameter_covariance" => Ok(Self::ParameterCovariance),
-            "wald_interval" => Ok(Self::WaldInterval),
-            "profile_interval" => Ok(Self::ProfileInterval),
-            "propagated_covariance" => Ok(Self::PropagatedCovariance),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(DerivedQuantity).to_owned(),
-                    enumeration: stringify!(DerivedQuantity).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl DerivedQuantity {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(DerivedQuantity),
+            value: value.to_owned(),
         }
     }
 }
@@ -2440,8 +2598,21 @@ impl crate::SemanticFrame for DiagnosticCode {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -2450,12 +2621,15 @@ impl crate::SemanticFrame for DiagnosticCode {
 pub enum DiagnosticNonfiniteObservation {
     ///nan
     #[serde(rename = "nan")]
+    #[strum(serialize = "nan")]
     Nan,
     ///positive_infinity
     #[serde(rename = "positive_infinity")]
+    #[strum(serialize = "positive_infinity")]
     PositiveInfinity,
     ///negative_infinity
     #[serde(rename = "negative_infinity")]
+    #[strum(serialize = "negative_infinity")]
     NegativeInfinity,
 }
 impl crate::SemanticEq for DiagnosticNonfiniteObservation {
@@ -2465,18 +2639,15 @@ impl crate::SemanticEq for DiagnosticNonfiniteObservation {
 }
 impl DiagnosticNonfiniteObservation {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 3usize] = [
-        Self::Nan,
-        Self::PositiveInfinity,
-        Self::NegativeInfinity,
-    ];
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Nan => "nan",
-            Self::PositiveInfinity => "positive_infinity",
-            Self::NegativeInfinity => "negative_infinity",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -2518,20 +2689,11 @@ impl schemars::JsonSchema for DiagnosticNonfiniteObservation {
         )
     }
 }
-impl core::str::FromStr for DiagnosticNonfiniteObservation {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "nan" => Ok(Self::Nan),
-            "positive_infinity" => Ok(Self::PositiveInfinity),
-            "negative_infinity" => Ok(Self::NegativeInfinity),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(DiagnosticNonfiniteObservation).to_owned(),
-                    enumeration: stringify!(DiagnosticNonfiniteObservation).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl DiagnosticNonfiniteObservation {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(DiagnosticNonfiniteObservation),
+            value: value.to_owned(),
         }
     }
 }
@@ -2579,8 +2741,21 @@ impl crate::SemanticFrame for DiagnosticRule {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -2589,12 +2764,15 @@ impl crate::SemanticFrame for DiagnosticRule {
 pub enum DiagnosticSeverity {
     ///error
     #[serde(rename = "error")]
+    #[strum(serialize = "error")]
     Error,
     ///warning
     #[serde(rename = "warning")]
+    #[strum(serialize = "warning")]
     Warning,
     ///info
     #[serde(rename = "info")]
+    #[strum(serialize = "info")]
     Info,
 }
 impl crate::SemanticEq for DiagnosticSeverity {
@@ -2604,14 +2782,15 @@ impl crate::SemanticEq for DiagnosticSeverity {
 }
 impl DiagnosticSeverity {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 3usize] = [Self::Error, Self::Warning, Self::Info];
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Error => "error",
-            Self::Warning => "warning",
-            Self::Info => "info",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -2652,20 +2831,11 @@ impl schemars::JsonSchema for DiagnosticSeverity {
         )
     }
 }
-impl core::str::FromStr for DiagnosticSeverity {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "error" => Ok(Self::Error),
-            "warning" => Ok(Self::Warning),
-            "info" => Ok(Self::Info),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(DiagnosticSeverity).to_owned(),
-                    enumeration: stringify!(DiagnosticSeverity).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl DiagnosticSeverity {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(DiagnosticSeverity),
+            value: value.to_owned(),
         }
     }
 }
@@ -2696,8 +2866,21 @@ impl crate::SemanticFrame for DiagnosticStage {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -2706,9 +2889,11 @@ impl crate::SemanticFrame for DiagnosticStage {
 pub enum DiffsolLinear {
     ///faer sparse LU.
     #[serde(rename = "faer_lu")]
+    #[strum(serialize = "faer_lu")]
     FaerLu,
     ///SuiteSparse KLU (Diffsol `suitesparse` backend).
     #[serde(rename = "klu")]
+    #[strum(serialize = "klu")]
     Klu,
 }
 impl crate::SemanticEq for DiffsolLinear {
@@ -2718,13 +2903,15 @@ impl crate::SemanticEq for DiffsolLinear {
 }
 impl DiffsolLinear {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::FaerLu, Self::Klu];
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::FaerLu => "faer_lu",
-            Self::Klu => "klu",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -2759,19 +2946,11 @@ impl schemars::JsonSchema for DiffsolLinear {
         schemars::json_schema!({ "type" : "string", "enum" : ["faer_lu", "klu"] })
     }
 }
-impl core::str::FromStr for DiffsolLinear {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "faer_lu" => Ok(Self::FaerLu),
-            "klu" => Ok(Self::Klu),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(DiffsolLinear).to_owned(),
-                    enumeration: stringify!(DiffsolLinear).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl DiffsolLinear {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(DiffsolLinear),
+            value: value.to_owned(),
         }
     }
 }
@@ -2785,8 +2964,21 @@ impl core::str::FromStr for DiffsolLinear {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -2795,15 +2987,19 @@ impl core::str::FromStr for DiffsolLinear {
 pub enum DiffsolMethod {
     ///Variable-order variable-step BDF.
     #[serde(rename = "bdf")]
+    #[strum(serialize = "bdf")]
     Bdf,
     ///Two-stage SDIRK TR-BDF2.
     #[serde(rename = "tr_bdf2")]
+    #[strum(serialize = "tr_bdf2")]
     TrBdf2,
     ///Four-stage ESDIRK 3(4).
     #[serde(rename = "esdirk34")]
+    #[strum(serialize = "esdirk34")]
     Esdirk34,
     ///Explicit Tsitouras 4(5); only a mass-free ODE is admitted.
     #[serde(rename = "tsit45")]
+    #[strum(serialize = "tsit45")]
     Tsit45,
 }
 impl crate::SemanticEq for DiffsolMethod {
@@ -2813,20 +3009,15 @@ impl crate::SemanticEq for DiffsolMethod {
 }
 impl DiffsolMethod {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 4usize] = [
-        Self::Bdf,
-        Self::TrBdf2,
-        Self::Esdirk34,
-        Self::Tsit45,
-    ];
+    pub const ALL: [Self; 4usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<4usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Bdf => "bdf",
-            Self::TrBdf2 => "tr_bdf2",
-            Self::Esdirk34 => "esdirk34",
-            Self::Tsit45 => "tsit45",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -2867,21 +3058,11 @@ impl schemars::JsonSchema for DiffsolMethod {
         )
     }
 }
-impl core::str::FromStr for DiffsolMethod {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "bdf" => Ok(Self::Bdf),
-            "tr_bdf2" => Ok(Self::TrBdf2),
-            "esdirk34" => Ok(Self::Esdirk34),
-            "tsit45" => Ok(Self::Tsit45),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(DiffsolMethod).to_owned(),
-                    enumeration: stringify!(DiffsolMethod).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl DiffsolMethod {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(DiffsolMethod),
+            value: value.to_owned(),
         }
     }
 }
@@ -2895,8 +3076,21 @@ impl core::str::FromStr for DiffsolMethod {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -2905,18 +3099,23 @@ impl core::str::FromStr for DiffsolMethod {
 pub enum DualQualification {
     ///evaluated_kkt_not_sensitivity_certified
     #[serde(rename = "evaluated_kkt_not_sensitivity_certified")]
+    #[strum(serialize = "evaluated_kkt_not_sensitivity_certified")]
     EvaluatedKktNotSensitivityCertified,
     ///unavailable_or_invalid
     #[serde(rename = "unavailable_or_invalid")]
+    #[strum(serialize = "unavailable_or_invalid")]
     UnavailableOrInvalid,
     ///unavailable
     #[serde(rename = "unavailable")]
+    #[strum(serialize = "unavailable")]
     Unavailable,
     ///not_applicable_parameter
     #[serde(rename = "not_applicable_parameter")]
+    #[strum(serialize = "not_applicable_parameter")]
     NotApplicableParameter,
     ///sensitivity_certified
     #[serde(rename = "sensitivity_certified")]
+    #[strum(serialize = "sensitivity_certified")]
     SensitivityCertified,
 }
 impl crate::SemanticEq for DualQualification {
@@ -2926,24 +3125,15 @@ impl crate::SemanticEq for DualQualification {
 }
 impl DualQualification {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 5usize] = [
-        Self::EvaluatedKktNotSensitivityCertified,
-        Self::UnavailableOrInvalid,
-        Self::Unavailable,
-        Self::NotApplicableParameter,
-        Self::SensitivityCertified,
-    ];
+    pub const ALL: [Self; 5usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<5usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::EvaluatedKktNotSensitivityCertified => {
-                "evaluated_kkt_not_sensitivity_certified"
-            }
-            Self::UnavailableOrInvalid => "unavailable_or_invalid",
-            Self::Unavailable => "unavailable",
-            Self::NotApplicableParameter => "not_applicable_parameter",
-            Self::SensitivityCertified => "sensitivity_certified",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -2988,24 +3178,11 @@ impl schemars::JsonSchema for DualQualification {
         )
     }
 }
-impl core::str::FromStr for DualQualification {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "evaluated_kkt_not_sensitivity_certified" => {
-                Ok(Self::EvaluatedKktNotSensitivityCertified)
-            }
-            "unavailable_or_invalid" => Ok(Self::UnavailableOrInvalid),
-            "unavailable" => Ok(Self::Unavailable),
-            "not_applicable_parameter" => Ok(Self::NotApplicableParameter),
-            "sensitivity_certified" => Ok(Self::SensitivityCertified),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(DualQualification).to_owned(),
-                    enumeration: stringify!(DualQualification).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl DualQualification {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(DualQualification),
+            value: value.to_owned(),
         }
     }
 }
@@ -3019,8 +3196,21 @@ impl core::str::FromStr for DualQualification {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -3029,12 +3219,15 @@ impl core::str::FromStr for DualQualification {
 pub enum DynamicSensitivity {
     ///No parameter derivatives.
     #[serde(rename = "none")]
+    #[strum(serialize = "none")]
     None,
     ///Forward sensitivities of every sampled state and output to every integration parameter.
     #[serde(rename = "forward")]
+    #[strum(serialize = "forward")]
     Forward,
     ///Checkpointed adjoint gradients of one scalar functional of the sampled outputs; no response Jacobian.
     #[serde(rename = "adjoint")]
+    #[strum(serialize = "adjoint")]
     Adjoint,
 }
 impl crate::SemanticEq for DynamicSensitivity {
@@ -3044,14 +3237,15 @@ impl crate::SemanticEq for DynamicSensitivity {
 }
 impl DynamicSensitivity {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 3usize] = [Self::None, Self::Forward, Self::Adjoint];
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::None => "none",
-            Self::Forward => "forward",
-            Self::Adjoint => "adjoint",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -3092,20 +3286,11 @@ impl schemars::JsonSchema for DynamicSensitivity {
         )
     }
 }
-impl core::str::FromStr for DynamicSensitivity {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "none" => Ok(Self::None),
-            "forward" => Ok(Self::Forward),
-            "adjoint" => Ok(Self::Adjoint),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(DynamicSensitivity).to_owned(),
-                    enumeration: stringify!(DynamicSensitivity).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl DynamicSensitivity {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(DynamicSensitivity),
+            value: value.to_owned(),
         }
     }
 }
@@ -3119,8 +3304,21 @@ impl core::str::FromStr for DynamicSensitivity {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -3129,12 +3327,15 @@ impl core::str::FromStr for DynamicSensitivity {
 pub enum DynamicsMethod {
     ///Diffsol normally; IDAS when native trial recovery is required.
     #[serde(rename = "auto")]
+    #[strum(serialize = "auto")]
     Auto,
     ///Rust BDF with library-owned hybrid reset sensitivities.
     #[serde(rename = "diffsol")]
+    #[strum(serialize = "diffsol")]
     Diffsol,
     ///Residual BDF with recoverable trial callbacks.
     #[serde(rename = "idas")]
+    #[strum(serialize = "idas")]
     Idas,
 }
 impl crate::SemanticEq for DynamicsMethod {
@@ -3144,14 +3345,15 @@ impl crate::SemanticEq for DynamicsMethod {
 }
 impl DynamicsMethod {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 3usize] = [Self::Auto, Self::Diffsol, Self::Idas];
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Auto => "auto",
-            Self::Diffsol => "diffsol",
-            Self::Idas => "idas",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -3190,20 +3392,11 @@ impl schemars::JsonSchema for DynamicsMethod {
         )
     }
 }
-impl core::str::FromStr for DynamicsMethod {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "auto" => Ok(Self::Auto),
-            "diffsol" => Ok(Self::Diffsol),
-            "idas" => Ok(Self::Idas),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(DynamicsMethod).to_owned(),
-                    enumeration: stringify!(DynamicsMethod).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl DynamicsMethod {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(DynamicsMethod),
+            value: value.to_owned(),
         }
     }
 }
@@ -3217,8 +3410,21 @@ impl core::str::FromStr for DynamicsMethod {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -3227,9 +3433,11 @@ impl core::str::FromStr for DynamicsMethod {
 pub enum EndpointPolicy {
     ///fixed_horizon
     #[serde(rename = "fixed_horizon")]
+    #[strum(serialize = "fixed_horizon")]
     FixedHorizon,
     ///declared_terminal_event
     #[serde(rename = "declared_terminal_event")]
+    #[strum(serialize = "declared_terminal_event")]
     DeclaredTerminalEvent,
 }
 impl crate::SemanticEq for EndpointPolicy {
@@ -3239,13 +3447,15 @@ impl crate::SemanticEq for EndpointPolicy {
 }
 impl EndpointPolicy {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::FixedHorizon, Self::DeclaredTerminalEvent];
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::FixedHorizon => "fixed_horizon",
-            Self::DeclaredTerminalEvent => "declared_terminal_event",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -3282,19 +3492,11 @@ impl schemars::JsonSchema for EndpointPolicy {
         )
     }
 }
-impl core::str::FromStr for EndpointPolicy {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "fixed_horizon" => Ok(Self::FixedHorizon),
-            "declared_terminal_event" => Ok(Self::DeclaredTerminalEvent),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(EndpointPolicy).to_owned(),
-                    enumeration: stringify!(EndpointPolicy).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl EndpointPolicy {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(EndpointPolicy),
+            value: value.to_owned(),
         }
     }
 }
@@ -3308,8 +3510,21 @@ impl core::str::FromStr for EndpointPolicy {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -3318,21 +3533,27 @@ impl core::str::FromStr for EndpointPolicy {
 pub enum EntityKind {
     ///A package manifest.
     #[serde(rename = "package")]
+    #[strum(serialize = "package")]
     Package,
     ///A unit of measure.
     #[serde(rename = "unit")]
+    #[strum(serialize = "unit")]
     Unit,
     ///A coherent selection of base units.
     #[serde(rename = "unit_set")]
+    #[strum(serialize = "unit_set")]
     UnitSet,
     ///A physical quantity kind.
     #[serde(rename = "quantity_kind")]
+    #[strum(serialize = "quantity_kind")]
     QuantityKind,
     ///A named physical constant.
     #[serde(rename = "constant")]
+    #[strum(serialize = "constant")]
     Constant,
     ///An observation dataset.
     #[serde(rename = "dataset")]
+    #[strum(serialize = "dataset")]
     Dataset,
 }
 impl crate::SemanticEq for EntityKind {
@@ -3342,24 +3563,15 @@ impl crate::SemanticEq for EntityKind {
 }
 impl EntityKind {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 6usize] = [
-        Self::Package,
-        Self::Unit,
-        Self::UnitSet,
-        Self::QuantityKind,
-        Self::Constant,
-        Self::Dataset,
-    ];
+    pub const ALL: [Self; 6usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<6usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Package => "package",
-            Self::Unit => "unit",
-            Self::UnitSet => "unit_set",
-            Self::QuantityKind => "quantity_kind",
-            Self::Constant => "constant",
-            Self::Dataset => "dataset",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -3405,23 +3617,11 @@ impl schemars::JsonSchema for EntityKind {
         )
     }
 }
-impl core::str::FromStr for EntityKind {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "package" => Ok(Self::Package),
-            "unit" => Ok(Self::Unit),
-            "unit_set" => Ok(Self::UnitSet),
-            "quantity_kind" => Ok(Self::QuantityKind),
-            "constant" => Ok(Self::Constant),
-            "dataset" => Ok(Self::Dataset),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(EntityKind).to_owned(),
-                    enumeration: stringify!(EntityKind).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl EntityKind {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(EntityKind),
+            value: value.to_owned(),
         }
     }
 }
@@ -3435,8 +3635,21 @@ impl core::str::FromStr for EntityKind {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -3445,12 +3658,15 @@ impl core::str::FromStr for EntityKind {
 pub enum EventDirection {
     ///Every sign change of the guard.
     #[serde(rename = "either")]
+    #[strum(serialize = "either")]
     Either,
     ///Only the guard increasing through zero; needs IDAS.
     #[serde(rename = "rising")]
+    #[strum(serialize = "rising")]
     Rising,
     ///Only the guard decreasing through zero; needs IDAS.
     #[serde(rename = "falling")]
+    #[strum(serialize = "falling")]
     Falling,
 }
 impl crate::SemanticEq for EventDirection {
@@ -3460,14 +3676,15 @@ impl crate::SemanticEq for EventDirection {
 }
 impl EventDirection {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 3usize] = [Self::Either, Self::Rising, Self::Falling];
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Either => "either",
-            Self::Rising => "rising",
-            Self::Falling => "falling",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -3506,20 +3723,11 @@ impl schemars::JsonSchema for EventDirection {
         )
     }
 }
-impl core::str::FromStr for EventDirection {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "either" => Ok(Self::Either),
-            "rising" => Ok(Self::Rising),
-            "falling" => Ok(Self::Falling),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(EventDirection).to_owned(),
-                    enumeration: stringify!(EventDirection).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl EventDirection {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(EventDirection),
+            value: value.to_owned(),
         }
     }
 }
@@ -3533,8 +3741,21 @@ impl core::str::FromStr for EventDirection {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -3543,24 +3764,31 @@ impl core::str::FromStr for EventDirection {
 pub enum EvidenceUnavailableReason {
     ///not_requested
     #[serde(rename = "not_requested")]
+    #[strum(serialize = "not_requested")]
     NotRequested,
     ///not_computed
     #[serde(rename = "not_computed")]
+    #[strum(serialize = "not_computed")]
     NotComputed,
     ///not_applicable
     #[serde(rename = "not_applicable")]
+    #[strum(serialize = "not_applicable")]
     NotApplicable,
     ///unsupported
     #[serde(rename = "unsupported")]
+    #[strum(serialize = "unsupported")]
     Unsupported,
     ///failed
     #[serde(rename = "failed")]
+    #[strum(serialize = "failed")]
     Failed,
     ///unknown
     #[serde(rename = "unknown")]
+    #[strum(serialize = "unknown")]
     Unknown,
     ///nonfinite
     #[serde(rename = "nonfinite")]
+    #[strum(serialize = "nonfinite")]
     Nonfinite,
 }
 impl crate::SemanticEq for EvidenceUnavailableReason {
@@ -3570,26 +3798,15 @@ impl crate::SemanticEq for EvidenceUnavailableReason {
 }
 impl EvidenceUnavailableReason {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 7usize] = [
-        Self::NotRequested,
-        Self::NotComputed,
-        Self::NotApplicable,
-        Self::Unsupported,
-        Self::Failed,
-        Self::Unknown,
-        Self::Nonfinite,
-    ];
+    pub const ALL: [Self; 7usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<7usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::NotRequested => "not_requested",
-            Self::NotComputed => "not_computed",
-            Self::NotApplicable => "not_applicable",
-            Self::Unsupported => "unsupported",
-            Self::Failed => "failed",
-            Self::Unknown => "unknown",
-            Self::Nonfinite => "nonfinite",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -3639,24 +3856,11 @@ impl schemars::JsonSchema for EvidenceUnavailableReason {
         )
     }
 }
-impl core::str::FromStr for EvidenceUnavailableReason {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "not_requested" => Ok(Self::NotRequested),
-            "not_computed" => Ok(Self::NotComputed),
-            "not_applicable" => Ok(Self::NotApplicable),
-            "unsupported" => Ok(Self::Unsupported),
-            "failed" => Ok(Self::Failed),
-            "unknown" => Ok(Self::Unknown),
-            "nonfinite" => Ok(Self::Nonfinite),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(EvidenceUnavailableReason).to_owned(),
-                    enumeration: stringify!(EvidenceUnavailableReason).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl EvidenceUnavailableReason {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(EvidenceUnavailableReason),
+            value: value.to_owned(),
         }
     }
 }
@@ -3670,8 +3874,21 @@ impl core::str::FromStr for EvidenceUnavailableReason {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -3680,18 +3897,23 @@ impl core::str::FromStr for EvidenceUnavailableReason {
 pub enum ExternalDerivativeSource {
     ///analytic
     #[serde(rename = "analytic")]
+    #[strum(serialize = "analytic")]
     Analytic,
     ///symbolic
     #[serde(rename = "symbolic")]
+    #[strum(serialize = "symbolic")]
     Symbolic,
     ///automatic
     #[serde(rename = "automatic")]
+    #[strum(serialize = "automatic")]
     Automatic,
     ///supplied
     #[serde(rename = "supplied")]
+    #[strum(serialize = "supplied")]
     Supplied,
     ///implicit
     #[serde(rename = "implicit")]
+    #[strum(serialize = "implicit")]
     Implicit,
 }
 impl crate::SemanticEq for ExternalDerivativeSource {
@@ -3701,22 +3923,15 @@ impl crate::SemanticEq for ExternalDerivativeSource {
 }
 impl ExternalDerivativeSource {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 5usize] = [
-        Self::Analytic,
-        Self::Symbolic,
-        Self::Automatic,
-        Self::Supplied,
-        Self::Implicit,
-    ];
+    pub const ALL: [Self; 5usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<5usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Analytic => "analytic",
-            Self::Symbolic => "symbolic",
-            Self::Automatic => "automatic",
-            Self::Supplied => "supplied",
-            Self::Implicit => "implicit",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -3762,22 +3977,11 @@ impl schemars::JsonSchema for ExternalDerivativeSource {
         )
     }
 }
-impl core::str::FromStr for ExternalDerivativeSource {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "analytic" => Ok(Self::Analytic),
-            "symbolic" => Ok(Self::Symbolic),
-            "automatic" => Ok(Self::Automatic),
-            "supplied" => Ok(Self::Supplied),
-            "implicit" => Ok(Self::Implicit),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ExternalDerivativeSource).to_owned(),
-                    enumeration: stringify!(ExternalDerivativeSource).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ExternalDerivativeSource {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ExternalDerivativeSource),
+            value: value.to_owned(),
         }
     }
 }
@@ -3808,8 +4012,21 @@ impl crate::SemanticFrame for FailureClass {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -3818,24 +4035,31 @@ impl crate::SemanticFrame for FailureClass {
 pub enum FeralOrdering {
     ///Approximate minimum degree.
     #[serde(rename = "amd")]
+    #[strum(serialize = "amd")]
     Amd,
     ///Approximate minimum fill.
     #[serde(rename = "amf")]
+    #[strum(serialize = "amf")]
     Amf,
     ///METIS multilevel nested dissection.
     #[serde(rename = "metis_nd")]
+    #[strum(serialize = "metis_nd")]
     MetisNd,
     ///SCOTCH nested dissection.
     #[serde(rename = "scotch_nd")]
+    #[strum(serialize = "scotch_nd")]
     ScotchNd,
     ///KaHIP nested dissection.
     #[serde(rename = "kahip_nd")]
+    #[strum(serialize = "kahip_nd")]
     KahipNd,
     ///FERAL's size- and shape-based choice.
     #[serde(rename = "auto")]
+    #[strum(serialize = "auto")]
     Auto,
     ///Race the candidate orderings and keep the least fill.
     #[serde(rename = "auto_race")]
+    #[strum(serialize = "auto_race")]
     AutoRace,
 }
 impl crate::SemanticEq for FeralOrdering {
@@ -3845,26 +4069,15 @@ impl crate::SemanticEq for FeralOrdering {
 }
 impl FeralOrdering {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 7usize] = [
-        Self::Amd,
-        Self::Amf,
-        Self::MetisNd,
-        Self::ScotchNd,
-        Self::KahipNd,
-        Self::Auto,
-        Self::AutoRace,
-    ];
+    pub const ALL: [Self; 7usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<7usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Amd => "amd",
-            Self::Amf => "amf",
-            Self::MetisNd => "metis_nd",
-            Self::ScotchNd => "scotch_nd",
-            Self::KahipNd => "kahip_nd",
-            Self::Auto => "auto",
-            Self::AutoRace => "auto_race",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -3912,24 +4125,11 @@ impl schemars::JsonSchema for FeralOrdering {
         )
     }
 }
-impl core::str::FromStr for FeralOrdering {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "amd" => Ok(Self::Amd),
-            "amf" => Ok(Self::Amf),
-            "metis_nd" => Ok(Self::MetisNd),
-            "scotch_nd" => Ok(Self::ScotchNd),
-            "kahip_nd" => Ok(Self::KahipNd),
-            "auto" => Ok(Self::Auto),
-            "auto_race" => Ok(Self::AutoRace),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(FeralOrdering).to_owned(),
-                    enumeration: stringify!(FeralOrdering).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl FeralOrdering {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(FeralOrdering),
+            value: value.to_owned(),
         }
     }
 }
@@ -3943,8 +4143,21 @@ impl core::str::FromStr for FeralOrdering {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -3953,15 +4166,19 @@ impl core::str::FromStr for FeralOrdering {
 pub enum FeralScaling {
     ///Knight–Ruiz infinity-norm equilibration.
     #[serde(rename = "inf_norm")]
+    #[strum(serialize = "inf_norm")]
     InfNorm,
     ///MC64-style symmetric matching scaling.
     #[serde(rename = "mc64_symmetric")]
+    #[strum(serialize = "mc64_symmetric")]
     Mc64Symmetric,
     ///No scaling.
     #[serde(rename = "identity")]
+    #[strum(serialize = "identity")]
     Identity,
     ///MC64 for arrow-KKT shapes, infinity-norm otherwise.
     #[serde(rename = "auto")]
+    #[strum(serialize = "auto")]
     Auto,
 }
 impl crate::SemanticEq for FeralScaling {
@@ -3971,20 +4188,15 @@ impl crate::SemanticEq for FeralScaling {
 }
 impl FeralScaling {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 4usize] = [
-        Self::InfNorm,
-        Self::Mc64Symmetric,
-        Self::Identity,
-        Self::Auto,
-    ];
+    pub const ALL: [Self; 4usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<4usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::InfNorm => "inf_norm",
-            Self::Mc64Symmetric => "mc64_symmetric",
-            Self::Identity => "identity",
-            Self::Auto => "auto",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -4026,21 +4238,11 @@ impl schemars::JsonSchema for FeralScaling {
         )
     }
 }
-impl core::str::FromStr for FeralScaling {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "inf_norm" => Ok(Self::InfNorm),
-            "mc64_symmetric" => Ok(Self::Mc64Symmetric),
-            "identity" => Ok(Self::Identity),
-            "auto" => Ok(Self::Auto),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(FeralScaling).to_owned(),
-                    enumeration: stringify!(FeralScaling).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl FeralScaling {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(FeralScaling),
+            value: value.to_owned(),
         }
     }
 }
@@ -4054,8 +4256,21 @@ impl core::str::FromStr for FeralScaling {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -4064,9 +4279,11 @@ impl core::str::FromStr for FeralScaling {
 pub enum FindingSeverity {
     ///error
     #[serde(rename = "error")]
+    #[strum(serialize = "error")]
     Error,
     ///warning
     #[serde(rename = "warning")]
+    #[strum(serialize = "warning")]
     Warning,
 }
 impl crate::SemanticEq for FindingSeverity {
@@ -4076,13 +4293,15 @@ impl crate::SemanticEq for FindingSeverity {
 }
 impl FindingSeverity {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Error, Self::Warning];
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Error => "error",
-            Self::Warning => "warning",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -4117,19 +4336,11 @@ impl schemars::JsonSchema for FindingSeverity {
         schemars::json_schema!({ "type" : "string", "enum" : ["error", "warning"] })
     }
 }
-impl core::str::FromStr for FindingSeverity {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "error" => Ok(Self::Error),
-            "warning" => Ok(Self::Warning),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(FindingSeverity).to_owned(),
-                    enumeration: stringify!(FindingSeverity).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl FindingSeverity {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(FindingSeverity),
+            value: value.to_owned(),
         }
     }
 }
@@ -4143,8 +4354,21 @@ impl core::str::FromStr for FindingSeverity {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -4153,9 +4377,11 @@ impl core::str::FromStr for FindingSeverity {
 pub enum FitDerivatives {
     ///The response Jacobian from forward sensitivities; every Hessian mode is available.
     #[serde(rename = "responses")]
+    #[strum(serialize = "responses")]
     Responses,
     ///The objective gradient alone, from adjoint sensitivities of transient experiments; needs the limited-memory Hessian.
     #[serde(rename = "gradient")]
+    #[strum(serialize = "gradient")]
     Gradient,
 }
 impl crate::SemanticEq for FitDerivatives {
@@ -4165,13 +4391,15 @@ impl crate::SemanticEq for FitDerivatives {
 }
 impl FitDerivatives {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Responses, Self::Gradient];
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Responses => "responses",
-            Self::Gradient => "gradient",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -4206,19 +4434,11 @@ impl schemars::JsonSchema for FitDerivatives {
         schemars::json_schema!({ "type" : "string", "enum" : ["responses", "gradient"] })
     }
 }
-impl core::str::FromStr for FitDerivatives {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "responses" => Ok(Self::Responses),
-            "gradient" => Ok(Self::Gradient),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(FitDerivatives).to_owned(),
-                    enumeration: stringify!(FitDerivatives).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl FitDerivatives {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(FitDerivatives),
+            value: value.to_owned(),
         }
     }
 }
@@ -4232,8 +4452,21 @@ impl core::str::FromStr for FitDerivatives {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -4242,12 +4475,15 @@ impl core::str::FromStr for FitDerivatives {
 pub enum HessianMode {
     ///Exact weighted Lagrangian Hessian.
     #[serde(rename = "exact")]
+    #[strum(serialize = "exact")]
     Exact,
     ///Library-owned quasi-Newton approximation.
     #[serde(rename = "limited_memory")]
+    #[strum(serialize = "limited_memory")]
     LimitedMemory,
     ///Gauss–Newton Hessian of a least-squares objective: the weighted response Gram JᵀWJ plus the constraint-multiplier Hessians, without residual curvature. Admitted for least-squares fits only.
     #[serde(rename = "gauss_newton")]
+    #[strum(serialize = "gauss_newton")]
     GaussNewton,
 }
 impl crate::SemanticEq for HessianMode {
@@ -4257,18 +4493,15 @@ impl crate::SemanticEq for HessianMode {
 }
 impl HessianMode {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 3usize] = [
-        Self::Exact,
-        Self::LimitedMemory,
-        Self::GaussNewton,
-    ];
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Exact => "exact",
-            Self::LimitedMemory => "limited_memory",
-            Self::GaussNewton => "gauss_newton",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -4307,20 +4540,11 @@ impl schemars::JsonSchema for HessianMode {
         )
     }
 }
-impl core::str::FromStr for HessianMode {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "exact" => Ok(Self::Exact),
-            "limited_memory" => Ok(Self::LimitedMemory),
-            "gauss_newton" => Ok(Self::GaussNewton),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(HessianMode).to_owned(),
-                    enumeration: stringify!(HessianMode).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl HessianMode {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(HessianMode),
+            value: value.to_owned(),
         }
     }
 }
@@ -4334,8 +4558,21 @@ impl core::str::FromStr for HessianMode {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -4344,15 +4581,19 @@ impl core::str::FromStr for HessianMode {
 pub enum HighsMethod {
     ///Native method selection.
     #[serde(rename = "choose")]
+    #[strum(serialize = "choose")]
     Choose,
     ///Simplex for LP.
     #[serde(rename = "simplex")]
+    #[strum(serialize = "simplex")]
     Simplex,
     ///Interior point for LP.
     #[serde(rename = "ipm")]
+    #[strum(serialize = "ipm")]
     Ipm,
     ///First-order primal-dual LP method.
     #[serde(rename = "pdlp")]
+    #[strum(serialize = "pdlp")]
     Pdlp,
 }
 impl crate::SemanticEq for HighsMethod {
@@ -4362,15 +4603,15 @@ impl crate::SemanticEq for HighsMethod {
 }
 impl HighsMethod {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 4usize] = [Self::Choose, Self::Simplex, Self::Ipm, Self::Pdlp];
+    pub const ALL: [Self; 4usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<4usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Choose => "choose",
-            Self::Simplex => "simplex",
-            Self::Ipm => "ipm",
-            Self::Pdlp => "pdlp",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -4411,21 +4652,11 @@ impl schemars::JsonSchema for HighsMethod {
         )
     }
 }
-impl core::str::FromStr for HighsMethod {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "choose" => Ok(Self::Choose),
-            "simplex" => Ok(Self::Simplex),
-            "ipm" => Ok(Self::Ipm),
-            "pdlp" => Ok(Self::Pdlp),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(HighsMethod).to_owned(),
-                    enumeration: stringify!(HighsMethod).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl HighsMethod {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(HighsMethod),
+            value: value.to_owned(),
         }
     }
 }
@@ -4439,8 +4670,21 @@ impl core::str::FromStr for HighsMethod {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -4449,9 +4693,11 @@ impl core::str::FromStr for HighsMethod {
 pub enum IdPolicy {
     ///The authoring tool assigns a UUIDv7 when the entity is first written; a rename changes an attribute.
     #[serde(rename = "explicit")]
+    #[strum(serialize = "explicit")]
     Explicit,
     ///`blake3_128("pse:named:v1" ‖ package_id ‖ qualified_name)`; a rename is a new entity.
     #[serde(rename = "named")]
+    #[strum(serialize = "named")]
     Named,
 }
 impl crate::SemanticEq for IdPolicy {
@@ -4461,13 +4707,15 @@ impl crate::SemanticEq for IdPolicy {
 }
 impl IdPolicy {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Explicit, Self::Named];
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Explicit => "explicit",
-            Self::Named => "named",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -4502,19 +4750,11 @@ impl schemars::JsonSchema for IdPolicy {
         schemars::json_schema!({ "type" : "string", "enum" : ["explicit", "named"] })
     }
 }
-impl core::str::FromStr for IdPolicy {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "explicit" => Ok(Self::Explicit),
-            "named" => Ok(Self::Named),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(IdPolicy).to_owned(),
-                    enumeration: stringify!(IdPolicy).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl IdPolicy {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(IdPolicy),
+            value: value.to_owned(),
         }
     }
 }
@@ -4528,8 +4768,21 @@ impl core::str::FromStr for IdPolicy {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -4538,9 +4791,11 @@ impl core::str::FromStr for IdPolicy {
 pub enum IdasInitialization {
     ///Keep the requested differential states; compute algebraic states and all rates.
     #[serde(rename = "algebraic_and_rates")]
+    #[strum(serialize = "algebraic_and_rates")]
     AlgebraicAndRates,
     ///Every rate is zero and every state is computed: a steady start.
     #[serde(rename = "steady_states")]
+    #[strum(serialize = "steady_states")]
     SteadyStates,
 }
 impl crate::SemanticEq for IdasInitialization {
@@ -4550,13 +4805,15 @@ impl crate::SemanticEq for IdasInitialization {
 }
 impl IdasInitialization {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::AlgebraicAndRates, Self::SteadyStates];
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::AlgebraicAndRates => "algebraic_and_rates",
-            Self::SteadyStates => "steady_states",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -4595,19 +4852,11 @@ impl schemars::JsonSchema for IdasInitialization {
         )
     }
 }
-impl core::str::FromStr for IdasInitialization {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "algebraic_and_rates" => Ok(Self::AlgebraicAndRates),
-            "steady_states" => Ok(Self::SteadyStates),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(IdasInitialization).to_owned(),
-                    enumeration: stringify!(IdasInitialization).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl IdasInitialization {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(IdasInitialization),
+            value: value.to_owned(),
         }
     }
 }
@@ -4621,8 +4870,21 @@ impl core::str::FromStr for IdasInitialization {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -4631,12 +4893,15 @@ impl core::str::FromStr for IdasInitialization {
 pub enum IncumbentPolicy {
     ///refuse
     #[serde(rename = "refuse")]
+    #[strum(serialize = "refuse")]
     Refuse,
     ///accept_feasible
     #[serde(rename = "accept_feasible")]
+    #[strum(serialize = "accept_feasible")]
     AcceptFeasible,
     ///accept_within_gap
     #[serde(rename = "accept_within_gap")]
+    #[strum(serialize = "accept_within_gap")]
     AcceptWithinGap,
 }
 impl crate::SemanticEq for IncumbentPolicy {
@@ -4646,18 +4911,15 @@ impl crate::SemanticEq for IncumbentPolicy {
 }
 impl IncumbentPolicy {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 3usize] = [
-        Self::Refuse,
-        Self::AcceptFeasible,
-        Self::AcceptWithinGap,
-    ];
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Refuse => "refuse",
-            Self::AcceptFeasible => "accept_feasible",
-            Self::AcceptWithinGap => "accept_within_gap",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -4697,20 +4959,11 @@ impl schemars::JsonSchema for IncumbentPolicy {
         )
     }
 }
-impl core::str::FromStr for IncumbentPolicy {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "refuse" => Ok(Self::Refuse),
-            "accept_feasible" => Ok(Self::AcceptFeasible),
-            "accept_within_gap" => Ok(Self::AcceptWithinGap),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(IncumbentPolicy).to_owned(),
-                    enumeration: stringify!(IncumbentPolicy).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl IncumbentPolicy {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(IncumbentPolicy),
+            value: value.to_owned(),
         }
     }
 }
@@ -4724,8 +4977,21 @@ impl core::str::FromStr for IncumbentPolicy {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -4734,9 +5000,11 @@ impl core::str::FromStr for IncumbentPolicy {
 pub enum InputConsumptionKind {
     ///whole
     #[serde(rename = "whole")]
+    #[strum(serialize = "whole")]
     Whole,
     ///columns
     #[serde(rename = "columns")]
+    #[strum(serialize = "columns")]
     Columns,
 }
 impl crate::SemanticEq for InputConsumptionKind {
@@ -4746,13 +5014,15 @@ impl crate::SemanticEq for InputConsumptionKind {
 }
 impl InputConsumptionKind {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Whole, Self::Columns];
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Whole => "whole",
-            Self::Columns => "columns",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -4789,19 +5059,11 @@ impl schemars::JsonSchema for InputConsumptionKind {
         schemars::json_schema!({ "type" : "string", "enum" : ["whole", "columns"] })
     }
 }
-impl core::str::FromStr for InputConsumptionKind {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "whole" => Ok(Self::Whole),
-            "columns" => Ok(Self::Columns),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(InputConsumptionKind).to_owned(),
-                    enumeration: stringify!(InputConsumptionKind).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl InputConsumptionKind {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(InputConsumptionKind),
+            value: value.to_owned(),
         }
     }
 }
@@ -4815,8 +5077,21 @@ impl core::str::FromStr for InputConsumptionKind {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -4825,9 +5100,11 @@ impl core::str::FromStr for InputConsumptionKind {
 pub enum IntervalEnd {
     ///The interval's lower end.
     #[serde(rename = "lower")]
+    #[strum(serialize = "lower")]
     Lower,
     ///The interval's upper end.
     #[serde(rename = "upper")]
+    #[strum(serialize = "upper")]
     Upper,
 }
 impl crate::SemanticEq for IntervalEnd {
@@ -4837,13 +5114,15 @@ impl crate::SemanticEq for IntervalEnd {
 }
 impl IntervalEnd {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Lower, Self::Upper];
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Lower => "lower",
-            Self::Upper => "upper",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -4878,19 +5157,11 @@ impl schemars::JsonSchema for IntervalEnd {
         schemars::json_schema!({ "type" : "string", "enum" : ["lower", "upper"] })
     }
 }
-impl core::str::FromStr for IntervalEnd {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "lower" => Ok(Self::Lower),
-            "upper" => Ok(Self::Upper),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(IntervalEnd).to_owned(),
-                    enumeration: stringify!(IntervalEnd).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl IntervalEnd {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(IntervalEnd),
+            value: value.to_owned(),
         }
     }
 }
@@ -4904,8 +5175,21 @@ impl core::str::FromStr for IntervalEnd {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -4914,9 +5198,11 @@ impl core::str::FromStr for IntervalEnd {
 pub enum IntervalMethod {
     ///A Wald interval from the covariance and a quantile.
     #[serde(rename = "wald")]
+    #[strum(serialize = "wald")]
     Wald,
     ///A profile-likelihood interval from adaptive pin chains.
     #[serde(rename = "profile_likelihood")]
+    #[strum(serialize = "profile_likelihood")]
     ProfileLikelihood,
 }
 impl crate::SemanticEq for IntervalMethod {
@@ -4926,13 +5212,15 @@ impl crate::SemanticEq for IntervalMethod {
 }
 impl IntervalMethod {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Wald, Self::ProfileLikelihood];
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Wald => "wald",
-            Self::ProfileLikelihood => "profile_likelihood",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -4969,19 +5257,11 @@ impl schemars::JsonSchema for IntervalMethod {
         )
     }
 }
-impl core::str::FromStr for IntervalMethod {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "wald" => Ok(Self::Wald),
-            "profile_likelihood" => Ok(Self::ProfileLikelihood),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(IntervalMethod).to_owned(),
-                    enumeration: stringify!(IntervalMethod).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl IntervalMethod {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(IntervalMethod),
+            value: value.to_owned(),
         }
     }
 }
@@ -4995,8 +5275,21 @@ impl core::str::FromStr for IntervalMethod {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -5005,12 +5298,15 @@ impl core::str::FromStr for IntervalMethod {
 pub enum IntervalOutcome {
     ///The end is where the interval's statistic reaches its quantile: a Wald end, or a profile point within the chain tolerance of the likelihood-ratio threshold.
     #[serde(rename = "threshold")]
+    #[strum(serialize = "threshold")]
     Threshold,
     ///The profile reached the parameter's declared bound below the threshold: the end is the bound, and the interval is cut there by the admissible domain.
     #[serde(rename = "bound")]
+    #[strum(serialize = "bound")]
     Bound,
     ///The profile chain stopped before the threshold or the bound: a pinned fit failed at the smallest step, the point budget or the deadline ran out, or a pinned fit found an objective below the estimate's. The end has no value; the detail states why.
     #[serde(rename = "stopped")]
+    #[strum(serialize = "stopped")]
     Stopped,
 }
 impl crate::SemanticEq for IntervalOutcome {
@@ -5020,14 +5316,15 @@ impl crate::SemanticEq for IntervalOutcome {
 }
 impl IntervalOutcome {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 3usize] = [Self::Threshold, Self::Bound, Self::Stopped];
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Threshold => "threshold",
-            Self::Bound => "bound",
-            Self::Stopped => "stopped",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -5066,20 +5363,11 @@ impl schemars::JsonSchema for IntervalOutcome {
         )
     }
 }
-impl core::str::FromStr for IntervalOutcome {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "threshold" => Ok(Self::Threshold),
-            "bound" => Ok(Self::Bound),
-            "stopped" => Ok(Self::Stopped),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(IntervalOutcome).to_owned(),
-                    enumeration: stringify!(IntervalOutcome).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl IntervalOutcome {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(IntervalOutcome),
+            value: value.to_owned(),
         }
     }
 }
@@ -5110,8 +5398,21 @@ impl crate::SemanticFrame for InvariantKind {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -5120,12 +5421,15 @@ impl crate::SemanticFrame for InvariantKind {
 pub enum IpoptLinearSolver {
     ///Sequential MUMPS.
     #[serde(rename = "mumps")]
+    #[strum(serialize = "mumps")]
     Mumps,
     ///SPRAL SSIDS on OpenMP threads; needs OMP_CANCELLATION=TRUE in the process.
     #[serde(rename = "spral")]
+    #[strum(serialize = "spral")]
     Spral,
     ///oneMKL Pardiso on MKL threads.
     #[serde(rename = "pardisomkl")]
+    #[strum(serialize = "pardisomkl")]
     Pardisomkl,
 }
 impl crate::SemanticEq for IpoptLinearSolver {
@@ -5135,14 +5439,15 @@ impl crate::SemanticEq for IpoptLinearSolver {
 }
 impl IpoptLinearSolver {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 3usize] = [Self::Mumps, Self::Spral, Self::Pardisomkl];
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Mumps => "mumps",
-            Self::Spral => "spral",
-            Self::Pardisomkl => "pardisomkl",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -5181,20 +5486,11 @@ impl schemars::JsonSchema for IpoptLinearSolver {
         )
     }
 }
-impl core::str::FromStr for IpoptLinearSolver {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "mumps" => Ok(Self::Mumps),
-            "spral" => Ok(Self::Spral),
-            "pardisomkl" => Ok(Self::Pardisomkl),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(IpoptLinearSolver).to_owned(),
-                    enumeration: stringify!(IpoptLinearSolver).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl IpoptLinearSolver {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(IpoptLinearSolver),
+            value: value.to_owned(),
         }
     }
 }
@@ -5208,8 +5504,21 @@ impl core::str::FromStr for IpoptLinearSolver {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -5218,21 +5527,27 @@ impl core::str::FromStr for IpoptLinearSolver {
 pub enum JobState {
     ///waiting
     #[serde(rename = "waiting")]
+    #[strum(serialize = "waiting")]
     Waiting,
     ///queued
     #[serde(rename = "queued")]
+    #[strum(serialize = "queued")]
     Queued,
     ///running
     #[serde(rename = "running")]
+    #[strum(serialize = "running")]
     Running,
     ///completed
     #[serde(rename = "completed")]
+    #[strum(serialize = "completed")]
     Completed,
     ///failed
     #[serde(rename = "failed")]
+    #[strum(serialize = "failed")]
     Failed,
     ///cancelled
     #[serde(rename = "cancelled")]
+    #[strum(serialize = "cancelled")]
     Cancelled,
 }
 impl crate::SemanticEq for JobState {
@@ -5242,24 +5557,15 @@ impl crate::SemanticEq for JobState {
 }
 impl JobState {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 6usize] = [
-        Self::Waiting,
-        Self::Queued,
-        Self::Running,
-        Self::Completed,
-        Self::Failed,
-        Self::Cancelled,
-    ];
+    pub const ALL: [Self; 6usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<6usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Waiting => "waiting",
-            Self::Queued => "queued",
-            Self::Running => "running",
-            Self::Completed => "completed",
-            Self::Failed => "failed",
-            Self::Cancelled => "cancelled",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -5305,23 +5611,11 @@ impl schemars::JsonSchema for JobState {
         )
     }
 }
-impl core::str::FromStr for JobState {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "waiting" => Ok(Self::Waiting),
-            "queued" => Ok(Self::Queued),
-            "running" => Ok(Self::Running),
-            "completed" => Ok(Self::Completed),
-            "failed" => Ok(Self::Failed),
-            "cancelled" => Ok(Self::Cancelled),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(JobState).to_owned(),
-                    enumeration: stringify!(JobState).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl JobState {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(JobState),
+            value: value.to_owned(),
         }
     }
 }
@@ -5335,8 +5629,21 @@ impl core::str::FromStr for JobState {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -5345,15 +5652,19 @@ impl core::str::FromStr for JobState {
 pub enum KinsolOrthogonalization {
     ///Modified Gram-Schmidt, KINSOL's default.
     #[serde(rename = "modified_gram_schmidt")]
+    #[strum(serialize = "modified_gram_schmidt")]
     ModifiedGramSchmidt,
     ///Inverse compact WY modified Gram-Schmidt.
     #[serde(rename = "inverse_compact_wy")]
+    #[strum(serialize = "inverse_compact_wy")]
     InverseCompactWy,
     ///Classical Gram-Schmidt with reorthogonalization.
     #[serde(rename = "classical_gram_schmidt2")]
+    #[strum(serialize = "classical_gram_schmidt2")]
     ClassicalGramSchmidt2,
     ///Classical Gram-Schmidt with delayed reorthogonalization.
     #[serde(rename = "delayed_classical_gram_schmidt2")]
+    #[strum(serialize = "delayed_classical_gram_schmidt2")]
     DelayedClassicalGramSchmidt2,
 }
 impl crate::SemanticEq for KinsolOrthogonalization {
@@ -5363,20 +5674,15 @@ impl crate::SemanticEq for KinsolOrthogonalization {
 }
 impl KinsolOrthogonalization {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 4usize] = [
-        Self::ModifiedGramSchmidt,
-        Self::InverseCompactWy,
-        Self::ClassicalGramSchmidt2,
-        Self::DelayedClassicalGramSchmidt2,
-    ];
+    pub const ALL: [Self; 4usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<4usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::ModifiedGramSchmidt => "modified_gram_schmidt",
-            Self::InverseCompactWy => "inverse_compact_wy",
-            Self::ClassicalGramSchmidt2 => "classical_gram_schmidt2",
-            Self::DelayedClassicalGramSchmidt2 => "delayed_classical_gram_schmidt2",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -5420,21 +5726,11 @@ impl schemars::JsonSchema for KinsolOrthogonalization {
         )
     }
 }
-impl core::str::FromStr for KinsolOrthogonalization {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "modified_gram_schmidt" => Ok(Self::ModifiedGramSchmidt),
-            "inverse_compact_wy" => Ok(Self::InverseCompactWy),
-            "classical_gram_schmidt2" => Ok(Self::ClassicalGramSchmidt2),
-            "delayed_classical_gram_schmidt2" => Ok(Self::DelayedClassicalGramSchmidt2),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(KinsolOrthogonalization).to_owned(),
-                    enumeration: stringify!(KinsolOrthogonalization).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl KinsolOrthogonalization {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(KinsolOrthogonalization),
+            value: value.to_owned(),
         }
     }
 }
@@ -5448,8 +5744,21 @@ impl core::str::FromStr for KinsolOrthogonalization {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -5458,15 +5767,19 @@ impl core::str::FromStr for KinsolOrthogonalization {
 pub enum KinsolStrategy {
     ///Declared constant linear splitting with native Anderson acceleration.
     #[serde(rename = "picard")]
+    #[strum(serialize = "picard")]
     Picard,
     ///Full Newton step.
     #[serde(rename = "newton")]
+    #[strum(serialize = "newton")]
     Newton,
     ///Globalized Newton line search.
     #[serde(rename = "line_search")]
+    #[strum(serialize = "line_search")]
     LineSearch,
     ///Declared fixed-point map with native Anderson acceleration.
     #[serde(rename = "fixed_point")]
+    #[strum(serialize = "fixed_point")]
     FixedPoint,
 }
 impl crate::SemanticEq for KinsolStrategy {
@@ -5476,20 +5789,15 @@ impl crate::SemanticEq for KinsolStrategy {
 }
 impl KinsolStrategy {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 4usize] = [
-        Self::Picard,
-        Self::Newton,
-        Self::LineSearch,
-        Self::FixedPoint,
-    ];
+    pub const ALL: [Self; 4usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<4usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Picard => "picard",
-            Self::Newton => "newton",
-            Self::LineSearch => "line_search",
-            Self::FixedPoint => "fixed_point",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -5531,21 +5839,11 @@ impl schemars::JsonSchema for KinsolStrategy {
         )
     }
 }
-impl core::str::FromStr for KinsolStrategy {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "picard" => Ok(Self::Picard),
-            "newton" => Ok(Self::Newton),
-            "line_search" => Ok(Self::LineSearch),
-            "fixed_point" => Ok(Self::FixedPoint),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(KinsolStrategy).to_owned(),
-                    enumeration: stringify!(KinsolStrategy).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl KinsolStrategy {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(KinsolStrategy),
+            value: value.to_owned(),
         }
     }
 }
@@ -5559,8 +5857,21 @@ impl core::str::FromStr for KinsolStrategy {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -5569,9 +5880,11 @@ impl core::str::FromStr for KinsolStrategy {
 pub enum MemberSelectionKind {
     ///full
     #[serde(rename = "full")]
+    #[strum(serialize = "full")]
     Full,
     ///revision
     #[serde(rename = "revision")]
+    #[strum(serialize = "revision")]
     Revision,
 }
 impl crate::SemanticEq for MemberSelectionKind {
@@ -5581,13 +5894,15 @@ impl crate::SemanticEq for MemberSelectionKind {
 }
 impl MemberSelectionKind {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Full, Self::Revision];
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Full => "full",
-            Self::Revision => "revision",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -5624,19 +5939,11 @@ impl schemars::JsonSchema for MemberSelectionKind {
         schemars::json_schema!({ "type" : "string", "enum" : ["full", "revision"] })
     }
 }
-impl core::str::FromStr for MemberSelectionKind {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "full" => Ok(Self::Full),
-            "revision" => Ok(Self::Revision),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(MemberSelectionKind).to_owned(),
-                    enumeration: stringify!(MemberSelectionKind).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl MemberSelectionKind {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(MemberSelectionKind),
+            value: value.to_owned(),
         }
     }
 }
@@ -5650,8 +5957,21 @@ impl core::str::FromStr for MemberSelectionKind {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -5660,21 +5980,27 @@ impl core::str::FromStr for MemberSelectionKind {
 pub enum MigrationOp {
     ///Add a column with a declared default.
     #[serde(rename = "add_column")]
+    #[strum(serialize = "add_column")]
     AddColumn,
     ///Drop a column.
     #[serde(rename = "drop_column")]
+    #[strum(serialize = "drop_column")]
     DropColumn,
     ///Rename a column, keeping its values.
     #[serde(rename = "rename_column")]
+    #[strum(serialize = "rename_column")]
     RenameColumn,
     ///Change a column's nullability.
     #[serde(rename = "change_nullable")]
+    #[strum(serialize = "change_nullable")]
     ChangeNullable,
     ///Apply an explicit portable finite domain mapping.
     #[serde(rename = "recode_domain")]
+    #[strum(serialize = "recode_domain")]
     RecodeDomain,
     ///Apply an explicit composite reference-key mapping.
     #[serde(rename = "map_reference_key")]
+    #[strum(serialize = "map_reference_key")]
     MapReferenceKey,
 }
 impl crate::SemanticEq for MigrationOp {
@@ -5684,24 +6010,15 @@ impl crate::SemanticEq for MigrationOp {
 }
 impl MigrationOp {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 6usize] = [
-        Self::AddColumn,
-        Self::DropColumn,
-        Self::RenameColumn,
-        Self::ChangeNullable,
-        Self::RecodeDomain,
-        Self::MapReferenceKey,
-    ];
+    pub const ALL: [Self; 6usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<6usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::AddColumn => "add_column",
-            Self::DropColumn => "drop_column",
-            Self::RenameColumn => "rename_column",
-            Self::ChangeNullable => "change_nullable",
-            Self::RecodeDomain => "recode_domain",
-            Self::MapReferenceKey => "map_reference_key",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -5747,23 +6064,11 @@ impl schemars::JsonSchema for MigrationOp {
         )
     }
 }
-impl core::str::FromStr for MigrationOp {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "add_column" => Ok(Self::AddColumn),
-            "drop_column" => Ok(Self::DropColumn),
-            "rename_column" => Ok(Self::RenameColumn),
-            "change_nullable" => Ok(Self::ChangeNullable),
-            "recode_domain" => Ok(Self::RecodeDomain),
-            "map_reference_key" => Ok(Self::MapReferenceKey),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(MigrationOp).to_owned(),
-                    enumeration: stringify!(MigrationOp).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl MigrationOp {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(MigrationOp),
+            value: value.to_owned(),
         }
     }
 }
@@ -5777,8 +6082,21 @@ impl core::str::FromStr for MigrationOp {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -5787,12 +6105,15 @@ impl core::str::FromStr for MigrationOp {
 pub enum ModelingAccumulatorMode {
     ///conservation
     #[serde(rename = "conservation")]
+    #[strum(serialize = "conservation")]
     Conservation,
     ///accounting
     #[serde(rename = "accounting")]
+    #[strum(serialize = "accounting")]
     Accounting,
     ///observation
     #[serde(rename = "observation")]
+    #[strum(serialize = "observation")]
     Observation,
 }
 impl crate::SemanticEq for ModelingAccumulatorMode {
@@ -5802,18 +6123,15 @@ impl crate::SemanticEq for ModelingAccumulatorMode {
 }
 impl ModelingAccumulatorMode {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 3usize] = [
-        Self::Conservation,
-        Self::Accounting,
-        Self::Observation,
-    ];
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Conservation => "conservation",
-            Self::Accounting => "accounting",
-            Self::Observation => "observation",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -5854,20 +6172,11 @@ impl schemars::JsonSchema for ModelingAccumulatorMode {
         )
     }
 }
-impl core::str::FromStr for ModelingAccumulatorMode {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "conservation" => Ok(Self::Conservation),
-            "accounting" => Ok(Self::Accounting),
-            "observation" => Ok(Self::Observation),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ModelingAccumulatorMode).to_owned(),
-                    enumeration: stringify!(ModelingAccumulatorMode).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ModelingAccumulatorMode {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ModelingAccumulatorMode),
+            value: value.to_owned(),
         }
     }
 }
@@ -5881,8 +6190,21 @@ impl core::str::FromStr for ModelingAccumulatorMode {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -5891,12 +6213,15 @@ impl core::str::FromStr for ModelingAccumulatorMode {
 pub enum ModelingAnalysisRoute {
     ///steady
     #[serde(rename = "steady")]
+    #[strum(serialize = "steady")]
     Steady,
     ///integrated
     #[serde(rename = "integrated")]
+    #[strum(serialize = "integrated")]
     Integrated,
     ///simultaneous
     #[serde(rename = "simultaneous")]
+    #[strum(serialize = "simultaneous")]
     Simultaneous,
 }
 impl crate::SemanticEq for ModelingAnalysisRoute {
@@ -5906,14 +6231,15 @@ impl crate::SemanticEq for ModelingAnalysisRoute {
 }
 impl ModelingAnalysisRoute {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 3usize] = [Self::Steady, Self::Integrated, Self::Simultaneous];
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Steady => "steady",
-            Self::Integrated => "integrated",
-            Self::Simultaneous => "simultaneous",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -5954,20 +6280,11 @@ impl schemars::JsonSchema for ModelingAnalysisRoute {
         )
     }
 }
-impl core::str::FromStr for ModelingAnalysisRoute {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "steady" => Ok(Self::Steady),
-            "integrated" => Ok(Self::Integrated),
-            "simultaneous" => Ok(Self::Simultaneous),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ModelingAnalysisRoute).to_owned(),
-                    enumeration: stringify!(ModelingAnalysisRoute).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ModelingAnalysisRoute {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ModelingAnalysisRoute),
+            value: value.to_owned(),
         }
     }
 }
@@ -5981,8 +6298,21 @@ impl core::str::FromStr for ModelingAnalysisRoute {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -5991,30 +6321,39 @@ impl core::str::FromStr for ModelingAnalysisRoute {
 pub enum ModelingAnnotationKind {
     ///start
     #[serde(rename = "start")]
+    #[strum(serialize = "start")]
     Start,
     ///nominal
     #[serde(rename = "nominal")]
+    #[strum(serialize = "nominal")]
     Nominal,
     ///bounds
     #[serde(rename = "bounds")]
+    #[strum(serialize = "bounds")]
     Bounds,
     ///scale
     #[serde(rename = "scale")]
+    #[strum(serialize = "scale")]
     Scale,
     ///report
     #[serde(rename = "report")]
+    #[strum(serialize = "report")]
     Report,
     ///valid
     #[serde(rename = "valid")]
+    #[strum(serialize = "valid")]
     Valid,
     ///check
     #[serde(rename = "check")]
+    #[strum(serialize = "check")]
     Check,
     ///objective
     #[serde(rename = "objective")]
+    #[strum(serialize = "objective")]
     Objective,
     ///connectivity
     #[serde(rename = "connectivity")]
+    #[strum(serialize = "connectivity")]
     Connectivity,
 }
 impl crate::SemanticEq for ModelingAnnotationKind {
@@ -6024,30 +6363,15 @@ impl crate::SemanticEq for ModelingAnnotationKind {
 }
 impl ModelingAnnotationKind {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 9usize] = [
-        Self::Start,
-        Self::Nominal,
-        Self::Bounds,
-        Self::Scale,
-        Self::Report,
-        Self::Valid,
-        Self::Check,
-        Self::Objective,
-        Self::Connectivity,
-    ];
+    pub const ALL: [Self; 9usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<9usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Start => "start",
-            Self::Nominal => "nominal",
-            Self::Bounds => "bounds",
-            Self::Scale => "scale",
-            Self::Report => "report",
-            Self::Valid => "valid",
-            Self::Check => "check",
-            Self::Objective => "objective",
-            Self::Connectivity => "connectivity",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -6101,26 +6425,11 @@ impl schemars::JsonSchema for ModelingAnnotationKind {
         )
     }
 }
-impl core::str::FromStr for ModelingAnnotationKind {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "start" => Ok(Self::Start),
-            "nominal" => Ok(Self::Nominal),
-            "bounds" => Ok(Self::Bounds),
-            "scale" => Ok(Self::Scale),
-            "report" => Ok(Self::Report),
-            "valid" => Ok(Self::Valid),
-            "check" => Ok(Self::Check),
-            "objective" => Ok(Self::Objective),
-            "connectivity" => Ok(Self::Connectivity),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ModelingAnnotationKind).to_owned(),
-                    enumeration: stringify!(ModelingAnnotationKind).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ModelingAnnotationKind {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ModelingAnnotationKind),
+            value: value.to_owned(),
         }
     }
 }
@@ -6134,8 +6443,21 @@ impl core::str::FromStr for ModelingAnnotationKind {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -6144,15 +6466,19 @@ impl core::str::FromStr for ModelingAnnotationKind {
 pub enum ModelingApplicabilityBasis {
     ///fitted
     #[serde(rename = "fitted")]
+    #[strum(serialize = "fitted")]
     Fitted,
     ///recommended
     #[serde(rename = "recommended")]
+    #[strum(serialize = "recommended")]
     Recommended,
     ///validated
     #[serde(rename = "validated")]
+    #[strum(serialize = "validated")]
     Validated,
     ///reported
     #[serde(rename = "reported")]
+    #[strum(serialize = "reported")]
     Reported,
 }
 impl crate::SemanticEq for ModelingApplicabilityBasis {
@@ -6162,20 +6488,15 @@ impl crate::SemanticEq for ModelingApplicabilityBasis {
 }
 impl ModelingApplicabilityBasis {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 4usize] = [
-        Self::Fitted,
-        Self::Recommended,
-        Self::Validated,
-        Self::Reported,
-    ];
+    pub const ALL: [Self; 4usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<4usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Fitted => "fitted",
-            Self::Recommended => "recommended",
-            Self::Validated => "validated",
-            Self::Reported => "reported",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -6219,21 +6540,11 @@ impl schemars::JsonSchema for ModelingApplicabilityBasis {
         )
     }
 }
-impl core::str::FromStr for ModelingApplicabilityBasis {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "fitted" => Ok(Self::Fitted),
-            "recommended" => Ok(Self::Recommended),
-            "validated" => Ok(Self::Validated),
-            "reported" => Ok(Self::Reported),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ModelingApplicabilityBasis).to_owned(),
-                    enumeration: stringify!(ModelingApplicabilityBasis).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ModelingApplicabilityBasis {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ModelingApplicabilityBasis),
+            value: value.to_owned(),
         }
     }
 }
@@ -6247,8 +6558,21 @@ impl core::str::FromStr for ModelingApplicabilityBasis {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -6257,18 +6581,23 @@ impl core::str::FromStr for ModelingApplicabilityBasis {
 pub enum ModelingApplicabilityKind {
     ///region
     #[serde(rename = "region")]
+    #[strum(serialize = "region")]
     Region,
     ///interval
     #[serde(rename = "interval")]
+    #[strum(serialize = "interval")]
     Interval,
     ///unrestricted
     #[serde(rename = "unrestricted")]
+    #[strum(serialize = "unrestricted")]
     Unrestricted,
     ///unknown
     #[serde(rename = "unknown")]
+    #[strum(serialize = "unknown")]
     Unknown,
     ///union
     #[serde(rename = "union")]
+    #[strum(serialize = "union")]
     Union,
 }
 impl crate::SemanticEq for ModelingApplicabilityKind {
@@ -6278,22 +6607,15 @@ impl crate::SemanticEq for ModelingApplicabilityKind {
 }
 impl ModelingApplicabilityKind {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 5usize] = [
-        Self::Region,
-        Self::Interval,
-        Self::Unrestricted,
-        Self::Unknown,
-        Self::Union,
-    ];
+    pub const ALL: [Self; 5usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<5usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Region => "region",
-            Self::Interval => "interval",
-            Self::Unrestricted => "unrestricted",
-            Self::Unknown => "unknown",
-            Self::Union => "union",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -6339,22 +6661,11 @@ impl schemars::JsonSchema for ModelingApplicabilityKind {
         )
     }
 }
-impl core::str::FromStr for ModelingApplicabilityKind {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "region" => Ok(Self::Region),
-            "interval" => Ok(Self::Interval),
-            "unrestricted" => Ok(Self::Unrestricted),
-            "unknown" => Ok(Self::Unknown),
-            "union" => Ok(Self::Union),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ModelingApplicabilityKind).to_owned(),
-                    enumeration: stringify!(ModelingApplicabilityKind).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ModelingApplicabilityKind {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ModelingApplicabilityKind),
+            value: value.to_owned(),
         }
     }
 }
@@ -6368,8 +6679,21 @@ impl core::str::FromStr for ModelingApplicabilityKind {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -6378,12 +6702,15 @@ impl core::str::FromStr for ModelingApplicabilityKind {
 pub enum ModelingApplicabilityOutcome {
     ///applicable
     #[serde(rename = "applicable")]
+    #[strum(serialize = "applicable")]
     Applicable,
     ///outside_region
     #[serde(rename = "outside_region")]
+    #[strum(serialize = "outside_region")]
     OutsideRegion,
     ///unknown_evidence
     #[serde(rename = "unknown_evidence")]
+    #[strum(serialize = "unknown_evidence")]
     UnknownEvidence,
 }
 impl crate::SemanticEq for ModelingApplicabilityOutcome {
@@ -6393,18 +6720,15 @@ impl crate::SemanticEq for ModelingApplicabilityOutcome {
 }
 impl ModelingApplicabilityOutcome {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 3usize] = [
-        Self::Applicable,
-        Self::OutsideRegion,
-        Self::UnknownEvidence,
-    ];
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Applicable => "applicable",
-            Self::OutsideRegion => "outside_region",
-            Self::UnknownEvidence => "unknown_evidence",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -6446,20 +6770,11 @@ impl schemars::JsonSchema for ModelingApplicabilityOutcome {
         )
     }
 }
-impl core::str::FromStr for ModelingApplicabilityOutcome {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "applicable" => Ok(Self::Applicable),
-            "outside_region" => Ok(Self::OutsideRegion),
-            "unknown_evidence" => Ok(Self::UnknownEvidence),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ModelingApplicabilityOutcome).to_owned(),
-                    enumeration: stringify!(ModelingApplicabilityOutcome).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ModelingApplicabilityOutcome {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ModelingApplicabilityOutcome),
+            value: value.to_owned(),
         }
     }
 }
@@ -6473,8 +6788,21 @@ impl core::str::FromStr for ModelingApplicabilityOutcome {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -6483,30 +6811,39 @@ impl core::str::FromStr for ModelingApplicabilityOutcome {
 pub enum ModelingCellKind {
     ///boolean
     #[serde(rename = "boolean")]
+    #[strum(serialize = "boolean")]
     Boolean,
     ///integer
     #[serde(rename = "integer")]
+    #[strum(serialize = "integer")]
     Integer,
     ///quantity
     #[serde(rename = "quantity")]
+    #[strum(serialize = "quantity")]
     Quantity,
     ///text
     #[serde(rename = "text")]
+    #[strum(serialize = "text")]
     Text,
     ///identifier
     #[serde(rename = "identifier")]
+    #[strum(serialize = "identifier")]
     Identifier,
     ///reference
     #[serde(rename = "reference")]
+    #[strum(serialize = "reference")]
     Reference,
     ///references
     #[serde(rename = "references")]
+    #[strum(serialize = "references")]
     References,
     ///row
     #[serde(rename = "row")]
+    #[strum(serialize = "row")]
     Row,
     ///missing
     #[serde(rename = "missing")]
+    #[strum(serialize = "missing")]
     Missing,
 }
 impl crate::SemanticEq for ModelingCellKind {
@@ -6516,30 +6853,15 @@ impl crate::SemanticEq for ModelingCellKind {
 }
 impl ModelingCellKind {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 9usize] = [
-        Self::Boolean,
-        Self::Integer,
-        Self::Quantity,
-        Self::Text,
-        Self::Identifier,
-        Self::Reference,
-        Self::References,
-        Self::Row,
-        Self::Missing,
-    ];
+    pub const ALL: [Self; 9usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<9usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Boolean => "boolean",
-            Self::Integer => "integer",
-            Self::Quantity => "quantity",
-            Self::Text => "text",
-            Self::Identifier => "identifier",
-            Self::Reference => "reference",
-            Self::References => "references",
-            Self::Row => "row",
-            Self::Missing => "missing",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -6591,26 +6913,11 @@ impl schemars::JsonSchema for ModelingCellKind {
         )
     }
 }
-impl core::str::FromStr for ModelingCellKind {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "boolean" => Ok(Self::Boolean),
-            "integer" => Ok(Self::Integer),
-            "quantity" => Ok(Self::Quantity),
-            "text" => Ok(Self::Text),
-            "identifier" => Ok(Self::Identifier),
-            "reference" => Ok(Self::Reference),
-            "references" => Ok(Self::References),
-            "row" => Ok(Self::Row),
-            "missing" => Ok(Self::Missing),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ModelingCellKind).to_owned(),
-                    enumeration: stringify!(ModelingCellKind).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ModelingCellKind {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ModelingCellKind),
+            value: value.to_owned(),
         }
     }
 }
@@ -6624,8 +6931,21 @@ impl core::str::FromStr for ModelingCellKind {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -6634,9 +6954,11 @@ impl core::str::FromStr for ModelingCellKind {
 pub enum ModelingCheckBasis {
     ///point
     #[serde(rename = "point")]
+    #[strum(serialize = "point")]
     Point,
     ///global_bound
     #[serde(rename = "global_bound")]
+    #[strum(serialize = "global_bound")]
     GlobalBound,
 }
 impl crate::SemanticEq for ModelingCheckBasis {
@@ -6646,13 +6968,15 @@ impl crate::SemanticEq for ModelingCheckBasis {
 }
 impl ModelingCheckBasis {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Point, Self::GlobalBound];
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Point => "point",
-            Self::GlobalBound => "global_bound",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -6689,19 +7013,11 @@ impl schemars::JsonSchema for ModelingCheckBasis {
         schemars::json_schema!({ "type" : "string", "enum" : ["point", "global_bound"] })
     }
 }
-impl core::str::FromStr for ModelingCheckBasis {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "point" => Ok(Self::Point),
-            "global_bound" => Ok(Self::GlobalBound),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ModelingCheckBasis).to_owned(),
-                    enumeration: stringify!(ModelingCheckBasis).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ModelingCheckBasis {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ModelingCheckBasis),
+            value: value.to_owned(),
         }
     }
 }
@@ -6715,8 +7031,21 @@ impl core::str::FromStr for ModelingCheckBasis {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -6725,21 +7054,27 @@ impl core::str::FromStr for ModelingCheckBasis {
 pub enum ModelingCheckKind {
     ///expectation
     #[serde(rename = "expectation")]
+    #[strum(serialize = "expectation")]
     Expectation,
     ///check
     #[serde(rename = "check")]
+    #[strum(serialize = "check")]
     Check,
     ///original_equation
     #[serde(rename = "original_equation")]
+    #[strum(serialize = "original_equation")]
     OriginalEquation,
     ///closure
     #[serde(rename = "closure")]
+    #[strum(serialize = "closure")]
     Closure,
     ///validity
     #[serde(rename = "validity")]
+    #[strum(serialize = "validity")]
     Validity,
     ///applicability
     #[serde(rename = "applicability")]
+    #[strum(serialize = "applicability")]
     Applicability,
 }
 impl crate::SemanticEq for ModelingCheckKind {
@@ -6749,24 +7084,15 @@ impl crate::SemanticEq for ModelingCheckKind {
 }
 impl ModelingCheckKind {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 6usize] = [
-        Self::Expectation,
-        Self::Check,
-        Self::OriginalEquation,
-        Self::Closure,
-        Self::Validity,
-        Self::Applicability,
-    ];
+    pub const ALL: [Self; 6usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<6usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Expectation => "expectation",
-            Self::Check => "check",
-            Self::OriginalEquation => "original_equation",
-            Self::Closure => "closure",
-            Self::Validity => "validity",
-            Self::Applicability => "applicability",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -6812,23 +7138,11 @@ impl schemars::JsonSchema for ModelingCheckKind {
         )
     }
 }
-impl core::str::FromStr for ModelingCheckKind {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "expectation" => Ok(Self::Expectation),
-            "check" => Ok(Self::Check),
-            "original_equation" => Ok(Self::OriginalEquation),
-            "closure" => Ok(Self::Closure),
-            "validity" => Ok(Self::Validity),
-            "applicability" => Ok(Self::Applicability),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ModelingCheckKind).to_owned(),
-                    enumeration: stringify!(ModelingCheckKind).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ModelingCheckKind {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ModelingCheckKind),
+            value: value.to_owned(),
         }
     }
 }
@@ -6842,8 +7156,21 @@ impl core::str::FromStr for ModelingCheckKind {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -6852,30 +7179,39 @@ impl core::str::FromStr for ModelingCheckKind {
 pub enum ModelingConformanceKind {
     ///coverage
     #[serde(rename = "coverage")]
+    #[strum(serialize = "coverage")]
     Coverage,
     ///preparation
     #[serde(rename = "preparation")]
+    #[strum(serialize = "preparation")]
     Preparation,
     ///degrees_of_freedom
     #[serde(rename = "degrees_of_freedom")]
+    #[strum(serialize = "degrees_of_freedom")]
     DegreesOfFreedom,
     ///derivatives
     #[serde(rename = "derivatives")]
+    #[strum(serialize = "derivatives")]
     Derivatives,
     ///envelope
     #[serde(rename = "envelope")]
+    #[strum(serialize = "envelope")]
     Envelope,
     ///start_to_solve
     #[serde(rename = "start_to_solve")]
+    #[strum(serialize = "start_to_solve")]
     StartToSolve,
     ///closure
     #[serde(rename = "closure")]
+    #[strum(serialize = "closure")]
     Closure,
     ///expectation
     #[serde(rename = "expectation")]
+    #[strum(serialize = "expectation")]
     Expectation,
     ///check
     #[serde(rename = "check")]
+    #[strum(serialize = "check")]
     Check,
 }
 impl crate::SemanticEq for ModelingConformanceKind {
@@ -6885,30 +7221,15 @@ impl crate::SemanticEq for ModelingConformanceKind {
 }
 impl ModelingConformanceKind {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 9usize] = [
-        Self::Coverage,
-        Self::Preparation,
-        Self::DegreesOfFreedom,
-        Self::Derivatives,
-        Self::Envelope,
-        Self::StartToSolve,
-        Self::Closure,
-        Self::Expectation,
-        Self::Check,
-    ];
+    pub const ALL: [Self; 9usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<9usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Coverage => "coverage",
-            Self::Preparation => "preparation",
-            Self::DegreesOfFreedom => "degrees_of_freedom",
-            Self::Derivatives => "derivatives",
-            Self::Envelope => "envelope",
-            Self::StartToSolve => "start_to_solve",
-            Self::Closure => "closure",
-            Self::Expectation => "expectation",
-            Self::Check => "check",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -6963,26 +7284,11 @@ impl schemars::JsonSchema for ModelingConformanceKind {
         )
     }
 }
-impl core::str::FromStr for ModelingConformanceKind {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "coverage" => Ok(Self::Coverage),
-            "preparation" => Ok(Self::Preparation),
-            "degrees_of_freedom" => Ok(Self::DegreesOfFreedom),
-            "derivatives" => Ok(Self::Derivatives),
-            "envelope" => Ok(Self::Envelope),
-            "start_to_solve" => Ok(Self::StartToSolve),
-            "closure" => Ok(Self::Closure),
-            "expectation" => Ok(Self::Expectation),
-            "check" => Ok(Self::Check),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ModelingConformanceKind).to_owned(),
-                    enumeration: stringify!(ModelingConformanceKind).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ModelingConformanceKind {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ModelingConformanceKind),
+            value: value.to_owned(),
         }
     }
 }
@@ -6996,8 +7302,21 @@ impl core::str::FromStr for ModelingConformanceKind {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -7006,21 +7325,27 @@ impl core::str::FromStr for ModelingConformanceKind {
 pub enum ModelingConformanceStatus {
     ///passed
     #[serde(rename = "passed")]
+    #[strum(serialize = "passed")]
     Passed,
     ///failed
     #[serde(rename = "failed")]
+    #[strum(serialize = "failed")]
     Failed,
     ///inconclusive
     #[serde(rename = "inconclusive")]
+    #[strum(serialize = "inconclusive")]
     Inconclusive,
     ///not_applicable
     #[serde(rename = "not_applicable")]
+    #[strum(serialize = "not_applicable")]
     NotApplicable,
     ///cancelled
     #[serde(rename = "cancelled")]
+    #[strum(serialize = "cancelled")]
     Cancelled,
     ///unattempted
     #[serde(rename = "unattempted")]
+    #[strum(serialize = "unattempted")]
     Unattempted,
 }
 impl crate::SemanticEq for ModelingConformanceStatus {
@@ -7030,24 +7355,15 @@ impl crate::SemanticEq for ModelingConformanceStatus {
 }
 impl ModelingConformanceStatus {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 6usize] = [
-        Self::Passed,
-        Self::Failed,
-        Self::Inconclusive,
-        Self::NotApplicable,
-        Self::Cancelled,
-        Self::Unattempted,
-    ];
+    pub const ALL: [Self; 6usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<6usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Passed => "passed",
-            Self::Failed => "failed",
-            Self::Inconclusive => "inconclusive",
-            Self::NotApplicable => "not_applicable",
-            Self::Cancelled => "cancelled",
-            Self::Unattempted => "unattempted",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -7095,23 +7411,11 @@ impl schemars::JsonSchema for ModelingConformanceStatus {
         )
     }
 }
-impl core::str::FromStr for ModelingConformanceStatus {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "passed" => Ok(Self::Passed),
-            "failed" => Ok(Self::Failed),
-            "inconclusive" => Ok(Self::Inconclusive),
-            "not_applicable" => Ok(Self::NotApplicable),
-            "cancelled" => Ok(Self::Cancelled),
-            "unattempted" => Ok(Self::Unattempted),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ModelingConformanceStatus).to_owned(),
-                    enumeration: stringify!(ModelingConformanceStatus).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ModelingConformanceStatus {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ModelingConformanceStatus),
+            value: value.to_owned(),
         }
     }
 }
@@ -7125,8 +7429,21 @@ impl core::str::FromStr for ModelingConformanceStatus {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -7135,27 +7452,35 @@ impl core::str::FromStr for ModelingConformanceStatus {
 pub enum ModelingContributionRole {
     ///inflow
     #[serde(rename = "inflow")]
+    #[strum(serialize = "inflow")]
     Inflow,
     ///outflow
     #[serde(rename = "outflow")]
+    #[strum(serialize = "outflow")]
     Outflow,
     ///generation
     #[serde(rename = "generation")]
+    #[strum(serialize = "generation")]
     Generation,
     ///consumption
     #[serde(rename = "consumption")]
+    #[strum(serialize = "consumption")]
     Consumption,
     ///accumulation
     #[serde(rename = "accumulation")]
+    #[strum(serialize = "accumulation")]
     Accumulation,
     ///positive
     #[serde(rename = "positive")]
+    #[strum(serialize = "positive")]
     Positive,
     ///negative
     #[serde(rename = "negative")]
+    #[strum(serialize = "negative")]
     Negative,
     ///directed
     #[serde(rename = "directed")]
+    #[strum(serialize = "directed")]
     Directed,
 }
 impl crate::SemanticEq for ModelingContributionRole {
@@ -7165,28 +7490,15 @@ impl crate::SemanticEq for ModelingContributionRole {
 }
 impl ModelingContributionRole {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 8usize] = [
-        Self::Inflow,
-        Self::Outflow,
-        Self::Generation,
-        Self::Consumption,
-        Self::Accumulation,
-        Self::Positive,
-        Self::Negative,
-        Self::Directed,
-    ];
+    pub const ALL: [Self; 8usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<8usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Inflow => "inflow",
-            Self::Outflow => "outflow",
-            Self::Generation => "generation",
-            Self::Consumption => "consumption",
-            Self::Accumulation => "accumulation",
-            Self::Positive => "positive",
-            Self::Negative => "negative",
-            Self::Directed => "directed",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -7238,25 +7550,11 @@ impl schemars::JsonSchema for ModelingContributionRole {
         )
     }
 }
-impl core::str::FromStr for ModelingContributionRole {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "inflow" => Ok(Self::Inflow),
-            "outflow" => Ok(Self::Outflow),
-            "generation" => Ok(Self::Generation),
-            "consumption" => Ok(Self::Consumption),
-            "accumulation" => Ok(Self::Accumulation),
-            "positive" => Ok(Self::Positive),
-            "negative" => Ok(Self::Negative),
-            "directed" => Ok(Self::Directed),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ModelingContributionRole).to_owned(),
-                    enumeration: stringify!(ModelingContributionRole).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ModelingContributionRole {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ModelingContributionRole),
+            value: value.to_owned(),
         }
     }
 }
@@ -7270,8 +7568,21 @@ impl core::str::FromStr for ModelingContributionRole {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -7280,15 +7591,19 @@ impl core::str::FromStr for ModelingContributionRole {
 pub enum ModelingDataFacet {
     ///test_only
     #[serde(rename = "test_only")]
+    #[strum(serialize = "test_only")]
     TestOnly,
     ///requires_lineage
     #[serde(rename = "requires_lineage")]
+    #[strum(serialize = "requires_lineage")]
     RequiresLineage,
     ///measured
     #[serde(rename = "measured")]
+    #[strum(serialize = "measured")]
     Measured,
     ///requires_fit
     #[serde(rename = "requires_fit")]
+    #[strum(serialize = "requires_fit")]
     RequiresFit,
 }
 impl crate::SemanticEq for ModelingDataFacet {
@@ -7298,20 +7613,15 @@ impl crate::SemanticEq for ModelingDataFacet {
 }
 impl ModelingDataFacet {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 4usize] = [
-        Self::TestOnly,
-        Self::RequiresLineage,
-        Self::Measured,
-        Self::RequiresFit,
-    ];
+    pub const ALL: [Self; 4usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<4usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::TestOnly => "test_only",
-            Self::RequiresLineage => "requires_lineage",
-            Self::Measured => "measured",
-            Self::RequiresFit => "requires_fit",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -7353,21 +7663,11 @@ impl schemars::JsonSchema for ModelingDataFacet {
         )
     }
 }
-impl core::str::FromStr for ModelingDataFacet {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "test_only" => Ok(Self::TestOnly),
-            "requires_lineage" => Ok(Self::RequiresLineage),
-            "measured" => Ok(Self::Measured),
-            "requires_fit" => Ok(Self::RequiresFit),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ModelingDataFacet).to_owned(),
-                    enumeration: stringify!(ModelingDataFacet).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ModelingDataFacet {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ModelingDataFacet),
+            value: value.to_owned(),
         }
     }
 }
@@ -7381,8 +7681,21 @@ impl core::str::FromStr for ModelingDataFacet {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -7391,201 +7704,267 @@ impl core::str::FromStr for ModelingDataFacet {
 pub enum ModelingDeclarationKind {
     ///temporal
     #[serde(rename = "temporal")]
+    #[strum(serialize = "temporal")]
     Temporal,
     ///relaxation
     #[serde(rename = "relaxation")]
+    #[strum(serialize = "relaxation")]
     Relaxation,
     ///continuation
     #[serde(rename = "continuation")]
+    #[strum(serialize = "continuation")]
     Continuation,
     ///package
     #[serde(rename = "package")]
+    #[strum(serialize = "package")]
     Package,
     ///entity_kind
     #[serde(rename = "entity_kind")]
+    #[strum(serialize = "entity_kind")]
     EntityKind,
     ///interface
     #[serde(rename = "interface")]
+    #[strum(serialize = "interface")]
     Interface,
     ///definition
     #[serde(rename = "definition")]
+    #[strum(serialize = "definition")]
     Definition,
     ///case
     #[serde(rename = "case")]
+    #[strum(serialize = "case")]
     Case,
     ///test
     #[serde(rename = "test")]
+    #[strum(serialize = "test")]
     Test,
     ///stage
     #[serde(rename = "stage")]
+    #[strum(serialize = "stage")]
     Stage,
     ///implicit
     #[serde(rename = "implicit")]
+    #[strum(serialize = "implicit")]
     Implicit,
     ///regime
     #[serde(rename = "regime")]
+    #[strum(serialize = "regime")]
     Regime,
     ///disjunction
     #[serde(rename = "disjunction")]
+    #[strum(serialize = "disjunction")]
     Disjunction,
     ///alternative
     #[serde(rename = "alternative")]
+    #[strum(serialize = "alternative")]
     Alternative,
     ///parameter
     #[serde(rename = "parameter")]
+    #[strum(serialize = "parameter")]
     Parameter,
     ///variable
     #[serde(rename = "variable")]
+    #[strum(serialize = "variable")]
     Variable,
     ///let
     #[serde(rename = "let")]
+    #[strum(serialize = "let")]
     Let,
     ///alias
     #[serde(rename = "alias")]
+    #[strum(serialize = "alias")]
     Alias,
     ///set
     #[serde(rename = "set")]
+    #[strum(serialize = "set")]
     Set,
     ///child
     #[serde(rename = "child")]
+    #[strum(serialize = "child")]
     Child,
     ///port
     #[serde(rename = "port")]
+    #[strum(serialize = "port")]
     Port,
     ///preset
     #[serde(rename = "preset")]
+    #[strum(serialize = "preset")]
     Preset,
     ///scope_value
     #[serde(rename = "scope_value")]
+    #[strum(serialize = "scope_value")]
     ScopeValue,
     ///function
     #[serde(rename = "function")]
+    #[strum(serialize = "function")]
     Function,
     ///coordinate_map
     #[serde(rename = "coordinate_map")]
+    #[strum(serialize = "coordinate_map")]
     CoordinateMap,
     ///coordinate_slot
     #[serde(rename = "coordinate_slot")]
+    #[strum(serialize = "coordinate_slot")]
     CoordinateSlot,
     ///reconstruction
     #[serde(rename = "reconstruction")]
+    #[strum(serialize = "reconstruction")]
     Reconstruction,
     ///response
     #[serde(rename = "response")]
+    #[strum(serialize = "response")]
     Response,
     ///reference_translation
     #[serde(rename = "reference_translation")]
+    #[strum(serialize = "reference_translation")]
     ReferenceTranslation,
     ///boundary
     #[serde(rename = "boundary")]
+    #[strum(serialize = "boundary")]
     Boundary,
     ///exchange
     #[serde(rename = "exchange")]
+    #[strum(serialize = "exchange")]
     Exchange,
     ///equation
     #[serde(rename = "equation")]
+    #[strum(serialize = "equation")]
     Equation,
     ///sos1
     #[serde(rename = "sos1")]
+    #[strum(serialize = "sos1")]
     Sos1,
     ///sos2
     #[serde(rename = "sos2")]
+    #[strum(serialize = "sos2")]
     Sos2,
     ///atmost
     #[serde(rename = "atmost")]
+    #[strum(serialize = "atmost")]
     Atmost,
     ///atleast
     #[serde(rename = "atleast")]
+    #[strum(serialize = "atleast")]
     Atleast,
     ///exactly
     #[serde(rename = "exactly")]
+    #[strum(serialize = "exactly")]
     Exactly,
     ///piecewise
     #[serde(rename = "piecewise")]
+    #[strum(serialize = "piecewise")]
     Piecewise,
     ///logic
     #[serde(rename = "logic")]
+    #[strum(serialize = "logic")]
     Logic,
     ///complementarity
     #[serde(rename = "complementarity")]
+    #[strum(serialize = "complementarity")]
     Complementarity,
     ///table
     #[serde(rename = "table")]
+    #[strum(serialize = "table")]
     Table,
     ///applicability
     #[serde(rename = "applicability")]
+    #[strum(serialize = "applicability")]
     Applicability,
     ///permission
     #[serde(rename = "permission")]
+    #[strum(serialize = "permission")]
     Permission,
     ///envelope
     #[serde(rename = "envelope")]
+    #[strum(serialize = "envelope")]
     Envelope,
     ///attribute
     #[serde(rename = "attribute")]
+    #[strum(serialize = "attribute")]
     Attribute,
     ///dataset
     #[serde(rename = "dataset")]
+    #[strum(serialize = "dataset")]
     Dataset,
     ///entity
     #[serde(rename = "entity")]
+    #[strum(serialize = "entity")]
     Entity,
     ///enum
     #[serde(rename = "enum")]
+    #[strum(serialize = "enum")]
     Enum,
     ///constant
     #[serde(rename = "constant")]
+    #[strum(serialize = "constant")]
     Constant,
     ///import
     #[serde(rename = "import")]
+    #[strum(serialize = "import")]
     Import,
     ///when
     #[serde(rename = "when")]
+    #[strum(serialize = "when")]
     When,
     ///accumulator
     #[serde(rename = "accumulator")]
+    #[strum(serialize = "accumulator")]
     Accumulator,
     ///contribution
     #[serde(rename = "contribution")]
+    #[strum(serialize = "contribution")]
     Contribution,
     ///state_specification
     #[serde(rename = "state_specification")]
+    #[strum(serialize = "state_specification")]
     StateSpecification,
     ///state_port
     #[serde(rename = "state_port")]
+    #[strum(serialize = "state_port")]
     StatePort,
     ///inventory_balance
     #[serde(rename = "inventory_balance")]
+    #[strum(serialize = "inventory_balance")]
     InventoryBalance,
     ///connection
     #[serde(rename = "connection")]
+    #[strum(serialize = "connection")]
     Connection,
     ///annotation
     #[serde(rename = "annotation")]
+    #[strum(serialize = "annotation")]
     Annotation,
     ///requirement
     #[serde(rename = "requirement")]
+    #[strum(serialize = "requirement")]
     Requirement,
     ///expectation
     #[serde(rename = "expectation")]
+    #[strum(serialize = "expectation")]
     Expectation,
     ///continuous
     #[serde(rename = "continuous")]
+    #[strum(serialize = "continuous")]
     Continuous,
     ///difference_scheme
     #[serde(rename = "difference_scheme")]
+    #[strum(serialize = "difference_scheme")]
     DifferenceScheme,
     ///collocation_scheme
     #[serde(rename = "collocation_scheme")]
+    #[strum(serialize = "collocation_scheme")]
     CollocationScheme,
     ///discretization
     #[serde(rename = "discretization")]
+    #[strum(serialize = "discretization")]
     Discretization,
     ///realization
     #[serde(rename = "realization")]
+    #[strum(serialize = "realization")]
     Realization,
     ///identifier_scheme
     #[serde(rename = "identifier_scheme")]
+    #[strum(serialize = "identifier_scheme")]
     IdentifierScheme,
 }
 impl crate::SemanticEq for ModelingDeclarationKind {
@@ -7595,144 +7974,15 @@ impl crate::SemanticEq for ModelingDeclarationKind {
 }
 impl ModelingDeclarationKind {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 66usize] = [
-        Self::Temporal,
-        Self::Relaxation,
-        Self::Continuation,
-        Self::Package,
-        Self::EntityKind,
-        Self::Interface,
-        Self::Definition,
-        Self::Case,
-        Self::Test,
-        Self::Stage,
-        Self::Implicit,
-        Self::Regime,
-        Self::Disjunction,
-        Self::Alternative,
-        Self::Parameter,
-        Self::Variable,
-        Self::Let,
-        Self::Alias,
-        Self::Set,
-        Self::Child,
-        Self::Port,
-        Self::Preset,
-        Self::ScopeValue,
-        Self::Function,
-        Self::CoordinateMap,
-        Self::CoordinateSlot,
-        Self::Reconstruction,
-        Self::Response,
-        Self::ReferenceTranslation,
-        Self::Boundary,
-        Self::Exchange,
-        Self::Equation,
-        Self::Sos1,
-        Self::Sos2,
-        Self::Atmost,
-        Self::Atleast,
-        Self::Exactly,
-        Self::Piecewise,
-        Self::Logic,
-        Self::Complementarity,
-        Self::Table,
-        Self::Applicability,
-        Self::Permission,
-        Self::Envelope,
-        Self::Attribute,
-        Self::Dataset,
-        Self::Entity,
-        Self::Enum,
-        Self::Constant,
-        Self::Import,
-        Self::When,
-        Self::Accumulator,
-        Self::Contribution,
-        Self::StateSpecification,
-        Self::StatePort,
-        Self::InventoryBalance,
-        Self::Connection,
-        Self::Annotation,
-        Self::Requirement,
-        Self::Expectation,
-        Self::Continuous,
-        Self::DifferenceScheme,
-        Self::CollocationScheme,
-        Self::Discretization,
-        Self::Realization,
-        Self::IdentifierScheme,
-    ];
+    pub const ALL: [Self; 66usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<66usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Temporal => "temporal",
-            Self::Relaxation => "relaxation",
-            Self::Continuation => "continuation",
-            Self::Package => "package",
-            Self::EntityKind => "entity_kind",
-            Self::Interface => "interface",
-            Self::Definition => "definition",
-            Self::Case => "case",
-            Self::Test => "test",
-            Self::Stage => "stage",
-            Self::Implicit => "implicit",
-            Self::Regime => "regime",
-            Self::Disjunction => "disjunction",
-            Self::Alternative => "alternative",
-            Self::Parameter => "parameter",
-            Self::Variable => "variable",
-            Self::Let => "let",
-            Self::Alias => "alias",
-            Self::Set => "set",
-            Self::Child => "child",
-            Self::Port => "port",
-            Self::Preset => "preset",
-            Self::ScopeValue => "scope_value",
-            Self::Function => "function",
-            Self::CoordinateMap => "coordinate_map",
-            Self::CoordinateSlot => "coordinate_slot",
-            Self::Reconstruction => "reconstruction",
-            Self::Response => "response",
-            Self::ReferenceTranslation => "reference_translation",
-            Self::Boundary => "boundary",
-            Self::Exchange => "exchange",
-            Self::Equation => "equation",
-            Self::Sos1 => "sos1",
-            Self::Sos2 => "sos2",
-            Self::Atmost => "atmost",
-            Self::Atleast => "atleast",
-            Self::Exactly => "exactly",
-            Self::Piecewise => "piecewise",
-            Self::Logic => "logic",
-            Self::Complementarity => "complementarity",
-            Self::Table => "table",
-            Self::Applicability => "applicability",
-            Self::Permission => "permission",
-            Self::Envelope => "envelope",
-            Self::Attribute => "attribute",
-            Self::Dataset => "dataset",
-            Self::Entity => "entity",
-            Self::Enum => "enum",
-            Self::Constant => "constant",
-            Self::Import => "import",
-            Self::When => "when",
-            Self::Accumulator => "accumulator",
-            Self::Contribution => "contribution",
-            Self::StateSpecification => "state_specification",
-            Self::StatePort => "state_port",
-            Self::InventoryBalance => "inventory_balance",
-            Self::Connection => "connection",
-            Self::Annotation => "annotation",
-            Self::Requirement => "requirement",
-            Self::Expectation => "expectation",
-            Self::Continuous => "continuous",
-            Self::DifferenceScheme => "difference_scheme",
-            Self::CollocationScheme => "collocation_scheme",
-            Self::Discretization => "discretization",
-            Self::Realization => "realization",
-            Self::IdentifierScheme => "identifier_scheme",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -7911,83 +8161,11 @@ impl schemars::JsonSchema for ModelingDeclarationKind {
         )
     }
 }
-impl core::str::FromStr for ModelingDeclarationKind {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "temporal" => Ok(Self::Temporal),
-            "relaxation" => Ok(Self::Relaxation),
-            "continuation" => Ok(Self::Continuation),
-            "package" => Ok(Self::Package),
-            "entity_kind" => Ok(Self::EntityKind),
-            "interface" => Ok(Self::Interface),
-            "definition" => Ok(Self::Definition),
-            "case" => Ok(Self::Case),
-            "test" => Ok(Self::Test),
-            "stage" => Ok(Self::Stage),
-            "implicit" => Ok(Self::Implicit),
-            "regime" => Ok(Self::Regime),
-            "disjunction" => Ok(Self::Disjunction),
-            "alternative" => Ok(Self::Alternative),
-            "parameter" => Ok(Self::Parameter),
-            "variable" => Ok(Self::Variable),
-            "let" => Ok(Self::Let),
-            "alias" => Ok(Self::Alias),
-            "set" => Ok(Self::Set),
-            "child" => Ok(Self::Child),
-            "port" => Ok(Self::Port),
-            "preset" => Ok(Self::Preset),
-            "scope_value" => Ok(Self::ScopeValue),
-            "function" => Ok(Self::Function),
-            "coordinate_map" => Ok(Self::CoordinateMap),
-            "coordinate_slot" => Ok(Self::CoordinateSlot),
-            "reconstruction" => Ok(Self::Reconstruction),
-            "response" => Ok(Self::Response),
-            "reference_translation" => Ok(Self::ReferenceTranslation),
-            "boundary" => Ok(Self::Boundary),
-            "exchange" => Ok(Self::Exchange),
-            "equation" => Ok(Self::Equation),
-            "sos1" => Ok(Self::Sos1),
-            "sos2" => Ok(Self::Sos2),
-            "atmost" => Ok(Self::Atmost),
-            "atleast" => Ok(Self::Atleast),
-            "exactly" => Ok(Self::Exactly),
-            "piecewise" => Ok(Self::Piecewise),
-            "logic" => Ok(Self::Logic),
-            "complementarity" => Ok(Self::Complementarity),
-            "table" => Ok(Self::Table),
-            "applicability" => Ok(Self::Applicability),
-            "permission" => Ok(Self::Permission),
-            "envelope" => Ok(Self::Envelope),
-            "attribute" => Ok(Self::Attribute),
-            "dataset" => Ok(Self::Dataset),
-            "entity" => Ok(Self::Entity),
-            "enum" => Ok(Self::Enum),
-            "constant" => Ok(Self::Constant),
-            "import" => Ok(Self::Import),
-            "when" => Ok(Self::When),
-            "accumulator" => Ok(Self::Accumulator),
-            "contribution" => Ok(Self::Contribution),
-            "state_specification" => Ok(Self::StateSpecification),
-            "state_port" => Ok(Self::StatePort),
-            "inventory_balance" => Ok(Self::InventoryBalance),
-            "connection" => Ok(Self::Connection),
-            "annotation" => Ok(Self::Annotation),
-            "requirement" => Ok(Self::Requirement),
-            "expectation" => Ok(Self::Expectation),
-            "continuous" => Ok(Self::Continuous),
-            "difference_scheme" => Ok(Self::DifferenceScheme),
-            "collocation_scheme" => Ok(Self::CollocationScheme),
-            "discretization" => Ok(Self::Discretization),
-            "realization" => Ok(Self::Realization),
-            "identifier_scheme" => Ok(Self::IdentifierScheme),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ModelingDeclarationKind).to_owned(),
-                    enumeration: stringify!(ModelingDeclarationKind).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ModelingDeclarationKind {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ModelingDeclarationKind),
+            value: value.to_owned(),
         }
     }
 }
@@ -8001,8 +8179,21 @@ impl core::str::FromStr for ModelingDeclarationKind {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -8011,18 +8202,23 @@ impl core::str::FromStr for ModelingDeclarationKind {
 pub enum ModelingDiagnosticSampleStop {
     ///completed
     #[serde(rename = "completed")]
+    #[strum(serialize = "completed")]
     Completed,
     ///sample_limit
     #[serde(rename = "sample_limit")]
+    #[strum(serialize = "sample_limit")]
     SampleLimit,
     ///finding_limit
     #[serde(rename = "finding_limit")]
+    #[strum(serialize = "finding_limit")]
     FindingLimit,
     ///time_limit
     #[serde(rename = "time_limit")]
+    #[strum(serialize = "time_limit")]
     TimeLimit,
     ///cancelled
     #[serde(rename = "cancelled")]
+    #[strum(serialize = "cancelled")]
     Cancelled,
 }
 impl crate::SemanticEq for ModelingDiagnosticSampleStop {
@@ -8032,22 +8228,15 @@ impl crate::SemanticEq for ModelingDiagnosticSampleStop {
 }
 impl ModelingDiagnosticSampleStop {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 5usize] = [
-        Self::Completed,
-        Self::SampleLimit,
-        Self::FindingLimit,
-        Self::TimeLimit,
-        Self::Cancelled,
-    ];
+    pub const ALL: [Self; 5usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<5usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Completed => "completed",
-            Self::SampleLimit => "sample_limit",
-            Self::FindingLimit => "finding_limit",
-            Self::TimeLimit => "time_limit",
-            Self::Cancelled => "cancelled",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -8093,22 +8282,11 @@ impl schemars::JsonSchema for ModelingDiagnosticSampleStop {
         )
     }
 }
-impl core::str::FromStr for ModelingDiagnosticSampleStop {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "completed" => Ok(Self::Completed),
-            "sample_limit" => Ok(Self::SampleLimit),
-            "finding_limit" => Ok(Self::FindingLimit),
-            "time_limit" => Ok(Self::TimeLimit),
-            "cancelled" => Ok(Self::Cancelled),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ModelingDiagnosticSampleStop).to_owned(),
-                    enumeration: stringify!(ModelingDiagnosticSampleStop).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ModelingDiagnosticSampleStop {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ModelingDiagnosticSampleStop),
+            value: value.to_owned(),
         }
     }
 }
@@ -8122,8 +8300,21 @@ impl core::str::FromStr for ModelingDiagnosticSampleStop {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -8132,9 +8323,11 @@ impl core::str::FromStr for ModelingDiagnosticSampleStop {
 pub enum ModelingDiagonalPolicy {
     ///allowed
     #[serde(rename = "allowed")]
+    #[strum(serialize = "allowed")]
     Allowed,
     ///excluded
     #[serde(rename = "excluded")]
+    #[strum(serialize = "excluded")]
     Excluded,
 }
 impl crate::SemanticEq for ModelingDiagonalPolicy {
@@ -8144,13 +8337,15 @@ impl crate::SemanticEq for ModelingDiagonalPolicy {
 }
 impl ModelingDiagonalPolicy {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Allowed, Self::Excluded];
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Allowed => "allowed",
-            Self::Excluded => "excluded",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -8187,19 +8382,11 @@ impl schemars::JsonSchema for ModelingDiagonalPolicy {
         schemars::json_schema!({ "type" : "string", "enum" : ["allowed", "excluded"] })
     }
 }
-impl core::str::FromStr for ModelingDiagonalPolicy {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "allowed" => Ok(Self::Allowed),
-            "excluded" => Ok(Self::Excluded),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ModelingDiagonalPolicy).to_owned(),
-                    enumeration: stringify!(ModelingDiagonalPolicy).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ModelingDiagonalPolicy {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ModelingDiagonalPolicy),
+            value: value.to_owned(),
         }
     }
 }
@@ -8213,8 +8400,21 @@ impl core::str::FromStr for ModelingDiagonalPolicy {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -8223,12 +8423,15 @@ impl core::str::FromStr for ModelingDiagonalPolicy {
 pub enum ModelingDiscreteInitialization {
     ///refuse
     #[serde(rename = "refuse")]
+    #[strum(serialize = "refuse")]
     Refuse,
     ///fix_at_start
     #[serde(rename = "fix_at_start")]
+    #[strum(serialize = "fix_at_start")]
     FixAtStart,
     ///fix_at
     #[serde(rename = "fix_at")]
+    #[strum(serialize = "fix_at")]
     FixAt,
 }
 impl crate::SemanticEq for ModelingDiscreteInitialization {
@@ -8238,14 +8441,15 @@ impl crate::SemanticEq for ModelingDiscreteInitialization {
 }
 impl ModelingDiscreteInitialization {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 3usize] = [Self::Refuse, Self::FixAtStart, Self::FixAt];
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Refuse => "refuse",
-            Self::FixAtStart => "fix_at_start",
-            Self::FixAt => "fix_at",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -8286,20 +8490,11 @@ impl schemars::JsonSchema for ModelingDiscreteInitialization {
         )
     }
 }
-impl core::str::FromStr for ModelingDiscreteInitialization {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "refuse" => Ok(Self::Refuse),
-            "fix_at_start" => Ok(Self::FixAtStart),
-            "fix_at" => Ok(Self::FixAt),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ModelingDiscreteInitialization).to_owned(),
-                    enumeration: stringify!(ModelingDiscreteInitialization).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ModelingDiscreteInitialization {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ModelingDiscreteInitialization),
+            value: value.to_owned(),
         }
     }
 }
@@ -8313,8 +8508,21 @@ impl core::str::FromStr for ModelingDiscreteInitialization {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -8323,12 +8531,15 @@ impl core::str::FromStr for ModelingDiscreteInitialization {
 pub enum ModelingElasticObservation {
     ///feasible_witness
     #[serde(rename = "feasible_witness")]
+    #[strum(serialize = "feasible_witness")]
     FeasibleWitness,
     ///local_obstruction
     #[serde(rename = "local_obstruction")]
+    #[strum(serialize = "local_obstruction")]
     LocalObstruction,
     ///inconclusive
     #[serde(rename = "inconclusive")]
+    #[strum(serialize = "inconclusive")]
     Inconclusive,
 }
 impl crate::SemanticEq for ModelingElasticObservation {
@@ -8338,18 +8549,15 @@ impl crate::SemanticEq for ModelingElasticObservation {
 }
 impl ModelingElasticObservation {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 3usize] = [
-        Self::FeasibleWitness,
-        Self::LocalObstruction,
-        Self::Inconclusive,
-    ];
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::FeasibleWitness => "feasible_witness",
-            Self::LocalObstruction => "local_obstruction",
-            Self::Inconclusive => "inconclusive",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -8391,20 +8599,11 @@ impl schemars::JsonSchema for ModelingElasticObservation {
         )
     }
 }
-impl core::str::FromStr for ModelingElasticObservation {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "feasible_witness" => Ok(Self::FeasibleWitness),
-            "local_obstruction" => Ok(Self::LocalObstruction),
-            "inconclusive" => Ok(Self::Inconclusive),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ModelingElasticObservation).to_owned(),
-                    enumeration: stringify!(ModelingElasticObservation).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ModelingElasticObservation {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ModelingElasticObservation),
+            value: value.to_owned(),
         }
     }
 }
@@ -8418,8 +8617,21 @@ impl core::str::FromStr for ModelingElasticObservation {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -8428,9 +8640,11 @@ impl core::str::FromStr for ModelingElasticObservation {
 pub enum ModelingEnvelopeExtent {
     ///point
     #[serde(rename = "point")]
+    #[strum(serialize = "point")]
     Point,
     ///interval
     #[serde(rename = "interval")]
+    #[strum(serialize = "interval")]
     Interval,
 }
 impl crate::SemanticEq for ModelingEnvelopeExtent {
@@ -8440,13 +8654,15 @@ impl crate::SemanticEq for ModelingEnvelopeExtent {
 }
 impl ModelingEnvelopeExtent {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Point, Self::Interval];
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Point => "point",
-            Self::Interval => "interval",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -8483,19 +8699,11 @@ impl schemars::JsonSchema for ModelingEnvelopeExtent {
         schemars::json_schema!({ "type" : "string", "enum" : ["point", "interval"] })
     }
 }
-impl core::str::FromStr for ModelingEnvelopeExtent {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "point" => Ok(Self::Point),
-            "interval" => Ok(Self::Interval),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ModelingEnvelopeExtent).to_owned(),
-                    enumeration: stringify!(ModelingEnvelopeExtent).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ModelingEnvelopeExtent {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ModelingEnvelopeExtent),
+            value: value.to_owned(),
         }
     }
 }
@@ -8509,8 +8717,21 @@ impl core::str::FromStr for ModelingEnvelopeExtent {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -8519,12 +8740,15 @@ impl core::str::FromStr for ModelingEnvelopeExtent {
 pub enum ModelingFactNamespace {
     ///analysis
     #[serde(rename = "analysis")]
+    #[strum(serialize = "analysis")]
     Analysis,
     ///objective
     #[serde(rename = "objective")]
+    #[strum(serialize = "objective")]
     Objective,
     ///stage
     #[serde(rename = "stage")]
+    #[strum(serialize = "stage")]
     Stage,
 }
 impl crate::SemanticEq for ModelingFactNamespace {
@@ -8534,14 +8758,15 @@ impl crate::SemanticEq for ModelingFactNamespace {
 }
 impl ModelingFactNamespace {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 3usize] = [Self::Analysis, Self::Objective, Self::Stage];
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Analysis => "analysis",
-            Self::Objective => "objective",
-            Self::Stage => "stage",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -8582,20 +8807,11 @@ impl schemars::JsonSchema for ModelingFactNamespace {
         )
     }
 }
-impl core::str::FromStr for ModelingFactNamespace {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "analysis" => Ok(Self::Analysis),
-            "objective" => Ok(Self::Objective),
-            "stage" => Ok(Self::Stage),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ModelingFactNamespace).to_owned(),
-                    enumeration: stringify!(ModelingFactNamespace).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ModelingFactNamespace {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ModelingFactNamespace),
+            value: value.to_owned(),
         }
     }
 }
@@ -8609,8 +8825,21 @@ impl core::str::FromStr for ModelingFactNamespace {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -8619,18 +8848,23 @@ impl core::str::FromStr for ModelingFactNamespace {
 pub enum ModelingFixtureBinding {
     ///value
     #[serde(rename = "value")]
+    #[strum(serialize = "value")]
     Value,
     ///fix
     #[serde(rename = "fix")]
+    #[strum(serialize = "fix")]
     Fix,
     ///free
     #[serde(rename = "free")]
+    #[strum(serialize = "free")]
     Free,
     ///lower
     #[serde(rename = "lower")]
+    #[strum(serialize = "lower")]
     Lower,
     ///upper
     #[serde(rename = "upper")]
+    #[strum(serialize = "upper")]
     Upper,
 }
 impl crate::SemanticEq for ModelingFixtureBinding {
@@ -8640,22 +8874,15 @@ impl crate::SemanticEq for ModelingFixtureBinding {
 }
 impl ModelingFixtureBinding {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 5usize] = [
-        Self::Value,
-        Self::Fix,
-        Self::Free,
-        Self::Lower,
-        Self::Upper,
-    ];
+    pub const ALL: [Self; 5usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<5usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Value => "value",
-            Self::Fix => "fix",
-            Self::Free => "free",
-            Self::Lower => "lower",
-            Self::Upper => "upper",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -8700,22 +8927,11 @@ impl schemars::JsonSchema for ModelingFixtureBinding {
         )
     }
 }
-impl core::str::FromStr for ModelingFixtureBinding {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "value" => Ok(Self::Value),
-            "fix" => Ok(Self::Fix),
-            "free" => Ok(Self::Free),
-            "lower" => Ok(Self::Lower),
-            "upper" => Ok(Self::Upper),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ModelingFixtureBinding).to_owned(),
-                    enumeration: stringify!(ModelingFixtureBinding).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ModelingFixtureBinding {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ModelingFixtureBinding),
+            value: value.to_owned(),
         }
     }
 }
@@ -8729,8 +8945,21 @@ impl core::str::FromStr for ModelingFixtureBinding {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -8739,12 +8968,15 @@ impl core::str::FromStr for ModelingFixtureBinding {
 pub enum ModelingInitializationStep {
     ///stage
     #[serde(rename = "stage")]
+    #[strum(serialize = "stage")]
     Stage,
     ///homotopy
     #[serde(rename = "homotopy")]
+    #[strum(serialize = "homotopy")]
     Homotopy,
     ///original
     #[serde(rename = "original")]
+    #[strum(serialize = "original")]
     Original,
 }
 impl crate::SemanticEq for ModelingInitializationStep {
@@ -8754,14 +8986,15 @@ impl crate::SemanticEq for ModelingInitializationStep {
 }
 impl ModelingInitializationStep {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 3usize] = [Self::Stage, Self::Homotopy, Self::Original];
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Stage => "stage",
-            Self::Homotopy => "homotopy",
-            Self::Original => "original",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -8802,20 +9035,11 @@ impl schemars::JsonSchema for ModelingInitializationStep {
         )
     }
 }
-impl core::str::FromStr for ModelingInitializationStep {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "stage" => Ok(Self::Stage),
-            "homotopy" => Ok(Self::Homotopy),
-            "original" => Ok(Self::Original),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ModelingInitializationStep).to_owned(),
-                    enumeration: stringify!(ModelingInitializationStep).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ModelingInitializationStep {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ModelingInitializationStep),
+            value: value.to_owned(),
         }
     }
 }
@@ -8829,8 +9053,21 @@ impl core::str::FromStr for ModelingInitializationStep {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -8839,21 +9076,27 @@ impl core::str::FromStr for ModelingInitializationStep {
 pub enum ModelingKeyCellKind {
     ///boolean
     #[serde(rename = "boolean")]
+    #[strum(serialize = "boolean")]
     Boolean,
     ///integer
     #[serde(rename = "integer")]
+    #[strum(serialize = "integer")]
     Integer,
     ///quantity
     #[serde(rename = "quantity")]
+    #[strum(serialize = "quantity")]
     Quantity,
     ///text
     #[serde(rename = "text")]
+    #[strum(serialize = "text")]
     Text,
     ///identifier
     #[serde(rename = "identifier")]
+    #[strum(serialize = "identifier")]
     Identifier,
     ///reference
     #[serde(rename = "reference")]
+    #[strum(serialize = "reference")]
     Reference,
 }
 impl crate::SemanticEq for ModelingKeyCellKind {
@@ -8863,24 +9106,15 @@ impl crate::SemanticEq for ModelingKeyCellKind {
 }
 impl ModelingKeyCellKind {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 6usize] = [
-        Self::Boolean,
-        Self::Integer,
-        Self::Quantity,
-        Self::Text,
-        Self::Identifier,
-        Self::Reference,
-    ];
+    pub const ALL: [Self; 6usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<6usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Boolean => "boolean",
-            Self::Integer => "integer",
-            Self::Quantity => "quantity",
-            Self::Text => "text",
-            Self::Identifier => "identifier",
-            Self::Reference => "reference",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -8928,23 +9162,11 @@ impl schemars::JsonSchema for ModelingKeyCellKind {
         )
     }
 }
-impl core::str::FromStr for ModelingKeyCellKind {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "boolean" => Ok(Self::Boolean),
-            "integer" => Ok(Self::Integer),
-            "quantity" => Ok(Self::Quantity),
-            "text" => Ok(Self::Text),
-            "identifier" => Ok(Self::Identifier),
-            "reference" => Ok(Self::Reference),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ModelingKeyCellKind).to_owned(),
-                    enumeration: stringify!(ModelingKeyCellKind).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ModelingKeyCellKind {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ModelingKeyCellKind),
+            value: value.to_owned(),
         }
     }
 }
@@ -8958,8 +9180,21 @@ impl core::str::FromStr for ModelingKeyCellKind {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -8968,12 +9203,15 @@ impl core::str::FromStr for ModelingKeyCellKind {
 pub enum ModelingKindFacet {
     ///provenance
     #[serde(rename = "provenance")]
+    #[strum(serialize = "provenance")]
     Provenance,
     ///release
     #[serde(rename = "release")]
+    #[strum(serialize = "release")]
     Release,
     ///abstract
     #[serde(rename = "abstract")]
+    #[strum(serialize = "abstract")]
     Abstract,
 }
 impl crate::SemanticEq for ModelingKindFacet {
@@ -8983,14 +9221,15 @@ impl crate::SemanticEq for ModelingKindFacet {
 }
 impl ModelingKindFacet {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 3usize] = [Self::Provenance, Self::Release, Self::Abstract];
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Provenance => "provenance",
-            Self::Release => "release",
-            Self::Abstract => "abstract",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -9029,20 +9268,11 @@ impl schemars::JsonSchema for ModelingKindFacet {
         )
     }
 }
-impl core::str::FromStr for ModelingKindFacet {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "provenance" => Ok(Self::Provenance),
-            "release" => Ok(Self::Release),
-            "abstract" => Ok(Self::Abstract),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ModelingKindFacet).to_owned(),
-                    enumeration: stringify!(ModelingKindFacet).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ModelingKindFacet {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ModelingKindFacet),
+            value: value.to_owned(),
         }
     }
 }
@@ -9056,8 +9286,21 @@ impl core::str::FromStr for ModelingKindFacet {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -9066,51 +9309,67 @@ impl core::str::FromStr for ModelingKindFacet {
 pub enum ModelingKnowledgeValueKind {
     ///missing
     #[serde(rename = "missing")]
+    #[strum(serialize = "missing")]
     Missing,
     ///boolean
     #[serde(rename = "boolean")]
+    #[strum(serialize = "boolean")]
     Boolean,
     ///integer
     #[serde(rename = "integer")]
+    #[strum(serialize = "integer")]
     Integer,
     ///quantity
     #[serde(rename = "quantity")]
+    #[strum(serialize = "quantity")]
     Quantity,
     ///coordinate
     #[serde(rename = "coordinate")]
+    #[strum(serialize = "coordinate")]
     Coordinate,
     ///text
     #[serde(rename = "text")]
+    #[strum(serialize = "text")]
     Text,
     ///entity
     #[serde(rename = "entity")]
+    #[strum(serialize = "entity")]
     Entity,
     ///enumeration
     #[serde(rename = "enumeration")]
+    #[strum(serialize = "enumeration")]
     Enumeration,
     ///identifier
     #[serde(rename = "identifier")]
+    #[strum(serialize = "identifier")]
     Identifier,
     ///definition
     #[serde(rename = "definition")]
+    #[strum(serialize = "definition")]
     Definition,
     ///function
     #[serde(rename = "function")]
+    #[strum(serialize = "function")]
     Function,
     ///row
     #[serde(rename = "row")]
+    #[strum(serialize = "row")]
     Row,
     ///set
     #[serde(rename = "set")]
+    #[strum(serialize = "set")]
     Set,
     ///tuple
     #[serde(rename = "tuple")]
+    #[strum(serialize = "tuple")]
     Tuple,
     ///quantity_type
     #[serde(rename = "quantity_type")]
+    #[strum(serialize = "quantity_type")]
     QuantityType,
     ///reference_state
     #[serde(rename = "reference_state")]
+    #[strum(serialize = "reference_state")]
     ReferenceState,
 }
 impl crate::SemanticEq for ModelingKnowledgeValueKind {
@@ -9120,44 +9379,15 @@ impl crate::SemanticEq for ModelingKnowledgeValueKind {
 }
 impl ModelingKnowledgeValueKind {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 16usize] = [
-        Self::Missing,
-        Self::Boolean,
-        Self::Integer,
-        Self::Quantity,
-        Self::Coordinate,
-        Self::Text,
-        Self::Entity,
-        Self::Enumeration,
-        Self::Identifier,
-        Self::Definition,
-        Self::Function,
-        Self::Row,
-        Self::Set,
-        Self::Tuple,
-        Self::QuantityType,
-        Self::ReferenceState,
-    ];
+    pub const ALL: [Self; 16usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<16usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Missing => "missing",
-            Self::Boolean => "boolean",
-            Self::Integer => "integer",
-            Self::Quantity => "quantity",
-            Self::Coordinate => "coordinate",
-            Self::Text => "text",
-            Self::Entity => "entity",
-            Self::Enumeration => "enumeration",
-            Self::Identifier => "identifier",
-            Self::Definition => "definition",
-            Self::Function => "function",
-            Self::Row => "row",
-            Self::Set => "set",
-            Self::Tuple => "tuple",
-            Self::QuantityType => "quantity_type",
-            Self::ReferenceState => "reference_state",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -9226,33 +9456,11 @@ impl schemars::JsonSchema for ModelingKnowledgeValueKind {
         )
     }
 }
-impl core::str::FromStr for ModelingKnowledgeValueKind {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "missing" => Ok(Self::Missing),
-            "boolean" => Ok(Self::Boolean),
-            "integer" => Ok(Self::Integer),
-            "quantity" => Ok(Self::Quantity),
-            "coordinate" => Ok(Self::Coordinate),
-            "text" => Ok(Self::Text),
-            "entity" => Ok(Self::Entity),
-            "enumeration" => Ok(Self::Enumeration),
-            "identifier" => Ok(Self::Identifier),
-            "definition" => Ok(Self::Definition),
-            "function" => Ok(Self::Function),
-            "row" => Ok(Self::Row),
-            "set" => Ok(Self::Set),
-            "tuple" => Ok(Self::Tuple),
-            "quantity_type" => Ok(Self::QuantityType),
-            "reference_state" => Ok(Self::ReferenceState),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ModelingKnowledgeValueKind).to_owned(),
-                    enumeration: stringify!(ModelingKnowledgeValueKind).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ModelingKnowledgeValueKind {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ModelingKnowledgeValueKind),
+            value: value.to_owned(),
         }
     }
 }
@@ -9266,8 +9474,21 @@ impl core::str::FromStr for ModelingKnowledgeValueKind {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -9276,12 +9497,15 @@ impl core::str::FromStr for ModelingKnowledgeValueKind {
 pub enum ModelingLineageKind {
     ///dataset
     #[serde(rename = "dataset")]
+    #[strum(serialize = "dataset")]
     Dataset,
     ///source
     #[serde(rename = "source")]
+    #[strum(serialize = "source")]
     Source,
     ///fit
     #[serde(rename = "fit")]
+    #[strum(serialize = "fit")]
     Fit,
 }
 impl crate::SemanticEq for ModelingLineageKind {
@@ -9291,14 +9515,15 @@ impl crate::SemanticEq for ModelingLineageKind {
 }
 impl ModelingLineageKind {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 3usize] = [Self::Dataset, Self::Source, Self::Fit];
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Dataset => "dataset",
-            Self::Source => "source",
-            Self::Fit => "fit",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -9339,20 +9564,11 @@ impl schemars::JsonSchema for ModelingLineageKind {
         )
     }
 }
-impl core::str::FromStr for ModelingLineageKind {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "dataset" => Ok(Self::Dataset),
-            "source" => Ok(Self::Source),
-            "fit" => Ok(Self::Fit),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ModelingLineageKind).to_owned(),
-                    enumeration: stringify!(ModelingLineageKind).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ModelingLineageKind {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ModelingLineageKind),
+            value: value.to_owned(),
         }
     }
 }
@@ -9366,8 +9582,21 @@ impl core::str::FromStr for ModelingLineageKind {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -9376,12 +9605,15 @@ impl core::str::FromStr for ModelingLineageKind {
 pub enum ModelingMissingPolicy {
     ///required
     #[serde(rename = "required")]
+    #[strum(serialize = "required")]
     Required,
     ///optional
     #[serde(rename = "optional")]
+    #[strum(serialize = "optional")]
     Optional,
     ///default
     #[serde(rename = "default")]
+    #[strum(serialize = "default")]
     Default,
 }
 impl crate::SemanticEq for ModelingMissingPolicy {
@@ -9391,14 +9623,15 @@ impl crate::SemanticEq for ModelingMissingPolicy {
 }
 impl ModelingMissingPolicy {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 3usize] = [Self::Required, Self::Optional, Self::Default];
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Required => "required",
-            Self::Optional => "optional",
-            Self::Default => "default",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -9439,20 +9672,11 @@ impl schemars::JsonSchema for ModelingMissingPolicy {
         )
     }
 }
-impl core::str::FromStr for ModelingMissingPolicy {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "required" => Ok(Self::Required),
-            "optional" => Ok(Self::Optional),
-            "default" => Ok(Self::Default),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ModelingMissingPolicy).to_owned(),
-                    enumeration: stringify!(ModelingMissingPolicy).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ModelingMissingPolicy {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ModelingMissingPolicy),
+            value: value.to_owned(),
         }
     }
 }
@@ -9466,8 +9690,21 @@ impl core::str::FromStr for ModelingMissingPolicy {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -9476,9 +9713,11 @@ impl core::str::FromStr for ModelingMissingPolicy {
 pub enum ModelingObjectiveRoute {
     ///native
     #[serde(rename = "native")]
+    #[strum(serialize = "native")]
     Native,
     ///staged
     #[serde(rename = "staged")]
+    #[strum(serialize = "staged")]
     Staged,
 }
 impl crate::SemanticEq for ModelingObjectiveRoute {
@@ -9488,13 +9727,15 @@ impl crate::SemanticEq for ModelingObjectiveRoute {
 }
 impl ModelingObjectiveRoute {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Native, Self::Staged];
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Native => "native",
-            Self::Staged => "staged",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -9531,19 +9772,11 @@ impl schemars::JsonSchema for ModelingObjectiveRoute {
         schemars::json_schema!({ "type" : "string", "enum" : ["native", "staged"] })
     }
 }
-impl core::str::FromStr for ModelingObjectiveRoute {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "native" => Ok(Self::Native),
-            "staged" => Ok(Self::Staged),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ModelingObjectiveRoute).to_owned(),
-                    enumeration: stringify!(ModelingObjectiveRoute).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ModelingObjectiveRoute {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ModelingObjectiveRoute),
+            value: value.to_owned(),
         }
     }
 }
@@ -9557,8 +9790,21 @@ impl core::str::FromStr for ModelingObjectiveRoute {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -9567,9 +9813,11 @@ impl core::str::FromStr for ModelingObjectiveRoute {
 pub enum ModelingPermissionTarget {
     ///records
     #[serde(rename = "records")]
+    #[strum(serialize = "records")]
     Records,
     ///families
     #[serde(rename = "families")]
+    #[strum(serialize = "families")]
     Families,
 }
 impl crate::SemanticEq for ModelingPermissionTarget {
@@ -9579,13 +9827,15 @@ impl crate::SemanticEq for ModelingPermissionTarget {
 }
 impl ModelingPermissionTarget {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Records, Self::Families];
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Records => "records",
-            Self::Families => "families",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -9622,19 +9872,11 @@ impl schemars::JsonSchema for ModelingPermissionTarget {
         schemars::json_schema!({ "type" : "string", "enum" : ["records", "families"] })
     }
 }
-impl core::str::FromStr for ModelingPermissionTarget {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "records" => Ok(Self::Records),
-            "families" => Ok(Self::Families),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ModelingPermissionTarget).to_owned(),
-                    enumeration: stringify!(ModelingPermissionTarget).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ModelingPermissionTarget {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ModelingPermissionTarget),
+            value: value.to_owned(),
         }
     }
 }
@@ -9648,8 +9890,21 @@ impl core::str::FromStr for ModelingPermissionTarget {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -9658,18 +9913,23 @@ impl core::str::FromStr for ModelingPermissionTarget {
 pub enum ModelingProcedure {
     ///check
     #[serde(rename = "check")]
+    #[strum(serialize = "check")]
     Check,
     ///solve
     #[serde(rename = "solve")]
+    #[strum(serialize = "solve")]
     Solve,
     ///initialize
     #[serde(rename = "initialize")]
+    #[strum(serialize = "initialize")]
     Initialize,
     ///integrate
     #[serde(rename = "integrate")]
+    #[strum(serialize = "integrate")]
     Integrate,
     ///shooting
     #[serde(rename = "shooting")]
+    #[strum(serialize = "shooting")]
     Shooting,
 }
 impl crate::SemanticEq for ModelingProcedure {
@@ -9679,22 +9939,15 @@ impl crate::SemanticEq for ModelingProcedure {
 }
 impl ModelingProcedure {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 5usize] = [
-        Self::Check,
-        Self::Solve,
-        Self::Initialize,
-        Self::Integrate,
-        Self::Shooting,
-    ];
+    pub const ALL: [Self; 5usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<5usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Check => "check",
-            Self::Solve => "solve",
-            Self::Initialize => "initialize",
-            Self::Integrate => "integrate",
-            Self::Shooting => "shooting",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -9738,22 +9991,11 @@ impl schemars::JsonSchema for ModelingProcedure {
         )
     }
 }
-impl core::str::FromStr for ModelingProcedure {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "check" => Ok(Self::Check),
-            "solve" => Ok(Self::Solve),
-            "initialize" => Ok(Self::Initialize),
-            "integrate" => Ok(Self::Integrate),
-            "shooting" => Ok(Self::Shooting),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ModelingProcedure).to_owned(),
-                    enumeration: stringify!(ModelingProcedure).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ModelingProcedure {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ModelingProcedure),
+            value: value.to_owned(),
         }
     }
 }
@@ -9767,8 +10009,21 @@ impl core::str::FromStr for ModelingProcedure {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -9777,15 +10032,19 @@ impl core::str::FromStr for ModelingProcedure {
 pub enum ModelingRealValueKind {
     ///finite
     #[serde(rename = "finite")]
+    #[strum(serialize = "finite")]
     Finite,
     ///negative_infinity
     #[serde(rename = "negative_infinity")]
+    #[strum(serialize = "negative_infinity")]
     NegativeInfinity,
     ///positive_infinity
     #[serde(rename = "positive_infinity")]
+    #[strum(serialize = "positive_infinity")]
     PositiveInfinity,
     ///indeterminate
     #[serde(rename = "indeterminate")]
+    #[strum(serialize = "indeterminate")]
     Indeterminate,
 }
 impl crate::SemanticEq for ModelingRealValueKind {
@@ -9795,20 +10054,15 @@ impl crate::SemanticEq for ModelingRealValueKind {
 }
 impl ModelingRealValueKind {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 4usize] = [
-        Self::Finite,
-        Self::NegativeInfinity,
-        Self::PositiveInfinity,
-        Self::Indeterminate,
-    ];
+    pub const ALL: [Self; 4usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<4usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Finite => "finite",
-            Self::NegativeInfinity => "negative_infinity",
-            Self::PositiveInfinity => "positive_infinity",
-            Self::Indeterminate => "indeterminate",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -9852,21 +10106,11 @@ impl schemars::JsonSchema for ModelingRealValueKind {
         )
     }
 }
-impl core::str::FromStr for ModelingRealValueKind {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "finite" => Ok(Self::Finite),
-            "negative_infinity" => Ok(Self::NegativeInfinity),
-            "positive_infinity" => Ok(Self::PositiveInfinity),
-            "indeterminate" => Ok(Self::Indeterminate),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ModelingRealValueKind).to_owned(),
-                    enumeration: stringify!(ModelingRealValueKind).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ModelingRealValueKind {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ModelingRealValueKind),
+            value: value.to_owned(),
         }
     }
 }
@@ -9880,8 +10124,21 @@ impl core::str::FromStr for ModelingRealValueKind {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -9890,45 +10147,59 @@ impl core::str::FromStr for ModelingRealValueKind {
 pub enum ModelingRealizationPolicy {
     ///inline
     #[serde(rename = "inline")]
+    #[strum(serialize = "inline")]
     Inline,
     ///nested
     #[serde(rename = "nested")]
+    #[strum(serialize = "nested")]
     Nested,
     ///accelerated
     #[serde(rename = "accelerated")]
+    #[strum(serialize = "accelerated")]
     Accelerated,
     ///big_m
     #[serde(rename = "big_m")]
+    #[strum(serialize = "big_m")]
     BigM,
     ///derived_big_m
     #[serde(rename = "derived_big_m")]
+    #[strum(serialize = "derived_big_m")]
     DerivedBigM,
     ///hull
     #[serde(rename = "hull")]
+    #[strum(serialize = "hull")]
     Hull,
     ///indicator
     #[serde(rename = "indicator")]
+    #[strum(serialize = "indicator")]
     Indicator,
     ///linear
     #[serde(rename = "linear")]
+    #[strum(serialize = "linear")]
     Linear,
     ///native
     #[serde(rename = "native")]
+    #[strum(serialize = "native")]
     Native,
     ///sos2
     #[serde(rename = "sos2")]
+    #[strum(serialize = "sos2")]
     Sos2,
     ///incremental
     #[serde(rename = "incremental")]
+    #[strum(serialize = "incremental")]
     Incremental,
     ///smooth
     #[serde(rename = "smooth")]
+    #[strum(serialize = "smooth")]
     Smooth,
     ///penalty_l1
     #[serde(rename = "penalty_l1")]
+    #[strum(serialize = "penalty_l1")]
     PenaltyL1,
     ///disjunctive
     #[serde(rename = "disjunctive")]
+    #[strum(serialize = "disjunctive")]
     Disjunctive,
 }
 impl crate::SemanticEq for ModelingRealizationPolicy {
@@ -9938,40 +10209,15 @@ impl crate::SemanticEq for ModelingRealizationPolicy {
 }
 impl ModelingRealizationPolicy {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 14usize] = [
-        Self::Inline,
-        Self::Nested,
-        Self::Accelerated,
-        Self::BigM,
-        Self::DerivedBigM,
-        Self::Hull,
-        Self::Indicator,
-        Self::Linear,
-        Self::Native,
-        Self::Sos2,
-        Self::Incremental,
-        Self::Smooth,
-        Self::PenaltyL1,
-        Self::Disjunctive,
-    ];
+    pub const ALL: [Self; 14usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<14usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Inline => "inline",
-            Self::Nested => "nested",
-            Self::Accelerated => "accelerated",
-            Self::BigM => "big_m",
-            Self::DerivedBigM => "derived_big_m",
-            Self::Hull => "hull",
-            Self::Indicator => "indicator",
-            Self::Linear => "linear",
-            Self::Native => "native",
-            Self::Sos2 => "sos2",
-            Self::Incremental => "incremental",
-            Self::Smooth => "smooth",
-            Self::PenaltyL1 => "penalty_l1",
-            Self::Disjunctive => "disjunctive",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -10036,31 +10282,11 @@ impl schemars::JsonSchema for ModelingRealizationPolicy {
         )
     }
 }
-impl core::str::FromStr for ModelingRealizationPolicy {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "inline" => Ok(Self::Inline),
-            "nested" => Ok(Self::Nested),
-            "accelerated" => Ok(Self::Accelerated),
-            "big_m" => Ok(Self::BigM),
-            "derived_big_m" => Ok(Self::DerivedBigM),
-            "hull" => Ok(Self::Hull),
-            "indicator" => Ok(Self::Indicator),
-            "linear" => Ok(Self::Linear),
-            "native" => Ok(Self::Native),
-            "sos2" => Ok(Self::Sos2),
-            "incremental" => Ok(Self::Incremental),
-            "smooth" => Ok(Self::Smooth),
-            "penalty_l1" => Ok(Self::PenaltyL1),
-            "disjunctive" => Ok(Self::Disjunctive),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ModelingRealizationPolicy).to_owned(),
-                    enumeration: stringify!(ModelingRealizationPolicy).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ModelingRealizationPolicy {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ModelingRealizationPolicy),
+            value: value.to_owned(),
         }
     }
 }
@@ -10074,8 +10300,21 @@ impl core::str::FromStr for ModelingRealizationPolicy {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -10084,6 +10323,7 @@ impl core::str::FromStr for ModelingRealizationPolicy {
 pub enum ModelingStructuralRequirement {
     ///l1_exact_penalty
     #[serde(rename = "l1_exact_penalty")]
+    #[strum(serialize = "l1_exact_penalty")]
     L1ExactPenalty,
 }
 impl crate::SemanticEq for ModelingStructuralRequirement {
@@ -10093,12 +10333,15 @@ impl crate::SemanticEq for ModelingStructuralRequirement {
 }
 impl ModelingStructuralRequirement {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 1usize] = [Self::L1ExactPenalty];
+    pub const ALL: [Self; 1usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<1usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::L1ExactPenalty => "l1_exact_penalty",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -10133,18 +10376,11 @@ impl schemars::JsonSchema for ModelingStructuralRequirement {
         schemars::json_schema!({ "type" : "string", "enum" : ["l1_exact_penalty"] })
     }
 }
-impl core::str::FromStr for ModelingStructuralRequirement {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "l1_exact_penalty" => Ok(Self::L1ExactPenalty),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ModelingStructuralRequirement).to_owned(),
-                    enumeration: stringify!(ModelingStructuralRequirement).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ModelingStructuralRequirement {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ModelingStructuralRequirement),
+            value: value.to_owned(),
         }
     }
 }
@@ -10158,8 +10394,21 @@ impl core::str::FromStr for ModelingStructuralRequirement {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -10168,9 +10417,11 @@ impl core::str::FromStr for ModelingStructuralRequirement {
 pub enum ModelingTransferDirection {
     ///into
     #[serde(rename = "into")]
+    #[strum(serialize = "into")]
     Into,
     ///out_of
     #[serde(rename = "out_of")]
+    #[strum(serialize = "out_of")]
     OutOf,
 }
 impl crate::SemanticEq for ModelingTransferDirection {
@@ -10180,13 +10431,15 @@ impl crate::SemanticEq for ModelingTransferDirection {
 }
 impl ModelingTransferDirection {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Into, Self::OutOf];
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Into => "into",
-            Self::OutOf => "out_of",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -10223,19 +10476,11 @@ impl schemars::JsonSchema for ModelingTransferDirection {
         schemars::json_schema!({ "type" : "string", "enum" : ["into", "out_of"] })
     }
 }
-impl core::str::FromStr for ModelingTransferDirection {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "into" => Ok(Self::Into),
-            "out_of" => Ok(Self::OutOf),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ModelingTransferDirection).to_owned(),
-                    enumeration: stringify!(ModelingTransferDirection).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ModelingTransferDirection {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ModelingTransferDirection),
+            value: value.to_owned(),
         }
     }
 }
@@ -10249,8 +10494,21 @@ impl core::str::FromStr for ModelingTransferDirection {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -10259,75 +10517,99 @@ impl core::str::FromStr for ModelingTransferDirection {
 pub enum ModelingTypeNode {
     ///boolean
     #[serde(rename = "boolean")]
+    #[strum(serialize = "boolean")]
     Boolean,
     ///integer
     #[serde(rename = "integer")]
+    #[strum(serialize = "integer")]
     Integer,
     ///text
     #[serde(rename = "text")]
+    #[strum(serialize = "text")]
     Text,
     ///named
     #[serde(rename = "named")]
+    #[strum(serialize = "named")]
     Named,
     ///variable
     #[serde(rename = "variable")]
+    #[strum(serialize = "variable")]
     Variable,
     ///optional
     #[serde(rename = "optional")]
+    #[strum(serialize = "optional")]
     Optional,
     ///set
     #[serde(rename = "set")]
+    #[strum(serialize = "set")]
     Set,
     ///row
     #[serde(rename = "row")]
+    #[strum(serialize = "row")]
     Row,
     ///table
     #[serde(rename = "table")]
+    #[strum(serialize = "table")]
     Table,
     ///tuple
     #[serde(rename = "tuple")]
+    #[strum(serialize = "tuple")]
     Tuple,
     ///indexed
     #[serde(rename = "indexed")]
+    #[strum(serialize = "indexed")]
     Indexed,
     ///function
     #[serde(rename = "function")]
+    #[strum(serialize = "function")]
     Function,
     ///argument
     #[serde(rename = "argument")]
+    #[strum(serialize = "argument")]
     Argument,
     ///delta
     #[serde(rename = "delta")]
+    #[strum(serialize = "delta")]
     Delta,
     ///product
     #[serde(rename = "product")]
+    #[strum(serialize = "product")]
     Product,
     ///quotient
     #[serde(rename = "quotient")]
+    #[strum(serialize = "quotient")]
     Quotient,
     ///power
     #[serde(rename = "power")]
+    #[strum(serialize = "power")]
     Power,
     ///identifier
     #[serde(rename = "identifier")]
+    #[strum(serialize = "identifier")]
     Identifier,
     ///quantity_type
     #[serde(rename = "quantity_type")]
+    #[strum(serialize = "quantity_type")]
     QuantityType,
     ///applicability
     #[serde(rename = "applicability")]
+    #[strum(serialize = "applicability")]
     Applicability,
     ///reference_state
     #[serde(rename = "reference_state")]
+    #[strum(serialize = "reference_state")]
     ReferenceState,
     ///coordinate
     #[serde(rename = "coordinate")]
+    #[strum(serialize = "coordinate")]
     Coordinate,
     ///reduced_law
     #[serde(rename = "reduced_law")]
+    #[strum(serialize = "reduced_law")]
     ReducedLaw,
     ///transfer
     #[serde(rename = "transfer")]
+    #[strum(serialize = "transfer")]
     Transfer,
 }
 impl crate::SemanticEq for ModelingTypeNode {
@@ -10337,60 +10619,15 @@ impl crate::SemanticEq for ModelingTypeNode {
 }
 impl ModelingTypeNode {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 24usize] = [
-        Self::Boolean,
-        Self::Integer,
-        Self::Text,
-        Self::Named,
-        Self::Variable,
-        Self::Optional,
-        Self::Set,
-        Self::Row,
-        Self::Table,
-        Self::Tuple,
-        Self::Indexed,
-        Self::Function,
-        Self::Argument,
-        Self::Delta,
-        Self::Product,
-        Self::Quotient,
-        Self::Power,
-        Self::Identifier,
-        Self::QuantityType,
-        Self::Applicability,
-        Self::ReferenceState,
-        Self::Coordinate,
-        Self::ReducedLaw,
-        Self::Transfer,
-    ];
+    pub const ALL: [Self; 24usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<24usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Boolean => "boolean",
-            Self::Integer => "integer",
-            Self::Text => "text",
-            Self::Named => "named",
-            Self::Variable => "variable",
-            Self::Optional => "optional",
-            Self::Set => "set",
-            Self::Row => "row",
-            Self::Table => "table",
-            Self::Tuple => "tuple",
-            Self::Indexed => "indexed",
-            Self::Function => "function",
-            Self::Argument => "argument",
-            Self::Delta => "delta",
-            Self::Product => "product",
-            Self::Quotient => "quotient",
-            Self::Power => "power",
-            Self::Identifier => "identifier",
-            Self::QuantityType => "quantity_type",
-            Self::Applicability => "applicability",
-            Self::ReferenceState => "reference_state",
-            Self::Coordinate => "coordinate",
-            Self::ReducedLaw => "reduced_law",
-            Self::Transfer => "transfer",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -10475,41 +10712,11 @@ impl schemars::JsonSchema for ModelingTypeNode {
         )
     }
 }
-impl core::str::FromStr for ModelingTypeNode {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "boolean" => Ok(Self::Boolean),
-            "integer" => Ok(Self::Integer),
-            "text" => Ok(Self::Text),
-            "named" => Ok(Self::Named),
-            "variable" => Ok(Self::Variable),
-            "optional" => Ok(Self::Optional),
-            "set" => Ok(Self::Set),
-            "row" => Ok(Self::Row),
-            "table" => Ok(Self::Table),
-            "tuple" => Ok(Self::Tuple),
-            "indexed" => Ok(Self::Indexed),
-            "function" => Ok(Self::Function),
-            "argument" => Ok(Self::Argument),
-            "delta" => Ok(Self::Delta),
-            "product" => Ok(Self::Product),
-            "quotient" => Ok(Self::Quotient),
-            "power" => Ok(Self::Power),
-            "identifier" => Ok(Self::Identifier),
-            "quantity_type" => Ok(Self::QuantityType),
-            "applicability" => Ok(Self::Applicability),
-            "reference_state" => Ok(Self::ReferenceState),
-            "coordinate" => Ok(Self::Coordinate),
-            "reduced_law" => Ok(Self::ReducedLaw),
-            "transfer" => Ok(Self::Transfer),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ModelingTypeNode).to_owned(),
-                    enumeration: stringify!(ModelingTypeNode).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ModelingTypeNode {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ModelingTypeNode),
+            value: value.to_owned(),
         }
     }
 }
@@ -10523,8 +10730,21 @@ impl core::str::FromStr for ModelingTypeNode {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -10533,12 +10753,15 @@ impl core::str::FromStr for ModelingTypeNode {
 pub enum ModelingUncertaintyKind {
     ///standard
     #[serde(rename = "standard")]
+    #[strum(serialize = "standard")]
     Standard,
     ///relative
     #[serde(rename = "relative")]
+    #[strum(serialize = "relative")]
     Relative,
     ///bound
     #[serde(rename = "bound")]
+    #[strum(serialize = "bound")]
     Bound,
 }
 impl crate::SemanticEq for ModelingUncertaintyKind {
@@ -10548,14 +10771,15 @@ impl crate::SemanticEq for ModelingUncertaintyKind {
 }
 impl ModelingUncertaintyKind {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 3usize] = [Self::Standard, Self::Relative, Self::Bound];
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Standard => "standard",
-            Self::Relative => "relative",
-            Self::Bound => "bound",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -10596,20 +10820,11 @@ impl schemars::JsonSchema for ModelingUncertaintyKind {
         )
     }
 }
-impl core::str::FromStr for ModelingUncertaintyKind {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "standard" => Ok(Self::Standard),
-            "relative" => Ok(Self::Relative),
-            "bound" => Ok(Self::Bound),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ModelingUncertaintyKind).to_owned(),
-                    enumeration: stringify!(ModelingUncertaintyKind).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ModelingUncertaintyKind {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ModelingUncertaintyKind),
+            value: value.to_owned(),
         }
     }
 }
@@ -10623,8 +10838,21 @@ impl core::str::FromStr for ModelingUncertaintyKind {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -10633,12 +10861,15 @@ impl core::str::FromStr for ModelingUncertaintyKind {
 pub enum ModelingValidityLayer {
     ///form
     #[serde(rename = "form")]
+    #[strum(serialize = "form")]
     Form,
     ///data
     #[serde(rename = "data")]
+    #[strum(serialize = "data")]
     Data,
     ///closure
     #[serde(rename = "closure")]
+    #[strum(serialize = "closure")]
     Closure,
 }
 impl crate::SemanticEq for ModelingValidityLayer {
@@ -10648,14 +10879,15 @@ impl crate::SemanticEq for ModelingValidityLayer {
 }
 impl ModelingValidityLayer {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 3usize] = [Self::Form, Self::Data, Self::Closure];
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Form => "form",
-            Self::Data => "data",
-            Self::Closure => "closure",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -10696,20 +10928,11 @@ impl schemars::JsonSchema for ModelingValidityLayer {
         )
     }
 }
-impl core::str::FromStr for ModelingValidityLayer {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "form" => Ok(Self::Form),
-            "data" => Ok(Self::Data),
-            "closure" => Ok(Self::Closure),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ModelingValidityLayer).to_owned(),
-                    enumeration: stringify!(ModelingValidityLayer).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ModelingValidityLayer {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ModelingValidityLayer),
+            value: value.to_owned(),
         }
     }
 }
@@ -10723,8 +10946,21 @@ impl core::str::FromStr for ModelingValidityLayer {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -10733,18 +10969,23 @@ impl core::str::FromStr for ModelingValidityLayer {
 pub enum ModelingVariableDomain {
     ///continuous
     #[serde(rename = "continuous")]
+    #[strum(serialize = "continuous")]
     Continuous,
     ///integer
     #[serde(rename = "integer")]
+    #[strum(serialize = "integer")]
     Integer,
     ///binary
     #[serde(rename = "binary")]
+    #[strum(serialize = "binary")]
     Binary,
     ///semicontinuous
     #[serde(rename = "semicontinuous")]
+    #[strum(serialize = "semicontinuous")]
     Semicontinuous,
     ///semiinteger
     #[serde(rename = "semiinteger")]
+    #[strum(serialize = "semiinteger")]
     Semiinteger,
 }
 impl crate::SemanticEq for ModelingVariableDomain {
@@ -10754,22 +10995,15 @@ impl crate::SemanticEq for ModelingVariableDomain {
 }
 impl ModelingVariableDomain {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 5usize] = [
-        Self::Continuous,
-        Self::Integer,
-        Self::Binary,
-        Self::Semicontinuous,
-        Self::Semiinteger,
-    ];
+    pub const ALL: [Self; 5usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<5usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Continuous => "continuous",
-            Self::Integer => "integer",
-            Self::Binary => "binary",
-            Self::Semicontinuous => "semicontinuous",
-            Self::Semiinteger => "semiinteger",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -10815,22 +11049,11 @@ impl schemars::JsonSchema for ModelingVariableDomain {
         )
     }
 }
-impl core::str::FromStr for ModelingVariableDomain {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "continuous" => Ok(Self::Continuous),
-            "integer" => Ok(Self::Integer),
-            "binary" => Ok(Self::Binary),
-            "semicontinuous" => Ok(Self::Semicontinuous),
-            "semiinteger" => Ok(Self::Semiinteger),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ModelingVariableDomain).to_owned(),
-                    enumeration: stringify!(ModelingVariableDomain).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ModelingVariableDomain {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ModelingVariableDomain),
+            value: value.to_owned(),
         }
     }
 }
@@ -10844,8 +11067,21 @@ impl core::str::FromStr for ModelingVariableDomain {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -10854,6 +11090,7 @@ impl core::str::FromStr for ModelingVariableDomain {
 pub enum ModelingVersionOperator {
     ///exact
     #[serde(rename = "exact")]
+    #[strum(serialize = "exact")]
     Exact,
 }
 impl crate::SemanticEq for ModelingVersionOperator {
@@ -10863,12 +11100,15 @@ impl crate::SemanticEq for ModelingVersionOperator {
 }
 impl ModelingVersionOperator {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 1usize] = [Self::Exact];
+    pub const ALL: [Self; 1usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<1usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Exact => "exact",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -10903,18 +11143,11 @@ impl schemars::JsonSchema for ModelingVersionOperator {
         schemars::json_schema!({ "type" : "string", "enum" : ["exact"] })
     }
 }
-impl core::str::FromStr for ModelingVersionOperator {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "exact" => Ok(Self::Exact),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ModelingVersionOperator).to_owned(),
-                    enumeration: stringify!(ModelingVersionOperator).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ModelingVersionOperator {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ModelingVersionOperator),
+            value: value.to_owned(),
         }
     }
 }
@@ -10928,8 +11161,21 @@ impl core::str::FromStr for ModelingVersionOperator {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -10938,9 +11184,11 @@ impl core::str::FromStr for ModelingVersionOperator {
 pub enum MuStrategy {
     ///Monotone Fiacco–McCormick decrease.
     #[serde(rename = "monotone")]
+    #[strum(serialize = "monotone")]
     Monotone,
     ///Adaptive (Nocedal–Wächter–Waltz) update.
     #[serde(rename = "adaptive")]
+    #[strum(serialize = "adaptive")]
     Adaptive,
 }
 impl crate::SemanticEq for MuStrategy {
@@ -10950,13 +11198,15 @@ impl crate::SemanticEq for MuStrategy {
 }
 impl MuStrategy {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Monotone, Self::Adaptive];
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Monotone => "monotone",
-            Self::Adaptive => "adaptive",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -10991,19 +11241,11 @@ impl schemars::JsonSchema for MuStrategy {
         schemars::json_schema!({ "type" : "string", "enum" : ["monotone", "adaptive"] })
     }
 }
-impl core::str::FromStr for MuStrategy {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "monotone" => Ok(Self::Monotone),
-            "adaptive" => Ok(Self::Adaptive),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(MuStrategy).to_owned(),
-                    enumeration: stringify!(MuStrategy).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl MuStrategy {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(MuStrategy),
+            value: value.to_owned(),
         }
     }
 }
@@ -11017,8 +11259,21 @@ impl core::str::FromStr for MuStrategy {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -11027,18 +11282,23 @@ impl core::str::FromStr for MuStrategy {
 pub enum MumpsOrdering {
     ///Approximate minimum degree.
     #[serde(rename = "amd")]
+    #[strum(serialize = "amd")]
     Amd,
     ///Approximate minimum fill.
     #[serde(rename = "amf")]
+    #[strum(serialize = "amf")]
     Amf,
     ///PORD.
     #[serde(rename = "pord")]
+    #[strum(serialize = "pord")]
     Pord,
     ///METIS nested dissection (the image's shared METIS).
     #[serde(rename = "metis")]
+    #[strum(serialize = "metis")]
     Metis,
     ///Approximate minimum degree with quasi-dense row detection.
     #[serde(rename = "qamd")]
+    #[strum(serialize = "qamd")]
     Qamd,
 }
 impl crate::SemanticEq for MumpsOrdering {
@@ -11048,22 +11308,15 @@ impl crate::SemanticEq for MumpsOrdering {
 }
 impl MumpsOrdering {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 5usize] = [
-        Self::Amd,
-        Self::Amf,
-        Self::Pord,
-        Self::Metis,
-        Self::Qamd,
-    ];
+    pub const ALL: [Self; 5usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<5usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Amd => "amd",
-            Self::Amf => "amf",
-            Self::Pord => "pord",
-            Self::Metis => "metis",
-            Self::Qamd => "qamd",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -11106,22 +11359,11 @@ impl schemars::JsonSchema for MumpsOrdering {
         )
     }
 }
-impl core::str::FromStr for MumpsOrdering {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "amd" => Ok(Self::Amd),
-            "amf" => Ok(Self::Amf),
-            "pord" => Ok(Self::Pord),
-            "metis" => Ok(Self::Metis),
-            "qamd" => Ok(Self::Qamd),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(MumpsOrdering).to_owned(),
-                    enumeration: stringify!(MumpsOrdering).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl MumpsOrdering {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(MumpsOrdering),
+            value: value.to_owned(),
         }
     }
 }
@@ -11152,8 +11394,21 @@ impl crate::SemanticFrame for Namespace {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -11162,30 +11417,39 @@ impl crate::SemanticFrame for Namespace {
 pub enum NativeAssurance {
     ///No claim beyond the native termination.
     #[serde(rename = "none")]
+    #[strum(serialize = "none")]
     None,
     ///The candidate meets every original-coordinate tolerance.
     #[serde(rename = "feasible")]
+    #[strum(serialize = "feasible")]
     Feasible,
     ///Original-coordinate KKT conditions hold within the resolved budgets; a local claim.
     #[serde(rename = "local_stationary")]
+    #[strum(serialize = "local_stationary")]
     LocalStationary,
     ///The native method's optimality or gap test holds within its tolerances.
     #[serde(rename = "native_optimal")]
+    #[strum(serialize = "native_optimal")]
     NativeOptimal,
     ///A native infeasibility or unboundedness certificate, qualified by its residuals.
     #[serde(rename = "certificate")]
+    #[strum(serialize = "certificate")]
     Certificate,
     ///A dual bound on the exported program over the declared box, valid within the backend's recorded feasibility and optimality tolerances and the export fidelity; not interval-rigorous.
     #[serde(rename = "global_bound")]
+    #[strum(serialize = "global_bound")]
     GlobalBound,
     ///The backend's global infeasibility conclusion for the exported program over the declared box, under the conditions of global_bound; a relaxed export keeps it sound; not interval-rigorous.
     #[serde(rename = "proven_infeasible")]
+    #[strum(serialize = "proven_infeasible")]
     ProvenInfeasible,
     ///Optimality or infeasibility established in rational arithmetic; the only rigorous assurance.
     #[serde(rename = "exact_certificate")]
+    #[strum(serialize = "exact_certificate")]
     ExactCertificate,
     ///A floating-point sum-of-squares polynomial lower bound; never a certificate and never part of a gap claim.
     #[serde(rename = "sos_bound_nonrigorous")]
+    #[strum(serialize = "sos_bound_nonrigorous")]
     SosBoundNonrigorous,
 }
 impl crate::SemanticEq for NativeAssurance {
@@ -11195,30 +11459,15 @@ impl crate::SemanticEq for NativeAssurance {
 }
 impl NativeAssurance {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 9usize] = [
-        Self::None,
-        Self::Feasible,
-        Self::LocalStationary,
-        Self::NativeOptimal,
-        Self::Certificate,
-        Self::GlobalBound,
-        Self::ProvenInfeasible,
-        Self::ExactCertificate,
-        Self::SosBoundNonrigorous,
-    ];
+    pub const ALL: [Self; 9usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<9usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::None => "none",
-            Self::Feasible => "feasible",
-            Self::LocalStationary => "local_stationary",
-            Self::NativeOptimal => "native_optimal",
-            Self::Certificate => "certificate",
-            Self::GlobalBound => "global_bound",
-            Self::ProvenInfeasible => "proven_infeasible",
-            Self::ExactCertificate => "exact_certificate",
-            Self::SosBoundNonrigorous => "sos_bound_nonrigorous",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -11271,26 +11520,11 @@ impl schemars::JsonSchema for NativeAssurance {
         )
     }
 }
-impl core::str::FromStr for NativeAssurance {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "none" => Ok(Self::None),
-            "feasible" => Ok(Self::Feasible),
-            "local_stationary" => Ok(Self::LocalStationary),
-            "native_optimal" => Ok(Self::NativeOptimal),
-            "certificate" => Ok(Self::Certificate),
-            "global_bound" => Ok(Self::GlobalBound),
-            "proven_infeasible" => Ok(Self::ProvenInfeasible),
-            "exact_certificate" => Ok(Self::ExactCertificate),
-            "sos_bound_nonrigorous" => Ok(Self::SosBoundNonrigorous),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(NativeAssurance).to_owned(),
-                    enumeration: stringify!(NativeAssurance).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl NativeAssurance {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(NativeAssurance),
+            value: value.to_owned(),
         }
     }
 }
@@ -11304,8 +11538,21 @@ impl core::str::FromStr for NativeAssurance {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -11314,30 +11561,39 @@ impl core::str::FromStr for NativeAssurance {
 pub enum NativeBackend {
     ///ipopt
     #[serde(rename = "ipopt")]
+    #[strum(serialize = "ipopt")]
     Ipopt,
     ///pounce
     #[serde(rename = "pounce")]
+    #[strum(serialize = "pounce")]
     Pounce,
     ///kinsol
     #[serde(rename = "kinsol")]
+    #[strum(serialize = "kinsol")]
     Kinsol,
     ///highs
     #[serde(rename = "highs")]
+    #[strum(serialize = "highs")]
     Highs,
     ///clarabel
     #[serde(rename = "clarabel")]
+    #[strum(serialize = "clarabel")]
     Clarabel,
     ///diffsol
     #[serde(rename = "diffsol")]
+    #[strum(serialize = "diffsol")]
     Diffsol,
     ///idas
     #[serde(rename = "idas")]
+    #[strum(serialize = "idas")]
     Idas,
     ///scip
     #[serde(rename = "scip")]
+    #[strum(serialize = "scip")]
     Scip,
     ///pounce_convex
     #[serde(rename = "pounce_convex")]
+    #[strum(serialize = "pounce_convex")]
     PounceConvex,
 }
 impl crate::SemanticEq for NativeBackend {
@@ -11347,30 +11603,15 @@ impl crate::SemanticEq for NativeBackend {
 }
 impl NativeBackend {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 9usize] = [
-        Self::Ipopt,
-        Self::Pounce,
-        Self::Kinsol,
-        Self::Highs,
-        Self::Clarabel,
-        Self::Diffsol,
-        Self::Idas,
-        Self::Scip,
-        Self::PounceConvex,
-    ];
+    pub const ALL: [Self; 9usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<9usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Ipopt => "ipopt",
-            Self::Pounce => "pounce",
-            Self::Kinsol => "kinsol",
-            Self::Highs => "highs",
-            Self::Clarabel => "clarabel",
-            Self::Diffsol => "diffsol",
-            Self::Idas => "idas",
-            Self::Scip => "scip",
-            Self::PounceConvex => "pounce_convex",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -11422,26 +11663,11 @@ impl schemars::JsonSchema for NativeBackend {
         )
     }
 }
-impl core::str::FromStr for NativeBackend {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "ipopt" => Ok(Self::Ipopt),
-            "pounce" => Ok(Self::Pounce),
-            "kinsol" => Ok(Self::Kinsol),
-            "highs" => Ok(Self::Highs),
-            "clarabel" => Ok(Self::Clarabel),
-            "diffsol" => Ok(Self::Diffsol),
-            "idas" => Ok(Self::Idas),
-            "scip" => Ok(Self::Scip),
-            "pounce_convex" => Ok(Self::PounceConvex),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(NativeBackend).to_owned(),
-                    enumeration: stringify!(NativeBackend).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl NativeBackend {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(NativeBackend),
+            value: value.to_owned(),
         }
     }
 }
@@ -11455,8 +11681,21 @@ impl core::str::FromStr for NativeBackend {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -11465,39 +11704,51 @@ impl core::str::FromStr for NativeBackend {
 pub enum NativeBoundaryClass {
     ///invalid_model
     #[serde(rename = "invalid_model")]
+    #[strum(serialize = "invalid_model")]
     InvalidModel,
     ///unsupported
     #[serde(rename = "unsupported")]
+    #[strum(serialize = "unsupported")]
     Unsupported,
     ///resource_limit
     #[serde(rename = "resource_limit")]
+    #[strum(serialize = "resource_limit")]
     ResourceLimit,
     ///trial_rejected
     #[serde(rename = "trial_rejected")]
+    #[strum(serialize = "trial_rejected")]
     TrialRejected,
     ///nonfinite
     #[serde(rename = "nonfinite")]
+    #[strum(serialize = "nonfinite")]
     Nonfinite,
     ///infrastructure
     #[serde(rename = "infrastructure")]
+    #[strum(serialize = "infrastructure")]
     Infrastructure,
     ///cancelled
     #[serde(rename = "cancelled")]
+    #[strum(serialize = "cancelled")]
     Cancelled,
     ///conflict
     #[serde(rename = "conflict")]
+    #[strum(serialize = "conflict")]
     Conflict,
     ///incompatible
     #[serde(rename = "incompatible")]
+    #[strum(serialize = "incompatible")]
     Incompatible,
     ///internal
     #[serde(rename = "internal")]
+    #[strum(serialize = "internal")]
     Internal,
     ///numerical
     #[serde(rename = "numerical")]
+    #[strum(serialize = "numerical")]
     Numerical,
     ///inconclusive
     #[serde(rename = "inconclusive")]
+    #[strum(serialize = "inconclusive")]
     Inconclusive,
 }
 impl crate::SemanticEq for NativeBoundaryClass {
@@ -11507,36 +11758,15 @@ impl crate::SemanticEq for NativeBoundaryClass {
 }
 impl NativeBoundaryClass {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 12usize] = [
-        Self::InvalidModel,
-        Self::Unsupported,
-        Self::ResourceLimit,
-        Self::TrialRejected,
-        Self::Nonfinite,
-        Self::Infrastructure,
-        Self::Cancelled,
-        Self::Conflict,
-        Self::Incompatible,
-        Self::Internal,
-        Self::Numerical,
-        Self::Inconclusive,
-    ];
+    pub const ALL: [Self; 12usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<12usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::InvalidModel => "invalid_model",
-            Self::Unsupported => "unsupported",
-            Self::ResourceLimit => "resource_limit",
-            Self::TrialRejected => "trial_rejected",
-            Self::Nonfinite => "nonfinite",
-            Self::Infrastructure => "infrastructure",
-            Self::Cancelled => "cancelled",
-            Self::Conflict => "conflict",
-            Self::Incompatible => "incompatible",
-            Self::Internal => "internal",
-            Self::Numerical => "numerical",
-            Self::Inconclusive => "inconclusive",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -11598,29 +11828,11 @@ impl schemars::JsonSchema for NativeBoundaryClass {
         )
     }
 }
-impl core::str::FromStr for NativeBoundaryClass {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "invalid_model" => Ok(Self::InvalidModel),
-            "unsupported" => Ok(Self::Unsupported),
-            "resource_limit" => Ok(Self::ResourceLimit),
-            "trial_rejected" => Ok(Self::TrialRejected),
-            "nonfinite" => Ok(Self::Nonfinite),
-            "infrastructure" => Ok(Self::Infrastructure),
-            "cancelled" => Ok(Self::Cancelled),
-            "conflict" => Ok(Self::Conflict),
-            "incompatible" => Ok(Self::Incompatible),
-            "internal" => Ok(Self::Internal),
-            "numerical" => Ok(Self::Numerical),
-            "inconclusive" => Ok(Self::Inconclusive),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(NativeBoundaryClass).to_owned(),
-                    enumeration: stringify!(NativeBoundaryClass).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl NativeBoundaryClass {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(NativeBoundaryClass),
+            value: value.to_owned(),
         }
     }
 }
@@ -11634,8 +11846,21 @@ impl core::str::FromStr for NativeBoundaryClass {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -11644,15 +11869,19 @@ impl core::str::FromStr for NativeBoundaryClass {
 pub enum NativeCandidateKind {
     ///final_iterate
     #[serde(rename = "final_iterate")]
+    #[strum(serialize = "final_iterate")]
     FinalIterate,
     ///best_iterate
     #[serde(rename = "best_iterate")]
+    #[strum(serialize = "best_iterate")]
     BestIterate,
     ///feasible_point
     #[serde(rename = "feasible_point")]
+    #[strum(serialize = "feasible_point")]
     FeasiblePoint,
     ///constant_evaluation
     #[serde(rename = "constant_evaluation")]
+    #[strum(serialize = "constant_evaluation")]
     ConstantEvaluation,
 }
 impl crate::SemanticEq for NativeCandidateKind {
@@ -11662,20 +11891,15 @@ impl crate::SemanticEq for NativeCandidateKind {
 }
 impl NativeCandidateKind {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 4usize] = [
-        Self::FinalIterate,
-        Self::BestIterate,
-        Self::FeasiblePoint,
-        Self::ConstantEvaluation,
-    ];
+    pub const ALL: [Self; 4usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<4usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::FinalIterate => "final_iterate",
-            Self::BestIterate => "best_iterate",
-            Self::FeasiblePoint => "feasible_point",
-            Self::ConstantEvaluation => "constant_evaluation",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -11719,21 +11943,11 @@ impl schemars::JsonSchema for NativeCandidateKind {
         )
     }
 }
-impl core::str::FromStr for NativeCandidateKind {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "final_iterate" => Ok(Self::FinalIterate),
-            "best_iterate" => Ok(Self::BestIterate),
-            "feasible_point" => Ok(Self::FeasiblePoint),
-            "constant_evaluation" => Ok(Self::ConstantEvaluation),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(NativeCandidateKind).to_owned(),
-                    enumeration: stringify!(NativeCandidateKind).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl NativeCandidateKind {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(NativeCandidateKind),
+            value: value.to_owned(),
         }
     }
 }
@@ -11747,8 +11961,21 @@ impl core::str::FromStr for NativeCandidateKind {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -11757,9 +11984,11 @@ impl core::str::FromStr for NativeCandidateKind {
 pub enum NativeCertificateAccuracy {
     ///The native method met its full infeasibility tolerances.
     #[serde(rename = "full")]
+    #[strum(serialize = "full")]
     Full,
     ///The native method met only its reduced (almost) tolerances; never a certificate, whatever its verification.
     #[serde(rename = "reduced")]
+    #[strum(serialize = "reduced")]
     Reduced,
 }
 impl crate::SemanticEq for NativeCertificateAccuracy {
@@ -11769,13 +11998,15 @@ impl crate::SemanticEq for NativeCertificateAccuracy {
 }
 impl NativeCertificateAccuracy {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Full, Self::Reduced];
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Full => "full",
-            Self::Reduced => "reduced",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -11812,19 +12043,11 @@ impl schemars::JsonSchema for NativeCertificateAccuracy {
         schemars::json_schema!({ "type" : "string", "enum" : ["full", "reduced"] })
     }
 }
-impl core::str::FromStr for NativeCertificateAccuracy {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "full" => Ok(Self::Full),
-            "reduced" => Ok(Self::Reduced),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(NativeCertificateAccuracy).to_owned(),
-                    enumeration: stringify!(NativeCertificateAccuracy).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl NativeCertificateAccuracy {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(NativeCertificateAccuracy),
+            value: value.to_owned(),
         }
     }
 }
@@ -11838,8 +12061,21 @@ impl core::str::FromStr for NativeCertificateAccuracy {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -11848,9 +12084,11 @@ impl core::str::FromStr for NativeCertificateAccuracy {
 pub enum NativeCertificateKind {
     ///A Farkas ray y over the cone rows: Aᵀy = 0, bᵀy < 0 and y in the dual cone prove that no point satisfies the constraints.
     #[serde(rename = "primal_infeasible")]
+    #[strum(serialize = "primal_infeasible")]
     PrimalInfeasible,
     ///A recession direction x: Px = 0, -Ax in the cone and qᵀx < 0 prove the dual infeasible: the objective is unbounded below whenever the constraints admit a point.
     #[serde(rename = "dual_infeasible")]
+    #[strum(serialize = "dual_infeasible")]
     DualInfeasible,
 }
 impl crate::SemanticEq for NativeCertificateKind {
@@ -11860,13 +12098,15 @@ impl crate::SemanticEq for NativeCertificateKind {
 }
 impl NativeCertificateKind {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::PrimalInfeasible, Self::DualInfeasible];
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::PrimalInfeasible => "primal_infeasible",
-            Self::DualInfeasible => "dual_infeasible",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -11905,19 +12145,11 @@ impl schemars::JsonSchema for NativeCertificateKind {
         )
     }
 }
-impl core::str::FromStr for NativeCertificateKind {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "primal_infeasible" => Ok(Self::PrimalInfeasible),
-            "dual_infeasible" => Ok(Self::DualInfeasible),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(NativeCertificateKind).to_owned(),
-                    enumeration: stringify!(NativeCertificateKind).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl NativeCertificateKind {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(NativeCertificateKind),
+            value: value.to_owned(),
         }
     }
 }
@@ -11931,8 +12163,21 @@ impl core::str::FromStr for NativeCertificateKind {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -11941,24 +12186,31 @@ impl core::str::FromStr for NativeCertificateKind {
 pub enum NativeConstraintForm {
     ///indicator
     #[serde(rename = "indicator")]
+    #[strum(serialize = "indicator")]
     Indicator,
     ///sos1
     #[serde(rename = "sos1")]
+    #[strum(serialize = "sos1")]
     Sos1,
     ///sos2
     #[serde(rename = "sos2")]
+    #[strum(serialize = "sos2")]
     Sos2,
     ///and
     #[serde(rename = "and")]
+    #[strum(serialize = "and")]
     And,
     ///or
     #[serde(rename = "or")]
+    #[strum(serialize = "or")]
     Or,
     ///xor
     #[serde(rename = "xor")]
+    #[strum(serialize = "xor")]
     Xor,
     ///cardinality
     #[serde(rename = "cardinality")]
+    #[strum(serialize = "cardinality")]
     Cardinality,
 }
 impl crate::SemanticEq for NativeConstraintForm {
@@ -11968,26 +12220,15 @@ impl crate::SemanticEq for NativeConstraintForm {
 }
 impl NativeConstraintForm {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 7usize] = [
-        Self::Indicator,
-        Self::Sos1,
-        Self::Sos2,
-        Self::And,
-        Self::Or,
-        Self::Xor,
-        Self::Cardinality,
-    ];
+    pub const ALL: [Self; 7usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<7usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Indicator => "indicator",
-            Self::Sos1 => "sos1",
-            Self::Sos2 => "sos2",
-            Self::And => "and",
-            Self::Or => "or",
-            Self::Xor => "xor",
-            Self::Cardinality => "cardinality",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -12037,24 +12278,11 @@ impl schemars::JsonSchema for NativeConstraintForm {
         )
     }
 }
-impl core::str::FromStr for NativeConstraintForm {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "indicator" => Ok(Self::Indicator),
-            "sos1" => Ok(Self::Sos1),
-            "sos2" => Ok(Self::Sos2),
-            "and" => Ok(Self::And),
-            "or" => Ok(Self::Or),
-            "xor" => Ok(Self::Xor),
-            "cardinality" => Ok(Self::Cardinality),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(NativeConstraintForm).to_owned(),
-                    enumeration: stringify!(NativeConstraintForm).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl NativeConstraintForm {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(NativeConstraintForm),
+            value: value.to_owned(),
         }
     }
 }
@@ -12068,8 +12296,21 @@ impl core::str::FromStr for NativeConstraintForm {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -12078,27 +12319,35 @@ impl core::str::FromStr for NativeConstraintForm {
 pub enum NativeDependencyEvidenceKind {
     ///absent
     #[serde(rename = "absent")]
+    #[strum(serialize = "absent")]
     Absent,
     ///present
     #[serde(rename = "present")]
+    #[strum(serialize = "present")]
     Present,
     ///text
     #[serde(rename = "text")]
+    #[strum(serialize = "text")]
     Text,
     ///identity
     #[serde(rename = "identity")]
+    #[strum(serialize = "identity")]
     Identity,
     ///identified_text
     #[serde(rename = "identified_text")]
+    #[strum(serialize = "identified_text")]
     IdentifiedText,
     ///fingerprint
     #[serde(rename = "fingerprint")]
+    #[strum(serialize = "fingerprint")]
     Fingerprint,
     ///selection
     #[serde(rename = "selection")]
+    #[strum(serialize = "selection")]
     Selection,
     ///projection
     #[serde(rename = "projection")]
+    #[strum(serialize = "projection")]
     Projection,
 }
 impl crate::SemanticEq for NativeDependencyEvidenceKind {
@@ -12108,28 +12357,15 @@ impl crate::SemanticEq for NativeDependencyEvidenceKind {
 }
 impl NativeDependencyEvidenceKind {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 8usize] = [
-        Self::Absent,
-        Self::Present,
-        Self::Text,
-        Self::Identity,
-        Self::IdentifiedText,
-        Self::Fingerprint,
-        Self::Selection,
-        Self::Projection,
-    ];
+    pub const ALL: [Self; 8usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<8usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Absent => "absent",
-            Self::Present => "present",
-            Self::Text => "text",
-            Self::Identity => "identity",
-            Self::IdentifiedText => "identified_text",
-            Self::Fingerprint => "fingerprint",
-            Self::Selection => "selection",
-            Self::Projection => "projection",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -12181,25 +12417,11 @@ impl schemars::JsonSchema for NativeDependencyEvidenceKind {
         )
     }
 }
-impl core::str::FromStr for NativeDependencyEvidenceKind {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "absent" => Ok(Self::Absent),
-            "present" => Ok(Self::Present),
-            "text" => Ok(Self::Text),
-            "identity" => Ok(Self::Identity),
-            "identified_text" => Ok(Self::IdentifiedText),
-            "fingerprint" => Ok(Self::Fingerprint),
-            "selection" => Ok(Self::Selection),
-            "projection" => Ok(Self::Projection),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(NativeDependencyEvidenceKind).to_owned(),
-                    enumeration: stringify!(NativeDependencyEvidenceKind).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl NativeDependencyEvidenceKind {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(NativeDependencyEvidenceKind),
+            value: value.to_owned(),
         }
     }
 }
@@ -12213,8 +12435,21 @@ impl core::str::FromStr for NativeDependencyEvidenceKind {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -12223,33 +12458,43 @@ impl core::str::FromStr for NativeDependencyEvidenceKind {
 pub enum NativeDependencyKind {
     ///operation
     #[serde(rename = "operation")]
+    #[strum(serialize = "operation")]
     Operation,
     ///input
     #[serde(rename = "input")]
+    #[strum(serialize = "input")]
     Input,
     ///contract
     #[serde(rename = "contract")]
+    #[strum(serialize = "contract")]
     Contract,
     ///function
     #[serde(rename = "function")]
+    #[strum(serialize = "function")]
     Function,
     ///rule
     #[serde(rename = "rule")]
+    #[strum(serialize = "rule")]
     Rule,
     ///setting
     #[serde(rename = "setting")]
+    #[strum(serialize = "setting")]
     Setting,
     ///policy
     #[serde(rename = "policy")]
+    #[strum(serialize = "policy")]
     Policy,
     ///provider
     #[serde(rename = "provider")]
+    #[strum(serialize = "provider")]
     Provider,
     ///scope
     #[serde(rename = "scope")]
+    #[strum(serialize = "scope")]
     Scope,
     ///observation
     #[serde(rename = "observation")]
+    #[strum(serialize = "observation")]
     Observation,
 }
 impl crate::SemanticEq for NativeDependencyKind {
@@ -12259,32 +12504,15 @@ impl crate::SemanticEq for NativeDependencyKind {
 }
 impl NativeDependencyKind {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 10usize] = [
-        Self::Operation,
-        Self::Input,
-        Self::Contract,
-        Self::Function,
-        Self::Rule,
-        Self::Setting,
-        Self::Policy,
-        Self::Provider,
-        Self::Scope,
-        Self::Observation,
-    ];
+    pub const ALL: [Self; 10usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<10usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Operation => "operation",
-            Self::Input => "input",
-            Self::Contract => "contract",
-            Self::Function => "function",
-            Self::Rule => "rule",
-            Self::Setting => "setting",
-            Self::Policy => "policy",
-            Self::Provider => "provider",
-            Self::Scope => "scope",
-            Self::Observation => "observation",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -12340,27 +12568,11 @@ impl schemars::JsonSchema for NativeDependencyKind {
         )
     }
 }
-impl core::str::FromStr for NativeDependencyKind {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "operation" => Ok(Self::Operation),
-            "input" => Ok(Self::Input),
-            "contract" => Ok(Self::Contract),
-            "function" => Ok(Self::Function),
-            "rule" => Ok(Self::Rule),
-            "setting" => Ok(Self::Setting),
-            "policy" => Ok(Self::Policy),
-            "provider" => Ok(Self::Provider),
-            "scope" => Ok(Self::Scope),
-            "observation" => Ok(Self::Observation),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(NativeDependencyKind).to_owned(),
-                    enumeration: stringify!(NativeDependencyKind).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl NativeDependencyKind {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(NativeDependencyKind),
+            value: value.to_owned(),
         }
     }
 }
@@ -12374,8 +12586,21 @@ impl core::str::FromStr for NativeDependencyKind {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -12384,21 +12609,27 @@ impl core::str::FromStr for NativeDependencyKind {
 pub enum NativeDerivativeCapability {
     ///exact_hessian_or_limited_memory
     #[serde(rename = "exact_hessian_or_limited_memory")]
+    #[strum(serialize = "exact_hessian_or_limited_memory")]
     ExactHessianOrLimitedMemory,
     ///jacobian_or_product
     #[serde(rename = "jacobian_or_product")]
+    #[strum(serialize = "jacobian_or_product")]
     JacobianOrProduct,
     ///coefficients
     #[serde(rename = "coefficients")]
+    #[strum(serialize = "coefficients")]
     Coefficients,
     ///forward_and_adjoint_sensitivities
     #[serde(rename = "forward_and_adjoint_sensitivities")]
+    #[strum(serialize = "forward_and_adjoint_sensitivities")]
     ForwardAndAdjointSensitivities,
     ///second_order_adjoint_sensitivities
     #[serde(rename = "second_order_adjoint_sensitivities")]
+    #[strum(serialize = "second_order_adjoint_sensitivities")]
     SecondOrderAdjointSensitivities,
     ///factorable
     #[serde(rename = "factorable")]
+    #[strum(serialize = "factorable")]
     Factorable,
 }
 impl crate::SemanticEq for NativeDerivativeCapability {
@@ -12408,24 +12639,15 @@ impl crate::SemanticEq for NativeDerivativeCapability {
 }
 impl NativeDerivativeCapability {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 6usize] = [
-        Self::ExactHessianOrLimitedMemory,
-        Self::JacobianOrProduct,
-        Self::Coefficients,
-        Self::ForwardAndAdjointSensitivities,
-        Self::SecondOrderAdjointSensitivities,
-        Self::Factorable,
-    ];
+    pub const ALL: [Self; 6usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<6usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::ExactHessianOrLimitedMemory => "exact_hessian_or_limited_memory",
-            Self::JacobianOrProduct => "jacobian_or_product",
-            Self::Coefficients => "coefficients",
-            Self::ForwardAndAdjointSensitivities => "forward_and_adjoint_sensitivities",
-            Self::SecondOrderAdjointSensitivities => "second_order_adjoint_sensitivities",
-            Self::Factorable => "factorable",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -12474,27 +12696,11 @@ impl schemars::JsonSchema for NativeDerivativeCapability {
         )
     }
 }
-impl core::str::FromStr for NativeDerivativeCapability {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "exact_hessian_or_limited_memory" => Ok(Self::ExactHessianOrLimitedMemory),
-            "jacobian_or_product" => Ok(Self::JacobianOrProduct),
-            "coefficients" => Ok(Self::Coefficients),
-            "forward_and_adjoint_sensitivities" => {
-                Ok(Self::ForwardAndAdjointSensitivities)
-            }
-            "second_order_adjoint_sensitivities" => {
-                Ok(Self::SecondOrderAdjointSensitivities)
-            }
-            "factorable" => Ok(Self::Factorable),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(NativeDerivativeCapability).to_owned(),
-                    enumeration: stringify!(NativeDerivativeCapability).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl NativeDerivativeCapability {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(NativeDerivativeCapability),
+            value: value.to_owned(),
         }
     }
 }
@@ -12508,8 +12714,21 @@ impl core::str::FromStr for NativeDerivativeCapability {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -12518,39 +12737,51 @@ impl core::str::FromStr for NativeDerivativeCapability {
 pub enum NativeIneligibility {
     ///not_linked
     #[serde(rename = "not_linked")]
+    #[strum(serialize = "not_linked")]
     NotLinked,
     ///serial
     #[serde(rename = "serial")]
+    #[strum(serialize = "serial")]
     Serial,
     ///not_square_root
     #[serde(rename = "not_square_root")]
+    #[strum(serialize = "not_square_root")]
     NotSquareRoot,
     ///no_objective
     #[serde(rename = "no_objective")]
+    #[strum(serialize = "no_objective")]
     NoObjective,
     ///certification
     #[serde(rename = "certification")]
+    #[strum(serialize = "certification")]
     Certification,
     ///class
     #[serde(rename = "class")]
+    #[strum(serialize = "class")]
     Class,
     ///derivatives
     #[serde(rename = "derivatives")]
+    #[strum(serialize = "derivatives")]
     Derivatives,
     ///bounds
     #[serde(rename = "bounds")]
+    #[strum(serialize = "bounds")]
     Bounds,
     ///native_forms
     #[serde(rename = "native_forms")]
+    #[strum(serialize = "native_forms")]
     NativeForms,
     ///least_squares
     #[serde(rename = "least_squares")]
+    #[strum(serialize = "least_squares")]
     LeastSquares,
     ///method
     #[serde(rename = "method")]
+    #[strum(serialize = "method")]
     Method,
     ///lexicographic
     #[serde(rename = "lexicographic")]
+    #[strum(serialize = "lexicographic")]
     Lexicographic,
 }
 impl crate::SemanticEq for NativeIneligibility {
@@ -12560,36 +12791,15 @@ impl crate::SemanticEq for NativeIneligibility {
 }
 impl NativeIneligibility {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 12usize] = [
-        Self::NotLinked,
-        Self::Serial,
-        Self::NotSquareRoot,
-        Self::NoObjective,
-        Self::Certification,
-        Self::Class,
-        Self::Derivatives,
-        Self::Bounds,
-        Self::NativeForms,
-        Self::LeastSquares,
-        Self::Method,
-        Self::Lexicographic,
-    ];
+    pub const ALL: [Self; 12usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<12usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::NotLinked => "not_linked",
-            Self::Serial => "serial",
-            Self::NotSquareRoot => "not_square_root",
-            Self::NoObjective => "no_objective",
-            Self::Certification => "certification",
-            Self::Class => "class",
-            Self::Derivatives => "derivatives",
-            Self::Bounds => "bounds",
-            Self::NativeForms => "native_forms",
-            Self::LeastSquares => "least_squares",
-            Self::Method => "method",
-            Self::Lexicographic => "lexicographic",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -12650,29 +12860,11 @@ impl schemars::JsonSchema for NativeIneligibility {
         )
     }
 }
-impl core::str::FromStr for NativeIneligibility {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "not_linked" => Ok(Self::NotLinked),
-            "serial" => Ok(Self::Serial),
-            "not_square_root" => Ok(Self::NotSquareRoot),
-            "no_objective" => Ok(Self::NoObjective),
-            "certification" => Ok(Self::Certification),
-            "class" => Ok(Self::Class),
-            "derivatives" => Ok(Self::Derivatives),
-            "bounds" => Ok(Self::Bounds),
-            "native_forms" => Ok(Self::NativeForms),
-            "least_squares" => Ok(Self::LeastSquares),
-            "method" => Ok(Self::Method),
-            "lexicographic" => Ok(Self::Lexicographic),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(NativeIneligibility).to_owned(),
-                    enumeration: stringify!(NativeIneligibility).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl NativeIneligibility {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(NativeIneligibility),
+            value: value.to_owned(),
         }
     }
 }
@@ -12686,8 +12878,21 @@ impl core::str::FromStr for NativeIneligibility {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -12696,21 +12901,27 @@ impl core::str::FromStr for NativeIneligibility {
 pub enum NativeInfeasibilityWitness {
     ///The point the backend reported beside its infeasibility conclusion.
     #[serde(rename = "candidate")]
+    #[strum(serialize = "candidate")]
     Candidate,
     ///A solution the backend stored in its solution pool.
     #[serde(rename = "pool")]
+    #[strum(serialize = "pool")]
     Pool,
     ///An incumbent the backend reported while it searched.
     #[serde(rename = "incumbent")]
+    #[strum(serialize = "incumbent")]
     Incumbent,
     ///The primal warm start submitted to the backend.
     #[serde(rename = "seed")]
+    #[strum(serialize = "seed")]
     Seed,
     ///The case's start values.
     #[serde(rename = "start")]
+    #[strum(serialize = "start")]
     Start,
     ///The candidate of a local solve of the same problem from the start, run through the one NLP runner.
     #[serde(rename = "local_solution")]
+    #[strum(serialize = "local_solution")]
     LocalSolution,
 }
 impl crate::SemanticEq for NativeInfeasibilityWitness {
@@ -12720,24 +12931,15 @@ impl crate::SemanticEq for NativeInfeasibilityWitness {
 }
 impl NativeInfeasibilityWitness {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 6usize] = [
-        Self::Candidate,
-        Self::Pool,
-        Self::Incumbent,
-        Self::Seed,
-        Self::Start,
-        Self::LocalSolution,
-    ];
+    pub const ALL: [Self; 6usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<6usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Candidate => "candidate",
-            Self::Pool => "pool",
-            Self::Incumbent => "incumbent",
-            Self::Seed => "seed",
-            Self::Start => "start",
-            Self::LocalSolution => "local_solution",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -12785,23 +12987,11 @@ impl schemars::JsonSchema for NativeInfeasibilityWitness {
         )
     }
 }
-impl core::str::FromStr for NativeInfeasibilityWitness {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "candidate" => Ok(Self::Candidate),
-            "pool" => Ok(Self::Pool),
-            "incumbent" => Ok(Self::Incumbent),
-            "seed" => Ok(Self::Seed),
-            "start" => Ok(Self::Start),
-            "local_solution" => Ok(Self::LocalSolution),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(NativeInfeasibilityWitness).to_owned(),
-                    enumeration: stringify!(NativeInfeasibilityWitness).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl NativeInfeasibilityWitness {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(NativeInfeasibilityWitness),
+            value: value.to_owned(),
         }
     }
 }
@@ -12815,8 +13005,21 @@ impl core::str::FromStr for NativeInfeasibilityWitness {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -12825,9 +13028,11 @@ impl core::str::FromStr for NativeInfeasibilityWitness {
 pub enum NativeLexicographicDegradation {
     ///max
     #[serde(rename = "max")]
+    #[strum(serialize = "max")]
     Max,
     ///single_nonzero
     #[serde(rename = "single_nonzero")]
+    #[strum(serialize = "single_nonzero")]
     SingleNonzero,
 }
 impl crate::SemanticEq for NativeLexicographicDegradation {
@@ -12837,13 +13042,15 @@ impl crate::SemanticEq for NativeLexicographicDegradation {
 }
 impl NativeLexicographicDegradation {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Max, Self::SingleNonzero];
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Max => "max",
-            Self::SingleNonzero => "single_nonzero",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -12880,19 +13087,11 @@ impl schemars::JsonSchema for NativeLexicographicDegradation {
         schemars::json_schema!({ "type" : "string", "enum" : ["max", "single_nonzero"] })
     }
 }
-impl core::str::FromStr for NativeLexicographicDegradation {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "max" => Ok(Self::Max),
-            "single_nonzero" => Ok(Self::SingleNonzero),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(NativeLexicographicDegradation).to_owned(),
-                    enumeration: stringify!(NativeLexicographicDegradation).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl NativeLexicographicDegradation {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(NativeLexicographicDegradation),
+            value: value.to_owned(),
         }
     }
 }
@@ -12906,8 +13105,21 @@ impl core::str::FromStr for NativeLexicographicDegradation {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -12916,9 +13128,11 @@ impl core::str::FromStr for NativeLexicographicDegradation {
 pub enum NativeLexicographicRealization {
     ///native
     #[serde(rename = "native")]
+    #[strum(serialize = "native")]
     Native,
     ///staged
     #[serde(rename = "staged")]
+    #[strum(serialize = "staged")]
     Staged,
 }
 impl crate::SemanticEq for NativeLexicographicRealization {
@@ -12928,13 +13142,15 @@ impl crate::SemanticEq for NativeLexicographicRealization {
 }
 impl NativeLexicographicRealization {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Native, Self::Staged];
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Native => "native",
-            Self::Staged => "staged",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -12971,19 +13187,11 @@ impl schemars::JsonSchema for NativeLexicographicRealization {
         schemars::json_schema!({ "type" : "string", "enum" : ["native", "staged"] })
     }
 }
-impl core::str::FromStr for NativeLexicographicRealization {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "native" => Ok(Self::Native),
-            "staged" => Ok(Self::Staged),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(NativeLexicographicRealization).to_owned(),
-                    enumeration: stringify!(NativeLexicographicRealization).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl NativeLexicographicRealization {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(NativeLexicographicRealization),
+            value: value.to_owned(),
         }
     }
 }
@@ -12997,8 +13205,21 @@ impl core::str::FromStr for NativeLexicographicRealization {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -13007,18 +13228,23 @@ impl core::str::FromStr for NativeLexicographicRealization {
 pub enum NativeMetricKind {
     ///real
     #[serde(rename = "real")]
+    #[strum(serialize = "real")]
     Real,
     ///integer
     #[serde(rename = "integer")]
+    #[strum(serialize = "integer")]
     Integer,
     ///boolean
     #[serde(rename = "boolean")]
+    #[strum(serialize = "boolean")]
     Boolean,
     ///text
     #[serde(rename = "text")]
+    #[strum(serialize = "text")]
     Text,
     ///unavailable
     #[serde(rename = "unavailable")]
+    #[strum(serialize = "unavailable")]
     Unavailable,
 }
 impl crate::SemanticEq for NativeMetricKind {
@@ -13028,22 +13254,15 @@ impl crate::SemanticEq for NativeMetricKind {
 }
 impl NativeMetricKind {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 5usize] = [
-        Self::Real,
-        Self::Integer,
-        Self::Boolean,
-        Self::Text,
-        Self::Unavailable,
-    ];
+    pub const ALL: [Self; 5usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<5usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Real => "real",
-            Self::Integer => "integer",
-            Self::Boolean => "boolean",
-            Self::Text => "text",
-            Self::Unavailable => "unavailable",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -13087,22 +13306,11 @@ impl schemars::JsonSchema for NativeMetricKind {
         )
     }
 }
-impl core::str::FromStr for NativeMetricKind {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "real" => Ok(Self::Real),
-            "integer" => Ok(Self::Integer),
-            "boolean" => Ok(Self::Boolean),
-            "text" => Ok(Self::Text),
-            "unavailable" => Ok(Self::Unavailable),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(NativeMetricKind).to_owned(),
-                    enumeration: stringify!(NativeMetricKind).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl NativeMetricKind {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(NativeMetricKind),
+            value: value.to_owned(),
         }
     }
 }
@@ -13116,8 +13324,21 @@ impl core::str::FromStr for NativeMetricKind {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -13126,9 +13347,11 @@ impl core::str::FromStr for NativeMetricKind {
 pub enum NativeObjectiveSense {
     ///minimize
     #[serde(rename = "minimize")]
+    #[strum(serialize = "minimize")]
     Minimize,
     ///maximize
     #[serde(rename = "maximize")]
+    #[strum(serialize = "maximize")]
     Maximize,
 }
 impl crate::SemanticEq for NativeObjectiveSense {
@@ -13138,13 +13361,15 @@ impl crate::SemanticEq for NativeObjectiveSense {
 }
 impl NativeObjectiveSense {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Minimize, Self::Maximize];
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Minimize => "minimize",
-            Self::Maximize => "maximize",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -13181,19 +13406,11 @@ impl schemars::JsonSchema for NativeObjectiveSense {
         schemars::json_schema!({ "type" : "string", "enum" : ["minimize", "maximize"] })
     }
 }
-impl core::str::FromStr for NativeObjectiveSense {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "minimize" => Ok(Self::Minimize),
-            "maximize" => Ok(Self::Maximize),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(NativeObjectiveSense).to_owned(),
-                    enumeration: stringify!(NativeObjectiveSense).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl NativeObjectiveSense {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(NativeObjectiveSense),
+            value: value.to_owned(),
         }
     }
 }
@@ -13207,8 +13424,21 @@ impl core::str::FromStr for NativeObjectiveSense {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -13217,39 +13447,51 @@ impl core::str::FromStr for NativeObjectiveSense {
 pub enum NativeProblemClass {
     ///smooth_nlp
     #[serde(rename = "smooth_nlp")]
+    #[strum(serialize = "smooth_nlp")]
     SmoothNlp,
     ///square_root
     #[serde(rename = "square_root")]
+    #[strum(serialize = "square_root")]
     SquareRoot,
     ///declared_fixed_point
     #[serde(rename = "declared_fixed_point")]
+    #[strum(serialize = "declared_fixed_point")]
     DeclaredFixedPoint,
     ///linear
     #[serde(rename = "linear")]
+    #[strum(serialize = "linear")]
     Linear,
     ///mixed_linear
     #[serde(rename = "mixed_linear")]
+    #[strum(serialize = "mixed_linear")]
     MixedLinear,
     ///convex_quadratic
     #[serde(rename = "convex_quadratic")]
+    #[strum(serialize = "convex_quadratic")]
     ConvexQuadratic,
     ///continuous_cone
     #[serde(rename = "continuous_cone")]
+    #[strum(serialize = "continuous_cone")]
     ContinuousCone,
     ///ode
     #[serde(rename = "ode")]
+    #[strum(serialize = "ode")]
     Ode,
     ///semi_explicit_index1
     #[serde(rename = "semi_explicit_index1")]
+    #[strum(serialize = "semi_explicit_index1")]
     SemiExplicitIndex1,
     ///nonconvex_quadratic
     #[serde(rename = "nonconvex_quadratic")]
+    #[strum(serialize = "nonconvex_quadratic")]
     NonconvexQuadratic,
     ///mixed_integer_quadratic
     #[serde(rename = "mixed_integer_quadratic")]
+    #[strum(serialize = "mixed_integer_quadratic")]
     MixedIntegerQuadratic,
     ///mixed_integer_nonlinear
     #[serde(rename = "mixed_integer_nonlinear")]
+    #[strum(serialize = "mixed_integer_nonlinear")]
     MixedIntegerNonlinear,
 }
 impl crate::SemanticEq for NativeProblemClass {
@@ -13259,36 +13501,15 @@ impl crate::SemanticEq for NativeProblemClass {
 }
 impl NativeProblemClass {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 12usize] = [
-        Self::SmoothNlp,
-        Self::SquareRoot,
-        Self::DeclaredFixedPoint,
-        Self::Linear,
-        Self::MixedLinear,
-        Self::ConvexQuadratic,
-        Self::ContinuousCone,
-        Self::Ode,
-        Self::SemiExplicitIndex1,
-        Self::NonconvexQuadratic,
-        Self::MixedIntegerQuadratic,
-        Self::MixedIntegerNonlinear,
-    ];
+    pub const ALL: [Self; 12usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<12usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::SmoothNlp => "smooth_nlp",
-            Self::SquareRoot => "square_root",
-            Self::DeclaredFixedPoint => "declared_fixed_point",
-            Self::Linear => "linear",
-            Self::MixedLinear => "mixed_linear",
-            Self::ConvexQuadratic => "convex_quadratic",
-            Self::ContinuousCone => "continuous_cone",
-            Self::Ode => "ode",
-            Self::SemiExplicitIndex1 => "semi_explicit_index1",
-            Self::NonconvexQuadratic => "nonconvex_quadratic",
-            Self::MixedIntegerQuadratic => "mixed_integer_quadratic",
-            Self::MixedIntegerNonlinear => "mixed_integer_nonlinear",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -13350,29 +13571,11 @@ impl schemars::JsonSchema for NativeProblemClass {
         )
     }
 }
-impl core::str::FromStr for NativeProblemClass {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "smooth_nlp" => Ok(Self::SmoothNlp),
-            "square_root" => Ok(Self::SquareRoot),
-            "declared_fixed_point" => Ok(Self::DeclaredFixedPoint),
-            "linear" => Ok(Self::Linear),
-            "mixed_linear" => Ok(Self::MixedLinear),
-            "convex_quadratic" => Ok(Self::ConvexQuadratic),
-            "continuous_cone" => Ok(Self::ContinuousCone),
-            "ode" => Ok(Self::Ode),
-            "semi_explicit_index1" => Ok(Self::SemiExplicitIndex1),
-            "nonconvex_quadratic" => Ok(Self::NonconvexQuadratic),
-            "mixed_integer_quadratic" => Ok(Self::MixedIntegerQuadratic),
-            "mixed_integer_nonlinear" => Ok(Self::MixedIntegerNonlinear),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(NativeProblemClass).to_owned(),
-                    enumeration: stringify!(NativeProblemClass).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl NativeProblemClass {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(NativeProblemClass),
+            value: value.to_owned(),
         }
     }
 }
@@ -13386,8 +13589,21 @@ impl core::str::FromStr for NativeProblemClass {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -13396,18 +13612,23 @@ impl core::str::FromStr for NativeProblemClass {
 pub enum NativeQualification {
     ///unqualified
     #[serde(rename = "unqualified")]
+    #[strum(serialize = "unqualified")]
     Unqualified,
     ///feasible
     #[serde(rename = "feasible")]
+    #[strum(serialize = "feasible")]
     Feasible,
     ///stationary
     #[serde(rename = "stationary")]
+    #[strum(serialize = "stationary")]
     Stationary,
     ///optimal_within_tolerance
     #[serde(rename = "optimal_within_tolerance")]
+    #[strum(serialize = "optimal_within_tolerance")]
     OptimalWithinTolerance,
     ///gap_qualified
     #[serde(rename = "gap_qualified")]
+    #[strum(serialize = "gap_qualified")]
     GapQualified,
 }
 impl crate::SemanticEq for NativeQualification {
@@ -13417,22 +13638,15 @@ impl crate::SemanticEq for NativeQualification {
 }
 impl NativeQualification {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 5usize] = [
-        Self::Unqualified,
-        Self::Feasible,
-        Self::Stationary,
-        Self::OptimalWithinTolerance,
-        Self::GapQualified,
-    ];
+    pub const ALL: [Self; 5usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<5usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Unqualified => "unqualified",
-            Self::Feasible => "feasible",
-            Self::Stationary => "stationary",
-            Self::OptimalWithinTolerance => "optimal_within_tolerance",
-            Self::GapQualified => "gap_qualified",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -13478,22 +13692,11 @@ impl schemars::JsonSchema for NativeQualification {
         )
     }
 }
-impl core::str::FromStr for NativeQualification {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "unqualified" => Ok(Self::Unqualified),
-            "feasible" => Ok(Self::Feasible),
-            "stationary" => Ok(Self::Stationary),
-            "optimal_within_tolerance" => Ok(Self::OptimalWithinTolerance),
-            "gap_qualified" => Ok(Self::GapQualified),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(NativeQualification).to_owned(),
-                    enumeration: stringify!(NativeQualification).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl NativeQualification {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(NativeQualification),
+            value: value.to_owned(),
         }
     }
 }
@@ -13507,8 +13710,21 @@ impl core::str::FromStr for NativeQualification {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -13517,21 +13733,27 @@ impl core::str::FromStr for NativeQualification {
 pub enum NativeRayCoordinate {
     ///The cone row of a row identity: an explicit cone row, or the zero-cone row of an equality.
     #[serde(rename = "row")]
+    #[strum(serialize = "row")]
     Row,
     ///The nonnegative row -a·x + s = -L of a row's finite lower bound.
     #[serde(rename = "row_lower")]
+    #[strum(serialize = "row_lower")]
     RowLower,
     ///The nonnegative row a·x + s = U of a row's finite upper bound.
     #[serde(rename = "row_upper")]
+    #[strum(serialize = "row_upper")]
     RowUpper,
     ///The nonnegative row -x + s = -l of a variable's finite lower bound.
     #[serde(rename = "variable_lower")]
+    #[strum(serialize = "variable_lower")]
     VariableLower,
     ///The nonnegative row x + s = u of a variable's finite upper bound.
     #[serde(rename = "variable_upper")]
+    #[strum(serialize = "variable_upper")]
     VariableUpper,
     ///A variable of a recession direction.
     #[serde(rename = "variable")]
+    #[strum(serialize = "variable")]
     Variable,
 }
 impl crate::SemanticEq for NativeRayCoordinate {
@@ -13541,24 +13763,15 @@ impl crate::SemanticEq for NativeRayCoordinate {
 }
 impl NativeRayCoordinate {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 6usize] = [
-        Self::Row,
-        Self::RowLower,
-        Self::RowUpper,
-        Self::VariableLower,
-        Self::VariableUpper,
-        Self::Variable,
-    ];
+    pub const ALL: [Self; 6usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<6usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Row => "row",
-            Self::RowLower => "row_lower",
-            Self::RowUpper => "row_upper",
-            Self::VariableLower => "variable_lower",
-            Self::VariableUpper => "variable_upper",
-            Self::Variable => "variable",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -13606,23 +13819,11 @@ impl schemars::JsonSchema for NativeRayCoordinate {
         )
     }
 }
-impl core::str::FromStr for NativeRayCoordinate {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "row" => Ok(Self::Row),
-            "row_lower" => Ok(Self::RowLower),
-            "row_upper" => Ok(Self::RowUpper),
-            "variable_lower" => Ok(Self::VariableLower),
-            "variable_upper" => Ok(Self::VariableUpper),
-            "variable" => Ok(Self::Variable),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(NativeRayCoordinate).to_owned(),
-                    enumeration: stringify!(NativeRayCoordinate).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl NativeRayCoordinate {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(NativeRayCoordinate),
+            value: value.to_owned(),
         }
     }
 }
@@ -13636,8 +13837,21 @@ impl core::str::FromStr for NativeRayCoordinate {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -13646,21 +13860,27 @@ impl core::str::FromStr for NativeRayCoordinate {
 pub enum NativeRepresentation {
     ///nlp
     #[serde(rename = "nlp")]
+    #[strum(serialize = "nlp")]
     Nlp,
     ///roots
     #[serde(rename = "roots")]
+    #[strum(serialize = "roots")]
     Roots,
     ///coefficients
     #[serde(rename = "coefficients")]
+    #[strum(serialize = "coefficients")]
     Coefficients,
     ///cone
     #[serde(rename = "cone")]
+    #[strum(serialize = "cone")]
     Cone,
     ///factorable
     #[serde(rename = "factorable")]
+    #[strum(serialize = "factorable")]
     Factorable,
     ///trajectory
     #[serde(rename = "trajectory")]
+    #[strum(serialize = "trajectory")]
     Trajectory,
 }
 impl crate::SemanticEq for NativeRepresentation {
@@ -13670,24 +13890,15 @@ impl crate::SemanticEq for NativeRepresentation {
 }
 impl NativeRepresentation {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 6usize] = [
-        Self::Nlp,
-        Self::Roots,
-        Self::Coefficients,
-        Self::Cone,
-        Self::Factorable,
-        Self::Trajectory,
-    ];
+    pub const ALL: [Self; 6usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<6usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Nlp => "nlp",
-            Self::Roots => "roots",
-            Self::Coefficients => "coefficients",
-            Self::Cone => "cone",
-            Self::Factorable => "factorable",
-            Self::Trajectory => "trajectory",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -13735,23 +13946,11 @@ impl schemars::JsonSchema for NativeRepresentation {
         )
     }
 }
-impl core::str::FromStr for NativeRepresentation {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "nlp" => Ok(Self::Nlp),
-            "roots" => Ok(Self::Roots),
-            "coefficients" => Ok(Self::Coefficients),
-            "cone" => Ok(Self::Cone),
-            "factorable" => Ok(Self::Factorable),
-            "trajectory" => Ok(Self::Trajectory),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(NativeRepresentation).to_owned(),
-                    enumeration: stringify!(NativeRepresentation).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl NativeRepresentation {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(NativeRepresentation),
+            value: value.to_owned(),
         }
     }
 }
@@ -13765,8 +13964,21 @@ impl core::str::FromStr for NativeRepresentation {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -13775,9 +13987,11 @@ impl core::str::FromStr for NativeRepresentation {
 pub enum NativeRouteKind {
     ///constant
     #[serde(rename = "constant")]
+    #[strum(serialize = "constant")]
     Constant,
     ///native
     #[serde(rename = "native")]
+    #[strum(serialize = "native")]
     Native,
 }
 impl crate::SemanticEq for NativeRouteKind {
@@ -13787,13 +14001,15 @@ impl crate::SemanticEq for NativeRouteKind {
 }
 impl NativeRouteKind {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Constant, Self::Native];
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Constant => "constant",
-            Self::Native => "native",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -13828,19 +14044,11 @@ impl schemars::JsonSchema for NativeRouteKind {
         schemars::json_schema!({ "type" : "string", "enum" : ["constant", "native"] })
     }
 }
-impl core::str::FromStr for NativeRouteKind {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "constant" => Ok(Self::Constant),
-            "native" => Ok(Self::Native),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(NativeRouteKind).to_owned(),
-                    enumeration: stringify!(NativeRouteKind).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl NativeRouteKind {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(NativeRouteKind),
+            value: value.to_owned(),
         }
     }
 }
@@ -13854,8 +14062,21 @@ impl core::str::FromStr for NativeRouteKind {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -13864,21 +14085,27 @@ impl core::str::FromStr for NativeRouteKind {
 pub enum NativeRouteRefusal {
     ///invalid_request
     #[serde(rename = "invalid_request")]
+    #[strum(serialize = "invalid_request")]
     InvalidRequest,
     ///no_eligible
     #[serde(rename = "no_eligible")]
+    #[strum(serialize = "no_eligible")]
     NoEligible,
     ///unavailable
     #[serde(rename = "unavailable")]
+    #[strum(serialize = "unavailable")]
     Unavailable,
     ///ineligible
     #[serde(rename = "ineligible")]
+    #[strum(serialize = "ineligible")]
     Ineligible,
     ///constant_native_forms
     #[serde(rename = "constant_native_forms")]
+    #[strum(serialize = "constant_native_forms")]
     ConstantNativeForms,
     ///structure
     #[serde(rename = "structure")]
+    #[strum(serialize = "structure")]
     Structure,
 }
 impl crate::SemanticEq for NativeRouteRefusal {
@@ -13888,24 +14115,15 @@ impl crate::SemanticEq for NativeRouteRefusal {
 }
 impl NativeRouteRefusal {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 6usize] = [
-        Self::InvalidRequest,
-        Self::NoEligible,
-        Self::Unavailable,
-        Self::Ineligible,
-        Self::ConstantNativeForms,
-        Self::Structure,
-    ];
+    pub const ALL: [Self; 6usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<6usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::InvalidRequest => "invalid_request",
-            Self::NoEligible => "no_eligible",
-            Self::Unavailable => "unavailable",
-            Self::Ineligible => "ineligible",
-            Self::ConstantNativeForms => "constant_native_forms",
-            Self::Structure => "structure",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -13953,23 +14171,11 @@ impl schemars::JsonSchema for NativeRouteRefusal {
         )
     }
 }
-impl core::str::FromStr for NativeRouteRefusal {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "invalid_request" => Ok(Self::InvalidRequest),
-            "no_eligible" => Ok(Self::NoEligible),
-            "unavailable" => Ok(Self::Unavailable),
-            "ineligible" => Ok(Self::Ineligible),
-            "constant_native_forms" => Ok(Self::ConstantNativeForms),
-            "structure" => Ok(Self::Structure),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(NativeRouteRefusal).to_owned(),
-                    enumeration: stringify!(NativeRouteRefusal).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl NativeRouteRefusal {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(NativeRouteRefusal),
+            value: value.to_owned(),
         }
     }
 }
@@ -13983,8 +14189,21 @@ impl core::str::FromStr for NativeRouteRefusal {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -13993,9 +14212,11 @@ impl core::str::FromStr for NativeRouteRefusal {
 pub enum NativeRouteSelection {
     ///auto
     #[serde(rename = "auto")]
+    #[strum(serialize = "auto")]
     Auto,
     ///explicit
     #[serde(rename = "explicit")]
+    #[strum(serialize = "explicit")]
     Explicit,
 }
 impl crate::SemanticEq for NativeRouteSelection {
@@ -14005,13 +14226,15 @@ impl crate::SemanticEq for NativeRouteSelection {
 }
 impl NativeRouteSelection {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Auto, Self::Explicit];
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Auto => "auto",
-            Self::Explicit => "explicit",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -14048,19 +14271,11 @@ impl schemars::JsonSchema for NativeRouteSelection {
         schemars::json_schema!({ "type" : "string", "enum" : ["auto", "explicit"] })
     }
 }
-impl core::str::FromStr for NativeRouteSelection {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "auto" => Ok(Self::Auto),
-            "explicit" => Ok(Self::Explicit),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(NativeRouteSelection).to_owned(),
-                    enumeration: stringify!(NativeRouteSelection).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl NativeRouteSelection {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(NativeRouteSelection),
+            value: value.to_owned(),
         }
     }
 }
@@ -14074,8 +14289,21 @@ impl core::str::FromStr for NativeRouteSelection {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -14084,15 +14312,19 @@ impl core::str::FromStr for NativeRouteSelection {
 pub enum NativeRunState {
     ///native
     #[serde(rename = "native")]
+    #[strum(serialize = "native")]
     Native,
     ///constant_evaluation
     #[serde(rename = "constant_evaluation")]
+    #[strum(serialize = "constant_evaluation")]
     ConstantEvaluation,
     ///rejected
     #[serde(rename = "rejected")]
+    #[strum(serialize = "rejected")]
     Rejected,
     ///unattempted
     #[serde(rename = "unattempted")]
+    #[strum(serialize = "unattempted")]
     Unattempted,
 }
 impl crate::SemanticEq for NativeRunState {
@@ -14102,20 +14334,15 @@ impl crate::SemanticEq for NativeRunState {
 }
 impl NativeRunState {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 4usize] = [
-        Self::Native,
-        Self::ConstantEvaluation,
-        Self::Rejected,
-        Self::Unattempted,
-    ];
+    pub const ALL: [Self; 4usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<4usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Native => "native",
-            Self::ConstantEvaluation => "constant_evaluation",
-            Self::Rejected => "rejected",
-            Self::Unattempted => "unattempted",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -14157,21 +14384,11 @@ impl schemars::JsonSchema for NativeRunState {
         )
     }
 }
-impl core::str::FromStr for NativeRunState {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "native" => Ok(Self::Native),
-            "constant_evaluation" => Ok(Self::ConstantEvaluation),
-            "rejected" => Ok(Self::Rejected),
-            "unattempted" => Ok(Self::Unattempted),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(NativeRunState).to_owned(),
-                    enumeration: stringify!(NativeRunState).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl NativeRunState {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(NativeRunState),
+            value: value.to_owned(),
         }
     }
 }
@@ -14185,8 +14402,21 @@ impl core::str::FromStr for NativeRunState {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -14195,18 +14425,23 @@ impl core::str::FromStr for NativeRunState {
 pub enum NativeSolveIntent {
     ///optimize
     #[serde(rename = "optimize")]
+    #[strum(serialize = "optimize")]
     Optimize,
     ///root
     #[serde(rename = "root")]
+    #[strum(serialize = "root")]
     Root,
     ///feasible_point
     #[serde(rename = "feasible_point")]
+    #[strum(serialize = "feasible_point")]
     FeasiblePoint,
     ///initialize
     #[serde(rename = "initialize")]
+    #[strum(serialize = "initialize")]
     Initialize,
     ///certify
     #[serde(rename = "certify")]
+    #[strum(serialize = "certify")]
     Certify,
 }
 impl crate::SemanticEq for NativeSolveIntent {
@@ -14216,22 +14451,15 @@ impl crate::SemanticEq for NativeSolveIntent {
 }
 impl NativeSolveIntent {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 5usize] = [
-        Self::Optimize,
-        Self::Root,
-        Self::FeasiblePoint,
-        Self::Initialize,
-        Self::Certify,
-    ];
+    pub const ALL: [Self; 5usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<5usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Optimize => "optimize",
-            Self::Root => "root",
-            Self::FeasiblePoint => "feasible_point",
-            Self::Initialize => "initialize",
-            Self::Certify => "certify",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -14275,22 +14503,11 @@ impl schemars::JsonSchema for NativeSolveIntent {
         )
     }
 }
-impl core::str::FromStr for NativeSolveIntent {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "optimize" => Ok(Self::Optimize),
-            "root" => Ok(Self::Root),
-            "feasible_point" => Ok(Self::FeasiblePoint),
-            "initialize" => Ok(Self::Initialize),
-            "certify" => Ok(Self::Certify),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(NativeSolveIntent).to_owned(),
-                    enumeration: stringify!(NativeSolveIntent).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl NativeSolveIntent {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(NativeSolveIntent),
+            value: value.to_owned(),
         }
     }
 }
@@ -14304,8 +14521,21 @@ impl core::str::FromStr for NativeSolveIntent {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -14314,12 +14544,15 @@ impl core::str::FromStr for NativeSolveIntent {
 pub enum NativeStartPolicy {
     ///no_prior_start
     #[serde(rename = "no_prior_start")]
+    #[strum(serialize = "no_prior_start")]
     NoPriorStart,
     ///previous_accepted
     #[serde(rename = "previous_accepted")]
+    #[strum(serialize = "previous_accepted")]
     PreviousAccepted,
     ///explicit
     #[serde(rename = "explicit")]
+    #[strum(serialize = "explicit")]
     Explicit,
 }
 impl crate::SemanticEq for NativeStartPolicy {
@@ -14329,18 +14562,15 @@ impl crate::SemanticEq for NativeStartPolicy {
 }
 impl NativeStartPolicy {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 3usize] = [
-        Self::NoPriorStart,
-        Self::PreviousAccepted,
-        Self::Explicit,
-    ];
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::NoPriorStart => "no_prior_start",
-            Self::PreviousAccepted => "previous_accepted",
-            Self::Explicit => "explicit",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -14380,20 +14610,11 @@ impl schemars::JsonSchema for NativeStartPolicy {
         )
     }
 }
-impl core::str::FromStr for NativeStartPolicy {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "no_prior_start" => Ok(Self::NoPriorStart),
-            "previous_accepted" => Ok(Self::PreviousAccepted),
-            "explicit" => Ok(Self::Explicit),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(NativeStartPolicy).to_owned(),
-                    enumeration: stringify!(NativeStartPolicy).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl NativeStartPolicy {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(NativeStartPolicy),
+            value: value.to_owned(),
         }
     }
 }
@@ -14407,8 +14628,21 @@ impl core::str::FromStr for NativeStartPolicy {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -14417,15 +14651,19 @@ impl core::str::FromStr for NativeStartPolicy {
 pub enum NativeStructuralMode {
     ///roots
     #[serde(rename = "roots")]
+    #[strum(serialize = "roots")]
     Roots,
     ///nlp
     #[serde(rename = "nlp")]
+    #[strum(serialize = "nlp")]
     Nlp,
     ///native_feasibility
     #[serde(rename = "native_feasibility")]
+    #[strum(serialize = "native_feasibility")]
     NativeFeasibility,
     ///point_evaluation
     #[serde(rename = "point_evaluation")]
+    #[strum(serialize = "point_evaluation")]
     PointEvaluation,
 }
 impl crate::SemanticEq for NativeStructuralMode {
@@ -14435,20 +14673,15 @@ impl crate::SemanticEq for NativeStructuralMode {
 }
 impl NativeStructuralMode {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 4usize] = [
-        Self::Roots,
-        Self::Nlp,
-        Self::NativeFeasibility,
-        Self::PointEvaluation,
-    ];
+    pub const ALL: [Self; 4usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<4usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Roots => "roots",
-            Self::Nlp => "nlp",
-            Self::NativeFeasibility => "native_feasibility",
-            Self::PointEvaluation => "point_evaluation",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -14492,21 +14725,11 @@ impl schemars::JsonSchema for NativeStructuralMode {
         )
     }
 }
-impl core::str::FromStr for NativeStructuralMode {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "roots" => Ok(Self::Roots),
-            "nlp" => Ok(Self::Nlp),
-            "native_feasibility" => Ok(Self::NativeFeasibility),
-            "point_evaluation" => Ok(Self::PointEvaluation),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(NativeStructuralMode).to_owned(),
-                    enumeration: stringify!(NativeStructuralMode).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl NativeStructuralMode {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(NativeStructuralMode),
+            value: value.to_owned(),
         }
     }
 }
@@ -14520,8 +14743,21 @@ impl core::str::FromStr for NativeStructuralMode {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -14530,15 +14766,19 @@ impl core::str::FromStr for NativeStructuralMode {
 pub enum NativeStructuralPolicy {
     ///roots
     #[serde(rename = "roots")]
+    #[strum(serialize = "roots")]
     Roots,
     ///equalities
     #[serde(rename = "equalities")]
+    #[strum(serialize = "equalities")]
     Equalities,
     ///native_feasibility
     #[serde(rename = "native_feasibility")]
+    #[strum(serialize = "native_feasibility")]
     NativeFeasibility,
     ///factorable
     #[serde(rename = "factorable")]
+    #[strum(serialize = "factorable")]
     Factorable,
 }
 impl crate::SemanticEq for NativeStructuralPolicy {
@@ -14548,20 +14788,15 @@ impl crate::SemanticEq for NativeStructuralPolicy {
 }
 impl NativeStructuralPolicy {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 4usize] = [
-        Self::Roots,
-        Self::Equalities,
-        Self::NativeFeasibility,
-        Self::Factorable,
-    ];
+    pub const ALL: [Self; 4usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<4usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Roots => "roots",
-            Self::Equalities => "equalities",
-            Self::NativeFeasibility => "native_feasibility",
-            Self::Factorable => "factorable",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -14605,21 +14840,11 @@ impl schemars::JsonSchema for NativeStructuralPolicy {
         )
     }
 }
-impl core::str::FromStr for NativeStructuralPolicy {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "roots" => Ok(Self::Roots),
-            "equalities" => Ok(Self::Equalities),
-            "native_feasibility" => Ok(Self::NativeFeasibility),
-            "factorable" => Ok(Self::Factorable),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(NativeStructuralPolicy).to_owned(),
-                    enumeration: stringify!(NativeStructuralPolicy).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl NativeStructuralPolicy {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(NativeStructuralPolicy),
+            value: value.to_owned(),
         }
     }
 }
@@ -14633,8 +14858,21 @@ impl core::str::FromStr for NativeStructuralPolicy {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -14643,60 +14881,79 @@ impl core::str::FromStr for NativeStructuralPolicy {
 pub enum NativeTermination {
     ///success
     #[serde(rename = "success")]
+    #[strum(serialize = "success")]
     Success,
     ///acceptable
     #[serde(rename = "acceptable")]
+    #[strum(serialize = "acceptable")]
     Acceptable,
     ///feasible_only
     #[serde(rename = "feasible_only")]
+    #[strum(serialize = "feasible_only")]
     FeasibleOnly,
     ///infeasible
     #[serde(rename = "infeasible")]
+    #[strum(serialize = "infeasible")]
     Infeasible,
     ///unbounded
     #[serde(rename = "unbounded")]
+    #[strum(serialize = "unbounded")]
     Unbounded,
     ///infeasible_or_unbounded
     #[serde(rename = "infeasible_or_unbounded")]
+    #[strum(serialize = "infeasible_or_unbounded")]
     InfeasibleOrUnbounded,
     ///limit
     #[serde(rename = "limit")]
+    #[strum(serialize = "limit")]
     Limit,
     ///iteration_limit
     #[serde(rename = "iteration_limit")]
+    #[strum(serialize = "iteration_limit")]
     IterationLimit,
     ///node_limit
     #[serde(rename = "node_limit")]
+    #[strum(serialize = "node_limit")]
     NodeLimit,
     ///resource_exhausted
     #[serde(rename = "resource_exhausted")]
+    #[strum(serialize = "resource_exhausted")]
     ResourceExhausted,
     ///inconclusive
     #[serde(rename = "inconclusive")]
+    #[strum(serialize = "inconclusive")]
     Inconclusive,
     ///objective_limit
     #[serde(rename = "objective_limit")]
+    #[strum(serialize = "objective_limit")]
     ObjectiveLimit,
     ///solution_limit
     #[serde(rename = "solution_limit")]
+    #[strum(serialize = "solution_limit")]
     SolutionLimit,
     ///time_limit
     #[serde(rename = "time_limit")]
+    #[strum(serialize = "time_limit")]
     TimeLimit,
     ///cancelled
     #[serde(rename = "cancelled")]
+    #[strum(serialize = "cancelled")]
     Cancelled,
     ///numerical
     #[serde(rename = "numerical")]
+    #[strum(serialize = "numerical")]
     Numerical,
     ///evaluation
     #[serde(rename = "evaluation")]
+    #[strum(serialize = "evaluation")]
     Evaluation,
     ///panic
     #[serde(rename = "panic")]
+    #[strum(serialize = "panic")]
     Panic,
     ///invalid
     #[serde(rename = "invalid")]
+    #[strum(serialize = "invalid")]
     Invalid,
 }
 impl crate::SemanticEq for NativeTermination {
@@ -14706,50 +14963,15 @@ impl crate::SemanticEq for NativeTermination {
 }
 impl NativeTermination {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 19usize] = [
-        Self::Success,
-        Self::Acceptable,
-        Self::FeasibleOnly,
-        Self::Infeasible,
-        Self::Unbounded,
-        Self::InfeasibleOrUnbounded,
-        Self::Limit,
-        Self::IterationLimit,
-        Self::NodeLimit,
-        Self::ResourceExhausted,
-        Self::Inconclusive,
-        Self::ObjectiveLimit,
-        Self::SolutionLimit,
-        Self::TimeLimit,
-        Self::Cancelled,
-        Self::Numerical,
-        Self::Evaluation,
-        Self::Panic,
-        Self::Invalid,
-    ];
+    pub const ALL: [Self; 19usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<19usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Success => "success",
-            Self::Acceptable => "acceptable",
-            Self::FeasibleOnly => "feasible_only",
-            Self::Infeasible => "infeasible",
-            Self::Unbounded => "unbounded",
-            Self::InfeasibleOrUnbounded => "infeasible_or_unbounded",
-            Self::Limit => "limit",
-            Self::IterationLimit => "iteration_limit",
-            Self::NodeLimit => "node_limit",
-            Self::ResourceExhausted => "resource_exhausted",
-            Self::Inconclusive => "inconclusive",
-            Self::ObjectiveLimit => "objective_limit",
-            Self::SolutionLimit => "solution_limit",
-            Self::TimeLimit => "time_limit",
-            Self::Cancelled => "cancelled",
-            Self::Numerical => "numerical",
-            Self::Evaluation => "evaluation",
-            Self::Panic => "panic",
-            Self::Invalid => "invalid",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -14824,36 +15046,11 @@ impl schemars::JsonSchema for NativeTermination {
         )
     }
 }
-impl core::str::FromStr for NativeTermination {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "success" => Ok(Self::Success),
-            "acceptable" => Ok(Self::Acceptable),
-            "feasible_only" => Ok(Self::FeasibleOnly),
-            "infeasible" => Ok(Self::Infeasible),
-            "unbounded" => Ok(Self::Unbounded),
-            "infeasible_or_unbounded" => Ok(Self::InfeasibleOrUnbounded),
-            "limit" => Ok(Self::Limit),
-            "iteration_limit" => Ok(Self::IterationLimit),
-            "node_limit" => Ok(Self::NodeLimit),
-            "resource_exhausted" => Ok(Self::ResourceExhausted),
-            "inconclusive" => Ok(Self::Inconclusive),
-            "objective_limit" => Ok(Self::ObjectiveLimit),
-            "solution_limit" => Ok(Self::SolutionLimit),
-            "time_limit" => Ok(Self::TimeLimit),
-            "cancelled" => Ok(Self::Cancelled),
-            "numerical" => Ok(Self::Numerical),
-            "evaluation" => Ok(Self::Evaluation),
-            "panic" => Ok(Self::Panic),
-            "invalid" => Ok(Self::Invalid),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(NativeTermination).to_owned(),
-                    enumeration: stringify!(NativeTermination).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl NativeTermination {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(NativeTermination),
+            value: value.to_owned(),
         }
     }
 }
@@ -14867,8 +15064,21 @@ impl core::str::FromStr for NativeTermination {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -14877,18 +15087,23 @@ impl core::str::FromStr for NativeTermination {
 pub enum NativeWarmCapability {
     ///none
     #[serde(rename = "none")]
+    #[strum(serialize = "none")]
     None,
     ///primal
     #[serde(rename = "primal")]
+    #[strum(serialize = "primal")]
     Primal,
     ///primal_dual
     #[serde(rename = "primal_dual")]
+    #[strum(serialize = "primal_dual")]
     PrimalDual,
     ///primal_dual_and_working_set
     #[serde(rename = "primal_dual_and_working_set")]
+    #[strum(serialize = "primal_dual_and_working_set")]
     PrimalDualAndWorkingSet,
     ///primal_dual_and_basis
     #[serde(rename = "primal_dual_and_basis")]
+    #[strum(serialize = "primal_dual_and_basis")]
     PrimalDualAndBasis,
 }
 impl crate::SemanticEq for NativeWarmCapability {
@@ -14898,22 +15113,15 @@ impl crate::SemanticEq for NativeWarmCapability {
 }
 impl NativeWarmCapability {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 5usize] = [
-        Self::None,
-        Self::Primal,
-        Self::PrimalDual,
-        Self::PrimalDualAndWorkingSet,
-        Self::PrimalDualAndBasis,
-    ];
+    pub const ALL: [Self; 5usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<5usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::None => "none",
-            Self::Primal => "primal",
-            Self::PrimalDual => "primal_dual",
-            Self::PrimalDualAndWorkingSet => "primal_dual_and_working_set",
-            Self::PrimalDualAndBasis => "primal_dual_and_basis",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -14959,22 +15167,11 @@ impl schemars::JsonSchema for NativeWarmCapability {
         )
     }
 }
-impl core::str::FromStr for NativeWarmCapability {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "none" => Ok(Self::None),
-            "primal" => Ok(Self::Primal),
-            "primal_dual" => Ok(Self::PrimalDual),
-            "primal_dual_and_working_set" => Ok(Self::PrimalDualAndWorkingSet),
-            "primal_dual_and_basis" => Ok(Self::PrimalDualAndBasis),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(NativeWarmCapability).to_owned(),
-                    enumeration: stringify!(NativeWarmCapability).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl NativeWarmCapability {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(NativeWarmCapability),
+            value: value.to_owned(),
         }
     }
 }
@@ -14988,8 +15185,21 @@ impl core::str::FromStr for NativeWarmCapability {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -14998,9 +15208,11 @@ impl core::str::FromStr for NativeWarmCapability {
 pub enum NumericalCoordinates {
     ///physical
     #[serde(rename = "physical")]
+    #[strum(serialize = "physical")]
     Physical,
     ///normalized
     #[serde(rename = "normalized")]
+    #[strum(serialize = "normalized")]
     Normalized,
 }
 impl crate::SemanticEq for NumericalCoordinates {
@@ -15010,13 +15222,15 @@ impl crate::SemanticEq for NumericalCoordinates {
 }
 impl NumericalCoordinates {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Physical, Self::Normalized];
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Physical => "physical",
-            Self::Normalized => "normalized",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -15055,19 +15269,11 @@ impl schemars::JsonSchema for NumericalCoordinates {
         )
     }
 }
-impl core::str::FromStr for NumericalCoordinates {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "physical" => Ok(Self::Physical),
-            "normalized" => Ok(Self::Normalized),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(NumericalCoordinates).to_owned(),
-                    enumeration: stringify!(NumericalCoordinates).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl NumericalCoordinates {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(NumericalCoordinates),
+            value: value.to_owned(),
         }
     }
 }
@@ -15081,8 +15287,21 @@ impl core::str::FromStr for NumericalCoordinates {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -15091,15 +15310,19 @@ impl core::str::FromStr for NumericalCoordinates {
 pub enum NumericalProvenanceField {
     ///nominal
     #[serde(rename = "nominal")]
+    #[strum(serialize = "nominal")]
     Nominal,
     ///absolute_tolerance
     #[serde(rename = "absolute_tolerance")]
+    #[strum(serialize = "absolute_tolerance")]
     AbsoluteTolerance,
     ///relative_tolerance
     #[serde(rename = "relative_tolerance")]
+    #[strum(serialize = "relative_tolerance")]
     RelativeTolerance,
     ///coordinate_scale
     #[serde(rename = "coordinate_scale")]
+    #[strum(serialize = "coordinate_scale")]
     CoordinateScale,
 }
 impl crate::SemanticEq for NumericalProvenanceField {
@@ -15109,20 +15332,15 @@ impl crate::SemanticEq for NumericalProvenanceField {
 }
 impl NumericalProvenanceField {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 4usize] = [
-        Self::Nominal,
-        Self::AbsoluteTolerance,
-        Self::RelativeTolerance,
-        Self::CoordinateScale,
-    ];
+    pub const ALL: [Self; 4usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<4usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Nominal => "nominal",
-            Self::AbsoluteTolerance => "absolute_tolerance",
-            Self::RelativeTolerance => "relative_tolerance",
-            Self::CoordinateScale => "coordinate_scale",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -15166,21 +15384,11 @@ impl schemars::JsonSchema for NumericalProvenanceField {
         )
     }
 }
-impl core::str::FromStr for NumericalProvenanceField {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "nominal" => Ok(Self::Nominal),
-            "absolute_tolerance" => Ok(Self::AbsoluteTolerance),
-            "relative_tolerance" => Ok(Self::RelativeTolerance),
-            "coordinate_scale" => Ok(Self::CoordinateScale),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(NumericalProvenanceField).to_owned(),
-                    enumeration: stringify!(NumericalProvenanceField).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl NumericalProvenanceField {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(NumericalProvenanceField),
+            value: value.to_owned(),
         }
     }
 }
@@ -15194,8 +15402,21 @@ impl core::str::FromStr for NumericalProvenanceField {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -15204,27 +15425,35 @@ impl core::str::FromStr for NumericalProvenanceField {
 pub enum NumericalSource {
     ///analysis
     #[serde(rename = "analysis")]
+    #[strum(serialize = "analysis")]
     Analysis,
     ///case
     #[serde(rename = "case")]
+    #[strum(serialize = "case")]
     Case,
     ///model
     #[serde(rename = "model")]
+    #[strum(serialize = "model")]
     Model,
     ///model_hint
     #[serde(rename = "model_hint")]
+    #[strum(serialize = "model_hint")]
     ModelHint,
     ///property_default
     #[serde(rename = "property_default")]
+    #[strum(serialize = "property_default")]
     PropertyDefault,
     ///derived_nominal
     #[serde(rename = "derived_nominal")]
+    #[strum(serialize = "derived_nominal")]
     DerivedNominal,
     ///quantity_nominal
     #[serde(rename = "quantity_nominal")]
+    #[strum(serialize = "quantity_nominal")]
     QuantityNominal,
     ///canonical_fallback
     #[serde(rename = "canonical_fallback")]
+    #[strum(serialize = "canonical_fallback")]
     CanonicalFallback,
 }
 impl crate::SemanticEq for NumericalSource {
@@ -15234,28 +15463,15 @@ impl crate::SemanticEq for NumericalSource {
 }
 impl NumericalSource {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 8usize] = [
-        Self::Analysis,
-        Self::Case,
-        Self::Model,
-        Self::ModelHint,
-        Self::PropertyDefault,
-        Self::DerivedNominal,
-        Self::QuantityNominal,
-        Self::CanonicalFallback,
-    ];
+    pub const ALL: [Self; 8usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<8usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Analysis => "analysis",
-            Self::Case => "case",
-            Self::Model => "model",
-            Self::ModelHint => "model_hint",
-            Self::PropertyDefault => "property_default",
-            Self::DerivedNominal => "derived_nominal",
-            Self::QuantityNominal => "quantity_nominal",
-            Self::CanonicalFallback => "canonical_fallback",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -15306,25 +15522,11 @@ impl schemars::JsonSchema for NumericalSource {
         )
     }
 }
-impl core::str::FromStr for NumericalSource {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "analysis" => Ok(Self::Analysis),
-            "case" => Ok(Self::Case),
-            "model" => Ok(Self::Model),
-            "model_hint" => Ok(Self::ModelHint),
-            "property_default" => Ok(Self::PropertyDefault),
-            "derived_nominal" => Ok(Self::DerivedNominal),
-            "quantity_nominal" => Ok(Self::QuantityNominal),
-            "canonical_fallback" => Ok(Self::CanonicalFallback),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(NumericalSource).to_owned(),
-                    enumeration: stringify!(NumericalSource).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl NumericalSource {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(NumericalSource),
+            value: value.to_owned(),
         }
     }
 }
@@ -15338,8 +15540,21 @@ impl core::str::FromStr for NumericalSource {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -15348,18 +15563,23 @@ impl core::str::FromStr for NumericalSource {
 pub enum NumericalTarget {
     ///variable
     #[serde(rename = "variable")]
+    #[strum(serialize = "variable")]
     Variable,
     ///row
     #[serde(rename = "row")]
+    #[strum(serialize = "row")]
     Row,
     ///objective
     #[serde(rename = "objective")]
+    #[strum(serialize = "objective")]
     Objective,
     ///observable
     #[serde(rename = "observable")]
+    #[strum(serialize = "observable")]
     Observable,
     ///closure
     #[serde(rename = "closure")]
+    #[strum(serialize = "closure")]
     Closure,
 }
 impl crate::SemanticEq for NumericalTarget {
@@ -15369,22 +15589,15 @@ impl crate::SemanticEq for NumericalTarget {
 }
 impl NumericalTarget {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 5usize] = [
-        Self::Variable,
-        Self::Row,
-        Self::Objective,
-        Self::Observable,
-        Self::Closure,
-    ];
+    pub const ALL: [Self; 5usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<5usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Variable => "variable",
-            Self::Row => "row",
-            Self::Objective => "objective",
-            Self::Observable => "observable",
-            Self::Closure => "closure",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -15428,22 +15641,11 @@ impl schemars::JsonSchema for NumericalTarget {
         )
     }
 }
-impl core::str::FromStr for NumericalTarget {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "variable" => Ok(Self::Variable),
-            "row" => Ok(Self::Row),
-            "objective" => Ok(Self::Objective),
-            "observable" => Ok(Self::Observable),
-            "closure" => Ok(Self::Closure),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(NumericalTarget).to_owned(),
-                    enumeration: stringify!(NumericalTarget).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl NumericalTarget {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(NumericalTarget),
+            value: value.to_owned(),
         }
     }
 }
@@ -15457,8 +15659,21 @@ impl core::str::FromStr for NumericalTarget {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -15467,9 +15682,11 @@ impl core::str::FromStr for NumericalTarget {
 pub enum ObservationTimeBasis {
     ///elapsed
     #[serde(rename = "elapsed")]
+    #[strum(serialize = "elapsed")]
     Elapsed,
     ///model_clock
     #[serde(rename = "model_clock")]
+    #[strum(serialize = "model_clock")]
     ModelClock,
 }
 impl crate::SemanticEq for ObservationTimeBasis {
@@ -15479,13 +15696,15 @@ impl crate::SemanticEq for ObservationTimeBasis {
 }
 impl ObservationTimeBasis {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Elapsed, Self::ModelClock];
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Elapsed => "elapsed",
-            Self::ModelClock => "model_clock",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -15524,19 +15743,11 @@ impl schemars::JsonSchema for ObservationTimeBasis {
         )
     }
 }
-impl core::str::FromStr for ObservationTimeBasis {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "elapsed" => Ok(Self::Elapsed),
-            "model_clock" => Ok(Self::ModelClock),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ObservationTimeBasis).to_owned(),
-                    enumeration: stringify!(ObservationTimeBasis).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ObservationTimeBasis {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ObservationTimeBasis),
+            value: value.to_owned(),
         }
     }
 }
@@ -15584,8 +15795,21 @@ impl crate::SemanticFrame for OperationEffect {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -15594,18 +15818,23 @@ impl crate::SemanticFrame for OperationEffect {
 pub enum OrphanDisposition {
     ///discovered
     #[serde(rename = "discovered")]
+    #[strum(serialize = "discovered")]
     Discovered,
     ///protected
     #[serde(rename = "protected")]
+    #[strum(serialize = "protected")]
     Protected,
     ///claimed
     #[serde(rename = "claimed")]
+    #[strum(serialize = "claimed")]
     Claimed,
     ///deleted
     #[serde(rename = "deleted")]
+    #[strum(serialize = "deleted")]
     Deleted,
     ///unresolved
     #[serde(rename = "unresolved")]
+    #[strum(serialize = "unresolved")]
     Unresolved,
 }
 impl crate::SemanticEq for OrphanDisposition {
@@ -15615,22 +15844,15 @@ impl crate::SemanticEq for OrphanDisposition {
 }
 impl OrphanDisposition {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 5usize] = [
-        Self::Discovered,
-        Self::Protected,
-        Self::Claimed,
-        Self::Deleted,
-        Self::Unresolved,
-    ];
+    pub const ALL: [Self; 5usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<5usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Discovered => "discovered",
-            Self::Protected => "protected",
-            Self::Claimed => "claimed",
-            Self::Deleted => "deleted",
-            Self::Unresolved => "unresolved",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -15674,22 +15896,11 @@ impl schemars::JsonSchema for OrphanDisposition {
         )
     }
 }
-impl core::str::FromStr for OrphanDisposition {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "discovered" => Ok(Self::Discovered),
-            "protected" => Ok(Self::Protected),
-            "claimed" => Ok(Self::Claimed),
-            "deleted" => Ok(Self::Deleted),
-            "unresolved" => Ok(Self::Unresolved),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(OrphanDisposition).to_owned(),
-                    enumeration: stringify!(OrphanDisposition).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl OrphanDisposition {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(OrphanDisposition),
+            value: value.to_owned(),
         }
     }
 }
@@ -15703,8 +15914,21 @@ impl core::str::FromStr for OrphanDisposition {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -15713,9 +15937,11 @@ impl core::str::FromStr for OrphanDisposition {
 pub enum OrphanOwnership {
     ///attributable
     #[serde(rename = "attributable")]
+    #[strum(serialize = "attributable")]
     Attributable,
     ///unattributable
     #[serde(rename = "unattributable")]
+    #[strum(serialize = "unattributable")]
     Unattributable,
 }
 impl crate::SemanticEq for OrphanOwnership {
@@ -15725,13 +15951,15 @@ impl crate::SemanticEq for OrphanOwnership {
 }
 impl OrphanOwnership {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Attributable, Self::Unattributable];
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Attributable => "attributable",
-            Self::Unattributable => "unattributable",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -15768,19 +15996,11 @@ impl schemars::JsonSchema for OrphanOwnership {
         )
     }
 }
-impl core::str::FromStr for OrphanOwnership {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "attributable" => Ok(Self::Attributable),
-            "unattributable" => Ok(Self::Unattributable),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(OrphanOwnership).to_owned(),
-                    enumeration: stringify!(OrphanOwnership).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl OrphanOwnership {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(OrphanOwnership),
+            value: value.to_owned(),
         }
     }
 }
@@ -15794,8 +16014,21 @@ impl core::str::FromStr for OrphanOwnership {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -15804,15 +16037,19 @@ impl core::str::FromStr for OrphanOwnership {
 pub enum PackageKind {
     ///Reference data under the named identity policy: units, elements, constants, property kinds.
     #[serde(rename = "reference")]
+    #[strum(serialize = "reference")]
     Reference,
     ///A shipped library of templates, laws and methods.
     #[serde(rename = "library")]
+    #[strum(serialize = "library")]
     Library,
     ///An authored model: materials, flowsheets, connections.
     #[serde(rename = "model")]
+    #[strum(serialize = "model")]
     Model,
     ///Cases, observations and case sets.
     #[serde(rename = "case")]
+    #[strum(serialize = "case")]
     Case,
 }
 impl crate::SemanticEq for PackageKind {
@@ -15822,20 +16059,15 @@ impl crate::SemanticEq for PackageKind {
 }
 impl PackageKind {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 4usize] = [
-        Self::Reference,
-        Self::Library,
-        Self::Model,
-        Self::Case,
-    ];
+    pub const ALL: [Self; 4usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<4usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Reference => "reference",
-            Self::Library => "library",
-            Self::Model => "model",
-            Self::Case => "case",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -15876,21 +16108,11 @@ impl schemars::JsonSchema for PackageKind {
         )
     }
 }
-impl core::str::FromStr for PackageKind {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "reference" => Ok(Self::Reference),
-            "library" => Ok(Self::Library),
-            "model" => Ok(Self::Model),
-            "case" => Ok(Self::Case),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(PackageKind).to_owned(),
-                    enumeration: stringify!(PackageKind).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl PackageKind {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(PackageKind),
+            value: value.to_owned(),
         }
     }
 }
@@ -15904,8 +16126,21 @@ impl core::str::FromStr for PackageKind {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -15914,12 +16149,15 @@ impl core::str::FromStr for PackageKind {
 pub enum PardisoMatching {
     ///Complete matching.
     #[serde(rename = "complete")]
+    #[strum(serialize = "complete")]
     Complete,
     ///Complete matching with 2x2 pivots.
     #[serde(rename = "complete_plus2x2")]
+    #[strum(serialize = "complete_plus2x2")]
     CompletePlus2x2,
     ///Matching of the constraint block.
     #[serde(rename = "constraints")]
+    #[strum(serialize = "constraints")]
     Constraints,
 }
 impl crate::SemanticEq for PardisoMatching {
@@ -15929,18 +16167,15 @@ impl crate::SemanticEq for PardisoMatching {
 }
 impl PardisoMatching {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 3usize] = [
-        Self::Complete,
-        Self::CompletePlus2x2,
-        Self::Constraints,
-    ];
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Complete => "complete",
-            Self::CompletePlus2x2 => "complete_plus2x2",
-            Self::Constraints => "constraints",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -15980,20 +16215,11 @@ impl schemars::JsonSchema for PardisoMatching {
         )
     }
 }
-impl core::str::FromStr for PardisoMatching {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "complete" => Ok(Self::Complete),
-            "complete_plus2x2" => Ok(Self::CompletePlus2x2),
-            "constraints" => Ok(Self::Constraints),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(PardisoMatching).to_owned(),
-                    enumeration: stringify!(PardisoMatching).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl PardisoMatching {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(PardisoMatching),
+            value: value.to_owned(),
         }
     }
 }
@@ -16007,8 +16233,21 @@ impl core::str::FromStr for PardisoMatching {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -16017,12 +16256,15 @@ impl core::str::FromStr for PardisoMatching {
 pub enum PardisoOrdering {
     ///Minimum degree.
     #[serde(rename = "amd")]
+    #[strum(serialize = "amd")]
     Amd,
     ///METIS nested dissection.
     #[serde(rename = "metis")]
+    #[strum(serialize = "metis")]
     Metis,
     ///OpenMP-parallel METIS nested dissection.
     #[serde(rename = "parallel_metis")]
+    #[strum(serialize = "parallel_metis")]
     ParallelMetis,
 }
 impl crate::SemanticEq for PardisoOrdering {
@@ -16032,14 +16274,15 @@ impl crate::SemanticEq for PardisoOrdering {
 }
 impl PardisoOrdering {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 3usize] = [Self::Amd, Self::Metis, Self::ParallelMetis];
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Amd => "amd",
-            Self::Metis => "metis",
-            Self::ParallelMetis => "parallel_metis",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -16078,20 +16321,11 @@ impl schemars::JsonSchema for PardisoOrdering {
         )
     }
 }
-impl core::str::FromStr for PardisoOrdering {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "amd" => Ok(Self::Amd),
-            "metis" => Ok(Self::Metis),
-            "parallel_metis" => Ok(Self::ParallelMetis),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(PardisoOrdering).to_owned(),
-                    enumeration: stringify!(PardisoOrdering).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl PardisoOrdering {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(PardisoOrdering),
+            value: value.to_owned(),
         }
     }
 }
@@ -16105,8 +16339,21 @@ impl core::str::FromStr for PardisoOrdering {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -16115,12 +16362,15 @@ impl core::str::FromStr for PardisoOrdering {
 pub enum PounceMethod {
     ///Native barrier/filter NLP method.
     #[serde(rename = "interior_point")]
+    #[strum(serialize = "interior_point")]
     InteriorPoint,
     ///Native active-set sequential quadratic programming.
     #[serde(rename = "active_set_sqp")]
+    #[strum(serialize = "active_set_sqp")]
     ActiveSetSqp,
-    ///The Thierry–Biegler ℓ1 exact penalty-barrier method (ADR-0109); explicit only, never selected automatically and never a retry.
+    ///The Thierry–Biegler ell-1 exact penalty-barrier method (ADR-0109); explicit only, never selected automatically and never a retry.
     #[serde(rename = "l1_exact_penalty")]
+    #[strum(serialize = "l1_exact_penalty")]
     L1ExactPenalty,
 }
 impl crate::SemanticEq for PounceMethod {
@@ -16130,18 +16380,15 @@ impl crate::SemanticEq for PounceMethod {
 }
 impl PounceMethod {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 3usize] = [
-        Self::InteriorPoint,
-        Self::ActiveSetSqp,
-        Self::L1ExactPenalty,
-    ];
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::InteriorPoint => "interior_point",
-            Self::ActiveSetSqp => "active_set_sqp",
-            Self::L1ExactPenalty => "l1_exact_penalty",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -16181,20 +16428,11 @@ impl schemars::JsonSchema for PounceMethod {
         )
     }
 }
-impl core::str::FromStr for PounceMethod {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "interior_point" => Ok(Self::InteriorPoint),
-            "active_set_sqp" => Ok(Self::ActiveSetSqp),
-            "l1_exact_penalty" => Ok(Self::L1ExactPenalty),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(PounceMethod).to_owned(),
-                    enumeration: stringify!(PounceMethod).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl PounceMethod {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(PounceMethod),
+            value: value.to_owned(),
         }
     }
 }
@@ -16208,8 +16446,21 @@ impl core::str::FromStr for PounceMethod {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -16218,9 +16469,11 @@ impl core::str::FromStr for PounceMethod {
 pub enum Preconditioner {
     ///Unpreconditioned Krylov iterations.
     #[serde(rename = "none")]
+    #[strum(serialize = "none")]
     None,
     ///Diagonal (Jacobi) scaling by the compiled Newton-matrix diagonal; a zero diagonal entry leaves its row unscaled.
     #[serde(rename = "jacobi")]
+    #[strum(serialize = "jacobi")]
     Jacobi,
 }
 impl crate::SemanticEq for Preconditioner {
@@ -16230,13 +16483,15 @@ impl crate::SemanticEq for Preconditioner {
 }
 impl Preconditioner {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::None, Self::Jacobi];
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::None => "none",
-            Self::Jacobi => "jacobi",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -16271,19 +16526,11 @@ impl schemars::JsonSchema for Preconditioner {
         schemars::json_schema!({ "type" : "string", "enum" : ["none", "jacobi"] })
     }
 }
-impl core::str::FromStr for Preconditioner {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "none" => Ok(Self::None),
-            "jacobi" => Ok(Self::Jacobi),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(Preconditioner).to_owned(),
-                    enumeration: stringify!(Preconditioner).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl Preconditioner {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(Preconditioner),
+            value: value.to_owned(),
         }
     }
 }
@@ -16297,8 +16544,21 @@ impl core::str::FromStr for Preconditioner {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -16307,21 +16567,27 @@ impl core::str::FromStr for Preconditioner {
 pub enum PresolvePass {
     ///Propagation using proved affine rows.
     #[serde(rename = "linear_bounds")]
+    #[strum(serialize = "linear_bounds")]
     LinearBounds,
     ///Library redundancy analysis.
     #[serde(rename = "redundant_rows")]
+    #[strum(serialize = "redundant_rows")]
     RedundantRows,
     ///Library affine column elimination and recovery.
     #[serde(rename = "affine_elimination")]
+    #[strum(serialize = "affine_elimination")]
     AffineElimination,
     ///Native expression-tape interval propagation.
     #[serde(rename = "fbbt")]
+    #[strum(serialize = "fbbt")]
     Fbbt,
     ///Equality-rank diagnostics, without objective-changing remedies.
     #[serde(rename = "rank_diagnostics")]
+    #[strum(serialize = "rank_diagnostics")]
     RankDiagnostics,
     ///Explicit safe auxiliary nonlinear reduction.
     #[serde(rename = "auxiliary")]
+    #[strum(serialize = "auxiliary")]
     Auxiliary,
 }
 impl crate::SemanticEq for PresolvePass {
@@ -16331,24 +16597,15 @@ impl crate::SemanticEq for PresolvePass {
 }
 impl PresolvePass {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 6usize] = [
-        Self::LinearBounds,
-        Self::RedundantRows,
-        Self::AffineElimination,
-        Self::Fbbt,
-        Self::RankDiagnostics,
-        Self::Auxiliary,
-    ];
+    pub const ALL: [Self; 6usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<6usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::LinearBounds => "linear_bounds",
-            Self::RedundantRows => "redundant_rows",
-            Self::AffineElimination => "affine_elimination",
-            Self::Fbbt => "fbbt",
-            Self::RankDiagnostics => "rank_diagnostics",
-            Self::Auxiliary => "auxiliary",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -16394,23 +16651,11 @@ impl schemars::JsonSchema for PresolvePass {
         )
     }
 }
-impl core::str::FromStr for PresolvePass {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "linear_bounds" => Ok(Self::LinearBounds),
-            "redundant_rows" => Ok(Self::RedundantRows),
-            "affine_elimination" => Ok(Self::AffineElimination),
-            "fbbt" => Ok(Self::Fbbt),
-            "rank_diagnostics" => Ok(Self::RankDiagnostics),
-            "auxiliary" => Ok(Self::Auxiliary),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(PresolvePass).to_owned(),
-                    enumeration: stringify!(PresolvePass).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl PresolvePass {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(PresolvePass),
+            value: value.to_owned(),
         }
     }
 }
@@ -16424,8 +16669,21 @@ impl core::str::FromStr for PresolvePass {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -16434,12 +16692,15 @@ impl core::str::FromStr for PresolvePass {
 pub enum PresolvePolicyKind {
     ///Identity transport: source coordinates are preserved.
     #[serde(rename = "off")]
+    #[strum(serialize = "off")]
     Off,
     ///Only qualified source-backed passes.
     #[serde(rename = "auto")]
+    #[strum(serialize = "auto")]
     Auto,
     ///Complete library controls; required ineligible passes fail admission.
     #[serde(rename = "explicit")]
+    #[strum(serialize = "explicit")]
     Explicit,
 }
 impl crate::SemanticEq for PresolvePolicyKind {
@@ -16449,14 +16710,15 @@ impl crate::SemanticEq for PresolvePolicyKind {
 }
 impl PresolvePolicyKind {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 3usize] = [Self::Off, Self::Auto, Self::Explicit];
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Off => "off",
-            Self::Auto => "auto",
-            Self::Explicit => "explicit",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -16497,20 +16759,11 @@ impl schemars::JsonSchema for PresolvePolicyKind {
         )
     }
 }
-impl core::str::FromStr for PresolvePolicyKind {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "off" => Ok(Self::Off),
-            "auto" => Ok(Self::Auto),
-            "explicit" => Ok(Self::Explicit),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(PresolvePolicyKind).to_owned(),
-                    enumeration: stringify!(PresolvePolicyKind).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl PresolvePolicyKind {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(PresolvePolicyKind),
+            value: value.to_owned(),
         }
     }
 }
@@ -16524,8 +16777,21 @@ impl core::str::FromStr for PresolvePolicyKind {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -16534,30 +16800,39 @@ impl core::str::FromStr for PresolvePolicyKind {
 pub enum PublicationKind {
     ///relations
     #[serde(rename = "relations")]
+    #[strum(serialize = "relations")]
     Relations,
     ///source
     #[serde(rename = "source")]
+    #[strum(serialize = "source")]
     Source,
     ///model
     #[serde(rename = "model")]
+    #[strum(serialize = "model")]
     Model,
     ///case
     #[serde(rename = "case")]
+    #[strum(serialize = "case")]
     Case,
     ///problem
     #[serde(rename = "problem")]
+    #[strum(serialize = "problem")]
     Problem,
     ///run
     #[serde(rename = "run")]
+    #[strum(serialize = "run")]
     Run,
     ///diagnostics
     #[serde(rename = "diagnostics")]
+    #[strum(serialize = "diagnostics")]
     Diagnostics,
     ///inspection
     #[serde(rename = "inspection")]
+    #[strum(serialize = "inspection")]
     Inspection,
     ///migration
     #[serde(rename = "migration")]
+    #[strum(serialize = "migration")]
     Migration,
 }
 impl crate::SemanticEq for PublicationKind {
@@ -16567,30 +16842,15 @@ impl crate::SemanticEq for PublicationKind {
 }
 impl PublicationKind {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 9usize] = [
-        Self::Relations,
-        Self::Source,
-        Self::Model,
-        Self::Case,
-        Self::Problem,
-        Self::Run,
-        Self::Diagnostics,
-        Self::Inspection,
-        Self::Migration,
-    ];
+    pub const ALL: [Self; 9usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<9usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Relations => "relations",
-            Self::Source => "source",
-            Self::Model => "model",
-            Self::Case => "case",
-            Self::Problem => "problem",
-            Self::Run => "run",
-            Self::Diagnostics => "diagnostics",
-            Self::Inspection => "inspection",
-            Self::Migration => "migration",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -16642,26 +16902,11 @@ impl schemars::JsonSchema for PublicationKind {
         )
     }
 }
-impl core::str::FromStr for PublicationKind {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "relations" => Ok(Self::Relations),
-            "source" => Ok(Self::Source),
-            "model" => Ok(Self::Model),
-            "case" => Ok(Self::Case),
-            "problem" => Ok(Self::Problem),
-            "run" => Ok(Self::Run),
-            "diagnostics" => Ok(Self::Diagnostics),
-            "inspection" => Ok(Self::Inspection),
-            "migration" => Ok(Self::Migration),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(PublicationKind).to_owned(),
-                    enumeration: stringify!(PublicationKind).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl PublicationKind {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(PublicationKind),
+            value: value.to_owned(),
         }
     }
 }
@@ -16675,8 +16920,21 @@ impl core::str::FromStr for PublicationKind {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -16685,9 +16943,11 @@ impl core::str::FromStr for PublicationKind {
 pub enum PublicationMemberRole {
     ///output
     #[serde(rename = "output")]
+    #[strum(serialize = "output")]
     Output,
     ///input
     #[serde(rename = "input")]
+    #[strum(serialize = "input")]
     Input,
 }
 impl crate::SemanticEq for PublicationMemberRole {
@@ -16697,13 +16957,15 @@ impl crate::SemanticEq for PublicationMemberRole {
 }
 impl PublicationMemberRole {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Output, Self::Input];
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Output => "output",
-            Self::Input => "input",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -16740,19 +17002,11 @@ impl schemars::JsonSchema for PublicationMemberRole {
         schemars::json_schema!({ "type" : "string", "enum" : ["output", "input"] })
     }
 }
-impl core::str::FromStr for PublicationMemberRole {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "output" => Ok(Self::Output),
-            "input" => Ok(Self::Input),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(PublicationMemberRole).to_owned(),
-                    enumeration: stringify!(PublicationMemberRole).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl PublicationMemberRole {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(PublicationMemberRole),
+            value: value.to_owned(),
         }
     }
 }
@@ -16800,8 +17054,21 @@ impl crate::SemanticFrame for QuantityKindCategory {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -16810,12 +17077,15 @@ impl crate::SemanticFrame for QuantityKindCategory {
 pub enum QuantityPreconditionKind {
     ///equal_operand_bases
     #[serde(rename = "equal_operand_bases")]
+    #[strum(serialize = "equal_operand_bases")]
     EqualOperandBases,
     ///operand_quantity_contract
     #[serde(rename = "operand_quantity_contract")]
+    #[strum(serialize = "operand_quantity_contract")]
     OperandQuantityContract,
     ///same_reference_differences
     #[serde(rename = "same_reference_differences")]
+    #[strum(serialize = "same_reference_differences")]
     SameReferenceDifferences,
 }
 impl crate::SemanticEq for QuantityPreconditionKind {
@@ -16825,18 +17095,15 @@ impl crate::SemanticEq for QuantityPreconditionKind {
 }
 impl QuantityPreconditionKind {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 3usize] = [
-        Self::EqualOperandBases,
-        Self::OperandQuantityContract,
-        Self::SameReferenceDifferences,
-    ];
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::EqualOperandBases => "equal_operand_bases",
-            Self::OperandQuantityContract => "operand_quantity_contract",
-            Self::SameReferenceDifferences => "same_reference_differences",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -16878,20 +17145,11 @@ impl schemars::JsonSchema for QuantityPreconditionKind {
         )
     }
 }
-impl core::str::FromStr for QuantityPreconditionKind {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "equal_operand_bases" => Ok(Self::EqualOperandBases),
-            "operand_quantity_contract" => Ok(Self::OperandQuantityContract),
-            "same_reference_differences" => Ok(Self::SameReferenceDifferences),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(QuantityPreconditionKind).to_owned(),
-                    enumeration: stringify!(QuantityPreconditionKind).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl QuantityPreconditionKind {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(QuantityPreconditionKind),
+            value: value.to_owned(),
         }
     }
 }
@@ -17007,8 +17265,21 @@ impl crate::SemanticFrame for ReferenceStateKind {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -17017,9 +17288,11 @@ impl crate::SemanticFrame for ReferenceStateKind {
 pub enum RetentionPhase {
     ///expiring
     #[serde(rename = "expiring")]
+    #[strum(serialize = "expiring")]
     Expiring,
     ///deleted
     #[serde(rename = "deleted")]
+    #[strum(serialize = "deleted")]
     Deleted,
 }
 impl crate::SemanticEq for RetentionPhase {
@@ -17029,13 +17302,15 @@ impl crate::SemanticEq for RetentionPhase {
 }
 impl RetentionPhase {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Expiring, Self::Deleted];
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Expiring => "expiring",
-            Self::Deleted => "deleted",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -17070,19 +17345,11 @@ impl schemars::JsonSchema for RetentionPhase {
         schemars::json_schema!({ "type" : "string", "enum" : ["expiring", "deleted"] })
     }
 }
-impl core::str::FromStr for RetentionPhase {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "expiring" => Ok(Self::Expiring),
-            "deleted" => Ok(Self::Deleted),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(RetentionPhase).to_owned(),
-                    enumeration: stringify!(RetentionPhase).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl RetentionPhase {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(RetentionPhase),
+            value: value.to_owned(),
         }
     }
 }
@@ -17096,8 +17363,21 @@ impl core::str::FromStr for RetentionPhase {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -17106,12 +17386,15 @@ impl core::str::FromStr for RetentionPhase {
 pub enum RetentionReason {
     ///publication
     #[serde(rename = "publication")]
+    #[strum(serialize = "publication")]
     Publication,
     ///attempt
     #[serde(rename = "attempt")]
+    #[strum(serialize = "attempt")]
     Attempt,
     ///changes
     #[serde(rename = "changes")]
+    #[strum(serialize = "changes")]
     Changes,
 }
 impl crate::SemanticEq for RetentionReason {
@@ -17121,14 +17404,15 @@ impl crate::SemanticEq for RetentionReason {
 }
 impl RetentionReason {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 3usize] = [Self::Publication, Self::Attempt, Self::Changes];
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Publication => "publication",
-            Self::Attempt => "attempt",
-            Self::Changes => "changes",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -17167,20 +17451,11 @@ impl schemars::JsonSchema for RetentionReason {
         )
     }
 }
-impl core::str::FromStr for RetentionReason {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "publication" => Ok(Self::Publication),
-            "attempt" => Ok(Self::Attempt),
-            "changes" => Ok(Self::Changes),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(RetentionReason).to_owned(),
-                    enumeration: stringify!(RetentionReason).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl RetentionReason {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(RetentionReason),
+            value: value.to_owned(),
         }
     }
 }
@@ -17194,8 +17469,21 @@ impl core::str::FromStr for RetentionReason {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -17204,12 +17492,15 @@ impl core::str::FromStr for RetentionReason {
 pub enum ReusePolicy {
     ///Always construct a fresh native model.
     #[serde(rename = "fresh")]
+    #[strum(serialize = "fresh")]
     Fresh,
     ///Rebuild explicitly when data updates are ineligible.
     #[serde(rename = "allow_rebuild")]
+    #[strum(serialize = "allow_rebuild")]
     AllowRebuild,
     ///Fail rather than rebuilding incompatible native state.
     #[serde(rename = "require_reuse")]
+    #[strum(serialize = "require_reuse")]
     RequireReuse,
 }
 impl crate::SemanticEq for ReusePolicy {
@@ -17219,18 +17510,15 @@ impl crate::SemanticEq for ReusePolicy {
 }
 impl ReusePolicy {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 3usize] = [
-        Self::Fresh,
-        Self::AllowRebuild,
-        Self::RequireReuse,
-    ];
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Fresh => "fresh",
-            Self::AllowRebuild => "allow_rebuild",
-            Self::RequireReuse => "require_reuse",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -17269,20 +17557,11 @@ impl schemars::JsonSchema for ReusePolicy {
         )
     }
 }
-impl core::str::FromStr for ReusePolicy {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "fresh" => Ok(Self::Fresh),
-            "allow_rebuild" => Ok(Self::AllowRebuild),
-            "require_reuse" => Ok(Self::RequireReuse),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ReusePolicy).to_owned(),
-                    enumeration: stringify!(ReusePolicy).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ReusePolicy {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ReusePolicy),
+            value: value.to_owned(),
         }
     }
 }
@@ -17296,8 +17575,134 @@ impl core::str::FromStr for ReusePolicy {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum RowActivity {
+    ///inactive
+    #[serde(rename = "inactive")]
+    #[strum(serialize = "inactive")]
+    Inactive,
+    ///at_lower
+    #[serde(rename = "at_lower")]
+    #[strum(serialize = "at_lower")]
+    AtLower,
+    ///at_upper
+    #[serde(rename = "at_upper")]
+    #[strum(serialize = "at_upper")]
+    AtUpper,
+    ///equality
+    #[serde(rename = "equality")]
+    #[strum(serialize = "equality")]
+    Equality,
+}
+impl crate::SemanticEq for RowActivity {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl RowActivity {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 4usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<4usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        self.into_str()
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Inactive => 0usize,
+            Self::AtLower => 1usize,
+            Self::AtUpper => 2usize,
+            Self::Equality => 3usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Inactive => None,
+            Self::AtLower => None,
+            Self::AtUpper => None,
+            Self::Equality => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for RowActivity {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(RowActivity))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(RowActivity)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["inactive", "at_lower", "at_upper",
+            "equality"] }
+        )
+    }
+}
+impl RowActivity {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(RowActivity),
+            value: value.to_owned(),
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -17306,18 +17711,23 @@ impl core::str::FromStr for ReusePolicy {
 pub enum RuntimeTermination {
     ///cancelled
     #[serde(rename = "cancelled")]
+    #[strum(serialize = "cancelled")]
     Cancelled,
     ///infrastructure
     #[serde(rename = "infrastructure")]
+    #[strum(serialize = "infrastructure")]
     Infrastructure,
     ///unattempted
     #[serde(rename = "unattempted")]
+    #[strum(serialize = "unattempted")]
     Unattempted,
     ///constant_evaluation
     #[serde(rename = "constant_evaluation")]
+    #[strum(serialize = "constant_evaluation")]
     ConstantEvaluation,
     ///unassessed
     #[serde(rename = "unassessed")]
+    #[strum(serialize = "unassessed")]
     Unassessed,
 }
 impl crate::SemanticEq for RuntimeTermination {
@@ -17327,22 +17737,15 @@ impl crate::SemanticEq for RuntimeTermination {
 }
 impl RuntimeTermination {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 5usize] = [
-        Self::Cancelled,
-        Self::Infrastructure,
-        Self::Unattempted,
-        Self::ConstantEvaluation,
-        Self::Unassessed,
-    ];
+    pub const ALL: [Self; 5usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<5usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Cancelled => "cancelled",
-            Self::Infrastructure => "infrastructure",
-            Self::Unattempted => "unattempted",
-            Self::ConstantEvaluation => "constant_evaluation",
-            Self::Unassessed => "unassessed",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -17388,22 +17791,11 @@ impl schemars::JsonSchema for RuntimeTermination {
         )
     }
 }
-impl core::str::FromStr for RuntimeTermination {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "cancelled" => Ok(Self::Cancelled),
-            "infrastructure" => Ok(Self::Infrastructure),
-            "unattempted" => Ok(Self::Unattempted),
-            "constant_evaluation" => Ok(Self::ConstantEvaluation),
-            "unassessed" => Ok(Self::Unassessed),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(RuntimeTermination).to_owned(),
-                    enumeration: stringify!(RuntimeTermination).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl RuntimeTermination {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(RuntimeTermination),
+            value: value.to_owned(),
         }
     }
 }
@@ -17434,8 +17826,21 @@ impl crate::SemanticFrame for ScaleKind {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -17444,9 +17849,11 @@ impl crate::SemanticFrame for ScaleKind {
 pub enum SensitivityCorrector {
     ///State and sensitivity corrections in one Newton iteration.
     #[serde(rename = "simultaneous")]
+    #[strum(serialize = "simultaneous")]
     Simultaneous,
     ///Sensitivities corrected after each converged state step.
     #[serde(rename = "staggered")]
+    #[strum(serialize = "staggered")]
     Staggered,
 }
 impl crate::SemanticEq for SensitivityCorrector {
@@ -17456,13 +17863,15 @@ impl crate::SemanticEq for SensitivityCorrector {
 }
 impl SensitivityCorrector {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Simultaneous, Self::Staggered];
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Simultaneous => "simultaneous",
-            Self::Staggered => "staggered",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -17501,19 +17910,11 @@ impl schemars::JsonSchema for SensitivityCorrector {
         )
     }
 }
-impl core::str::FromStr for SensitivityCorrector {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "simultaneous" => Ok(Self::Simultaneous),
-            "staggered" => Ok(Self::Staggered),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(SensitivityCorrector).to_owned(),
-                    enumeration: stringify!(SensitivityCorrector).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl SensitivityCorrector {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(SensitivityCorrector),
+            value: value.to_owned(),
         }
     }
 }
@@ -17527,8 +17928,21 @@ impl core::str::FromStr for SensitivityCorrector {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -17537,12 +17951,15 @@ impl core::str::FromStr for SensitivityCorrector {
 pub enum SettlementOutcome {
     ///committed
     #[serde(rename = "committed")]
+    #[strum(serialize = "committed")]
     Committed,
     ///proved_noncommit
     #[serde(rename = "proved_noncommit")]
+    #[strum(serialize = "proved_noncommit")]
     ProvedNoncommit,
     ///conflict
     #[serde(rename = "conflict")]
+    #[strum(serialize = "conflict")]
     Conflict,
 }
 impl crate::SemanticEq for SettlementOutcome {
@@ -17552,18 +17969,15 @@ impl crate::SemanticEq for SettlementOutcome {
 }
 impl SettlementOutcome {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 3usize] = [
-        Self::Committed,
-        Self::ProvedNoncommit,
-        Self::Conflict,
-    ];
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Committed => "committed",
-            Self::ProvedNoncommit => "proved_noncommit",
-            Self::Conflict => "conflict",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -17602,20 +18016,11 @@ impl schemars::JsonSchema for SettlementOutcome {
         )
     }
 }
-impl core::str::FromStr for SettlementOutcome {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "committed" => Ok(Self::Committed),
-            "proved_noncommit" => Ok(Self::ProvedNoncommit),
-            "conflict" => Ok(Self::Conflict),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(SettlementOutcome).to_owned(),
-                    enumeration: stringify!(SettlementOutcome).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl SettlementOutcome {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(SettlementOutcome),
+            value: value.to_owned(),
         }
     }
 }
@@ -17646,8 +18051,21 @@ impl crate::SemanticFrame for Severity {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -17656,9 +18074,11 @@ impl crate::SemanticFrame for Severity {
 pub enum ShootingMethod {
     ///One window over the horizon: the controls are the only variables.
     #[serde(rename = "single")]
+    #[strum(serialize = "single")]
     Single,
     ///One window per node interval: the differential states at the inner nodes are variables, closed by continuity rows.
     #[serde(rename = "multiple")]
+    #[strum(serialize = "multiple")]
     Multiple,
 }
 impl crate::SemanticEq for ShootingMethod {
@@ -17668,13 +18088,15 @@ impl crate::SemanticEq for ShootingMethod {
 }
 impl ShootingMethod {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Single, Self::Multiple];
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Single => "single",
-            Self::Multiple => "multiple",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -17709,19 +18131,11 @@ impl schemars::JsonSchema for ShootingMethod {
         schemars::json_schema!({ "type" : "string", "enum" : ["single", "multiple"] })
     }
 }
-impl core::str::FromStr for ShootingMethod {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "single" => Ok(Self::Single),
-            "multiple" => Ok(Self::Multiple),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ShootingMethod).to_owned(),
-                    enumeration: stringify!(ShootingMethod).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl ShootingMethod {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ShootingMethod),
+            value: value.to_owned(),
         }
     }
 }
@@ -17752,8 +18166,21 @@ impl crate::SemanticFrame for SnapshotClass {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -17762,9 +18189,11 @@ impl crate::SemanticFrame for SnapshotClass {
 pub enum SpralOrdering {
     ///METIS with default settings.
     #[serde(rename = "metis")]
+    #[strum(serialize = "metis")]
     Metis,
     ///Matching-based elimination ordering.
     #[serde(rename = "matching")]
+    #[strum(serialize = "matching")]
     Matching,
 }
 impl crate::SemanticEq for SpralOrdering {
@@ -17774,13 +18203,15 @@ impl crate::SemanticEq for SpralOrdering {
 }
 impl SpralOrdering {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Metis, Self::Matching];
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Metis => "metis",
-            Self::Matching => "matching",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -17815,19 +18246,11 @@ impl schemars::JsonSchema for SpralOrdering {
         schemars::json_schema!({ "type" : "string", "enum" : ["metis", "matching"] })
     }
 }
-impl core::str::FromStr for SpralOrdering {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "metis" => Ok(Self::Metis),
-            "matching" => Ok(Self::Matching),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(SpralOrdering).to_owned(),
-                    enumeration: stringify!(SpralOrdering).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl SpralOrdering {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(SpralOrdering),
+            value: value.to_owned(),
         }
     }
 }
@@ -17841,8 +18264,21 @@ impl core::str::FromStr for SpralOrdering {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -17851,12 +18287,15 @@ impl core::str::FromStr for SpralOrdering {
 pub enum SpralPivot {
     ///Aggressive a posteriori pivoting.
     #[serde(rename = "aggressive")]
+    #[strum(serialize = "aggressive")]
     Aggressive,
     ///Block a posteriori pivoting.
     #[serde(rename = "block")]
+    #[strum(serialize = "block")]
     Block,
     ///Threshold partial pivoting; SPRAL runs it serially.
     #[serde(rename = "threshold")]
+    #[strum(serialize = "threshold")]
     Threshold,
 }
 impl crate::SemanticEq for SpralPivot {
@@ -17866,14 +18305,15 @@ impl crate::SemanticEq for SpralPivot {
 }
 impl SpralPivot {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 3usize] = [Self::Aggressive, Self::Block, Self::Threshold];
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Aggressive => "aggressive",
-            Self::Block => "block",
-            Self::Threshold => "threshold",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -17912,20 +18352,11 @@ impl schemars::JsonSchema for SpralPivot {
         )
     }
 }
-impl core::str::FromStr for SpralPivot {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "aggressive" => Ok(Self::Aggressive),
-            "block" => Ok(Self::Block),
-            "threshold" => Ok(Self::Threshold),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(SpralPivot).to_owned(),
-                    enumeration: stringify!(SpralPivot).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl SpralPivot {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(SpralPivot),
+            value: value.to_owned(),
         }
     }
 }
@@ -17939,8 +18370,21 @@ impl core::str::FromStr for SpralPivot {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -17949,18 +18393,23 @@ impl core::str::FromStr for SpralPivot {
 pub enum SpralScaling {
     ///No scaling.
     #[serde(rename = "none")]
+    #[strum(serialize = "none")]
     None,
     ///Weighted bipartite matching (MC64).
     #[serde(rename = "mc64")]
+    #[strum(serialize = "mc64")]
     Mc64,
     ///Auction algorithm.
     #[serde(rename = "auction")]
+    #[strum(serialize = "auction")]
     Auction,
     ///Matching-based ordering's scaling.
     #[serde(rename = "matching")]
+    #[strum(serialize = "matching")]
     Matching,
     ///Ruiz norm equilibration.
     #[serde(rename = "ruiz")]
+    #[strum(serialize = "ruiz")]
     Ruiz,
 }
 impl crate::SemanticEq for SpralScaling {
@@ -17970,22 +18419,15 @@ impl crate::SemanticEq for SpralScaling {
 }
 impl SpralScaling {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 5usize] = [
-        Self::None,
-        Self::Mc64,
-        Self::Auction,
-        Self::Matching,
-        Self::Ruiz,
-    ];
+    pub const ALL: [Self; 5usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<5usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::None => "none",
-            Self::Mc64 => "mc64",
-            Self::Auction => "auction",
-            Self::Matching => "matching",
-            Self::Ruiz => "ruiz",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -18029,22 +18471,11 @@ impl schemars::JsonSchema for SpralScaling {
         )
     }
 }
-impl core::str::FromStr for SpralScaling {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "none" => Ok(Self::None),
-            "mc64" => Ok(Self::Mc64),
-            "auction" => Ok(Self::Auction),
-            "matching" => Ok(Self::Matching),
-            "ruiz" => Ok(Self::Ruiz),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(SpralScaling).to_owned(),
-                    enumeration: stringify!(SpralScaling).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl SpralScaling {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(SpralScaling),
+            value: value.to_owned(),
         }
     }
 }
@@ -18075,8 +18506,21 @@ impl crate::SemanticFrame for Stability {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -18085,18 +18529,23 @@ impl crate::SemanticFrame for Stability {
 pub enum StateSign {
     ///Unconstrained.
     #[serde(rename = "free")]
+    #[strum(serialize = "free")]
     Free,
     ///x >= 0.
     #[serde(rename = "non_negative")]
+    #[strum(serialize = "non_negative")]
     NonNegative,
     ///x > 0.
     #[serde(rename = "positive")]
+    #[strum(serialize = "positive")]
     Positive,
     ///x <= 0.
     #[serde(rename = "non_positive")]
+    #[strum(serialize = "non_positive")]
     NonPositive,
     ///x < 0.
     #[serde(rename = "negative")]
+    #[strum(serialize = "negative")]
     Negative,
 }
 impl crate::SemanticEq for StateSign {
@@ -18106,22 +18555,15 @@ impl crate::SemanticEq for StateSign {
 }
 impl StateSign {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 5usize] = [
-        Self::Free,
-        Self::NonNegative,
-        Self::Positive,
-        Self::NonPositive,
-        Self::Negative,
-    ];
+    pub const ALL: [Self; 5usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<5usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Free => "free",
-            Self::NonNegative => "non_negative",
-            Self::Positive => "positive",
-            Self::NonPositive => "non_positive",
-            Self::Negative => "negative",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -18165,22 +18607,11 @@ impl schemars::JsonSchema for StateSign {
         )
     }
 }
-impl core::str::FromStr for StateSign {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "free" => Ok(Self::Free),
-            "non_negative" => Ok(Self::NonNegative),
-            "positive" => Ok(Self::Positive),
-            "non_positive" => Ok(Self::NonPositive),
-            "negative" => Ok(Self::Negative),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(StateSign).to_owned(),
-                    enumeration: stringify!(StateSign).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl StateSign {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(StateSign),
+            value: value.to_owned(),
         }
     }
 }
@@ -18194,8 +18625,21 @@ impl core::str::FromStr for StateSign {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -18204,12 +18648,15 @@ impl core::str::FromStr for StateSign {
 pub enum StoredSeedKind {
     ///root
     #[serde(rename = "root")]
+    #[strum(serialize = "root")]
     Root,
     ///nlp
     #[serde(rename = "nlp")]
+    #[strum(serialize = "nlp")]
     Nlp,
     ///highs
     #[serde(rename = "highs")]
+    #[strum(serialize = "highs")]
     Highs,
 }
 impl crate::SemanticEq for StoredSeedKind {
@@ -18219,14 +18666,15 @@ impl crate::SemanticEq for StoredSeedKind {
 }
 impl StoredSeedKind {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 3usize] = [Self::Root, Self::Nlp, Self::Highs];
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Root => "root",
-            Self::Nlp => "nlp",
-            Self::Highs => "highs",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -18263,20 +18711,11 @@ impl schemars::JsonSchema for StoredSeedKind {
         schemars::json_schema!({ "type" : "string", "enum" : ["root", "nlp", "highs"] })
     }
 }
-impl core::str::FromStr for StoredSeedKind {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "root" => Ok(Self::Root),
-            "nlp" => Ok(Self::Nlp),
-            "highs" => Ok(Self::Highs),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(StoredSeedKind).to_owned(),
-                    enumeration: stringify!(StoredSeedKind).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl StoredSeedKind {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(StoredSeedKind),
+            value: value.to_owned(),
         }
     }
 }
@@ -18290,8 +18729,21 @@ impl core::str::FromStr for StoredSeedKind {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -18300,9 +18752,11 @@ impl core::str::FromStr for StoredSeedKind {
 pub enum StoredSolutionOrigin {
     ///output
     #[serde(rename = "output")]
+    #[strum(serialize = "output")]
     Output,
     ///incumbent
     #[serde(rename = "incumbent")]
+    #[strum(serialize = "incumbent")]
     Incumbent,
 }
 impl crate::SemanticEq for StoredSolutionOrigin {
@@ -18312,13 +18766,15 @@ impl crate::SemanticEq for StoredSolutionOrigin {
 }
 impl StoredSolutionOrigin {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Output, Self::Incumbent];
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Output => "output",
-            Self::Incumbent => "incumbent",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -18355,19 +18811,11 @@ impl schemars::JsonSchema for StoredSolutionOrigin {
         schemars::json_schema!({ "type" : "string", "enum" : ["output", "incumbent"] })
     }
 }
-impl core::str::FromStr for StoredSolutionOrigin {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "output" => Ok(Self::Output),
-            "incumbent" => Ok(Self::Incumbent),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(StoredSolutionOrigin).to_owned(),
-                    enumeration: stringify!(StoredSolutionOrigin).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl StoredSolutionOrigin {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(StoredSolutionOrigin),
+            value: value.to_owned(),
         }
     }
 }
@@ -18381,8 +18829,21 @@ impl core::str::FromStr for StoredSolutionOrigin {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -18391,15 +18852,19 @@ impl core::str::FromStr for StoredSolutionOrigin {
 pub enum StructuralScopeKind {
     ///whole
     #[serde(rename = "whole")]
+    #[strum(serialize = "whole")]
     Whole,
     ///independent
     #[serde(rename = "independent")]
+    #[strum(serialize = "independent")]
     Independent,
     ///conditional
     #[serde(rename = "conditional")]
+    #[strum(serialize = "conditional")]
     Conditional,
     ///partial
     #[serde(rename = "partial")]
+    #[strum(serialize = "partial")]
     Partial,
 }
 impl crate::SemanticEq for StructuralScopeKind {
@@ -18409,20 +18874,15 @@ impl crate::SemanticEq for StructuralScopeKind {
 }
 impl StructuralScopeKind {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 4usize] = [
-        Self::Whole,
-        Self::Independent,
-        Self::Conditional,
-        Self::Partial,
-    ];
+    pub const ALL: [Self; 4usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<4usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Whole => "whole",
-            Self::Independent => "independent",
-            Self::Conditional => "conditional",
-            Self::Partial => "partial",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -18466,21 +18926,11 @@ impl schemars::JsonSchema for StructuralScopeKind {
         )
     }
 }
-impl core::str::FromStr for StructuralScopeKind {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "whole" => Ok(Self::Whole),
-            "independent" => Ok(Self::Independent),
-            "conditional" => Ok(Self::Conditional),
-            "partial" => Ok(Self::Partial),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(StructuralScopeKind).to_owned(),
-                    enumeration: stringify!(StructuralScopeKind).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl StructuralScopeKind {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(StructuralScopeKind),
+            value: value.to_owned(),
         }
     }
 }
@@ -18494,8 +18944,21 @@ impl core::str::FromStr for StructuralScopeKind {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -18504,12 +18967,15 @@ impl core::str::FromStr for StructuralScopeKind {
 pub enum StudyAvailability {
     ///none
     #[serde(rename = "none")]
+    #[strum(serialize = "none")]
     None,
     ///partial
     #[serde(rename = "partial")]
+    #[strum(serialize = "partial")]
     Partial,
     ///complete
     #[serde(rename = "complete")]
+    #[strum(serialize = "complete")]
     Complete,
 }
 impl crate::SemanticEq for StudyAvailability {
@@ -18519,14 +18985,15 @@ impl crate::SemanticEq for StudyAvailability {
 }
 impl StudyAvailability {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 3usize] = [Self::None, Self::Partial, Self::Complete];
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::None => "none",
-            Self::Partial => "partial",
-            Self::Complete => "complete",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -18565,20 +19032,11 @@ impl schemars::JsonSchema for StudyAvailability {
         )
     }
 }
-impl core::str::FromStr for StudyAvailability {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "none" => Ok(Self::None),
-            "partial" => Ok(Self::Partial),
-            "complete" => Ok(Self::Complete),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(StudyAvailability).to_owned(),
-                    enumeration: stringify!(StudyAvailability).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl StudyAvailability {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(StudyAvailability),
+            value: value.to_owned(),
         }
     }
 }
@@ -18592,8 +19050,22 @@ impl core::str::FromStr for StudyAvailability {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[derive(Default)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -18602,9 +19074,12 @@ impl core::str::FromStr for StudyAvailability {
 pub enum StudyContinuationPermission {
     ///require_usable
     #[serde(rename = "require_usable")]
+    #[strum(serialize = "require_usable")]
+    #[default]
     RequireUsable,
     ///allow_seed_only
     #[serde(rename = "allow_seed_only")]
+    #[strum(serialize = "allow_seed_only")]
     AllowSeedOnly,
 }
 impl crate::SemanticEq for StudyContinuationPermission {
@@ -18614,13 +19089,15 @@ impl crate::SemanticEq for StudyContinuationPermission {
 }
 impl StudyContinuationPermission {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::RequireUsable, Self::AllowSeedOnly];
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::RequireUsable => "require_usable",
-            Self::AllowSeedOnly => "allow_seed_only",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -18659,19 +19136,11 @@ impl schemars::JsonSchema for StudyContinuationPermission {
         )
     }
 }
-impl core::str::FromStr for StudyContinuationPermission {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "require_usable" => Ok(Self::RequireUsable),
-            "allow_seed_only" => Ok(Self::AllowSeedOnly),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(StudyContinuationPermission).to_owned(),
-                    enumeration: stringify!(StudyContinuationPermission).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl StudyContinuationPermission {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(StudyContinuationPermission),
+            value: value.to_owned(),
         }
     }
 }
@@ -18685,8 +19154,21 @@ impl core::str::FromStr for StudyContinuationPermission {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -18695,15 +19177,19 @@ impl core::str::FromStr for StudyContinuationPermission {
 pub enum StudyEffectState {
     ///absent
     #[serde(rename = "absent")]
+    #[strum(serialize = "absent")]
     Absent,
     ///present
     #[serde(rename = "present")]
+    #[strum(serialize = "present")]
     Present,
     ///unknown
     #[serde(rename = "unknown")]
+    #[strum(serialize = "unknown")]
     Unknown,
     ///idempotent
     #[serde(rename = "idempotent")]
+    #[strum(serialize = "idempotent")]
     Idempotent,
 }
 impl crate::SemanticEq for StudyEffectState {
@@ -18713,20 +19199,15 @@ impl crate::SemanticEq for StudyEffectState {
 }
 impl StudyEffectState {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 4usize] = [
-        Self::Absent,
-        Self::Present,
-        Self::Unknown,
-        Self::Idempotent,
-    ];
+    pub const ALL: [Self; 4usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<4usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Absent => "absent",
-            Self::Present => "present",
-            Self::Unknown => "unknown",
-            Self::Idempotent => "idempotent",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -18768,21 +19249,11 @@ impl schemars::JsonSchema for StudyEffectState {
         )
     }
 }
-impl core::str::FromStr for StudyEffectState {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "absent" => Ok(Self::Absent),
-            "present" => Ok(Self::Present),
-            "unknown" => Ok(Self::Unknown),
-            "idempotent" => Ok(Self::Idempotent),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(StudyEffectState).to_owned(),
-                    enumeration: stringify!(StudyEffectState).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl StudyEffectState {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(StudyEffectState),
+            value: value.to_owned(),
         }
     }
 }
@@ -18796,8 +19267,21 @@ impl core::str::FromStr for StudyEffectState {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -18806,6 +19290,7 @@ impl core::str::FromStr for StudyEffectState {
 pub enum StudyLegacyKind {
     ///legacy_unavailable
     #[serde(rename = "legacy_unavailable")]
+    #[strum(serialize = "legacy_unavailable")]
     LegacyUnavailable,
 }
 impl crate::SemanticEq for StudyLegacyKind {
@@ -18815,12 +19300,15 @@ impl crate::SemanticEq for StudyLegacyKind {
 }
 impl StudyLegacyKind {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 1usize] = [Self::LegacyUnavailable];
+    pub const ALL: [Self; 1usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<1usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::LegacyUnavailable => "legacy_unavailable",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -18853,18 +19341,11 @@ impl schemars::JsonSchema for StudyLegacyKind {
         schemars::json_schema!({ "type" : "string", "enum" : ["legacy_unavailable"] })
     }
 }
-impl core::str::FromStr for StudyLegacyKind {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "legacy_unavailable" => Ok(Self::LegacyUnavailable),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(StudyLegacyKind).to_owned(),
-                    enumeration: stringify!(StudyLegacyKind).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl StudyLegacyKind {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(StudyLegacyKind),
+            value: value.to_owned(),
         }
     }
 }
@@ -18878,8 +19359,21 @@ impl core::str::FromStr for StudyLegacyKind {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -18888,12 +19382,15 @@ impl core::str::FromStr for StudyLegacyKind {
 pub enum StudyLifecycle {
     ///active
     #[serde(rename = "active")]
+    #[strum(serialize = "active")]
     Active,
     ///terminal
     #[serde(rename = "terminal")]
+    #[strum(serialize = "terminal")]
     Terminal,
     ///cancelled
     #[serde(rename = "cancelled")]
+    #[strum(serialize = "cancelled")]
     Cancelled,
 }
 impl crate::SemanticEq for StudyLifecycle {
@@ -18903,14 +19400,15 @@ impl crate::SemanticEq for StudyLifecycle {
 }
 impl StudyLifecycle {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 3usize] = [Self::Active, Self::Terminal, Self::Cancelled];
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Active => "active",
-            Self::Terminal => "terminal",
-            Self::Cancelled => "cancelled",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -18949,20 +19447,11 @@ impl schemars::JsonSchema for StudyLifecycle {
         )
     }
 }
-impl core::str::FromStr for StudyLifecycle {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "active" => Ok(Self::Active),
-            "terminal" => Ok(Self::Terminal),
-            "cancelled" => Ok(Self::Cancelled),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(StudyLifecycle).to_owned(),
-                    enumeration: stringify!(StudyLifecycle).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl StudyLifecycle {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(StudyLifecycle),
+            value: value.to_owned(),
         }
     }
 }
@@ -18976,8 +19465,21 @@ impl core::str::FromStr for StudyLifecycle {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -18986,18 +19488,23 @@ impl core::str::FromStr for StudyLifecycle {
 pub enum StudyPointState {
     ///pending
     #[serde(rename = "pending")]
+    #[strum(serialize = "pending")]
     Pending,
     ///assigned
     #[serde(rename = "assigned")]
+    #[strum(serialize = "assigned")]
     Assigned,
     ///completed
     #[serde(rename = "completed")]
+    #[strum(serialize = "completed")]
     Completed,
     ///failed
     #[serde(rename = "failed")]
+    #[strum(serialize = "failed")]
     Failed,
     ///cancelled
     #[serde(rename = "cancelled")]
+    #[strum(serialize = "cancelled")]
     Cancelled,
 }
 impl crate::SemanticEq for StudyPointState {
@@ -19007,22 +19514,15 @@ impl crate::SemanticEq for StudyPointState {
 }
 impl StudyPointState {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 5usize] = [
-        Self::Pending,
-        Self::Assigned,
-        Self::Completed,
-        Self::Failed,
-        Self::Cancelled,
-    ];
+    pub const ALL: [Self; 5usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<5usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Pending => "pending",
-            Self::Assigned => "assigned",
-            Self::Completed => "completed",
-            Self::Failed => "failed",
-            Self::Cancelled => "cancelled",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -19066,22 +19566,11 @@ impl schemars::JsonSchema for StudyPointState {
         )
     }
 }
-impl core::str::FromStr for StudyPointState {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "pending" => Ok(Self::Pending),
-            "assigned" => Ok(Self::Assigned),
-            "completed" => Ok(Self::Completed),
-            "failed" => Ok(Self::Failed),
-            "cancelled" => Ok(Self::Cancelled),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(StudyPointState).to_owned(),
-                    enumeration: stringify!(StudyPointState).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl StudyPointState {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(StudyPointState),
+            value: value.to_owned(),
         }
     }
 }
@@ -19095,8 +19584,21 @@ impl core::str::FromStr for StudyPointState {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -19105,21 +19607,27 @@ impl core::str::FromStr for StudyPointState {
 pub enum StudyResultRole {
     ///case_result
     #[serde(rename = "case_result")]
+    #[strum(serialize = "case_result")]
     CaseResult,
     ///trajectory
     #[serde(rename = "trajectory")]
+    #[strum(serialize = "trajectory")]
     Trajectory,
     ///parameter_estimates
     #[serde(rename = "parameter_estimates")]
+    #[strum(serialize = "parameter_estimates")]
     ParameterEstimates,
     ///parameter_covariance
     #[serde(rename = "parameter_covariance")]
+    #[strum(serialize = "parameter_covariance")]
     ParameterCovariance,
     ///profile_intervals
     #[serde(rename = "profile_intervals")]
+    #[strum(serialize = "profile_intervals")]
     ProfileIntervals,
     ///horizon_history
     #[serde(rename = "horizon_history")]
+    #[strum(serialize = "horizon_history")]
     HorizonHistory,
 }
 impl crate::SemanticEq for StudyResultRole {
@@ -19129,24 +19637,15 @@ impl crate::SemanticEq for StudyResultRole {
 }
 impl StudyResultRole {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 6usize] = [
-        Self::CaseResult,
-        Self::Trajectory,
-        Self::ParameterEstimates,
-        Self::ParameterCovariance,
-        Self::ProfileIntervals,
-        Self::HorizonHistory,
-    ];
+    pub const ALL: [Self; 6usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<6usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::CaseResult => "case_result",
-            Self::Trajectory => "trajectory",
-            Self::ParameterEstimates => "parameter_estimates",
-            Self::ParameterCovariance => "parameter_covariance",
-            Self::ProfileIntervals => "profile_intervals",
-            Self::HorizonHistory => "horizon_history",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -19193,23 +19692,11 @@ impl schemars::JsonSchema for StudyResultRole {
         )
     }
 }
-impl core::str::FromStr for StudyResultRole {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "case_result" => Ok(Self::CaseResult),
-            "trajectory" => Ok(Self::Trajectory),
-            "parameter_estimates" => Ok(Self::ParameterEstimates),
-            "parameter_covariance" => Ok(Self::ParameterCovariance),
-            "profile_intervals" => Ok(Self::ProfileIntervals),
-            "horizon_history" => Ok(Self::HorizonHistory),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(StudyResultRole).to_owned(),
-                    enumeration: stringify!(StudyResultRole).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl StudyResultRole {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(StudyResultRole),
+            value: value.to_owned(),
         }
     }
 }
@@ -19223,8 +19710,21 @@ impl core::str::FromStr for StudyResultRole {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -19233,9 +19733,11 @@ impl core::str::FromStr for StudyResultRole {
 pub enum StudyRetryFailure {
     ///transient
     #[serde(rename = "transient")]
+    #[strum(serialize = "transient")]
     Transient,
     ///deterministic
     #[serde(rename = "deterministic")]
+    #[strum(serialize = "deterministic")]
     Deterministic,
 }
 impl crate::SemanticEq for StudyRetryFailure {
@@ -19245,13 +19747,15 @@ impl crate::SemanticEq for StudyRetryFailure {
 }
 impl StudyRetryFailure {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Transient, Self::Deterministic];
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Transient => "transient",
-            Self::Deterministic => "deterministic",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -19288,19 +19792,11 @@ impl schemars::JsonSchema for StudyRetryFailure {
         )
     }
 }
-impl core::str::FromStr for StudyRetryFailure {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "transient" => Ok(Self::Transient),
-            "deterministic" => Ok(Self::Deterministic),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(StudyRetryFailure).to_owned(),
-                    enumeration: stringify!(StudyRetryFailure).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl StudyRetryFailure {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(StudyRetryFailure),
+            value: value.to_owned(),
         }
     }
 }
@@ -19314,8 +19810,21 @@ impl core::str::FromStr for StudyRetryFailure {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -19324,9 +19833,11 @@ impl core::str::FromStr for StudyRetryFailure {
 pub enum StudySeedNeed {
     ///not_needed
     #[serde(rename = "not_needed")]
+    #[strum(serialize = "not_needed")]
     NotNeeded,
     ///required
     #[serde(rename = "required")]
+    #[strum(serialize = "required")]
     Required,
 }
 impl crate::SemanticEq for StudySeedNeed {
@@ -19336,13 +19847,15 @@ impl crate::SemanticEq for StudySeedNeed {
 }
 impl StudySeedNeed {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::NotNeeded, Self::Required];
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::NotNeeded => "not_needed",
-            Self::Required => "required",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -19379,19 +19892,11 @@ impl schemars::JsonSchema for StudySeedNeed {
         )
     }
 }
-impl core::str::FromStr for StudySeedNeed {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "not_needed" => Ok(Self::NotNeeded),
-            "required" => Ok(Self::Required),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(StudySeedNeed).to_owned(),
-                    enumeration: stringify!(StudySeedNeed).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl StudySeedNeed {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(StudySeedNeed),
+            value: value.to_owned(),
         }
     }
 }
@@ -19405,8 +19910,21 @@ impl core::str::FromStr for StudySeedNeed {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -19415,15 +19933,19 @@ impl core::str::FromStr for StudySeedNeed {
 pub enum StudySeedRole {
     ///primal_solution
     #[serde(rename = "primal_solution")]
+    #[strum(serialize = "primal_solution")]
     PrimalSolution,
     ///parameter_estimates
     #[serde(rename = "parameter_estimates")]
+    #[strum(serialize = "parameter_estimates")]
     ParameterEstimates,
     ///trajectory
     #[serde(rename = "trajectory")]
+    #[strum(serialize = "trajectory")]
     Trajectory,
     ///horizon_state
     #[serde(rename = "horizon_state")]
+    #[strum(serialize = "horizon_state")]
     HorizonState,
 }
 impl crate::SemanticEq for StudySeedRole {
@@ -19433,20 +19955,15 @@ impl crate::SemanticEq for StudySeedRole {
 }
 impl StudySeedRole {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 4usize] = [
-        Self::PrimalSolution,
-        Self::ParameterEstimates,
-        Self::Trajectory,
-        Self::HorizonState,
-    ];
+    pub const ALL: [Self; 4usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<4usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::PrimalSolution => "primal_solution",
-            Self::ParameterEstimates => "parameter_estimates",
-            Self::Trajectory => "trajectory",
-            Self::HorizonState => "horizon_state",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -19488,21 +20005,11 @@ impl schemars::JsonSchema for StudySeedRole {
         )
     }
 }
-impl core::str::FromStr for StudySeedRole {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "primal_solution" => Ok(Self::PrimalSolution),
-            "parameter_estimates" => Ok(Self::ParameterEstimates),
-            "trajectory" => Ok(Self::Trajectory),
-            "horizon_state" => Ok(Self::HorizonState),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(StudySeedRole).to_owned(),
-                    enumeration: stringify!(StudySeedRole).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl StudySeedRole {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(StudySeedRole),
+            value: value.to_owned(),
         }
     }
 }
@@ -19516,8 +20023,21 @@ impl core::str::FromStr for StudySeedRole {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -19526,9 +20046,11 @@ impl core::str::FromStr for StudySeedRole {
 pub enum StudySeedUnavailable {
     ///absent
     #[serde(rename = "absent")]
+    #[strum(serialize = "absent")]
     Absent,
     ///incompatible
     #[serde(rename = "incompatible")]
+    #[strum(serialize = "incompatible")]
     Incompatible,
 }
 impl crate::SemanticEq for StudySeedUnavailable {
@@ -19538,13 +20060,15 @@ impl crate::SemanticEq for StudySeedUnavailable {
 }
 impl StudySeedUnavailable {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Absent, Self::Incompatible];
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Absent => "absent",
-            Self::Incompatible => "incompatible",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -19583,19 +20107,11 @@ impl schemars::JsonSchema for StudySeedUnavailable {
         )
     }
 }
-impl core::str::FromStr for StudySeedUnavailable {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "absent" => Ok(Self::Absent),
-            "incompatible" => Ok(Self::Incompatible),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(StudySeedUnavailable).to_owned(),
-                    enumeration: stringify!(StudySeedUnavailable).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl StudySeedUnavailable {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(StudySeedUnavailable),
+            value: value.to_owned(),
         }
     }
 }
@@ -19609,8 +20125,21 @@ impl core::str::FromStr for StudySeedUnavailable {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -19619,18 +20148,23 @@ impl core::str::FromStr for StudySeedUnavailable {
 pub enum StudyStartKind {
     ///fresh
     #[serde(rename = "fresh")]
+    #[strum(serialize = "fresh")]
     Fresh,
     ///not_needed
     #[serde(rename = "not_needed")]
+    #[strum(serialize = "not_needed")]
     NotNeeded,
     ///continuation
     #[serde(rename = "continuation")]
+    #[strum(serialize = "continuation")]
     Continuation,
     ///explicit
     #[serde(rename = "explicit")]
+    #[strum(serialize = "explicit")]
     Explicit,
     ///fresh_fallback
     #[serde(rename = "fresh_fallback")]
+    #[strum(serialize = "fresh_fallback")]
     FreshFallback,
 }
 impl crate::SemanticEq for StudyStartKind {
@@ -19640,22 +20174,15 @@ impl crate::SemanticEq for StudyStartKind {
 }
 impl StudyStartKind {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 5usize] = [
-        Self::Fresh,
-        Self::NotNeeded,
-        Self::Continuation,
-        Self::Explicit,
-        Self::FreshFallback,
-    ];
+    pub const ALL: [Self; 5usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<5usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Fresh => "fresh",
-            Self::NotNeeded => "not_needed",
-            Self::Continuation => "continuation",
-            Self::Explicit => "explicit",
-            Self::FreshFallback => "fresh_fallback",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -19699,22 +20226,11 @@ impl schemars::JsonSchema for StudyStartKind {
         )
     }
 }
-impl core::str::FromStr for StudyStartKind {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "fresh" => Ok(Self::Fresh),
-            "not_needed" => Ok(Self::NotNeeded),
-            "continuation" => Ok(Self::Continuation),
-            "explicit" => Ok(Self::Explicit),
-            "fresh_fallback" => Ok(Self::FreshFallback),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(StudyStartKind).to_owned(),
-                    enumeration: stringify!(StudyStartKind).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl StudyStartKind {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(StudyStartKind),
+            value: value.to_owned(),
         }
     }
 }
@@ -19728,8 +20244,21 @@ impl core::str::FromStr for StudyStartKind {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -19738,12 +20267,15 @@ impl core::str::FromStr for StudyStartKind {
 pub enum StudyState {
     ///open
     #[serde(rename = "open")]
+    #[strum(serialize = "open")]
     Open,
     ///concluded
     #[serde(rename = "concluded")]
+    #[strum(serialize = "concluded")]
     Concluded,
     ///published
     #[serde(rename = "published")]
+    #[strum(serialize = "published")]
     Published,
 }
 impl crate::SemanticEq for StudyState {
@@ -19753,14 +20285,15 @@ impl crate::SemanticEq for StudyState {
 }
 impl StudyState {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 3usize] = [Self::Open, Self::Concluded, Self::Published];
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Open => "open",
-            Self::Concluded => "concluded",
-            Self::Published => "published",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -19799,20 +20332,11 @@ impl schemars::JsonSchema for StudyState {
         )
     }
 }
-impl core::str::FromStr for StudyState {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "open" => Ok(Self::Open),
-            "concluded" => Ok(Self::Concluded),
-            "published" => Ok(Self::Published),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(StudyState).to_owned(),
-                    enumeration: stringify!(StudyState).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl StudyState {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(StudyState),
+            value: value.to_owned(),
         }
     }
 }
@@ -19826,8 +20350,22 @@ impl core::str::FromStr for StudyState {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[derive(Default)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -19836,9 +20374,12 @@ impl core::str::FromStr for StudyState {
 pub enum StudyUnavailableSeedPolicy {
     ///refuse
     #[serde(rename = "refuse")]
+    #[strum(serialize = "refuse")]
+    #[default]
     Refuse,
     ///fresh_on_unavailable
     #[serde(rename = "fresh_on_unavailable")]
+    #[strum(serialize = "fresh_on_unavailable")]
     FreshOnUnavailable,
 }
 impl crate::SemanticEq for StudyUnavailableSeedPolicy {
@@ -19848,13 +20389,15 @@ impl crate::SemanticEq for StudyUnavailableSeedPolicy {
 }
 impl StudyUnavailableSeedPolicy {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Refuse, Self::FreshOnUnavailable];
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Refuse => "refuse",
-            Self::FreshOnUnavailable => "fresh_on_unavailable",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -19893,19 +20436,11 @@ impl schemars::JsonSchema for StudyUnavailableSeedPolicy {
         )
     }
 }
-impl core::str::FromStr for StudyUnavailableSeedPolicy {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "refuse" => Ok(Self::Refuse),
-            "fresh_on_unavailable" => Ok(Self::FreshOnUnavailable),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(StudyUnavailableSeedPolicy).to_owned(),
-                    enumeration: stringify!(StudyUnavailableSeedPolicy).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl StudyUnavailableSeedPolicy {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(StudyUnavailableSeedPolicy),
+            value: value.to_owned(),
         }
     }
 }
@@ -19936,8 +20471,21 @@ impl crate::SemanticFrame for SubjectRule {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -19946,9 +20494,11 @@ impl crate::SemanticFrame for SubjectRule {
 pub enum TearMethod {
     ///Exact weighted feedback-edge MILP with native incumbent, bound and gap reporting.
     #[serde(rename = "highs")]
+    #[strum(serialize = "highs")]
     Highs,
     ///Explicit unweighted greedy feedback arc set.
     #[serde(rename = "unweighted_heuristic")]
+    #[strum(serialize = "unweighted_heuristic")]
     UnweightedHeuristic,
 }
 impl crate::SemanticEq for TearMethod {
@@ -19958,13 +20508,15 @@ impl crate::SemanticEq for TearMethod {
 }
 impl TearMethod {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Highs, Self::UnweightedHeuristic];
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Highs => "highs",
-            Self::UnweightedHeuristic => "unweighted_heuristic",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -20001,19 +20553,11 @@ impl schemars::JsonSchema for TearMethod {
         )
     }
 }
-impl core::str::FromStr for TearMethod {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "highs" => Ok(Self::Highs),
-            "unweighted_heuristic" => Ok(Self::UnweightedHeuristic),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(TearMethod).to_owned(),
-                    enumeration: stringify!(TearMethod).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl TearMethod {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(TearMethod),
+            value: value.to_owned(),
         }
     }
 }
@@ -20027,8 +20571,127 @@ impl core::str::FromStr for TearMethod {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum TearPolicy {
+    ///free
+    #[serde(rename = "free")]
+    #[strum(serialize = "free")]
+    Free,
+    ///mandatory
+    #[serde(rename = "mandatory")]
+    #[strum(serialize = "mandatory")]
+    Mandatory,
+    ///forbidden
+    #[serde(rename = "forbidden")]
+    #[strum(serialize = "forbidden")]
+    Forbidden,
+}
+impl crate::SemanticEq for TearPolicy {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl TearPolicy {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        self.into_str()
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Free => 0usize,
+            Self::Mandatory => 1usize,
+            Self::Forbidden => 2usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Free => None,
+            Self::Mandatory => None,
+            Self::Forbidden => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for TearPolicy {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(TearPolicy))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(TearPolicy)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["free", "mandatory", "forbidden"] }
+        )
+    }
+}
+impl TearPolicy {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(TearPolicy),
+            value: value.to_owned(),
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -20037,18 +20700,23 @@ impl core::str::FromStr for TearMethod {
 pub enum TerminationClass {
     ///native
     #[serde(rename = "native")]
+    #[strum(serialize = "native")]
     Native,
     ///run_state
     #[serde(rename = "run_state")]
+    #[strum(serialize = "run_state")]
     RunState,
     ///trajectory
     #[serde(rename = "trajectory")]
+    #[strum(serialize = "trajectory")]
     Trajectory,
     ///runtime
     #[serde(rename = "runtime")]
+    #[strum(serialize = "runtime")]
     Runtime,
     ///rule
     #[serde(rename = "rule")]
+    #[strum(serialize = "rule")]
     Rule,
 }
 impl crate::SemanticEq for TerminationClass {
@@ -20058,22 +20726,15 @@ impl crate::SemanticEq for TerminationClass {
 }
 impl TerminationClass {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 5usize] = [
-        Self::Native,
-        Self::RunState,
-        Self::Trajectory,
-        Self::Runtime,
-        Self::Rule,
-    ];
+    pub const ALL: [Self; 5usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<5usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Native => "native",
-            Self::RunState => "run_state",
-            Self::Trajectory => "trajectory",
-            Self::Runtime => "runtime",
-            Self::Rule => "rule",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -20117,22 +20778,11 @@ impl schemars::JsonSchema for TerminationClass {
         )
     }
 }
-impl core::str::FromStr for TerminationClass {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "native" => Ok(Self::Native),
-            "run_state" => Ok(Self::RunState),
-            "trajectory" => Ok(Self::Trajectory),
-            "runtime" => Ok(Self::Runtime),
-            "rule" => Ok(Self::Rule),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(TerminationClass).to_owned(),
-                    enumeration: stringify!(TerminationClass).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl TerminationClass {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(TerminationClass),
+            value: value.to_owned(),
         }
     }
 }
@@ -20146,8 +20796,21 @@ impl core::str::FromStr for TerminationClass {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -20156,9 +20819,11 @@ impl core::str::FromStr for TerminationClass {
 pub enum TimeCoordinateKind {
     ///absolute_origin
     #[serde(rename = "absolute_origin")]
+    #[strum(serialize = "absolute_origin")]
     AbsoluteOrigin,
     ///elapsed_duration
     #[serde(rename = "elapsed_duration")]
+    #[strum(serialize = "elapsed_duration")]
     ElapsedDuration,
 }
 impl crate::SemanticEq for TimeCoordinateKind {
@@ -20168,13 +20833,15 @@ impl crate::SemanticEq for TimeCoordinateKind {
 }
 impl TimeCoordinateKind {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::AbsoluteOrigin, Self::ElapsedDuration];
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::AbsoluteOrigin => "absolute_origin",
-            Self::ElapsedDuration => "elapsed_duration",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -20213,19 +20880,11 @@ impl schemars::JsonSchema for TimeCoordinateKind {
         )
     }
 }
-impl core::str::FromStr for TimeCoordinateKind {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "absolute_origin" => Ok(Self::AbsoluteOrigin),
-            "elapsed_duration" => Ok(Self::ElapsedDuration),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(TimeCoordinateKind).to_owned(),
-                    enumeration: stringify!(TimeCoordinateKind).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl TimeCoordinateKind {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(TimeCoordinateKind),
+            value: value.to_owned(),
         }
     }
 }
@@ -20239,8 +20898,21 @@ impl core::str::FromStr for TimeCoordinateKind {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -20249,27 +20921,35 @@ impl core::str::FromStr for TimeCoordinateKind {
 pub enum TrajectoryTermination {
     ///completed
     #[serde(rename = "completed")]
+    #[strum(serialize = "completed")]
     Completed,
     ///event
     #[serde(rename = "event")]
+    #[strum(serialize = "event")]
     Event,
     ///cancelled
     #[serde(rename = "cancelled")]
+    #[strum(serialize = "cancelled")]
     Cancelled,
     ///time_limit
     #[serde(rename = "time_limit")]
+    #[strum(serialize = "time_limit")]
     TimeLimit,
     ///step_limit
     #[serde(rename = "step_limit")]
+    #[strum(serialize = "step_limit")]
     StepLimit,
     ///event_limit
     #[serde(rename = "event_limit")]
+    #[strum(serialize = "event_limit")]
     EventLimit,
     ///failed
     #[serde(rename = "failed")]
+    #[strum(serialize = "failed")]
     Failed,
     ///panic
     #[serde(rename = "panic")]
+    #[strum(serialize = "panic")]
     Panic,
 }
 impl crate::SemanticEq for TrajectoryTermination {
@@ -20279,28 +20959,15 @@ impl crate::SemanticEq for TrajectoryTermination {
 }
 impl TrajectoryTermination {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 8usize] = [
-        Self::Completed,
-        Self::Event,
-        Self::Cancelled,
-        Self::TimeLimit,
-        Self::StepLimit,
-        Self::EventLimit,
-        Self::Failed,
-        Self::Panic,
-    ];
+    pub const ALL: [Self; 8usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<8usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Completed => "completed",
-            Self::Event => "event",
-            Self::Cancelled => "cancelled",
-            Self::TimeLimit => "time_limit",
-            Self::StepLimit => "step_limit",
-            Self::EventLimit => "event_limit",
-            Self::Failed => "failed",
-            Self::Panic => "panic",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -20352,25 +21019,11 @@ impl schemars::JsonSchema for TrajectoryTermination {
         )
     }
 }
-impl core::str::FromStr for TrajectoryTermination {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "completed" => Ok(Self::Completed),
-            "event" => Ok(Self::Event),
-            "cancelled" => Ok(Self::Cancelled),
-            "time_limit" => Ok(Self::TimeLimit),
-            "step_limit" => Ok(Self::StepLimit),
-            "event_limit" => Ok(Self::EventLimit),
-            "failed" => Ok(Self::Failed),
-            "panic" => Ok(Self::Panic),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(TrajectoryTermination).to_owned(),
-                    enumeration: stringify!(TrajectoryTermination).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl TrajectoryTermination {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(TrajectoryTermination),
+            value: value.to_owned(),
         }
     }
 }
@@ -20384,8 +21037,21 @@ impl core::str::FromStr for TrajectoryTermination {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -20394,9 +21060,11 @@ impl core::str::FromStr for TrajectoryTermination {
 pub enum TrialPolicy {
     ///A trial failure terminates this attempt.
     #[serde(rename = "terminal")]
+    #[strum(serialize = "terminal")]
     Terminal,
     ///The native method must support rejecting and retrying a trial.
     #[serde(rename = "recoverable")]
+    #[strum(serialize = "recoverable")]
     Recoverable,
 }
 impl crate::SemanticEq for TrialPolicy {
@@ -20406,13 +21074,15 @@ impl crate::SemanticEq for TrialPolicy {
 }
 impl TrialPolicy {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Terminal, Self::Recoverable];
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Terminal => "terminal",
-            Self::Recoverable => "recoverable",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -20449,19 +21119,11 @@ impl schemars::JsonSchema for TrialPolicy {
         )
     }
 }
-impl core::str::FromStr for TrialPolicy {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "terminal" => Ok(Self::Terminal),
-            "recoverable" => Ok(Self::Recoverable),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(TrialPolicy).to_owned(),
-                    enumeration: stringify!(TrialPolicy).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl TrialPolicy {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(TrialPolicy),
+            value: value.to_owned(),
         }
     }
 }
@@ -20475,8 +21137,21 @@ impl core::str::FromStr for TrialPolicy {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -20485,15 +21160,19 @@ impl core::str::FromStr for TrialPolicy {
 pub enum TruthValue {
     ///Decided true; the row goes to the head relation.
     #[serde(rename = "true")]
+    #[strum(serialize = "true")]
     True,
     ///Decided false.
     #[serde(rename = "false")]
+    #[strum(serialize = "false")]
     False,
     ///The predicate could not decide.
     #[serde(rename = "unknown")]
+    #[strum(serialize = "unknown")]
     Unknown,
     ///Two rules asserted incompatible values for one key.
     #[serde(rename = "conflict")]
+    #[strum(serialize = "conflict")]
     Conflict,
 }
 impl crate::SemanticEq for TruthValue {
@@ -20503,20 +21182,15 @@ impl crate::SemanticEq for TruthValue {
 }
 impl TruthValue {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 4usize] = [
-        Self::True,
-        Self::False,
-        Self::Unknown,
-        Self::Conflict,
-    ];
+    pub const ALL: [Self; 4usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<4usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::True => "true",
-            Self::False => "false",
-            Self::Unknown => "unknown",
-            Self::Conflict => "conflict",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -20557,21 +21231,11 @@ impl schemars::JsonSchema for TruthValue {
         )
     }
 }
-impl core::str::FromStr for TruthValue {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "true" => Ok(Self::True),
-            "false" => Ok(Self::False),
-            "unknown" => Ok(Self::Unknown),
-            "conflict" => Ok(Self::Conflict),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(TruthValue).to_owned(),
-                    enumeration: stringify!(TruthValue).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl TruthValue {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(TruthValue),
+            value: value.to_owned(),
         }
     }
 }
@@ -20602,8 +21266,21 @@ impl crate::SemanticFrame for WeightNormalization {
     PartialOrd,
     Ord,
     Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
     serde::Serialize,
     serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
 )]
 #[allow(
     clippy::enum_variant_names,
@@ -20612,57 +21289,75 @@ impl crate::SemanticFrame for WeightNormalization {
 pub enum WithheldReason {
     ///Original physical equality feasibility is insufficient for square response.
     #[serde(rename = "not_feasible")]
+    #[strum(serialize = "not_feasible")]
     NotFeasible,
     ///Complete original equality support does not establish a square closure.
     #[serde(rename = "structural_unavailable")]
+    #[strum(serialize = "structural_unavailable")]
     StructuralUnavailable,
     ///A state bound, guard or selector lacks an admitted local interior.
     #[serde(rename = "neighborhood_unavailable")]
+    #[strum(serialize = "neighborhood_unavailable")]
     NeighborhoodUnavailable,
     ///No candidate was observed in original coordinates.
     #[serde(rename = "no_candidate")]
+    #[strum(serialize = "no_candidate")]
     NoCandidate,
     ///The route ran no applicable local analysis at its candidate: a coefficient/cone route or a global incumbent adopted without fixed-assignment re-solve.
     #[serde(rename = "no_local_analysis")]
+    #[strum(serialize = "no_local_analysis")]
     NoLocalAnalysis,
     ///A multiplier of some original row or bound is missing or failed recovery, postsolve included.
     #[serde(rename = "multipliers_unrecovered")]
+    #[strum(serialize = "multipliers_unrecovered")]
     MultipliersUnrecovered,
     ///The recovered multipliers fail original-coordinate complementarity.
     #[serde(rename = "complementarity_failed")]
+    #[strum(serialize = "complementarity_failed")]
     ComplementarityFailed,
     ///The candidate is not qualified stationary or better in original coordinates.
     #[serde(rename = "not_stationary")]
+    #[strum(serialize = "not_stationary")]
     NotStationary,
     ///The KKT-point analysis produced no point: no exact Hessian, the entry ceiling, or a failed evaluation or factorization.
     #[serde(rename = "analysis_unavailable")]
+    #[strum(serialize = "analysis_unavailable")]
     AnalysisUnavailable,
     ///The active constraint gradients are linearly dependent.
     #[serde(rename = "licq_failed")]
+    #[strum(serialize = "licq_failed")]
     LicqFailed,
     ///An active constraint's multiplier is within the dual budget of zero: strict complementarity fails.
     #[serde(rename = "weakly_active")]
+    #[strum(serialize = "weakly_active")]
     WeaklyActive,
     ///Second-order sufficiency does not hold at the candidate.
     #[serde(rename = "second_order_failed")]
+    #[strum(serialize = "second_order_failed")]
     SecondOrderFailed,
     ///A backsolve or eigen-decomposition against the KKT factor failed.
     #[serde(rename = "backsolve_failed")]
+    #[strum(serialize = "backsolve_failed")]
     BacksolveFailed,
     ///The scaled square state Jacobian or fitted parameter responses fail the stated numerical rank cutoff.
     #[serde(rename = "rank_deficient")]
+    #[strum(serialize = "rank_deficient")]
     RankDeficient,
     ///An included observation has an importance weight other than one.
     #[serde(rename = "nonunit_importance")]
+    #[strum(serialize = "nonunit_importance")]
     NonunitImportance,
     ///The fit's local responses at the candidate are unavailable, so its response rank is unknown: a closure that is not square, the dense allowance, or a failed evaluation.
     #[serde(rename = "responses_unavailable")]
+    #[strum(serialize = "responses_unavailable")]
     ResponsesUnavailable,
     ///A fitted parameter lies at a declared bound: the estimate is held there, and its local curvature does not describe its distribution.
     #[serde(rename = "parameter_at_bound")]
+    #[strum(serialize = "parameter_at_bound")]
     ParameterAtBound,
     ///A quantity this one is computed from was withheld.
     #[serde(rename = "upstream_withheld")]
+    #[strum(serialize = "upstream_withheld")]
     UpstreamWithheld,
 }
 impl crate::SemanticEq for WithheldReason {
@@ -20672,48 +21367,15 @@ impl crate::SemanticEq for WithheldReason {
 }
 impl WithheldReason {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 18usize] = [
-        Self::NotFeasible,
-        Self::StructuralUnavailable,
-        Self::NeighborhoodUnavailable,
-        Self::NoCandidate,
-        Self::NoLocalAnalysis,
-        Self::MultipliersUnrecovered,
-        Self::ComplementarityFailed,
-        Self::NotStationary,
-        Self::AnalysisUnavailable,
-        Self::LicqFailed,
-        Self::WeaklyActive,
-        Self::SecondOrderFailed,
-        Self::BacksolveFailed,
-        Self::RankDeficient,
-        Self::NonunitImportance,
-        Self::ResponsesUnavailable,
-        Self::ParameterAtBound,
-        Self::UpstreamWithheld,
-    ];
+    pub const ALL: [Self; 18usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<18usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::NotFeasible => "not_feasible",
-            Self::StructuralUnavailable => "structural_unavailable",
-            Self::NeighborhoodUnavailable => "neighborhood_unavailable",
-            Self::NoCandidate => "no_candidate",
-            Self::NoLocalAnalysis => "no_local_analysis",
-            Self::MultipliersUnrecovered => "multipliers_unrecovered",
-            Self::ComplementarityFailed => "complementarity_failed",
-            Self::NotStationary => "not_stationary",
-            Self::AnalysisUnavailable => "analysis_unavailable",
-            Self::LicqFailed => "licq_failed",
-            Self::WeaklyActive => "weakly_active",
-            Self::SecondOrderFailed => "second_order_failed",
-            Self::BacksolveFailed => "backsolve_failed",
-            Self::RankDeficient => "rank_deficient",
-            Self::NonunitImportance => "nonunit_importance",
-            Self::ResponsesUnavailable => "responses_unavailable",
-            Self::ParameterAtBound => "parameter_at_bound",
-            Self::UpstreamWithheld => "upstream_withheld",
-        }
+        self.into_str()
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
@@ -20788,35 +21450,11 @@ impl schemars::JsonSchema for WithheldReason {
         )
     }
 }
-impl core::str::FromStr for WithheldReason {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "not_feasible" => Ok(Self::NotFeasible),
-            "structural_unavailable" => Ok(Self::StructuralUnavailable),
-            "neighborhood_unavailable" => Ok(Self::NeighborhoodUnavailable),
-            "no_candidate" => Ok(Self::NoCandidate),
-            "no_local_analysis" => Ok(Self::NoLocalAnalysis),
-            "multipliers_unrecovered" => Ok(Self::MultipliersUnrecovered),
-            "complementarity_failed" => Ok(Self::ComplementarityFailed),
-            "not_stationary" => Ok(Self::NotStationary),
-            "analysis_unavailable" => Ok(Self::AnalysisUnavailable),
-            "licq_failed" => Ok(Self::LicqFailed),
-            "weakly_active" => Ok(Self::WeaklyActive),
-            "second_order_failed" => Ok(Self::SecondOrderFailed),
-            "backsolve_failed" => Ok(Self::BacksolveFailed),
-            "rank_deficient" => Ok(Self::RankDeficient),
-            "nonunit_importance" => Ok(Self::NonunitImportance),
-            "responses_unavailable" => Ok(Self::ResponsesUnavailable),
-            "parameter_at_bound" => Ok(Self::ParameterAtBound),
-            "upstream_withheld" => Ok(Self::UpstreamWithheld),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(WithheldReason).to_owned(),
-                    enumeration: stringify!(WithheldReason).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
+impl WithheldReason {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(WithheldReason),
+            value: value.to_owned(),
         }
     }
 }
@@ -20856,6 +21494,16 @@ impl crate::HeapUsage for AttemptState {
     }
 }
 impl crate::SemanticFrame for AttemptState {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for BoundActivity {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for BoundActivity {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }
@@ -22240,6 +22888,16 @@ impl crate::SemanticFrame for ReusePolicy {
         hash.str(self.as_str());
     }
 }
+impl crate::HeapUsage for RowActivity {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for RowActivity {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
 impl crate::HeapUsage for RuntimeTermination {
     fn heap_bytes(&self) -> usize {
         0
@@ -22496,6 +23154,16 @@ impl crate::HeapUsage for TearMethod {
     }
 }
 impl crate::SemanticFrame for TearMethod {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for TearPolicy {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for TearPolicy {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }

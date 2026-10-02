@@ -66,9 +66,10 @@ fn header(publication: u8, parent: Option<u8>) -> publication_manifests::Row {
 /// The admitted record a publication candidate returns.
 fn admitted(
     registry: &Registry,
+    validation: &pse_relations::validate::ValidationContext,
     batches: &[pse_columnar::owned_buffer::OwnedRecordBatch],
 ) -> publication_manifests::Row {
-    publication_manifests::View::try_from_batch_with_registry(registry, &batches[0])
+    publication_manifests::View::try_from_batch_with_registry(registry, &batches[0], validation)
         .unwrap()
         .row(0)
         .unwrap()
@@ -170,7 +171,11 @@ async fn publish(
         .execute(cancel)
         .await
         .unwrap();
-    admitted(artifact.session().registry(), result.batches())
+    admitted(
+        artifact.session().registry(),
+        &artifact.session().validation_context().unwrap(),
+        result.batches(),
+    )
 }
 #[expect(
     clippy::too_many_arguments,
@@ -216,6 +221,7 @@ async fn selected_after_update(
         header(publication_id, Some(parent)),
         vec![Member::Retained(member)],
         registry.clone(),
+        &factory.validation_context(&registry).unwrap(),
     )
     .unwrap();
     let session = factory
@@ -228,7 +234,11 @@ async fn selected_after_update(
         .execute(cancel)
         .await
         .unwrap();
-    let record = admitted(&registry, result.batches());
+    let record = admitted(
+        &registry,
+        &session.validation_context().unwrap(),
+        result.batches(),
+    );
     open(&record, 0, registry, factory, cancel).await
 }
 
@@ -549,7 +559,6 @@ pub(crate) async fn maintenance_child(payload: &str) {
             ))),
     );
     let cancel = CancellationToken::new();
-    pse_engine::validation::bind_defaults(&registry).unwrap();
     let session = factory
         .candidate(BTreeMap::new(), registry, &cancel)
         .unwrap();

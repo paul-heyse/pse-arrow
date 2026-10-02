@@ -35,6 +35,7 @@ struct Binding {
     schema: SchemaRef,
     item: FieldRef,
     output: FieldRef,
+    validation: Arc<pse_relations::validate::ValidationContext>,
 }
 #[derive(Debug, Clone)]
 pub(super) struct Parser {
@@ -60,6 +61,7 @@ impl Parser {
         budget: ParseBudget,
         pool: Arc<dyn MemoryPool>,
         cancel: CancellationToken,
+        validation: Arc<pse_relations::validate::ValidationContext>,
     ) -> Result<Self> {
         let spec = registry
             .relation_by_id(relation)
@@ -87,6 +89,7 @@ impl Parser {
                 schema,
                 item,
                 output,
+                validation,
             }),
             signature: Signature::user_defined(Volatility::Immutable),
         })
@@ -136,6 +139,7 @@ impl Parser {
             self.binding.budget,
             &self.binding.pool,
             &self.binding.cancel,
+            &self.binding.validation,
         )
         .map_err(external)?;
         if bundle.bundle().package.package_id.as_bytes().as_slice() != package {

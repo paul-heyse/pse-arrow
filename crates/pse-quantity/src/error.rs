@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
+#![allow(
+    missing_docs,
+    reason = "strum emits const spelling conversion for closed_enum; as_str documents its contract"
+)]
 
 //! Every error this crate returns, with its blueprint §23.2 class.
 //!

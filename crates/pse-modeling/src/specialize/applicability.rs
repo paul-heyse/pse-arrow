@@ -38,7 +38,7 @@ impl Engine<'_, '_> {
                     continue;
                 };
                 let mut targets = BTreeSet::new();
-                for target in &v.targets {
+                for (position, target) in v.targets.iter().enumerate() {
                     match v.target_kind {
                         Target::Families => {
                             let family = self
@@ -64,7 +64,13 @@ impl Engine<'_, '_> {
                             targets.insert(family.as_id());
                         }
                         Target::Records => {
-                            let value = self.eval(*member, &state.env, target, None)?;
+                            let value = self.eval_field(
+                                *member,
+                                &state.env,
+                                "permission.targets",
+                                position,
+                                None,
+                            )?;
                             let Value::Entity { id, .. } = value else {
                                 return Err(invalid(
                                     *member,
@@ -98,7 +104,7 @@ impl Engine<'_, '_> {
         let mut uses = Vec::new();
         for application in &form.applicability {
             if let ExprKind::NamedCall { name, args } = &application.kind
-                && name == "applicability_interval"
+                && name.is_ident("applicability_interval")
             {
                 if args.len() != 2 {
                     return Err(invalid(
@@ -127,8 +133,22 @@ impl Engine<'_, '_> {
                         "interval endpoints are named claim applications",
                     ));
                 };
-                let first_claim = self.eval(form.id, env, first_name, None)?;
-                let last_claim = self.eval(form.id, env, last_name, None)?;
+                let first_claim = self.eval_ast(
+                    form.id,
+                    env,
+                    &Expr {
+                        kind: ExprKind::Path(first_name.clone()),
+                        span: Span::default(),
+                    },
+                )?;
+                let last_claim = self.eval_ast(
+                    form.id,
+                    env,
+                    &Expr {
+                        kind: ExprKind::Path(last_name.clone()),
+                        span: Span::default(),
+                    },
+                )?;
                 let Value::Function(claim) = first_claim else {
                     return Err(invalid(
                         form.id,
@@ -184,17 +204,9 @@ impl Engine<'_, '_> {
                                 "interval endpoints differ on a nonaxis argument",
                             ));
                         }
-                    } else if self.eval(
-                        form.id,
-                        env,
-                        &dsl::render_expr(&first_args[index]),
-                        Some(ty),
-                    )? != self.eval(
-                        form.id,
-                        env,
-                        &dsl::render_expr(&last_args[index]),
-                        Some(ty),
-                    )? {
+                    } else if self.eval_ast_with(form.id, env, &first_args[index], Some(ty))?
+                        != self.eval_ast_with(form.id, env, &last_args[index], Some(ty))?
+                    {
                         return Err(invalid(
                             claim,
                             "interval endpoints use different record or evidence contexts",
@@ -299,8 +311,15 @@ impl Engine<'_, '_> {
         let receiver = Path {
             segments: path.segments[..path.segments.len() - 1].to_vec(),
         };
-        let Ok(Value::Entity { id, kind }) = self.eval(at, env, &dsl::render_path(&receiver), None)
-        else {
+        let Ok(Value::Entity { id, kind }) = self.eval_ast_with(
+            at,
+            env,
+            &Expr {
+                kind: ExprKind::Path(receiver.clone()),
+                span: Span::default(),
+            },
+            None,
+        ) else {
             return Ok(expression);
         };
         let selected = self.selection_collector.current_consumer_frame();
@@ -384,7 +403,7 @@ impl Engine<'_, '_> {
         self.model.functions.insert(name.clone(), form);
         Ok(Expr {
             kind: ExprKind::NamedCall {
-                name,
+                name: Path::single(name),
                 args: arguments.into_values().map(|(_, actual)| actual).collect(),
             },
             span: Span::default(),
@@ -441,16 +460,19 @@ impl Engine<'_, '_> {
                             kind: record.kind,
                         },
                     );
-                    expressions.push(
-                        dsl::parse_expr(&binding).map_err(|e| invalid(claim, e.to_string()))?,
-                    );
+                    expressions.push(Expr {
+                        kind: ExprKind::Path(Path::single(binding)),
+                        span: Span::default(),
+                    });
                 } else if self.lexical.contains_key(name) && ty.quantity_scheme().is_some()
                     || environment
                         .get(name)
                         .is_some_and(|v| value::conforms(v, ty, self.p))
                 {
-                    expressions
-                        .push(dsl::parse_expr(name).map_err(|e| invalid(claim, e.to_string()))?);
+                    expressions.push(Expr {
+                        kind: ExprKind::Path(Path::single(name.clone())),
+                        span: Span::default(),
+                    });
                 } else {
                     available = false;
                     break;
@@ -467,7 +489,7 @@ impl Engine<'_, '_> {
             environment.insert(binding.clone(), Value::Function(claim));
             let expression = Expr {
                 kind: ExprKind::NamedCall {
-                    name: binding,
+                    name: Path::single(binding),
                     args: expressions,
                 },
                 span: Span::default(),
@@ -606,15 +628,24 @@ impl Engine<'_, '_> {
                 "applicability metadata is a typed named claim application",
             ));
         };
-        let value = self.eval(at, env, name, None).map_err(|error| {
-            invalid(
+        let value = self
+            .eval_ast(
                 at,
-                format!(
-                    "claim callable {name} at {at} resolves {:?}: {error}",
-                    self.p.resolve(at, name)
-                ),
+                env,
+                &Expr {
+                    kind: ExprKind::Path(name.clone()),
+                    span: Span::default(),
+                },
             )
-        })?;
+            .map_err(|error| {
+                invalid(
+                    at,
+                    format!(
+                        "claim callable {name} at {at} resolves {:?}: {error}",
+                        self.p.resolve_segments(at, &name.segments)
+                    ),
+                )
+            })?;
         let Value::Function(id) = value else {
             return Err(invalid(
                 at,
@@ -657,7 +688,7 @@ impl Engine<'_, '_> {
                 inputs.push(actual.clone());
                 lexical.insert(name.clone(), actual);
             } else {
-                let value = self.eval(at, env, &dsl::render_expr(arg), Some(ty))?;
+                let value = self.eval_ast_with(at, env, arg, Some(ty))?;
                 collect_records(&value, &mut records);
                 statics.insert(name.clone(), value);
             }
@@ -666,7 +697,7 @@ impl Engine<'_, '_> {
             .p
             .resolve(id, &v.owner)
             .ok_or_else(|| invalid(id, "claim owner absent"))?;
-        let evidence = self.eval(id, &statics, &v.evidence, None)?;
+        let evidence = self.eval_field(id, &statics, "applicability.evidence", 0, None)?;
         let Value::Entity { id: evidence, kind } = evidence else {
             return Err(invalid(id, "claim evidence must be a source record"));
         };
@@ -693,8 +724,11 @@ impl Engine<'_, '_> {
             value.frame(&mut identity);
         }
         let mut dependencies = Vec::new();
-        for dependency in &v.dependencies {
-            let e = dsl::parse_expr(dependency).map_err(|e| invalid(id, e.to_string()))?;
+        for position in 0..v.dependencies.len() {
+            let e = self
+                .p
+                .expression_at(id, "applicability.dependencies", position)?
+                .clone();
             dependencies.push(self.bind_claim(
                 instance,
                 form,
@@ -712,15 +746,11 @@ impl Engine<'_, '_> {
             Kind::Unrestricted => Region::Unrestricted,
             Kind::Region | Kind::Interval => {
                 let predicate = if v.claim_kind == Kind::Interval {
-                    crate::applicability::interval_predicate(
-                        v.axis.as_deref().unwrap_or_default(),
-                        v.lower.as_deref().unwrap_or_default(),
-                        v.upper.as_deref().unwrap_or_default(),
-                        id,
-                    )?
+                    crate::applicability::interval_predicate(self.p, id)?
                 } else {
-                    dsl::parse_predicate(v.predicate.as_deref().unwrap_or_default())
-                        .map_err(|e| invalid(id, e.to_string()))?
+                    self.p
+                        .predicate_at(id, "applicability.predicate", 0)?
+                        .clone()
                 };
                 let mut predicate =
                     self.rewrite_predicate(instance, &predicate, &statics, &[id])?;
@@ -731,8 +761,11 @@ impl Engine<'_, '_> {
             }
             Kind::Union => {
                 let mut alternatives = Vec::new();
-                for alternative in &v.alternatives {
-                    let e = dsl::parse_expr(alternative).map_err(|e| invalid(id, e.to_string()))?;
+                for position in 0..v.alternatives.len() {
+                    let e = self
+                        .p
+                        .expression_at(id, "applicability.alternatives", position)?
+                        .clone();
                     let child = self.bind_claim(
                         instance,
                         form,

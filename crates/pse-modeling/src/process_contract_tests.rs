@@ -34,6 +34,21 @@ fn run(text: &str) -> Result<SpecializedModel, ModelingError> {
 }
 
 #[test]
+fn process_contract_unannotated_children_retain_nominal_connection_contracts() {
+    let text = "package p {def Unit {var x:Scalar;port inlet:Scalar=x;annotation connectivity inlet(1,0);port outlet:Scalar=x;annotation connectivity outlet(0,1);} def Root {child a=Unit();child b=Unit();connect a.outlet->b.inlet;}}";
+    let model = run(text).unwrap();
+    assert_eq!(model.connections.len(), 1);
+    let error = checked(&text.replace("b.inlet", "missing.inlet")).unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("unknown contextual declaration reference")
+    );
+    let error = checked(&text.replace("b.inlet", "b.missing")).unwrap_err();
+    assert!(error.to_string().contains("member"));
+}
+
+#[test]
 fn process_contract_ftpz_and_fphz_keep_explicit_reference_species_and_derived_observations() {
     for (thermal_type, thermal_slot, thermal_tolerance) in [
         ("Temperature", "temperature", "1e-6{K}"),
@@ -175,10 +190,7 @@ fn process_contract_observation_assesses_evaluated_original_delta_terms() {
             .iter()
             .map(|term| {
                 let value = evaluator
-                    .text(
-                        &pse_authoring::dsl::render_expr(&term.expression),
-                        Some(&closure.ty),
-                    )
+                    .expr(&term.expression, Some(&closure.ty), 0)
                     .unwrap();
                 (term.id, value.scalar(at).unwrap())
             })
@@ -291,10 +303,7 @@ fn process_contract_fixed_parameter_coordinates_keep_identity_while_original_ene
             .iter()
             .map(|term| {
                 let value = evaluator
-                    .text(
-                        &pse_authoring::dsl::render_expr(&term.expression),
-                        Some(&assessment_type),
-                    )
+                    .expr(&term.expression, Some(&assessment_type), 0)
                     .unwrap();
                 let actual = specialize::value::value_type(&value)
                     .unwrap()

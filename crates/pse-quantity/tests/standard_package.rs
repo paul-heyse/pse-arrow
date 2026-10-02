@@ -11,12 +11,7 @@ fn six_required_compositions_and_swapped_multiplication_have_declared_results() 
     let registry = standard_registry().expect("admitted standard fixture");
     let scalar = IndexSet::new();
     for (request, left, right, result) in [
-        (
-            OpRequest::Mul,
-            "molar_flow",
-            "molar_enthalpy.point",
-            "energy_flow",
-        ),
+        (OpRequest::Mul, "molar_flow", "DeltaH", "EnergyTransferRate"),
         (
             OpRequest::Mul,
             "molar_flow",
@@ -54,14 +49,32 @@ fn six_required_compositions_and_swapped_multiplication_have_declared_results() 
                 indices: &scalar,
             },
             Operand {
-                quantity_type: ids::quantity(right),
+                quantity_type: if right == "DeltaH" {
+                    let Some(pse_quantity::PhysicalName::QuantityType(id)) =
+                        registry.physical_name(right)
+                    else {
+                        panic!("declared enthalpy difference absent");
+                    };
+                    id
+                } else {
+                    ids::quantity(right)
+                },
                 indices: &scalar,
             },
         ];
         let inferred =
             infer_with_evidence(&request, &operands, &registry, &StandardInvariantChecker)
                 .expect("declared composition");
-        assert_eq!(inferred.result, ids::quantity(result));
+        let expected = if result == "EnergyTransferRate" {
+            let Some(pse_quantity::PhysicalName::QuantityType(id)) = registry.physical_name(result)
+            else {
+                panic!("declared energy transfer rate absent");
+            };
+            id
+        } else {
+            ids::quantity(result)
+        };
+        assert_eq!(inferred.result, expected);
         if matches!(request, OpRequest::Mul) {
             let reverse = infer_with_evidence(
                 &request,
@@ -85,10 +98,27 @@ fn reference_basis_and_missing_rule_obligations_do_not_disappear() {
         quantity_type: ids::quantity("molar_flow"),
         indices: &scalar,
     };
+    let Some(pse_quantity::PhysicalName::QuantityType(delta_h)) = registry.physical_name("DeltaH")
+    else {
+        panic!("declared enthalpy difference absent");
+    };
     let h = Operand {
+        quantity_type: delta_h,
+        indices: &scalar,
+    };
+    let point = Operand {
         quantity_type: ids::quantity("molar_enthalpy.point"),
         indices: &scalar,
     };
+    assert!(
+        infer_with_evidence(
+            &OpRequest::Mul,
+            &[flow, point],
+            &registry,
+            &StandardInvariantChecker
+        )
+        .is_err()
+    );
     assert!(infer(&OpRequest::Mul, &[flow, h], &registry).is_err());
     let energy = infer_with_evidence(
         &OpRequest::Mul,
@@ -98,7 +128,7 @@ fn reference_basis_and_missing_rule_obligations_do_not_disappear() {
     )
     .expect("basis check");
     let ty = registry.quantity_type(energy.result).expect("type");
-    assert_eq!(ty.key.reference_state, Some(ids::reference("standard")));
+    assert_eq!(ty.key.reference_state, None);
     assert_eq!(ty.key.basis, None);
     let absolute = Operand {
         quantity_type: ids::quantity("pressure.absolute"),

@@ -59,6 +59,7 @@ pub mod ext_metadata;
 pub mod field_contract;
 pub mod fingerprint;
 mod implementation_cache;
+pub use implementation_cache::ImplementationCache;
 pub mod literal;
 
 pub mod model;

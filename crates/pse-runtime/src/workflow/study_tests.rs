@@ -9,8 +9,10 @@ use pse_operations::{lifecycle::AttemptState, testing::TestDatabase};
 use std::time::Duration;
 
 const CASES: &str = r#"package algebraic {
-def Root { var x:Scalar; eq square:x*x==4; annotation start x(1); annotation bounds x(0,10); annotation report x("root"); annotation check x(x>1); }
+def Root { param a:Scalar=4; var x:Scalar; eq square:x*x==a; annotation start x(1); annotation bounds x(0,10); annotation report x("root"); annotation check x(x>1); }
 def Failed { var x:Scalar; eq square:x*x == -1; annotation start x(1); annotation report x("root"); }
+def Storage { domain t:Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); var x[i in t]:Time; eq rate[i in t]:d(x[i])/di==1; eq initial:x[0{s}]==1{s}; }
+test dynamic fixture { dof 0; route integrated; procedure integrate; integrate samples(0{s},1{s}) relative(1e-8) normalized_absolute(1e-10) step(1e-4{s}); } {child root:Storage=Storage();}
 }"#;
 fn point(
     case: pse_model::generated::identities::DeclarationId,
@@ -194,5 +196,377 @@ async fn cancellation_preserves_one_outcome_for_every_unattempted_occurrence() {
                 .is_some_and(|outcome| outcome.attempts.is_empty() && !outcome.scientific.usable)
     }));
     drop(runtime);
+    database.remove().await.unwrap();
+}
+
+#[cfg_attr(
+    not(feature = "native-solvers"),
+    ignore = "needs the linked native solvers"
+)]
+#[tokio::test]
+async fn mixed_durable_study_returns_to_binding_recovers_lease_and_records_seed_fallback_without_fabricated_results()
+ {
+    let database = TestDatabase::create().await.unwrap();
+    let runtime = job_durable(&database, "restarted", quick()).await;
+    let directory = tempfile::tempdir().unwrap();
+    let workspace = runtime
+        .register_workspace(
+            "mixed",
+            url::Url::from_directory_path(directory.path()).unwrap(),
+        )
+        .await
+        .unwrap();
+    let (physical, modeling) = sources(CASES);
+    let cancel = crate::CancelSource::new();
+    let package = runtime
+        .package_from_sources(
+            std::slice::from_ref(&modeling),
+            runtime
+                .physical_from_sources(&physical, &cancel)
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+    let find = |name: &str| {
+        package
+            .declarations()
+            .iter()
+            .find(|r| r.name == name)
+            .unwrap()
+            .declaration_id
+    };
+    let root = find("Root");
+    let scalar = package.quantities.neutral_dimensionless().unwrap();
+    let unit = package
+        .quantities
+        .quantity_type(scalar)
+        .unwrap()
+        .canonical_unit;
+    let continuation = |predecessor, unavailable| {
+        StartPolicy::Continuation(SeedEdge {
+            predecessor: OccurrenceKey(predecessor),
+            role: SeedRole::PrimalSolution,
+            permission: ContinuationPermission::RequireUsable,
+            unavailable,
+        })
+    };
+    let binding = |mut point: StudyPoint, value| {
+        point.overlay.assignments.push(BindingAssignment {
+            target: BindingTarget::Path("a".into()),
+            value: BindingQuantity {
+                magnitude: pse_model::scalars::FiniteBound::try_new(value).unwrap(),
+                quantity: scalar.as_id(),
+                unit: unit.as_id(),
+            },
+        });
+        point
+    };
+    let mut first = binding(point(root, 2, vec![], StartPolicy::Fresh), 4.);
+    first.policy.attempt_limit = 2;
+    let simulation = StudyPoint {
+        operation: OperationRequest::Simulation(SimulationOperation {
+            case: find("dynamic"),
+            profile: None,
+        }),
+        ..point(
+            root,
+            12,
+            vec![Dependency::Ordering(OccurrenceKey(10))],
+            StartPolicy::Fresh,
+        )
+    };
+    let points = vec![
+        first,
+        binding(
+            point(
+                root,
+                4,
+                vec![],
+                continuation(2, UnavailableSeedPolicy::Refuse),
+            ),
+            9.,
+        ),
+        binding(
+            point(
+                root,
+                6,
+                vec![],
+                continuation(4, UnavailableSeedPolicy::Refuse),
+            ),
+            4.,
+        ),
+        point(
+            root,
+            8,
+            vec![Dependency::Ordering(OccurrenceKey(6))],
+            StartPolicy::Explicit {
+                role: SeedRole::PrimalSolution,
+                seed: pse_operations::mint_id(),
+            },
+        ),
+        point(
+            root,
+            10,
+            vec![],
+            continuation(8, UnavailableSeedPolicy::FreshOnUnavailable),
+        ),
+        simulation,
+        point(
+            root,
+            14,
+            vec![Dependency::UsableResult(OccurrenceKey(8))],
+            StartPolicy::Fresh,
+        ),
+        point(
+            root,
+            16,
+            vec![Dependency::Ordering(OccurrenceKey(12))],
+            StartPolicy::Fresh,
+        ),
+    ];
+    let definition = package
+        .admit_study_points(
+            crate::authoring_driver::document::package_checksum(&physical),
+            vec![crate::authoring_driver::document::package_checksum(
+                &modeling,
+            )],
+            &points,
+            &cancel,
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        definition.points[0].binding_hash,
+        definition.points[2].binding_hash
+    );
+    assert_ne!(
+        definition.points[0].binding_hash,
+        definition.points[1].binding_hash
+    );
+    assert_eq!(definition.points[5].policy.seed_need, SeedNeed::NotNeeded);
+    let handle = runtime
+        .start_defined_study(
+            &workspace,
+            PackageSources {
+                physical,
+                modeling: vec![modeling],
+            },
+            definition,
+            RetryPolicy::ONCE,
+            0,
+        )
+        .await
+        .unwrap();
+    let Durability::Durable(operations) = runtime.durability() else {
+        panic!("durable study")
+    };
+    // Simulate a process dying after a claim, before dispatch. Recovery must keep
+    // occurrence/run identity and add an attempt, without inventing a native result.
+    let crashed = operations
+        .store()
+        .jobs()
+        .claim("crashed", Duration::from_millis(1))
+        .await
+        .unwrap()
+        .unwrap();
+    let before = operations
+        .store()
+        .studies()
+        .get(handle.study_id())
+        .await
+        .unwrap();
+    assert_eq!(
+        before
+            .points
+            .iter()
+            .find(|p| p.job_id == crashed.job_id)
+            .unwrap()
+            .point_index,
+        2
+    );
+    let cancelled = before
+        .points
+        .iter()
+        .find(|p| p.point_index == 16)
+        .unwrap()
+        .attempt_id;
+    assert_eq!(
+        operations
+            .store()
+            .request_cancel(cancelled, "mixed-study-control")
+            .await
+            .unwrap(),
+        pse_operations::cancellation::CancelOutcome::CancelledBeforeStart
+    );
+    tokio::time::sleep(Duration::from_millis(20)).await;
+    let recovered = operations.recover().await.unwrap();
+    assert!(
+        recovered
+            .requeued
+            .iter()
+            .any(|r| r.stale_attempt == crashed.attempt_id),
+        "expired occurrence was not recovered: {recovered:?}"
+    );
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(120);
+    let mut native_roots = std::collections::BTreeMap::new();
+    let mut native_runs = std::collections::BTreeMap::new();
+    let mut native_simulation = false;
+    loop {
+        let (processed, result) = runtime.work_once_with_result().await.unwrap();
+        if let Processed::Ran { record, .. } = &processed {
+            assert!(
+                record.attempt.is_ok(),
+                "durable occurrence did not record termination: {:?}",
+                record.attempt
+            );
+        }
+        if let (Processed::Ran { job, .. }, Some(result)) = (&processed, result) {
+            let occurrence = operations
+                .store()
+                .studies()
+                .point_of_job(*job)
+                .await
+                .unwrap()
+                .unwrap()
+                .point_index;
+            native_runs.insert(occurrence, result.run_id);
+            match result.report().unwrap() {
+                RunReport::Modeling(results) => {
+                    let x = results[0]
+                        .reports
+                        .iter()
+                        .find(|r| r.label == "root")
+                        .unwrap()
+                        .value;
+                    native_roots.insert(occurrence, x);
+                }
+                RunReport::Simulation(trajectory) => {
+                    assert!(trajectory.accepted);
+                    assert!((trajectory.report.samples.last().unwrap().state[0] - 2.).abs() < 1e-6);
+                    native_simulation = true;
+                }
+                other => panic!("unexpected mixed-study operation: {other:?}"),
+            }
+        }
+        let status = handle.status().await.unwrap();
+        if status.state == StudyState::Published {
+            break;
+        }
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "mixed study did not settle: {status:#?}"
+        );
+        if matches!(processed, Processed::Idle) {
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    }
+    let status = handle.status().await.unwrap();
+    for (key, x) in [(2, 2.), (4, 3.), (6, 2.), (10, 2.)] {
+        let actual = native_roots
+            .get(&key)
+            .unwrap_or_else(|| panic!("occurrence {key} produced no native root: {status:#?}"));
+        assert!(
+            (*actual - x).abs() < 1e-6,
+            "return path solved the wrong binding"
+        );
+    }
+    assert!(native_simulation);
+    assert_ne!(
+        native_runs[&2], native_runs[&6],
+        "equal bindings retain separate experiment runs"
+    );
+    assert_eq!(
+        native_runs[&2], crashed.run_id,
+        "recovery retains the interrupted occurrence run"
+    );
+    assert_eq!(status.state, StudyState::Published);
+    assert_eq!(status.attempt_state, AttemptState::Partial);
+    for index in [0, 1, 2, 4, 5] {
+        assert_eq!(
+            status.points[index].state,
+            StudyPointState::Completed,
+            "{status:?}"
+        );
+        assert!(
+            status.points[index]
+                .outcome
+                .as_ref()
+                .unwrap()
+                .scientific
+                .usable
+        );
+    }
+    for (index, predecessor) in [(1, 2), (2, 4)] {
+        assert!(
+            matches!(status.points[index].outcome.as_ref().unwrap().start,
+            Some(StartProvenance::Continuation {predecessor: key, ..}) if key == OccurrenceKey(predecessor))
+        );
+    }
+    assert!(matches!(
+        status.points[4].outcome.as_ref().unwrap().start,
+        Some(StartProvenance::FreshFallback {
+            predecessor: OccurrenceKey(8),
+            reason: SeedUnavailable::Absent,
+            ..
+        })
+    ));
+    assert_eq!(
+        status.points[5].outcome.as_ref().unwrap().start,
+        Some(StartProvenance::NotNeeded)
+    );
+    assert_eq!(status.points[7].state, StudyPointState::Cancelled);
+    assert!(!status.points[7].outcome.as_ref().unwrap().scientific.usable);
+    for index in [3, 6] {
+        let outcome = status.points[index].outcome.as_ref().unwrap();
+        assert_eq!(status.points[index].state, StudyPointState::Failed);
+        assert!(outcome.diagnostic.is_some());
+        assert!(!outcome.scientific.usable);
+    }
+    let settled = operations
+        .store()
+        .studies()
+        .get(handle.study_id())
+        .await
+        .unwrap();
+    let retried = &settled.points[0];
+    assert_ne!(retried.attempt_id, crashed.attempt_id);
+    let attempt = operations
+        .store()
+        .attempts()
+        .get(retried.attempt_id)
+        .await
+        .unwrap();
+    assert_eq!(attempt.parent_attempt, Some(crashed.attempt_id));
+    assert_eq!(attempt.run_id, crashed.run_id);
+    assert_ne!(settled.points[0].job_id, settled.points[2].job_id);
+    let members = operations
+        .store()
+        .studies()
+        .available_members(handle.study_id())
+        .await
+        .unwrap();
+    assert!(
+        members.iter().all(|(key, _)| ![8, 14, 16].contains(key)),
+        "pre-result refusal or cancellation fabricated members"
+    );
+    let published = handle.wait(Duration::from_millis(10)).await.unwrap();
+    assert_eq!(published.attempt_id, status.attempt_id);
+    assert!(matches!(
+        runtime.work_once().await.unwrap(),
+        Processed::Idle
+    ));
+    let after = operations
+        .store()
+        .studies()
+        .available_members(handle.study_id())
+        .await
+        .unwrap();
+    assert_eq!(
+        after.len(),
+        members.len(),
+        "settled occurrences must not publish twice"
+    );
+    assert_eq!(handle.status().await.unwrap().points.len(), points.len());
+    drop((handle, package, runtime));
     database.remove().await.unwrap();
 }

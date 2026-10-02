@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Accounted pure flow preparation and native/library tear selection.
-use super::{MathRuntimeError, MathService, Workspace, solves::SolveHandle};
+use super::{MathRuntimeError, MathService, solves::SolveHandle};
 use pse_backend_native::{ProblemError, solve::*, tears};
 use pse_columnar::flight::FlightCancellation;
 /// Authored topology selection and explicit tear policies for public workflow callers.
-pub use pse_compiler::workspace::ModelingFlowSelection;
+pub use pse_compiler::workspace::{
+    FlowConnectionDocument, FlowSelectionDocument, ModelingFlowSelection,
+};
 use pse_ids::SemanticId;
 pub use pse_structural::flowsheet::{Decision, Policy};
 use std::sync::Arc;
@@ -34,47 +36,6 @@ pub struct TearResult {
     _owner: Arc<pse_columnar::AllocationLease>,
 }
 impl MathService {
-    /// Project physical flow declarations through the same pure Salsa workspace.
-    pub async fn prepare_flow(
-        self: &Arc<Self>,
-        workspace: Workspace,
-        revision: pse_compiler::workspace::Inputs,
-        id: SemanticId,
-    ) -> Result<PreparedFlow, MathRuntimeError> {
-        let (graph, lease) = self
-            .job_retained(
-                1,
-                super::WITHIN_WORKSPACE,
-                FlightCancellation::default(),
-                move |_| {
-                    let _lease = workspace.lease;
-                    let mut compiler = workspace.compiler.lock().map_err(|_| {
-                        MathRuntimeError::Infrastructure("compiler lock poisoned".into())
-                    })?;
-                    compiler.publish(revision)?;
-                    let graph = compiler.prepare_flow(id)?;
-                    let d = graph.declaration();
-                    let bytes = d
-                        .nodes
-                        .iter()
-                        .map(|n| size_of_val(n) + size_of_val(n.ports.as_slice()))
-                        .sum::<usize>()
-                        + d.connections
-                            .iter()
-                            .map(|e| size_of_val(e) + size_of_val(e.bindings.as_slice()))
-                            .sum::<usize>()
-                        + size_of_val(d.decisions.as_slice());
-                    Ok((graph, bytes))
-                },
-            )
-            .await?;
-        let owner =
-            self.shared_product(vec![2, Arc::as_ptr(&graph) as usize], graph.clone(), lease)?;
-        Ok(PreparedFlow {
-            graph,
-            _owner: owner,
-        })
-    }
     /// Project an immutable authored model with explicitly selected nodes and tear policies.
     pub async fn prepare_modeling_flow(
         self: &Arc<Self>,
@@ -109,8 +70,12 @@ impl MathService {
         );
         tokio::pin!(operation);
         let (graph, lease) = tokio::select! {r=&mut operation=>r?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
-        let owner =
-            self.shared_product(vec![2, Arc::as_ptr(&graph) as usize], graph.clone(), lease)?;
+        let owner = self.shared_product(
+            vec![2, Arc::as_ptr(&graph) as usize],
+            graph.clone(),
+            lease,
+            Vec::new(),
+        )?;
         Ok(PreparedFlow {
             graph,
             _owner: owner,
@@ -203,5 +168,140 @@ impl MathService {
             receiver: Some(receiver),
             progress,
         })
+    }
+}
+
+/// Public immutable projection of the selected, physically admitted flow graph.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct FlowGraphDocument {
+    #[doc = "Identity of the exact admitted flow graph."]
+    pub identity: pse_ids::ContentHash,
+    #[doc = "Selected graph nodes."]
+    pub nodes: Vec<FlowNodeDocument>,
+    #[doc = "Selected authored connections."]
+    pub connections: Vec<FlowEdgeDocument>,
+    #[doc = "Grouped tear decisions."]
+    pub decisions: Vec<FlowDecisionDocument>,
+}
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[doc = "One admitted node and its physical ports."]
+pub struct FlowNodeDocument {
+    #[doc = "Identity retained from the admitted source."]
+    pub id: SemanticId,
+    #[doc = "Selected authored ports."]
+    pub ports: Vec<FlowPortDocument>,
+}
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[doc = "One admitted port with its physical meaning."]
+pub struct FlowPortDocument {
+    #[doc = "Identity retained from the admitted source."]
+    pub id: SemanticId,
+    #[doc = "Physical quantity identity."]
+    pub quantity_id: SemanticId,
+    #[doc = "Physical unit identity."]
+    pub unit_id: SemanticId,
+}
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[doc = "One admitted directed edge and its port bindings."]
+pub struct FlowEdgeDocument {
+    #[doc = "Identity retained from the admitted source."]
+    pub id: SemanticId,
+    #[doc = "Source endpoint identity."]
+    pub from: SemanticId,
+    #[doc = "Destination endpoint identity."]
+    pub to: SemanticId,
+    #[doc = "Grouped tear decision identity."]
+    pub decision: SemanticId,
+    #[doc = "Admitted source and destination port bindings."]
+    pub bindings: Vec<(SemanticId, SemanticId)>,
+}
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[doc = "One grouped tear decision and canonical permission."]
+pub struct FlowDecisionDocument {
+    #[doc = "Identity retained from the admitted source."]
+    pub id: SemanticId,
+    #[doc = "Native tear objective cost."]
+    pub cost: f64,
+    #[doc = "Canonical tear permission."]
+    pub policy: Policy,
+}
+impl PreparedFlow {
+    /// Observe its admitted topology without decoding or rebuilding semantic meaning.
+    pub fn document(&self) -> FlowGraphDocument {
+        let graph = self.graph();
+        let declaration = graph.declaration();
+        FlowGraphDocument {
+            identity: graph.key(),
+            nodes: declaration
+                .nodes
+                .iter()
+                .map(|node| FlowNodeDocument {
+                    id: node.id,
+                    ports: node
+                        .ports
+                        .iter()
+                        .map(|port| FlowPortDocument {
+                            id: port.id,
+                            quantity_id: port.quantity.as_id(),
+                            unit_id: port.unit.as_id(),
+                        })
+                        .collect(),
+                })
+                .collect(),
+            connections: declaration
+                .connections
+                .iter()
+                .map(|edge| FlowEdgeDocument {
+                    id: edge.id,
+                    from: edge.from,
+                    to: edge.to,
+                    decision: edge.decision,
+                    bindings: edge.bindings.clone(),
+                })
+                .collect(),
+            decisions: declaration
+                .decisions
+                .iter()
+                .map(|decision| FlowDecisionDocument {
+                    id: decision.id,
+                    cost: decision.cost,
+                    policy: decision.policy,
+                })
+                .collect(),
+        }
+    }
+}
+/// Available independently verified tear evidence; absence remains separate from native attempts.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TearSelectionDocument {
+    #[doc = "Grouped tear decisions."]
+    pub decisions: Vec<SemanticId>,
+    #[doc = "Selected authored connections."]
+    pub connections: Vec<SemanticId>,
+    #[doc = "Admitted evaluation order."]
+    pub order: Vec<SemanticId>,
+    #[doc = "Native tear objective cost."]
+    pub cost: f64,
+    #[doc = "Native method and evidence description."]
+    pub method: String,
+}
+impl TearResult {
+    /// Project retained selected tears without executing another native operation.
+    pub fn document(&self) -> Option<TearSelectionDocument> {
+        self.selected
+            .as_ref()
+            .map(|selected| TearSelectionDocument {
+                decisions: selected.decisions.iter().copied().collect(),
+                connections: selected.connections.clone(),
+                order: selected.order.clone(),
+                cost: selected.cost,
+                method: selected.method.into(),
+            })
     }
 }

@@ -17,6 +17,7 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+hex.workspace = true
 pse-columnar.workspace = true
 arrow-array.workspace = true
 arrow-buffer.workspace = true

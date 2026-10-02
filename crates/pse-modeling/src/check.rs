@@ -25,23 +25,14 @@ fn expected_failure_shape(
     expected: &pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailure,
 ) -> Result<()> {
     use pse_model::generated::enums::ModelingValidityLayer as Layer;
-    let parses = |text: &String| {
-        dsl::parse_expr(text)
-            .map(|_| ())
-            .map_err(|e| invalid(at, e.to_string()))
-    };
-    if let Some(applicability) = &expected.applicability {
+    if expected.applicability.is_some() {
         if expected.validity.is_some() || !expected.members.is_empty() {
             return Err(invalid(
                 at,
                 "an expected failure names exactly one typed lineage",
             ));
         }
-        return applicability
-            .sets
-            .iter()
-            .chain(&applicability.variables)
-            .try_for_each(parses);
+        return Ok(());
     }
     match (&expected.validity, expected.members.is_empty()) {
         (Some(validity), true) => {
@@ -73,13 +64,9 @@ fn expected_failure_shape(
                 }
                 _ => {}
             }
-            validity
-                .sets
-                .iter()
-                .chain(&validity.variables)
-                .try_for_each(parses)
+            Ok(())
         }
-        (None, false) => expected.members.iter().try_for_each(parses),
+        (None, false) => Ok(()),
         _ => Err(invalid(
             at,
             "an expected failure names exactly one lineage: validity(...) or members(...)",
@@ -329,25 +316,15 @@ impl CheckedPackage {
                 }
                 return Err(invalid(id, "preset target must be a definition"));
             }
-            let source = row
-                .value
-                .binding
-                .as_ref()
-                .and_then(|b| b.expression.as_deref())
-                .ok_or_else(|| invalid(id, "preset target missing"))?;
-            let name = match pse_authoring::language::parse_static(source)
-                .map_err(|e| invalid(id, e.to_string()))?
-            {
-                pse_authoring::language::StaticValue::Apply { name, .. } => name,
+            let target = match self.static_at(id, "binding.expression", 0)? {
+                pse_authoring::language::StaticValue::Apply { name, .. } => self.resolve(id, name),
                 pse_authoring::language::StaticValue::Expression(dsl::Expr {
                     kind: dsl::ExprKind::NamedCall { name, .. },
                     ..
-                }) => name,
+                }) => self.resolve_segments(id, &name.segments),
                 _ => return Err(invalid(id, "preset requires a definition application")),
             };
-            id = self
-                .resolve(id, &name)
-                .ok_or_else(|| invalid(id, "preset definition absent"))?;
+            id = target.ok_or_else(|| invalid(id, "preset definition absent"))?;
         }
     }
     /// A source member with one physical contract, without activating guards.
@@ -413,6 +390,115 @@ impl CheckedPackage {
             .then_some(first)
     }
 
+    /// Resolve lexical names, explicit imports, and names within the owning package.
+    pub(crate) fn declaration_path(&self, mut id: DeclarationId) -> dsl::Path {
+        let mut segments = Vec::new();
+        loop {
+            let row = &self.declarations[&id];
+            segments.push(dsl::PathSegment {
+                name: row.name.clone(),
+                indices: Vec::new(),
+            });
+            let Some(parent) = row.parent_id else {
+                break;
+            };
+            id = parent;
+        }
+        segments.reverse();
+        dsl::Path { segments }
+    }
+    /// Resolve decoded atomic segments without flattening quoted dots into member edges.
+    pub(crate) fn resolve_segments(
+        &self,
+        mut owner: DeclarationId,
+        segments: &[dsl::PathSegment],
+    ) -> Option<DeclarationId> {
+        let (first, tail) = segments.split_first()?;
+        if tail.is_empty()
+            && let Some(id) = first
+                .name
+                .strip_prefix("f_")
+                .and_then(|hex| SemanticId::parse_hex(hex).ok())
+                .map(DeclarationId::from)
+                .filter(|id| self.lowered_functions.contains(id))
+        {
+            return Some(id);
+        }
+        let selected = loop {
+            if self.functions.get(&owner).is_some_and(|function| {
+                function
+                    .arguments
+                    .iter()
+                    .any(|(name, _)| *name == first.name)
+            }) || self
+                .declarations
+                .get(&owner)
+                .and_then(|row| row.value.scope.as_ref())
+                .is_some_and(|scope| {
+                    scope
+                        .parameters
+                        .iter()
+                        .any(|parameter| parameter.name == first.name)
+                })
+            {
+                return None;
+            }
+            if let Some(id) = self
+                .children
+                .get(&owner)
+                .into_iter()
+                .flatten()
+                .find_map(|id| {
+                    let row = &self.declarations[id];
+                    row.value
+                        .import
+                        .as_ref()
+                        .filter(|import| import.alias.as_deref().unwrap_or(&row.name) == first.name)
+                        .and_then(|_| self.names.get(&row.name).copied())
+                })
+            {
+                break id;
+            }
+            if let Some(id) = self.declared_member(owner, &first.name).or_else(|| {
+                self.children
+                    .get(&owner)
+                    .and_then(|children| {
+                        children
+                            .iter()
+                            .find(|id| self.declarations[id].name == first.name)
+                    })
+                    .copied()
+            }) {
+                let row = &self.declarations[&id];
+                if let Some(import) = &row.value.import
+                    && import.alias.as_deref().unwrap_or(&row.name) == first.name
+                {
+                    break self.names.get(&row.name).copied()?;
+                }
+                break id;
+            }
+            let row = self.declarations.get(&owner)?;
+            if let Some(parent) = row.parent_id {
+                owner = parent;
+            } else if row.name == first.name {
+                break owner;
+            } else {
+                return None;
+            }
+        };
+        tail.iter().try_fold(selected, |owner, segment| {
+            self.declared_member(owner, &segment.name).or_else(|| {
+                self.children
+                    .get(&owner)
+                    .and_then(|children| {
+                        children
+                            .iter()
+                            .find(|id| self.declarations[id].name == segment.name)
+                    })
+                    .copied()
+            })
+        })
+    }
     /// Resolve lexical names, explicit imports, and names within the owning package.
     pub fn resolve(&self, mut owner: DeclarationId, name: &str) -> Option<DeclarationId> {
         if let Some(id) = name
@@ -576,7 +662,7 @@ fn check_declarations(
     documents: &dyn crate::document::Documents,
 ) -> Result<CheckedPackage> {
     let mut p = CheckedPackage {
-        expressions: crate::expression::occurrences::collect(rows)?,
+        expressions: crate::expression::occurrences::collect(rows, documents)?,
         selection_closures: BTreeMap::new(),
         physical_admissions: BTreeMap::new(),
         quantities: Arc::new(context.quantities.clone()),
@@ -787,14 +873,6 @@ fn check_declarations(
                         "a shooting fixture declares its method, the inner nodes of multiple shooting and schedules held free as its controls; only a shooting fixture holds a schedule free, with bounds",
                     ));
                 }
-                for expression in fixture.shooting.iter().flat_map(|s| &s.nodes).chain(
-                    schedules
-                        .iter()
-                        .flat_map(|s| s.lower.iter().chain(&s.upper)),
-                ) {
-                    dsl::parse_expr(expression)
-                        .map_err(|e| invalid(row.declaration_id, e.to_string()))?;
-                }
                 // ADR-0119 Outcome 3: modes and events belong to an integrated fixture; a
                 // mode's facts select `when` variants and stages, never the analysis route
                 // or an objective level; a terminal event neither resets nor changes mode.
@@ -827,14 +905,6 @@ fn check_declarations(
                         row.declaration_id,
                         "fixture modes need the integrated route, unique names and structural facts; each event names a declared successor or is terminal without resets",
                     ));
-                }
-                for expression in fixture.modes.iter().flat_map(|m| &m.events).flat_map(|e| {
-                    [&e.guard, &e.tolerance]
-                        .into_iter()
-                        .chain(e.reset.iter().flat_map(|r| [&r.target, &r.expression]))
-                }) {
-                    dsl::parse_expr(expression)
-                        .map_err(|e| invalid(row.declaration_id, e.to_string()))?;
                 }
                 if let Some(policy) = &fixture.initialization
                     && (!policy.initial_step.is_finite()
@@ -937,26 +1007,6 @@ fn check_declarations(
                             row.declaration_id,
                             "a scheduled input declares its change times and one value per interval",
                         ));
-                    }
-                    for expression in integration
-                        .samples
-                        .iter()
-                        .chain(std::iter::once(&integration.initial_step))
-                        .chain(
-                            integration
-                                .quadratures
-                                .iter()
-                                .map(|q| &q.absolute_tolerance),
-                        )
-                        .chain(
-                            integration
-                                .schedules
-                                .iter()
-                                .flat_map(|s| s.times.iter().chain(&s.values)),
-                        )
-                    {
-                        dsl::parse_expr(expression)
-                            .map_err(|e| invalid(row.declaration_id, e.to_string()))?;
                     }
                 }
             }
@@ -1393,7 +1443,7 @@ fn check_declarations(
             let body = v
                 .body
                 .as_ref()
-                .map(|b| p.expression(id, b).cloned())
+                .map(|_| p.expression_at(id, "function.body", 0).cloned())
                 .transpose()?;
             p.types.insert(
                 id,
@@ -1408,7 +1458,11 @@ fn check_declarations(
                     applicability: v
                         .applicability
                         .iter()
-                        .map(|e| p.expression(id, e).cloned())
+                        .enumerate()
+                        .map(|(position, _)| {
+                            p.expression_at(id, "function.applicability", position)
+                                .cloned()
+                        })
                         .collect::<Result<_>>()?,
                     applicability_uses: Vec::new(),
                     prerequisites: Vec::new(),
@@ -1418,7 +1472,7 @@ fn check_declarations(
                     validity: v
                         .validity
                         .as_ref()
-                        .map(|source| p.predicate(id, source).cloned())
+                        .map(|_| p.predicate_at(id, "function.validity", 0).cloned())
                         .transpose()?,
                     // Resolved once tables and kinds are admitted (`envelope::admit`).
                     envelopes: Vec::new(),
@@ -1426,7 +1480,13 @@ fn check_declarations(
                     external: v
                         .external
                         .as_ref()
-                        .map(|v| crate::external::External::check(v, id))
+                        .map(|v| {
+                            crate::external::External::check(
+                                v,
+                                id,
+                                p.expression_at(id, "function.external.output", 0)?,
+                            )
+                        })
                         .transpose()?,
                     continuity: v
                         .continuity
@@ -1703,7 +1763,7 @@ fn check_declarations(
                     _ => None,
                 };
                 if let Some(target) = name
-                    .and_then(|name| p.resolve(*id, name))
+                    .and_then(|name| p.resolve_segments(*id, &name.segments))
                     .and_then(|id| function_nodes.get(&id))
                 {
                     calls.add_edge(function_nodes[id], *target, ());
@@ -2087,7 +2147,13 @@ impl CheckedPackage {
                 texts.extend(v.relative_tolerance.as_deref());
             }
             for text in texts {
-                pending.extend(dependency_paths(self, id, text));
+                pending.extend(self.resolve(id, text));
+            }
+            for (key, occurrence) in self
+                .expression_occurrences()
+                .filter(|(key, _)| key.declaration == id)
+            {
+                pending.extend(dependency_syntax(self, key.declaration, &occurrence.syntax));
             }
             for set in sets {
                 pending.extend(self.resolve(id, &set.join(".")));
@@ -2121,7 +2187,7 @@ impl CheckedPackage {
             }
             if let Some(f) = self.functions.get(&id) {
                 if let Some(body) = &f.body {
-                    pending.extend(dependency_paths(self, id, &dsl::render_expr(body)));
+                    pending.extend(dependency_expression(self, id, body));
                 }
                 for (_, ty) in &f.arguments {
                     type_dependencies(ty, &mut pending);
@@ -2219,14 +2285,14 @@ fn cell_paths(cell: &pse_authoring::language::Cell) -> Vec<String> {
     }
 }
 
-pub(crate) fn dependency_paths(
+pub(crate) fn dependency_syntax(
     p: &CheckedPackage,
     owner: DeclarationId,
-    text: &str,
+    value: &crate::expression::occurrences::Syntax,
 ) -> BTreeSet<DeclarationId> {
     use pse_authoring::{
         dsl::{Equation, EquationKind, Expr, ExprKind},
-        language::{StaticValue, parse_static},
+        language::StaticValue,
     };
     fn path(
         p: &CheckedPackage,
@@ -2234,14 +2300,10 @@ pub(crate) fn dependency_paths(
         path: &dsl::Path,
         out: &mut BTreeSet<DeclarationId>,
     ) {
-        if let Some(id) = (1..=path.segments.len()).rev().find_map(|end| {
-            let prefix = path.segments[..end]
-                .iter()
-                .map(|segment| segment.name.as_str())
-                .collect::<Vec<_>>()
-                .join(".");
-            p.resolve(owner, &prefix)
-        }) {
+        if let Some(id) = (1..=path.segments.len())
+            .rev()
+            .find_map(|end| p.resolve_segments(owner, &path.segments[..end]))
+        {
             out.insert(id);
         }
     }
@@ -2268,14 +2330,10 @@ pub(crate) fn dependency_paths(
             _ => None,
         };
         if let Some(name) = name {
-            if let Some(id) = p.resolve(owner, name) {
+            if let Some(id) = p.resolve_segments(owner, &name.segments) {
                 out.insert(id);
             }
-            if let Ok(callee) = dsl::parse_expr(name) {
-                for value in callee.free_paths() {
-                    path(p, owner, value, out);
-                }
-            }
+            path(p, owner, name, out);
         }
     }
     fn predicate(
@@ -2348,19 +2406,34 @@ pub(crate) fn dependency_paths(
             }
         }
     }
+    use crate::expression::occurrences::Syntax;
     let mut out = BTreeSet::new();
-    if let Some(id) = p.resolve(owner, text) {
-        out.insert(id);
-    }
-    if let Ok(value) = parse_static(text) {
-        syntax(p, owner, &value, &mut out);
-    } else if let Ok(value) = dsl::parse_equation(text) {
-        equation(p, owner, &value, &mut out);
-    } else if let Ok(value) = dsl::parse_predicate(text) {
-        predicate(p, owner, &value, &mut out);
+    match value {
+        Syntax::Expression(value) => expression(p, owner, value, &mut out),
+        Syntax::Static(value) => syntax(p, owner, value, &mut out),
+        Syntax::Equation(value) => equation(p, owner, value, &mut out),
+        Syntax::Predicate(value) => predicate(p, owner, value, &mut out),
+        Syntax::Logic(value) => {
+            value.expressions(&mut |value| expression(p, owner, value, &mut out))
+        }
     }
     out
 }
+pub(crate) fn dependency_expression(
+    p: &CheckedPackage,
+    owner: DeclarationId,
+    value: &dsl::Expr,
+) -> BTreeSet<DeclarationId> {
+    crate::expression::source_paths(value)
+        .into_iter()
+        .filter_map(|path| {
+            (1..=path.segments.len())
+                .rev()
+                .find_map(|end| p.resolve_segments(owner, &path.segments[..end]))
+        })
+        .collect()
+}
+
 fn type_dependencies(ty: &Type, out: &mut Vec<DeclarationId>) {
     match ty {
         Type::Entity(id)

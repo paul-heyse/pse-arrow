@@ -18,6 +18,9 @@ class ReferenceAlgorithmArgumentsFieldConsumptionColumns:
 
     names: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.names),))
+
 
 @attrs.frozen(kw_only=True)
 class ReferenceAlgorithmArgumentsFieldConsumption:
@@ -25,6 +28,9 @@ class ReferenceAlgorithmArgumentsFieldConsumption:
 
     kind: e.InputConsumptionKind = attrs.field(validator=attrs.validators.instance_of(e.InputConsumptionKind))
     columns: ReferenceAlgorithmArgumentsFieldConsumptionColumns | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ReferenceAlgorithmArgumentsFieldConsumptionColumns)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.kind), v.optional_key(v.record_key)(self.columns),))
 
     def __attrs_post_init__(self) -> None:
         if not ((self.kind == "columns" and self.columns is not None) or (self.kind == "whole" and self.columns is None)):
@@ -42,6 +48,9 @@ class ReferenceAlgorithmArgumentsRow:
     required: b.bool = attrs.field(validator=v.exact_type(b.bool))
     consumption: ReferenceAlgorithmArgumentsFieldConsumption = attrs.field(validator=attrs.validators.instance_of(ReferenceAlgorithmArgumentsFieldConsumption))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.algorithm_id), v.scalar_key(self.port), v.scalar_key(self.relation_id), v.scalar_key(self.required), v.record_key(self.consumption),))
+
 
 @attrs.frozen(kw_only=True)
 class ReferenceAlgorithmResultsRow:
@@ -50,6 +59,9 @@ class ReferenceAlgorithmResultsRow:
     algorithm_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     port: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.algorithm_id), v.scalar_key(self.port), v.scalar_key(self.relation_id),))
 
 
 @attrs.frozen(kw_only=True)
@@ -65,6 +77,9 @@ class ReferenceAlgorithmSpecsRow:
     diagnostics: b.tuple[e.FailureClass, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(e.FailureClass), iterable_validator=attrs.validators.instance_of(b.tuple)))
     effects: b.tuple[e.OperationEffect, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(e.OperationEffect), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.algorithm_id), v.scalar_key(self.name), v.scalar_key(self.version), v.sequence_key(v.scalar_key)(self.preconditions), v.sequence_key(v.scalar_key)(self.postconditions), v.scalar_key(self.determinism), v.sequence_key(v.scalar_key)(self.diagnostics), v.sequence_key(v.scalar_key)(self.effects),))
+
 
 @attrs.frozen(kw_only=True)
 class ReferenceAliasesRow:
@@ -75,6 +90,9 @@ class ReferenceAliasesRow:
     old_qualified_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     deprecated_in: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.alias_id), v.scalar_key(self.entity_id), v.scalar_key(self.old_qualified_name), v.scalar_key(self.deprecated_in),))
+
 
 @attrs.frozen(kw_only=True)
 class ReferenceArtifactProfilesRow:
@@ -82,6 +100,9 @@ class ReferenceArtifactProfilesRow:
 
     kind: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     required_relations: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.kind), v.sequence_key(v.scalar_key)(self.required_relations),))
 
 
 @attrs.frozen(kw_only=True)
@@ -93,6 +114,9 @@ class ReferenceBasesRow:
     composition_basis: e.CompositionBasis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.CompositionBasis)))
     rate_basis: e.RateBasis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.RateBasis)))
     reference_conditions_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.basis_id), v.scalar_key(self.kind), v.optional_key(v.scalar_key)(self.composition_basis), v.optional_key(v.scalar_key)(self.rate_basis), v.optional_key(v.scalar_key)(self.reference_conditions_id),))
 
 
 @attrs.frozen(kw_only=True)
@@ -108,6 +132,9 @@ class ReferenceConversionRulesRow:
     scale: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     offset: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.conversion_id), v.scalar_key(self.from_quantity_type_id), v.scalar_key(self.to_quantity_type_id), v.scalar_key(self.kind), v.optional_key(v.scalar_key)(self.kernel_id), v.sequence_key(v.scalar_key)(self.required_parameters), v.optional_key(v.scalar_key)(self.scale), v.optional_key(v.scalar_key)(self.offset),))
+
 
 @attrs.frozen(kw_only=True)
 class ReferenceDimensionsRow:
@@ -116,6 +143,9 @@ class ReferenceDimensionsRow:
     ordinal: b.int = attrs.field(validator=v.integer_range(0, 65535))
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.ordinal), v.scalar_key(self.name),))
+
 
 @attrs.frozen(kw_only=True)
 class ReferenceEngineProfilesFieldSemanticSettingsItem:
@@ -123,6 +153,9 @@ class ReferenceEngineProfilesFieldSemanticSettingsItem:
 
     key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     value: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.value),))
 
 
 @attrs.frozen(kw_only=True)
@@ -138,6 +171,9 @@ class ReferenceEngineProfilesRow:
     semantic_settings: b.tuple[ReferenceEngineProfilesFieldSemanticSettingsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ReferenceEngineProfilesFieldSemanticSettingsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     setting_allow_list_version: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.engine_profile_id), v.scalar_key(self.datafusion_version), v.scalar_key(self.arrow_version), v.sequence_key(v.scalar_key)(self.analyzer_rules), v.sequence_key(v.scalar_key)(self.optimizer_rules), v.sequence_key(v.scalar_key)(self.physical_rules), v.sequence_key(v.record_key)(self.semantic_settings), v.scalar_key(self.setting_allow_list_version),))
+
 
 @attrs.frozen(kw_only=True)
 class ReferenceFunctionCapabilitiesRow:
@@ -145,6 +181,9 @@ class ReferenceFunctionCapabilitiesRow:
 
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     implementation: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.scalar_key(self.implementation),))
 
 
 @attrs.frozen(kw_only=True)
@@ -155,6 +194,9 @@ class ReferenceMathContextRow:
     neutral_quantity_type_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     boolean_kind_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.package_id), v.scalar_key(self.neutral_quantity_type_id), v.scalar_key(self.boolean_kind_id),))
+
 
 @attrs.frozen(kw_only=True)
 class ReferenceQuantityKindsFieldDefinitionMonomialItem:
@@ -163,6 +205,9 @@ class ReferenceQuantityKindsFieldDefinitionMonomialItem:
     quantity_kind_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     num: b.int = attrs.field(validator=v.integer_range(-32768, 32767))
     den: b.int = attrs.field(validator=v.integer_range(-32768, 32767))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.quantity_kind_id), v.scalar_key(self.num), v.scalar_key(self.den),))
 
 
 @attrs.frozen(kw_only=True)
@@ -175,6 +220,9 @@ class ReferenceQuantityKindsFieldDefinition:
     reference_state_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     scale_kind: e.ScaleKind = attrs.field(validator=attrs.validators.instance_of(e.ScaleKind))
     subject_kind: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.monomial), v.scalar_key(self.canonical_unit_id), v.optional_key(v.scalar_key)(self.basis_id), v.optional_key(v.scalar_key)(self.reference_state_id), v.scalar_key(self.scale_kind), v.optional_key(v.scalar_key)(self.subject_kind),))
 
 
 @attrs.frozen(kw_only=True)
@@ -190,6 +238,9 @@ class ReferenceQuantityKindsRow:
     definition: ReferenceQuantityKindsFieldDefinition | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ReferenceQuantityKindsFieldDefinition)))
     doc: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.quantity_kind_id), v.scalar_key(self.name), v.optional_key(v.sequence_key(v.record_key))(self.dimension), v.scalar_key(self.extensive), v.scalar_key(self.addition_kind), v.optional_key(v.scalar_key)(self.category), v.optional_key(v.record_key)(self.definition), v.scalar_key(self.doc),))
+
 
 @attrs.frozen(kw_only=True)
 class ReferenceQuantityOperationReductionsRow:
@@ -198,6 +249,9 @@ class ReferenceQuantityOperationReductionsRow:
     operation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     domain_kind: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.operation_id), v.scalar_key(self.domain_kind),))
+
 
 @attrs.frozen(kw_only=True)
 class ReferenceQuantityOperationsFieldInputConversionsItem:
@@ -205,6 +259,9 @@ class ReferenceQuantityOperationsFieldInputConversionsItem:
 
     operand: b.int = attrs.field(validator=v.integer_range(0, 65535))
     conversion_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.operand), v.scalar_key(self.conversion_id),))
 
 
 @attrs.frozen(kw_only=True)
@@ -231,6 +288,9 @@ class ReferenceQuantityOperationsRow:
     input_conversions: b.tuple[ReferenceQuantityOperationsFieldInputConversionsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ReferenceQuantityOperationsFieldInputConversionsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     precondition_invariant_ids: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.operation_id), v.scalar_key(self.opcode), v.sequence_key(v.scalar_key)(self.input_kind_ids), v.scalar_key(self.result_kind_id), v.scalar_key(self.basis_rule), v.scalar_key(self.reference_rule), v.scalar_key(self.scale_rule), v.scalar_key(self.shape_rule), v.optional_key(v.scalar_key)(self.basis_source), v.optional_key(v.scalar_key)(self.reference_source), v.optional_key(v.scalar_key)(self.scale_source), v.optional_key(v.scalar_key)(self.shape_source), v.scalar_key(self.subject_rule), v.optional_key(v.scalar_key)(self.subject_source), v.optional_key(v.scalar_key)(self.result_subject_kind), v.optional_key(v.scalar_key)(self.result_basis_id), v.optional_key(v.scalar_key)(self.result_reference_state_id), v.sequence_key(v.record_key)(self.input_conversions), v.sequence_key(v.scalar_key)(self.precondition_invariant_ids),))
+
 
 @attrs.frozen(kw_only=True)
 class ReferenceQuantityPreconditionsRow:
@@ -242,6 +302,9 @@ class ReferenceQuantityPreconditionsRow:
     required_basis_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     required_quantity_type_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     match_shape: b.bool | None = attrs.field(validator=attrs.validators.optional(v.exact_type(b.bool)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.invariant_id), v.scalar_key(self.kind), v.sequence_key(v.scalar_key)(self.operand_positions), v.optional_key(v.scalar_key)(self.required_basis_id), v.optional_key(v.scalar_key)(self.required_quantity_type_id), v.optional_key(v.scalar_key)(self.match_shape),))
 
 
 @attrs.frozen(kw_only=True)
@@ -260,6 +323,9 @@ class ReferenceQuantityTypesRow:
     nominal_magnitude: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     doc: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.quantity_type_id), v.optional_key(v.scalar_key)(self.name), v.scalar_key(self.quantity_kind_id), v.optional_key(v.scalar_key)(self.basis_id), v.optional_key(v.scalar_key)(self.reference_state_id), v.scalar_key(self.scale_kind), v.sequence_key(v.scalar_key)(self.shape), v.optional_key(v.scalar_key)(self.subject_kind), v.scalar_key(self.canonical_unit_id), v.optional_key(v.scalar_key)(self.nominal_magnitude), v.scalar_key(self.doc),))
+
 
 @attrs.frozen(kw_only=True)
 class ReferenceReferenceStatesRow:
@@ -273,6 +339,9 @@ class ReferenceReferenceStatesRow:
     include_enthalpy_of_formation: b.bool = attrs.field(validator=v.exact_type(b.bool))
     subject_id: i.DeclarationId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     doc: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.reference_state_id), v.scalar_key(self.name), v.scalar_key(self.kind), v.optional_key(v.record_key)(self.temperature), v.optional_key(v.record_key)(self.pressure), v.scalar_key(self.include_enthalpy_of_formation), v.optional_key(v.scalar_key)(self.subject_id), v.scalar_key(self.doc),))
 
 
 @attrs.frozen(kw_only=True)
@@ -292,6 +361,9 @@ class ReferenceSchemaColumnsRow:
     native_field: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     identity_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.relation_id), v.scalar_key(self.ordinal), v.scalar_key(self.name), v.scalar_key(self.logical_type_id), v.scalar_key(self.nullable), v.optional_key(v.scalar_key)(self.quantity_type_id), v.optional_key(v.scalar_key)(self.fk_relation_id), v.optional_key(v.scalar_key)(self.fk_column), v.scalar_key(self.role), v.scalar_key(self.doc), v.scalar_key(self.native_field), v.optional_key(v.scalar_key)(self.identity_id),))
+
 
 @attrs.frozen(kw_only=True)
 class ReferenceSchemaDocumentSectionsRow:
@@ -308,6 +380,9 @@ class ReferenceSchemaDocumentSectionsRow:
     naming_scope_column: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     doc: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_name), v.scalar_key(self.ordinal), v.scalar_key(self.key), v.scalar_key(self.relation_id), v.scalar_key(self.repeated), v.optional_key(v.scalar_key)(self.identity_column), v.optional_key(v.scalar_key)(self.entity_kind), v.optional_key(v.scalar_key)(self.name_column), v.optional_key(v.scalar_key)(self.naming_scope_column), v.scalar_key(self.doc),))
+
 
 @attrs.frozen(kw_only=True)
 class ReferenceSchemaDocumentsRow:
@@ -318,6 +393,9 @@ class ReferenceSchemaDocumentsRow:
     path_glob: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     doc: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_name), v.scalar_key(self.kind), v.scalar_key(self.path_glob), v.scalar_key(self.doc),))
+
 
 @attrs.frozen(kw_only=True)
 class ReferenceSchemaEnumTypesRow:
@@ -326,6 +404,9 @@ class ReferenceSchemaEnumTypesRow:
     enum_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     idaes_source: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.enum_id), v.scalar_key(self.name), v.optional_key(v.scalar_key)(self.idaes_source),))
 
 
 @attrs.frozen(kw_only=True)
@@ -339,6 +420,9 @@ class ReferenceSchemaEnumsRow:
     deprecated: b.bool = attrs.field(validator=v.exact_type(b.bool))
     doc: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.enum_id), v.scalar_key(self.member_ordinal), v.scalar_key(self.member), v.optional_key(v.scalar_key)(self.idaes_name), v.scalar_key(self.deprecated), v.scalar_key(self.doc),))
+
 
 @attrs.frozen(kw_only=True)
 class ReferenceSchemaIdentitiesRow:
@@ -350,6 +434,9 @@ class ReferenceSchemaIdentitiesRow:
     base_logical_type_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     owner_relation_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     owner_column: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.identity_id), v.scalar_key(self.name), v.scalar_key(self.doc), v.scalar_key(self.base_logical_type_id), v.optional_key(v.scalar_key)(self.owner_relation_id), v.optional_key(v.scalar_key)(self.owner_column),))
 
 
 @attrs.frozen(kw_only=True)
@@ -365,6 +452,9 @@ class ReferenceSchemaInvariantsRow:
     severity: e.Severity = attrs.field(validator=attrs.validators.instance_of(e.Severity))
     doc: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.invariant_id), v.scalar_key(self.relation_id), v.scalar_key(self.kind), v.scalar_key(self.query), v.sequence_key(v.scalar_key)(self.inputs), v.sequence_key(v.scalar_key)(self.key_columns), v.scalar_key(self.severity), v.scalar_key(self.doc),))
+
 
 @attrs.frozen(kw_only=True)
 class ReferenceSchemaLogicalTypesRow:
@@ -375,6 +465,9 @@ class ReferenceSchemaLogicalTypesRow:
     arrow_storage: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     extension_name: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     metadata_schema: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.logical_type_id), v.scalar_key(self.name), v.scalar_key(self.arrow_storage), v.optional_key(v.scalar_key)(self.extension_name), v.optional_key(v.scalar_key)(self.metadata_schema),))
 
 
 @attrs.frozen(kw_only=True)
@@ -387,6 +480,9 @@ class ReferenceSchemaMigrationsRow:
     plan_spec: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     doc: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.relation_id), v.scalar_key(self.from_version), v.scalar_key(self.to_version), v.scalar_key(self.plan_spec), v.scalar_key(self.doc),))
+
 
 @attrs.frozen(kw_only=True)
 class ReferenceSchemaRelationsFieldChecksItem:
@@ -394,6 +490,9 @@ class ReferenceSchemaRelationsFieldChecksItem:
 
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     sql: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.scalar_key(self.sql),))
 
 
 @attrs.frozen(kw_only=True)
@@ -403,6 +502,9 @@ class ReferenceSchemaRelationsFieldDeltaPropertiesItem:
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     value: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.scalar_key(self.value),))
+
 
 @attrs.frozen(kw_only=True)
 class ReferenceSchemaRelationsFieldUniqueKeysItem:
@@ -410,6 +512,9 @@ class ReferenceSchemaRelationsFieldUniqueKeysItem:
 
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     columns: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.sequence_key(v.scalar_key)(self.columns),))
 
 
 @attrs.frozen(kw_only=True)
@@ -420,6 +525,9 @@ class ReferenceSchemaRelationsFieldForeignKeysItem:
     columns: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
     target_relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     target_columns: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.sequence_key(v.scalar_key)(self.columns), v.scalar_key(self.target_relation_id), v.sequence_key(v.scalar_key)(self.target_columns),))
 
 
 @attrs.frozen(kw_only=True)
@@ -441,6 +549,9 @@ class ReferenceSchemaRelationsRow:
     unique_keys: b.tuple[ReferenceSchemaRelationsFieldUniqueKeysItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ReferenceSchemaRelationsFieldUniqueKeysItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     foreign_keys: b.tuple[ReferenceSchemaRelationsFieldForeignKeysItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ReferenceSchemaRelationsFieldForeignKeysItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.relation_id), v.scalar_key(self.namespace), v.scalar_key(self.name), v.scalar_key(self.version), v.scalar_key(self.authority), v.scalar_key(self.snapshot_class), v.sequence_key(v.scalar_key)(self.primary_key), v.optional_key(v.scalar_key)(self.derivation_granularity), v.scalar_key(self.stability), v.scalar_key(self.doc), v.sequence_key(v.record_key)(self.checks), v.sequence_key(v.record_key)(self.delta_properties), v.sequence_key(v.record_key)(self.unique_keys), v.sequence_key(v.record_key)(self.foreign_keys),))
+
 
 @attrs.frozen(kw_only=True)
 class ReferenceUnitSetsRow:
@@ -457,6 +568,9 @@ class ReferenceUnitSetsRow:
     luminous_intensity_unit_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     currency_unit_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.unit_set_id), v.scalar_key(self.name), v.scalar_key(self.time_unit_id), v.scalar_key(self.length_unit_id), v.scalar_key(self.mass_unit_id), v.scalar_key(self.amount_unit_id), v.scalar_key(self.temperature_unit_id), v.optional_key(v.scalar_key)(self.current_unit_id), v.optional_key(v.scalar_key)(self.luminous_intensity_unit_id), v.optional_key(v.scalar_key)(self.currency_unit_id),))
+
 
 @attrs.frozen(kw_only=True)
 class ReferenceUnitsFieldDefinitionItem:
@@ -465,6 +579,9 @@ class ReferenceUnitsFieldDefinitionItem:
     unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     num: b.int = attrs.field(validator=v.integer_range(-32768, 32767))
     den: b.int = attrs.field(validator=v.integer_range(-32768, 32767))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.unit_id), v.scalar_key(self.num), v.scalar_key(self.den),))
 
 
 @attrs.frozen(kw_only=True)
@@ -482,3 +599,6 @@ class ReferenceUnitsRow:
     definition: b.tuple[ReferenceUnitsFieldDefinitionItem, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ReferenceUnitsFieldDefinitionItem), iterable_validator=attrs.validators.instance_of(b.tuple))))
     system: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     doc: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.unit_id), v.scalar_key(self.symbol), v.scalar_key(self.name), v.optional_key(v.sequence_key(v.record_key))(self.dimension), v.optional_key(v.scalar_key)(self.scale_to_canonical), v.optional_key(v.scalar_key)(self.offset_to_canonical), v.optional_key(v.scalar_key)(self.is_affine), v.optional_key(v.scalar_key)(self.reference_state_id), v.optional_key(v.sequence_key(v.record_key))(self.definition), v.scalar_key(self.system), v.scalar_key(self.doc),))

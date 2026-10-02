@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Ordinary authored record selection, finite specialization and actual library execution.
 use crate::{
-    authored_transfer_tests::inputs,
+    authored_transfer_tests::context,
     workspace::{CompilerWorkspace, Profile, WorkspaceLimits},
 };
 use pse_authoring::{
@@ -47,7 +47,7 @@ fn point(extra: &str, body: &str) -> Result<crate::workspace::ModelingPointCheck
         .find(|r| r.name == "point")
         .unwrap()
         .declaration_id;
-    let mut workspace = CompilerWorkspace::new(inputs(), WorkspaceLimits::default()).unwrap();
+    let mut workspace = CompilerWorkspace::new(context(), WorkspaceLimits::default()).unwrap();
     workspace
         .publish_modeling(rows, PhysicalScope::default())
         .map_err(|e| e.to_string())?;

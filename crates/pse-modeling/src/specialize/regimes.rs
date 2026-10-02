@@ -54,13 +54,11 @@ impl Engine<'_, '_> {
         env: &Environment,
     ) -> Result<()> {
         if let Some(contract) = &scope.value.scope {
-            let parse_predicate = |s: &str| {
-                dsl::parse_predicate(s).map_err(|e| invalid(scope.declaration_id, e.to_string()))
-            };
-            if let Some(branch) = &contract.branch {
+            if contract.branch.is_some() {
                 let predicate = self.rewrite_predicate(
                     instance,
-                    &parse_predicate(branch)?,
+                    self.p
+                        .predicate_at(scope.declaration_id, "scope.branch", 0)?,
                     env,
                     &[scope.declaration_id],
                 )?;
@@ -76,11 +74,14 @@ impl Engine<'_, '_> {
                     ));
                 }
                 let mut anchors = BTreeMap::new();
-                for anchor in &operation.anchors {
+                for (position, _anchor) in operation.anchors.iter().enumerate() {
                     let target = self.rewrite(
                         instance,
-                        &dsl::parse_expr(&anchor.target)
-                            .map_err(|e| invalid(scope.declaration_id, e.to_string()))?,
+                        self.p.expression_at(
+                            scope.declaration_id,
+                            "scope.operational.anchors.target",
+                            position,
+                        )?,
                         env,
                         &[scope.declaration_id],
                     )?;
@@ -110,8 +111,11 @@ impl Engine<'_, '_> {
                     let id = symbol.id;
                     let expression = self.rewrite(
                         instance,
-                        &dsl::parse_expr(&anchor.expression)
-                            .map_err(|e| invalid(scope.declaration_id, e.to_string()))?,
+                        self.p.expression_at(
+                            scope.declaration_id,
+                            "scope.operational.anchors.expression",
+                            position,
+                        )?,
                         env,
                         &[scope.declaration_id],
                     )?;
@@ -125,10 +129,14 @@ impl Engine<'_, '_> {
                 let neighborhood = operation
                     .neighborhood
                     .as_ref()
-                    .map(|n| {
+                    .map(|_| {
                         self.rewrite_predicate(
                             instance,
-                            &parse_predicate(n)?,
+                            self.p.predicate_at(
+                                scope.declaration_id,
+                                "scope.operational.neighborhood",
+                                0,
+                            )?,
                             env,
                             &[scope.declaration_id],
                         )
@@ -157,7 +165,7 @@ impl Engine<'_, '_> {
         if rows.is_empty() && selection.is_none() {
             return Ok(());
         }
-        let Some(selection) = selection else {
+        let Some(_selection) = selection else {
             return Err(invalid(
                 scope.declaration_id,
                 "implicit alternatives require a selection criterion",
@@ -177,15 +185,15 @@ impl Engine<'_, '_> {
         }
         let criterion = self.rewrite(
             instance,
-            &dsl::parse_expr(&selection.criterion)
-                .map_err(|e| invalid(scope.declaration_id, e.to_string()))?,
+            self.p
+                .expression_at(scope.declaration_id, "scope.selection.criterion", 0)?,
             env,
             &[scope.declaration_id],
         )?;
         let tolerance = self.rewrite(
             instance,
-            &dsl::parse_expr(&selection.tolerance)
-                .map_err(|e| invalid(scope.declaration_id, e.to_string()))?,
+            self.p
+                .expression_at(scope.declaration_id, "scope.selection.tolerance", 0)?,
             env,
             &[scope.declaration_id],
         )?;
@@ -250,28 +258,29 @@ impl Engine<'_, '_> {
                 .value
                 .scope
                 .as_ref()
-                .and_then(|s| s.eligibility.as_deref())
-                .unwrap_or("true");
-            let eligibility = self.rewrite_predicate(
-                instance,
-                &dsl::parse_predicate(eligible).map_err(|e| invalid(at, e.to_string()))?,
-                env,
-                &[at],
-            )?;
+                .and_then(|s| s.eligibility.as_deref());
+            let predicate = eligible
+                .map(|_| self.p.predicate_at(at, "scope.eligibility", 0).cloned())
+                .transpose()?
+                .unwrap_or(dsl::Predicate {
+                    kind: dsl::PredicateKind::Bool(true),
+                    span: Span::default(),
+                });
+            let eligibility = self.rewrite_predicate(instance, &predicate, env, &[at])?;
             let mut equations = Vec::new();
             let annotation_start = self.model.annotations.len();
             for child in children {
                 let row = self.p.declarations[&child].clone();
                 if let Some(e) = &row.value.equation {
                     for coordinates in self.coordinates(
+                        instance,
                         child,
                         env,
                         e.indices
                             .iter()
                             .map(|i| (i.name.as_str(), i.domain.as_str())),
                     )? {
-                        let equation = dsl::parse_equation(&e.expression)
-                            .map_err(|e| invalid(child, e.to_string()))?;
+                        let equation = self.p.equation_at(child, "equation.expression", 0)?.clone();
                         let equation = self.rewrite_equation(
                             instance,
                             &equation,

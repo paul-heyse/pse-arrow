@@ -50,6 +50,8 @@ path = [
   "tests/fixtures/**",
   "tests/conformance/fixtures/**",
   "crates/pse-codegen/src/codegen/python/*.py.template",
+  "crates/pse-operations/migrations/*.sql",
+  "crates/pse-operations/test-fixtures/**/*.sql",
   "python/pse/contracts/GENERATED.sha256",
   "python/pse/contracts/documents/GENERATED.sha256",
   "crates/*/src/generated/**",

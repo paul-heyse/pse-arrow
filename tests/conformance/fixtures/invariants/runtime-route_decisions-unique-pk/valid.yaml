@@ -1,0 +1,23 @@
+{
+  "invariant": "runtime.route_decisions:unique:pk",
+  "rows": {
+    "runtime.route_decisions": [
+      {
+        "backend": "[\"enum\",\"ipopt\"]",
+        "classes": "[\"list\",[]]",
+        "detail": "[\"text\",\"value-1\"]",
+        "eligibility": "[\"list\",[]]",
+        "intent": "[\"enum\",\"optimize\"]",
+        "lexicographic": "[\"enum\",\"native\"]",
+        "refusal": "[\"enum\",\"invalid_request\"]",
+        "representation": "[\"enum\",\"nlp\"]",
+        "request_identity": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]",
+        "requested_backend": "[\"enum\",\"ipopt\"]",
+        "selected": "[\"enum\",\"constant\"]",
+        "selection": "[\"enum\",\"auto\"]",
+        "step": "[\"i64\",1]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

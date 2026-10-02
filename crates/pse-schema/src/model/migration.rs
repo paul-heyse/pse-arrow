@@ -312,28 +312,44 @@ mod mapping_unit {
         };
         assert!(
             mapping(vec![row(1, 2)])
-                .validate_fields(&[source.clone()], &[target.clone()], true)
+                .validate_fields(
+                    std::slice::from_ref(&source),
+                    std::slice::from_ref(&target),
+                    true
+                )
                 .is_ok()
         );
         assert!(
             mapping(vec![row(1, 2), row(1, 3)])
-                .validate_fields(&[source.clone()], &[target.clone()], false)
+                .validate_fields(
+                    std::slice::from_ref(&source),
+                    std::slice::from_ref(&target),
+                    false
+                )
                 .is_err()
         );
         assert!(
             mapping(vec![row(1, 2), row(3, 2)])
-                .validate_fields(&[source.clone()], &[target.clone()], true)
+                .validate_fields(
+                    std::slice::from_ref(&source),
+                    std::slice::from_ref(&target),
+                    true
+                )
                 .is_err()
         );
         assert!(
             mapping(vec![row(1, 2), row(3, 2)])
-                .validate_fields(&[source.clone()], &[target.clone()], false)
+                .validate_fields(
+                    std::slice::from_ref(&source),
+                    std::slice::from_ref(&target),
+                    false
+                )
                 .is_ok()
         );
         let wrong = Field::new("key", DataType::UInt64, false);
         assert!(
             mapping(vec![row(1, 2)])
-                .validate_fields(&[source.clone()], &[wrong], true)
+                .validate_fields(std::slice::from_ref(&source), &[wrong], true)
                 .is_err()
         );
         let nullable = source.clone().with_nullable(true);
@@ -360,7 +376,11 @@ mod mapping_unit {
         };
         assert!(
             identity
-                .validate_fields(&[field.clone()], &[field.clone()], true)
+                .validate_fields(
+                    std::slice::from_ref(&field),
+                    std::slice::from_ref(&field),
+                    true
+                )
                 .is_err()
         );
         assert!(

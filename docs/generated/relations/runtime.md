@@ -1213,7 +1213,7 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `attempt_id`.
 | `attempt_id` | `semantic_id` | false | `key` | — | — |
 | `run_id` | `semantic_id` | false | `payload` | — | — |
 | `kind` | `enum:AttemptKind` | false | `payload` | — | — |
-| `request_identity` | `content_hash` | false | `payload` | — | — |
+| `operational_job_identity` | `content_hash` | false | `payload` | — | — |
 | `preparation_identity` | `content_hash` | true | `payload` | — | — |
 | `state` | `enum:AttemptState` | false | `payload` | — | — |
 | `state_version` | `Int32` | false | `payload` | — | — |
@@ -1234,6 +1234,7 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `attempt_id`.
 | `updated_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
 | `started_at` | `Timestamp(µs, "UTC")` | true | `payload` | — | — |
 | `finished_at` | `Timestamp(µs, "UTC")` | true | `payload` | — | — |
+| `operational_job_frame` | `Utf8` | true | `payload` | — | — |
 
 Native row check `cancel_request_timed` (must be true):
 
@@ -2127,7 +2128,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id`.
 
 ## `parameter_intervals`
 
-Confidence intervals of a fit's free parameters (ADR-0118 item 8). A Wald end is the estimate ± z·σ with z the standard normal quantile of (1 + level)/2. A profile-likelihood end is the pinned value at which the signed root of twice the objective increase, √(2(f − f*)), reaches √χ²₁(level), found by an adaptive pin chain; with absolute deviations both use the same quantile, so they agree on a linear model. The validity of each method's intervals is in local_validity.
+Confidence intervals of a fit's free parameters (ADR-0118 item 8). A Wald end is the estimate ± z·σ with z the standard normal quantile of (1 + level)/2. A profile-likelihood end is the pinned value at which the signed root of twice the objective increase, √(2(f - f*)), reaches √χ²₁(level), found by an adaptive pin chain; with absolute deviations both use the same quantile, so they agree on a linear model. The validity of each method's intervals is in local_validity.
 
 Version: 1. Snapshot class: `derived`. Primary key: `run_id, parameter_id, method, end`.
 

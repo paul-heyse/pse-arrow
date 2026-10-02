@@ -62,7 +62,7 @@ pub(in crate::workflow) fn outcome_row(
             OperationRequest::Fit(_) => None,
             OperationRequest::Horizon(horizon) => Some(horizon.plant.case),
         },
-        binding_hash: point.binding_hash,
+        binding_hash: point.binding_hash.as_id(),
         state: outcome.lifecycle,
         attempt_id: latest.and_then(|attempt| attempt.attempt_id),
         attempt_state: latest.and_then(|attempt| attempt.lifecycle),
@@ -160,7 +160,8 @@ fn export<T: RelationRow + pse_model::HeapUsage>(
     )?;
     let pool = runtime.shared.pool();
     let cancel = pse_columnar::CancellationToken::new();
-    let mut columns = Collection::new(&runtime.registry, &pool, &cancel);
+    let validation = runtime.validation_context()?;
+    let mut columns = Collection::new(&runtime.registry, &pool, &cancel, &validation);
     columns.ensure::<T>().map_err(super::relation)?;
     for row in rows {
         columns.push(row).map_err(super::relation)?;

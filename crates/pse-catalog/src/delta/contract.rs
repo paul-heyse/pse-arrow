@@ -692,7 +692,7 @@ mod tests {
             datasource::{MemTable, provider_as_source},
             logical_expr::LogicalPlanBuilder,
         };
-        let registry = pse_engine::validation::registry().unwrap();
+        let registry = pse_schema::registry().unwrap();
         let state = datafusion::execution::session_state::SessionStateBuilder::new()
             .with_default_features()
             .build();
@@ -719,7 +719,7 @@ mod tests {
 
     #[test]
     fn all_registry_durable_checks_bind_to_their_actual_storage_fields() {
-        let registry = pse_engine::validation::registry().unwrap();
+        let registry = pse_schema::registry().unwrap();
         let state = datafusion::execution::session_state::SessionStateBuilder::new()
             .with_default_features()
             .build();

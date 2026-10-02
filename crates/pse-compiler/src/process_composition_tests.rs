@@ -6,7 +6,7 @@
     reason = "focused composition contract assertions"
 )]
 use crate::{
-    authored_transfer_tests::{inputs, reference_sources, root, rows},
+    authored_transfer_tests::{context, reference_sources, root, rows},
     workspace::{CompilerWorkspace, WorkspaceLimits},
 };
 use pse_modeling::{Bindings, Limits, PhysicalScope, specialize::root_instance};
@@ -41,7 +41,7 @@ fn indexed_process_composition_keeps_memoryless_units_algebraic() {
     );
     let declarations = rows(&text);
     let id = root(&declarations, "process_composition", "ThreeUnits");
-    let mut workspace = CompilerWorkspace::new(inputs(), WorkspaceLimits::default()).unwrap();
+    let mut workspace = CompilerWorkspace::new(context(), WorkspaceLimits::default()).unwrap();
     workspace
         .publish_modeling(declarations, PhysicalScope::default())
         .unwrap();
@@ -109,7 +109,7 @@ def Root {{child root:vessels.Vessel=vessels.Vessel(selected=bt_ideal.aromatics,
     );
     let declarations = rows(&source);
     let id = root(&declarations, "conserved_vessel", "Root");
-    let inputs = inputs();
+    let inputs = context();
     let quantities = inputs.quantities.clone();
     let mut workspace = CompilerWorkspace::new(inputs, WorkspaceLimits::default()).unwrap();
     workspace
@@ -311,7 +311,7 @@ entity kinds.port_set first {{}}entity kinds.port_set second {{}}
             &format!("Root_{basis}_stored"),
         )
     });
-    let mut workspace = CompilerWorkspace::new(inputs(), WorkspaceLimits::default()).unwrap();
+    let mut workspace = CompilerWorkspace::new(context(), WorkspaceLimits::default()).unwrap();
     workspace
         .publish_modeling(declarations, PhysicalScope::default())
         .unwrap();

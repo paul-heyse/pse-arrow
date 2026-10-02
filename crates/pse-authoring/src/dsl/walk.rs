@@ -115,12 +115,31 @@ fn walk_expr(expr: &Expr, visitor: &mut dyn FnMut(&Expr)) {
                 walk_expr(arg, visitor);
             }
         }
-        ExprKind::Kernel { args, .. } | ExprKind::NamedCall { args, .. } => {
+        ExprKind::NamedCall { name, args } => {
+            for segment in &name.segments {
+                for index in &segment.indices {
+                    walk_expr(index, visitor);
+                }
+            }
             for arg in args {
                 walk_expr(arg, visitor);
             }
         }
-        ExprKind::Partial { args, wrt, .. } => {
+        ExprKind::Kernel { args, .. } => {
+            for arg in args {
+                walk_expr(arg, visitor);
+            }
+        }
+        ExprKind::Partial {
+            function,
+            args,
+            wrt,
+        } => {
+            for segment in &function.segments {
+                for index in &segment.indices {
+                    walk_expr(index, visitor);
+                }
+            }
             for a in args {
                 walk_expr(a, visitor);
             }
@@ -210,12 +229,31 @@ fn strip_expr(expr: &mut Expr) {
                 strip_expr(arg);
             }
         }
-        ExprKind::Kernel { args, .. } | ExprKind::NamedCall { args, .. } => {
+        ExprKind::NamedCall { name, args } => {
+            for segment in &mut name.segments {
+                for index in &mut segment.indices {
+                    strip_expr(index);
+                }
+            }
             for arg in args {
                 strip_expr(arg);
             }
         }
-        ExprKind::Partial { args, wrt, .. } => {
+        ExprKind::Kernel { args, .. } => {
+            for arg in args {
+                strip_expr(arg);
+            }
+        }
+        ExprKind::Partial {
+            function,
+            args,
+            wrt,
+        } => {
+            for segment in &mut function.segments {
+                for index in &mut segment.indices {
+                    strip_expr(index);
+                }
+            }
             for a in args {
                 strip_expr(a);
             }
@@ -313,12 +351,23 @@ fn paths_expr<'a>(expr: &'a Expr, paths: &mut Vec<&'a Path>) {
                 paths_expr(arg, paths);
             }
         }
-        ExprKind::Kernel { args, .. } | ExprKind::NamedCall { args, .. } => {
+        ExprKind::NamedCall { name, args } => {
+            paths_path(name, paths);
             for arg in args {
                 paths_expr(arg, paths);
             }
         }
-        ExprKind::Partial { args, wrt, .. } => {
+        ExprKind::Kernel { args, .. } => {
+            for arg in args {
+                paths_expr(arg, paths);
+            }
+        }
+        ExprKind::Partial {
+            function,
+            args,
+            wrt,
+        } => {
+            paths_path(function, paths);
             for a in args {
                 paths_expr(a, paths);
             }
@@ -448,14 +497,31 @@ fn mutate_expr<E>(e: &mut Expr, f: &mut impl FnMut(&mut Expr) -> Result<(), E>) 
             mutate_expr(lhs, f)?;
             mutate_expr(rhs, f)?;
         }
-        ExprKind::Call { args, .. }
-        | ExprKind::NamedCall { args, .. }
-        | ExprKind::Kernel { args, .. } => {
+        ExprKind::NamedCall { name, args } => {
+            for segment in &mut name.segments {
+                for index in &mut segment.indices {
+                    mutate_expr(index, f)?;
+                }
+            }
+            for arg in args {
+                mutate_expr(arg, f)?;
+            }
+        }
+        ExprKind::Call { args, .. } | ExprKind::Kernel { args, .. } => {
             for a in args {
                 mutate_expr(a, f)?;
             }
         }
-        ExprKind::Partial { args, wrt, .. } => {
+        ExprKind::Partial {
+            function,
+            args,
+            wrt,
+        } => {
+            for segment in &mut function.segments {
+                for index in &mut segment.indices {
+                    mutate_expr(index, f)?;
+                }
+            }
             for a in args {
                 mutate_expr(a, f)?;
             }
@@ -508,7 +574,7 @@ fn mutate_expr<E>(e: &mut Expr, f: &mut impl FnMut(&mut Expr) -> Result<(), E>) 
 
 impl Expr {
     /// Paths that are free in this expression, respecting sequential local bindings.
-    /// Function names and partial argument selectors are separate name spaces.
+    /// Includes typed callee paths; partial argument selectors only contribute indices.
     pub fn free_paths(&self) -> Vec<&Path> {
         let mut output = Vec::new();
         free_expr(self, &std::collections::BTreeSet::new(), &mut output);
@@ -557,14 +623,23 @@ fn free_expr<'a>(e: &'a Expr, bound: &std::collections::BTreeSet<String>, out: &
             free_expr(lhs, bound, out);
             free_expr(rhs, bound, out);
         }
-        ExprKind::Call { args, .. }
-        | ExprKind::NamedCall { args, .. }
-        | ExprKind::Kernel { args, .. } => {
+        ExprKind::NamedCall { name, args } => {
+            free_path(name, bound, out);
+            for arg in args {
+                free_expr(arg, bound, out);
+            }
+        }
+        ExprKind::Call { args, .. } | ExprKind::Kernel { args, .. } => {
             for a in args {
                 free_expr(a, bound, out);
             }
         }
-        ExprKind::Partial { args, wrt, .. } => {
+        ExprKind::Partial {
+            function,
+            args,
+            wrt,
+        } => {
+            free_path(function, bound, out);
             for a in args {
                 free_expr(a, bound, out);
             }

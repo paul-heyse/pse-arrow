@@ -11,7 +11,7 @@ fn values(rows: &[Vec<u8>]) -> (ArrayRef, FieldRef) {
     // Exercise the declared IndexTuple field directly; no model relation is needed.
     let field = Arc::new(
         pse_schema::arrow::field_for(
-            crate::validation::registry().unwrap(),
+            pse_schema::registry().unwrap(),
             &pse_schema::model::FieldContract::payload(
                 "tuple",
                 pse_schema::model::FieldContract::extended(
@@ -105,7 +105,7 @@ fn typed_concat_rejects_unknown_semantics_and_budget_before_native_allocation() 
     // An ordinary List<SemanticId> instead establishes meaning on the child.
     let typed = Arc::new(
         pse_schema::arrow::field_for(
-            crate::validation::registry().unwrap(),
+            pse_schema::registry().unwrap(),
             &pse_schema::model::FieldContract::payload(
                 "ids",
                 pse_schema::model::FieldContract::list(pse_schema::model::FieldContract::id()),

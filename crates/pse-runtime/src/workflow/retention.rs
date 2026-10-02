@@ -135,9 +135,12 @@ impl Runtime {
                     .execute(cancel)
                     .await?;
             for batch in completed.batches() {
-                let view =
-                    maintenance_outcomes::View::try_from_batch_with_registry(&self.registry, batch)
-                        .map_err(super::relation)?;
+                let view = maintenance_outcomes::View::try_from_batch_with_registry(
+                    &self.registry,
+                    batch,
+                    session.validation_context()?.as_ref(),
+                )
+                .map_err(super::relation)?;
                 for index in 0..batch.num_rows() {
                     tables.push(view.row(index).map_err(super::relation)?);
                 }

@@ -34,8 +34,11 @@
 @id("29dd6a1a3e444acfbf14992087f9d32c") test closed_integrated oracle references.analytic_vessel_balance fixture {dof 0; route integrated; procedure integrate; integrate samples(1{s}) relative(1e-10) normalized_absolute(1e-12) step(1e-5{s}) quadrature_relative(1e-8) quadrature_absolute(root.accumulated_amount=1e-9{mol},root.accumulated_energy=1e-5{J});} {
 @id("acc3e6d3c317400483448efc47174372") permission selected_unknown_fit families(pcsaft_parameters.nonassociating,properties.predictive_rule) allow_unknown true allow_extrapolation false;
 @id("1ea989776648448da69fb9cfb9caa177") child root:vessels.Vessel=vessels.Vessel(selected=alkanes,law=pcsaft_data.potential,ideal_h=ideal_enthalpy,composition=fraction);
+@id("1a61683e159d47a89e7e863c6fc9f842") boundary expected_heat_boundary;
+@id("3c3583290d53456d8a7121dfcee5b34e") accumulate expected_heat_rate:Power boundary expected_heat_boundary accounting tolerance 0.001{W};
+@id("a282c5543c9646ef9830f318f07fb711") contribute expected_heat_rate role directed=transfer(root.heat,expected_heat_boundary,Into);
 @id("416b2018a4454df484169ed73291fccd") expect root.accumulated_amount==0{mol} tolerance 1e-6{mol};
-@id("d4fbb929ebca42e2b4b30c36bd6b8792") expect root.accumulated_energy==root.heat*1{s} tolerance 0.001{J};
+@id("d4fbb929ebca42e2b4b30c36bd6b8792") expect root.accumulated_energy==expected_heat_rate*1{s} tolerance 0.001{J};
 }
 @id("3bf1cbaf35734fba8b97994a915d8032") test closed_simultaneous oracle references.analytic_vessel_balance fixture {dof 0; route simultaneous; procedure solve; } {
 @id("7f92cf5cef1249f38e70cd15f7b2bcdb") permission selected_unknown_fit families(pcsaft_parameters.nonassociating,properties.predictive_rule) allow_unknown true allow_extrapolation false;

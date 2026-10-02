@@ -262,7 +262,7 @@ fn perturbations(
     path: &mut Vec<String>,
     out: &mut Vec<(String, serde_json::Value)>,
 ) {
-    const SPELLINGS: [&str; 18] = [
+    const SPELLINGS: [&str; 20] = [
         "auto",
         "forward",
         "adjoint",
@@ -281,6 +281,8 @@ fn perturbations(
         "algebraic_and_rates",
         "steady_states",
         "positive",
+        "fixed_horizon",
+        "declared_terminal_event",
     ];
     use serde_json::Value as V;
     let pointer = |path: &[String]| format!("/{}", path.join("/"));
@@ -337,6 +339,7 @@ fn dynamics_identity_covers_every_option_field() {
     let diffsol_only = ["initialization", "native", "diffsol"];
     let common = [
         "method",
+        "endpoint",
         "trial_failures",
         "numerics",
         "start",

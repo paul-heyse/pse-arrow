@@ -13,7 +13,6 @@ pub mod dynamics;
 pub mod execution;
 #[cfg(feature = "highs")]
 pub mod highs;
-pub mod identity;
 #[cfg(feature = "kinsol")]
 pub mod implicit;
 #[cfg(feature = "ipopt")]

@@ -276,7 +276,7 @@ fn declare_backend_methods(builder: &mut RegistryBuilder) {
             ),
             (
                 "l1_exact_penalty",
-                "The Thierry–Biegler ℓ1 exact penalty-barrier method (ADR-0109); explicit only, never selected automatically and never a retry.",
+                "The Thierry–Biegler ell-1 exact penalty-barrier method (ADR-0109); explicit only, never selected automatically and never a retry.",
             ),
         ],
     );

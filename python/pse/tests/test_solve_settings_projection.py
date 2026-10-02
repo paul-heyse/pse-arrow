@@ -370,7 +370,7 @@ def test_solve_settings_backend_projection(
     }
     (row,) = (
         runtime.prepare_conic(
-            request,
+            codec.decode_json(codec.encode_json(request), pse.ConicRequest),
             physical,
             pse.SolveSettings(
                 backend=NativeBackend.CLARABEL,
@@ -393,29 +393,29 @@ def test_route_and_eligibility_are_typed(
     cases: tuple[pse.ModelingPackage, dict[str, DeclarationId]],
 ) -> None:
     package, ids = cases
-    backends = {member.value for member in NativeBackend}
+    backends = set(NativeBackend)
     reasons = {member.value for member in NativeIneligibility}
     prepared = package.prepare_solve(ids["Lp"], pse.SolveSettings())
     assert prepared.route.backend == "highs"
     assert not prepared.route.constant
     rows = {row.backend: row for row in prepared.eligibility}
     assert set(rows) <= backends
-    assert rows["highs"].eligible
-    assert not rows["highs"].reasons
+    assert rows[NativeBackend.HIGHS].eligible
+    assert not rows[NativeBackend.HIGHS].reasons
     for row in rows.values():
         assert row.eligible == (not row.reasons)
         assert {reason.code for reason in row.reasons} <= reasons
     # Typed detail values: the problem classes the facts establish, by registry name.
-    (kinsol,) = [r for r in rows["kinsol"].reasons if r.code == "class"]
+    (kinsol,) = [r for r in rows[NativeBackend.KINSOL].reasons if r.code == "class"]
     assert "linear" in kinsol.problem_classes
     assert set(kinsol.problem_classes) <= {
         member.value for member in NativeProblemClass
     }
     assert kinsol.derivative_order is None
     assert kinsol.sign_bounds is None
-    (bounds,) = [r for r in rows["kinsol"].reasons if r.code == "bounds"]
+    (bounds,) = [r for r in rows[NativeBackend.KINSOL].reasons if r.code == "bounds"]
     assert bounds.sign_bounds is True
-    assert bounds.problem_classes == []
+    assert bounds.problem_classes == ()
 
     # Strategy routes are typed rows, one per initialization block, and attempts and
     # failures share one index space.
@@ -458,6 +458,9 @@ def test_route_and_eligibility_are_typed(
     assert limited.outcome_kind == NativeRunState.NATIVE
     failure = limited.failure()
     assert failure is not None
-    texts = {o.name: o.text for o in failure.observations}
-    assert texts["termination"] == "iteration_limit"
-    assert texts["qualification"] == "unqualified"
+    termination = failure.observations["termination"]
+    qualification = failure.observations["qualification"]
+    assert isinstance(termination, documents.ObservationText)
+    assert isinstance(qualification, documents.ObservationText)
+    assert termination.value == "iteration_limit"
+    assert qualification.value == "unqualified"

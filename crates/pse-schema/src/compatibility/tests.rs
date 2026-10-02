@@ -153,6 +153,60 @@ fn empty_contract_is_valid_only_with_empty_support() {
         Err(CompatibilityError::Malformed(_))
     ));
 }
+
+#[test]
+fn recorded_versions_remain_distinct_and_each_root_selects_its_exact_declaration() {
+    use crate::model::{Authority, FieldContract, Namespace, RelationDecl, SnapshotClass};
+    let mut builder = crate::RegistryBuilder::new();
+    for version in [1, 2] {
+        builder.declare_relation(
+            RelationDecl::new(
+                Namespace::Authored,
+                "versioned_values",
+                version,
+                Authority::Authored,
+                SnapshotClass::Model,
+                "Independently selectable relation versions.",
+            )
+            .pk(&["id"])
+            .foreign_key("self", &["id"], "authored.versioned_values", &["id"])
+            .columns(vec![
+                FieldContract::key(
+                    "id",
+                    FieldContract::native(arrow_schema::DataType::Int64),
+                    "Row key.",
+                )
+                .with_fk("authored.versioned_values", "id"),
+            ]),
+        );
+    }
+    let registry = builder.build().unwrap();
+    let roots = registry.relations().iter().map(|spec| spec.id).collect();
+    let source = recorded(SemanticContract::new(&registry, &roots).unwrap()).unwrap();
+    assert_eq!(source.contract().roots.len(), 2);
+    for spec in registry.relations() {
+        let independently_recorded =
+            recorded(SemanticContract::new(&registry, &[spec.id].into()).unwrap()).unwrap();
+        let selected = source.select_roots(&[spec.id].into()).unwrap();
+        assert_eq!(independently_recorded.contract(), selected.contract());
+        assert_eq!(selected.contract().relations.len(), 1);
+        assert_eq!(
+            selected.contract().relations[&spec.id]["foreign_keys"]["self"]["target"],
+            serde_json::json!(spec.id)
+        );
+        assert_eq!(
+            selected.contract().relations[&spec.id]["relation"],
+            serde_json::json!(spec.key.to_string())
+        );
+        let mut corrupt = selected.contract().clone();
+        corrupt.relations.get_mut(&spec.id).unwrap()["relation"] =
+            serde_json::json!("authored.versioned_values@3");
+        assert!(matches!(
+            recorded(corrupt),
+            Err(CompatibilityError::Malformed(_))
+        ));
+    }
+}
 #[test]
 fn missing_field_projection_is_only_the_declared_historical_descriptor_rule() {
     let registry = crate::registry().unwrap();

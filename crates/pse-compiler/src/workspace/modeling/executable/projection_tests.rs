@@ -28,7 +28,7 @@ fn projected(cells: usize) -> Arc<Projection> {
         .find(|r| r.name == "Root")
         .unwrap()
         .declaration_id;
-    let input = crate::workspace::tests::inputs();
+    let input = crate::authored_transfer_tests::context();
     let mut workspace = CompilerWorkspace::new(input, WorkspaceLimits::default()).unwrap();
     workspace
         .publish_modeling(rows, PhysicalScope::default())

@@ -149,7 +149,7 @@ impl ModelingPackage {
                     model
                         .compiled()
                         .admitted
-                        .case
+                        .case()
                         .variables()
                         .iter()
                         .map(|v| (v.port.id, (v.port.quantity, v.port.unit)))
@@ -157,7 +157,7 @@ impl ModelingPackage {
                             model
                                 .compiled()
                                 .admitted
-                                .case
+                                .case()
                                 .parameters()
                                 .iter()
                                 .map(|p| (p.id, (p.quantity, p.unit))),
@@ -173,7 +173,7 @@ impl ModelingPackage {
                             .model()
                             .compiled()
                             .admitted
-                            .case
+                            .case()
                             .rows()
                             .iter()
                             .find(|r| r.id == *id)
@@ -182,7 +182,7 @@ impl ModelingPackage {
                                 .model()
                                 .compiled()
                                 .admitted
-                                .case
+                                .case()
                                 .rows()
                                 .iter()
                                 .find(|r| r.id == *id)

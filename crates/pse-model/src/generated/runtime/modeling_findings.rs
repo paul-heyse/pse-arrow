@@ -779,27 +779,27 @@ pub struct RuntimeModelingFindingsRow {
     pub r#run_id: crate::generated::identities::RunId,
     ///ordinal
     pub r#ordinal: i64,
-    ///
+    ///code
     pub r#code: crate::generated::enums::DiagnosticCode,
-    ///
+    ///class
     pub r#class: crate::generated::enums::NativeBoundaryClass,
-    ///
+    ///severity
     pub r#severity: crate::generated::enums::DiagnosticSeverity,
-    ///
+    ///stage
     pub r#stage: crate::generated::enums::DiagnosticStage,
-    ///
+    ///rule
     pub r#rule: crate::generated::enums::DiagnosticRule,
-    ///
+    ///sources
     pub r#sources: Vec<pse_ids::SemanticId>,
-    ///
+    ///observations
     pub r#observations: Vec<RuntimeModelingFindingsFieldObservationsItem>,
-    ///
+    ///locations
     pub r#locations: Vec<RuntimeModelingFindingsFieldLocationsItem>,
-    ///
+    ///validity
     pub r#validity: Option<RuntimeModelingFindingsFieldValidity>,
-    ///
+    ///applicability
     pub r#applicability: Vec<RuntimeModelingFindingsFieldApplicabilityItem>,
-    ///
+    ///causes
     pub r#causes: Vec<RuntimeModelingFindingsFieldCausesItem>,
 }
 impl crate::SemanticEq for RuntimeModelingFindingsRow {

@@ -23,6 +23,9 @@ class AuthoredDocumentsRow:
     source_text: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     content: b.bytes | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.bytes)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_id), v.scalar_key(self.package_id), v.scalar_key(self.path), v.optional_key(v.scalar_key)(self.source_text), v.optional_key(v.scalar_key)(self.content),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredEntitiesRow:
@@ -36,6 +39,9 @@ class AuthoredEntitiesRow:
     parent_entity_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     source_span: v.SourceSpan | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SourceSpan)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.entity_id), v.scalar_key(self.package_id), v.scalar_key(self.kind), v.scalar_key(self.name), v.scalar_key(self.qualified_name), v.optional_key(v.scalar_key)(self.parent_entity_id), v.optional_key(v.record_key)(self.source_span),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredFitCasesFieldParametersItem:
@@ -48,6 +54,9 @@ class AuthoredFitCasesFieldParametersItem:
     upper: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     scale: b.float = attrs.field(validator=v.finite_float)
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.symbol_id), v.scalar_key(self.fixed), v.scalar_key(self.value), v.optional_key(v.scalar_key)(self.lower), v.optional_key(v.scalar_key)(self.upper), v.scalar_key(self.scale),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredFitCasesFieldExperimentsItemBindingsItem:
@@ -55,6 +64,9 @@ class AuthoredFitCasesFieldExperimentsItemBindingsItem:
 
     parameter_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     path: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.parameter_id), v.scalar_key(self.path),))
 
 
 @attrs.frozen(kw_only=True)
@@ -65,6 +77,9 @@ class AuthoredFitCasesFieldExperimentsItem:
     case_id: i.DeclarationId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     route: e.ModelingAnalysisRoute = attrs.field(validator=attrs.validators.instance_of(e.ModelingAnalysisRoute))
     bindings: b.tuple[AuthoredFitCasesFieldExperimentsItemBindingsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredFitCasesFieldExperimentsItemBindingsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.experiment_id), v.scalar_key(self.case_id), v.scalar_key(self.route), v.sequence_key(v.record_key)(self.bindings),))
 
 
 @attrs.frozen(kw_only=True)
@@ -82,6 +97,9 @@ class AuthoredFitCasesFieldObservationsItem:
     included: b.bool = attrs.field(validator=v.exact_type(b.bool))
     importance: b.float = attrs.field(validator=v.finite_float)
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.observation_id), v.scalar_key(self.value_attribute), v.optional_key(v.scalar_key)(self.standard_deviation_attribute), v.scalar_key(self.experiment_id), v.scalar_key(self.output_path), v.optional_key(v.scalar_key)(self.time), v.optional_key(v.scalar_key)(self.time_basis), v.optional_key(v.scalar_key)(self.time_unit_id), v.scalar_key(self.included), v.scalar_key(self.importance),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredFitCasesRow:
@@ -92,6 +110,9 @@ class AuthoredFitCasesRow:
     experiments: b.tuple[AuthoredFitCasesFieldExperimentsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredFitCasesFieldExperimentsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     observations: b.tuple[AuthoredFitCasesFieldObservationsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredFitCasesFieldObservationsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.fit_id), v.sequence_key(v.record_key)(self.parameters), v.sequence_key(v.record_key)(self.experiments), v.sequence_key(v.record_key)(self.observations),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueTemporal:
@@ -101,6 +122,9 @@ class AuthoredModelingDeclarationsFieldValueTemporal:
     axis: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     argument: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.target), v.scalar_key(self.axis), v.scalar_key(self.argument),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueRelaxation:
@@ -108,6 +132,9 @@ class AuthoredModelingDeclarationsFieldValueRelaxation:
 
     target: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     nominal: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.target), v.scalar_key(self.nominal),))
 
 
 @attrs.frozen(kw_only=True)
@@ -118,6 +145,9 @@ class AuthoredModelingDeclarationsFieldValueContinuation:
     start: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     end: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.target), v.scalar_key(self.start), v.scalar_key(self.end),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueScopeParametersItem:
@@ -127,6 +157,9 @@ class AuthoredModelingDeclarationsFieldValueScopeParametersItem:
     type: b.tuple[s.ModelingTypeArenaNode, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.ModelingTypeArenaNode), iterable_validator=attrs.validators.instance_of(b.tuple)))
     default_value: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.sequence_key(v.record_key)(self.type), v.optional_key(v.scalar_key)(self.default_value),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueScopeSelection:
@@ -135,6 +168,9 @@ class AuthoredModelingDeclarationsFieldValueScopeSelection:
     criterion: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     tolerance: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.criterion), v.scalar_key(self.tolerance),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueScopeOperationalAnchorsItem:
@@ -142,6 +178,9 @@ class AuthoredModelingDeclarationsFieldValueScopeOperationalAnchorsItem:
 
     target: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     expression: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.target), v.scalar_key(self.expression),))
 
 
 @attrs.frozen(kw_only=True)
@@ -152,6 +191,9 @@ class AuthoredModelingDeclarationsFieldValueScopeOperational:
     settings: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     neighborhood: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.anchors), v.scalar_key(self.settings), v.optional_key(v.scalar_key)(self.neighborhood),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueScopeFixtureEndpoint:
@@ -160,6 +202,9 @@ class AuthoredModelingDeclarationsFieldValueScopeFixtureEndpoint:
     kind: e.EndpointPolicy = attrs.field(validator=attrs.validators.instance_of(e.EndpointPolicy))
     event: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.kind), v.optional_key(v.scalar_key)(self.event),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueScopeFixturePolicyNativeOptionsItem:
@@ -167,6 +212,9 @@ class AuthoredModelingDeclarationsFieldValueScopeFixturePolicyNativeOptionsItem:
 
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     value: s.ModelingCell = attrs.field(validator=attrs.validators.instance_of(s.ModelingCell))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.record_key(self.value),))
 
 
 @attrs.frozen(kw_only=True)
@@ -184,6 +232,9 @@ class AuthoredModelingDeclarationsFieldValueScopeFixturePolicy:
     body_slots: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
     foreign_bytes: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.backend), v.optional_key(v.scalar_key)(self.presolve), v.sequence_key(v.record_key)(self.native_options), v.optional_key(v.scalar_key)(self.derivative_step), v.optional_key(v.scalar_key)(self.derivative_tolerance), v.optional_key(v.scalar_key)(self.derivative_cells), v.optional_key(v.scalar_key)(self.items), v.optional_key(v.scalar_key)(self.body_occurrences), v.optional_key(v.scalar_key)(self.body_slots), v.optional_key(v.scalar_key)(self.foreign_bytes),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueScopeFixtureInitialization:
@@ -196,6 +247,9 @@ class AuthoredModelingDeclarationsFieldValueScopeFixtureInitialization:
     maximum_attempts: b.int = attrs.field(validator=v.integer_range(0, 100000))
     time_limit_seconds: b.float = attrs.field(validator=v.finite_float)
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.homotopy), v.scalar_key(self.initial_step), v.scalar_key(self.minimum_step), v.scalar_key(self.growth), v.scalar_key(self.maximum_attempts), v.scalar_key(self.time_limit_seconds),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationQuadraturesItem:
@@ -203,6 +257,9 @@ class AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationQuadraturesIt
 
     target: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     absolute_tolerance: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.target), v.scalar_key(self.absolute_tolerance),))
 
 
 @attrs.frozen(kw_only=True)
@@ -215,6 +272,9 @@ class AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItem
     free: b.bool = attrs.field(validator=v.exact_type(b.bool))
     lower: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     upper: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.target), v.sequence_key(v.scalar_key)(self.times), v.sequence_key(v.scalar_key)(self.values), v.scalar_key(self.free), v.optional_key(v.scalar_key)(self.lower), v.optional_key(v.scalar_key)(self.upper),))
 
 
 @attrs.frozen(kw_only=True)
@@ -229,6 +289,9 @@ class AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration:
     quadratures: b.tuple[AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationQuadraturesItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationQuadraturesItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     schedules: b.tuple[AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.samples), v.scalar_key(self.relative_tolerance), v.scalar_key(self.normalized_absolute_tolerance), v.scalar_key(self.initial_step), v.optional_key(v.scalar_key)(self.quadrature_relative_tolerance), v.sequence_key(v.record_key)(self.quadratures), v.sequence_key(v.record_key)(self.schedules),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemFactsItem:
@@ -238,6 +301,9 @@ class AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemFactsItem:
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     value: b.bool = attrs.field(validator=v.exact_type(b.bool))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.namespace), v.scalar_key(self.name), v.scalar_key(self.value),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItemResetItem:
@@ -245,6 +311,9 @@ class AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItemReset
 
     target: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     expression: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.target), v.scalar_key(self.expression),))
 
 
 @attrs.frozen(kw_only=True)
@@ -257,6 +326,9 @@ class AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItem:
     reset: b.tuple[AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItemResetItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItemResetItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     next: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.guard), v.scalar_key(self.direction), v.scalar_key(self.tolerance), v.sequence_key(v.record_key)(self.reset), v.optional_key(v.scalar_key)(self.next),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueScopeFixtureModesItem:
@@ -266,6 +338,9 @@ class AuthoredModelingDeclarationsFieldValueScopeFixtureModesItem:
     facts: b.tuple[AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemFactsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemFactsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     events: b.tuple[AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.sequence_key(v.record_key)(self.facts), v.sequence_key(v.record_key)(self.events),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueScopeFixtureShooting:
@@ -273,6 +348,9 @@ class AuthoredModelingDeclarationsFieldValueScopeFixtureShooting:
 
     method: e.ShootingMethod = attrs.field(validator=attrs.validators.instance_of(e.ShootingMethod))
     nodes: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.method), v.sequence_key(v.scalar_key)(self.nodes),))
 
 
 @attrs.frozen(kw_only=True)
@@ -283,6 +361,9 @@ class AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureValidity:
     form: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     sets: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
     variables: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.layer), v.optional_key(v.scalar_key)(self.form), v.sequence_key(v.scalar_key)(self.sets), v.sequence_key(v.scalar_key)(self.variables),))
 
 
 @attrs.frozen(kw_only=True)
@@ -296,6 +377,9 @@ class AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureApplicabi
     sets: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
     variables: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.layer), v.scalar_key(self.outcome), v.scalar_key(self.claim), v.scalar_key(self.form), v.sequence_key(v.scalar_key)(self.sets), v.sequence_key(v.scalar_key)(self.variables),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailure:
@@ -306,6 +390,9 @@ class AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailure:
     applicability: AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureApplicability | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureApplicability)))
     members: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.class_), v.optional_key(v.record_key)(self.validity), v.optional_key(v.record_key)(self.applicability), v.sequence_key(v.scalar_key)(self.members),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueScopeFixtureDiagnosticsItem:
@@ -313,6 +400,9 @@ class AuthoredModelingDeclarationsFieldValueScopeFixtureDiagnosticsItem:
 
     rule: e.DiagnosticRule = attrs.field(validator=attrs.validators.instance_of(e.DiagnosticRule))
     members: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.rule), v.sequence_key(v.scalar_key)(self.members),))
 
 
 @attrs.frozen(kw_only=True)
@@ -322,6 +412,9 @@ class AuthoredModelingDeclarationsFieldValueScopeFixtureSpecificationsItem:
     target: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     kind: e.ModelingFixtureBinding = attrs.field(validator=attrs.validators.instance_of(e.ModelingFixtureBinding))
     expression: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.target), v.scalar_key(self.kind), v.optional_key(v.scalar_key)(self.expression),))
 
 
 @attrs.frozen(kw_only=True)
@@ -343,6 +436,9 @@ class AuthoredModelingDeclarationsFieldValueScopeFixture:
     diagnostics: b.tuple[AuthoredModelingDeclarationsFieldValueScopeFixtureDiagnosticsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueScopeFixtureDiagnosticsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     specifications: b.tuple[AuthoredModelingDeclarationsFieldValueScopeFixtureSpecificationsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueScopeFixtureSpecificationsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.degrees_of_freedom), v.optional_key(v.scalar_key)(self.route), v.optional_key(v.scalar_key)(self.procedure), v.optional_key(v.record_key)(self.endpoint), v.optional_key(v.scalar_key)(self.intent), v.optional_key(v.record_key)(self.policy), v.sequence_key(v.scalar_key)(self.stages), v.optional_key(v.record_key)(self.initialization), v.optional_key(v.record_key)(self.integration), v.sequence_key(v.record_key)(self.modes), v.optional_key(v.record_key)(self.shooting), v.optional_key(v.record_key)(self.expected_failure), v.sequence_key(v.record_key)(self.diagnostics), v.sequence_key(v.record_key)(self.specifications),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueScope:
@@ -359,6 +455,9 @@ class AuthoredModelingDeclarationsFieldValueScope:
     facets: b.tuple[e.ModelingKindFacet, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(e.ModelingKindFacet), iterable_validator=attrs.validators.instance_of(b.tuple)))
     fixture: AuthoredModelingDeclarationsFieldValueScopeFixture | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueScopeFixture)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.parameters), v.sequence_key(v.scalar_key)(self.bases), v.sequence_key(v.scalar_key)(self.type_parameters), v.optional_key(v.record_key)(self.selection), v.optional_key(v.scalar_key)(self.branch), v.optional_key(v.record_key)(self.operational), v.optional_key(v.scalar_key)(self.eligibility), v.optional_key(v.sequence_key(v.scalar_key))(self.oracle), v.sequence_key(v.scalar_key)(self.facets), v.optional_key(v.record_key)(self.fixture),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueBindingIndicesItem:
@@ -366,6 +465,9 @@ class AuthoredModelingDeclarationsFieldValueBindingIndicesItem:
 
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     domain: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.scalar_key(self.domain),))
 
 
 @attrs.frozen(kw_only=True)
@@ -378,6 +480,9 @@ class AuthoredModelingDeclarationsFieldValueBinding:
     defined_by: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     domain: e.ModelingVariableDomain | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.ModelingVariableDomain)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.sequence_key(v.record_key))(self.type), v.sequence_key(v.record_key)(self.indices), v.optional_key(v.scalar_key)(self.expression), v.optional_key(v.scalar_key)(self.defined_by), v.optional_key(v.scalar_key)(self.domain),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueFunctionArgumentsItem:
@@ -386,6 +491,9 @@ class AuthoredModelingDeclarationsFieldValueFunctionArgumentsItem:
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     type: b.tuple[s.ModelingTypeArenaNode, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.ModelingTypeArenaNode), iterable_validator=attrs.validators.instance_of(b.tuple)))
     default_value: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.sequence_key(v.record_key)(self.type), v.optional_key(v.scalar_key)(self.default_value),))
 
 
 @attrs.frozen(kw_only=True)
@@ -399,6 +507,9 @@ class AuthoredModelingDeclarationsFieldValueFunctionExternal:
     derivative_source: e.ExternalDerivativeSource = attrs.field(validator=attrs.validators.instance_of(e.ExternalDerivativeSource))
     derivatives: b.int = attrs.field(validator=v.integer_range(0, 2))
     smoothness: b.int = attrs.field(validator=v.integer_range(0, 2))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.implementation), v.scalar_key(self.revision), v.scalar_key(self.data), v.scalar_key(self.output), v.scalar_key(self.derivative_source), v.scalar_key(self.derivatives), v.scalar_key(self.smoothness),))
 
 
 @attrs.frozen(kw_only=True)
@@ -415,6 +526,9 @@ class AuthoredModelingDeclarationsFieldValueFunction:
     continuity: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 2)))
     external: AuthoredModelingDeclarationsFieldValueFunctionExternal | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueFunctionExternal)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.type_parameters), v.sequence_key(v.record_key)(self.arguments), v.sequence_key(v.record_key)(self.return_type), v.optional_key(v.scalar_key)(self.body), v.optional_key(v.scalar_key)(self.validity), v.sequence_key(v.record_key)(self.guards), v.sequence_key(v.scalar_key)(self.applicability), v.optional_key(v.scalar_key)(self.continuity), v.optional_key(v.record_key)(self.external),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueCoordinateMapArgumentsItem:
@@ -424,6 +538,9 @@ class AuthoredModelingDeclarationsFieldValueCoordinateMapArgumentsItem:
     type: b.tuple[s.ModelingTypeArenaNode, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.ModelingTypeArenaNode), iterable_validator=attrs.validators.instance_of(b.tuple)))
     default_value: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.sequence_key(v.record_key)(self.type), v.optional_key(v.scalar_key)(self.default_value),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueCoordinateMap:
@@ -431,6 +548,9 @@ class AuthoredModelingDeclarationsFieldValueCoordinateMap:
 
     arguments: b.tuple[AuthoredModelingDeclarationsFieldValueCoordinateMapArgumentsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueCoordinateMapArgumentsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     validity: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.arguments), v.optional_key(v.scalar_key)(self.validity),))
 
 
 @attrs.frozen(kw_only=True)
@@ -440,6 +560,9 @@ class AuthoredModelingDeclarationsFieldValueCoordinateSlotIndicesItem:
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     domain: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.scalar_key(self.domain),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueCoordinateSlot:
@@ -447,6 +570,9 @@ class AuthoredModelingDeclarationsFieldValueCoordinateSlot:
 
     indices: b.tuple[AuthoredModelingDeclarationsFieldValueCoordinateSlotIndicesItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueCoordinateSlotIndicesItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     expression: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.indices), v.scalar_key(self.expression),))
 
 
 @attrs.frozen(kw_only=True)
@@ -456,6 +582,9 @@ class AuthoredModelingDeclarationsFieldValueReconstructionArgumentsItem:
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     type: b.tuple[s.ModelingTypeArenaNode, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.ModelingTypeArenaNode), iterable_validator=attrs.validators.instance_of(b.tuple)))
     default_value: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.sequence_key(v.record_key)(self.type), v.optional_key(v.scalar_key)(self.default_value),))
 
 
 @attrs.frozen(kw_only=True)
@@ -468,6 +597,9 @@ class AuthoredModelingDeclarationsFieldValueReconstruction:
     reference: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     normalization: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.map), v.sequence_key(v.record_key)(self.arguments), v.sequence_key(v.record_key)(self.return_type), v.scalar_key(self.reference), v.scalar_key(self.normalization),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueResponseArgumentsItem:
@@ -476,6 +608,9 @@ class AuthoredModelingDeclarationsFieldValueResponseArgumentsItem:
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     type: b.tuple[s.ModelingTypeArenaNode, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.ModelingTypeArenaNode), iterable_validator=attrs.validators.instance_of(b.tuple)))
     default_value: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.sequence_key(v.record_key)(self.type), v.optional_key(v.scalar_key)(self.default_value),))
 
 
 @attrs.frozen(kw_only=True)
@@ -487,6 +622,9 @@ class AuthoredModelingDeclarationsFieldValueResponse:
     return_type: b.tuple[s.ModelingTypeArenaNode, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.ModelingTypeArenaNode), iterable_validator=attrs.validators.instance_of(b.tuple)))
     body: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.witness), v.sequence_key(v.record_key)(self.arguments), v.sequence_key(v.record_key)(self.return_type), v.scalar_key(self.body),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueReferenceTranslationArgumentsItem:
@@ -495,6 +633,9 @@ class AuthoredModelingDeclarationsFieldValueReferenceTranslationArgumentsItem:
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     type: b.tuple[s.ModelingTypeArenaNode, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.ModelingTypeArenaNode), iterable_validator=attrs.validators.instance_of(b.tuple)))
     default_value: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.sequence_key(v.record_key)(self.type), v.optional_key(v.scalar_key)(self.default_value),))
 
 
 @attrs.frozen(kw_only=True)
@@ -509,6 +650,9 @@ class AuthoredModelingDeclarationsFieldValueReferenceTranslation:
     pressure: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     provenance: s.ModelingProvenance = attrs.field(validator=attrs.validators.instance_of(s.ModelingProvenance))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.arguments), v.sequence_key(v.record_key)(self.return_type), v.scalar_key(self.source_anchor), v.scalar_key(self.target_anchor), v.scalar_key(self.temperature), v.scalar_key(self.pressure), v.record_key(self.provenance),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueBoundaryIndicesItem:
@@ -517,12 +661,18 @@ class AuthoredModelingDeclarationsFieldValueBoundaryIndicesItem:
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     domain: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.scalar_key(self.domain),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueBoundary:
     """Declared relation row or nested value."""
 
     indices: b.tuple[AuthoredModelingDeclarationsFieldValueBoundaryIndicesItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueBoundaryIndicesItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.indices),))
 
 
 @attrs.frozen(kw_only=True)
@@ -531,6 +681,9 @@ class AuthoredModelingDeclarationsFieldValueExchangeIndicesItem:
 
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     domain: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.scalar_key(self.domain),))
 
 
 @attrs.frozen(kw_only=True)
@@ -541,6 +694,9 @@ class AuthoredModelingDeclarationsFieldValueExchange:
     from_: b.str = attrs.field(validator=attrs.validators.instance_of(b.str), metadata={v.FIELD_NAME_METADATA: "from"})
     to: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.indices), v.scalar_key(self.from_), v.scalar_key(self.to),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueEquationIndicesItem:
@@ -549,6 +705,9 @@ class AuthoredModelingDeclarationsFieldValueEquationIndicesItem:
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     domain: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.scalar_key(self.domain),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueEquationCondition:
@@ -556,6 +715,9 @@ class AuthoredModelingDeclarationsFieldValueEquationCondition:
 
     variable: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     active: b.bool = attrs.field(validator=v.exact_type(b.bool))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.variable), v.scalar_key(self.active),))
 
 
 @attrs.frozen(kw_only=True)
@@ -566,6 +728,9 @@ class AuthoredModelingDeclarationsFieldValueEquation:
     expression: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     condition: AuthoredModelingDeclarationsFieldValueEquationCondition | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueEquationCondition)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.indices), v.scalar_key(self.expression), v.optional_key(v.record_key)(self.condition),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueOrderedSetIndicesItem:
@@ -573,6 +738,9 @@ class AuthoredModelingDeclarationsFieldValueOrderedSetIndicesItem:
 
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     domain: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.scalar_key(self.domain),))
 
 
 @attrs.frozen(kw_only=True)
@@ -583,6 +751,9 @@ class AuthoredModelingDeclarationsFieldValueOrderedSet:
     member: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     weight: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.indices), v.scalar_key(self.member), v.scalar_key(self.weight),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueCardinalityIndicesItem:
@@ -590,6 +761,9 @@ class AuthoredModelingDeclarationsFieldValueCardinalityIndicesItem:
 
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     domain: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.scalar_key(self.domain),))
 
 
 @attrs.frozen(kw_only=True)
@@ -600,6 +774,9 @@ class AuthoredModelingDeclarationsFieldValueCardinality:
     count: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     member: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.indices), v.scalar_key(self.count), v.scalar_key(self.member),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValuePiecewiseIndicesItem:
@@ -607,6 +784,9 @@ class AuthoredModelingDeclarationsFieldValuePiecewiseIndicesItem:
 
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     domain: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.scalar_key(self.domain),))
 
 
 @attrs.frozen(kw_only=True)
@@ -619,6 +799,9 @@ class AuthoredModelingDeclarationsFieldValuePiecewise:
     abscissa: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     ordinate: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.indices), v.scalar_key(self.output), v.scalar_key(self.input), v.scalar_key(self.abscissa), v.scalar_key(self.ordinate),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueLogicIndicesItem:
@@ -626,6 +809,9 @@ class AuthoredModelingDeclarationsFieldValueLogicIndicesItem:
 
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     domain: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.scalar_key(self.domain),))
 
 
 @attrs.frozen(kw_only=True)
@@ -635,6 +821,9 @@ class AuthoredModelingDeclarationsFieldValueLogic:
     indices: b.tuple[AuthoredModelingDeclarationsFieldValueLogicIndicesItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueLogicIndicesItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     proposition: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.indices), v.scalar_key(self.proposition),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueComplementarityIndicesItem:
@@ -642,6 +831,9 @@ class AuthoredModelingDeclarationsFieldValueComplementarityIndicesItem:
 
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     domain: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.scalar_key(self.domain),))
 
 
 @attrs.frozen(kw_only=True)
@@ -652,6 +844,9 @@ class AuthoredModelingDeclarationsFieldValueComplementarity:
     first: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     second: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.indices), v.scalar_key(self.first), v.scalar_key(self.second),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueTableKeysItem:
@@ -661,6 +856,9 @@ class AuthoredModelingDeclarationsFieldValueTableKeysItem:
     type: b.tuple[s.ModelingTypeArenaNode, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.ModelingTypeArenaNode), iterable_validator=attrs.validators.instance_of(b.tuple)))
     range: s.ModelingIntegerRange | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(s.ModelingIntegerRange)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.sequence_key(v.record_key)(self.type), v.optional_key(v.record_key)(self.range),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueTableColumnsItem:
@@ -669,6 +867,9 @@ class AuthoredModelingDeclarationsFieldValueTableColumnsItem:
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     type: b.tuple[s.ModelingTypeArenaNode, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.ModelingTypeArenaNode), iterable_validator=attrs.validators.instance_of(b.tuple)))
     derived: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.sequence_key(v.record_key)(self.type), v.optional_key(v.scalar_key)(self.derived),))
 
 
 @attrs.frozen(kw_only=True)
@@ -680,12 +881,18 @@ class AuthoredModelingDeclarationsFieldValueTableSymmetry:
     ordered: b.bool = attrs.field(validator=v.exact_type(b.bool))
     diagonal: e.ModelingDiagonalPolicy = attrs.field(validator=attrs.validators.instance_of(e.ModelingDiagonalPolicy))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.first), v.scalar_key(self.second), v.scalar_key(self.ordered), v.scalar_key(self.diagonal),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueTableUniqueItem:
     """Declared relation row or nested value."""
 
     names: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.names),))
 
 
 @attrs.frozen(kw_only=True)
@@ -704,6 +911,9 @@ class AuthoredModelingDeclarationsFieldValueTable:
     envelopes: b.tuple[s.ModelingEnvelope, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.ModelingEnvelope), iterable_validator=attrs.validators.instance_of(b.tuple)))
     storage: b.tuple[s.ModelingColumnStorage, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.ModelingColumnStorage), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.keys), v.sequence_key(v.record_key)(self.columns), v.optional_key(v.sequence_key(v.record_key))(self.value_type), v.scalar_key(self.missing_policy), v.optional_key(v.record_key)(self.default_value), v.sequence_key(v.record_key)(self.complete_over), v.optional_key(v.record_key)(self.symmetry), v.sequence_key(v.record_key)(self.unique), v.sequence_key(v.scalar_key)(self.requirements), v.sequence_key(v.record_key)(self.envelopes), v.sequence_key(v.record_key)(self.storage),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueApplicabilityArgumentsItem:
@@ -712,6 +922,9 @@ class AuthoredModelingDeclarationsFieldValueApplicabilityArgumentsItem:
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     type: b.tuple[s.ModelingTypeArenaNode, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.ModelingTypeArenaNode), iterable_validator=attrs.validators.instance_of(b.tuple)))
     default_value: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.sequence_key(v.record_key)(self.type), v.optional_key(v.scalar_key)(self.default_value),))
 
 
 @attrs.frozen(kw_only=True)
@@ -732,6 +945,9 @@ class AuthoredModelingDeclarationsFieldValueApplicability:
     alternatives: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
     dependencies: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.arguments), v.scalar_key(self.owner), v.scalar_key(self.scope), v.scalar_key(self.evidence), v.scalar_key(self.claim_kind), v.optional_key(v.scalar_key)(self.basis), v.optional_key(v.scalar_key)(self.predicate), v.optional_key(v.scalar_key)(self.reason), v.optional_key(v.scalar_key)(self.axis), v.optional_key(v.scalar_key)(self.lower), v.optional_key(v.scalar_key)(self.upper), v.sequence_key(v.scalar_key)(self.alternatives), v.sequence_key(v.scalar_key)(self.dependencies),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValuePermission:
@@ -742,6 +958,9 @@ class AuthoredModelingDeclarationsFieldValuePermission:
     allow_unknown: b.bool = attrs.field(validator=v.exact_type(b.bool))
     allow_extrapolation: b.bool = attrs.field(validator=v.exact_type(b.bool))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.target_kind), v.sequence_key(v.scalar_key)(self.targets), v.scalar_key(self.allow_unknown), v.scalar_key(self.allow_extrapolation),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueEnvelope:
@@ -750,6 +969,9 @@ class AuthoredModelingDeclarationsFieldValueEnvelope:
     type: b.tuple[s.ModelingTypeArenaNode, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.ModelingTypeArenaNode), iterable_validator=attrs.validators.instance_of(b.tuple)))
     lower: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     upper: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.type), v.scalar_key(self.lower), v.scalar_key(self.upper),))
 
 
 @attrs.frozen(kw_only=True)
@@ -763,6 +985,9 @@ class AuthoredModelingDeclarationsFieldValueAttribute:
     derived: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     storage: b.tuple[s.ModelingColumnStorage, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.ModelingColumnStorage), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.sequence_key(v.record_key))(self.type), v.scalar_key(self.key), v.optional_key(v.record_key)(self.value), v.scalar_key(self.unique), v.optional_key(v.scalar_key)(self.derived), v.sequence_key(v.record_key)(self.storage),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueDatasetBindingsItem:
@@ -771,6 +996,9 @@ class AuthoredModelingDeclarationsFieldValueDatasetBindingsItem:
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     value: s.ModelingCell = attrs.field(validator=attrs.validators.instance_of(s.ModelingCell))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.record_key(self.value),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueDatasetRowsItem:
@@ -778,6 +1006,9 @@ class AuthoredModelingDeclarationsFieldValueDatasetRowsItem:
 
     keys: b.tuple[s.ModelingCell, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.ModelingCell), iterable_validator=attrs.validators.instance_of(b.tuple)))
     values: b.tuple[s.ModelingCell, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.ModelingCell), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.keys), v.sequence_key(v.record_key)(self.values),))
 
 
 @attrs.frozen(kw_only=True)
@@ -791,6 +1022,9 @@ class AuthoredModelingDeclarationsFieldValueDataset:
     rows: b.tuple[AuthoredModelingDeclarationsFieldValueDatasetRowsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueDatasetRowsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     document: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.target), v.record_key(self.provenance), v.sequence_key(v.record_key)(self.bindings), v.sequence_key(v.record_key)(self.complete_over), v.sequence_key(v.record_key)(self.rows), v.optional_key(v.scalar_key)(self.document),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueEntityAttributesItem:
@@ -799,6 +1033,9 @@ class AuthoredModelingDeclarationsFieldValueEntityAttributesItem:
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     value: s.ModelingCell = attrs.field(validator=attrs.validators.instance_of(s.ModelingCell))
     provenance: s.ModelingProvenance | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(s.ModelingProvenance)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.record_key(self.value), v.optional_key(v.record_key)(self.provenance),))
 
 
 @attrs.frozen(kw_only=True)
@@ -809,6 +1046,9 @@ class AuthoredModelingDeclarationsFieldValueEntity:
     provenance: s.ModelingProvenance | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(s.ModelingProvenance)))
     attributes: b.tuple[AuthoredModelingDeclarationsFieldValueEntityAttributesItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueEntityAttributesItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.kind_name), v.optional_key(v.record_key)(self.provenance), v.sequence_key(v.record_key)(self.attributes),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueEnumerationMembersItem:
@@ -818,12 +1058,18 @@ class AuthoredModelingDeclarationsFieldValueEnumerationMembersItem:
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     facets: b.tuple[e.ModelingDataFacet, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(e.ModelingDataFacet), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.member_id), v.scalar_key(self.name), v.sequence_key(v.scalar_key)(self.facets),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueEnumeration:
     """Declared relation row or nested value."""
 
     members: b.tuple[AuthoredModelingDeclarationsFieldValueEnumerationMembersItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueEnumerationMembersItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.members),))
 
 
 @attrs.frozen(kw_only=True)
@@ -834,6 +1080,9 @@ class AuthoredModelingDeclarationsFieldValueConstant:
     value: s.ModelingCell = attrs.field(validator=attrs.validators.instance_of(s.ModelingCell))
     provenance: s.ModelingProvenance = attrs.field(validator=attrs.validators.instance_of(s.ModelingProvenance))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.type), v.record_key(self.value), v.record_key(self.provenance),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueImport:
@@ -842,12 +1091,18 @@ class AuthoredModelingDeclarationsFieldValueImport:
     version: s.VersionRequirement = attrs.field(validator=attrs.validators.instance_of(s.VersionRequirement))
     alias: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.version), v.optional_key(v.scalar_key)(self.alias),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueGuard:
     """Declared relation row or nested value."""
 
     predicate: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.predicate),))
 
 
 @attrs.frozen(kw_only=True)
@@ -856,6 +1111,9 @@ class AuthoredModelingDeclarationsFieldValueAccumulatorIndicesItem:
 
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     domain: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.scalar_key(self.domain),))
 
 
 @attrs.frozen(kw_only=True)
@@ -868,6 +1126,9 @@ class AuthoredModelingDeclarationsFieldValueAccumulator:
     mode: e.ModelingAccumulatorMode = attrs.field(validator=attrs.validators.instance_of(e.ModelingAccumulatorMode))
     tolerance: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.indices), v.sequence_key(v.record_key)(self.type), v.optional_key(v.scalar_key)(self.boundary), v.scalar_key(self.mode), v.scalar_key(self.tolerance),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueContributionIndicesItem:
@@ -875,6 +1136,9 @@ class AuthoredModelingDeclarationsFieldValueContributionIndicesItem:
 
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     domain: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.scalar_key(self.domain),))
 
 
 @attrs.frozen(kw_only=True)
@@ -886,6 +1150,9 @@ class AuthoredModelingDeclarationsFieldValueContribution:
     expression: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     role: e.ModelingContributionRole = attrs.field(validator=attrs.validators.instance_of(e.ModelingContributionRole))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.indices), v.scalar_key(self.target), v.scalar_key(self.expression), v.scalar_key(self.role),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueStateSpecificationIndicesItem:
@@ -894,6 +1161,9 @@ class AuthoredModelingDeclarationsFieldValueStateSpecificationIndicesItem:
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     domain: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.scalar_key(self.domain),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItemIndicesItem:
@@ -901,6 +1171,9 @@ class AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItemInd
 
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     domain: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.scalar_key(self.domain),))
 
 
 @attrs.frozen(kw_only=True)
@@ -911,6 +1184,9 @@ class AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItem:
     indices: b.tuple[AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItemIndicesItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItemIndicesItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     target: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.sequence_key(v.record_key)(self.indices), v.scalar_key(self.target),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItemIndicesItem:
@@ -918,6 +1194,9 @@ class AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsIte
 
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     domain: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.scalar_key(self.domain),))
 
 
 @attrs.frozen(kw_only=True)
@@ -929,6 +1208,9 @@ class AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsIte
     equation: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     tolerance: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.sequence_key(v.record_key)(self.indices), v.scalar_key(self.equation), v.scalar_key(self.tolerance),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItemIndicesItem:
@@ -936,6 +1218,9 @@ class AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItemIndi
 
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     domain: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.scalar_key(self.domain),))
 
 
 @attrs.frozen(kw_only=True)
@@ -946,6 +1231,9 @@ class AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItem:
     indices: b.tuple[AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItemIndicesItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItemIndicesItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     expression: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     tolerance: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.sequence_key(v.record_key)(self.indices), v.scalar_key(self.expression), v.scalar_key(self.tolerance),))
 
 
 @attrs.frozen(kw_only=True)
@@ -959,6 +1247,9 @@ class AuthoredModelingDeclarationsFieldValueStateSpecification:
     reconstructions: b.tuple[AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     transports: b.tuple[AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.indices), v.optional_key(v.scalar_key)(self.extends), v.scalar_key(self.supplied), v.sequence_key(v.record_key)(self.coordinates), v.sequence_key(v.record_key)(self.reconstructions), v.sequence_key(v.record_key)(self.transports),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueStatePortIndicesItem:
@@ -966,6 +1257,9 @@ class AuthoredModelingDeclarationsFieldValueStatePortIndicesItem:
 
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     domain: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.scalar_key(self.domain),))
 
 
 @attrs.frozen(kw_only=True)
@@ -975,6 +1269,9 @@ class AuthoredModelingDeclarationsFieldValueStatePort:
     indices: b.tuple[AuthoredModelingDeclarationsFieldValueStatePortIndicesItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueStatePortIndicesItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     specification: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.indices), v.scalar_key(self.specification),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueInventoryBalanceIndicesItem:
@@ -983,6 +1280,9 @@ class AuthoredModelingDeclarationsFieldValueInventoryBalanceIndicesItem:
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     domain: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.scalar_key(self.domain),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueInventoryBalanceTransfersItem:
@@ -990,6 +1290,9 @@ class AuthoredModelingDeclarationsFieldValueInventoryBalanceTransfersItem:
 
     event: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     expression: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.event), v.scalar_key(self.expression),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1004,6 +1307,9 @@ class AuthoredModelingDeclarationsFieldValueInventoryBalance:
     tolerance: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     transfers: b.tuple[AuthoredModelingDeclarationsFieldValueInventoryBalanceTransfersItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueInventoryBalanceTransfersItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.indices), v.sequence_key(v.record_key)(self.type), v.scalar_key(self.axis), v.scalar_key(self.inventory), v.scalar_key(self.flux), v.scalar_key(self.tolerance), v.sequence_key(v.record_key)(self.transfers),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueConnectionIndicesItem:
@@ -1011,6 +1317,9 @@ class AuthoredModelingDeclarationsFieldValueConnectionIndicesItem:
 
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     domain: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.scalar_key(self.domain),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1021,6 +1330,9 @@ class AuthoredModelingDeclarationsFieldValueConnection:
     from_: b.str = attrs.field(validator=attrs.validators.instance_of(b.str), metadata={v.FIELD_NAME_METADATA: "from"})
     to: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.indices), v.scalar_key(self.from_), v.scalar_key(self.to),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueAnnotationConnectivity:
@@ -1028,6 +1340,9 @@ class AuthoredModelingDeclarationsFieldValueAnnotationConnectivity:
 
     incoming: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 4294967295)))
     outgoing: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 4294967295)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.incoming), v.optional_key(v.scalar_key)(self.outgoing),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1041,6 +1356,9 @@ class AuthoredModelingDeclarationsFieldValueAnnotationObjective:
     absolute_tolerance: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     relative_tolerance: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.sense), v.optional_key(v.scalar_key)(self.priority), v.optional_key(v.scalar_key)(self.weight), v.optional_key(v.scalar_key)(self.normalization), v.optional_key(v.scalar_key)(self.absolute_tolerance), v.optional_key(v.scalar_key)(self.relative_tolerance),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueAnnotation:
@@ -1053,6 +1371,9 @@ class AuthoredModelingDeclarationsFieldValueAnnotation:
     connectivity: AuthoredModelingDeclarationsFieldValueAnnotationConnectivity | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueAnnotationConnectivity)))
     objective: AuthoredModelingDeclarationsFieldValueAnnotationObjective | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueAnnotationObjective)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.kind), v.scalar_key(self.target), v.sequence_key(v.scalar_key)(self.arguments), v.optional_key(v.scalar_key)(self.scheme), v.optional_key(v.record_key)(self.connectivity), v.optional_key(v.record_key)(self.objective),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueRequirement:
@@ -1060,6 +1381,9 @@ class AuthoredModelingDeclarationsFieldValueRequirement:
 
     predicate: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     message: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.predicate), v.scalar_key(self.message),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1071,6 +1395,9 @@ class AuthoredModelingDeclarationsFieldValueExpectation:
     tolerance: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     relative_tolerance: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.actual), v.scalar_key(self.expected), v.scalar_key(self.tolerance), v.optional_key(v.scalar_key)(self.relative_tolerance),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueContinuous:
@@ -1079,6 +1406,9 @@ class AuthoredModelingDeclarationsFieldValueContinuous:
     type: b.tuple[s.ModelingTypeArenaNode, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.ModelingTypeArenaNode), iterable_validator=attrs.validators.instance_of(b.tuple)))
     lower: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     upper: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.type), v.scalar_key(self.lower), v.scalar_key(self.upper),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1090,6 +1420,9 @@ class AuthoredModelingDeclarationsFieldValueDifferenceScheme:
     weights: b.tuple[b.float, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.finite_float, iterable_validator=attrs.validators.instance_of(b.tuple)))
     quadrature: b.tuple[b.float, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.finite_float, iterable_validator=attrs.validators.instance_of(b.tuple)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.order), v.sequence_key(v.scalar_key)(self.offsets), v.sequence_key(v.scalar_key)(self.weights), v.sequence_key(v.scalar_key)(self.quadrature),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueCollocationScheme:
@@ -1098,6 +1431,9 @@ class AuthoredModelingDeclarationsFieldValueCollocationScheme:
     alpha: b.float = attrs.field(validator=v.finite_float)
     beta: b.float = attrs.field(validator=v.finite_float)
     right_endpoint: b.bool = attrs.field(validator=v.exact_type(b.bool))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.alpha), v.scalar_key(self.beta), v.scalar_key(self.right_endpoint),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1109,6 +1445,9 @@ class AuthoredModelingDeclarationsFieldValueDiscretization:
     elements: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     order: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.target), v.scalar_key(self.scheme), v.scalar_key(self.elements), v.scalar_key(self.order),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueRealization:
@@ -1119,6 +1458,9 @@ class AuthoredModelingDeclarationsFieldValueRealization:
     accelerator: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     argument: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     function: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.target), v.scalar_key(self.policy), v.optional_key(v.scalar_key)(self.accelerator), v.optional_key(v.scalar_key)(self.argument), v.optional_key(v.scalar_key)(self.function),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1171,6 +1513,9 @@ class AuthoredModelingDeclarationsFieldValue:
     discretization: AuthoredModelingDeclarationsFieldValueDiscretization | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueDiscretization)))
     realization: AuthoredModelingDeclarationsFieldValueRealization | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueRealization)))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.kind), v.optional_key(v.record_key)(self.temporal), v.optional_key(v.record_key)(self.relaxation), v.optional_key(v.record_key)(self.continuation), v.optional_key(v.record_key)(self.scope), v.optional_key(v.record_key)(self.binding), v.optional_key(v.record_key)(self.function), v.optional_key(v.record_key)(self.coordinate_map), v.optional_key(v.record_key)(self.coordinate_slot), v.optional_key(v.record_key)(self.reconstruction), v.optional_key(v.record_key)(self.response), v.optional_key(v.record_key)(self.reference_translation), v.optional_key(v.record_key)(self.boundary), v.optional_key(v.record_key)(self.exchange), v.optional_key(v.record_key)(self.equation), v.optional_key(v.record_key)(self.ordered_set), v.optional_key(v.record_key)(self.cardinality), v.optional_key(v.record_key)(self.piecewise), v.optional_key(v.record_key)(self.logic), v.optional_key(v.record_key)(self.complementarity), v.optional_key(v.record_key)(self.table), v.optional_key(v.record_key)(self.applicability), v.optional_key(v.record_key)(self.permission), v.optional_key(v.record_key)(self.envelope), v.optional_key(v.record_key)(self.attribute), v.optional_key(v.record_key)(self.dataset), v.optional_key(v.record_key)(self.entity), v.optional_key(v.record_key)(self.enumeration), v.optional_key(v.record_key)(self.constant), v.optional_key(v.record_key)(self.import_), v.optional_key(v.record_key)(self.guard), v.optional_key(v.record_key)(self.accumulator), v.optional_key(v.record_key)(self.contribution), v.optional_key(v.record_key)(self.state_specification), v.optional_key(v.record_key)(self.state_port), v.optional_key(v.record_key)(self.inventory_balance), v.optional_key(v.record_key)(self.connection), v.optional_key(v.record_key)(self.annotation), v.optional_key(v.record_key)(self.requirement), v.optional_key(v.record_key)(self.expectation), v.optional_key(v.record_key)(self.continuous), v.optional_key(v.record_key)(self.difference_scheme), v.optional_key(v.record_key)(self.collocation_scheme), v.optional_key(v.record_key)(self.discretization), v.optional_key(v.record_key)(self.realization),))
+
     def __attrs_post_init__(self) -> None:
         if not ((self.kind == "accumulator" and self.accumulator is not None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "alias" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is not None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "alternative" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is not None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "annotation" and self.accumulator is None and self.annotation is not None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "applicability" and self.accumulator is None and self.annotation is None and self.applicability is not None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "atleast" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is not None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "atmost" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is not None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "attribute" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is not None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "boundary" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is not None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "case" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is not None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "child" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is not None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "collocation_scheme" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is not None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "complementarity" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is not None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "connection" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is not None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "constant" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is not None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "continuation" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is not None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "continuous" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is not None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "contribution" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is not None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "coordinate_map" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is not None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "coordinate_slot" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is not None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "dataset" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is not None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "definition" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is not None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "difference_scheme" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is not None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "discretization" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is not None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "disjunction" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is not None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "entity" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is not None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "entity_kind" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is not None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "enum" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is not None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "envelope" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is not None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "equation" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is not None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "exactly" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is not None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "exchange" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is not None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "expectation" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is not None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "function" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is not None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "identifier_scheme" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "implicit" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is not None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "import" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is not None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "interface" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is not None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "inventory_balance" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is not None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "let" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is not None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "logic" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is not None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "package" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is not None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "parameter" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is not None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "permission" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is not None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "piecewise" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is not None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "port" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is not None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "preset" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is not None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "realization" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is not None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "reconstruction" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is not None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "reference_translation" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is not None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "regime" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is not None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "relaxation" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is not None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "requirement" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is not None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "response" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is not None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "scope_value" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is not None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "set" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is not None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "sos1" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is not None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "sos2" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is not None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "stage" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is not None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "state_port" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is not None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "state_specification" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is not None and self.table is None and self.temporal is None) or (self.kind == "table" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is not None and self.temporal is None) or (self.kind == "temporal" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is not None) or (self.kind == "test" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is not None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "variable" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is not None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None) or (self.kind == "when" and self.accumulator is None and self.annotation is None and self.applicability is None and self.attribute is None and self.binding is None and self.boundary is None and self.cardinality is None and self.collocation_scheme is None and self.complementarity is None and self.connection is None and self.constant is None and self.continuation is None and self.continuous is None and self.contribution is None and self.coordinate_map is None and self.coordinate_slot is None and self.dataset is None and self.difference_scheme is None and self.discretization is None and self.entity is None and self.enumeration is None and self.envelope is None and self.equation is None and self.exchange is None and self.expectation is None and self.function is None and self.guard is not None and self.import_ is None and self.inventory_balance is None and self.logic is None and self.ordered_set is None and self.permission is None and self.piecewise is None and self.realization is None and self.reconstruction is None and self.reference_translation is None and self.relaxation is None and self.requirement is None and self.response is None and self.scope is None and self.state_port is None and self.state_specification is None and self.table is None and self.temporal is None)):
             message = "tagged value requires exactly its selected arm"
@@ -1190,6 +1535,9 @@ class AuthoredModelingDeclarationsRow:
     source_start: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
     source_end: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
     value: AuthoredModelingDeclarationsFieldValue = attrs.field(validator=attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValue))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.declaration_id), v.scalar_key(self.document_id), v.optional_key(v.scalar_key)(self.parent_id), v.scalar_key(self.ordinal), v.scalar_key(self.name), v.scalar_key(self.is_override), v.scalar_key(self.source_start), v.scalar_key(self.source_end), v.record_key(self.value),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1213,6 +1561,9 @@ class AuthoredNumericalRequirementsRow:
     required: b.bool = attrs.field(validator=v.exact_type(b.bool))
     provenance: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.requirement_id), v.optional_key(v.scalar_key)(self.model_id), v.optional_key(v.scalar_key)(self.case_id), v.optional_key(v.scalar_key)(self.instance_id), v.optional_key(v.scalar_key)(self.fit_id), v.scalar_key(self.target_id), v.scalar_key(self.target_kind), v.optional_key(v.scalar_key)(self.nominal), v.optional_key(v.scalar_key)(self.scaling_factor), v.optional_key(v.scalar_key)(self.absolute_tolerance), v.optional_key(v.scalar_key)(self.relative_tolerance), v.optional_key(v.scalar_key)(self.unit_id), v.scalar_key(self.coordinates), v.scalar_key(self.priority), v.scalar_key(self.required), v.scalar_key(self.provenance),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredPackageUnitSetsRow:
@@ -1221,6 +1572,9 @@ class AuthoredPackageUnitSetsRow:
     package_id: i.PackageId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     unit_set_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
 
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.package_id), v.scalar_key(self.unit_set_id),))
+
 
 @attrs.frozen(kw_only=True)
 class AuthoredPackagesFieldDependenciesItem:
@@ -1228,6 +1582,9 @@ class AuthoredPackagesFieldDependenciesItem:
 
     package_id: i.PackageId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     version_req: s.VersionRequirement = attrs.field(validator=attrs.validators.instance_of(s.VersionRequirement))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.package_id), v.record_key(self.version_req),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1239,6 +1596,9 @@ class AuthoredPackagesRow:
     version: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     kind: e.PackageKind = attrs.field(validator=attrs.validators.instance_of(e.PackageKind))
     id_policy: e.IdPolicy = attrs.field(validator=attrs.validators.instance_of(e.IdPolicy))
-    dependencies: b.tuple[AuthoredPackagesFieldDependenciesItem, ...] = attrs.field(validator=attrs.validators.and_(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredPackagesFieldDependenciesItem), iterable_validator=attrs.validators.instance_of(b.tuple)), v.collection(0, None, unique=True)))
+    dependencies: b.tuple[AuthoredPackagesFieldDependenciesItem, ...] = attrs.field(validator=attrs.validators.and_(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredPackagesFieldDependenciesItem), iterable_validator=attrs.validators.instance_of(b.tuple)), v.unique(v.record_key)))
     content_hash: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     doc: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.package_id), v.scalar_key(self.name), v.scalar_key(self.version), v.scalar_key(self.kind), v.scalar_key(self.id_policy), v.sequence_key(v.record_key)(self.dependencies), v.scalar_key(self.content_hash), v.scalar_key(self.doc),))

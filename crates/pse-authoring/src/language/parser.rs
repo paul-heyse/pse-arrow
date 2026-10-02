@@ -12,6 +12,10 @@ use std::collections::{BTreeMap, BTreeSet};
 use winnow::stream::LocatingSlice;
 
 type Parameter = (String, Vec<TypeNode>, Option<String>);
+type SpannedDeclarations = (
+    Vec<Declaration>,
+    BTreeMap<DeclarationId, BTreeMap<String, SourceSpan>>,
+);
 
 type Result<T> = std::result::Result<T, AuthoringError>;
 /// The internal keyword of a kind-level binding `name = cell;`; no source spells it.
@@ -34,6 +38,17 @@ pub fn parse(
     policy: IdentityPolicy,
     budget: ParseBudget,
 ) -> Result<Vec<Declaration>> {
+    parse_with_spans(text, document, policy, budget).map(|(rows, _)| rows)
+}
+/// Parse declarations and exact payload field locations in one source pass.
+/// # Errors
+/// Source grammar, budget or field-location capture fails.
+pub fn parse_with_spans(
+    text: &str,
+    document: SemanticId,
+    policy: IdentityPolicy,
+    budget: ParseBudget,
+) -> Result<SpannedDeclarations> {
     if text.len() as u64 > budget.max_bytes || text.len() > u32::MAX as usize {
         return Err(AuthoringError::Budget {
             limit: "bytes",
@@ -52,9 +67,16 @@ pub fn parse(
         rows: Vec::new(),
         ids: BTreeSet::new(),
         type_variables: Vec::new(),
+        field_locations: BTreeMap::new(),
     };
     parser.block(None, 0, false)?;
-    Ok(parser.rows)
+    let mut spans = BTreeMap::new();
+    for row in &parser.rows {
+        let fields = field_spans::collect(&row.value, &parser.field_locations)
+            .map_err(|_| parser.error("source field locations"))?;
+        spans.insert(row.declaration_id, fields);
+    }
+    Ok((parser.rows, spans))
 }
 
 fn syntax_error(document: SemanticId, error: crate::dsl::DslError) -> AuthoringError {
@@ -99,6 +121,7 @@ pub(super) fn parse_type(text: &str, variables: &[&str]) -> Result<Vec<TypeNode>
         rows: Vec::new(),
         ids: BTreeSet::new(),
         type_variables: variables.iter().map(|v| (*v).to_owned()).collect(),
+        field_locations: BTreeMap::new(),
     };
     let nodes = parser.type_expr()?;
     if parser.pos != parser.tokens.len() {
@@ -120,6 +143,7 @@ pub(super) fn parse_cell(text: &str) -> Result<Cell> {
         rows: Vec::new(),
         ids: BTreeSet::new(),
         type_variables: Vec::new(),
+        field_locations: BTreeMap::new(),
     };
     let cell = parser.cell()?;
     if parser.pos != parser.tokens.len() {
@@ -218,6 +242,7 @@ struct Cursor<'a> {
     /// The type parameters of the enclosing scopes and function, innermost last: a
     /// type expression names them as `variable` nodes.
     type_variables: Vec<String>,
+    field_locations: BTreeMap<usize, (String, SourceSpan)>,
 }
 impl Cursor<'_> {
     fn peek(&self) -> &str {
@@ -265,19 +290,35 @@ impl Cursor<'_> {
             return Err(self.error("name"));
         }
         self.pos += 1;
-        if token.kind == Kind::Quoted {
+        let span = token.span;
+        let value: String = if token.kind == Kind::Quoted {
             crate::grammar::quoted(&mut LocatingSlice::new(token.text))
-                .map_err(|_| self.error("quoted string"))
+                .map_err(|_| self.error("quoted string"))?
         } else {
-            Ok(token.text.into())
-        }
+            token.text.into()
+        };
+        self.field_locations.insert(
+            value.as_ptr() as usize,
+            (
+                value.clone(),
+                SourceSpan::new(self.document, span.start, span.end),
+            ),
+        );
+        Ok(value)
     }
+
     fn path(&mut self) -> Result<String> {
+        let start = self.at();
         let mut name = self.word()?;
         while self.eat(".") {
             name.push('.');
             name.push_str(&self.word()?);
         }
+        let end = self.tokens[self.pos - 1].span.end;
+        self.field_locations.insert(
+            name.as_ptr() as usize,
+            (name.clone(), SourceSpan::new(self.document, start, end)),
+        );
         Ok(name)
     }
     fn until(&mut self, stops: &[&str]) -> Result<String> {
@@ -310,7 +351,15 @@ impl Cursor<'_> {
         }
         let start = self.tokens[begin].span.start as usize;
         let end = self.tokens[self.pos - 1].span.end as usize;
-        Ok(self.text[start..end].trim().into())
+        let value: String = self.text[start..end].trim().into();
+        self.field_locations.insert(
+            value.as_ptr() as usize,
+            (
+                value.clone(),
+                SourceSpan::new(self.document, start as u32, end as u32),
+            ),
+        );
+        Ok(value)
     }
     fn peek_at(&self, ahead: usize) -> &str {
         self.tokens.get(self.pos + ahead).map_or("", |t| t.text)

@@ -318,6 +318,22 @@
         6
       ],
       "publications": 3
+    },
+    {
+      "id": "k4-study-in-process-8",
+      "operation": "k4-study",
+      "adapter": "in-process",
+      "reuse": "admitted-definition",
+      "blocks": 8,
+      "threads": 1
+    },
+    {
+      "id": "k4-study-durable-8",
+      "operation": "k4-study",
+      "adapter": "durable",
+      "reuse": "admitted-definition",
+      "blocks": 8,
+      "threads": 1
     }
   ]
 }

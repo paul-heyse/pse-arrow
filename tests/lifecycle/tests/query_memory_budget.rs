@@ -190,14 +190,14 @@ fn observation_bytes(runtime: &pse_runtime::SharedRuntime) -> usize {
         .expect("accounted attempt observations")
         .top_consumers
         .iter()
-        .filter(|(name, _)| {
+        .filter(|consumer| {
             matches!(
-                name.as_str(),
+                consumer.name.as_str(),
                 "session:execution-observations"
                     | "session:plan-observation"
                     | "session:physical-plan-observation"
             )
         })
-        .map(|(_, bytes)| *bytes)
+        .map(|consumer| consumer.reserved_bytes)
         .sum()
 }

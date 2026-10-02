@@ -31,6 +31,7 @@ pub fn resolve(
     let mut output = pse_relations::generated::normalized::package_graph::Builder::with_registry(
         session.registry(),
         rows.len(),
+        session.validation_context()?.as_ref(),
     )?;
     for row in rows {
         cancel.checkpoint()?;

@@ -9,7 +9,7 @@ use datafusion::arrow::{
 };
 
 fn source(members: &[Option<[u8; 16]>]) -> (ArrayRef, FieldRef) {
-    let registry = crate::validation::registry().unwrap();
+    let registry = pse_schema::registry().unwrap();
     let child = Arc::new(
         pse_schema::arrow::field_for(
             registry,

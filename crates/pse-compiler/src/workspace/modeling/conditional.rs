@@ -366,56 +366,83 @@ fn admit_boundary(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pse_math::binding::{CaseLimits, Row, Variable};
     fn id(v: u8) -> SemanticId {
         SemanticId::from_bytes([v; 16])
     }
-    fn source(external_row: bool) -> PreparedCase {
-        let mut inputs = crate::workspace::tests::inputs();
-        let case = inputs.cases.get_mut(&id(9)).unwrap();
-        let s = case.structure.clone();
-        let mut variables = s.variables().to_vec();
-        variables.push(Variable {
-            port: s.parameters()[0].clone(),
-            fixed: false,
-            domain: pse_model::generated::enums::ModelingVariableDomain::Continuous,
-            lower: None,
-            upper: None,
-        });
-        let mut instances = s.instances().to_vec();
-        let mut rows = s.rows().to_vec();
-        if external_row {
-            instances[0].contributions[1].target = Target::Row(id(6));
-            rows.push(Row {
-                id: id(6),
-                quantity: rows[0].quantity,
-                lower: 0.0,
-                upper: 0.0,
-            });
+    fn source(external_row: bool) -> (PreparedCase, [SemanticId; 4]) {
+        let connection = if external_row {
+            "eq external:x==2;"
         } else {
-            instances[0].contributions.pop();
-        }
-        case.structure = Arc::new(
-            CaseStructure::new(
-                variables,
-                vec![],
-                instances,
-                rows,
-                None,
-                CaseLimits::default(),
+            ""
+        };
+        let declarations = crate::authored_transfer_tests::rows(&format!(
+            "package p {{ def Root {{ var x:Scalar; var p:Scalar; eq local:x*p==1; {connection} }} }}"
+        ));
+        let root = declarations
+            .iter()
+            .find(|row| row.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let mut workspace = CompilerWorkspace::new(
+            crate::authored_transfer_tests::context(),
+            WorkspaceLimits::default(),
+        )
+        .unwrap();
+        workspace
+            .publish_modeling(declarations, PhysicalScope::default())
+            .unwrap();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let model = workspace
+            .prepare_modeling_cancellable(
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Bindings::default(),
+                Limits::default(),
+                cancel.clone(),
             )
-            .unwrap(),
-        );
-        CompilerWorkspace::new(inputs, WorkspaceLimits::default())
-            .unwrap()
-            .prepare(id(9), DerivativeOrder::First, Profile::default(), false)
-            .unwrap()
+            .unwrap();
+        let symbol = |name: &str| {
+            model
+                .model
+                .symbols
+                .values()
+                .find(|symbol| symbol.lineage.path.ends_with(&format!(".{name}")))
+                .unwrap()
+                .id
+        };
+        let row = |name: &str| {
+            model
+                .model
+                .equations
+                .iter()
+                .find(|row| row.lineage.path.ends_with(&format!(".{name}")))
+                .map_or(SemanticId::NIL, |row| row.id)
+        };
+        let ids = [symbol("x"), symbol("p"), row("local"), row("external")];
+        let bound = model.bound_structure(&BTreeMap::new()).unwrap();
+        let values = model
+            .case_values(&ModelingCaseBindings {
+                members: BTreeMap::from([(ids[0], 1.0), (ids[1], 1.0)]),
+                ..Default::default()
+            })
+            .unwrap();
+        let case = workspace
+            .prepare_modeling_view(
+                &model,
+                bound.structure,
+                &values,
+                DerivativeOrder::First,
+                Profile::default(),
+                &cancel,
+            )
+            .unwrap();
+        (case, ids)
     }
     #[test]
     fn conditional_unit_boundary_requires_declared_external_inputs() {
-        let source = source(false);
-        let rows = BTreeSet::from([id(5)]);
-        let unknowns = BTreeSet::from([id(1)]);
+        let (source, [unknown, external, residual, _]) = source(false);
+        let rows = BTreeSet::from([residual]);
+        let unknowns = BTreeSet::from([unknown]);
         let outputs = unknowns.clone();
         let error = admit_boundary(
             &source.plan,
@@ -433,7 +460,7 @@ mod tests {
         );
         admit_boundary(
             &source.plan,
-            &BTreeSet::from([id(2)]),
+            &BTreeSet::from([external]),
             &outputs,
             &rows,
             &unknowns,
@@ -454,10 +481,10 @@ mod tests {
     }
     #[test]
     fn conditional_unit_boundary_refuses_parent_coupling_before_iteration() {
-        let source = source(true);
-        let inputs = BTreeSet::from([id(2)]);
-        let rows = BTreeSet::from([id(5)]);
-        let unknowns = BTreeSet::from([id(1)]);
+        let (source, [unknown, external, residual, connection]) = source(true);
+        let inputs = BTreeSet::from([external]);
+        let rows = BTreeSet::from([residual]);
+        let unknowns = BTreeSet::from([unknown]);
         let error = admit_boundary(
             &source.plan,
             &inputs,
@@ -476,7 +503,7 @@ mod tests {
             &unknowns,
             &rows,
             &unknowns,
-            &BTreeSet::from([id(6)]),
+            &BTreeSet::from([connection]),
         )
         .unwrap();
         // A distinct output port may project an already supplied scalar, such as
@@ -487,7 +514,7 @@ mod tests {
             &inputs,
             &rows,
             &unknowns,
-            &BTreeSet::from([id(6)]),
+            &BTreeSet::from([connection]),
         )
         .unwrap();
     }
@@ -522,7 +549,7 @@ mod tests {
     }
     #[test]
     fn conditional_unit_recycle_reference_specializes_actual_unit_boundaries() {
-        use crate::authored_transfer_tests::{inputs, reference_sources, root, rows};
+        use crate::authored_transfer_tests::{context, reference_sources, root, rows};
         let source = format!(
             "{}\n{}\n{}\n{}\n{}",
             reference_sources(),
@@ -537,7 +564,7 @@ mod tests {
             "recycle_flash",
             "recycle_flash_conditional_handoff",
         );
-        let mut workspace = CompilerWorkspace::new(inputs(), WorkspaceLimits::default()).unwrap();
+        let mut workspace = CompilerWorkspace::new(context(), WorkspaceLimits::default()).unwrap();
         workspace
             .publish_modeling(declarations, PhysicalScope::default())
             .unwrap();

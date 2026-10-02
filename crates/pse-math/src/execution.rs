@@ -58,6 +58,8 @@ pub struct PreparedBodyData {
     output_quantities: Vec<pse_quantity::QuantityTypeId>,
     expressions: Vec<Option<Atom>>,
     providers: Vec<ProviderSpec>,
+    /// Local checked-member tokens whose actual attribution belongs to each instance.
+    checked_members: BTreeSet<SemanticId>,
     /// Construction occurrences its builder counted; accounting, not mathematical identity.
     occurrences: usize,
 }
@@ -83,13 +85,28 @@ impl PartialEq for PreparedBody {
             && self.output_quantities == other.output_quantities
             && self.expressions == other.expressions
             && self.providers == other.providers
+            && self.checked_members == other.checked_members
     }
 }
 impl PreparedBody {
+    /// Process-local immutable allocation identity used only for unique live accounting.
+    pub fn allocation_identity(&self) -> usize {
+        Arc::as_ptr(&self.data) as usize
+    }
     /// Known symbolic payload and container contents. The library's global symbol interner
     /// is process state that no product owns or releases, so it is not counted here.
     pub fn retained_bytes(&self) -> usize {
-        fn stages(items: &[Stage]) -> usize {
+        fn stages(items: &[Stage], seen: &mut BTreeSet<usize>) -> usize {
+            fn lineage_bytes(
+                lineage: &Arc<pse_model::diagnostic::ValidityLineage>,
+                seen: &mut BTreeSet<usize>,
+            ) -> usize {
+                if seen.insert(Arc::as_ptr(lineage) as usize) {
+                    size_of_val(lineage.as_ref()) + lineage.heap_bytes() + 2 * size_of::<usize>()
+                } else {
+                    0
+                }
+            }
             size_of_val(items)
                 + items
                     .iter()
@@ -108,8 +125,12 @@ impl PreparedBody {
                         }
                         Stage::Branch {
                             then, otherwise, ..
-                        } => stages(then) + stages(otherwise),
-                        Stage::Domain { stages: local, .. } => stages(local),
+                        } => stages(then, seen) + stages(otherwise, seen),
+                        Stage::Domain {
+                            stages: local,
+                            lineage,
+                            ..
+                        } => stages(local, seen) + lineage_bytes(lineage, seen),
                         Stage::Applicability {
                             stages: local,
                             predicates,
@@ -117,7 +138,7 @@ impl PreparedBody {
                             plan,
                             ..
                         } => {
-                            stages(local)
+                            stages(local, seen)
                                 + (predicates.capacity() + inputs.capacity()) * size_of::<usize>()
                                 + plan.retained_bytes()
                         }
@@ -135,12 +156,15 @@ impl PreparedBody {
                                 + size_of_val(spec.outputs.as_slice())
                                 + spec.shapes.retained_bytes()
                         }
-                        Stage::Require { .. } => 0,
+                        Stage::Require { lineage, .. } => lineage
+                            .as_ref()
+                            .map_or(0, |lineage| lineage_bytes(lineage, seen)),
                     })
                     .sum::<usize>()
         }
         size_of::<PreparedBodyData>()
-            + stages(&self.stages)
+            + self.checked_members.len() * (size_of::<SemanticId>() + 96)
+            + stages(&self.stages, &mut BTreeSet::new())
             + self.outputs.capacity() * size_of::<usize>()
             + self.input_quantities.capacity() * size_of::<Option<pse_quantity::QuantityTypeId>>()
             + self.output_quantities.capacity() * size_of::<pse_quantity::QuantityTypeId>()
@@ -164,17 +188,85 @@ impl PreparedBody {
                 .map(|s| s.len() * size_of::<(usize, usize)>())
                 .sum::<usize>()
     }
+    /// Declare body-local checked-member attribution after typed closure admission.
+    /// Every declared token must occur in an emitted closure validity stage; form/data
+    /// lineages keep their original authored identities and are not instance tokens.
+    pub fn with_checked_members(mut self, tokens: BTreeSet<SemanticId>) -> Result<Self, MathError> {
+        fn collect(stages: &[Stage], members: &mut BTreeSet<SemanticId>) {
+            use pse_model::generated::enums::ModelingValidityLayer;
+            for stage in stages {
+                match stage {
+                    Stage::Require {
+                        lineage: Some(lineage),
+                        ..
+                    } => {
+                        if lineage.layer == ModelingValidityLayer::Closure {
+                            members.extend(&lineage.members);
+                        }
+                    }
+                    Stage::Domain {
+                        stages, lineage, ..
+                    } => {
+                        if lineage.layer == ModelingValidityLayer::Closure {
+                            members.extend(&lineage.members);
+                        }
+                        collect(stages, members);
+                    }
+                    Stage::Applicability { stages, .. } => collect(stages, members),
+                    Stage::Branch {
+                        then, otherwise, ..
+                    } => {
+                        collect(then, members);
+                        collect(otherwise, members);
+                    }
+                    _ => {}
+                }
+            }
+        }
+        let mut emitted = BTreeSet::new();
+        collect(&self.stages, &mut emitted);
+        if emitted != tokens {
+            return Err(MathError::Contract(
+                "checked-member tokens do not cover emitted closure validity".into(),
+            ));
+        }
+        Arc::make_mut(&mut self.data).checked_members = tokens;
+        Ok(self)
+    }
+    /// Complete attribution demand of this normalized reusable body.
+    pub fn checked_members(&self) -> &BTreeSet<SemanticId> {
+        &self.checked_members
+    }
     /// Retain accounting when a body clone outlives its runtime case plan.
     pub fn with_owner(mut self, owner: Arc<dyn crate::AllocationOwner>) -> Self {
-        self.owner = Some(owner);
+        self.owner = Some(crate::retain_allocation_owner(self.owner.take(), owner));
         self
     }
+    #[cfg(test)]
     pub(crate) fn new(
         inputs: usize,
         slots: usize,
         outputs: Vec<usize>,
         stages: Vec<Stage>,
         smooth: DerivativeOrder,
+    ) -> Result<Self, MathError> {
+        Self::new_with_allowance(
+            inputs,
+            slots,
+            outputs,
+            stages,
+            smooth,
+            &mut crate::typed::BodyLimits::default().occurrences,
+        )
+    }
+    /// Support construction consumes the caller's remaining body occurrence allowance.
+    pub(crate) fn new_with_allowance(
+        inputs: usize,
+        slots: usize,
+        outputs: Vec<usize>,
+        stages: Vec<Stage>,
+        smooth: DerivativeOrder,
+        remaining: &mut usize,
     ) -> Result<Self, MathError> {
         if slots == 0 || inputs > slots || outputs.is_empty() || outputs.iter().any(|&i| i >= slots)
         {
@@ -185,19 +277,25 @@ impl PreparedBody {
             .collect::<Result<Vec<_>, _>>()?;
         let symbols = symbol_map(&parameters);
         let mut assigned = (0..inputs).collect::<BTreeSet<_>>();
-        validate_dependencies(&stages, &symbols, &mut assigned, 0, &mut 16384)?;
+        validate_dependencies(&stages, &symbols, &mut assigned, 0, remaining)?;
         if outputs.iter().any(|i| !assigned.contains(i)) {
             return Err(MathError::Contract(
                 "output unassigned on some branch".into(),
             ));
         }
-        let mut facts = vec![Fact::default(); slots];
+        let mut allowance = SupportAllowance { remaining };
+        allowance.consume(slots, SemanticId::NIL)?;
+        allowance.consume(1, SemanticId::NIL)?;
+        let mut facts = vec![Arc::new(Fact::default()); slots];
         for i in 0..inputs {
-            facts[i] = Fact {
+            allowance.consume(1, SemanticId::NIL)?; // Newly constructed input support entry.
+            allowance.consume(1, SemanticId::NIL)?; // Its immutable fact allocation.
+            facts[i] = Arc::new(Fact {
                 expression: Some(parameters[i].clone()),
                 first: BTreeSet::from([i]),
                 second: BTreeSet::new(),
-            };
+                source: None,
+            });
         }
         let mut controls = BTreeSet::new();
         let mut switches = BTreeSet::new();
@@ -212,7 +310,13 @@ impl PreparedBody {
             &mut switches,
             &mut providers,
             &mut obligations,
+            &mut allowance,
         )?;
+        for &slot in &outputs {
+            let source = facts[slot].source.unwrap_or(SemanticId::NIL);
+            allowance.consume(facts[slot].first.len(), source)?;
+            allowance.consume(facts[slot].second.len(), source)?;
+        }
         let support = Support {
             first: outputs.iter().map(|&i| facts[i].first.clone()).collect(),
             second: outputs.iter().map(|&i| facts[i].second.clone()).collect(),
@@ -239,6 +343,7 @@ impl PreparedBody {
                 expressions,
                 providers: providers.into_values().collect(),
                 occurrences: 0,
+                checked_members: BTreeSet::new(),
             }),
             owner: None,
         })
@@ -272,8 +377,8 @@ impl PreparedBody {
     pub fn slot_count(&self) -> usize {
         self.slots
     }
-    /// Construction occurrences counted against its `BodyLimits::occurrences` allowance;
-    /// zero for a body assembled without a typed builder.
+    /// Authored construction occurrences counted by its typed builder, before support
+    /// preparation consumes the rest of `BodyLimits::occurrences`; zero without a builder.
     pub fn occurrence_count(&self) -> usize {
         self.occurrences
     }
@@ -693,7 +798,7 @@ impl CompiledBody {
     }
     /// Attach accounting to the allocation itself so evaluator/worker clones retain it.
     pub fn with_owner(mut self, owner: Arc<dyn crate::AllocationOwner>) -> Self {
-        self.owner = Some(owner);
+        self.owner = Some(crate::retain_allocation_owner(self.owner.take(), owner));
         self
     }
     /// Upper bound on owned numeric frame and stage scratch.
@@ -1641,17 +1746,111 @@ fn prune(
     result
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Default)]
 struct Fact {
     expression: Option<Atom>,
     first: BTreeSet<usize>,
     second: BTreeSet<(usize, usize)>,
+    /// Actual producer occurrence, without inventing a source for formal inputs.
+    source: Option<SemanticId>,
 }
-fn dense_second(first: &BTreeSet<usize>) -> BTreeSet<(usize, usize)> {
-    first
+struct SupportAllowance<'a> {
+    remaining: &'a mut usize,
+}
+impl SupportAllowance<'_> {
+    fn consume(&mut self, required: usize, source_id: SemanticId) -> Result<(), MathError> {
+        if required > *self.remaining {
+            return Err(MathError::WorkLimit {
+                source_id,
+                resource: "derivative support construction",
+                required,
+                available: *self.remaining,
+                // Support preparation precedes selection of a Taylor layout.
+                components: 0,
+            });
+        }
+        *self.remaining -= required;
+        Ok(())
+    }
+    fn insert(
+        &mut self,
+        target: &mut BTreeSet<(usize, usize)>,
+        pair: (usize, usize),
+        source: SemanticId,
+    ) -> Result<(), MathError> {
+        self.consume(1, source)?;
+        target.insert(pair);
+        Ok(())
+    }
+    fn extend(
+        &mut self,
+        target: &mut BTreeSet<(usize, usize)>,
+        values: &BTreeSet<(usize, usize)>,
+        source: SemanticId,
+    ) -> Result<(), MathError> {
+        self.consume(values.len(), source)?;
+        target.extend(values);
+        Ok(())
+    }
+    fn clone_facts(
+        &mut self,
+        facts: &[Arc<Fact>],
+        source: SemanticId,
+    ) -> Result<Vec<Arc<Fact>>, MathError> {
+        // Snapshot immutable slot handles; no accumulated support set is copied.
+        self.consume(facts.len(), source)?;
+        Ok(facts.to_vec())
+    }
+    fn equal_facts(&mut self, a: &Fact, b: &Fact, source: SemanticId) -> Result<bool, MathError> {
+        // A distinct allocation can still denote exactly the same symbolic fact. Charge
+        // a conservative byte-comparison bound before the library equality operation,
+        // then charge each support entry comparison that is actually performed.
+        let bytes = match (&a.expression, &b.expression) {
+            (Some(a), Some(b)) => a
+                .as_view()
+                .get_byte_size()
+                .checked_add(b.as_view().get_byte_size())
+                .ok_or(MathError::Limit("support comparison extent"))?,
+            _ => 1,
+        };
+        self.consume(bytes, source)?;
+        if a.expression != b.expression
+            || a.first.len() != b.first.len()
+            || a.second.len() != b.second.len()
+        {
+            return Ok(false);
+        }
+        for (a, b) in a.first.iter().zip(&b.first) {
+            self.consume(1, source)?;
+            if a != b {
+                return Ok(false);
+            }
+        }
+        for (a, b) in a.second.iter().zip(&b.second) {
+            self.consume(1, source)?;
+            if a != b {
+                return Ok(false);
+            }
+        }
+        Ok(true)
+    }
+}
+fn dense_second(
+    first: &BTreeSet<usize>,
+    allowance: &mut SupportAllowance<'_>,
+    source: SemanticId,
+) -> Result<BTreeSet<(usize, usize)>, MathError> {
+    let n = first.len();
+    let count = n
+        .checked_add(1)
+        .and_then(|next| n.checked_mul(next))
+        .map(|count| count / 2)
+        .ok_or(MathError::Limit("derivative support cardinality"))?;
+    allowance.consume(count, source)?;
+    Ok(first
         .iter()
         .flat_map(|&i| first.range(i..).map(move |&j| (i, j)))
-        .collect()
+        .collect())
 }
 #[allow(
     clippy::too_many_arguments,
@@ -1661,11 +1860,12 @@ fn analyze(
     stages: &[Stage],
     parameters: &[Atom],
     symbols: &HashMap<Symbol, usize>,
-    facts: &mut [Fact],
+    facts: &mut [Arc<Fact>],
     controls: &mut BTreeSet<usize>,
     switches: &mut BTreeSet<usize>,
     providers: &mut BTreeMap<ProviderKey, ProviderSpec>,
     obligations: &mut Vec<(Option<Atom>, Condition)>,
+    allowance: &mut SupportAllowance<'_>,
 ) -> Result<(), MathError> {
     for stage in stages {
         match stage {
@@ -1674,9 +1874,10 @@ fn analyze(
                 predicates,
                 inputs,
                 token,
-                ..
+                plan,
             } => {
-                let mut local = facts.to_vec();
+                let source = plan.claim.form;
+                let mut local = allowance.clone_facts(facts, source)?;
                 analyze(
                     stages,
                     parameters,
@@ -1686,22 +1887,27 @@ fn analyze(
                     &mut BTreeSet::new(),
                     providers,
                     obligations,
+                    allowance,
                 )?;
                 for slot in predicates.iter().chain(inputs) {
+                    allowance.consume(local[*slot].first.len(), source)?;
                     controls.extend(&local[*slot].first);
                 }
-                facts[*token] = Fact {
+                allowance.consume(1, source)?;
+                facts[*token] = Arc::new(Fact {
                     expression: Some(Atom::num(0)),
+                    source: Some(source),
                     ..Fact::default()
-                };
+                });
             }
             Stage::Domain {
                 stages,
                 argument,
                 token,
-                ..
+                lineage,
             } => {
-                let mut local = facts.to_vec();
+                let source = lineage.source;
+                let mut local = allowance.clone_facts(facts, source)?;
                 // Domain boundaries do not constitute branch transitions of a numerical output.
                 analyze(
                     stages,
@@ -1712,21 +1918,28 @@ fn analyze(
                     &mut BTreeSet::new(),
                     providers,
                     obligations,
+                    allowance,
                 )?;
+                allowance.consume(local[*argument].first.len(), source)?;
                 controls.extend(&local[*argument].first);
                 obligations.push((local[*argument].expression.clone(), Condition::Positive));
-                facts[*token] = Fact {
+                allowance.consume(1, source)?;
+                facts[*token] = Arc::new(Fact {
                     expression: Some(Atom::num(0)),
+                    source: Some(source),
                     ..Fact::default()
-                };
+                });
             }
             Stage::Block {
                 expressions,
                 outputs,
-                ..
+                source,
             } => {
                 for (expression, &slot) in expressions.iter().zip(outputs) {
                     let inputs = reads(std::slice::from_ref(expression), symbols)?;
+                    for &i in &inputs {
+                        allowance.consume(facts[i].first.len(), *source)?;
+                    }
                     let first = inputs
                         .iter()
                         .flat_map(|&i| facts[i].first.iter().copied())
@@ -1751,34 +1964,38 @@ fn analyze(
                         expression: expanded,
                         second: BTreeSet::new(),
                         first,
+                        source: Some(*source),
                     };
                     if let Some(expr) = &fact.expression {
                         if operation_count(expr.count_operations()) > 16384 {
                             return Err(MathError::Limit("local symbolic support expansion"));
                         }
-                        fact.first = reads(std::slice::from_ref(expr), symbols)?
-                            .into_iter()
-                            .collect();
+                        let first = reads(std::slice::from_ref(expr), symbols)?;
+                        allowance.consume(first.len(), *source)?;
+                        fact.first = first.into_iter().collect();
                         fact.second.clear();
                         for &i in &fact.first {
+                            allowance.consume(1, *source)?;
                             let d = expr.derivative(
                                 Indeterminate::try_from(parameters[i].clone())
                                     .map_err(|e| MathError::Library(e.clone()))?,
                             );
                             for j in reads(std::slice::from_ref(&d), symbols)? {
-                                fact.second.insert((i.min(j), i.max(j)));
+                                allowance.insert(
+                                    &mut fact.second,
+                                    (i.min(j), i.max(j)),
+                                    *source,
+                                )?;
                             }
                         }
                     }
                     if fact.expression.is_none() {
-                        if fact.first.len() > 256 {
-                            return Err(MathError::Limit("opaque derivative support"));
-                        }
                         // Compose support through the shared program. Losing the optional
                         // flattened expression does not make unrelated coordinates nonlinear.
                         // Symbolica owns each local derivative; only its dependency sets
                         // are propagated here (the two terms of the Hessian chain rule).
                         for &i in &inputs {
+                            allowance.consume(1, *source)?;
                             let derivative = expression.derivative(
                                 Indeterminate::try_from(parameters[i].clone())
                                     .map_err(|e| MathError::Library(e.clone()))?,
@@ -1786,25 +2003,32 @@ fn analyze(
                             if derivative == Atom::num(0) {
                                 continue;
                             }
-                            fact.second.extend(&facts[i].second);
+                            allowance.extend(&mut fact.second, &facts[i].second, *source)?;
                             for j in reads(std::slice::from_ref(&derivative), symbols)? {
                                 for &a in &facts[i].first {
                                     for &b in &facts[j].first {
-                                        fact.second.insert((a.min(b), a.max(b)));
+                                        allowance.insert(
+                                            &mut fact.second,
+                                            (a.min(b), a.max(b)),
+                                            *source,
+                                        )?;
                                     }
                                 }
                             }
                         }
                     }
-                    facts[slot] = fact;
+                    allowance.consume(1, *source)?;
+                    facts[slot] = Arc::new(fact);
                 }
             }
             Stage::Require {
                 argument,
                 condition,
                 order,
+                source,
                 ..
             } => {
+                allowance.consume(facts[*argument].first.len(), *source)?;
                 controls.extend(&facts[*argument].first);
                 if *order == DerivativeOrder::Value {
                     obligations.push((facts[*argument].expression.clone(), *condition));
@@ -1814,22 +2038,26 @@ fn analyze(
                 spec,
                 inputs,
                 outputs,
+                source,
                 ..
             } => {
                 providers.insert(spec.key(), spec.clone());
+                for &i in inputs {
+                    allowance.consume(facts[i].first.len(), *source)?;
+                }
                 let first = inputs
                     .iter()
                     .flat_map(|&i| facts[i].first.iter().copied())
                     .collect::<BTreeSet<_>>();
-                if first.len() > 256 {
-                    return Err(MathError::Limit("provider support width"));
-                }
                 for &slot in outputs {
-                    facts[slot] = Fact {
+                    allowance.consume(first.len(), *source)?;
+                    allowance.consume(1, *source)?;
+                    facts[slot] = Arc::new(Fact {
                         expression: None,
                         first: first.clone(),
-                        second: dense_second(&first),
-                    };
+                        second: dense_second(&first, allowance, *source)?,
+                        source: Some(*source),
+                    });
                 }
             }
             Stage::Branch {
@@ -1840,14 +2068,20 @@ fn analyze(
                 otherwise,
                 ..
             } => {
+                let source = facts[*left]
+                    .source
+                    .or(facts[*right].source)
+                    .unwrap_or(SemanticId::NIL);
+                allowance.consume(facts[*left].first.len(), source)?;
+                allowance.consume(facts[*right].first.len(), source)?;
                 controls.extend(&facts[*left].first);
                 controls.extend(&facts[*right].first);
                 if *continuity == DerivativeOrder::Value {
                     switches.extend(&facts[*left].first);
                     switches.extend(&facts[*right].first);
                 }
-                let mut a = facts.to_vec();
-                let mut b = facts.to_vec();
+                let mut a = allowance.clone_facts(facts, source)?;
+                let mut b = allowance.clone_facts(facts, source)?;
                 analyze(
                     then,
                     parameters,
@@ -1857,6 +2091,7 @@ fn analyze(
                     switches,
                     providers,
                     obligations,
+                    allowance,
                 )?;
                 analyze(
                     otherwise,
@@ -1867,18 +2102,31 @@ fn analyze(
                     switches,
                     providers,
                     obligations,
+                    allowance,
                 )?;
                 for i in 0..facts.len() {
-                    if a[i].expression != b[i].expression
-                        || a[i].first != b[i].first
-                        || a[i].second != b[i].second
-                    {
-                        facts[i] = Fact {
+                    if Arc::ptr_eq(&a[i], &b[i]) {
+                        if !Arc::ptr_eq(&facts[i], &a[i]) {
+                            allowance.consume(1, source)?;
+                            facts[i] = a[i].clone();
+                        }
+                        continue;
+                    }
+                    if !allowance.equal_facts(&a[i], &b[i], source)? {
+                        let mut second = BTreeSet::new();
+                        allowance.extend(&mut second, &a[i].second, source)?;
+                        allowance.extend(&mut second, &b[i].second, source)?;
+                        allowance.consume(a[i].first.len(), source)?;
+                        allowance.consume(b[i].first.len(), source)?;
+                        allowance.consume(1, source)?;
+                        facts[i] = Arc::new(Fact {
                             expression: None,
                             first: a[i].first.union(&b[i].first).copied().collect(),
-                            second: a[i].second.union(&b[i].second).copied().collect(),
-                        };
+                            second,
+                            source: a[i].source.or(b[i].source),
+                        });
                     } else {
+                        allowance.consume(1, source)?;
                         facts[i] = a[i].clone();
                     }
                 }

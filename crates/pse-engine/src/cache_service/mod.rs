@@ -94,7 +94,8 @@ macro_rules! cache_report_fields {
 macro_rules! report {
     ($( $(#[$meta:meta])* $field:ident: $ty:ty, )*) => {
         /// Cheap aggregate observations without cloning the cached inventory.
-        #[derive(Clone, Debug, PartialEq, Eq)]
+        #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+        #[serde(deny_unknown_fields)]
         pub struct CacheReport { $( $(#[$meta])* pub $field: $ty, )* }
     };
 }

@@ -6,7 +6,7 @@
         "quantity": "[\"enum\",\"parametric_sensitivity\"]",
         "run_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "step": "[\"i64\",1]",
-        "validity": "[\"struct\",[[\"bool\",true],[\"enum\",\"no_candidate\"],[\"text\",\"value-1\"],[\"bool\",true],[\"bool\",true],[\"bool\",true],[\"bool\",true],[\"i64\",1],[\"f64\",\"3ff0000000000000\"],[\"f64\",\"3ff0000000000000\"]]]"
+        "validity": "[\"struct\",[[\"bool\",true],[\"enum\",\"not_feasible\"],[\"text\",\"value-1\"],[\"bool\",true],[\"bool\",true],[\"bool\",true],[\"bool\",true],[\"i64\",1],[\"f64\",\"3ff0000000000000\"],[\"f64\",\"3ff0000000000000\"],[\"i64\",1],[\"f64\",\"3ff0000000000000\"],[\"f64\",\"3ff0000000000000\"],[\"f64\",\"3ff0000000000000\"],[\"f64\",\"3ff0000000000000\"],[\"text\",\"value-1\"]]]"
       }
     ]
   },

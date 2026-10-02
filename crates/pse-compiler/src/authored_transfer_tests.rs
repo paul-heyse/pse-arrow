@@ -6,7 +6,9 @@
     reason = "focused authored physical contract assertions"
 )]
 
-use crate::workspace::{CompilerWorkspace, Inputs, ModelingOutput, Profile, WorkspaceLimits};
+use crate::workspace::{
+    CompilerContext, CompilerWorkspace, ModelingOutput, Profile, WorkspaceLimits,
+};
 use pse_kernels::DerivativeOrder;
 use pse_math::{
     assembly::AssemblyLimits, binding::CaseValues, jets::EvaluationLimits, library::Optimization,
@@ -23,8 +25,8 @@ use std::{
 mod reference_source_fixture;
 pub(crate) use reference_source_fixture::{reference_sources, rows};
 
-pub(crate) fn inputs() -> Inputs {
-    Inputs {
+pub(crate) fn context() -> CompilerContext {
+    CompilerContext {
         quantities: Arc::new(pse_quantity::standard::standard_registry().unwrap()),
         preconditions: Arc::new(
             pse_quantity::PhysicalPreconditions::new(
@@ -32,13 +34,8 @@ pub(crate) fn inputs() -> Inputs {
             )
             .unwrap(),
         ),
-        flows: BTreeMap::new(),
-        definitions: BTreeMap::new(),
-        domains: BTreeMap::new(),
-        groups: BTreeMap::new(),
+
         providers: BTreeMap::new(),
-        cases: BTreeMap::new(),
-        values: BTreeMap::new(),
     }
 }
 
@@ -56,7 +53,7 @@ pub(crate) fn root(rows: &[Declaration], package: &str, name: &str) -> Declarati
 
 fn workspace(text: &str) -> (CompilerWorkspace, Vec<Declaration>) {
     let rows = rows(text);
-    let mut workspace = CompilerWorkspace::new(inputs(), WorkspaceLimits::default()).unwrap();
+    let mut workspace = CompilerWorkspace::new(context(), WorkspaceLimits::default()).unwrap();
     workspace
         .publish_modeling(rows.clone(), PhysicalScope::default())
         .unwrap();
@@ -123,7 +120,7 @@ fn authored_reaction_extent_and_stoichiometric_component_rates_are_physical() {
 
 #[test]
 fn authored_vessel_amount_and_energy_equations_evaluate_without_adapters() {
-    let input = inputs();
+    let input = context();
     let registry = input.quantities.clone();
     let mut workspace = CompilerWorkspace::new(input, WorkspaceLimits::default()).unwrap();
     let rows = rows(&format!("{}\n{FIXTURE}", reference_sources()));
@@ -366,7 +363,7 @@ fn authored_exchanger_reflection_preserves_opposite_actual_owners() {
 fn refusal(text: &str) -> String {
     let rows = rows(text);
     let root = root(&rows, "p", "Root");
-    let mut workspace = CompilerWorkspace::new(inputs(), WorkspaceLimits::default()).unwrap();
+    let mut workspace = CompilerWorkspace::new(context(), WorkspaceLimits::default()).unwrap();
     if let Err(error) = workspace.publish_modeling(rows, PhysicalScope::default()) {
         return error.to_string();
     }

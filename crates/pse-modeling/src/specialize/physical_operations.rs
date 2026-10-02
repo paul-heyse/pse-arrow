@@ -40,14 +40,14 @@ impl Engine<'_, '_> {
         &mut self,
         instance: InstanceId,
         at: DeclarationId,
-        name: &str,
+        name: &Path,
         args: &[Expr],
         env: &Environment,
         chain: &[DeclarationId],
     ) -> Result<Vec<(Vec<Value>, Expr)>> {
         let slot = self
             .p
-            .resolve(at, name)
+            .resolve_segments(at, &name.segments)
             .ok_or_else(|| invalid(at, "indexed call is not a coordinate-map slot"))?;
         let declaration = self.p.declarations[&slot]
             .value
@@ -70,12 +70,7 @@ impl Engine<'_, '_> {
                 .iter()
                 .position(|(name, _)| name == &index.domain)
                 .ok_or_else(|| invalid(slot, "coordinate slot domain is not a map argument"))?;
-            let value = self.eval(
-                at,
-                env,
-                &dsl::render_expr(&args[position]),
-                Some(&contract.arguments[position].1),
-            )?;
+            let value = self.eval_ast(at, env, &args[position])?;
             let Value::Set(values) = value else {
                 return Err(invalid(slot, "coordinate slot domain is not a finite set"));
             };
@@ -109,7 +104,15 @@ impl Engine<'_, '_> {
                 for (position, value) in coordinate.iter().enumerate() {
                     let name = format!("coordinate_map_index_{position}");
                     lexical.insert(name.clone(), value.clone());
-                    actual.push(dsl::parse_expr(&name).map_err(|e| invalid(slot, e.to_string()))?);
+                    actual.push(Expr {
+                        kind: ExprKind::Path(Path {
+                            segments: vec![PathSegment {
+                                name,
+                                indices: Vec::new(),
+                            }],
+                        }),
+                        span: Span::default(),
+                    });
                 }
                 let kind = self.function_call(instance, slot, &actual, &[], &lexical, chain)?;
                 Ok((

@@ -62,6 +62,7 @@ pub use engines::{
 };
 pub(super) mod analysis_tables;
 pub(super) mod assessment;
+pub(super) mod documents;
 pub(super) mod results;
 mod views;
 use super::{PhysicalContext, Runtime, WorkflowError, contract, relation};
@@ -72,7 +73,7 @@ use crate::math::{
 pub use analysis_tables::ModelingNativeAnalysis;
 pub use cases::{ModelingObservations, ModelingSolvePreparation, StartSource};
 use pse_authoring::language::Declaration;
-use pse_compiler::workspace::{Inputs, WorkspaceLimits};
+use pse_compiler::workspace::{CompilerContext, WorkspaceLimits};
 use pse_ids::SemanticId;
 use pse_modeling::{Bindings, DeclarationId, InstanceId, Limits, PhysicalScope};
 use pse_relations::columnar::RelationRow;
@@ -90,20 +91,89 @@ pub struct ModelingPackage {
     providers: std::sync::Arc<BTreeMap<String, pse_kernels::Registration>>,
     pub(in crate::workflow) physical: PhysicalContext,
     pub(in crate::workflow) quantities: std::sync::Arc<pse_quantity::QuantityRegistry>,
-    /// Prepared solver views and observation programs, shared by every analysis (A6).
-    pub(in crate::workflow) views: std::sync::Arc<views::Views>,
 }
-fn compiler_inputs(
+/// Immutable admitted package payload; excludes runtime services and mutable workspaces.
+#[derive(Clone, Debug)]
+pub(crate) struct PackageAdmission {
+    revision: ModelingRevision,
+    sources: std::sync::Arc<crate::authoring_driver::document::Batches>,
+    fits: std::sync::Arc<super::fitting::FitDeclarations>,
+    accelerators: std::sync::Arc<pse_math::implicit::accelerators::Accelerators>,
+    providers: std::sync::Arc<BTreeMap<String, pse_kernels::Registration>>,
+    _lease: std::sync::Arc<pse_columnar::AllocationLease>,
+    _validation_owner: std::sync::Arc<pse_engine::session::EngineFactory>,
+    _registry_owner: std::sync::Arc<pse_schema::Registry>,
+}
+impl PackageAdmission {
+    pub(crate) fn retained_bytes(&self) -> usize {
+        use pse_model::HeapUsage;
+        self.revision.retained_bytes()
+            + self.fits.fits.owned_bytes()
+            + self
+                .sources
+                .values()
+                .map(|source| source.batch().get_array_memory_size() + 128)
+                .sum::<usize>()
+            + size_of::<Self>()
+            + 256
+    }
+}
+impl ModelingPackage {
+    pub(crate) fn admission(&self) -> Result<PackageAdmission, WorkflowError> {
+        Ok(PackageAdmission {
+            revision: self.revision.clone(),
+            sources: self.document_sources.clone(),
+            fits: self.fit_declarations.clone(),
+            accelerators: self.accelerators.clone(),
+            providers: self.providers.clone(),
+            _lease: self.runtime.shared.math().reserve(
+                "modeling:package-admission",
+                size_of::<PackageAdmission>()
+                    + 256
+                    + self.document_sources.len() * 128
+                    + self
+                        .providers
+                        .keys()
+                        .map(|name| name.capacity() + size_of::<pse_kernels::Registration>() + 128)
+                        .sum::<usize>(),
+            )?,
+            _validation_owner: self.runtime.sessions.clone(),
+            _registry_owner: self.runtime.registry.clone(),
+        })
+    }
+}
+impl Runtime {
+    pub(crate) fn package_from_admission(
+        &self,
+        admitted: PackageAdmission,
+        physical: PhysicalContext,
+    ) -> Result<ModelingPackage, WorkflowError> {
+        let service = self.shared.math();
+        let workspace = service.workspace(
+            compiler_context(&physical, &admitted.providers),
+            WorkspaceLimits::default(),
+        )?;
+        Ok(ModelingPackage {
+            runtime: self.clone(),
+            workspace,
+            revision: admitted.revision,
+            document_sources: admitted.sources,
+            fit_declarations: admitted.fits,
+            accelerators: admitted.accelerators,
+            providers: admitted.providers,
+            quantities: physical.quantities.clone(),
+            physical,
+        })
+    }
+}
+fn compiler_context(
     physical: &PhysicalContext,
     providers: &BTreeMap<String, pse_kernels::Registration>,
-) -> Inputs {
-    Inputs {
+) -> CompilerContext {
+    CompilerContext {
         quantities: physical.quantities.clone(),
         preconditions: physical.preconditions.clone(),
-        flows: BTreeMap::new(),
-        definitions: BTreeMap::new(),
-        domains: BTreeMap::new(),
-        groups: BTreeMap::new(),
+
         providers: providers
             .iter()
             .map(|(name, p)| {
@@ -116,13 +186,11 @@ fn compiler_inputs(
                 )
             })
             .collect(),
-        cases: BTreeMap::new(),
-        values: BTreeMap::new(),
     }
 }
 /// Declarations, their physical-name scope, fit data, source batches decoded from the
 /// documents and the package data documents (ADR-0125).
-type DocumentInputs = (
+type DocumentCompilerContext = (
     Vec<Declaration>,
     PhysicalScope,
     super::FitDeclarations,
@@ -137,6 +205,19 @@ fn data_documents(
     let mut inventory = pse_modeling::document::DocumentInventory::default();
     for bundle in documents.bundles() {
         for document in &bundle.documents {
+            for (path, span) in document.spans.iter() {
+                if let Some(field) = path.strip_prefix("/modeling-fields/")
+                    && let Some((declaration, role)) = field.split_once('/')
+                    && let Ok(declaration) = SemanticId::parse_hex(declaration)
+                {
+                    inventory
+                        .field_spans
+                        .entry(declaration.into())
+                        .or_default()
+                        .insert(role.into(), span);
+                }
+            }
+
             match document.data() {
                 Some(data) => {
                     inventory
@@ -158,7 +239,7 @@ fn document_inputs(
     registry: &pse_schema::Registry,
     physical: &PhysicalContext,
     workspace_bytes: usize,
-) -> Result<DocumentInputs, WorkflowError> {
+) -> Result<DocumentCompilerContext, WorkflowError> {
     documents.validate_registry(registry)?;
     let mut headers = documents
         .bundles()
@@ -172,15 +253,16 @@ fn document_inputs(
     {
         headers.push(declaring.header.clone());
     }
-    pse_authoring::p0::resolve_rows(
+    let limits = pse_authoring::p0::GraphLimits {
+        nodes: headers.len(),
+        edges: workspace_bytes / 128,
+    };
+    let batches = crate::authoring_driver::p1::source_batches(
+        documents.bundles(),
+        registry,
         &headers,
-        pse_authoring::p0::GraphLimits {
-            nodes: headers.len(),
-            edges: workspace_bytes / 128,
-        },
-    )
-    .map_err(crate::authoring_driver::DriverError::from)?;
-    let batches = crate::authoring_driver::p1::source_batches(documents.bundles(), registry)?;
+        limits,
+    )?;
     use pse_relations::generated::authored::modeling_declarations as wire;
     let batch = batches
         .get(&wire::RELATION_ID)
@@ -210,6 +292,12 @@ impl Runtime {
         documents: &crate::authoring_driver::document::OwnedDocumentSet,
         physical: PhysicalContext,
     ) -> Result<ModelingPackage, WorkflowError> {
+        let validation = self.sessions.validation_context(&self.registry)?;
+        documents.validate_context(
+            &self.registry,
+            &validation,
+            &pse_columnar::CancellationToken::new(),
+        )?;
         let (rows, scope, data, sources, inventory) = document_inputs(
             documents,
             &self.registry,
@@ -264,7 +352,7 @@ impl Runtime {
         providers: BTreeMap<String, pse_kernels::Registration>,
     ) -> Result<ModelingPackage, WorkflowError> {
         let service = self.shared.math();
-        let inputs = compiler_inputs(&physical, &providers);
+        let inputs = compiler_context(&physical, &providers);
         let workspace = service.workspace(inputs, WorkspaceLimits::default())?;
         let revision =
             service.modeling_revision(&workspace, rows, scope, documents, &physical.key)?;
@@ -280,7 +368,6 @@ impl Runtime {
             providers: std::sync::Arc::new(providers),
             physical: physical.clone(),
             quantities: physical.quantities,
-            views: Default::default(),
         })
     }
 }
@@ -395,6 +482,7 @@ impl ModelingPackage {
         use pse_model::HeapUsage;
         use pse_relations::generated::authored::modeling_declarations as wire;
         let registry = &self.runtime.registry;
+        let validation = self.runtime.validation_context()?;
         let bytes = self
             .declarations()
             .iter()
@@ -439,7 +527,8 @@ impl ModelingPackage {
                     }
                 }
                 let mut builder =
-                    context::Builder::with_registry(registry, rows.len()).map_err(relation)?;
+                    context::Builder::with_registry(registry, rows.len(), &validation)
+                        .map_err(relation)?;
                 for row in rows.into_values() {
                     builder.push(row).map_err(relation)?;
                 }
@@ -480,7 +569,7 @@ impl ModelingPackage {
             }
         }
         let mut declarations =
-            wire::Builder::with_registry(registry, rows.len()).map_err(relation)?;
+            wire::Builder::with_registry(registry, rows.len(), &validation).map_err(relation)?;
         for row in rows.into_values() {
             declarations.push(row.clone()).map_err(relation)?;
         }
@@ -588,13 +677,10 @@ impl ModelingPackage {
             workspace: self.workspace.clone(),
             revision,
             fit_declarations: self.fit_declarations.clone(),
-            accelerators: std::sync::Arc::new(
-                pse_math::implicit::accelerators::Accelerators::standard(),
-            ),
+            accelerators: self.accelerators.clone(),
             providers: self.providers.clone(),
             physical: self.physical.clone(),
             quantities: self.quantities.clone(),
-            views: Default::default(),
         })
     }
     /// Finite K3 admission and inspection; solver orchestration belongs to the subsequent lowering packets.
@@ -624,9 +710,11 @@ impl ModelingPackage {
 }
 
 #[cfg(test)]
+mod reuse_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Arc;
 
     #[test]
     fn source_export_merges_physical_modeling_rows_and_rejects_conflicts() {
@@ -647,7 +735,12 @@ mod tests {
             .unwrap();
         let spec = runtime.registry.relation_by_id(wire::RELATION_ID).unwrap();
         let table = |rows: Vec<Declaration>| {
-            let mut b = wire::Builder::with_registry(&runtime.registry, rows.len()).unwrap();
+            let mut b = wire::Builder::with_registry(
+                &runtime.registry,
+                rows.len(),
+                &runtime.validation_context().unwrap(),
+            )
+            .unwrap();
             for row in rows {
                 b.push(row).unwrap();
             }
@@ -711,6 +804,7 @@ mod tests {
             pse_authoring::ParseBudget::default(),
             &pool,
             &token,
+            &rt.validation_context().unwrap(),
         )
         .unwrap();
         let documents = crate::authoring_driver::document::OwnedDocumentSet::try_from_bundles(
@@ -752,7 +846,7 @@ mod tests {
             )
             .await
             .unwrap();
-        assert!(Arc::ptr_eq(
+        assert!(pse_math::SharedAllocation::ptr_eq(
             &original.compiled().admitted,
             &changed.compiled().admitted
         ));
@@ -823,6 +917,7 @@ mod import_tests {
             pse_authoring::ParseBudget::default(),
             &pool,
             &token,
+            &rt.validation_context().unwrap(),
         )?;
         Ok(
             crate::authoring_driver::document::OwnedDocumentSet::try_from_bundles(
@@ -852,14 +947,41 @@ mod import_tests {
             ))
         );
         assert!(named("Length").is_some() && named("Time").is_some());
-        // The reference inventory (the generated standard registry) names 46 quantity
-        // types (the original 44 plus atomic mass and heat-capacity slope)
-        // and its four reference states.
+        // Compare the generated reference inventory to the authoritative document's
+        // exact names and identities, including independently named reference states.
         let standard = pse_quantity::standard::standard_registry().unwrap();
-        let (types, states): (Vec<_>, Vec<_>) = standard
+        let document: pse_authoring::generated::documents::MaterialsDocument =
+            serde_saphyr::from_str(include_str!(
+                "../../../../packages/reference/physical/materials/physical.yaml"
+            ))
+            .unwrap();
+        let declared: BTreeMap<_, _> = document
+            .quantity_types
+            .into_iter()
+            .filter_map(|row| {
+                row.name.map(|name| {
+                    (
+                        name,
+                        pse_quantity::PhysicalName::QuantityType(QuantityTypeId::from_id(
+                            row.quantity_type_id,
+                        )),
+                    )
+                })
+            })
+            .chain(document.reference_states.into_iter().map(|row| {
+                (
+                    row.name,
+                    pse_quantity::PhysicalName::ReferenceState(
+                        pse_quantity::ReferenceStateId::from_id(row.reference_state_id),
+                    ),
+                )
+            }))
+            .collect();
+        let generated: BTreeMap<_, _> = standard
             .physical_names()
-            .partition(|(_, n)| matches!(n, pse_quantity::PhysicalName::QuantityType(_)));
-        assert_eq!((types.len(), states.len()), (46, 4));
+            .map(|(name, identity)| (name.to_owned(), identity))
+            .collect();
+        assert_eq!(generated, declared);
         assert_eq!(
             standard.physical_name("MolarCp"),
             Some(pse_quantity::PhysicalName::QuantityType(
@@ -955,6 +1077,7 @@ mod import_tests {
                 pse_authoring::ParseBudget::default(),
                 &pool,
                 &token,
+                &rt.validation_context().unwrap(),
             )
             .unwrap()
         };
@@ -1039,6 +1162,7 @@ mod import_tests {
                 pse_authoring::ParseBudget::default(),
                 &pool,
                 &token,
+                &rt.validation_context().unwrap(),
             )
             .unwrap()
         };
@@ -1116,6 +1240,7 @@ mod import_tests {
                 pse_authoring::ParseBudget::default(),
                 &pool,
                 &token,
+                &rt.validation_context().unwrap(),
             )
             .unwrap();
             let documents = crate::authoring_driver::document::OwnedDocumentSet::try_from_bundles(

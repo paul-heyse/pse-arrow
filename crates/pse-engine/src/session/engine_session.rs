@@ -40,7 +40,6 @@ pub struct EngineSession {
     pub(crate) bindings: Bindings,
     pub(super) policies: Arc<Vec<pse_schema::model::provider::ProviderPolicy>>,
     pub(super) purpose: pse_schema::model::provider::OperationPurpose,
-    pub(super) requirement_planner: Option<Arc<dyn super::policy::RequirementPlanner>>,
     pub(crate) pool: Arc<dyn MemoryPool>,
     pub(super) execution_runtime: Option<Arc<datafusion::execution::runtime_env::RuntimeEnv>>,
     pub(super) profile: EngineProfile,
@@ -64,7 +63,7 @@ pub(super) fn bind_candidates(
         let spec = registry
             .relation_by_key(key)
             .ok_or_else(|| invalid("candidate relation/version is undeclared"))?;
-        let input = pse_relations::columnar::FieldCheckedBatch::admit_external_in(
+        let input = pse_relations::columnar::FieldCheckedBatch::admit_external(
             &registry,
             spec,
             &batch,
@@ -122,7 +121,6 @@ fn build(
         bindings,
         policies: Arc::clone(&factory.policies),
         purpose: pse_schema::model::provider::OperationPurpose::Query,
-        requirement_planner: factory.requirement_planner.clone(),
         pool,
         execution_runtime: None,
         profile,
@@ -196,6 +194,24 @@ impl SessionSemantics {
     }
 }
 impl EngineSession {
+    /// Capture the exact selected function and configuration owner for row admission.
+    /// # Errors
+    /// Scoped native state cannot be composed.
+    pub fn validation_context(
+        &self,
+    ) -> Result<Arc<pse_relations::validate::ValidationContext>, EngineError> {
+        let selected = self.selection()?;
+        if let Some(context) = selected.validation.get() {
+            return Ok(context.clone());
+        }
+        let context = Arc::new(pse_relations::validate::ValidationContext::new(
+            &self.registry,
+            crate::validation::NativeValidation(self.bound_state()?),
+        ));
+        let _ = selected.validation.set(context.clone());
+        Ok(selected.validation.get().cloned().unwrap_or(context))
+    }
+
     /// Share model capabilities while dropping the parent's selected providers.
     pub(super) fn empty_selection(&self) -> Result<Self, EngineError> {
         let mut result = self.clone();
@@ -280,6 +296,7 @@ impl EngineSession {
         }
         *state.config_mut() = config;
         let native = Arc::make_mut(&mut self.native);
+        native.validation = Default::default();
         native.context = SessionContext::new_with_state(state);
         native.settings = restored;
         self.policies = Arc::new(
@@ -465,7 +482,7 @@ impl EngineSession {
             if spec.authority != pse_schema::model::Authority::Derived {
                 return Err(invalid("workspace relation must be derived"));
             }
-            let input = pse_relations::columnar::FieldCheckedBatch::admit_external_in(
+            let input = pse_relations::columnar::FieldCheckedBatch::admit_external(
                 &self.registry,
                 spec,
                 &batch,
@@ -536,11 +553,6 @@ impl EngineSession {
                 &other.native.function_bindings,
             )
             || !Arc::ptr_eq(&self.rules, &other.rules)
-            || match (&self.requirement_planner, &other.requirement_planner) {
-                (Some(a), Some(b)) => !Arc::ptr_eq(a, b),
-                (None, None) => false,
-                _ => true,
-            }
             || self.policies != other.policies
             || self.purpose != other.purpose
             || self.profile != other.profile
@@ -603,6 +615,7 @@ impl EngineSession {
         *captured.config_mut() = config;
         captured.register_catalog_list(catalogs);
         let native = Arc::make_mut(&mut self.native);
+        native.validation = Default::default();
         if functions_changed {
             native.function_bindings = super::functions::Functions::from_state(&captured);
             (native.functions, native.function_names) = function_inventory(&captured);

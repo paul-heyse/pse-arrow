@@ -35,27 +35,3 @@ impl ValidationPlanner for NativeValidation {
         )
     }
 }
-/// Bind the built-in registry at the native application boundary. Pure schema
-/// consumers use `pse_schema` directly and never construct this SQL state.
-/// # Errors
-/// Registry construction or native validation-owner installation fails.
-pub fn registry() -> Result<&'static pse_schema::Registry, pse_schema::SchemaError> {
-    let registry = pse_schema::registry()?;
-    bind_defaults(registry).map_err(|error| pse_schema::SchemaError::InvalidDeclaration {
-        context: "native validation".into(),
-        reason: error.to_string(),
-    })?;
-    Ok(registry)
-}
-/// Install the registry's standard native binding once. Custom sessions use `NativeValidation` directly.
-/// # Errors
-/// The registry owner cannot retain its prepared implementation.
-pub fn bind_defaults(registry: &pse_schema::Registry) -> Result<(), pse_relations::RelationError> {
-    struct NativeDefault(Arc<dyn ValidationPlanner>);
-    let native = registry.derived_implementation(|| {
-        Ok(NativeDefault(Arc::new(NativeValidation(
-            datafusion::execution::context::SessionContext::new().state(),
-        ))))
-    })?;
-    pse_relations::validate::ValidationContext::install_default(registry, native.0.clone())
-}

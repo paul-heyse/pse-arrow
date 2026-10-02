@@ -516,7 +516,7 @@ pub(super) fn dynamic_ports(
                 .ok_or_else(|| contract(format!("unknown dynamic case path {p}")))?;
             if !product
                 .admitted
-                .case
+                .case()
                 .variables()
                 .iter()
                 .any(|v| v.port.id == id)
@@ -530,7 +530,7 @@ pub(super) fn dynamic_ports(
         .collect::<Result<BTreeMap<_, _>, WorkflowError>>()?;
     let state = product
         .admitted
-        .case
+        .case()
         .variables()
         .iter()
         .filter(|v| {
@@ -823,7 +823,7 @@ impl ModelingPackage {
             f.procedure == pse_model::generated::enums::ModelingProcedure::Shooting
         });
         if product.model.integrated.len() != 1
-            || (product.admitted.case.objective().is_some() && !shooting)
+            || (product.admitted.case().objective().is_some() && !shooting)
         {
             return Err(contract(
                 "integrated consumer requires one time axis; an optimization objective needs a shooting fixture",
@@ -870,7 +870,7 @@ impl ModelingPackage {
         // not claim derivatives of the integral itself.
         let terminal_rows = product
             .admitted
-            .case
+            .case()
             .instances()
             .iter()
             .filter(|i| i.slots.iter().any(|s| integral_ids.contains(&s.source())))
@@ -1011,7 +1011,7 @@ impl ModelingPackage {
                 &crate::math::solves::NumericalInputs::default(),
                 &profile.numerics,
                 &pse_backend_native::solve::Controls::default(),
-                DerivativeOrder::First,
+                derivatives,
                 compiler,
                 cancel,
                 None,
@@ -1159,7 +1159,7 @@ impl ModelingPackage {
         for (id, _) in &algebraic {
             let row = product
                 .admitted
-                .case
+                .case()
                 .rows()
                 .iter()
                 .find(|r| r.id == *id)
@@ -1524,7 +1524,11 @@ impl ModelingPackage {
         hash.id(&root.as_id())
             .id(&instance.as_id())
             .hash(&numerics.key)
-            .hash(&super::super::dynamics::profile_identity(&profile))
+            .hash(
+                &super::super::dynamics::profile_identity(&profile)
+                    .map_err(crate::math::MathRuntimeError::from)?
+                    .as_id(),
+            )
             .u64(match derivatives {
                 DerivativeOrder::Value => 0,
                 DerivativeOrder::First => 1,
@@ -1946,7 +1950,7 @@ impl ModelingPackage {
                     }
                     if !product
                         .admitted
-                        .case
+                        .case()
                         .variables()
                         .iter()
                         .any(|v| v.port.id == a.target)
@@ -3939,6 +3943,7 @@ mod tests {
             assert!(result.checks_complete, "{:?}", result.validation_error);
             assert_eq!(result.accepted, accepted);
             assert_eq!(result.checks.len(), 3);
+            let expected_checks = result.checks.clone();
             let tables = result.tables().unwrap();
             use pse_relations::{
                 columnar::RelationRow,
@@ -3961,8 +3966,15 @@ mod tests {
             drop(package);
             drop(tables);
             let rows = modeling_checks::Row::rows(&checks).unwrap();
-            assert_eq!(rows.len(), 6);
-            assert!(rows.iter().all(|r| r.time.is_some()));
+            assert_eq!(rows, expected_checks);
+            assert_eq!(
+                rows.iter().map(|row| (row.sample_index, row.time)).collect::<Vec<_>>(),
+                [(0, Some(0.)), (1, Some(1.)), (2, Some(2.))]
+            );
+            assert_eq!(
+                rows.iter().map(|row| row.satisfied).collect::<Vec<_>>(),
+                [true, true, accepted]
+            );
         }
     }
     #[tokio::test]
@@ -4025,7 +4037,7 @@ mod tests {
             }
             let prepared = result.unwrap();
             let product = prepared.model().compiled();
-            let inner = product.admitted.implicit.values().next().unwrap();
+            let inner = product.admitted.implicit_systems().next().unwrap();
             assert_eq!(
                 inner.algorithm,
                 pse_compiler::workspace::ImplicitAlgorithm::AffineRates
@@ -4682,7 +4694,7 @@ mod tests {
                 .model
                 .compiled()
                 .admitted
-                .case
+                .case()
                 .variables()
                 .iter()
                 .map(|v| v.port.id)

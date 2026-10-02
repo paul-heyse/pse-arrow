@@ -1,8 +1,8 @@
 ---
 title: "25j: Generated boundaries and library consolidation"
-status: in-progress
+status: done
 date: 2026-09-30
-adrs: []
+adrs: [ADR-0151]
 review_sources: [docs/design_review/reviews/design_review_codebase-domain-alignment_2026-09-30.md, docs/design_review/reviews/design_review_codebase-domain-alignment-follow-up_2026-09-30.md]
 scenario_sources: [docs/design_review/reviews/design_review_codebase-domain-alignment_2026-09-30.md#s09]
 ---
@@ -15,8 +15,8 @@ The [series coordinator](25-design-remediation.md) owns dispositions. This plan 
 the generator/cardinality parts of F26, and the generated consumers of F24/F32. R9 governs
 the remedy: a generated shape alone does not establish semantic admission.
 
-Today hand-written Python mirrors, JSON documents, string enum getters and adapter-local
-request rules can diverge from Rust. The target is one owned request/result meaning, one
+The reviewed baseline had hand-written Python mirrors, JSON documents, string enum getters
+and adapter-local request rules that could diverge from Rust. The target is one owned request/result meaning, one
 admission operation, and mechanically derived Rust/Python transport and documentation.
 Python stays a thin typed adapter; it does not become a second scientific or workflow authority.
 
@@ -56,17 +56,18 @@ the examples that happened to be counted in the review.
 - Hex conversion is owned by I1, closed-vocabulary semantics/derive policy by F1. J3 migrates
   their generated consumers. This avoids a second utility owner here.
 
-These are **Proposed** decisions. The Python-boundary change uses an ADR plus design review
-under D1/blueprint §21; generation continues through the existing schema/document route.
+The target was authorized under ADR-0151 and its Accept review at **Proposed** evidence.
+The implementation and focused verification below complete this plan's functional scope;
+generation continues through the existing schema/document route under D1/blueprint §21.
 No accepted ADR is edited in place and no new crate is required.
 
 ## Packets and dependencies
 
 | Packet | Prerequisites | Responsibility and target | Deletion | Status |
 |---|---|---|---|---|
-| <a id="j1"></a>J1 Owned document and admission boundary | F1/F2/F3; E2/E4; C1 | Move adapter-owned request meanings into the Rust owner; register actual request/results with generation; use one typed document bridge | Ad hoc JSON shape construction, adapter policy and duplicate schema definitions for migrated operations | partial: 25e/25f prerequisite slices |
-| <a id="j2"></a>J2 Python consumer cutover | J1; F2/F3/F4, E2/E3/E4 and C1 interfaces as applicable; G2 for changed persisted representations | Generate models, enums and native stubs; migrate all Python/public Rust boundary consumers and defaults | Hand-written mirrors, string enum getters, parallel wire types and copied defaults | partial: 25d/25e/25f prerequisite slices |
-| <a id="j3"></a>J3 Generator/library consolidation | F1 and I1 utility contracts | Generate common vocabulary surfaces; use adopted graph/cardinality mechanisms; review regenerated outputs | Bespoke emitter DFS, repeated enum glue and quadratic cardinality/uniqueness mechanisms | planned |
+| <a id="j1"></a>J1 Owned document and admission boundary | F1/F2/F3; E2/E4; C1 | Move adapter-owned request meanings into the Rust owner; register actual request/results with generation; use one typed document bridge | Ad hoc JSON shape construction, adapter policy and duplicate schema definitions for migrated operations | done |
+| <a id="j2"></a>J2 Python consumer cutover | J1; F2/F3/F4, E2/E3/E4 and C1 interfaces as applicable; G2 for changed persisted representations | Generate models, enums and native stubs; migrate all Python/public Rust boundary consumers and defaults | Hand-written mirrors, string enum getters, parallel wire types and copied defaults | done |
+| <a id="j3"></a>J3 Generator/library consolidation | F1 and I1 utility contracts | Generate common vocabulary surfaces; use adopted graph/cardinality mechanisms; review regenerated outputs | Bespoke emitter DFS, repeated enum glue and quadratic cardinality/uniqueness mechanisms | done |
 
 J1/J2 proceed by complete operation slices after their owner is ready; they need not wait for
 every operation before starting. No slice retains an old and new public API in parallel.
@@ -182,7 +183,7 @@ clock-based lease expiry. Rust/native consumers compile against the regenerated 
 This completes the required durable-evolution boundary slice, not J1/J2's full request/default
 migration or J3's remaining generator/library consolidation. Cross-language qualification remains 25k.
 
-## Proposed acceptance and handoff
+## Focused acceptance and handoff
 
 Focused checks use isolated Rust request/codec units and Python constructor/decoder units,
 with no unrelated database or solver. Check:
@@ -204,17 +205,100 @@ The handoff is a single generated public boundary over the settled target. An em
 JSON macros or mirrors can support deletion accounting but cannot establish that semantics
 survived. The coordinator resolves F18/F26 only after all their component obligations are met.
 
+## Verification
+
+**Implemented/Tested, 2026-10-02.** The complete exported operation inventory now uses its
+actual Rust owner and the common typed native codec. The historical prerequisite receipts
+above retain their original dates, scope and exclusions; this receipt completes the remaining
+J1/J2/J3 scope. The failure baseline is zero. Rust unit recipes explicitly enabled
+`pse-relations/force-validate`; licensed compiler controls used `direnv exec .`, the memory-cap
+wrapper and one test thread. The Python controls used the rebuilt locked editable dev
+extension with `force-validate,native-solvers`, and `py-unit-native` supplied the native
+environment and memory cap.
+
+| Command and mode | Result against zero | Scope established |
+|---|---|---|
+| `just unit-package pse-codegen 'test(codegen::documents::tests)'` | 7/7 passed | Closed document/tag/tuple shapes, variable cardinality, declared nested equality keys and uniqueness emission |
+| `just unit-package pse-codegen 'test(codegen::python::tests)'` | 3/3 passed | Deterministic graph dependency order; attributable cycles/missing declarations; nested declaration order |
+| `just unit-package pse-vocabulary 'test(vocabularies_have_one_spelling_per_member) \| test(spellings_unchanged)'` | 2/2 passed | Common vocabulary mechanics preserve canonical spellings |
+| `just unit-package pse-schema 'test(binary_literal_requires_canonical_lowercase_pairs)'` | 1/1 passed | Canonical lowercase binary literals and malformed-input refusal |
+| `just unit-package pse-compiler 'test(reuse_tests) or test(modeling::conditional) or test(checked_compound_guards_preserve_original_arithmetic_occurrences) or test(workspace::modeling::flow::boundary_unit::) or test(kernel_flow_projection)' --test-threads 1` | 13/13 passed: J flow 4, I retained-body/occurrence controls 9 | Actual flow projection plus duplicate/context/cost admission; the additional I controls retain their owning [25i](25i-identity-reuse-and-resource-ownership.md#verification) scope |
+| `just unit-package pse-runtime 'test(workflow::controls::boundary_unit::) \| test(workflow::modeling::documents::boundary_unit::) \| test(workflow::fitting::documents::boundary_unit::) \| test(workflow::diagnostic_documents::boundary_unit::) \| test(workflow::progress_documents::boundary_unit::) \| test(workflow::strategies::requests::boundary_unit::)' --test-threads 1` | 10/10 passed | Rust omission defaults, selected-source penalties and fixture admission, grouped native diagnostic evidence, exact/nonfinite progress, fit worker/scientific distinction, duplicate selected-set refusal |
+| `just unit-package pse-runtime 'test(initialization_and_diagnostic_durations_keep_closed_standard_encoding)' --test-threads 1`; `just unit-package pse-backend-native 'test(dynamics_profile_duration_schema_matches_closed_serde_representation)' --test-threads 1` | 1/1 + 1/1 passed | The shared duration schema matches actual owners' standard serde fields, bounds, overflow and unknown-field refusal |
+| `just codegen` | Passed all 6 targets and Python candidate annotation checks; Ipopt/hakari refreshed | Registry consumers, actual owned schemas/documents and Rust-serialized boundary fixtures regenerated from source |
+| `just check` | Final all-target compile: 0 source errors, 0 source warnings | Connected H/I/J production, tests and benchmark consumers compile together |
+| `just py-sync-native` | Passed editable dev rebuild and actual compiled-stub generation | Current optional native consumers, installed extension and generated stubs agree |
+| `direnv exec . just py-unit-native python/pse/tests/test_native_boundary_contracts.py python/pse/tests/test_generated_contracts.py python/pse/tests/test_versions_agree.py python/pse/tests/test_native_stub_surface.py -q` | 49/49 passed, 0 failures | Actual diagnostic enums, generated getter annotations and exact extension/stub surface, native defaults, scalar/nested/map equality and duplicate refusal, duration decoding, exact build/lockfile provenance, and the eight owner-serialized outcome branches |
+
+The connected result is a **composite receipt**, not an initially clean run. The first complete
+generation compile had 26 errors: 21 cascaded from a missing direct fixture-owner dependency
+and five came from old context/cancellation calls. Repairs then exposed a physical-loader
+registry-owner refusal, the missing closure in the standard-duration schema, its production
+dependency reference and a missing Debug warning. The final generator passed; the final
+duration builds and workspace compile contain no source warnings. The initial workspace
+all-target check had 36 fixture/benchmark compile errors and three distinct source warnings;
+the allocated owner repairs produced the zero-source-error/warning rerun above. The earlier
+flow selection run passed three new controls but failed the existing actual graph projection;
+H repaired contextual resolution of retained child-constructor declarations, and the combined
+13-test rerun passed. The initial runtime boundary build was blocked by three source-loader
+header/limit joins; its ten-test rerun passed after the owning repair. These repairs did not
+weaken a contract or retain a parallel public path.
+
+The toolchain still prints an imported `proc-macro-error2 v2.0.1` future-compatibility notice;
+it is recorded separately from the zero current source finding result. No broad hygiene,
+integration, scientific solver execution, storage/publication journey, parity or performance
+campaign was run for this packet. The typed partial/cancelled/refused/failed/incumbent/event
+payload fixtures test Rust serialization followed by generated Python decoding; they do not
+establish that a solver computed the fixture's qualification. Full product and cross-language
+journey qualification remains [25k](25k-integrated-qualification-and-closure.md).
+
 ## Outcome (recorded after implementation)
 
 ### What was built
 
-Full-plan closure remains outstanding. The implemented 25d/25e/25f/25g prerequisite slices are
-recorded above; the linked plans own their focused evidence. Remaining work is Proposed.
+**Implemented/Tested, 2026-10-02:** J1/J2/J3 functional scope is complete. Workspace, published
+and exported artifacts, settlement, completion/lineage, study and attempt products, strategy
+and flow requests, declaration and inspection documents, fitting/profile evidence, progress,
+diagnostics, warm-start snapshots and build provenance derive from their actual Rust owners.
+One typed native document codec and one mechanical enum projection serve all migrated
+consumers. Python builders/readers/exceptions use generated documents and enum types;
+genuine native handles and typed settings retain their native capabilities.
+
+Flow selection now belongs to the compiler/runtime flow owner. Decoding exposes occurrence
+lists; admission checks duplicates, cost and the selected model's actual graph with its immutable
+validation context. Rust owns omission/default resolution, including initialization and selected
+run/start controls. The handwritten requirement-planner bridge is deleted while effect,
+settings and budget policy remain at their actual owners.
+
+The deleted surfaces include handwritten Python wire mirrors, native progress/incumbent/
+resource/cache/route/diagnostic-wire mirror classes, the separate workflow document codec,
+adapter-local flow meaning, copied defaults and string-valued enum projections. Their callers
+use the generated owner products; no old/new public API is retained in parallel. Standard
+duration serialization still belongs to serde; its shared schema projection supplies the closure
+that schemars omits. Registered selected sets reject duplicate decoded occurrences rather than
+silently collapsing them. Generated attrs and msgspec collection keys preserve equality for
+signed zero, records and reordered nested mappings, with declared length constraints.
+
+J3 uses common strum vocabulary mechanics, the shared hex owner and deterministic petgraph
+ordering. Regenerated models, schemas, docs and actual PyO3 stubs complete the cutover.
+**Interface-checked/Tested within the named conditions:** the final connected compile and
+49 isolated Python tests establish the exported boundary and codec behavior, not execution of
+unselected scientific or storage workflows. The historical prerequisite slices retain their own
+qualification limits; 25k owns the remaining comprehensive qualification.
 
 ### A mistake made and corrected
 
-Record an actual implementation correction at closure.
+**Implemented/Tested:** moving documents to their real Rust owners exposed native import and
+typed-hash joins that had relied on adapter-local representations. Completion/publication now
+lower typed revision, request and profile identities with `as_id()` only at generated persisted
+row boundaries; the native import gateway installs identity helpers before loading generated
+documents. Connected native compilation and the checkout metadata/codec tests pass. The
+initial duration schema also understated serde's refusal contract; the fix reused one shared
+projection of the actual standard-duration representation rather than making the emitter accept
+open records. The final owner and Python controls verify that correction.
 
 ### Deviations from the plan, deliberate
 
-None recorded; decision changes follow their owning ADR/design route.
+None. ADR-0151 and its target review govern the boundary change. Rust-serialized isolated
+fixtures were added to cover every named outcome branch without invoking a solver or store;
+this implements the planned bounded acceptance scope rather than expanding qualification.

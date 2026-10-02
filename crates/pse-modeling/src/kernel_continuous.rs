@@ -146,6 +146,148 @@ fn temporal_composition_refuses_competing_axes_bindings_and_wrong_quantity() {
 }
 
 #[test]
+fn temporal_composition_preserves_authored_index_occurrence_ranges() {
+    let text = TEMPORAL
+        .replace(
+            "child cell:Cell=Cell();",
+            "set sites:Set<Scalar>={0,1}; child cell[j in sites]:Cell=Cell();",
+        )
+        .replace("cell[0{s}].x", "cell[0{s},0].x")
+        .replace("let endpoint:Time=cell[2{s}].x;", "");
+    let (rows, field_spans) = pse_authoring::language::parse_with_spans(
+        &text,
+        SemanticId::from_bytes([91; 16]),
+        pse_authoring::language::IdentityPolicy::Named,
+        pse_authoring::ParseBudget::default(),
+    )
+    .unwrap();
+    #[derive(Debug)]
+    struct SourceFields(
+        std::collections::BTreeMap<
+            DeclarationId,
+            std::collections::BTreeMap<String, pse_authoring::SourceSpan>,
+        >,
+    );
+    impl document::Documents for SourceFields {
+        fn field_spans(
+            &self,
+            declaration: DeclarationId,
+        ) -> Option<&std::collections::BTreeMap<String, pse_authoring::SourceSpan>> {
+            self.0.get(&declaration)
+        }
+        fn resolve(&self, _: SemanticId, _: &str) -> Option<SemanticId> {
+            None
+        }
+        fn admit(
+            &self,
+            plan: &std::sync::Arc<document::DocumentPlan>,
+            id: SemanticId,
+        ) -> Result<std::sync::Arc<document::DocumentTable>> {
+            document::Documents::admit(&document::NoDocuments, plan, id)
+        }
+    }
+    let documents = SourceFields(field_spans);
+    let authored = expression::occurrences::collect(&rows, &documents).unwrap();
+    let (registry, _) = physical();
+    let prerequisites =
+        pse_quantity::PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions())
+            .unwrap();
+    let scope = PhysicalScope::default();
+    let context = TypeContext {
+        admissions: None,
+        formula_authority: None,
+        quantities: &registry,
+        preconditions: &prerequisites,
+        scope: &scope,
+    };
+    let package = check_with(&rows, &context, &documents).unwrap();
+    let child = rows
+        .iter()
+        .find(|row| row.name == "cell")
+        .unwrap()
+        .declaration_id;
+    let original = authored
+        .iter()
+        .find(|(key, _)| key.declaration == child && key.role == "binding.indices.domain")
+        .unwrap()
+        .1;
+    let checked = package
+        .expression_occurrence(child, "binding.indices.domain", 0)
+        .unwrap();
+    assert_eq!(checked.text, "sites");
+    assert_eq!(
+        &text[checked.source.start as usize..checked.source.end as usize],
+        "sites"
+    );
+    assert_eq!(checked.source, original.source);
+    let mut lexical_context = Vec::new();
+    let mut owner = Some(child);
+    while let Some(id) = owner {
+        lexical_context.push(id);
+        owner = rows
+            .iter()
+            .find(|row| row.declaration_id == id)
+            .unwrap()
+            .parent_id;
+    }
+    assert_eq!(checked.context, lexical_context);
+    assert!(
+        package
+            .expression_occurrence(child, "binding.indices.domain", 1)
+            .is_none()
+    );
+    assert_eq!(
+        package.declarations[&child]
+            .value
+            .binding
+            .as_ref()
+            .unwrap()
+            .indices
+            .len(),
+        2
+    );
+    let model = specialize(
+        &package,
+        package.names["p.D"],
+        InstanceId::from_id(SemanticId::NIL),
+        &Bindings::default().with_analysis(analysis::Route::Simultaneous),
+        Limits::default(),
+    )
+    .unwrap();
+    let cell_definition = package.names["p.Cell"];
+    assert_eq!(
+        model
+            .instances
+            .values()
+            .filter(|instance| instance.definition == cell_definition)
+            .count(),
+        6
+    );
+}
+
+#[test]
+fn temporal_composition_refuses_target_outside_visible_child_hierarchy() {
+    let text = TEMPORAL
+        .replace(
+            "def D {",
+            "def Layer {set t:Set<Time>={99{s}}; child cell:Cell=Cell();} def D {",
+        )
+        .replace(
+            "child cell:Cell=Cell(); evolve time_state on cell using t bind times;",
+            "child layer:Layer=Layer(); evolve time_state on layer.cell using t bind times;",
+        )
+        .replace("cell[0{s}].x", "layer.cell[0{s}].x")
+        .replace("let endpoint:Time=cell[2{s}].x;", "");
+    let refusal = temporal(&text, analysis::Route::Simultaneous)
+        .unwrap_err()
+        .to_string();
+    assert!(
+        refusal.contains("temporal child is not visible"),
+        "{refusal}"
+    );
+}
+
+#[test]
 fn temporal_composition_shares_nested_parameters_and_refuses_two_global_time_axes() {
     let nested = TEMPORAL
         .replace(

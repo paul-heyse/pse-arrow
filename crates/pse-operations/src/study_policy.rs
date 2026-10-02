@@ -310,14 +310,18 @@ fn action(
             }
             let absent = match seed_availability(fact, edge.role) {
                 SeedAvailability::Unresolved => {
-                    return Ok(if permitted {
-                        ActionKind::Wait(WaitReason::SeedResolution { role: edge.role })
-                    } else {
-                        ActionKind::Refuse(Refusal::SeedPermission {
-                            predecessor: edge.predecessor,
-                            role: edge.role,
-                        })
-                    });
+                    return Ok(
+                        if permitted
+                            || edge.unavailable == UnavailableSeedPolicy::FreshOnUnavailable
+                        {
+                            ActionKind::Wait(WaitReason::SeedResolution { role: edge.role })
+                        } else {
+                            ActionKind::Refuse(Refusal::SeedPermission {
+                                predecessor: edge.predecessor,
+                                role: edge.role,
+                            })
+                        },
+                    );
                 }
                 SeedAvailability::Compatible { seed } => {
                     return Ok(if permitted {
@@ -685,6 +689,66 @@ mod study_policy_unit {
             ActionKind::Refuse(Refusal::SeedInternal {
                 predecessor: Some(OccurrenceKey(3)),
                 role: SeedRole::PrimalSolution
+            })
+        );
+    }
+
+    #[test]
+    fn failed_predecessor_fallback_acquires_seed_facts_without_granting_seed_permission() {
+        let (mut graph, mut facts) = continuation();
+        facts[0].lifecycle = StudyPointState::Failed;
+        facts[0].scientific = ScientificFacts::default();
+        edge(&mut graph).unavailable = UnavailableSeedPolicy::FreshOnUnavailable;
+        facts[1].seed.as_mut().unwrap().availability = SeedAvailability::Unresolved;
+        assert_eq!(
+            child_action(&graph, &facts),
+            ActionKind::Wait(WaitReason::SeedResolution {
+                role: SeedRole::PrimalSolution,
+            })
+        );
+        for (availability, reason) in [
+            (SeedAvailability::Absent, SeedUnavailable::Absent),
+            (
+                SeedAvailability::Incompatible,
+                SeedUnavailable::Incompatible,
+            ),
+        ] {
+            facts[1].seed.as_mut().unwrap().availability = availability;
+            assert_eq!(
+                child_action(&graph, &facts),
+                ActionKind::Start(StartProvenance::FreshFallback {
+                    predecessor: OccurrenceKey(3),
+                    role: SeedRole::PrimalSolution,
+                    reason,
+                })
+            );
+        }
+        facts[1].seed.as_mut().unwrap().availability = SeedAvailability::Compatible {
+            seed: SolutionId::from_bytes([8; 16]),
+        };
+        assert_eq!(
+            child_action(&graph, &facts),
+            ActionKind::Refuse(Refusal::SeedPermission {
+                predecessor: OccurrenceKey(3),
+                role: SeedRole::PrimalSolution,
+            })
+        );
+        facts[1].seed.as_mut().unwrap().availability = SeedAvailability::InternalFailure;
+        assert_eq!(
+            child_action(&graph, &facts),
+            ActionKind::Refuse(Refusal::SeedInternal {
+                predecessor: Some(OccurrenceKey(3)),
+                role: SeedRole::PrimalSolution,
+            })
+        );
+        facts[1].seed.as_mut().unwrap().availability = SeedAvailability::Absent;
+        graph.points[1]
+            .dependencies
+            .push(Dependency::UsableResult(OccurrenceKey(3)));
+        assert_eq!(
+            child_action(&graph, &facts),
+            ActionKind::Refuse(Refusal::DependencyUnusable {
+                predecessor: OccurrenceKey(3),
             })
         );
     }

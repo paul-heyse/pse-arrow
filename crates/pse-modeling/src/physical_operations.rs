@@ -94,11 +94,23 @@ fn arguments<'a>(
         .collect()
 }
 
+fn reference_expression(name: &str) -> dsl::Expr {
+    dsl::Expr {
+        kind: dsl::ExprKind::Path(dsl::Path {
+            segments: vec![dsl::PathSegment {
+                name: name.into(),
+                indices: Vec::new(),
+            }],
+        }),
+        span: dsl::Span::default(),
+    }
+}
+
 fn function(
     id: DeclarationId,
     arguments: Vec<(String, Type)>,
     result: Type,
-    body: &str,
+    body: dsl::Expr,
     operation: PhysicalOperation,
 ) -> Result<Function> {
     Ok(Function {
@@ -117,7 +129,7 @@ fn function(
         variables: BTreeSet::new(),
         arguments,
         result,
-        body: Some(dsl::parse_expr(body).map_err(|e| invalid(id, e.to_string()))?),
+        body: Some(body),
     })
 }
 
@@ -215,13 +227,14 @@ pub(crate) fn admit_signatures(p: &mut CheckedPackage, context: &TypeContext<'_>
                 id,
                 args,
                 result,
-                &slot.expression,
+                p.expression_at(id, "coordinate_slot.expression", 0)?
+                    .clone(),
                 PhysicalOperation::Coordinate { map, slot: id },
             )?;
             checked.validity = declaration
                 .validity
                 .as_ref()
-                .map(|text| dsl::parse_predicate(text).map_err(|e| invalid(map, e.to_string())))
+                .map(|_| p.predicate_at(map, "coordinate_map.validity", 0).cloned())
                 .transpose()?;
             insert(p, checked);
         }
@@ -314,18 +327,16 @@ pub(crate) fn admit_signatures(p: &mut CheckedPackage, context: &TypeContext<'_>
                     }
                 };
                 law_args.push((declaration.name.clone(), slot_type));
-                let path = p
-                    .names
-                    .iter()
-                    .find_map(|(path, selected)| (*selected == *slot).then_some(path))
-                    .ok_or_else(|| invalid(*slot, "coordinate slot has no qualified identity"))?;
-                call_args.push(format!(
-                    "{path}({})",
-                    args.iter()
-                        .map(|(name, _)| name.as_str())
-                        .collect::<Vec<_>>()
-                        .join(",")
-                ));
+                call_args.push(dsl::Expr {
+                    kind: dsl::ExprKind::NamedCall {
+                        name: p.declaration_path(*slot),
+                        args: args
+                            .iter()
+                            .map(|(name, _)| reference_expression(name))
+                            .collect(),
+                    },
+                    span: dsl::Span::default(),
+                });
             }
             if law_args.is_empty() {
                 return Err(invalid(
@@ -336,7 +347,7 @@ pub(crate) fn admit_signatures(p: &mut CheckedPackage, context: &TypeContext<'_>
             for (name, ty) in &args {
                 if ty.quantity_scheme().is_none() && !matches!(ty, Type::Indexed { .. }) {
                     law_args.push((name.clone(), ty.clone()));
-                    call_args.push(name.clone());
+                    call_args.push(reference_expression(name));
                 }
             }
             let reduced = Type::RefinedQuantity {
@@ -354,16 +365,28 @@ pub(crate) fn admit_signatures(p: &mut CheckedPackage, context: &TypeContext<'_>
                 },
             )];
             formals.extend(args);
-            let body = format!(
-                "({})*reduced_law({})",
-                value.normalization,
-                call_args.join(",")
-            );
+            let body = dsl::Expr {
+                kind: dsl::ExprKind::Binary {
+                    op: dsl::BinaryOp::Mul,
+                    lhs: Box::new(
+                        p.expression_at(id, "reconstruction.normalization", 0)?
+                            .clone(),
+                    ),
+                    rhs: Box::new(dsl::Expr {
+                        kind: dsl::ExprKind::NamedCall {
+                            name: dsl::Path::single("reduced_law"),
+                            args: call_args,
+                        },
+                        span: dsl::Span::default(),
+                    }),
+                },
+                span: dsl::Span::default(),
+            };
             let checked = function(
                 id,
                 formals,
                 result,
-                &body,
+                body,
                 PhysicalOperation::Reconstruction {
                     map,
                     reconstruction: id,
@@ -412,7 +435,7 @@ pub(crate) fn admit_signatures(p: &mut CheckedPackage, context: &TypeContext<'_>
                 id,
                 args,
                 result,
-                &value.body,
+                p.expression_at(id, "response.body", 0)?.clone(),
                 PhysicalOperation::Response {
                     witness: value.witness.clone(),
                     potential: None,
@@ -421,8 +444,12 @@ pub(crate) fn admit_signatures(p: &mut CheckedPackage, context: &TypeContext<'_>
             let mut used = false;
             if let Some(body) = &checked.body {
                 body.walk(|expr| match &expr.kind {
-                    dsl::ExprKind::NamedCall { name, .. } if name == &value.witness => used = true,
-                    dsl::ExprKind::Partial { function, .. } if function == &value.witness => {
+                    dsl::ExprKind::NamedCall { name, .. } if name.is_ident(&value.witness) => {
+                        used = true
+                    }
+                    dsl::ExprKind::Partial { function, .. }
+                        if function.is_ident(&value.witness) =>
+                    {
                         used = true
                     }
                     _ => {}
@@ -537,12 +564,17 @@ impl PhysicalOperation {
             if let Some(body) = &function.body {
                 body.walk(|expr| {
                     if let dsl::ExprKind::NamedCall { name, args } = &expr.kind {
-                        let name = if name == "reconstruct" {
-                            args.first().map(dsl::render_expr)
+                        let name = if name.is_ident("reconstruct") {
+                            args.first().and_then(|expression| match &expression.kind {
+                                dsl::ExprKind::Path(path) => Some(path),
+                                _ => None,
+                            })
                         } else {
-                            Some(name.clone())
+                            Some(name)
                         };
-                        if let Some(called) = name.and_then(|name| p.resolve(id, &name)) {
+                        if let Some(called) =
+                            name.and_then(|name| p.resolve_segments(id, &name.segments))
+                        {
                             calls.push(called);
                         }
                     }
@@ -853,6 +885,7 @@ mod tests {
           fn law(x:Coordinate<coords.x>,n:Coordinate<coords.n>[item],members:Set<item>)->Reduced<family> = x*sum(j in members | n[j]);
           fn potential(x:Length,n:Length[item],members:Set<item>)->Length = reconstruct(family,law,x,n,members);
           response result from potential(x:Length,n:Length[item],members:Set<item>,potential:Fn(x:Length,n:Length[item],members:Set<item>)->Length)->Length = potential(x,n,members);
+          fn response_caller(x:Length,n:Length[item],members:Set<item>,potential:Fn(x:Length,n:Length[item],members:Set<item>)->Length)->Length = result(x,n,members,potential);
           def Root { var x:Length; var n[j in members]:Length; eq equation:result(x,n,members,potential)==4{m}; }
         }"#;
         let package = admitted(text).unwrap();

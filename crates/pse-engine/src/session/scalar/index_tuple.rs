@@ -59,7 +59,7 @@ impl ScalarUDFImpl for IndexTuple {
         let DataType::List(child) = source.data_type() else {
             return Err(invalid("input must be an ordered List"));
         };
-        let registry = crate::validation::registry().map_err(external)?;
+        let registry = pse_schema::registry().map_err(external)?;
         match source
             .metadata()
             .get(pse_schema::arrow::KEY_EXTENSION_NAME)
@@ -95,7 +95,7 @@ impl ScalarUDFImpl for IndexTuple {
 }
 
 pub(super) fn output_field(nullable: bool) -> Result<FieldRef> {
-    let registry = crate::validation::registry().map_err(external)?;
+    let registry = pse_schema::registry().map_err(external)?;
     Ok(Arc::new(
         pse_schema::arrow::field_for(
             registry,

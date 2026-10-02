@@ -24,11 +24,11 @@ fn setup(
     PhysicalScope,
     DeclarationId,
 ) {
-    setup_with_inputs(text, super::super::tests::inputs())
+    setup_with_inputs(text, crate::authored_transfer_tests::context())
 }
 fn setup_with_inputs(
     text: &str,
-    input: Inputs,
+    input: CompilerContext,
 ) -> (
     CompilerWorkspace,
     Vec<Declaration>,
@@ -71,6 +71,7 @@ fn document_record_defaults_are_refused_before_bulk_admission_and_retry_releases
     let package = SemanticId::from_bytes([82; 16]);
     let document = pse_ids::named_id(package, "data/bank.parquet");
     let documents = Arc::new(DocumentInventory {
+        field_spans: Default::default(),
         packages: [(SemanticId::from_bytes([81; 16]), package)].into(),
         documents: [(
             document,
@@ -91,7 +92,7 @@ fn document_record_defaults_are_refused_before_bulk_admission_and_retry_releases
     let events = Arc::new(std::sync::atomic::AtomicUsize::new(0));
     let observed = Arc::clone(&events);
     let mut workspace = CompilerWorkspace::with_events(
-        super::super::tests::inputs(),
+        crate::authored_transfer_tests::context(),
         WorkspaceLimits {
             input_bytes: 5 << 20,
             ..WorkspaceLimits::default()
@@ -154,6 +155,7 @@ fn keyed_document_republication_matches_clean_admission_and_preserves_old_snapsh
     let document = pse_ids::named_id(package, "data/bank.parquet");
     let inventory = |value: &str| {
         Arc::new(DocumentInventory {
+            field_spans: Default::default(),
             packages: [(source, package)].into(),
             documents: [(
                 document,
@@ -179,8 +181,11 @@ fn keyed_document_republication_matches_clean_admission_and_preserves_old_snapsh
             .into(),
         })
     };
-    let mut workspace =
-        CompilerWorkspace::new(super::super::tests::inputs(), WorkspaceLimits::default()).unwrap();
+    let mut workspace = CompilerWorkspace::new(
+        crate::authored_transfer_tests::context(),
+        WorkspaceLimits::default(),
+    )
+    .unwrap();
     let first = workspace
         .publish_modeling_with(rows.clone(), PhysicalScope::default(), inventory("first"))
         .unwrap();
@@ -227,7 +232,46 @@ fn kernel_body_construction_limits_are_tracked_without_changing_mathematics() {
             },
         )
         .unwrap();
-    assert_eq!(original.case.key(), generous.case.key());
+    assert_ne!(original.case.key(), generous.case.key());
+    let cancel = Arc::new(AtomicBool::new(false));
+    let quantities = workspace.inputs.quantities.clone();
+    let mathematics = |admitted: &AdmittedModeling| {
+        assert_eq!(admitted.inputs, original.inputs);
+        assert_eq!(admitted.outputs, original.outputs);
+        let artifact = fixture(
+            admitted,
+            quantities.clone(),
+            DerivativeOrder::Second,
+            &cancel,
+        )
+        .unwrap();
+        let values = CaseValues {
+            scalars: admitted.inputs.iter().map(|id| (*id, 3.0)).collect(),
+        };
+        let mut worker = artifact.assembly.worker(BTreeMap::new(), cancel.clone());
+        let residuals = worker.constraints(&values).unwrap();
+        let jacobian = worker.jacobian(&values).unwrap();
+        let jacobian = (
+            jacobian.nrows(),
+            jacobian.ncols(),
+            jacobian.symbolic().col_ptr().to_vec(),
+            jacobian.row_idx().to_vec(),
+            jacobian.val().to_vec(),
+        );
+        let hessian = worker
+            .hessian(&values, 0.0, &vec![1.0; residuals.len()])
+            .unwrap();
+        let hessian = (
+            hessian.nrows(),
+            hessian.ncols(),
+            hessian.symbolic().col_ptr().to_vec(),
+            hessian.row_idx().to_vec(),
+            hessian.val().to_vec(),
+        );
+        (residuals, jacobian, hessian)
+    };
+    let expected = mathematics(&original);
+    assert_eq!(mathematics(&generous), expected);
     assert!(
         workspace
             .admit_modeling(
@@ -256,14 +300,19 @@ fn kernel_body_construction_limits_are_tracked_without_changing_mathematics() {
         )
     };
     let chunk = pse_math::library::FORMAL_CHUNK;
-    assert_eq!(slots(chunk).unwrap().case.key(), original.case.key());
-    assert_eq!(slots(4 * chunk).unwrap().case.key(), original.case.key());
+    let chunk_limit = slots(chunk).unwrap();
+    let extended_limit = slots(4 * chunk).unwrap();
+    assert_ne!(chunk_limit.case.key(), extended_limit.case.key());
+    assert_eq!(mathematics(&chunk_limit), expected);
+    assert_eq!(mathematics(&extended_limit), expected);
     // Beyond the allowance the refusal is typed, names the required and available slots
     // and stays attributed to its instance.
     let refused = slots(1).unwrap_err();
     assert!(
         matches!(&refused, CompileError::Math(e) if matches!(&**e, MathError::Instance { cause, .. }
-            if matches!(**cause, MathError::SlotLimit { required: 2, available: 1 }))),
+            if matches!(&**cause, MathError::Typed { cause, .. }
+                if matches!(cause.as_error().downcast_ref::<CompileError>(),
+                    Some(CompileError::Math(error)) if matches!(&**error, MathError::SlotLimit { required: 2, available: 1 }))))),
         "{refused:?}"
     );
 }
@@ -404,7 +453,7 @@ fn kernel_physical_prerequisites_survive_admission_and_context_republication() {
     use pse_quantity::{
         InvariantId, PhysicalPrecondition, PhysicalPreconditions, PhysicalRequirement,
     };
-    let mut inputs = super::super::tests::inputs();
+    let mut inputs = crate::authored_transfer_tests::context();
     let scalar = inputs.quantities.neutral_dimensionless().unwrap();
     let neutral = inputs.quantities.quantity_type(scalar).unwrap();
     let mut kind = inputs.quantities.kind(neutral.key.kind).unwrap().clone();
@@ -464,11 +513,10 @@ fn kernel_physical_prerequisites_survive_admission_and_context_republication() {
             .is_err()
     );
     inputs.preconditions = prerequisites(qualified);
-    workspace.publish(inputs.clone()).unwrap();
+    let mut workspace = CompilerWorkspace::new(inputs.clone(), WorkspaceLimits::default()).unwrap();
     let revision = workspace.publish_modeling(rows, names).unwrap();
     admit(&mut workspace, root);
     inputs.preconditions = prerequisites(scalar);
-    assert!(workspace.publish(inputs.clone()).is_err());
     assert!(Arc::ptr_eq(
         &workspace.modeling.as_ref().unwrap().revision,
         &revision
@@ -590,17 +638,13 @@ fn kernel_structure_follows_lazy_specialization_and_cancellation_is_transient() 
             Arc::new(AtomicBool::new(false)),
         )
         .unwrap();
-    assert_eq!(prepared.structure.square.rows.len(), 1);
-    assert_eq!(prepared.structure.square.columns.len(), 1);
-    assert!(prepared.structure.under.columns.is_empty());
-    assert!(prepared.structure.over.rows.is_empty());
     assert_eq!(prepared.model.symbols.len(), 2);
     assert!(prepared.retained_bytes() > 0);
 }
 
 #[test]
 fn kernel_literals_keep_physical_context_after_source_spans_are_removed() {
-    let mut input = super::super::tests::inputs();
+    let mut input = crate::authored_transfer_tests::context();
     input.quantities = Arc::new(pse_quantity::standard::standard_registry().unwrap());
     let names = PhysicalScope::default();
     let rows = source(
@@ -710,7 +754,7 @@ fn kernel_child_contract_refinement_preserves_inherited_members() {
         source.replace("interface Rich extends Basic", "interface Rich"),
         "package p {interface Basic {} interface Rich extends Basic {} interface Base {param state:Basic;} def Root:Base {override param state:Rich;}}".into(),
     ] {
-        let input = super::super::tests::inputs();
+        let input = crate::authored_transfer_tests::context();
         let names = PhysicalScope::default();
         let mut workspace = CompilerWorkspace::new(input,WorkspaceLimits::default()).unwrap();
         let declarations = self::source(&source);
@@ -809,7 +853,7 @@ fn kernel_conservation_assembles_local_derivatives() {
 
 #[test]
 fn kernel_empty_indexed_polymorphic_sum_retains_physical_type() {
-    let mut input = super::super::tests::inputs();
+    let mut input = crate::authored_transfer_tests::context();
     input.quantities = Arc::new(pse_quantity::standard::standard_registry().unwrap());
     let names = PhysicalScope::default();
     let rows = source(
@@ -962,7 +1006,7 @@ fn ref_calls_dispatch_one_body_per_concrete_kind() {
 /// registered, looked up or needed (Plan 23 SM0; ADR-0126).
 #[test]
 fn package_declared_axis_indexes_a_sum_without_a_registered_shaped_type() {
-    let inputs = super::super::tests::inputs();
+    let inputs = crate::authored_transfer_tests::context();
     let names = PhysicalScope::default();
     let rows = source(
         r#"package p {
@@ -1094,8 +1138,6 @@ fn kernel_inline_implicit_block_has_explicit_capture_gathers() {
         )
         .unwrap();
     assert_eq!(prepared.model.instances.len(), 2);
-    assert_eq!(prepared.structure.square.rows.len(), 2);
-    assert_eq!(prepared.structure.square.columns.len(), 2);
     let inputs = prepared
         .admitted
         .inputs
@@ -1288,7 +1330,7 @@ fn kernel_nested_hints_reject_self_dependencies_and_select_regime_overrides() {
     let inner = admitted.implicit.values().next().unwrap();
     assert_eq!(inner.residuals.len(), 2);
     assert!(inner.residuals.iter().all(|r| r.hint_targets.len() == 1));
-    assert_eq!(admitted.implicit_order().unwrap().len(), 1);
+    assert_eq!(admitted.implicit_order_for(None).unwrap().len(), 1);
 }
 #[test]
 fn kernel_nested_implicit_provider_projects_values_and_ift_derivatives() {
@@ -1475,6 +1517,58 @@ fn kernel_nested_implicit_provider_projects_values_and_ift_derivatives() {
     }
 }
 
+fn assert_implicit_derivative_refusal(
+    error: &CompileError,
+    inner: &AdmittedImplicit,
+    requested: DerivativeOrder,
+    available: DerivativeOrder,
+    capability: pse_kernels::DerivativeCapability,
+) {
+    use pse_model::diagnostic::{BoundaryClass, DiagnosticProjection};
+    let CompileError::Math(error) = error else {
+        panic!("expected the original typed math refusal, got {error:?}");
+    };
+    let MathError::Provider {
+        source_id,
+        provider,
+        cause,
+    } = error.as_ref()
+    else {
+        panic!("expected the original typed provider refusal, got {error:?}");
+    };
+    assert_eq!(*source_id, inner.descriptor.spec().id);
+    assert_eq!(*provider, inner.descriptor.spec().id);
+    let pse_kernels::ProviderError::DerivativeUnavailable {
+        capability: actual_capability,
+        requested: actual_requested,
+        available: actual_available,
+        members,
+    } = cause
+    else {
+        panic!("expected an unavailable derivative capability, got {cause:?}");
+    };
+    assert_eq!(*actual_capability, capability);
+    assert_eq!(*actual_requested, requested);
+    assert_eq!(*actual_available, available);
+    assert_eq!(members, &inner.unknowns);
+    let diagnostic = error.boundary_diagnostic(pse_diagnostics::DiagnosticStage::Modeling);
+    assert_eq!(diagnostic.class, BoundaryClass::Unsupported);
+    assert_eq!(diagnostic.stage, pse_diagnostics::DiagnosticStage::Modeling);
+    assert!(
+        inner
+            .unknowns
+            .iter()
+            .all(|id| diagnostic.sources.contains(id))
+    );
+    assert_eq!(diagnostic.causes.len(), 1);
+    assert!(
+        inner
+            .unknowns
+            .iter()
+            .all(|id| diagnostic.causes[0].sources.contains(id))
+    );
+}
+
 #[test]
 fn implicit_selection_requires_authored_meaning_and_separates_operational_anchor_from_start() {
     use pse_kernels::{EvaluationContext, ProviderFactory, ProviderRequest};
@@ -1570,19 +1664,59 @@ fn implicit_selection_requires_authored_meaning_and_separates_operational_anchor
         );
         let configs = BTreeMap::from([(inner.residuals[0].id, configuration)]);
         let accelerators = pse_math::implicit::accelerators::Accelerators::standard();
-        assert!(
-            inner
+        for requested in [DerivativeOrder::First, DerivativeOrder::Second] {
+            let error = inner
                 .factory(
                     configs.clone(),
                     Arc::new(Anchored),
-                    DerivativeOrder::First,
+                    requested,
                     &accelerators,
                     cancel.clone(),
-                    EvaluationLimits::default()
+                    EvaluationLimits::default(),
                 )
-                .unwrap_err()
-                .to_string()
-                .contains("selector neighborhood")
+                .unwrap_err();
+            assert_implicit_derivative_refusal(
+                &error,
+                inner,
+                requested,
+                DerivativeOrder::Value,
+                pse_kernels::DerivativeCapability::SelectorNeighborhood,
+            );
+            let error = inner
+                .requirements(
+                    requested,
+                    DerivativeOrder::First,
+                    &accelerators,
+                    &cancel,
+                    EvaluationLimits::default(),
+                )
+                .unwrap_err();
+            assert_implicit_derivative_refusal(
+                &error,
+                inner,
+                requested,
+                DerivativeOrder::Value,
+                pse_kernels::DerivativeCapability::SelectorNeighborhood,
+            );
+        }
+        let contract = inner
+            .factory(
+                BTreeMap::new(),
+                Arc::new(Anchored),
+                DerivativeOrder::Value,
+                &accelerators,
+                cancel.clone(),
+                EvaluationLimits::default(),
+            )
+            .unwrap_err();
+        assert!(matches!(contract, CompileError::Missing(_)));
+        assert_eq!(
+            pse_model::diagnostic::DiagnosticProjection::boundary_diagnostic(
+                &contract,
+                pse_diagnostics::DiagnosticStage::Modeling,
+            )
+            .class,
+            pse_model::diagnostic::BoundaryClass::InvalidModel,
         );
         let factory = inner
             .factory(
@@ -1679,7 +1813,7 @@ fn implicit_c1_provider_compiles_only_justified_first_order() {
     let text = format!(
         "package p {{fn c1(p:Scalar)->Scalar external \"c1\" revision \"{revision}\" data \"{data}\" output 0 derivatives 1 source analytic smoothness 1; def Root {{var p:Scalar; implicit root {{var y:Scalar;eq e:y==c1(p);}} realize r on root using nested;eq e:root.y==2;}}}}"
     );
-    let mut inputs = super::super::tests::inputs();
+    let mut inputs = crate::authored_transfer_tests::context();
     let quantity = inputs.quantities.neutral_dimensionless().unwrap();
     let unit = inputs
         .quantities
@@ -1773,17 +1907,22 @@ fn implicit_c1_provider_compiles_only_justified_first_order() {
         panic!("single root");
     };
     assert_eq!(factory.body.compiled_order(), DerivativeOrder::First);
-    assert!(
-        inner
-            .factory(
-                configs,
-                Arc::new(First),
-                DerivativeOrder::Second,
-                &accelerators,
-                cancel,
-                EvaluationLimits::default()
-            )
-            .is_err()
+    let error = inner
+        .factory(
+            configs,
+            Arc::new(First),
+            DerivativeOrder::Second,
+            &accelerators,
+            cancel,
+            EvaluationLimits::default(),
+        )
+        .unwrap_err();
+    assert_implicit_derivative_refusal(
+        &error,
+        inner,
+        DerivativeOrder::Second,
+        DerivativeOrder::First,
+        pse_kernels::DerivativeCapability::Residual,
     );
 }
 
@@ -1813,7 +1952,7 @@ fn implicit_nested_value_propagates_native_first_order_to_child() {
     let text = "package p {def Root {var x:Scalar; implicit outer {var y:Scalar;implicit child select branch(z>=0) {var z:Scalar;eq e:z*z==x;}realize c on child using nested;eq e:y==x-child.z;}realize o on outer using nested;eq e:outer.y==2;}}";
     let (mut workspace, _, _, root) = setup(text);
     let admitted = admit(&mut workspace, root);
-    let order = admitted.implicit_order().unwrap();
+    let order = admitted.implicit_order_for(None).unwrap();
     assert_eq!(order.len(), 2);
     let child = &order[0];
     let parent = &order[1];
@@ -1925,7 +2064,7 @@ fn implicit_nested_value_propagates_native_first_order_to_child() {
     );
     let (mut workspace, _, _, root) = setup(&value_only);
     let admitted = admit(&mut workspace, root);
-    let order = admitted.implicit_order().unwrap();
+    let order = admitted.implicit_order_for(None).unwrap();
     assert!(
         order[1]
             .requirements(
@@ -2255,7 +2394,9 @@ fn kernel_external_vector_shapes_derivatives_and_revisions_are_checked() {
             output: 0,
         },
     );
-    w.publish(input).unwrap();
+    w = CompilerWorkspace::new(input, WorkspaceLimits::default()).unwrap();
+    w.publish_modeling(rows.clone(), PhysicalScope::default())
+        .unwrap();
     let a = admit(&mut w, root);
     let cancel = Arc::new(AtomicBool::new(false));
     let f = fixture(
@@ -2356,7 +2497,6 @@ fn kernel_external_vector_shapes_derivatives_and_revisions_are_checked() {
         )
         .is_err()
     );
-    w.publish_modeling(rows, PhysicalScope::default()).unwrap();
     let mut changed = spec;
     changed.data = revision;
     let mut input = w.inputs.clone();
@@ -2367,7 +2507,8 @@ fn kernel_external_vector_shapes_derivatives_and_revisions_are_checked() {
             output: 0,
         },
     );
-    w.publish(input).unwrap();
+    w = CompilerWorkspace::new(input, WorkspaceLimits::default()).unwrap();
+    w.publish_modeling(rows, PhysicalScope::default()).unwrap();
     assert!(
         w.admit_modeling(
             root,
@@ -2564,14 +2705,23 @@ fn value_rebind_shares_structure_and_rebuilds_only_consumed_values() {
     // A changed free start is not among the consumed values: everything is shared.
     assert!(first.values_match(&values(5.0, 2.0)));
     let start = first.rebind(&values(5.0, 2.0), &cancel).unwrap();
-    assert!(Arc::ptr_eq(&start.presolve, &first.presolve));
+    assert!(pse_math::SharedAllocation::ptr_eq(
+        &start.presolve,
+        &first.presolve
+    ));
     assert!(Arc::ptr_eq(&start.plan, &first.plan));
     // A changed parameter rebuilds only the value-dependent products.
     assert!(!first.values_match(&values(1.0, 3.0)));
     let rebound = first.rebind(&values(1.0, 3.0), &cancel).unwrap();
     assert!(Arc::ptr_eq(&rebound.plan, &first.plan));
-    assert!(Arc::ptr_eq(&rebound.structure, &first.structure));
-    assert!(Arc::ptr_eq(&rebound.artifacts, &first.artifacts));
+    assert!(pse_math::SharedAllocation::ptr_eq(
+        &rebound.structure,
+        &first.structure
+    ));
+    assert!(pse_math::SharedAllocation::ptr_eq(
+        &rebound.artifacts,
+        &first.artifacts
+    ));
     assert!(rebound.values_match(&values(1.0, 3.0)));
     let fresh = w
         .prepare_modeling_view(
@@ -3013,7 +3163,7 @@ fn kernel_authored_math_replaces_composite_native_functions() {
 
 #[test]
 fn kernel_integrated_axis_retains_symbolic_time_and_original_derivative_lineage() {
-    let mut input = super::super::tests::inputs();
+    let mut input = crate::authored_transfer_tests::context();
     input.preconditions = Arc::new(
         PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions()).unwrap(),
     );
@@ -3316,9 +3466,28 @@ fn implicit_minimum_score_unproved_native_roots_are_value_only() {
                     EvaluationLimits::default(),
                 )
                 .unwrap_err();
-            assert!(
-                error.to_string().contains("selector neighborhood"),
-                "{error}"
+            assert_implicit_derivative_refusal(
+                &error,
+                inner,
+                requested,
+                DerivativeOrder::Value,
+                pse_kernels::DerivativeCapability::SelectorNeighborhood,
+            );
+            let error = inner
+                .requirements(
+                    requested,
+                    DerivativeOrder::First,
+                    &accelerators,
+                    &cancel,
+                    EvaluationLimits::default(),
+                )
+                .unwrap_err();
+            assert_implicit_derivative_refusal(
+                &error,
+                inner,
+                requested,
+                DerivativeOrder::Value,
+                pse_kernels::DerivativeCapability::SelectorNeighborhood,
             );
         }
         let factory = inner
@@ -3987,7 +4156,7 @@ fn kernel_implicit_functions_read_enclosing_indexed_members() {
 
 #[test]
 fn kernel_negative_literals_keep_the_expected_physical_contract() {
-    let inputs = super::super::tests::inputs();
+    let inputs = crate::authored_transfer_tests::context();
     let names = PhysicalScope::default();
     let rows = source(
         "package p {fn negative()->DeltaH=-2{J/mol}; test physical fixture {dof 0; route steady; procedure check;} {expect negative()==-2{J/mol} tolerance 1e-10{J/mol};}} ",
@@ -4022,7 +4191,7 @@ fn kernel_generic_normalization_requires_the_concrete_physical_operation() {
         ("DeltaTemperature", "2{K}", true),
         ("MolarEnthalpy", "2{J/mol}", false),
     ] {
-        let mut inputs = super::super::tests::inputs();
+        let mut inputs = crate::authored_transfer_tests::context();
         inputs.preconditions = Arc::new(
             PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions()).unwrap(),
         );
@@ -4061,7 +4230,7 @@ fn kernel_generic_normalization_requires_the_concrete_physical_operation() {
 
 #[test]
 fn kernel_finite_reductions_retain_domains_prototypes_and_derivatives() {
-    let mut inputs = super::super::tests::inputs();
+    let mut inputs = crate::authored_transfer_tests::context();
     inputs.preconditions = Arc::new(
         PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions()).unwrap(),
     );
@@ -4504,7 +4673,7 @@ fn kernel_objective_selection_preserves_values_derivatives_and_penalty_direction
 #[test]
 fn kernel_dimensional_objectives_require_normalization_before_elastic_combination() {
     for elastic in [false, true] {
-        let mut input = super::super::tests::inputs();
+        let mut input = crate::authored_transfer_tests::context();
         input.quantities = Arc::new(pse_quantity::standard::standard_registry().unwrap());
         let temperature = QuantityTypeId::from_id(
             SemanticId::parse_hex("c64b96975a4a59755f8711d3bf628bc9").unwrap(),
@@ -4612,7 +4781,7 @@ fn kernel_flow_projection_preserves_ports_isolates_and_explicit_tear_policies() 
 fn nested_implicit_factorable_definition_exports_residual_exactly() {
     use pse_math::factorable::{FactorableRequest, Fidelity};
     let (mut workspace, _, _, root) = setup(
-        "package p { def Root { var x: Scalar; implicit root { var y: Scalar; eq residual: y*y == x; annotation bounds y(0.5, 10); } realize policy on root using nested; eq pin: root.y == 2; } }",
+        "package p { def Root { var x: Scalar; implicit root select branch(y >= 0) { var y: Scalar; eq residual: y*y == x; annotation bounds y(0.5, 10); } realize policy on root using nested; eq pin: root.y == 2; } }",
     );
     let admitted = admit(&mut workspace, root);
     let inner = admitted.implicit.values().next().unwrap();
@@ -4785,7 +4954,7 @@ fn evaluate_named(
     text: &str,
 ) -> impl FnMut(&[(&str, f64)]) -> std::result::Result<Vec<f64>, MathError> + use<> {
     let (mut workspace, _, _, root) =
-        setup_with_inputs(text, crate::authored_transfer_tests::inputs());
+        setup_with_inputs(text, crate::authored_transfer_tests::context());
     let admitted = admit(&mut workspace, root);
     let model = workspace
         .specialize_modeling(
@@ -4887,7 +5056,7 @@ fn kernel_conservation_scatter_preserves_mixed_contracts_and_homogeneous_control
         ),
     ] {
         let (mut workspace, _, _, root) =
-            setup_with_inputs(text, crate::authored_transfer_tests::inputs());
+            setup_with_inputs(text, crate::authored_transfer_tests::context());
         let cancel = Arc::new(AtomicBool::new(false));
         let prepared = workspace
             .prepare_modeling_cancellable(

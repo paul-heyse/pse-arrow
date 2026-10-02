@@ -147,7 +147,7 @@ pub struct StudyPointBinding {
     /// Occurrence key, independent of binding identity.
     pub point_index: u32,
     /// Canonical binding identity.
-    pub binding_hash: ContentHash,
+    pub binding_hash: pse_ids::roles::BindingHash,
     /// Physically admitted assignments.
     pub binding: super::AdmittedBinding,
     /// Shared typed dependencies and start policy.
@@ -157,14 +157,21 @@ pub struct StudyPointBinding {
 }
 
 impl ModelingJob {
-    /// The request identity of this job: its typed document framed through the serde
-    /// data model, so neither key order nor the build graph's JSON features move it.
+    /// The submitted logical job: its kind, idempotency scope and typed document.
+    /// Scientific request identity remains independent of that operational scope.
     ///
     /// # Errors
     /// A settings serializer refused its value.
-    pub fn request_identity(&self) -> Result<ContentHash, WorkflowError> {
-        pse_backend_native::identity::of(pse_ids::Frame::DurableJobRequestV2, self)
-            .map_err(|e| WorkflowError::Math(crate::math::MathRuntimeError::from(e)))
+    pub fn operational_job_identity(
+        &self,
+        idempotency_key: &str,
+    ) -> Result<pse_ids::roles::OperationalJobHash, WorkflowError> {
+        pse_ids::document::of(
+            pse_ids::Frame::DurableJobRequestV3,
+            &(AttemptKind::Modeling, idempotency_key, self),
+        )
+        .map(pse_ids::roles::OperationalJobHash::from)
+        .map_err(|e| contract(e.to_string()))
     }
 }
 
@@ -303,8 +310,8 @@ impl Operations {
     }
 
     /// Enqueue a modeling job with its first attempt. The idempotency key names the logical
-    /// request: enqueuing the same key again returns the existing job. The request identity
-    /// is the typed payload's ([`ModelingJob::request_identity`]).
+    /// request: enqueuing the same key again returns the existing job. Its operational
+    /// identity includes that scope ([`ModelingJob::operational_job_identity`]).
     ///
     /// # Errors
     /// Store failures, an invalid retry policy, or a payload that has no document form.
@@ -315,7 +322,9 @@ impl Operations {
         retry: RetryPolicy,
         priority: i32,
     ) -> Result<Enqueued, WorkflowError> {
-        let request_identity = job.request_identity()?;
+        let operational_job_identity = pse_ids::roles::RecordedOperationalJobIdentity::current(
+            job.operational_job_identity(idempotency_key)?,
+        );
         let payload =
             serde_json::to_value(JobPayload::new(JobTask::Modeling(Box::new(job.clone()))))
                 .map_err(|e| contract(format!("job payload: {e}")))?;
@@ -327,7 +336,7 @@ impl Operations {
                     attempt_id: pse_operations::mint_id(),
                     run_id: pse_operations::mint_id(),
                     kind: AttemptKind::Modeling,
-                    request_identity,
+                    operational_job_identity,
                     preparation_identity: None,
                     parent_attempt: None,
                 },
@@ -435,12 +444,14 @@ impl Runtime {
                     .store()
                     .studies()
                     .admit_dispatch(
-                        task.point.study_id,
-                        task.point.policy.key,
-                        job,
-                        claimed.attempt_id,
-                        operations.worker(),
-                        point.revision,
+                        pse_operations::studies::DispatchFence {
+                            study: task.point.study_id,
+                            key: task.point.policy.key,
+                            job,
+                            attempt: claimed.attempt_id,
+                            worker: operations.worker(),
+                            expected_revision: point.revision,
+                        },
                         seed,
                     )
                     .await
@@ -604,8 +615,8 @@ impl Runtime {
             policy: job.point.policy.clone(),
         };
         let checksum = |point: &super::StudyPointDefinition| {
-            pse_backend_native::identity::of(pse_ids::Frame::DurableJobRequestV2, point)
-                .map_err(crate::math::MathRuntimeError::from)
+            pse_ids::document::of(pse_ids::Frame::DurableJobRequestV3, point)
+                .map_err(|error| contract(error.to_string()))
         };
         if checksum(defined)? != checksum(&replay)?
             || definition.physical != job.physical
@@ -722,6 +733,7 @@ impl Runtime {
         sources: &BTreeMap<String, Vec<u8>>,
         cancel: &crate::CancelSource,
     ) -> Result<PhysicalContext, WorkflowError> {
+        let validation = self.sessions.validation_context(&self.registry)?;
         let pool = self.shared.pool();
         let token = cancel.token();
         let bundle = load_package_documents_owned(
@@ -730,6 +742,7 @@ impl Runtime {
             pse_authoring::ParseBudget::default(),
             &pool,
             &token,
+            &validation,
         )?;
         let documents = OwnedDocumentSet::try_from_bundles(vec![bundle], &pool, &token)?;
         self.physical_from_documents(&documents, &token).await
@@ -740,6 +753,35 @@ impl Runtime {
         bundles: &[BTreeMap<String, Vec<u8>>],
         physical: PhysicalContext,
     ) -> Result<super::ModelingPackage, WorkflowError> {
+        // Source bytes and load order define the complete immutable admission closure.
+        // The cache owns only admitted values; every attempt has its own mutable workspace.
+        let service = self.shared.math();
+        let generation = service.modeling_cache.generation();
+        let mut framed = pse_ids::FramedHasher::new(pse_ids::Frame::ModelingPackageAdmissionV1);
+        framed.u64(bundles.len() as u64).hash(&physical.key)
+            // Local cache authority is the exact immutable validation assembly and registry.
+            // Its owner is retained with the admission, preventing pointer reuse. These
+            // process-local slots never enter source/scientific/operational identities.
+            .u64(Arc::as_ptr(&self.sessions) as usize as u64)
+            .u64(Arc::as_ptr(&self.registry) as usize as u64);
+        for sources in bundles {
+            framed.hash(&package_checksum(sources));
+        }
+        match &physical.package {
+            Some(package) => {
+                use pse_model::SemanticFrame;
+                framed.u64(1);
+                package.header.frame(&mut framed);
+            }
+            None => {
+                framed.u64(0);
+            }
+        }
+        let identity = pse_ids::roles::AdmittedClosureHash::from_id(framed.finish_hash());
+        if let Some(admitted) = service.modeling_cache.package(identity) {
+            return self.package_from_admission(admitted, physical);
+        }
+        let validation = self.sessions.validation_context(&self.registry)?;
         let pool = self.shared.pool();
         let token = pse_columnar::CancellationToken::new();
         let bundles = bundles
@@ -751,11 +793,16 @@ impl Runtime {
                     pse_authoring::ParseBudget::default(),
                     &pool,
                     &token,
+                    &validation,
                 )
             })
             .collect::<Result<Vec<_>, _>>()?;
         let documents = OwnedDocumentSet::try_from_bundles(bundles, &pool, &token)?;
-        self.modeling_from_documents(&documents, physical)
+        let package = self.modeling_from_documents(&documents, physical)?;
+        service
+            .modeling_cache
+            .retain_package(generation, identity, package.admission()?);
+        Ok(package)
     }
 }
 

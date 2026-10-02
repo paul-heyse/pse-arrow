@@ -197,12 +197,15 @@ fn manifest_of(
 }
 
 /// A receipt of an export: the manifest's location and the lease protecting its members.
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[serde(deny_unknown_fields)]
 pub struct ExportReceipt {
     /// The exported publication.
     pub publication_id: PublicationId,
     /// The manifest location.
+    #[schemars(with = "String")]
     pub destination: url::Url,
     /// The lease protecting the members until it expires or is released.
     pub lease_id: ReaderLeaseId,

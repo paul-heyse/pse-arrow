@@ -211,13 +211,16 @@ fn every_declared_layout_round_trips_including_null_parents_and_slices() {
     let mut absent = vec![serde_json::json!(["null", null]); spec.columns.len()];
     absent[0] = id(2);
     let rows = vec![row(), absent];
-    let batch = batch_from_literals(&reg, spec, &rows).unwrap();
-    assert_eq!(literals_from_batch(&reg, spec, &batch).unwrap(), rows);
+    let batch = batch_from_literals(&reg, spec, &rows, &validation(&reg)).unwrap();
     assert_eq!(
-        literals_from_batch(&reg, spec, &batch.slice(1, 1)).unwrap(),
+        literals_from_batch(&reg, spec, &batch, &validation(&reg)).unwrap(),
+        rows
+    );
+    assert_eq!(
+        literals_from_batch(&reg, spec, &batch.slice(1, 1), &validation(&reg)).unwrap(),
         rows[1..]
     );
-    let empty = batch_from_literals(&reg, spec, &[]).unwrap();
+    let empty = batch_from_literals(&reg, spec, &[], &validation(&reg)).unwrap();
     assert_eq!(empty.num_rows(), 0);
 }
 
@@ -351,7 +354,7 @@ fn invalid_visible_values_fail_with_unchanged_contract_hash() {
             .unwrap();
         values[index] = invalid;
         assert!(
-            batch_from_literals(&reg, spec, &[values]).is_err(),
+            batch_from_literals(&reg, spec, &[values], &validation(&reg)).is_err(),
             "admitted invalid {name}"
         );
     }
@@ -365,9 +368,9 @@ fn masked_struct_payload_does_not_leak_invalid_enum_strings() {
     values[0] = id(1);
     // The builder physically stores empty enum strings and invalid dimension defaults
     // below absent parents. Admission must ignore those invisible bytes.
-    let batch = batch_from_literals(&reg, spec, &[values.clone()]).unwrap();
+    let batch = batch_from_literals(&reg, spec, &[values.clone()], &validation(&reg)).unwrap();
     assert_eq!(
-        literals_from_batch(&reg, spec, &batch).unwrap(),
+        literals_from_batch(&reg, spec, &batch, &validation(&reg)).unwrap(),
         vec![values]
     );
 }
@@ -442,7 +445,7 @@ fn a_quantity_carries_its_measure_quantity_and_unit_in_one_nullable_value() {
             ]
         ]),
     ] {
-        assert!(batch_from_literals(&reg, spec, &[vec![id(1), value]]).is_err());
+        assert!(batch_from_literals(&reg, spec, &[vec![id(1), value]], &validation(&reg)).is_err());
     }
     let batch = batch_from_literals(
         &reg,
@@ -461,9 +464,10 @@ fn a_quantity_carries_its_measure_quantity_and_unit_in_one_nullable_value() {
             ],
             vec![id(2), serde_json::json!(["null", null])],
         ],
+        &validation(&reg),
     )
     .unwrap();
-    assert!(validate_batch(&reg, spec, &batch).is_ok());
+    assert!(validate_batch(&reg, spec, &batch, &validation(&reg)).is_ok());
 }
 
 #[test]
@@ -493,7 +497,7 @@ fn formatter_renders_all_extensions_without_raw_storage_bytes() {
     use arrow::util::display::{ArrayFormatterFactory, FormatOptions};
     let reg = fixture();
     let spec = reg.relation("authored.values").unwrap();
-    let batch = batch_from_literals(&reg, spec, &[row()]).unwrap();
+    let batch = batch_from_literals(&reg, spec, &[row()], &validation(&reg)).unwrap();
     let schema = batch.schema();
     let factory = pse_relations::ext::PseFormatterFactory;
     let mut rendered = BTreeMap::new();
@@ -545,14 +549,17 @@ fn checked_rule_columns_validate_values_without_fabricating_relations() {
             serde_json::json!(["enum", "two"]),
             serde_json::json!(["null", null]),
         ],
+        &validation(&reg),
     )
     .unwrap();
-    pse_relations::validate::validate_column(&reg, choice, array.as_ref()).unwrap();
+    pse_relations::validate::validate_column(&reg, choice, array.as_ref(), &validation(&reg))
+        .unwrap();
     assert!(
         pse_relations::testing::array_from_literals(
             &reg,
             choice,
-            &[serde_json::json!(["enum", "invented"])]
+            &[serde_json::json!(["enum", "invented"])],
+            &validation(&reg)
         )
         .is_err()
     );
@@ -567,12 +574,15 @@ fn checked_rule_columns_validate_values_without_fabricating_relations() {
                     serde_json::json!(["enum", "finite"]),
                     serde_json::json!(["f64", format!("{:016x}", (f64::INFINITY).to_bits())])
                 ]
-            ])]
+            ])],
+            &validation(&reg)
         )
         .is_err()
     );
     let identity = schema.field_with_name("id").unwrap();
-    let array = pse_relations::testing::array_from_literals(&reg, identity, &[id(1)]).unwrap();
+    let array =
+        pse_relations::testing::array_from_literals(&reg, identity, &[id(1)], &validation(&reg))
+            .unwrap();
     let formatter = pse_relations::ext::create_owned_formatter(
         array.as_ref(),
         &arrow::util::display::FormatOptions::default(),
@@ -598,12 +608,22 @@ fn owned_native_admission_retains_detached_children_and_checks_limits() {
     let rows = vec![row()];
     let construct = |pool: &std::sync::Arc<dyn pse_columnar::MemoryPool>,
                      cancel: &CancellationToken| {
-        let batch = batch_from_literals(&reg, spec, &rows)?;
-        pse_relations::columnar::FieldCheckedBatch::admit_external(&reg, spec, &batch, pool, cancel)
-            .map(pse_relations::columnar::FieldCheckedBatch::into_batch)
+        let batch = batch_from_literals(&reg, spec, &rows, &validation(&reg))?;
+        pse_relations::columnar::FieldCheckedBatch::admit_external(
+            &reg,
+            spec,
+            &batch,
+            &validation(&reg),
+            pool,
+            cancel,
+        )
+        .map(pse_relations::columnar::FieldCheckedBatch::into_batch)
     };
     let batch = construct(&budget, &cancel).unwrap();
-    assert_eq!(literals_from_batch(&reg, spec, &batch).unwrap(), rows);
+    assert_eq!(
+        literals_from_batch(&reg, spec, &batch, &validation(&reg)).unwrap(),
+        rows
+    );
     let size = budget.reserved();
     assert!(size > 0);
     // Wrapper-visible capacity is a lower bound: imported ownership includes
@@ -639,3 +659,7 @@ fn owned_native_admission_retains_detached_children_and_checks_limits() {
     );
     assert_eq!(budget.reserved(), 0);
 }
+
+#[path = "support/validation.rs"]
+mod native_validation;
+use native_validation::validation;

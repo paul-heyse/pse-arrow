@@ -697,7 +697,12 @@ mod integrated_performance_unit {
                         .map(datafusion::arrow::array::RecordBatch::num_rows)
                         .sum::<usize>();
                 }
-                let mut builder = solve_metrics::Row::builder(&registry, 1).unwrap();
+                let native = context
+                    .session_config()
+                    .get_extension::<NativeExecutionContext>()
+                    .unwrap();
+                let mut builder =
+                    solve_metrics::Row::builder(&registry, 1, native.validation_context()).unwrap();
                 solve_metrics::Row::push(
                     &mut builder,
                     solve_metrics::Row {

@@ -249,12 +249,13 @@ struct FaultState {
 pub struct FaultProxy {
     url: String,
     state: std::sync::Arc<FaultState>,
-    listener: JoinHandle<()>,
+    stop: tokio::sync::watch::Sender<bool>,
+    listener: Option<JoinHandle<Result<(), OperationsError>>>,
 }
 
 impl Drop for FaultProxy {
     fn drop(&mut self) {
-        self.listener.abort();
+        self.stop.send_replace(true);
     }
 }
 
@@ -325,22 +326,67 @@ impl FaultProxy {
         }
         let state = std::sync::Arc::new(FaultState::default());
         let shared = std::sync::Arc::clone(&state);
+        let (stop, mut stopping) = tokio::sync::watch::channel(false);
         let listener = tokio::spawn(async move {
-            while let Ok((client, _)) = listener.accept().await {
-                let upstream = upstream.clone();
-                let state = std::sync::Arc::clone(&shared);
-                tokio::spawn(async move {
-                    if let Ok(server) = upstream.connect().await {
-                        relay(Box::new(client), server, state).await;
+            let mut relays = tokio::task::JoinSet::new();
+            let mut failure = None;
+            loop {
+                tokio::select! {
+                    _ = stopping.changed() => break,
+                    accepted = listener.accept() => {
+                        let Ok((client, _)) = accepted else { break; };
+                        let upstream = upstream.clone();
+                        let state = std::sync::Arc::clone(&shared);
+                        let mut stopping = stopping.clone();
+                        relays.spawn(async move {
+                            if *stopping.borrow() {
+                                return Ok(());
+                            }
+                            tokio::select! {
+                                _ = stopping.changed() => Ok(()),
+                                server = upstream.connect() => {
+                                    if let Ok(server) = server {
+                                        relay(Box::new(client), server, state, stopping).await
+                                    } else {
+                                        Ok(())
+                                    }
+                                }
+                            }
+                        });
                     }
-                });
+                    finished = relays.join_next(), if !relays.is_empty() => {
+                        if let Some(result) = finished
+                            && let Err(error) = relay_result(result)
+                        {
+                            failure = Some(error);
+                        }
+                    }
+                }
             }
+            while let Some(result) = relays.join_next().await {
+                if let Err(error) = relay_result(result) {
+                    failure = Some(error);
+                }
+            }
+            failure.map_or(Ok(()), Err)
         });
         Ok(Self {
             url: proxied.to_string(),
             state,
-            listener,
+            stop,
+            listener: Some(listener),
         })
+    }
+
+    /// Stop accepting and await every relayed server session's closure.
+    /// # Errors
+    /// A relay cannot drain its backend or an owned task fails.
+    pub async fn shutdown(mut self) -> Result<(), OperationsError> {
+        self.stop.send_replace(true);
+        if let Some(listener) = self.listener.take() {
+            relay_result(listener.await)?;
+        }
+        Ok(())
     }
 
     /// The URL clients connect to.
@@ -413,17 +459,31 @@ fn contains(haystack: &[u8], needle: &[u8]) -> bool {
 }
 
 /// Relay one connection, cutting it once if the armed fault matches.
-async fn relay(client: Box<dyn Relay>, server: Box<dyn Relay>, state: std::sync::Arc<FaultState>) {
+fn relay_result(
+    result: Result<Result<(), OperationsError>, tokio::task::JoinError>,
+) -> Result<(), OperationsError> {
+    result.map_err(|error| OperationsError::Configuration {
+        reason: format!("fault proxy relay task failed: {error}"),
+    })?
+}
+
+async fn relay(
+    client: Box<dyn Relay>,
+    server: Box<dyn Relay>,
+    state: std::sync::Arc<FaultState>,
+    mut stopping: tokio::sync::watch::Receiver<bool>,
+) -> Result<(), OperationsError> {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     let (mut client_read, mut client_write) = tokio::io::split(client);
     let (mut server_read, mut server_write) = tokio::io::split(server);
     // Set when the backend's answers must no longer reach the client.
     let swallow = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let answered = std::sync::Arc::new(tokio::sync::Notify::new());
-    let backend = {
+    let mut backend = tokio::task::JoinSet::new();
+    {
         let swallow = std::sync::Arc::clone(&swallow);
         let answered = std::sync::Arc::clone(&answered);
-        tokio::spawn(async move {
+        backend.spawn(async move {
             let mut chunk = vec![0; 16 * 1024];
             while let Ok(read) = server_read.read(&mut chunk).await {
                 if read == 0 {
@@ -432,22 +492,29 @@ async fn relay(client: Box<dyn Relay>, server: Box<dyn Relay>, state: std::sync:
                 if swallow.load(std::sync::atomic::Ordering::SeqCst) {
                     // The server answered the forwarded COMMIT; the client never learns it.
                     answered.notify_one();
-                    break;
+                    continue;
                 }
                 if client_write.write_all(&chunk[..read]).await.is_err() {
                     break;
                 }
             }
             let _ = client_write.shutdown().await;
-        })
-    };
+        });
+    }
     let mut frames = Frames {
         buffer: Vec::new(),
         typed: false,
     };
     let mut chunk = vec![0; 16 * 1024];
     let mut marked = false;
-    'relay: while let Ok(read) = client_read.read(&mut chunk).await {
+    'relay: loop {
+        let read = tokio::select! {
+            _ = stopping.changed() => break,
+            read = client_read.read(&mut chunk) => {
+                let Ok(read) = read else { break; };
+                read
+            }
+        };
         if read == 0 {
             break;
         }
@@ -487,8 +554,20 @@ async fn relay(client: Box<dyn Relay>, server: Box<dyn Relay>, state: std::sync:
             }
         }
     }
+    // Closing the client side alone does not establish rollback or release of
+    // session advisory locks. Drain the server's EOF before completing the cut.
+    swallow.store(true, std::sync::atomic::Ordering::SeqCst);
     let _ = server_write.shutdown().await;
-    backend.abort();
+    let _ = tokio::time::timeout(std::time::Duration::from_secs(10), backend.join_next())
+        .await
+        .map_err(|_| OperationsError::Configuration {
+            reason: "fault proxy server session did not close".into(),
+        })?
+        .transpose()
+        .map_err(|error| OperationsError::Configuration {
+            reason: format!("fault proxy backend task failed: {error}"),
+        })?;
+    Ok(())
 }
 
 impl Store {

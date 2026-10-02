@@ -215,7 +215,11 @@ impl ArtifactMigration {
                     .saturating_add(4096),
             )
             .map_err(pse_engine::session::engine)?;
-        let mut builder = lineage::Builder::with_registry(&registry, rows.len())?;
+        let mut builder = lineage::Builder::with_registry(
+            &registry,
+            rows.len(),
+            session.validation_context()?.as_ref(),
+        )?;
         for row in &rows {
             builder.push(row.clone())?;
         }
@@ -409,10 +413,9 @@ fn check_changed_references(
             for field in fields {
                 if let Ok(field) =
                     serde_json::from_value::<datafusion::arrow::datatypes::Field>(field.clone())
+                    && field.metadata().contains_key(pse_schema::arrow::KEY_FK)
                 {
-                    if field.metadata().contains_key(pse_schema::arrow::KEY_FK) {
-                        columns.push(vec![field.name().clone()]);
-                    }
+                    columns.push(vec![field.name().clone()]);
                 }
             }
         }
@@ -443,7 +446,7 @@ fn check_changed_references(
                 .get(name)
                 .and_then(|source| source.metadata().get(*key))
                 != field.metadata().get(*key)
-        }) && mapping_for(spec, &[name.clone()]).is_none()
+        }) && mapping_for(spec, std::slice::from_ref(name)).is_none()
         {
             return Err(invalid(
                 "changed field reference requires an explicit key mapping or identity policy",
@@ -502,10 +505,12 @@ fn check_mapping_closure(
     Ok(())
 }
 
+type RecordedReference = (Vec<String>, pse_ids::SemanticId, Vec<String>);
+
 fn recorded_references(
     source: &VerifiedRecordedContract,
     source_id: pse_ids::SemanticId,
-) -> Result<Vec<(Vec<String>, pse_ids::SemanticId, Vec<String>)>, EngineError> {
+) -> Result<Vec<RecordedReference>, EngineError> {
     let description = &source.contract().relations[&source_id];
     let mut result = Vec::new();
     let decode =

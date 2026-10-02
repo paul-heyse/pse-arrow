@@ -765,14 +765,15 @@ mod tests {
     }
     #[test]
     fn settings_identity_frames_float_bits_and_refuses_external_ordering() {
-        let key = |s: &Settings| crate::identity::of(pse_ids::Frame::BackendSettingsV4, s).unwrap();
+        let key =
+            |s: &Settings| pse_ids::document::of(pse_ids::Frame::BackendSettingsV5, s).unwrap();
         let a = Settings::default();
         let mut b = a.clone();
         b.linear.ordering = feral::symbolic::OrderingMethod::MetisND;
         assert_ne!(key(&a), key(&b));
         // A caller-supplied permutation is problem data: it has no settings encoding.
         b.linear.ordering = feral::symbolic::OrderingMethod::External(vec![1, 0]);
-        assert!(crate::identity::of(pse_ids::Frame::BackendSettingsV4, &b).is_err());
+        assert!(pse_ids::document::of(pse_ids::Frame::BackendSettingsV5, &b).is_err());
         let mut c = a.clone();
         c.linear.pivtol = -0.0;
         let mut d = a.clone();

@@ -157,3 +157,39 @@ fn rational_unit_exponents_canonicalize() {
         assert!(parse_expr(text).is_err(), "{text}");
     }
 }
+
+#[test]
+fn logic_uses_shared_quoted_paths_counts_and_precedence() {
+    use super::{Proposition, parse_proposition};
+    let value =
+        parse_proposition("'left valve'[i] implies right or not closed xor spare and ready")
+            .unwrap();
+    assert!(
+        matches!(value, Proposition::Implies(_, right) if matches!(*right, Proposition::Or(_)))
+    );
+    let exactly = parse_proposition("exactly(1+1, route.'first stage'[i], standby)").unwrap();
+    assert!(
+        matches!(exactly, Proposition::Exactly(count, values) if matches!(count.kind, ExprKind::Binary { .. }) && values.len() == 2)
+    );
+    for invalid in ["", "a and", "exactly(2)", "exactly(1,)", "a b", "a[i"] {
+        assert!(parse_proposition(invalid).is_err(), "{invalid}");
+    }
+}
+
+#[test]
+fn typed_callees_preserve_quoted_indexed_receivers_and_partial_paths() {
+    let expression = parse_expr("'unit bank'[i].f(x)").unwrap();
+    let ExprKind::NamedCall { name, .. } = &expression.kind else {
+        panic!("named call");
+    };
+    assert_eq!(name.segments[0].name, "unit bank");
+    assert_eq!(name.segments[0].indices.len(), 1);
+    assert_eq!(name.segments[1].name, "f");
+    let source = render_expr(&expression);
+    assert_eq!(parse_expr(&source).unwrap().kind, expression.kind);
+    let partial = parse_expr("partial('unit bank'[i].f, x)(y)").unwrap();
+    let ExprKind::Partial { function, .. } = partial.kind else {
+        panic!("partial");
+    };
+    assert_eq!(super::render_path(&function), super::render_path(name));
+}

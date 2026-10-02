@@ -19,6 +19,12 @@ pub enum SchemaError {
         /// The actual violated requirement, independent of content identity.
         reason: String,
     },
+    /// Derived implementations recursively depend on an unfinished construction.
+    #[error("derived implementation construction cycle: {keys:?}")]
+    ImplementationCycle {
+        /// Ordered implementation keys implicated in the construction cycle.
+        keys: Vec<String>,
+    },
     /// Two declarations claim the same name.
     #[error("{kind} `{name}` is declared twice")]
     DuplicateDeclaration {
@@ -66,7 +72,7 @@ pub enum SchemaError {
 pse_diagnostics::impl_diagnostic! {
     SchemaError,
     code(this) { match this {
-            Self::InvalidDeclaration { .. } => Some(pse_diagnostics::DiagnosticCode::SchemaInvalidDeclaration),
+            Self::InvalidDeclaration { .. } | Self::ImplementationCycle { .. } => Some(pse_diagnostics::DiagnosticCode::SchemaInvalidDeclaration),
             Self::DuplicateDeclaration { .. } => Some(pse_diagnostics::DiagnosticCode::SchemaDuplicateDeclaration),
             Self::UnknownReference { .. } => Some(pse_diagnostics::DiagnosticCode::SchemaUnknownReference),
             Self::MissingSnapshotClass { .. } => Some(pse_diagnostics::DiagnosticCode::SchemaMissingSnapshotClass),
@@ -81,7 +87,7 @@ pse_diagnostics::impl_diagnostic! {
             Self::MissingSnapshotClass { .. } => Some(Box::new("membership is explicit: pick model, case, derived or sidecar")),
             Self::MissingGranularity { .. } => Some(Box::new("`row` when negative completeness is the deliverable, `rule` when the derivation is the rule plus the identity formula")),
             Self::Codegen { .. } => Some(Box::new("the generator is the fix; a hand edit under a generated path is a red diff")),
-            Self::InvalidDeclaration { .. } => None,
+            Self::InvalidDeclaration { .. } | Self::ImplementationCycle { .. } => None,
         } },
     related(_this) { None },
     source(_this) { None }

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Salsa owns semantic dependencies. Native compilation is an explicit effect outside queries.
-use crate::typed_math::{AdmittedBody, Domain, Formal, Group, Occurrence, ProviderCall, Request};
+use crate::typed_math::{AdmittedBody, Formal, Occurrence, ProviderCall};
 use pse_ids::{ContentHash, FramedHasher, SemanticId};
 use pse_kernels::DerivativeOrder;
 use pse_math::{
@@ -15,13 +15,12 @@ use pse_math::{
     library::Optimization,
     typed::BodyLimits,
 };
-use pse_model::SemanticEq;
 use pse_quantity::{PhysicalPreconditions, QuantityRegistry, QuantityTypeId};
 use pse_structural::{
     incidence::{CaseIncidence, Constraint, Incidence, StructuralAnalysis},
     projection::{GraphLimits, Scope},
 };
-use salsa::{Database, Setter};
+use salsa::Database;
 use std::{
     collections::BTreeMap,
     sync::{
@@ -30,72 +29,15 @@ use std::{
     },
 };
 
-/// Owned definition source and selected lexical bindings. Values are not compiler input.
+/// Immutable physical and provider context for checked modeling declarations.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Definition {
-    /// Ordered source outputs.
-    pub sources: Vec<String>,
-    /// Ordered local formals.
-    pub formals: Vec<Formal>,
-    /// Selected domain names (missing differs from empty).
-    pub domains: Vec<String>,
-    /// Selected indexed group names.
-    pub groups: Vec<String>,
-    /// Selected immutable provider descriptors.
-    pub providers: Vec<String>,
-    /// Contextual source literal contracts.
-    pub literals: BTreeMap<(u32, u32), QuantityTypeId>,
-    /// Finite construction limits.
-    pub limits: BodyLimits,
-}
-/// Case declarations plus definition references. Instance body hashes are replaced by compiler output.
-#[derive(Clone, Debug, PartialEq)]
-pub struct Case {
-    /// Admitted complete selected case.
-    pub structure: Arc<CaseStructure>,
-    /// Every instance maps to a definition.
-    pub definitions: BTreeMap<SemanticId, SemanticId>,
-}
-/// Atomic application-visible input batch. No executable factory is retained here.
-#[derive(Clone, Debug)]
-pub struct Inputs {
-    /// Complete physical flowsheet declarations; absence is a tracked dependency.
-    pub flows: BTreeMap<SemanticId, pse_structural::flowsheet::Declaration>,
+pub struct CompilerContext {
     /// Actual admitted physical meanings.
     pub quantities: Arc<QuantityRegistry>,
-    /// Actual immutable prerequisites.
+    /// Immutable physical prerequisites.
     pub preconditions: Arc<PhysicalPreconditions>,
-    /// Definitions including source provenance.
-    pub definitions: BTreeMap<SemanticId, Definition>,
-    /// Actual domain membership.
-    pub domains: BTreeMap<String, Domain>,
-    /// Actual finite/ragged membership and binding.
-    pub groups: BTreeMap<String, Group>,
-    /// Admitted descriptors; factories belong to runtime.
+    /// Admitted provider descriptors; factories remain attempt-owned.
     pub providers: BTreeMap<String, ProviderCall>,
-    /// Selected case inventory.
-    pub cases: BTreeMap<SemanticId, Case>,
-    /// Fixed and parameter values; free trial values are ignored by coefficient queries.
-    pub values: BTreeMap<SemanticId, f64>,
-}
-impl PartialEq for Inputs {
-    fn eq(&self, other: &Self) -> bool {
-        self.flows == other.flows
-            && self.quantities == other.quantities
-            && self.preconditions == other.preconditions
-            && self.definitions == other.definitions
-            && self.domains == other.domains
-            && self.groups == other.groups
-            && self.providers == other.providers
-            && self.cases == other.cases
-            && self.values.semantic_eq(&other.values)
-    }
-}
-fn value_bits(values: &BTreeMap<SemanticId, f64>) -> BTreeMap<SemanticId, u64> {
-    values
-        .iter()
-        .map(|(id, value)| (*id, pse_ids::canonical_f64_bits(*value)))
-        .collect()
 }
 /// Shared complete identity of actual physical declarations and prerequisites.
 pub fn physical_identity(
@@ -214,21 +156,25 @@ type Result<T> = std::result::Result<T, CompileError>;
 mod modeling;
 pub use modeling::{
     AdmittedImplicit, AdmittedModeling, BoundStructure, ConditionalUnitInventory, Derivation,
-    Derived, ImplicitAlgorithm, ImplicitMeaning, ImplicitScale, ImplicitSelection,
-    ModelingCaseBindings, ModelingExpectationResult, ModelingFlowSelection, ModelingHint,
-    ModelingOutput, ModelingPointChecks, ModelingRevision, ModelingTestValue,
-    ModelingValidityResult, ModelingVariableState, ObjectiveBound, PreparedModeling,
-    SelectionEquivalence,
+    Derived, FlowConnectionDocument, FlowSelectionDocument, ImplicitAlgorithm, ImplicitMeaning,
+    ImplicitScale, ImplicitSelection, ModelingBodyRetention, ModelingCaseBindings,
+    ModelingExpectationResult, ModelingFlowSelection, ModelingHint, ModelingOutput,
+    ModelingPointChecks, ModelingRevision, ModelingTestValue, ModelingValidityResult,
+    ModelingVariableState, ObjectiveBound, PreparedModeling, SelectionEquivalence,
 };
 #[salsa::db]
 trait CompilerDb: Database {
     fn cancel(&self) -> &Arc<AtomicBool>;
+    fn body_retention(&self) -> Option<&Arc<dyn ModelingBodyRetention>>;
+    fn body_refusal(&self) -> &std::sync::Mutex<Option<MathError>>;
 }
 #[salsa::db]
 #[derive(Clone, Default)]
 struct CompilerDatabase {
     storage: salsa::Storage<Self>,
     cancel: Arc<AtomicBool>,
+    body_retention: Option<Arc<dyn ModelingBodyRetention>>,
+    body_refusal: Arc<std::sync::Mutex<Option<MathError>>>,
 }
 #[salsa::db]
 impl Database for CompilerDatabase {}
@@ -237,16 +183,33 @@ impl CompilerDb for CompilerDatabase {
     fn cancel(&self) -> &Arc<AtomicBool> {
         &self.cancel
     }
+    fn body_retention(&self) -> Option<&Arc<dyn ModelingBodyRetention>> {
+        self.body_retention.as_ref()
+    }
+    fn body_refusal(&self) -> &std::sync::Mutex<Option<MathError>> {
+        &self.body_refusal
+    }
+}
+// Resource admission is an effect. Abort tracked evaluation so a transient refusal
+// never becomes a retained semantic result, then recover its typed cause at the front door.
+fn body_refused(db: &dyn CompilerDb, error: MathError) -> ! {
+    if let Ok(mut refusal) = db.body_refusal().lock() {
+        *refusal = Some(error);
+    }
+    std::panic::resume_unwind(Box::new(salsa::Cancelled::Local))
+}
+fn compiler_cancelled(db: &dyn CompilerDb) -> CompileError {
+    db.body_refusal()
+        .lock()
+        .ok()
+        .and_then(|mut error| error.take())
+        .map_or(CompileError::Cancelled, CompileError::from)
 }
 fn checkpoint(db: &dyn CompilerDb) {
     if db.cancel().load(Ordering::Acquire) {
         db.cancellation_token().cancel();
     }
     db.unwind_if_revision_cancelled();
-}
-fn math_result<T>(db: &dyn CompilerDb, result: std::result::Result<T, MathError>) -> Result<T> {
-    checkpoint(db);
-    result.map_err(CompileError::from)
 }
 #[salsa::interned(heap_size = name_key_heap)]
 struct NameKey<'db> {
@@ -265,33 +228,9 @@ fn selection_key_heap((ids,): &(Vec<SemanticId>,)) -> usize {
 #[salsa::input]
 struct Inventory {
     environment: ContentHash,
-    flows: BTreeMap<SemanticId, pse_structural::flowsheet::Declaration>,
     quantities: Arc<QuantityRegistry>,
     preconditions: Arc<PhysicalPreconditions>,
-    definitions: BTreeMap<SemanticId, Arc<Definition>>,
-    domains: BTreeMap<String, Domain>,
-    groups: BTreeMap<String, Group>,
     providers: BTreeMap<String, ProviderCall>,
-    cases: BTreeMap<SemanticId, Case>,
-    values: BTreeMap<SemanticId, u64>,
-}
-#[salsa::tracked(returns(clone), lru = 64)]
-fn definition(db: &dyn CompilerDb, i: Inventory, id: SemanticId) -> Option<Arc<Definition>> {
-    i.definitions(db).get(&id).cloned()
-}
-fn domain(db: &dyn CompilerDb, i: Inventory, name: String) -> Option<Domain> {
-    domain_query(db, i, NameKey::new(db, name))
-}
-#[salsa::tracked(returns(clone), lru = 64)]
-fn domain_query(db: &dyn CompilerDb, i: Inventory, name: NameKey<'_>) -> Option<Domain> {
-    i.domains(db).get(name.text(db)).cloned()
-}
-fn group(db: &dyn CompilerDb, i: Inventory, name: String) -> Option<Group> {
-    group_query(db, i, NameKey::new(db, name))
-}
-#[salsa::tracked(returns(clone), lru = 64)]
-fn group_query(db: &dyn CompilerDb, i: Inventory, name: NameKey<'_>) -> Option<Group> {
-    i.groups(db).get(name.text(db)).cloned()
 }
 fn provider(db: &dyn CompilerDb, i: Inventory, name: String) -> Option<ProviderCall> {
     provider_query(db, i, NameKey::new(db, name))
@@ -299,197 +238,6 @@ fn provider(db: &dyn CompilerDb, i: Inventory, name: String) -> Option<ProviderC
 #[salsa::tracked(returns(clone), lru = 64)]
 fn provider_query(db: &dyn CompilerDb, i: Inventory, name: NameKey<'_>) -> Option<ProviderCall> {
     i.providers(db).get(name.text(db)).cloned()
-}
-#[salsa::tracked(returns(clone), lru = 64)]
-fn case(db: &dyn CompilerDb, i: Inventory, id: SemanticId) -> Option<Case> {
-    i.cases(db).get(&id).cloned()
-}
-#[salsa::tracked(returns(clone), lru = 64)]
-fn flow_declaration(
-    db: &dyn CompilerDb,
-    i: Inventory,
-    id: SemanticId,
-) -> Option<pse_structural::flowsheet::Declaration> {
-    i.flows(db).get(&id).cloned()
-}
-#[salsa::tracked(returns(clone), lru = 64)]
-fn flow_graph(
-    db: &dyn CompilerDb,
-    i: Inventory,
-    id: SemanticId,
-) -> Result<Arc<pse_structural::flowsheet::FlowGraph>> {
-    checkpoint(db);
-    let d = flow_declaration(db, i, id)
-        .ok_or_else(|| CompileError::Missing(format!("flowsheet {id}")))?;
-    let g = pse_structural::flowsheet::FlowGraph::admit(
-        d,
-        i.quantities(db),
-        GraphLimits {
-            nodes: 100_000,
-            edges: 1_000_000,
-        },
-    )?;
-    checkpoint(db);
-    Ok(Arc::new(g))
-}
-#[salsa::tracked(returns(clone), lru = 64)]
-fn initialization_plan(
-    db: &dyn CompilerDb,
-    i: Inventory,
-    id: SemanticId,
-) -> Result<Arc<pse_structural::initialization::Plan>> {
-    Ok(Arc::new(
-        pse_structural::initialization::Plan::from_analysis(structure(db, i, id)?.as_ref())?,
-    ))
-}
-#[salsa::tracked(returns(copy), lru = 64)]
-fn physical_key(db: &dyn CompilerDb, i: Inventory) -> ContentHash {
-    crate::physical_identity::identity(i.quantities(db), i.preconditions(db))
-}
-#[salsa::tracked(returns(clone), lru = 64)]
-fn admitted(db: &dyn CompilerDb, i: Inventory, id: SemanticId) -> Result<Arc<AdmittedBody>> {
-    let _span = tracing::info_span!("pse.case.definition_admission").entered();
-    checkpoint(db);
-    let d =
-        definition(db, i, id).ok_or_else(|| CompileError::Missing(format!("definition {id}")))?;
-    let expressions = d
-        .sources
-        .iter()
-        .enumerate()
-        .map(|(source_index, s)| {
-            pse_authoring::dsl::parse_expr(s).map_err(|e| CompileError::Syntax {
-                definition: id,
-                source_index,
-                error: Arc::new(e),
-            })
-        })
-        .collect::<Result<Vec<_>>>()?;
-    let domains = d
-        .domains
-        .iter()
-        .map(|n| {
-            domain(db, i, n.clone())
-                .map(|v| (n.clone(), v))
-                .ok_or_else(|| CompileError::Missing(format!("domain {n}")))
-        })
-        .collect::<Result<BTreeMap<_, _>>>()?;
-    let groups = d
-        .groups
-        .iter()
-        .map(|n| {
-            group(db, i, n.clone())
-                .map(|v| (n.clone(), v))
-                .ok_or_else(|| CompileError::Missing(format!("group {n}")))
-        })
-        .collect::<Result<BTreeMap<_, _>>>()?;
-    let providers = d
-        .providers
-        .iter()
-        .map(|n| {
-            provider(db, i, n.clone())
-                .map(|v| (n.clone(), v))
-                .ok_or_else(|| CompileError::Missing(format!("provider {n}")))
-        })
-        .collect::<Result<BTreeMap<_, _>>>()?;
-    let request = Request {
-        definition: id,
-        expressions: &expressions,
-        formals: &d.formals,
-        domains: &domains,
-        groups: &groups,
-        providers: &providers,
-        literals: &d.literals,
-        physical: physical_key(db, i),
-        structure: ContentHash::from_bytes([0; 32]),
-
-        limits: d.limits,
-    };
-    let result = math_result(
-        db,
-        request.admit(i.quantities(db), i.preconditions(db).as_ref(), db.cancel()),
-    )?;
-    checkpoint(db);
-    Ok(Arc::new(result))
-}
-/// Arithmetic product deliberately excludes diagnostic byte spans from equality.
-#[derive(Clone, Debug, PartialEq)]
-struct SemanticBody {
-    key: ContentHash,
-    body: Arc<PreparedBody>,
-}
-#[salsa::tracked(returns(clone), lru = 64)]
-fn semantic_body(db: &dyn CompilerDb, i: Inventory, id: SemanticId) -> Result<Arc<SemanticBody>> {
-    let a = admitted(db, i, id)?;
-    Ok(Arc::new(SemanticBody {
-        key: a.spec.key(),
-        body: a.math.clone(),
-    }))
-}
-#[derive(Clone, Debug)]
-struct Planned(Arc<CasePlan>);
-impl PartialEq for Planned {
-    fn eq(&self, other: &Self) -> bool {
-        self.0.structure() == other.0.structure()
-            && self.0.bodies() == other.0.bodies()
-            && self.0.columns() == other.0.columns()
-            && self.0.demands() == other.0.demands()
-    }
-}
-#[salsa::tracked(returns(clone), lru = 64)]
-fn plan(
-    db: &dyn CompilerDb,
-    i: Inventory,
-    id: SemanticId,
-    order: DerivativeOrder,
-) -> Result<Planned> {
-    let c = case(db, i, id).ok_or_else(|| CompileError::Missing(format!("case {id}")))?;
-    let mut bodies = BTreeMap::new();
-    let mut instances = c.structure.instances().to_vec();
-    for instance in &mut instances {
-        checkpoint(db);
-        let def = c.definitions.get(&instance.instance).ok_or_else(|| {
-            CompileError::Missing(format!("instance definition {}", instance.instance))
-        })?;
-        let b = semantic_body(db, i, *def)?;
-        instance.body = b.key;
-        if instance.slots.len() != b.body.input_count() {
-            return Err(MathError::Contract("instance arity".into()).into());
-        }
-        for (slot, quantity) in instance.slots.iter_mut().zip(b.body.input_quantities()) {
-            if let Some(q) = quantity {
-                *slot = slot.readmit(*q, i.quantities(db))?;
-            }
-        }
-        bodies.insert(b.key, b.body.clone());
-    }
-    let structure = Arc::new(CaseStructure::like(
-        &c.structure,
-        c.structure.variables().to_vec(),
-        c.structure.parameters().to_vec(),
-        instances,
-        c.structure.rows().to_vec(),
-        CaseLimits::default(),
-    )?);
-    let _span = tracing::info_span!("pse.case.sparse_plan").entered();
-    Ok(Planned(Arc::new(math_result(
-        db,
-        CasePlan::prepare(
-            structure,
-            bodies,
-            i.quantities(db),
-            order,
-            AssemblyLimits::default(),
-            db.cancel(),
-        ),
-    )?)))
-}
-#[salsa::tracked(returns(clone), lru=64, heap_size=structure_heap)]
-fn structure(db: &dyn CompilerDb, i: Inventory, id: SemanticId) -> Result<Arc<StructuralAnalysis>> {
-    let p = plan(db, i, id, DerivativeOrder::Value)?.0;
-    checkpoint(db);
-    let result = structural_plan(id, &p, db.cancel());
-    checkpoint(db);
-    result
 }
 fn structural_plan(
     id: SemanticId,
@@ -595,20 +343,18 @@ fn analyze_partition(
     )?;
     Ok(Arc::new(graph.analyze(cancel)?))
 }
-fn structure_heap(result: &Result<Arc<StructuralAnalysis>>) -> usize {
-    result.as_ref().map_or(0, |a| {
-        let part = |p: &pse_structural::incidence::Part| {
-            (p.rows.capacity() + p.columns.capacity()) * size_of::<SemanticId>()
-        };
-        size_of::<StructuralAnalysis>()
-            + a.matching.capacity() * size_of::<(SemanticId, SemanticId)>()
-            + part(&a.over)
-            + part(&a.under)
-            + part(&a.square)
-            + a.contributions.capacity() * size_of::<Incidence>()
-            + a.blocks.capacity() * size_of::<pse_structural::incidence::Block>()
-            + a.blocks.iter().map(|b| part(&b.members)).sum::<usize>()
-    })
+fn structure_allocation_bytes(a: &StructuralAnalysis) -> usize {
+    let part = |p: &pse_structural::incidence::Part| {
+        (p.rows.capacity() + p.columns.capacity()) * size_of::<SemanticId>()
+    };
+    size_of::<StructuralAnalysis>()
+        + a.matching.capacity() * size_of::<(SemanticId, SemanticId)>()
+        + part(&a.over)
+        + part(&a.under)
+        + part(&a.square)
+        + a.contributions.capacity() * size_of::<Incidence>()
+        + a.blocks.capacity() * size_of::<pse_structural::incidence::Block>()
+        + a.blocks.iter().map(|b| part(&b.members)).sum::<usize>()
 }
 /// Compiler-issued artifact specification. Its private fields prevent independent runtime keys.
 #[derive(Clone, Debug, PartialEq)]
@@ -623,6 +369,13 @@ impl ArtifactRequest {
     pub fn with_owner(mut self, owner: Arc<dyn pse_math::AllocationOwner>) -> Self {
         self.body = Arc::new(self.body.as_ref().clone().with_owner(owner));
         self
+    }
+    /// Owned request descriptor storage, excluding shared body mathematics.
+    pub fn descriptor_bytes(&self) -> usize {
+        size_of::<Self>()
+            + (self.demand.outputs.capacity() + self.demand.coordinates.capacity())
+                * size_of::<usize>()
+            + 64
     }
     /// Complete source/build/numerical identity.
     pub fn key(&self) -> ContentHash {
@@ -649,17 +402,6 @@ impl ArtifactRequest {
         )
     }
 }
-#[salsa::tracked(returns(clone), lru = 64)]
-fn artifacts(
-    db: &dyn CompilerDb,
-    i: Inventory,
-    id: SemanticId,
-    order: DerivativeOrder,
-    profile: Profile,
-) -> Result<Arc<Vec<ArtifactRequest>>> {
-    let p = plan(db, i, id, order)?.0;
-    Ok(artifact_requests(&p, profile, i.environment(db)))
-}
 fn artifact_requests(
     p: &CasePlan,
     profile: Profile,
@@ -675,46 +417,6 @@ fn artifact_requests(
         ArtifactRequest{key:h.finish_hash(),demand:d.clone(),body:p.bodies()[&d.body].clone(),profile}
     }).collect())
 }
-fn function_plan(
-    db: &dyn CompilerDb,
-    i: Inventory,
-    id: SemanticId,
-    outputs: Vec<SemanticId>,
-    coordinates: Vec<SemanticId>,
-    order: DerivativeOrder,
-) -> Result<Planned> {
-    function_plan_query(
-        db,
-        i,
-        id,
-        SelectionKey::new(db, outputs),
-        SelectionKey::new(db, coordinates),
-        order,
-    )
-}
-#[salsa::tracked(returns(clone), lru = 64)]
-fn function_plan_query(
-    db: &dyn CompilerDb,
-    i: Inventory,
-    id: SemanticId,
-    outputs: SelectionKey<'_>,
-    coordinates: SelectionKey<'_>,
-    order: DerivativeOrder,
-) -> Result<Planned> {
-    let outputs = outputs.ids(db);
-    let coordinates = coordinates.ids(db);
-    let source = plan(db, i, id, DerivativeOrder::Value)?.0;
-    Ok(Planned(Arc::new(math_result(
-        db,
-        source.functions(
-            outputs,
-            coordinates.clone(),
-            i.quantities(db),
-            order,
-            db.cancel(),
-        ),
-    )?)))
-}
 /// Pure general function projection; roles are supplied by the consuming physical workflow.
 #[derive(Clone, Debug)]
 pub struct PreparedFunctions {
@@ -723,146 +425,80 @@ pub struct PreparedFunctions {
     /// Compiler-owned artifact identities, identical to ordinary algebraic compilation.
     pub artifacts: Arc<Vec<ArtifactRequest>>,
 }
-#[salsa::tracked(returns(clone), lru = 64)]
-fn assumptions(
-    db: &dyn CompilerDb,
-    i: Inventory,
-    id: SemanticId,
-) -> Result<Vec<(SemanticId, u64)>> {
-    let p = plan(db, i, id, DerivativeOrder::Value)?.0;
-    let mut result = BTreeMap::new();
-    for b in p.structure().instances() {
-        for s in &b.slots {
-            if p.columns().binary_search(&s.source()).is_err() {
-                let v = i.values(db).get(&s.source()).copied().ok_or_else(|| {
-                    CompileError::Missing(format!("coefficient parameter {}", s.source()))
-                })?;
-                result.insert(s.source(), v);
-            }
-        }
-    }
-    Ok(result.into_iter().collect())
-}
-#[derive(Clone, Debug)]
-struct CoefficientProduct(Arc<Coefficients>);
-impl PartialEq for CoefficientProduct {
-    fn eq(&self, other: &Self) -> bool {
-        self.0.assumptions == other.0.assumptions
-    }
-}
-#[salsa::tracked(returns(clone), lru = 64)]
-fn coefficients(db: &dyn CompilerDb, i: Inventory, id: SemanticId) -> Result<CoefficientProduct> {
-    let values = CaseValues {
-        scalars: assumptions(db, i, id)?
-            .into_iter()
-            .map(|(k, v)| (k, f64::from_bits(v)))
-            .collect(),
-    };
-    checkpoint(db);
-    let result = math_result(
-        db,
-        plan(db, i, id, DerivativeOrder::Value)?
-            .0
-            .coefficients_with_facts(&values, &presolve_facts(db, i, id)?.0, 100_000, db.cancel()),
-    )?;
-    checkpoint(db);
-    Ok(CoefficientProduct(Arc::new(result)))
-}
-#[salsa::tracked(returns(clone), lru = 64)]
-fn problem_facts(
-    db: &dyn CompilerDb,
-    i: Inventory,
-    id: SemanticId,
-    order: DerivativeOrder,
-    with_coefficients: bool,
-) -> Result<pse_math::facts::ProblemFacts> {
-    let p = plan(db, i, id, order)?.0;
-    let c = if with_coefficients {
-        Some(coefficients(db, i, id)?.0)
-    } else {
-        None
-    };
-    math_result(
-        db,
-        pse_math::facts::ProblemFacts::from_plan(
-            &p,
-            c.as_deref(),
-            &presolve_facts(db, i, id)?.0,
-            db.cancel(),
-        ),
-    )
-}
-#[derive(Clone, Debug)]
-struct PresolveProduct(Arc<pse_math::presolve::Facts>);
-impl PartialEq for PresolveProduct {
-    fn eq(&self, other: &Self) -> bool {
-        self.0.key == other.0.key
-    }
-}
-#[salsa::tracked(returns(clone), lru = 64, heap_size=presolve_heap)]
-fn presolve_facts(db: &dyn CompilerDb, i: Inventory, id: SemanticId) -> Result<PresolveProduct> {
-    let values = CaseValues {
-        scalars: assumptions(db, i, id)?
-            .into_iter()
-            .map(|(k, v)| (k, f64::from_bits(v)))
-            .collect(),
-    };
-    let p = plan(db, i, id, DerivativeOrder::Value)?.0;
-    checkpoint(db);
-    let facts = math_result(db, p.presolve_facts(&values, 100_000, db.cancel()))?;
-    checkpoint(db);
-    Ok(PresolveProduct(Arc::new(facts)))
-}
-fn presolve_heap(value: &Result<PresolveProduct>) -> usize {
-    value.as_ref().map_or(0, |p| p.0.bytes())
-}
 /// Owned result: neither Salsa handles nor native mutable state escape.
 #[derive(Clone, Debug)]
 pub struct PreparedCase {
     /// Physical registry used by this immutable compilation and numerical resolution.
-    pub quantities: Arc<QuantityRegistry>,
+    pub quantities: pse_math::SharedAllocation<QuantityRegistry>,
     /// Library presolve projection with complete expression/value invalidation.
-    pub presolve: Arc<pse_math::presolve::Facts>,
+    pub presolve: pse_math::SharedAllocation<pse_math::presolve::Facts>,
     /// Exact consumed fixed/parameter values for the optional coefficient snapshot.
-    pub coefficient_values: Vec<(SemanticId, u64)>,
+    pub coefficient_values: pse_math::SharedAllocation<Vec<(SemanticId, u64)>>,
     /// Pure class facts, tracked by the same compiler database as the case plan.
     pub facts: pse_math::facts::ProblemFacts,
     /// Complete physical/sparse case plan.
     pub plan: Arc<CasePlan>,
     /// Complete selected-case structural analysis.
-    pub structure: Arc<StructuralAnalysis>,
+    pub structure: pse_math::SharedAllocation<StructuralAnalysis>,
     /// Ordered compiler-issued requests.
-    pub artifacts: Arc<Vec<ArtifactRequest>>,
+    pub artifacts: pse_math::SharedAllocation<Vec<ArtifactRequest>>,
     /// Fresh source spans, separate from reusable arithmetic.
-    pub occurrences: BTreeMap<SemanticId, Vec<Occurrence>>,
+    pub occurrences: pse_math::SharedAllocation<BTreeMap<SemanticId, Vec<Occurrence>>>,
     /// Explicit optional coefficient projection; failure is not guessed as another class.
-    pub coefficients: Option<Arc<Coefficients>>,
+    pub coefficients: Option<pse_math::SharedAllocation<Coefficients>>,
     /// Rules of the parameters the bound structure determines (ADR-0104), prepared with the
     /// structure and shared by every value rebind.
-    pub derivation: Arc<Derivation>,
+    pub derivation: pse_math::SharedAllocation<Derivation>,
     /// Their values under the bound values, in canonical units; consumers evaluate with
     /// [`Self::complete`] values.
-    pub derived: Derived,
+    pub derived: pse_math::SharedAllocation<Derived>,
 }
 impl PreparedCase {
     /// Known escaping payload, excluding opaque library/container overhead. This
     /// observation is separate from the bounded live Salsa generation allowance.
     pub fn retained_bytes(&self) -> usize {
         size_of::<Self>()
+            + 2048
             + self.plan.retained_bytes()
+            + self.plan.owner_wrapper_bytes()
             + self.presolve.bytes()
             + self.quantities.allocation_extent()
-            + structure_heap(&Ok(self.structure.clone()))
-            + self.coefficient_values.capacity() * size_of::<(SemanticId, u64)>()
-            + self.artifacts.capacity() * size_of::<ArtifactRequest>()
+            + self.structural_bytes()
+            + self.binding_bytes()
+            + self.provenance_bytes()
+            + 2 * self.artifact_descriptor_bytes()
             + self
-                .occurrences
-                .values()
-                .map(|v| v.capacity() * size_of::<Occurrence>())
-                .sum::<usize>()
-            + self.coefficients.as_ref().map_or(0, |c| c.retained_bytes())
+                .coefficients
+                .as_ref()
+                .map_or(0, |c| c.retained_bytes() + 64)
             + self.derivation.retained_bytes()
+            + 64
             + self.derived.retained_bytes()
+            + 64
+    }
+    /// Retained structural witness allocation.
+    pub fn structural_bytes(&self) -> usize {
+        structure_allocation_bytes(&self.structure) + 64
+    }
+    /// Independently retained binding snapshot.
+    pub fn binding_bytes(&self) -> usize {
+        self.coefficient_values.capacity() * size_of::<(SemanticId, u64)>() + 64
+    }
+    /// Independently retained revision attribution.
+    pub fn provenance_bytes(&self) -> usize {
+        self.occurrences
+            .values()
+            .map(|v| 96 + v.capacity() * size_of::<Occurrence>())
+            .sum::<usize>()
+            + 64
+    }
+    /// Independently retained artifact descriptor vector; programs have separate owners.
+    pub fn artifact_descriptor_bytes(&self) -> usize {
+        self.artifacts
+            .iter()
+            .map(ArtifactRequest::descriptor_bytes)
+            .sum::<usize>()
+            + 64
     }
 }
 /// The value-dependent products of a prepared plan: the library presolve projection, the
@@ -945,7 +581,7 @@ impl PreparedBlock {
     /// Values that do not bind the block, a failed projection, or cancellation.
     pub fn bind(
         &self,
-        quantities: Arc<QuantityRegistry>,
+        quantities: pse_math::SharedAllocation<QuantityRegistry>,
         values: &CaseValues,
         cancel: &Arc<AtomicBool>,
     ) -> Result<PreparedCase> {
@@ -953,49 +589,18 @@ impl PreparedBlock {
         let bound = ValueProducts::bind(&self.plan, values, cancel)?;
         Ok(PreparedCase {
             quantities,
-            presolve: bound.presolve,
-            coefficient_values: bound.assumptions,
+            presolve: bound.presolve.into(),
+            coefficient_values: Arc::new(bound.assumptions).into(),
             facts: bound.facts,
             plan: self.plan.clone(),
-            structure: self.structure.clone(),
-            artifacts: self.artifacts.clone(),
-            occurrences: BTreeMap::new(),
-            coefficients: bound.coefficients,
-            derivation: Arc::default(),
-            derived: Derived::default(),
+            structure: self.structure.clone().into(),
+            artifacts: self.artifacts.clone().into(),
+            occurrences: Arc::new(BTreeMap::new()).into(),
+            coefficients: bound.coefficients.map(Into::into),
+            derivation: Arc::new(Derivation::default()).into(),
+            derived: Arc::new(Derived::default()).into(),
         })
     }
-}
-#[derive(Clone, Debug)]
-struct InitializationBlocks(Arc<Vec<PreparedBlock>>);
-impl PartialEq for InitializationBlocks {
-    fn eq(&self, other: &Self) -> bool {
-        self.0.len() == other.0.len()
-            && self.0.iter().zip(other.0.iter()).all(|(a, b)| {
-                a.boundary == b.boundary
-                    && a.plan.structure().key() == b.plan.structure().key()
-                    && a.artifacts == b.artifacts
-            })
-    }
-}
-#[salsa::tracked(returns(clone), lru = 64)]
-fn initialization_blocks(
-    db: &dyn CompilerDb,
-    i: Inventory,
-    id: SemanticId,
-    profile: Profile,
-    order: DerivativeOrder,
-) -> Result<InitializationBlocks> {
-    let source = plan(db, i, id, order)?.0;
-    let schedule = initialization_plan(db, i, id)?;
-    Ok(InitializationBlocks(conditional_blocks(
-        &source,
-        &schedule,
-        i.quantities(db),
-        profile,
-        i.environment(db),
-        db.cancel(),
-    )?))
 }
 fn conditional_blocks(
     source: &CasePlan,
@@ -1044,7 +649,7 @@ fn conditional_blocks(
 pub struct CompilerWorkspace {
     db: CompilerDatabase,
     inventory: Inventory,
-    inputs: Inputs,
+    inputs: CompilerContext,
     limits: WorkspaceLimits,
 
     generation: usize,
@@ -1061,26 +666,28 @@ impl std::fmt::Debug for CompilerWorkspace {
     }
 }
 impl CompilerWorkspace {
-    /// Admit the complete selected physical/model contract without constructing an
-    /// evaluator, presolve snapshot, native solver or analysis-specific derivatives.
-    pub fn admit_selected_case(&mut self, id: SemanticId) -> Result<Arc<CasePlan>> {
-        if self.retention_exceeded() {
-            self.rebuild(self.inputs.clone())?;
+    /// Freeze service retention before any revision enters this generation. Retention and
+    /// accounting may change infrastructure availability, never admitted mathematical meaning.
+    /// # Errors
+    /// A revision was already published or an attachment was already selected.
+    pub fn attach_body_retention(
+        &mut self,
+        retention: Arc<dyn ModelingBodyRetention>,
+    ) -> Result<()> {
+        if self.modeling.is_some() || self.db.body_retention.is_some() {
+            return Err(CompileError::Math(Arc::new(MathError::Contract(
+                "body retention must be selected once before revision publication".into(),
+            ))));
         }
-        self.db.cancel = Arc::new(AtomicBool::new(false));
-        let result = salsa::Cancelled::catch(|| {
-            plan(&self.db, self.inventory, id, DerivativeOrder::Value).map(|v| v.0)
-        })
-        .map_err(|_| CompileError::Cancelled)?;
-        self.trim_queries()?;
-        result
+        self.db.body_retention = Some(retention);
+        Ok(())
     }
     /// Admit finite inputs before allocating Salsa storage.
-    pub fn new(inputs: Inputs, limits: WorkspaceLimits) -> Result<Self> {
+    pub fn new(inputs: CompilerContext, limits: WorkspaceLimits) -> Result<Self> {
         Self::with_events(inputs, limits, None)
     }
     fn with_events(
-        inputs: Inputs,
+        inputs: CompilerContext,
         limits: WorkspaceLimits,
         event: Option<Box<dyn Fn(salsa::Event) + Send + Sync>>,
     ) -> Result<Self> {
@@ -1089,6 +696,8 @@ impl CompilerWorkspace {
         let mut db = CompilerDatabase {
             storage: salsa::Storage::new(event),
             cancel: Arc::default(),
+            body_retention: None,
+            body_refusal: Default::default(),
         };
         let inventory = inventory(&db, &inputs, pse_math::context()?.environment.identity());
         configure(&mut db, limits.query_values);
@@ -1103,80 +712,12 @@ impl CompilerWorkspace {
             documents: BTreeMap::new(),
         })
     }
-    /// Application-visible atomic publication: validation precedes all setters.
-    pub fn publish(&mut self, next: Inputs) -> Result<()> {
-        let checked_modeling = if self.inputs.quantities != next.quantities
-            || self.inputs.preconditions != next.preconditions
-        {
-            self.recheck_modeling(&next.quantities, &next.preconditions)?
-        } else {
-            None
-        };
-        let modeling_bytes = checked_modeling.as_ref().map_or_else(
-            || self.modeling.as_ref().map_or(0, |s| s.input_bytes),
-            |(_, bytes)| *bytes,
-        );
-        validate(
-            &next,
-            WorkspaceLimits {
-                input_bytes: self.limits.input_bytes.saturating_sub(modeling_bytes),
-                ..self.limits
-            },
-        )?;
-        if self.inputs == next {
-            return Ok(());
-        }
-        if self.retention_exceeded() {
-            self.rebuild(next)?;
-            return Ok(());
-        }
-        macro_rules! field {
-            ($name:ident,$setter:ident) => {
-                if self.inputs.$name != next.$name {
-                    self.inventory.$setter(&mut self.db).to(next.$name.clone());
-                }
-            };
-        }
-        field!(quantities, set_quantities);
-        field!(preconditions, set_preconditions);
-        if self.inputs.definitions != next.definitions {
-            let previous = self.inventory.definitions(&self.db);
-            let definitions = next
-                .definitions
-                .iter()
-                .map(|(id, value)| {
-                    (
-                        *id,
-                        previous
-                            .get(id)
-                            .filter(|old| old.as_ref() == value)
-                            .cloned()
-                            .unwrap_or_else(|| Arc::new(value.clone())),
-                    )
-                })
-                .collect();
-            self.inventory.set_definitions(&mut self.db).to(definitions);
-        }
-        field!(domains, set_domains);
-        field!(groups, set_groups);
-        field!(providers, set_providers);
-        field!(cases, set_cases);
-        if !self.inputs.values.semantic_eq(&next.values) {
-            self.inventory
-                .set_values(&mut self.db)
-                .to(value_bits(&next.values));
-        }
-        field!(flows, set_flows);
-        self.set_checked_modeling(checked_modeling);
-        self.inputs = next;
-        self.trim_queries()?;
-        Ok(())
-    }
-    fn rebuild(&mut self, inputs: Inputs) -> Result<()> {
+    fn rebuild(&mut self, inputs: CompilerContext) -> Result<()> {
         let cancelled = self.db.cancellation_token().is_cancelled();
         let worker_cancel = self.db.cancel.clone();
         let generation = self.generation + 1;
         let mut replacement = Self::new(inputs, self.limits)?;
+        replacement.db.body_retention = self.db.body_retention.clone();
         if let Some(state) = &self.modeling {
             replacement.publish_modeling_revision(state.revision.clone())?;
         }
@@ -1191,62 +732,6 @@ impl CompilerWorkspace {
     /// Cancellation token for this generation; an active caller owns its cancellation scope.
     pub fn cancellation_token(&self) -> salsa::CancellationToken {
         self.db.cancellation_token()
-    }
-    /// Prepare general functions through the same bounded pure Salsa database.
-    pub fn prepare_functions(
-        &mut self,
-        id: SemanticId,
-        outputs: Vec<SemanticId>,
-        coordinates: Vec<SemanticId>,
-        order: DerivativeOrder,
-        profile: Profile,
-        cancel: Arc<AtomicBool>,
-    ) -> Result<PreparedFunctions> {
-        if cancel.load(Ordering::Acquire) {
-            return Err(CompileError::Cancelled);
-        }
-        if self.retention_exceeded() {
-            self.rebuild(self.inputs.clone())?;
-        }
-        if coordinates
-            .len()
-            .saturating_add(outputs.len())
-            .saturating_mul(size_of::<SemanticId>())
-            > self.limits.retained_bytes
-            || coordinates.len() > self.limits.entries
-            || outputs.len() > self.limits.entries
-        {
-            return Err(CompileError::Limit("derivative coordinates"));
-        }
-        self.db.cancel = cancel;
-        let result = salsa::Cancelled::catch(|| {
-            let plan = function_plan(&self.db, self.inventory, id, outputs, coordinates, order)?.0;
-            Ok(PreparedFunctions {
-                artifacts: artifact_requests(&plan, profile, self.inventory.environment(&self.db)),
-                plan,
-            })
-        })
-        .map_err(|_| CompileError::Cancelled)?;
-        self.trim_queries()?;
-        result
-    }
-    /// Prepare only each conditional block's demanded rows and derivative coordinates.
-    pub fn prepare_initialization_blocks(
-        &mut self,
-        id: SemanticId,
-        profile: Profile,
-        order: DerivativeOrder,
-    ) -> Result<Arc<Vec<PreparedBlock>>> {
-        if self.retention_exceeded() {
-            self.rebuild(self.inputs.clone())?;
-        }
-        self.db.cancel = Arc::new(AtomicBool::new(false));
-        let result = salsa::Cancelled::catch(|| {
-            initialization_blocks(&self.db, self.inventory, id, profile, order).map(|v| v.0)
-        })
-        .map_err(|_| CompileError::Cancelled)?;
-        self.trim_queries()?;
-        result
     }
     /// Derive conditional blocks from an immutable prepared case, including its fixed/free selection.
     pub fn prepare_bound_initialization(
@@ -1264,34 +749,6 @@ impl CompilerWorkspace {
             self.inventory.environment(&self.db),
             cancel,
         )
-    }
-    /// Pure tracked flow projection. Runtime callers serialize this workspace lease.
-    pub fn prepare_flow(
-        &mut self,
-        id: SemanticId,
-    ) -> Result<Arc<pse_structural::flowsheet::FlowGraph>> {
-        if self.retention_exceeded() {
-            self.rebuild(self.inputs.clone())?;
-        }
-        self.db.cancel = Arc::new(AtomicBool::new(false));
-        let result = salsa::Cancelled::catch(|| flow_graph(&self.db, self.inventory, id))
-            .map_err(|_| CompileError::Cancelled)?;
-        self.trim_queries()?;
-        result
-    }
-    /// Pure tracked conditional block schedule; no solver state enters Salsa.
-    pub fn prepare_initialization(
-        &mut self,
-        id: SemanticId,
-    ) -> Result<Arc<pse_structural::initialization::Plan>> {
-        if self.retention_exceeded() {
-            self.rebuild(self.inputs.clone())?;
-        }
-        self.db.cancel = Arc::new(AtomicBool::new(false));
-        let result = salsa::Cancelled::catch(|| initialization_plan(&self.db, self.inventory, id))
-            .map_err(|_| CompileError::Cancelled)?;
-        self.trim_queries()?;
-        result
     }
     fn trim_queries(&mut self) -> Result<()> {
         self.db.trigger_lru_eviction();
@@ -1339,134 +796,25 @@ impl CompilerWorkspace {
     pub fn generation(&self) -> usize {
         self.generation
     }
-    /// Prepare the requested case. Graph preparation never builds native numeric programs.
-    pub fn prepare(
-        &mut self,
-        id: SemanticId,
-        order: DerivativeOrder,
-        profile: Profile,
-        project_coefficients: bool,
-    ) -> Result<PreparedCase> {
-        self.prepare_cancellable(
-            id,
-            order,
-            profile,
-            project_coefficients,
-            Arc::new(AtomicBool::new(false)),
-        )
-    }
-    /// Runtime cancellation is transient and cannot become a cached diagnostic.
-    pub fn prepare_cancellable(
-        &mut self,
-        id: SemanticId,
-        order: DerivativeOrder,
-        profile: Profile,
-        project_coefficients: bool,
-        cancel: Arc<AtomicBool>,
-    ) -> Result<PreparedCase> {
-        if cancel.load(Ordering::Acquire) {
-            return Err(CompileError::Cancelled);
-        }
-        if self.retention_exceeded() {
-            self.rebuild(self.inputs.clone())?;
-        }
-        self.db.cancel = cancel;
-        let result = salsa::Cancelled::catch(|| {
-            let p = plan(&self.db, self.inventory, id, order)?.0;
-            let structural = structure(&self.db, self.inventory, id)?;
-            let requests = artifacts(&self.db, self.inventory, id, order, profile)?;
-            let c = case(&self.db, self.inventory, id)
-                .ok_or_else(|| CompileError::Missing(format!("case {id}")))?;
-            let mut occurrences = BTreeMap::new();
-            for def in c.definitions.values() {
-                occurrences.insert(
-                    *def,
-                    admitted(&self.db, self.inventory, *def)?
-                        .occurrences
-                        .clone(),
-                );
-            }
-            let coefficients = if project_coefficients {
-                Some(coefficients(&self.db, self.inventory, id)?.0)
-            } else {
-                None
-            };
-            Ok(PreparedCase {
-                quantities: self.inputs.quantities.clone(),
-                presolve: presolve_facts(&self.db, self.inventory, id)?.0,
-                coefficient_values: if project_coefficients {
-                    assumptions(&self.db, self.inventory, id)?
-                } else {
-                    Vec::new()
-                },
-                facts: problem_facts(&self.db, self.inventory, id, order, project_coefficients)?,
-                plan: p,
-                structure: structural,
-                artifacts: requests,
-                occurrences,
-                coefficients,
-                derivation: Arc::default(),
-                derived: Derived::default(),
-            })
-        })
-        .map_err(|_| CompileError::Cancelled)?;
-        self.trim_queries()?;
-        result
-    }
 }
-fn inventory(db: &dyn CompilerDb, i: &Inputs, environment: ContentHash) -> Inventory {
+fn inventory(db: &dyn CompilerDb, i: &CompilerContext, environment: ContentHash) -> Inventory {
     Inventory::builder(
         environment,
-        i.flows.clone(),
         i.quantities.clone(),
         i.preconditions.clone(),
-        i.definitions
-            .iter()
-            .map(|(id, value)| (*id, Arc::new(value.clone())))
-            .collect(),
-        i.domains.clone(),
-        i.groups.clone(),
         i.providers.clone(),
-        i.cases.clone(),
-        value_bits(&i.values),
     )
     .environment_durability(salsa::Durability::HIGH)
     .quantities_durability(salsa::Durability::HIGH)
     .preconditions_durability(salsa::Durability::HIGH)
-    .definitions_durability(salsa::Durability::MEDIUM)
-    .domains_durability(salsa::Durability::MEDIUM)
-    .groups_durability(salsa::Durability::MEDIUM)
     .providers_durability(salsa::Durability::MEDIUM)
-    .cases_durability(salsa::Durability::MEDIUM)
-    .flows_durability(salsa::Durability::MEDIUM)
-    .values_durability(salsa::Durability::LOW)
     .new(db)
 }
 fn configure(db: &mut CompilerDatabase, n: usize) {
-    function_plan_query::set_lru_capacity(db, n);
-    initialization_blocks::set_lru_capacity(db, n);
-    flow_declaration::set_lru_capacity(db, n);
-    flow_graph::set_lru_capacity(db, n);
-    initialization_plan::set_lru_capacity(db, n);
-    problem_facts::set_lru_capacity(db, n);
-    definition::set_lru_capacity(db, n);
-    domain_query::set_lru_capacity(db, n);
-    group_query::set_lru_capacity(db, n);
     provider_query::set_lru_capacity(db, n);
-    case::set_lru_capacity(db, n);
-    physical_key::set_lru_capacity(db, n);
-    admitted::set_lru_capacity(db, n);
-    semantic_body::set_lru_capacity(db, n);
-    plan::set_lru_capacity(db, n);
-    structure::set_lru_capacity(db, n);
-    artifacts::set_lru_capacity(db, n);
-    assumptions::set_lru_capacity(db, n);
-    coefficients::set_lru_capacity(db, n);
-    presolve_facts::set_lru_capacity(db, n);
 }
-fn validate(i: &Inputs, l: WorkspaceLimits) -> Result<()> {
+fn validate(i: &CompilerContext, l: WorkspaceLimits) -> Result<()> {
     if [
-        l.entries,
         l.input_bytes,
         l.retained_entries,
         l.retained_bytes,
@@ -1476,166 +824,32 @@ fn validate(i: &Inputs, l: WorkspaceLimits) -> Result<()> {
     {
         return Err(CompileError::Limit("zero workspace allowance"));
     }
-    let entries = i
-        .definitions
-        .len()
-        .saturating_add(i.domains.len())
-        .saturating_add(i.groups.len())
-        .saturating_add(i.providers.len())
-        .saturating_add(i.cases.len())
-        .saturating_add(i.flows.len())
-        .saturating_add(i.values.len());
-    if entries > l.entries {
-        return Err(CompileError::Limit("input inventory"));
-    }
-    let mut bytes = i
-        .quantities
-        .allocation_extent()
-        .saturating_add(entries.saturating_mul(1024));
-    for f in i.flows.values() {
-        bytes = bytes
-            .saturating_add(f.nodes.len().saturating_mul(128))
-            .saturating_add(f.decisions.len().saturating_mul(64))
-            .saturating_add(f.connections.len().saturating_mul(128));
-        for n in &f.nodes {
-            bytes = bytes.saturating_add(n.ports.len().saturating_mul(128));
-        }
-        for e in &f.connections {
-            bytes = bytes.saturating_add(e.bindings.len().saturating_mul(64));
-        }
-    }
-    for d in i.definitions.values() {
-        bytes = bytes
-            .saturating_add(d.sources.iter().map(String::len).sum::<usize>())
-            .saturating_add(d.formals.iter().map(|f| f.path.len() + 128).sum::<usize>())
-            .saturating_add(
-                d.limits
-                    .occurrences
-                    .saturating_add(d.limits.slots)
-                    .saturating_mul(16),
-            );
-    }
-    for d in i.domains.values() {
-        bytes = bytes.saturating_add(d.members.members().len().saturating_mul(32));
-    }
-    for g in i.groups.values() {
-        bytes = bytes.saturating_add(g.slots.len().saturating_mul(128 + g.axes.len() * 32));
-    }
-    for provider in i.providers.values() {
-        let spec = provider.descriptor.spec();
-        bytes = bytes
-            .saturating_add(spec.shapes.retained_bytes())
-            .saturating_add(
-                (spec.inputs.len() + spec.outputs.len())
-                    .saturating_mul(size_of::<pse_kernels::Port>()),
-            );
-    }
-    for c in i.cases.values() {
-        bytes = bytes
-            .saturating_add(
-                c.structure
-                    .instances()
-                    .iter()
-                    .map(|b| 256 + b.slots.len() * 128 + b.contributions.len() * 64)
-                    .sum::<usize>(),
-            )
-            .saturating_add(
-                (c.structure.variables().len()
-                    + c.structure.rows().len()
-                    + c.structure.parameters().len())
-                .saturating_mul(256),
-            );
-    }
-    // Reserve for retained query products as well as input inventories. These are
-    // conservative project-container extents, not a claim about Symbolica's allocator.
-    let mut products = 0usize;
-    for d in i.definitions.values() {
-        let text = d
-            .sources
-            .iter()
-            .fold(0usize, |n, s| n.saturating_add(s.len()));
-        let expansion = d
-            .domains
-            .iter()
-            .filter_map(|n| i.domains.get(n))
-            .fold(1usize, |n, d| {
-                n.saturating_mul(d.members.members().len().max(1))
-            });
-        let operations = text.saturating_mul(expansion).min(d.limits.occurrences);
-        products = products
-            .saturating_add(operations.saturating_mul(1024))
-            .saturating_add(
-                d.formals
-                    .len()
-                    .saturating_mul(d.formals.len())
-                    .saturating_mul(d.sources.len())
-                    .saturating_mul(128),
-            );
-        bytes = bytes
-            .saturating_add(
-                d.domains
-                    .iter()
-                    .chain(&d.groups)
-                    .chain(&d.providers)
-                    .fold(0usize, |n, s| n.saturating_add(s.len() + 32)),
-            )
-            .saturating_add(d.literals.len().saturating_mul(128));
-    }
-    for c in i.cases.values() {
-        let s = &c.structure;
-        products = products.saturating_add(
-            s.rows()
-                .len()
-                .saturating_add(s.variables().len())
-                .saturating_add(s.parameters().len())
-                .saturating_mul(512),
-        );
-        for b in s.instances() {
-            let width = b.slots.len();
-            products = products.saturating_add(
-                b.contributions
-                    .len()
-                    .saturating_mul(
-                        width
-                            .saturating_mul(width)
-                            .saturating_add(width)
-                            .saturating_add(1),
+    let bytes = i
+        .providers
+        .iter()
+        .fold(
+            i.quantities.allocation_extent(),
+            |bytes, (name, provider)| {
+                let spec = provider.descriptor.spec();
+                bytes
+                    .saturating_add(name.len())
+                    .saturating_add(spec.shapes.retained_bytes())
+                    .saturating_add(
+                        (spec.inputs.len() + spec.outputs.len())
+                            .saturating_mul(size_of::<pse_kernels::Port>()),
                     )
-                    .saturating_mul(256),
-            );
-        }
-    }
-    for (name, p) in &i.providers {
-        let p = p.descriptor.spec();
-        bytes = bytes.saturating_add(name.len()).saturating_add(
-            p.inputs
-                .len()
-                .saturating_add(p.outputs.len())
-                .saturating_mul(128),
-        );
-    }
-    bytes = bytes
-        .saturating_add(
-            i.domains
-                .keys()
-                .chain(i.groups.keys())
-                .fold(0usize, |n, s| n.saturating_add(s.len())),
+            },
         )
-        .saturating_add(i.preconditions.declarations().iter().fold(0usize, |n, p| {
-            n.saturating_add(128 + p.operand_positions.len() * 2)
-        }));
-    if bytes.saturating_add(products.saturating_mul(l.query_values)) > l.input_bytes {
-        return Err(CompileError::Limit(
-            "input and retained query capacity; reduce query_values or increase workspace allowance",
-        ));
-    }
+        .saturating_add(
+            i.preconditions
+                .declarations()
+                .iter()
+                .fold(0usize, |bytes, p| {
+                    bytes.saturating_add(128 + p.operand_positions.len() * 2)
+                }),
+        );
     if bytes > l.input_bytes {
-        return Err(CompileError::Limit("input extent"));
-    }
-    if i.values.values().any(|x| !x.is_finite()) {
-        return Err(CompileError::Math(Arc::new(MathError::Contract(
-            "nonfinite input value".into(),
-        ))));
+        return Err(CompileError::Limit("context extent"));
     }
     for p in i.preconditions.declarations() {
         p.validate(&i.quantities).map_err(MathError::from)?;
@@ -1648,10 +862,6 @@ fn validate(i: &Inputs, l: WorkspaceLimits) -> Result<()> {
     }
     Ok(())
 }
-
-#[cfg(test)]
-#[path = "workspace_tests.rs"]
-mod tests;
 
 impl pse_model::diagnostic::DiagnosticProjection for CompileError {
     fn boundary_diagnostic(
@@ -1695,6 +905,16 @@ impl pse_model::diagnostic::DiagnosticProjection for CompileError {
             Self::Missing(_) | Self::Cancelled | Self::Limit(_) => {
                 project_facts(self.diagnostic_code(), self.diagnostic_facts(), stage)
             }
+        }
+    }
+    fn boundary_diagnostic_with_members(
+        &self,
+        stage: pse_diagnostics::DiagnosticStage,
+        bindings: &BTreeMap<SemanticId, SemanticId>,
+    ) -> pse_model::diagnostic::BoundaryDiagnostic {
+        match self {
+            Self::Math(error) => error.boundary_diagnostic_with_members(stage, bindings),
+            _ => self.boundary_diagnostic(stage),
         }
     }
 }

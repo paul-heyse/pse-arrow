@@ -20,8 +20,13 @@ workspace = true
 # Hashing remains exclusively in pse-ids (blueprint §5.1).
 
 [dependencies]
+serde.workspace = true
+schemars.workspace = true
 pse-ids.workspace = true
 pse-workspace-hack.workspace = true
 
 [build-dependencies]
+# External lockfile checksums for the generated provenance document, not semantic identity.
+sha2.workspace = true
+hex.workspace = true
 pse-ids.workspace = true

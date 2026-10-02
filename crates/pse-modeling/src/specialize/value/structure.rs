@@ -22,28 +22,29 @@ impl Evaluator<'_, '_> {
         let row = &self.package.declarations[&definition];
         let mut stack = self.stack.clone();
         stack.push(definition);
-        let evaluate = |at, env: &Environment, source: &str, expected: Option<&Type>| {
-            Evaluator {
-                package: self.package,
-                physical: self.physical,
-                at,
-                env,
-                limit: self.limit,
-                stack: stack.clone(),
-                reader: self.reader,
-                selections: self.selections,
-            }
-            .text(source, expected)
-        };
+        let evaluate =
+            |at, env: &Environment, role: &str, position: usize, expected: Option<&Type>| {
+                Evaluator {
+                    package: self.package,
+                    physical: self.physical,
+                    at,
+                    env,
+                    limit: self.limit,
+                    stack: stack.clone(),
+                    reader: self.reader,
+                    selections: self.selections,
+                }
+                .field(role, position, expected)
+            };
         if row.value.kind == Kind::Preset {
-            let source = row
+            let _source = row
                 .value
                 .binding
                 .as_ref()
                 .and_then(|b| b.expression.as_deref())
                 .ok_or_else(|| invalid(definition, "preset requires application"))?;
             let Value::Definition { id, mut bindings } =
-                evaluate(definition, arguments, source, None)?
+                evaluate(definition, arguments, "binding.expression", 0, None)?
             else {
                 return Err(invalid(definition, "preset target"));
             };
@@ -99,26 +100,33 @@ impl Evaluator<'_, '_> {
         let mut pending = contract
             .parameters
             .iter()
-            .filter(|p| !arguments.contains_key(&p.name))
+            .enumerate()
+            .filter(|(_, p)| !arguments.contains_key(&p.name))
             .collect::<Vec<_>>();
         while !pending.is_empty() {
             let before = pending.len();
             let mut next = Vec::new();
             let mut failure = None;
-            for parameter in pending {
+            for (position, parameter) in pending {
                 let ty = self
                     .physical
                     .resolve(&parameter.r#type, &vars, &names, definition)?;
-                let source = parameter.default_value.as_deref().ok_or_else(|| {
+                let _source = parameter.default_value.as_deref().ok_or_else(|| {
                     invalid(definition, format!("missing argument {}", parameter.name))
                 })?;
-                match evaluate(definition, &env, source, Some(&ty)) {
+                match evaluate(
+                    definition,
+                    &env,
+                    "scope.parameters.default_value",
+                    position,
+                    Some(&ty),
+                ) {
                     Ok(value) => {
                         env.insert(parameter.name.clone(), value);
                     }
                     Err(error) => {
                         failure = Some(error);
-                        next.push(parameter);
+                        next.push((position, parameter));
                     }
                 }
             }
@@ -178,10 +186,16 @@ impl Evaluator<'_, '_> {
                         "structural parameter requires a scalar explicit value",
                     ));
                 }
-                let source = binding.expression.as_deref().ok_or_else(|| {
+                let _source = binding.expression.as_deref().ok_or_else(|| {
                     invalid(member, "structural parameter implementation missing")
                 })?;
-                match evaluate(member, &env, source, self.package.types.get(&member)) {
+                match evaluate(
+                    member,
+                    &env,
+                    "binding.expression",
+                    0,
+                    self.package.types.get(&member),
+                ) {
                     Ok(value) => {
                         env.insert(row.name.clone(), value);
                     }

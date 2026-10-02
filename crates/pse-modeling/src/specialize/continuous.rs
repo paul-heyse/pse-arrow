@@ -25,15 +25,15 @@ impl Engine<'_, '_> {
         }
         for member in members.values() {
             let row = self.p.declarations[member].clone();
-            let Some(axis) = &row.value.continuous else {
+            let Some(_axis) = &row.value.continuous else {
                 continue;
             };
             let Type::Continuous(_, ty) = &self.p.types[member] else {
                 return Err(invalid(*member, "continuous physical contract absent"));
             };
             let ty = *ty.clone();
-            let lower = self.eval(*member, env, &axis.lower, Some(&ty))?;
-            let upper = self.eval(*member, env, &axis.upper, Some(&ty))?;
+            let lower = self.eval_field(*member, env, "continuous.lower", 0, Some(&ty))?;
+            let upper = self.eval_field(*member, env, "continuous.upper", 0, Some(&ty))?;
             let a = lower.scalar(*member)?;
             let b = upper.scalar(*member)?;
             if !a.is_finite() || !b.is_finite() || a >= b || !(b - a).is_finite() {
@@ -48,8 +48,20 @@ impl Engine<'_, '_> {
                     "continuous domain needs an explicit discretization",
                 )
             })?;
-            let count = self.eval(*policy_id, env, &policy.elements, Some(&Type::Integer))?;
-            let order = self.eval(*policy_id, env, &policy.order, Some(&Type::Integer))?;
+            let count = self.eval_field(
+                *policy_id,
+                env,
+                "discretization.elements",
+                0,
+                Some(&Type::Integer),
+            )?;
+            let order = self.eval_field(
+                *policy_id,
+                env,
+                "discretization.order",
+                0,
+                Some(&Type::Integer),
+            )?;
             let (Value::Integer(count), Value::Integer(order)) = (count, order) else {
                 return Err(invalid(*policy_id, "exact integer mesh sizes required"));
             };
@@ -382,7 +394,7 @@ impl Engine<'_, '_> {
                 let values = segment
                     .indices
                     .iter()
-                    .map(|index| self.eval(at, env, &dsl::render_expr(index), None))
+                    .map(|index| self.eval_ast_with(at, env, index, None))
                     .collect::<Result<Vec<_>>>()?;
                 let coordinates = self.member_coordinates(owner, member, values.clone())?;
                 for (value, (_, coordinate)) in values.iter().zip(&coordinates) {
@@ -806,7 +818,15 @@ impl Engine<'_, '_> {
                 "continuous integrals require an explicit subdomain, not a discontinuous filter",
             ));
         }
-        let Value::Set(points) = self.eval(at, env, &dsl::render_path(&binder.domain), None)?
+        let Value::Set(points) = self.eval_ast_with(
+            at,
+            env,
+            &Expr {
+                kind: ExprKind::Path(binder.domain.clone()),
+                span: Span::default(),
+            },
+            None,
+        )?
         else {
             return Err(invalid(at, "realized integral domain absent"));
         };

@@ -25,6 +25,10 @@ pub(crate) fn bind(
     mut state: SessionState,
     registry: &Arc<pse_schema::Registry>,
 ) -> Result<SessionState> {
+    let validation = Arc::new(pse_relations::validate::ValidationContext::new(
+        registry,
+        crate::validation::NativeValidation(state.clone()),
+    ));
     let Some(service) = state.config().get_extension::<NativeCacheService>() else {
         return Ok(state);
     };
@@ -45,6 +49,7 @@ pub(crate) fn bind(
             name,
             Arc::new(Statistics {
                 service: service.clone(),
+                validation: validation.clone(),
                 registry: registry.clone(),
                 schema,
                 kind,
@@ -56,6 +61,7 @@ pub(crate) fn bind(
 }
 #[derive(Debug, Clone)]
 struct Statistics {
+    validation: Arc<pse_relations::validate::ValidationContext>,
     service: Arc<NativeCacheService>,
     registry: Arc<pse_schema::Registry>,
     schema: SchemaRef,
@@ -115,6 +121,7 @@ impl Statistics {
             let mut builder = cache_entry_statistics::Builder::with_registry(
                 &self.registry,
                 entries.rows().len(),
+                &self.validation,
             )
             .map_err(external)?;
             for entry in entries.rows() {
@@ -129,8 +136,9 @@ impl Statistics {
             }
             Ok(builder.finish().map_err(external)?.into_batch())
         } else if self.kind == 1 {
-            let mut builder = execution_statistics::Builder::with_registry(&self.registry, 8)
-                .map_err(external)?;
+            let mut builder =
+                execution_statistics::Builder::with_registry(&self.registry, 8, &self.validation)
+                    .map_err(external)?;
             for (name, count) in self.service.execution_report() {
                 builder
                     .push(execution_statistics::Row {
@@ -142,9 +150,12 @@ impl Statistics {
             Ok(builder.finish().map_err(external)?.into_batch())
         } else {
             let reports = self.service.report();
-            let mut builder =
-                cache_statistics::Builder::with_registry(&self.registry, reports.len())
-                    .map_err(external)?;
+            let mut builder = cache_statistics::Builder::with_registry(
+                &self.registry,
+                reports.len(),
+                &self.validation,
+            )
+            .map_err(external)?;
             for report in reports {
                 builder
                     .push(cache_statistics::Row {

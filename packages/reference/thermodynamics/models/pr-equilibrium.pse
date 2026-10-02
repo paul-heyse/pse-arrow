@@ -13,6 +13,7 @@
 @id("01a0eeced80374ab83c0818e557e8e92") use math @"1.0.0";
 @id("01a0eeced80374ab83c0818f15fa2917") use nested_equilibrium @"1.0.0";
 @id("01a0e1b4f60e71eab341887ae9752485") interface SmoothPR extends equilibrium.EquilibriumThermoPackage,equilibrium.EntropyThermoPackage {
+@id("8120542eba0548868b9ff069520dd386") param density_phase:peng_robinson.PressureDensityPhase=peng_robinson.BoundedCubicDensity;
 @id("e830a09c16d9430593fcdf0bfb3b4587") param eos_package:properties.property_package;
 @id("f11f409f32ce48ba915537572882b379") param eos_family:cubic.cubic_family=cubic.pr;
 @id("da493c45654e46698d9f64c294685bbb") param eos_potential:Fn(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy;
@@ -25,7 +26,7 @@
 @id("01a0e1b4f60e71eab341887f0abdfd8e") var dew_liquid[j in components]:MoleFraction;
 @id("01a0e1b4f60e71eab34188804c78cbf2") annotation start dew_liquid(z[j]);
 @id("01a0e1b4f60e71eab341888139be8fc2") annotation bounds dew_liquid(1e-10{1},1{1});
-@id("01a0e1b4f60e71eab3418882b658ad97") child eq_liquid:peng_robinson.DensityRoot=peng_robinson.BoundedCubicDensity(selected=components,pkg=eos_package,law=eos_potential,selected_family=eos_family,lower=5000,upper=11000,start=10000);
+@id("01a0e1b4f60e71eab3418882b658ad97") child eq_liquid:peng_robinson.PressureDensityPhase=density_phase(selected=components,pkg=eos_package,law=eos_potential,selected_family=eos_family,lower=5000,upper=11000,start=10000);
 @id("01a0e1b4f60e71eab3418883099b1787") eq eq_liquid_temperature:eq_liquid.T==equilibrium_temperature;
 @id("01a0e1b4f60e71eab3418884ab782212") eq eq_liquid_pressure:eq_liquid.target_pressure==pressure;
 @id("01a0e1b4f60e71eab341888550d8040c") eq eq_liquid_amount[j in components]:eq_liquid.amount[j]==constants.amount_unit*(x[j]/equilibrium.fraction_unit());
@@ -38,7 +39,7 @@
 @id("01a0e1b4f60e71eab341888ce11c32f3") annotation bounds eq_liquid.T(minimum_temperature,maximum_temperature);
 @id("01a0e1b4f60e71eab341888dc4ffa4ae") annotation bounds eq_liquid.target_pressure(50000{Pa},200000{Pa});
 @id("01a0e1b4f60e71eab341888e60cf86c8") annotation bounds eq_liquid.amount(1e-10{mol},1{mol});
-@id("01a0e1b4f60e71eab341888fcf729aac") child eq_vapor:peng_robinson.DensityRoot=peng_robinson.BoundedCubicDensity(selected=components,pkg=eos_package,law=eos_potential,selected_family=eos_family,lower=1,upper=300,start=33);
+@id("01a0e1b4f60e71eab341888fcf729aac") child eq_vapor:peng_robinson.PressureDensityPhase=density_phase(selected=components,pkg=eos_package,law=eos_potential,selected_family=eos_family,lower=1,upper=300,start=33);
 @id("01a0e1b4f60e71eab341889017301dac") eq eq_vapor_temperature:eq_vapor.T==equilibrium_temperature;
 @id("01a0e1b4f60e71eab3418891b5486f2e") eq eq_vapor_pressure:eq_vapor.target_pressure==pressure;
 @id("01a0e1b4f60e71eab3418892d6b3d1d8") eq eq_vapor_amount[j in components]:eq_vapor.amount[j]==constants.amount_unit*(y[j]/equilibrium.fraction_unit());
@@ -51,7 +52,7 @@
 @id("01a0e1b4f60e71eab341889991103c45") annotation bounds eq_vapor.T(minimum_temperature,maximum_temperature);
 @id("01a0e1b4f60e71eab341889a8d2c4849") annotation bounds eq_vapor.target_pressure(50000{Pa},200000{Pa});
 @id("01a0e1b4f60e71eab341889b5bc5a8c3") annotation bounds eq_vapor.amount(1e-10{mol},1{mol});
-@id("01a0e1b4f60e71eab341889c19d9287c") child bubble_liquid:peng_robinson.DensityRoot=peng_robinson.BoundedCubicDensity(selected=components,pkg=eos_package,law=eos_potential,selected_family=eos_family,lower=5000,upper=11000,start=10000);
+@id("01a0e1b4f60e71eab341889c19d9287c") child bubble_liquid:peng_robinson.PressureDensityPhase=density_phase(selected=components,pkg=eos_package,law=eos_potential,selected_family=eos_family,lower=5000,upper=11000,start=10000);
 @id("01a0e1b4f60e71eab341889da97813fb") eq bubble_liquid_temperature:bubble_liquid.T==bubble;
 @id("01a0e1b4f60e71eab341889ef2295ee4") eq bubble_liquid_pressure:bubble_liquid.target_pressure==pressure;
 @id("01a0e1b4f60e71eab341889fde3abd22") eq bubble_liquid_amount[j in components]:bubble_liquid.amount[j]==constants.amount_unit*(z[j]/equilibrium.fraction_unit());
@@ -64,7 +65,7 @@
 @id("01a0e1b4f60e71eab34188a6134ff5c0") annotation bounds bubble_liquid.T(minimum_temperature,maximum_temperature);
 @id("01a0e1b4f60e71eab34188a7a098457e") annotation bounds bubble_liquid.target_pressure(50000{Pa},200000{Pa});
 @id("01a0e1b4f60e71eab34188a8f69fd85c") annotation bounds bubble_liquid.amount(1e-10{mol},1{mol});
-@id("01a0e1b4f60e71eab34188a976ce25f4") child bubble_gas:peng_robinson.DensityRoot=peng_robinson.BoundedCubicDensity(selected=components,pkg=eos_package,law=eos_potential,selected_family=eos_family,lower=1,upper=300,start=33);
+@id("01a0e1b4f60e71eab34188a976ce25f4") child bubble_gas:peng_robinson.PressureDensityPhase=density_phase(selected=components,pkg=eos_package,law=eos_potential,selected_family=eos_family,lower=1,upper=300,start=33);
 @id("01a0e1b4f60e71eab34188aa2f9cc652") eq bubble_gas_temperature:bubble_gas.T==bubble;
 @id("01a0e1b4f60e71eab34188abf3864e6c") eq bubble_gas_pressure:bubble_gas.target_pressure==pressure;
 @id("01a0e1b4f60e71eab34188ac2634bd95") eq bubble_gas_amount[j in components]:bubble_gas.amount[j]==constants.amount_unit*(bubble_vapor[j]/equilibrium.fraction_unit());
@@ -77,7 +78,7 @@
 @id("01a0e1b4f60e71eab34188b32cf0873d") annotation bounds bubble_gas.T(minimum_temperature,maximum_temperature);
 @id("01a0e1b4f60e71eab34188b40058f786") annotation bounds bubble_gas.target_pressure(50000{Pa},200000{Pa});
 @id("01a0e1b4f60e71eab34188b5c8ca1ac4") annotation bounds bubble_gas.amount(1e-10{mol},1{mol});
-@id("01a0e1b4f60e71eab34188b6f0cc80a1") child dew_condensate:peng_robinson.DensityRoot=peng_robinson.BoundedCubicDensity(selected=components,pkg=eos_package,law=eos_potential,selected_family=eos_family,lower=5000,upper=11000,start=10000);
+@id("01a0e1b4f60e71eab34188b6f0cc80a1") child dew_condensate:peng_robinson.PressureDensityPhase=density_phase(selected=components,pkg=eos_package,law=eos_potential,selected_family=eos_family,lower=5000,upper=11000,start=10000);
 @id("01a0e1b4f60e71eab34188b7b6ae21fa") eq dew_condensate_temperature:dew_condensate.T==dew;
 @id("01a0e1b4f60e71eab34188b8ae723f59") eq dew_condensate_pressure:dew_condensate.target_pressure==pressure;
 @id("01a0e1b4f60e71eab34188b9892183a2") eq dew_condensate_amount[j in components]:dew_condensate.amount[j]==constants.amount_unit*(dew_liquid[j]/equilibrium.fraction_unit());
@@ -90,7 +91,7 @@
 @id("01a0e1b4f60e71eab34188c0d3a8fcca") annotation bounds dew_condensate.T(minimum_temperature,maximum_temperature);
 @id("01a0e1b4f60e71eab34188c1c2633978") annotation bounds dew_condensate.target_pressure(50000{Pa},200000{Pa});
 @id("01a0e1b4f60e71eab34188c2b275c9d2") annotation bounds dew_condensate.amount(1e-10{mol},1{mol});
-@id("01a0e1b4f60e71eab34188c35ee75944") child dew_vapor:peng_robinson.DensityRoot=peng_robinson.BoundedCubicDensity(selected=components,pkg=eos_package,law=eos_potential,selected_family=eos_family,lower=1,upper=300,start=33);
+@id("01a0e1b4f60e71eab34188c35ee75944") child dew_vapor:peng_robinson.PressureDensityPhase=density_phase(selected=components,pkg=eos_package,law=eos_potential,selected_family=eos_family,lower=1,upper=300,start=33);
 @id("01a0e1b4f60e71eab34188c4fa9be5b6") eq dew_vapor_temperature:dew_vapor.T==dew;
 @id("01a0e1b4f60e71eab34188c562d0e782") eq dew_vapor_pressure:dew_vapor.target_pressure==pressure;
 @id("01a0e1b4f60e71eab34188c64f1af6ff") eq dew_vapor_amount[j in components]:dew_vapor.amount[j]==constants.amount_unit*(z[j]/equilibrium.fraction_unit());
@@ -103,7 +104,7 @@
 @id("01a0e1b4f60e71eab34188cd42e2a140") annotation bounds dew_vapor.T(minimum_temperature,maximum_temperature);
 @id("01a0e1b4f60e71eab34188cec5aeeac0") annotation bounds dew_vapor.target_pressure(50000{Pa},200000{Pa});
 @id("01a0e1b4f60e71eab34188cf14774d39") annotation bounds dew_vapor.amount(1e-10{mol},1{mol});
-@id("01a0e1b4f60e71eab34188d0908fed93") child liquid:peng_robinson.DensityRoot=peng_robinson.BoundedCubicDensity(selected=components,pkg=eos_package,law=eos_potential,selected_family=eos_family,lower=5000,upper=11000,start=10000);
+@id("01a0e1b4f60e71eab34188d0908fed93") child liquid:peng_robinson.PressureDensityPhase=density_phase(selected=components,pkg=eos_package,law=eos_potential,selected_family=eos_family,lower=5000,upper=11000,start=10000);
 @id("01a0e1b4f60e71eab34188d103bf6bf2") eq liquid_temperature:liquid.T==T;
 @id("01a0e1b4f60e71eab34188d253cccc15") eq liquid_pressure:liquid.target_pressure==pressure;
 @id("01a0e1b4f60e71eab34188d3dcaf27a2") eq liquid_amount[j in components]:liquid.amount[j]==constants.amount_unit*(x[j]/equilibrium.fraction_unit());
@@ -116,7 +117,7 @@
 @id("01a0e1b4f60e71eab34188da999c9787") annotation bounds liquid.T(minimum_temperature,maximum_temperature);
 @id("01a0e1b4f60e71eab34188db43957eab") annotation bounds liquid.target_pressure(50000{Pa},200000{Pa});
 @id("01a0e1b4f60e71eab34188dc7793754e") annotation bounds liquid.amount(1e-10{mol},1{mol});
-@id("01a0e1b4f60e71eab34188dd813f45f0") child vapor:peng_robinson.DensityRoot=peng_robinson.BoundedCubicDensity(selected=components,pkg=eos_package,law=eos_potential,selected_family=eos_family,lower=1,upper=300,start=33);
+@id("01a0e1b4f60e71eab34188dd813f45f0") child vapor:peng_robinson.PressureDensityPhase=density_phase(selected=components,pkg=eos_package,law=eos_potential,selected_family=eos_family,lower=1,upper=300,start=33);
 @id("01a0e1b4f60e71eab34188ded4cd98d9") eq vapor_temperature:vapor.T==T;
 @id("01a0e1b4f60e71eab34188dfa60e1e71") eq vapor_pressure:vapor.target_pressure==pressure;
 @id("01a0e1b4f60e71eab34188e0636aa802") eq vapor_amount[j in components]:vapor.amount[j]==constants.amount_unit*(y[j]/equilibrium.fraction_unit());
@@ -139,7 +140,8 @@
 @id("01a0e1b4f60e71eab34188f1d78b3b6f") override let h_vapor:MolarEnthalpy=constants.standard_enthalpy_datum+sum(j in components | (y[j]/equilibrium.fraction_unit())*(vapor_enthalpy(T,j)-constants.standard_enthalpy_datum))+vapor.h_residual;
 @id("01a0e1b4f60e71eab34188f29b90d9e7") let s_vapor:MolarEntropy=constants.standard_entropy_datum+sum(j in components | (y[j]/equilibrium.fraction_unit())*(ideal_entropy(T,j)-constants.standard_entropy_datum))+vapor.s_residual-equilibrium.ideal_entropy_increment(pressure,constants.standard_pressure,y,components);
 }
-@id("01a0eeced80374ab83c0819051f61a80") def ComplementarityPR(selected:Set<chemistry.species>,vapor_pressure:Fn(T:Temperature,j:chemistry.species)->Pressure,minimum:Temperature,maximum:Temperature,bubble:Temperature,dew:Temperature,epsilon:Scalar=0.0001,pkg:properties.property_package,law:Fn(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy,family:cubic.cubic_family=cubic.pr):nested_equilibrium.FlashSplit {
+@id("01a0eeced80374ab83c0819051f61a80") def ComplementarityPR(selected:Set<chemistry.species>,vapor_pressure:Fn(T:Temperature,j:chemistry.species)->Pressure,minimum:Temperature,maximum:Temperature,bubble:Temperature,dew:Temperature,epsilon:Scalar=0.0001,pkg:properties.property_package,law:Fn(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy,family:cubic.cubic_family=cubic.pr,density:peng_robinson.PressureDensityPhase=peng_robinson.BoundedCubicDensity):nested_equilibrium.FlashSplit {
+@id("ee213ce234634d898639ce764a68238c") param density_phase:peng_robinson.PressureDensityPhase=density;
 @id("01a0eeced80374ab83c081916b461427") override param components:Set<chemistry.species>=selected;
 @id("01a0eeced80374ab83c081924e377c96") param minimum_temperature:Temperature=minimum;
 @id("01a0eeced80374ab83c08193d4675749") param maximum_temperature:Temperature=maximum;
@@ -153,7 +155,7 @@
 @id("01a0eeced80374ab83c0819b30c1fbc9") eq material[j in components]:z[j]==(1-fraction)*liquid[j]+fraction*vapor[j];
 @id("01a0eeced80374ab83c0819c6ddb104f") eq normalization:sum(j in components | liquid[j]/equilibrium.fraction_unit()-vapor[j]/equilibrium.fraction_unit())==0;
 @id("01a0eeced80374ab83c0819d315c5bee") eq equilibrium_temperature_binding:equilibrium_temperature==T+(vapor_slack-liquid_slack)*equilibrium.temperature_difference_unit();
-@id("01a0eeced80374ab83c0819e59cefa47") child eq_liquid:peng_robinson.DensityRoot=peng_robinson.BoundedCubicDensity(selected=components,pkg=pkg,law=law,selected_family=family,lower=5000,upper=11000,start=10000);
+@id("01a0eeced80374ab83c0819e59cefa47") child eq_liquid:peng_robinson.PressureDensityPhase=density_phase(selected=components,pkg=pkg,law=law,selected_family=family,lower=5000,upper=11000,start=10000);
 @id("01a0eeced80374ab83c0819ffcd43a3f") eq eq_liquid_temperature:eq_liquid.T==equilibrium_temperature;
 @id("01a0eeced80374ab83c081a08fc0d5f1") eq eq_liquid_pressure:eq_liquid.target_pressure==pressure;
 @id("01a0eeced80374ab83c081a13aaeb600") eq eq_liquid_amount[j in components]:eq_liquid.amount[j]==constants.amount_unit*(liquid[j]/equilibrium.fraction_unit());
@@ -166,7 +168,7 @@
 @id("01a0eeced80374ab83c081a8f53cd378") annotation bounds eq_liquid.T(minimum_temperature,maximum_temperature);
 @id("01a0eeced80374ab83c081a9c7c11f56") annotation bounds eq_liquid.target_pressure(50000{Pa},200000{Pa});
 @id("01a0eeced80374ab83c081aa903069b5") annotation bounds eq_liquid.amount(1e-10{mol},1{mol});
-@id("01a0eeced80374ab83c081ab7736a9e3") child eq_vapor:peng_robinson.DensityRoot=peng_robinson.BoundedCubicDensity(selected=components,pkg=pkg,law=law,selected_family=family,lower=1,upper=300,start=33);
+@id("01a0eeced80374ab83c081ab7736a9e3") child eq_vapor:peng_robinson.PressureDensityPhase=density_phase(selected=components,pkg=pkg,law=law,selected_family=family,lower=1,upper=300,start=33);
 @id("01a0eeced80374ab83c081ac46c525bd") eq eq_vapor_temperature:eq_vapor.T==equilibrium_temperature;
 @id("01a0eeced80374ab83c081ad53a914e4") eq eq_vapor_pressure:eq_vapor.target_pressure==pressure;
 @id("01a0eeced80374ab83c081aee5cb9e18") eq eq_vapor_amount[j in components]:eq_vapor.amount[j]==constants.amount_unit*(vapor[j]/equilibrium.fraction_unit());

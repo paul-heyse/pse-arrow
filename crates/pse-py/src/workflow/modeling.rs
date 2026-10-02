@@ -2,79 +2,29 @@
 // Copyright (c) 2026 Paul Heyse
 //! Owned Python handles over the generic kernel; no numerical semantics cross the boundary.
 use super::*;
+use crate::enums::EnumValue;
 use pse_ids::SemanticId;
-use pse_modeling::{DeclarationId, InstanceId};
+use pse_model::generated::enums::{
+    ModelingDiagnosticSampleStop, ModelingElasticObservation, ModelingInitializationStep,
+    NativeRunState, TrajectoryTermination,
+};
+use pse_modeling::DeclarationId;
 use std::collections::BTreeMap;
 
 /// A modeling declaration (a case, test or definition) named by its hex identity.
 fn declaration(py: Python<'_>, text: &str) -> PyResult<DeclarationId> {
     id(py, text).map(DeclarationId::from)
 }
-/// The fixtures a conformance run executes: every authored test, or the test declarations
-/// the caller names by identity.
-fn fixture_selection(
-    py: Python<'_>,
-    fixtures: Option<Vec<String>>,
-) -> PyResult<native::ModelingFixtureSelection> {
-    let Some(fixtures) = fixtures else {
-        return Ok(native::ModelingFixtureSelection::Package);
-    };
-    fixtures
-        .iter()
-        .map(|text| declaration(py, text))
-        .collect::<PyResult<_>>()
-        .map(native::ModelingFixtureSelection::Selected)
-}
-
-#[derive(serde::Deserialize)]
-#[serde(deny_unknown_fields)]
-struct FlowSelectionDocument {
-    nodes: Vec<InstanceId>,
-    connections: Vec<FlowConnectionDocument>,
-}
-#[derive(serde::Deserialize)]
-#[serde(deny_unknown_fields)]
-struct FlowConnectionDocument {
-    connection: SemanticId,
-    group: SemanticId,
-    cost: f64,
-    policy: pse_runtime::math::flows::Policy,
-}
+/// Decode the flow selection through its Rust-owned document contract.
 fn flow_selection(
     py: Python<'_>,
     bytes: &[u8],
     allowance: usize,
 ) -> PyResult<pse_runtime::math::flows::ModelingFlowSelection> {
-    if bytes.len() > allowance / 4 {
-        return Err(invalid(py, "flow selection exceeds workspace allowance"));
-    }
-    let wire = serde_json::from_slice::<strategies::AnalysisDocument<FlowSelectionDocument>>(bytes)
-        .map_err(|e| invalid(py, e.to_string()))?
-        .payload;
-    let mut nodes = std::collections::BTreeSet::new();
-    for node in wire.nodes {
-        if !nodes.insert(node) {
-            return Err(invalid(py, "duplicate selected flow node"));
-        }
-    }
-    let mut connections = BTreeMap::new();
-    for c in wire.connections {
-        use pse_runtime::math::flows::Decision;
-        if connections
-            .insert(
-                c.connection,
-                Decision {
-                    id: c.group,
-                    cost: c.cost,
-                    policy: c.policy,
-                },
-            )
-            .is_some()
-        {
-            return Err(invalid(py, "duplicate selected connection"));
-        }
-    }
-    Ok(pse_runtime::math::flows::ModelingFlowSelection { nodes, connections })
+    let document: pse_runtime::math::flows::FlowSelectionDocument =
+        documents::decode(py, "flow selection", bytes, allowance / 4)?;
+    pse_runtime::math::flows::ModelingFlowSelection::try_from(document)
+        .map_err(|error| errors::diagnostic(py, &pse_runtime::math::MathRuntimeError::from(error)))
 }
 
 /// The registry relation of a qualified table name; each result decides whether it holds
@@ -104,6 +54,10 @@ pub(super) fn from_documents(
         async {
             let pool = runtime.owner.shared.pool();
             let token = cancel.token();
+            let validation = runtime
+                .owner
+                .sessions
+                .validation_context(&runtime.owner.registry)?;
             let bundles = documents
                 .iter()
                 .map(|documents| {
@@ -113,6 +67,7 @@ pub(super) fn from_documents(
                         pse_authoring::ParseBudget::default(),
                         &pool,
                         &token,
+                        &validation,
                     )
                 })
                 .collect::<Result<Vec<_>, _>>()?;
@@ -206,16 +161,12 @@ impl ModelingLimits {
 #[pymethods]
 impl NativeModelingPackage {
     fn with_declarations(&self, py: Python<'_>, source: &[u8]) -> PyResult<Self> {
-        #[derive(serde::Deserialize)]
-        #[serde(deny_unknown_fields)]
-        struct Edit {
-            declarations: Vec<pse_authoring::language::Declaration>,
-        }
-        if source.len() > self.owner.shared.budget().math.workspace_bytes / 2 {
-            return Err(invalid(py, "declaration edit exceeds workspace allowance"));
-        }
-        let edit =
-            serde_json::from_slice::<Edit>(source).map_err(|e| invalid(py, e.to_string()))?;
+        let edit: native::DeclarationEdit = documents::decode(
+            py,
+            "declaration edit",
+            source,
+            self.owner.shared.budget().math.workspace_bytes / 2,
+        )?;
         let inner = py
             .detach(|| self.inner.with_declarations(edit.declarations))
             .map_err(|e| errors::diagnostic(py, &e))?;
@@ -231,8 +182,12 @@ impl NativeModelingPackage {
         if source.len() > self.owner.shared.budget().math.workspace_bytes / 2 {
             return Err(invalid(py, "fit source extent"));
         }
-        let data: native::FitDeclarations =
-            serde_json::from_slice(source).map_err(|e| invalid(py, e.to_string()))?;
+        let data: native::FitDeclarations = documents::decode(
+            py,
+            "operation",
+            source,
+            self.owner.shared.budget().math.workspace_bytes,
+        )?;
         let inner = self
             .inner
             .clone()
@@ -246,47 +201,23 @@ impl NativeModelingPackage {
         })
     }
 
-    #[expect(
-        clippy::too_many_arguments,
-        reason = "one parameter per argument of the Python method signature"
-    )]
-    #[pyo3(signature=(fit_id, settings, simulations, *, rank_tolerance=1e-8, max_cells=1000000, derivatives="responses", uncertainty=None))]
     fn prepare_fit(
         &self,
         py: Python<'_>,
         fit_id: &str,
-        settings: &[u8],
-        simulations: Vec<(String, PyRef<'_, SimulationSettings>)>,
-        rank_tolerance: f64,
-        max_cells: usize,
-        derivatives: &str,
-        uncertainty: Option<&[u8]>,
+        request: &[u8],
     ) -> PyResult<NativePreparedOperation> {
-        let settings = settings::solve_profile(py, settings)?;
-        // The typed `fit-uncertainty` document (Plan 22 S3).
-        let uncertainty = uncertainty
-            .map(serde_json::from_slice::<native::FitUncertainty>)
-            .transpose()
-            .map_err(|e| invalid(py, e.to_string()))?;
+        let request: native::FitPreparationDocument = documents::decode(
+            py,
+            "fit preparation",
+            request,
+            self.owner.shared.budget().math.workspace_bytes / 2,
+        )?;
+        let profile = request
+            .profile()
+            .map_err(|error| errors::diagnostic(py, &error))?;
         let fit = id(py, fit_id).map(pse_model::generated::identities::FitId::from)?;
-        let count = simulations.len();
-        // Experiment settings are keyed by the experiment's instance.
-        let simulations = simulations
-            .into_iter()
-            .map(|(key, v)| id(py, &key).map(|key| (InstanceId::from(key), v.profile.clone())))
-            .collect::<PyResult<BTreeMap<_, _>>>()?;
-        if simulations.len() != count {
-            return Err(invalid(py, "duplicate experiment settings"));
-        }
         let cancel = CancelSource::new();
-        let profile = native::FitProfile {
-            solver: settings.clone(),
-            simulations,
-            rank_tolerance,
-            max_cells,
-            derivatives: settings::named(py, "fit derivatives", derivatives)?,
-            uncertainty,
-        };
         let inner = blocking(
             py,
             &self.owner,
@@ -310,29 +241,22 @@ impl NativeModelingPackage {
         }
     }
 
-    #[expect(
-        clippy::too_many_arguments,
-        reason = "one parameter per argument of the Python method signature"
-    )]
-    #[pyo3(signature=(case_id,settings,nominals,*,penalty_tolerance,maximum_attempts,time_limit))]
+    #[pyo3(signature=(case_id, settings, policy))]
     fn explain_nonlinear(
         &self,
         py: Python<'_>,
         case_id: &str,
         settings: &[u8],
-        nominals: BTreeMap<String, f64>,
-        penalty_tolerance: f64,
-        maximum_attempts: usize,
-        time_limit: f64,
+        policy: &[u8],
     ) -> PyResult<NativeModelingNonlinearExplanation> {
         let settings = settings::solve_profile(py, settings)?;
         let root = declaration(py, case_id)?;
-        let nominals = nominals
-            .into_iter()
-            .map(|(key, value)| Ok((id(py, &key)?, value)))
-            .collect::<PyResult<_>>()?;
-        let time_limit = Duration::try_from_secs_f64(time_limit)
-            .map_err(|_| invalid(py, "explanation time limit must be finite and positive"))?;
+        let policy: native::ModelingNonlinearPolicy = documents::decode(
+            py,
+            "nonlinear explanation",
+            policy,
+            self.owner.shared.budget().math.workspace_bytes,
+        )?;
         let cancel = CancelSource::new();
         let inner = blocking(
             py,
@@ -351,16 +275,7 @@ impl NativeModelingPackage {
                     .await?
                     .analysis;
                 self.inner
-                    .explain_nonlinear(
-                        &analysis,
-                        native::ModelingNonlinearPolicy {
-                            nominals,
-                            penalty_tolerance,
-                            maximum_attempts,
-                            time_limit,
-                        },
-                        &cancel,
-                    )
+                    .explain_nonlinear(&analysis, policy, &cancel)
                     .await
             },
             || cancel.cancel(),
@@ -369,10 +284,7 @@ impl NativeModelingPackage {
             inner: Arc::new(inner),
         })
     }
-    #[expect(
-        clippy::too_many_arguments,
-        reason = "one parameter per argument of the Python method signature"
-    )]
+    #[pyo3(signature=(case_id, settings, diagnostics, samples, *, controls=None))]
     fn diagnose_samples(
         &self,
         py: Python<'_>,
@@ -380,9 +292,17 @@ impl NativeModelingPackage {
         settings: &[u8],
         diagnostics: &ModelingDiagnosticSettings,
         samples: Vec<(String, BTreeMap<String, f64>)>,
-        maximum_samples: usize,
-        time_limit: f64,
+        controls: Option<&[u8]>,
     ) -> PyResult<NativeModelingDiagnosticSamples> {
+        let native::DiagnosticSamplesControls {
+            maximum_samples,
+            time_limit,
+        } = documents::controls(
+            py,
+            "diagnostic sample controls",
+            controls,
+            self.owner.shared.budget().math.workspace_bytes,
+        )?;
         let settings = settings::solve_profile(py, settings)?;
         let root = declaration(py, case_id)?;
         let duration = Duration::try_from_secs_f64(time_limit)
@@ -529,45 +449,28 @@ impl NativeModelingPackage {
             inner: Arc::new(inner),
         })
     }
-    #[expect(
-        clippy::too_many_arguments,
-        reason = "one parameter per argument of the Python method signature"
-    )]
-    #[pyo3(signature=(case_id,settings,*,rays=false,iis=false,ranging=false,relaxation=None,lower_penalties=None,upper_penalties=None,row_penalties=None,maximum_entries=100_000))]
+    #[pyo3(signature=(case_id, settings, *, controls=None))]
     fn diagnose_linear(
         &self,
         py: Python<'_>,
         case_id: &str,
         settings: &[u8],
-        rays: bool,
-        iis: bool,
-        ranging: bool,
-        relaxation: Option<(f64, f64, f64)>,
-        lower_penalties: Option<BTreeMap<String, f64>>,
-        upper_penalties: Option<BTreeMap<String, f64>>,
-        row_penalties: Option<BTreeMap<String, f64>>,
-        maximum_entries: usize,
+        controls: Option<&[u8]>,
     ) -> PyResult<NativeModelingNativeAnalysis> {
+        let controls: native::LinearDiagnosticControls = documents::controls(
+            py,
+            "linear diagnostic controls",
+            controls,
+            self.owner.shared.budget().math.workspace_bytes,
+        )?;
         let settings = settings::solve_profile(py, settings)?;
         #[cfg(not(feature = "solver-highs"))]
         {
-            let _ = (
-                case_id,
-                settings,
-                rays,
-                iis,
-                ranging,
-                relaxation,
-                lower_penalties,
-                upper_penalties,
-                row_penalties,
-                maximum_entries,
-            );
+            let _ = (case_id, settings, controls);
             Err(invalid(py, "HiGHS capability is not installed"))
         }
         #[cfg(feature = "solver-highs")]
         {
-            use pse_backend_native::highs::diagnostics::{Penalties, Request};
             let root = declaration(py, case_id)?;
             let cancel = CancelSource::new();
             let inner = blocking(
@@ -594,51 +497,12 @@ impl NativeModelingPackage {
                         .iter()
                         .map(|r| r.id)
                         .collect::<Vec<_>>();
-                    let align=|values:Option<BTreeMap<String,f64>>,ids:&[SemanticId]|->Result<Option<Vec<f64>>,native::WorkflowError>{
-                    values.map(|values|{
-                        let values=values.into_iter().map(|(key,v)|SemanticId::parse_hex(&key).map(|id|(id,v)).map_err(|e|native::WorkflowError::Input(e.to_string()))).collect::<Result<BTreeMap<_,_>,_>>()?;
-                        if values.len()!=ids.len(){return Err(native::WorkflowError::Input("local penalties require every source coordinate exactly once".into()));}
-                        ids.iter().map(|id|values.get(id).copied().ok_or_else(||native::WorkflowError::Input("local penalty source coordinate absent".into()))).collect()
-                    }).transpose()
-                };
-                    if relaxation.is_none()
-                        && (lower_penalties.is_some()
-                            || upper_penalties.is_some()
-                            || row_penalties.is_some())
-                    {
-                        return Err(native::WorkflowError::Input(
-                            "local penalties require explicit global relaxation penalties".into(),
-                        ));
-                    }
-                    let relaxation = relaxation
-                        .map(|(lower, upper, row)| {
-                            let finite = |v: f64| {
-                                pse_model::scalars::FiniteBound::try_new(v).map_err(|e| {
-                                    native::WorkflowError::Input(format!(
-                                        "global relaxation penalty: {e}"
-                                    ))
-                                })
-                            };
-                            Ok::<_, native::WorkflowError>(Penalties {
-                                global: [finite(lower)?, finite(upper)?, finite(row)?],
-                                lower: align(lower_penalties, plan.columns())?,
-                                upper: align(upper_penalties, plan.columns())?,
-                                rows: align(row_penalties, &rows)?,
-                            })
-                        })
-                        .transpose()?;
+                    let maximum_entries = controls.maximum_entries;
+                    let request = controls.request(plan.columns(), &rows)?;
                     self.inner
                         .diagnose_linear(
                             prepared,
-                            Request {
-                                rays,
-                                iis,
-                                ranging,
-                                relaxation,
-                                // The fixed-LP, basis-inverse, presolve and cut-pool views
-                                // are not projected to Python yet (A5).
-                                ..Request::default()
-                            },
+                            request,
                             settings.controls.clone(),
                             maximum_entries,
                             &cancel,
@@ -653,36 +517,24 @@ impl NativeModelingPackage {
             })
         }
     }
-    #[expect(
-        clippy::too_many_arguments,
-        reason = "one parameter per argument of the Python method signature"
-    )]
-    #[pyo3(signature=(case_id,settings,*,maximum_rows=32,maximum_entries=100_000,maximum_attempts=64,multiplier_bound=10.0,tolerance=1e-7,rank_relative=1e-8))]
+    #[pyo3(signature=(case_id, settings, *, controls=None))]
     fn diagnose_jacobian(
         &self,
         py: Python<'_>,
         case_id: &str,
         settings: &[u8],
-        maximum_rows: usize,
-        maximum_entries: usize,
-        maximum_attempts: usize,
-        multiplier_bound: f64,
-        tolerance: f64,
-        rank_relative: f64,
+        controls: Option<&[u8]>,
     ) -> PyResult<NativeModelingNativeAnalysis> {
+        let controls: native::JacobianDiagnosticControls = documents::controls(
+            py,
+            "Jacobian diagnostic controls",
+            controls,
+            self.owner.shared.budget().math.workspace_bytes,
+        )?;
         let settings = settings::solve_profile(py, settings)?;
         #[cfg(not(feature = "solver-highs"))]
         {
-            let _ = (
-                case_id,
-                settings,
-                maximum_rows,
-                maximum_entries,
-                maximum_attempts,
-                multiplier_bound,
-                tolerance,
-                rank_relative,
-            );
+            let _ = (case_id, settings, controls);
             Err(invalid(py, "HiGHS capability is not installed"))
         }
         #[cfg(feature = "solver-highs")]
@@ -711,17 +563,7 @@ impl NativeModelingPackage {
                         .diagnose_jacobian_optimization(
                             prepared,
                             values,
-                            pse_backend_native::jacobian_diagnostics::Policy {
-                                maximum_rows,
-                                maximum_entries,
-                                maximum_attempts,
-                                multiplier_bound,
-                                tolerance,
-                                rank_relative,
-                                // The MILPs are bounded by the deadline; the node
-                                // budget is not projected to Python yet (A5).
-                                maximum_nodes: None,
-                            },
+                            controls.policy(),
                             settings.controls.clone(),
                             &cancel,
                         )
@@ -735,62 +577,22 @@ impl NativeModelingPackage {
             })
         }
     }
-    #[expect(
-        clippy::too_many_arguments,
-        reason = "optional explicit initialization fields at the Python boundary"
-    )]
-    #[pyo3(signature=(case_id, settings, *, stages=None, homotopy=None, initial_step=None, minimum_step=None, growth=None, maximum_attempts=None, time_limit=None, discrete=None, discrete_values=None))]
+    #[pyo3(signature=(case_id, settings, *, overrides=None))]
     fn initialize(
         &self,
         py: Python<'_>,
         case_id: &str,
         settings: &[u8],
-        stages: Option<Vec<String>>,
-        homotopy: Option<bool>,
-        initial_step: Option<f64>,
-        minimum_step: Option<f64>,
-        growth: Option<f64>,
-        maximum_attempts: Option<usize>,
-        time_limit: Option<f64>,
-        discrete: Option<&str>,
-        discrete_values: Option<BTreeMap<String, f64>>,
+        overrides: Option<&[u8]>,
     ) -> PyResult<NativeModelingInitialization> {
-        use pse_model::generated::enums::ModelingDiscreteInitialization as Discrete;
         let settings = settings::solve_profile(py, settings)?;
         let root = declaration(py, case_id)?;
-        let time_limit = time_limit
-            .map(Duration::try_from_secs_f64)
-            .transpose()
-            .map_err(|_| invalid(py, "initialization time limit must be finite and positive"))?;
-        let discrete_values = discrete_values.unwrap_or_default();
-        let discrete = match discrete.map(str::parse::<Discrete>).transpose() {
-            Ok(Some(Discrete::FixAt)) => {
-                Some(native::DiscreteInitialization::FixAt(discrete_values))
-            }
-            Ok(Some(Discrete::FixAtStart)) if discrete_values.is_empty() => {
-                Some(native::DiscreteInitialization::FixAtStart)
-            }
-            Ok(Some(Discrete::Refuse)) if discrete_values.is_empty() => {
-                Some(native::DiscreteInitialization::Refuse)
-            }
-            Ok(None) if discrete_values.is_empty() => None,
-            _ => {
-                return Err(invalid(
-                    py,
-                    "discrete values require an explicit fix_at policy",
-                ));
-            }
-        };
-        let overrides = native::InitializationOverrides {
-            stages,
-            homotopy,
-            initial_step,
-            minimum_step,
-            growth,
-            maximum_attempts,
-            time_limit,
-            discrete,
-        };
+        let overrides: native::InitializationOverrides = documents::controls(
+            py,
+            "initialization",
+            overrides,
+            self.owner.shared.budget().math.workspace_bytes,
+        )?;
         let cancel = CancelSource::new();
         let inner = blocking(
             py,
@@ -819,8 +621,12 @@ impl NativeModelingPackage {
     }
     /// Admit the generated request once under this immutable selected revision.
     fn admit_study(&self, py: Python<'_>, request: &[u8]) -> PyResult<Vec<u8>> {
-        let request: native::StudyRequest =
-            serde_json::from_slice(request).map_err(|e| invalid(py, e.to_string()))?;
+        let request: native::StudyRequest = documents::decode(
+            py,
+            "operation",
+            request,
+            self.owner.shared.budget().math.workspace_bytes,
+        )?;
         let sources = self.sources.as_deref().cloned().unwrap_or_default();
         let physical = pse_runtime::authoring_driver::document::package_checksum(&sources.physical);
         let modeling = sources
@@ -836,18 +642,28 @@ impl NativeModelingPackage {
                 .admit_study_points(physical, modeling, &request.points, &cancel),
             || cancel.cancel(),
         )?;
-        serde_json::to_vec(&definition).map_err(|e| invalid(py, e.to_string()))
+        documents::encode(py, &definition)
     }
     /// Execute the same admitted document accepted by the durable adapter.
-    #[pyo3(signature=(definition, *, maximum_points=1024))]
+    #[pyo3(signature=(definition, *, controls=None))]
     fn study(
         &self,
         py: Python<'_>,
         definition: &[u8],
-        maximum_points: usize,
+        controls: Option<&[u8]>,
     ) -> PyResult<NativeStudyReport> {
-        let definition: native::StudyDefinition =
-            serde_json::from_slice(definition).map_err(|e| invalid(py, e.to_string()))?;
+        let native::StudyRunControls { maximum_points } = documents::controls(
+            py,
+            "study",
+            controls,
+            self.owner.shared.budget().math.workspace_bytes,
+        )?;
+        let definition: native::StudyDefinition = documents::decode(
+            py,
+            "operation",
+            definition,
+            self.owner.shared.budget().math.workspace_bytes,
+        )?;
         let cancel = CancelSource::new();
         let inner = blocking(
             py,
@@ -861,26 +677,42 @@ impl NativeModelingPackage {
         })
     }
     /// Persist the same admitted document and its exact source bundles.
-    #[pyo3(signature=(runtime, workspace, definition, *, max_tries=1, priority=0))]
+    #[pyo3(signature=(runtime, workspace, definition, *, controls=None))]
     fn start_study(
         &self,
         py: Python<'_>,
         runtime: &NativeRuntime,
         workspace: &[u8],
         definition: &[u8],
-        max_tries: u32,
-        priority: i32,
+        controls: Option<&[u8]>,
     ) -> PyResult<NativeStudyHandle> {
+        let native::StudySubmitControls {
+            max_tries,
+            priority,
+        } = documents::controls(
+            py,
+            "study submission",
+            controls,
+            self.owner.shared.budget().math.workspace_bytes,
+        )?;
         let sources = self.sources.as_ref().ok_or_else(|| {
             invalid(
                 py,
                 "a durable study requires the selected package's immutable source documents",
             )
         })?;
-        let workspace: native::Workspace =
-            serde_json::from_slice(workspace).map_err(|e| invalid(py, e.to_string()))?;
-        let definition: native::StudyDefinition =
-            serde_json::from_slice(definition).map_err(|e| invalid(py, e.to_string()))?;
+        let workspace: native::Workspace = documents::decode(
+            py,
+            "operation",
+            workspace,
+            self.owner.shared.budget().math.workspace_bytes,
+        )?;
+        let definition: native::StudyDefinition = documents::decode(
+            py,
+            "operation",
+            definition,
+            self.owner.shared.budget().math.workspace_bytes,
+        )?;
         let retry = native::RetryPolicy {
             max_tries,
             ..native::RetryPolicy::ONCE
@@ -923,17 +755,9 @@ impl NativeModelingPackage {
             },
             || cancel.cancel(),
         )?;
-        py.detach(|| {
-            let source=&execution.model.compiled().model;
-            let lineage=|l:&pse_modeling::specialize::Lineage|serde_json::json!({"declaration":l.declaration,"instance":l.instance,"path":l.path,"demand":l.demand,"default_owner":l.default_owner,"is_override":l.is_override,"presets":l.presets});
-            serde_json::to_vec(&serde_json::json!({"payload":{ "execution":{"route":execution.route,"procedure":execution.procedure.kind(),"requested_start":execution.requested_start},
-                "instances":source.instances.values().map(|i|serde_json::json!({"id":i.id,"definition":i.definition,"parent":i.parent,"path":i.path,"members":i.members})).collect::<Vec<_>>(),
-                "members":source.symbols.values().map(|s|serde_json::json!({"id":s.id,"role":s.role,"lineage":lineage(&s.lineage)})).collect::<Vec<_>>(),
-                "ports":source.ports.values().map(|p|serde_json::json!({"id":p.id,"symbol":p.symbol,"lineage":lineage(&p.lineage)})).collect::<Vec<_>>(),
-                "connections":source.connections.values().map(|c|serde_json::json!({"id":c.id,"from":c.from,"to":c.to,"lineage":lineage(&c.lineage)})).collect::<Vec<_>>()
-            }}))
-        }).map_err(|e|invalid(py,e.to_string()))
+        documents::encode(py, &execution.inspection())
     }
+
     fn prepare_flow(
         &self,
         py: Python<'_>,
@@ -995,11 +819,12 @@ impl NativeModelingPackage {
             if request.len() > self.owner.shared.budget().math.workspace_bytes / 4 {
                 return Err(invalid(py, "recycle request exceeds workspace allowance"));
             }
-            let request = serde_json::from_slice::<
-                strategies::AnalysisDocument<native::RecycleRequest>,
-            >(request)
-            .map_err(|e| invalid(py, e.to_string()))?
-            .payload;
+            let request: native::RecycleRequest = documents::decode(
+                py,
+                "recycle",
+                request,
+                self.owner.shared.budget().math.workspace_bytes / 4,
+            )?;
             let cancel = CancelSource::new();
             let inner = blocking(
                 py,
@@ -1089,17 +914,29 @@ impl NativeModelingPackage {
         }
     }
     fn declarations(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
-        py.detach(|| serde_json::to_vec(self.inner.declarations()))
-            .map_err(|e| invalid(py, e.to_string()))
+        documents::encode(
+            py,
+            &native::DeclarationInventory {
+                declarations: self.inner.declarations().to_vec(),
+            },
+        )
     }
-    #[pyo3(signature=(owner_id=None, *, maximum_cells=100000, maximum_bytes=67108864))]
+    #[pyo3(signature=(owner_id=None, *, controls=None))]
     fn knowledge(
         &self,
         py: Python<'_>,
         owner_id: Option<&str>,
-        maximum_cells: usize,
-        maximum_bytes: usize,
+        controls: Option<&[u8]>,
     ) -> PyResult<NativeModelingKnowledge> {
+        let native::KnowledgeControls {
+            maximum_cells,
+            maximum_bytes,
+        } = documents::controls(
+            py,
+            "knowledge controls",
+            controls,
+            self.owner.shared.budget().math.workspace_bytes,
+        )?;
         let selected = owner_id.map(|id| declaration(py, id)).transpose()?;
         let cancel = pse_columnar::CancellationToken::new();
         let inner = py
@@ -1113,25 +950,32 @@ impl NativeModelingPackage {
             inner: Arc::new(inner),
         })
     }
-    #[expect(
-        clippy::too_many_arguments,
-        reason = "one parameter per argument of the Python method signature"
-    )]
-    #[pyo3(signature=(settings, *, maximum_fixtures=1024, maximum_checks=16384, derivative_cells=100000, derivative_step=1e-6, derivative_tolerance=1e-4, fixtures=None, diagnostics=None))]
+    #[pyo3(signature=(settings, *, controls=None))]
     fn conform(
         &self,
         py: Python<'_>,
         settings: &[u8],
-        maximum_fixtures: usize,
-        maximum_checks: usize,
-        derivative_cells: usize,
-        derivative_step: f64,
-        derivative_tolerance: f64,
-        fixtures: Option<Vec<String>>,
-        diagnostics: Option<&ModelingDiagnosticSettings>,
+        controls: Option<&[u8]>,
     ) -> PyResult<NativeModelingConformance> {
+        let controls: native::ConformanceControls = documents::controls(
+            py,
+            "conformance controls",
+            controls,
+            self.owner.shared.budget().math.workspace_bytes,
+        )?;
+        let fixtures = controls
+            .selection()
+            .map_err(|error| errors::diagnostic(py, &error))?;
+        let native::ConformanceControls {
+            maximum_fixtures,
+            maximum_checks,
+            derivative_cells,
+            derivative_step,
+            derivative_tolerance,
+            diagnostics,
+            ..
+        } = controls;
         let settings = settings::solve_profile(py, settings)?;
-        let fixtures = fixture_selection(py, fixtures)?;
         let cancel = CancelSource::new();
         let policy = native::ModelingConformancePolicy {
             compiler: Default::default(),
@@ -1146,7 +990,7 @@ impl NativeModelingPackage {
             maximum_fixtures,
             maximum_checks,
             fixtures,
-            diagnostics: diagnostics.map(|d| d.policy.clone()),
+            diagnostics,
         };
         let inner = blocking(py, &self.owner, self.inner.conform(policy, &cancel), || {
             cancel.cancel()
@@ -1249,7 +1093,7 @@ impl NativeModelingNonlinearExplanation {
         self.inner
             .stop
             .as_ref()
-            .map(|error| inspection::DiagnosticReport::observe(error))
+            .map(inspection::DiagnosticReport::observe)
     }
     fn candidate_rows(&self) -> Vec<String> {
         self.inner
@@ -1284,8 +1128,8 @@ pub(crate) struct NativeModelingElasticAttempt {
 impl NativeModelingElasticAttempt {
     /// Registry name of the attempt's observation.
     #[getter]
-    fn observation(&self) -> &'static str {
-        self.owner.attempts[self.index].observation.as_str()
+    fn observation(&self) -> EnumValue<ModelingElasticObservation> {
+        self.owner.attempts[self.index].observation.into()
     }
     #[getter]
     fn penalty(&self) -> Option<f64> {
@@ -1311,7 +1155,7 @@ impl NativeModelingElasticAttempt {
         self.owner.attempts[self.index]
             .diagnostic()
             .as_ref()
-            .map(|error| inspection::DiagnosticReport::observe(error))
+            .map(inspection::DiagnosticReport::observe)
     }
 }
 
@@ -1336,12 +1180,12 @@ impl NativeModelingTrajectory {
         self.inner
             .validation_error
             .as_ref()
-            .map(|e| inspection::DiagnosticReport::observe(e))
+            .map(inspection::DiagnosticReport::observe)
     }
 
     #[getter]
-    fn termination(&self) -> &'static str {
-        self.inner.report.termination.as_str()
+    fn termination(&self) -> EnumValue<TrajectoryTermination> {
+        self.inner.report.termination.into()
     }
     #[getter]
     fn completed_time(&self) -> f64 {
@@ -1355,7 +1199,7 @@ impl NativeModelingTrajectory {
         self.inner
             .diagnostic()
             .as_ref()
-            .map(|e| inspection::DiagnosticReport::observe(e))
+            .map(inspection::DiagnosticReport::observe)
     }
     fn table(&self, py: Python<'_>, name: &str) -> PyResult<inspection::TableStream> {
         let id = relation(py, name)?;
@@ -1381,16 +1225,14 @@ pub(crate) struct ModelingDiagnosticSettings {
 impl ModelingDiagnosticSettings {
     #[staticmethod]
     fn from_json(py: Python<'_>, source: &str) -> PyResult<Self> {
-        if source.len() > 1 << 20 {
-            return Err(invalid(py, "diagnostic profile extent"));
-        }
         let policy: native::ModelingDiagnosticPolicy =
-            serde_json::from_str(source).map_err(|e| invalid(py, e.to_string()))?;
+            documents::decode(py, "diagnostic profile", source.as_bytes(), 1 << 20)?;
         policy.validate().map_err(|e| errors::diagnostic(py, &e))?;
         Ok(Self { policy })
     }
     fn to_json(&self, py: Python<'_>) -> PyResult<String> {
-        serde_json::to_string(&self.policy).map_err(|e| invalid(py, e.to_string()))
+        String::from_utf8(documents::encode(py, &self.policy)?)
+            .map_err(|error| invalid(py, error.to_string()))
     }
 }
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
@@ -1490,8 +1332,8 @@ impl NativeModelingDiagnosticSamples {
     }
     /// Registry name of the stop.
     #[getter]
-    fn stop(&self) -> &'static str {
-        self.inner.stop.as_str()
+    fn stop(&self) -> EnumValue<ModelingDiagnosticSampleStop> {
+        self.inner.stop.into()
     }
     fn ids(&self) -> Vec<String> {
         self.inner
@@ -1523,7 +1365,7 @@ impl NativeModelingDiagnosticSamples {
         Ok(result
             .as_ref()
             .err()
-            .map(|error| inspection::DiagnosticReport::observe(error)))
+            .map(inspection::DiagnosticReport::observe))
     }
 }
 #[pymethods]
@@ -1559,7 +1401,7 @@ impl NativeModelingDiagnostics {
         self.inner
             .findings
             .iter()
-            .map(|d| inspection::DiagnosticReport::observe(d))
+            .map(inspection::DiagnosticReport::observe)
             .collect()
     }
     fn statistics(&self) -> BTreeMap<String, usize> {
@@ -1607,7 +1449,7 @@ impl NativeModelingInitialization {
         self.inner
             .failure
             .as_ref()
-            .map(|e| inspection::DiagnosticReport::observe(e))
+            .map(inspection::DiagnosticReport::observe)
     }
     fn committed_values(&self) -> Option<BTreeMap<String, f64>> {
         self.inner
@@ -1634,8 +1476,8 @@ pub(crate) struct NativeModelingInitializationAttempt {
 impl NativeModelingInitializationAttempt {
     /// Registry name of the attempted step's kind.
     #[getter]
-    fn kind(&self) -> &'static str {
-        self.owner.attempts[self.index].step.kind().as_str()
+    fn kind(&self) -> EnumValue<ModelingInitializationStep> {
+        self.owner.attempts[self.index].step.kind().into()
     }
     #[getter]
     fn stage(&self) -> Option<String> {
@@ -1660,7 +1502,7 @@ impl NativeModelingInitializationAttempt {
         self.owner.attempts[self.index]
             .interruption
             .as_ref()
-            .map(|e| inspection::DiagnosticReport::observe(e))
+            .map(inspection::DiagnosticReport::observe)
     }
     #[getter]
     fn preparation_error(&self) -> Option<inspection::DiagnosticReport> {
@@ -1712,11 +1554,11 @@ impl NativeStudyReport {
     }
     #[getter]
     fn preparations(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
-        serde_json::to_vec(&self.inner.preparations).map_err(|e| invalid(py, e.to_string()))
+        documents::encode(py, &self.inner.preparations)
     }
     #[getter]
     fn conclusion(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
-        serde_json::to_vec(&self.inner.decision.conclusion).map_err(|e| invalid(py, e.to_string()))
+        documents::encode(py, &self.inner.decision.conclusion)
     }
     fn outcome(&self, py: Python<'_>, index: usize) -> PyResult<Vec<u8>> {
         let outcome = self
@@ -1724,7 +1566,7 @@ impl NativeStudyReport {
             .outcomes
             .get(index)
             .ok_or_else(|| invalid(py, "study occurrence outside report"))?;
-        serde_json::to_vec(outcome).map_err(|e| invalid(py, e.to_string()))
+        documents::encode(py, outcome)
     }
     fn result(&self, py: Python<'_>, index: usize) -> PyResult<Option<NativeRunResult>> {
         let result = self
@@ -1761,22 +1603,29 @@ pub(crate) struct NativeModelingConformance {
 #[pymethods]
 impl NativeModelingConformance {
     #[staticmethod]
-    #[expect(
-        clippy::too_many_arguments,
-        reason = "one parameter per argument of the Python method signature"
-    )]
-    #[pyo3(signature=(documents, physical, settings, *, maximum_fixtures=1024, maximum_checks=16384, limits=None, fixtures=None))]
+    #[pyo3(signature=(documents, physical, settings, *, controls=None, limits=None))]
     fn pure(
         py: Python<'_>,
         documents: Vec<BTreeMap<String, DocumentContent>>,
         physical: BTreeMap<String, DocumentContent>,
         settings: &inspection::EngineSettings,
-        maximum_fixtures: usize,
-        maximum_checks: usize,
+        controls: Option<&[u8]>,
         limits: Option<&ModelingLimits>,
-        fixtures: Option<Vec<String>>,
     ) -> PyResult<Self> {
-        let selection = fixture_selection(py, fixtures)?;
+        let controls: native::PureConformanceControls = documents::controls(
+            py,
+            "pure conformance controls",
+            controls,
+            settings.resource_budget().math.workspace_bytes,
+        )?;
+        let selection = controls
+            .selection()
+            .map_err(|error| errors::diagnostic(py, &error))?;
+        let native::PureConformanceControls {
+            maximum_fixtures,
+            maximum_checks,
+            ..
+        } = controls;
         let budget = settings.resource_budget().clone();
         let executor = tokio::runtime::Builder::new_multi_thread()
             .worker_threads(budget.threads.pool_threads.get())
@@ -1791,7 +1640,6 @@ impl NativeModelingConformance {
                 documents.into_iter().map(document_bytes).collect(),
                 document_bytes(physical),
                 budget,
-                Arc::new(pse_rules::invariants::RegistryRequirementPlanner),
                 selection,
                 maximum_fixtures,
                 maximum_checks,
@@ -1853,7 +1701,7 @@ impl NativeModelingConformance {
         self.inner
             .failures
             .get(ordinal)
-            .map(|error| inspection::DiagnosticReport::observe(error))
+            .map(inspection::DiagnosticReport::observe)
             .ok_or_else(|| invalid(py, "conformance failure ordinal outside report"))
     }
     fn trajectory(&self, py: Python<'_>, fixture_id: &str) -> PyResult<NativeModelingTrajectory> {
@@ -1923,12 +1771,12 @@ impl NativeModelingResult {
         self.inner
             .validation_error
             .as_ref()
-            .map(|e| inspection::DiagnosticReport::observe(e))
+            .map(inspection::DiagnosticReport::observe)
     }
     /// Registry run state of the outcome.
     #[getter]
-    fn outcome_kind(&self) -> &'static str {
-        self.inner.outcome.state().as_str()
+    fn outcome_kind(&self) -> EnumValue<NativeRunState> {
+        self.inner.outcome.state().into()
     }
     fn attempt(&self) -> Option<NativeAttempt> {
         match &self.inner.outcome {
@@ -1942,7 +1790,7 @@ impl NativeModelingResult {
         self.inner
             .diagnostic()
             .as_ref()
-            .map(|e| inspection::DiagnosticReport::observe(e))
+            .map(inspection::DiagnosticReport::observe)
     }
     fn table(&self, py: Python<'_>, name: &str) -> PyResult<inspection::TableStream> {
         let relation = relation(py, name)?;

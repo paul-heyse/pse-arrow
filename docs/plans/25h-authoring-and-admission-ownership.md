@@ -1,8 +1,8 @@
 ---
 title: "25h: Authoring and admission ownership"
-status: in-progress
+status: done
 date: 2026-09-30
-adrs: []
+adrs: [ADR-0150]
 review_sources: [docs/design_review/reviews/design_review_codebase-domain-alignment_2026-09-30.md, docs/design_review/reviews/design_review_codebase-domain-alignment-follow-up_2026-09-30.md]
 scenario_sources: [docs/design_review/reviews/design_review_codebase-domain-alignment_2026-09-30.md#s06]
 ---
@@ -62,10 +62,10 @@ the resulting context-complete products; it owns caching and source/mathematical
 
 | Packet | Prerequisites | Responsibility | Status |
 |---|---|---|---|
-| <a id="h1"></a>H1 Context-complete document reuse | Current document owner | Make incremental and clean loading equivalent, including identity-bearing binary wrappers | partial: 25c prerequisite slice |
-| <a id="h2"></a>H2 Checked occurrences and grammar | H1 | Parse once at check with complete attribution; migrate consumers and logic | partial: 25c/25d/25f prerequisite slices |
-| <a id="h3"></a>H3 Explicit validation context | Current composition roots | Eliminate ambient installation and lock-held implementation construction | planned |
-| <a id="h4"></a>H4 Predicates and dead mechanisms | H2/H3; A1 | Share real boundary predicates/facet projections and remove unused front doors/enforcement claims | planned |
+| <a id="h1"></a>H1 Context-complete document reuse | Current document owner | Make incremental and clean loading equivalent, including identity-bearing binary wrappers | done |
+| <a id="h2"></a>H2 Checked occurrences and grammar | H1 | Parse once at check with complete attribution; migrate consumers and logic | done |
+| <a id="h3"></a>H3 Explicit validation context | Current composition roots | Eliminate ambient installation and lock-held implementation construction | done |
+| <a id="h4"></a>H4 Predicates and dead mechanisms | H2/H3; A1 | Share real boundary predicates/facet projections and remove unused front doors/enforcement claims | done |
 
 H1 can correct reuse before the full grammar migration. H4 deletes mechanisms with no production
 responsibility; it does not wait for I3's separate replacement of the actual production cache.
@@ -208,33 +208,111 @@ and inactive-authority consolidation remains open.
 
 ## Execution and evidence
 
-The consumed 25c/25d/25f/25g prerequisite slices above are **Implemented**; their focused evidence
-is owned by the linked plans. The remaining packet scope and expected benefits are **Proposed**. No full-packet
-completion or new broad product qualification is claimed. The [series coordinator](25-design-remediation.md)
-owns finding dispositions and decision dependencies. Packets compile affected owners, run focused
-behavioral checks with explicit force-validation, regenerate changed declarations, and immediately
-delete replaced code, callers, obsolete tests and fixtures. No shims or parallel production paths remain.
-Full integration, formatting, lint and performance qualification run once in
-[25k](25k-integrated-qualification-and-closure.md), after the series' functional scope is complete.
+**Implemented/Tested, 2026-10-02:** H1–H4 are complete within this packet's functional scope.
+The dated prerequisite records above retain their original scope and evidence. ADR-0150 owns
+the checked-occurrence, explicit-context and owned-reuse contract; the
+[series coordinator](25-design-remediation.md) owns finding dispositions and decision dependencies.
+The focused controls below establish authoring/admission behavior and retained production consumers.
+Whole-product integration, formatting, lint and performance qualification remain in
+[25k](25k-integrated-qualification-and-closure.md). No broad qualification is claimed here.
 
-Use current recipe-owned checks such as `just check-package <pkg>` and
-`just unit-package <pkg> <filter>`; select isolated tests rather than broad suites hidden under
-a unit label. The acceptance scenarios above define what those tests must establish, not claims
-that tests with particular names already exist. Cross-owner scientific/storage journeys are authored
-with the functional work and executed in 25k. Record state, decisions and next steps during work;
-record actual commands, conditions and failures against zero in the final qualification evidence.
+## Verification
+
+**Tested, 2026-10-02:** Local Linux checks used the pinned nightly, locked dependencies and explicit
+`pse-relations/force-validate` through the recipes. Failure and warning targets remain zero.
+Unit selections used Nextest's default profile and concurrency unless stated otherwise; skipped
+cases were not exercised. Commands ran inside `direnv exec .`. The final compiler seed/graph
+selection used the licensed environment, memory-cap wrapper and `--test-threads 1`.
+
+| Command | Result against zero failures | Established scope |
+|---|---|---|
+| `just unit-package pse-authoring 'test(logic_uses_shared_quoted_paths_counts_and_precedence) or test(typed_callees_preserve_quoted_indexed_receivers_and_partial_paths) or test(exact_payload_field_spans_keep_repeated_text_distinct)'` | 3/3 passed; 76 skipped | Logic uses the shared predicate machinery; typed quoted/indexed callees and partial selectors; parser-owned exact repeated-field spans |
+| `just unit-package pse-modeling 'test(occurrences::tests) or test(kernel_types::indexed_function_types) or test(kernel_types::indirect_function_calls) or test(kernel_specialization::each_instance_realizes) or test(kernel_specialization::presets_bind) or test(kernel_specialization::annotations_resolve) or test(kernel_specialization::fixture_diagnostics_resolve) or test(physical_reconstruction_specializes_exact_maps_and_selected_response_witness) or test(process_contract_unannotated_children_retain_nominal_connection_contracts) or test(process_contract_inventory_event_transfer_requires_a_local_numeric_guard_member) or test(process_contract_ftpz_and_fphz_keep_explicit_reference_species_and_derived_observations)'` | 19/19 passed; 208 skipped | Exact malformed/repeated/inherited attribution, actual production field inventories, quoted space/literal-dot specialization and recursion refusal, lexical shadowing, indexed obligations, retained annotation/fixture/form consumers, reconstruction/response callees and nominal child connection contracts |
+| `just unit-package pse-schema 'test(implementation_cache::tests)'` | 4/4 passed; 103 skipped | Construction outside the map lock, distinct-slot nesting, same-chain and cross-worker cycle refusal, concurrent waiter sharing and interruption wakeup |
+| `just unit-package pse-relations 'test(schema_preparation_) or test(actual_session_function_bindings_are_prepared_in_each_owner) or test(sql_checks_require_an_explicit_native_binding)'` | 4/4 passed; 35 skipped | Actual incompatible native function owners, local-context refusal for SQL, nested schema preparation and same-chain/cross-worker cycles |
+| `just unit-package pse-rules 'test(explicit_registration_and_parent_closure_refuse_affected_identities)'` | 1/1 passed; 42 skipped | Shared typed registration, field agreement, missing-parent and parent-cycle violations retain affected identities |
+| `just unit-package pse-runtime 'test(document_reuse_) or test(source_and_physical_boundaries_refuse_the_same_missing_registration) or test(source_and_physical_boundaries_refuse_the_same_package_closure_and_cycle) or test(complete_source_package_context_retains_admitted_external_headers) or test(pse_source_uses_generated_rows_and_original_ranges) or test(job_request_identity_independent_of_key_order) or test(modeling::applicability_tests::) or test(report_transfer_context_retains_actual_owner_order_and_direction) or test(pushdown_columns_are_the_registry_columns)'` | 14/14 passed; 217 skipped | Clean/incremental identity-policy equivalence, parser-owner reuse, changed package/binary identity and tighter parse-budget refusal; actual source/physical closure/reference/cycle equivalence; admitted external physical-package header context and refusal of a mismatched submitted header; explicit runtime field codecs and owner/direction preservation |
+| `just unit-package pse-compiler 'test(conditional_unit_recycle_reference_specializes_actual_unit_boundaries) or test(kernel_flow_projection_preserves_ports_isolates_and_explicit_tear_policies)' --test-threads 1` | 2/2 passed; 229 skipped, on the final frozen source | Retained authored seed specialization and actual unit-boundary/graph contracts after typed callee and contextual child-reference migration; no numerical solver qualification |
+| `just unit-package pse-structural 'test(complete_inventory_isolates_coupling_partial_and_provenance) \| test(empty_rectangular_and_structural_not_numerical_rank)'` | 2/2 passed; 45 skipped, coordinator-run | Consumed per-view inventory, isolates, coupling, provenance and rectangular structural rank after deleting unused Projection; numerical rank remains distinct |
+| `just check-package pse-engine` and `just check-package pse-catalog` | Passed, all targets, zero source errors/warnings | Owned engine/catalog production, fixture and generated-context consumer joins; the coordinator owns the final cross-workspace compile after generation |
+
+These are composite receipts, not initially clean runs. Compile retries repaired migrated context,
+owned-batch and fixture signatures. Behavioral failures exposed quoted primary-call parsing,
+missing word-token field ranges, an obsolete function-kind purity whitelist, synthetic coordinate
+slot ownership and unannotated-child nominal lookup. Their replacements passed the final controls.
+The new child fixture also needed its explicit connectivity policy; the operational-table fixture
+needed its actual runtime context instead of a local context. No acceptance condition or failure
+baseline was relaxed. Final Rust source compilation emitted no warnings. Runtime/catalog commands
+still emitted Cargo's upstream future-incompatibility advisory for `proc-macro-error2 v2.0.1`;
+that advisory is recorded, not waived as a quality baseline, and remains with comprehensive 25k
+qualification.
+
+**Implemented, scoped caller inspection:** Authored/modeling/schema/relations/engine/columnar/rules/
+catalog/runtime source and owned fixtures no longer contain `RequirementPlanner`, ambient
+`for_registry`/`bind_defaults` installers or `DefaultValidationContext`. Production modeling parses
+DSL text at checked occurrence collection, newly submitted demand-name admission and the separate
+unit-spelling boundary; consumed authored-expression paths use retained ASTs. The independent logic
+tokenizer and formatted synthetic-expression parsing are deleted. The coordinator/compiler owners
+removed raw Inputs/tracked test front doors, unused whole-model structure preparation and unused
+structural Projection. `PreparedCase.structure` and consumed specialization structure remain.
+This inspection supports the named deletions; it is not a full static or product qualification.
+
+**Interface-checked, 2026-10-02:** Final cross-plan regeneration and workspace/all-target
+compilation passed after the fixture and benchmark consumer cutover. The composite integration
+receipt and linked Python boundary checks are owned by
+[25j Verification](25j-generated-boundaries-and-library-consolidation.md#verification).
+This establishes source integration, not the unexecuted 25k qualification campaign.
 
 ## Outcome (recorded after implementation)
 
 ### What was built
 
-Full-plan closure remains outstanding. The implemented 25c/25d/25f/25g prerequisite slices and
-their remaining boundaries are recorded above; the linked plans own their focused evidence.
+**Implemented:** H1–H4 now use one checked source product and explicit admission ownership.
+Document reuse carries complete interpretation dependencies, parser field ranges and current
+identity-bearing wrappers, and re-admits projections under the supplied runtime context.
+Checking retains role/position, syntax, exact authored attribution, lexical/import context,
+physical admissions, dependencies and pending indexed/binding obligations. Consumers use precise
+occurrences; logic extends the existing DSL machinery and synthetic operations construct ASTs.
+Named calls and partials carry typed paths, and decoded segment lookup preserves quoted dots,
+spaces and lexical shadowing through function dependency, recursion and specialization consumers.
+
+Validation context comes from the actual factory/session/runtime owner and is threaded through
+row, view, batch, collection, loader and catalog boundaries. Deliberate local construction refuses
+native SQL obligations. Implementation and schema-preparation slots share the construction owner,
+build outside map locks, share normal completion and refuse same-chain/cross-worker cycles with
+typed causes. Global installers and the inert requirement-planner/provider-policy bridge are
+removed; effects, settings, byte limits and native execution-contract obligations remain.
+
+Source publication and physical admission independently consume shared package and registration/
+parent-closure predicates over actual facts. Complete package-header context may include an
+already admitted physical package omitted from the submitted model documents; submitted headers
+must agree with that context. Partial loading remains possible before the complete boundary.
+Duplicate registry-invariant copies and imaginary global SQL enforcement are removed. Compiler
+and structural deletions preserve the consumed per-case/per-view witnesses.
+
+**Tested:** The Verification controls establish these mechanisms and the retained production
+seed/graph consumers under the stated local conditions. Integrated scientific/storage/Python
+journeys and performance are outside this packet's evidence.
 
 ### A mistake made and corrected
 
-Record an actual implementation correction, not a hypothetical planning example.
+Moving callees from strings to typed paths initially left old string-rendered resolution and a
+function-kind whitelist in the closure checker. That lost quoted names in recursion/dependency
+lookup and misclassified response and generated map-slot calls as captured runtime state. The
+retained seed exposed those false refusals. Resolution now traverses decoded atomic segments,
+respects lexical formals and uses checked callable/operation ownership, including slots of an
+immutable package-owned coordinate map. Quoted-dot nonalias, recursion, actual specialization and
+the retained seed/graph controls pass; no general unknown-reference exemption was introduced.
+
+Strict source-range checking also exposed a missing word-token producer for operational anchor
+fields. Recording that range in the actual parser fixed the attribution product instead of
+falling back to whole declarations for authored fields.
 
 ### Deviations from the plan, deliberate
 
-None recorded. A changed architectural decision follows its owning ADR/design route.
+**Implemented:** Internal `NamedCall.name` and `Partial.function` now hold typed paths directly,
+rather than retaining strings plus another callee-parsing product. Their AST interchange is not a
+durable format; authored grammar and the separate source/hydrated-document schemas remain distinct.
+The explicit complete package-header context preserves the existing admitted-physical-package
+join while enforcing closure at both real boundaries. Both choices follow ADR-0150 and the
+coordinator's reviewed implementation direction.

@@ -124,7 +124,8 @@ impl Covariance {
 }
 
 /// One end of a confidence interval.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct IntervalBound {
     /// The end in the parameter's unit; absent when a profile chain stopped.
     pub value: Option<f64>,

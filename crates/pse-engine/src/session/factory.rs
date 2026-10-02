@@ -28,16 +28,19 @@ pub struct EngineFactory {
     pub(super) pool: Arc<dyn MemoryPool>,
     pub(super) profile: EngineProfile,
     pub(super) rules: Arc<super::EngineRules>,
-    pub(super) requirement_planner: Option<Arc<dyn super::policy::RequirementPlanner>>,
     pub(super) policies: Arc<Vec<pse_schema::model::provider::ProviderPolicy>>,
 }
 impl EngineFactory {
+    /// Generation of native capabilities; selected provider policy settings remain separate inputs.
+    pub fn implementation_generation(&self) -> pse_ids::SemanticId {
+        self.implementation_generation
+    }
+
     /// Bind the registry-dependent extension and validators once for a model owner.
     pub(super) fn model_assembly(
         &self,
         registry: &Arc<Registry>,
     ) -> Result<Arc<super::assembly::ModelAssembly>, EngineError> {
-        crate::validation::bind_defaults(registry)?;
         let key = Arc::as_ptr(registry) as usize;
         let mut models = self
             .models
@@ -68,6 +71,7 @@ impl EngineFactory {
         let (functions, function_names) = super::engine_session::function_inventory(&state);
         let model = Arc::new(super::assembly::ModelAssembly {
             planning: Arc::new(()),
+            validation: Default::default(),
             registry: registry.clone(),
             function_bindings: super::functions::Functions::from_state(&state),
             settings: super::config::semantic_settings(&super::config::inventory(&state))?,
@@ -235,7 +239,6 @@ impl EngineFactory {
             pool,
             profile: rules.profile(version),
             rules,
-            requirement_planner: None,
             policies: Arc::default(),
         };
         factory.refresh_cache_identity();
@@ -274,16 +277,23 @@ impl EngineFactory {
         &self.state
     }
 
-    /// Install the actual invariant lowering implementation before opening sessions.
-    #[must_use]
-    pub fn with_requirement_planner(
-        mut self,
-        planner: Arc<dyn super::policy::RequirementPlanner>,
-    ) -> Self {
-        self.implementation_generation = new_generation();
-        self.requirement_planner = Some(planner);
-        self.refresh_cache_identity();
-        self
+    /// Capture validation from this factory's actual immutable native assembly.
+    /// # Errors
+    /// Registry-dependent native assembly fails.
+    pub fn validation_context(
+        &self,
+        registry: &Arc<Registry>,
+    ) -> Result<Arc<pse_relations::validate::ValidationContext>, EngineError> {
+        let native = self.model_assembly(registry)?;
+        Ok(native
+            .validation
+            .get_or_init(|| {
+                Arc::new(pse_relations::validate::ValidationContext::new(
+                    registry,
+                    crate::validation::NativeValidation(native.context.state()),
+                ))
+            })
+            .clone())
     }
     /// Select the canonical provider policies inherited by every catalog operation.
     /// # Errors

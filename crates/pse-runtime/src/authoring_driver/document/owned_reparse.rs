@@ -16,13 +16,16 @@ pub fn load_bundles_owned(
     registry: &Registry,
     pool: &std::sync::Arc<dyn MemoryPool>,
     cancel: &CancellationToken,
+    validation: &pse_relations::validate::ValidationContext,
 ) -> Result<OwnedDocumentSet, DriverError> {
     let work = pse_columnar::MemoryConsumer::new("authoring:bundle-inventory").register(pool);
     work.try_grow(crate::authoring_driver::work::mul(bundles.len(), 256)?)?;
     let mut parts = Vec::with_capacity(bundles.len());
     for bundle in bundles {
         cancel.checkpoint()?;
-        parts.push(super::owned::retain_bundle(bundle, registry, pool, cancel)?);
+        parts.push(super::owned::retain_bundle(
+            bundle, registry, pool, cancel, validation,
+        )?);
     }
     OwnedDocumentSet::try_from_bundles(parts, pool, cancel)
 }

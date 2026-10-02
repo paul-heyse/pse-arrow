@@ -358,7 +358,105 @@ pub trait DiagnosticProjection: pse_diagnostics::TypedDiagnostic {
         }
         diagnostic
     }
+    /// Project checked-member bindings at the typed validity owner before wrappers add
+    /// independent attribution. Owners retaining typed causes delegate this context;
+    /// retained boundary envelopes rebind only their explicit closure member roles.
+    fn boundary_diagnostic_with_members(
+        &self,
+        stage: DiagnosticStage,
+        bindings: &std::collections::BTreeMap<SemanticId, SemanticId>,
+    ) -> BoundaryDiagnostic {
+        let mut diagnostic = self.boundary_diagnostic(stage);
+        rebind_checked_members(&mut diagnostic, bindings);
+        diagnostic
+    }
 }
+/// Rebind only the typed closure member role, recursively before retaining a cause clone.
+fn rebind_checked_members(
+    diagnostic: &mut BoundaryDiagnostic,
+    bindings: &std::collections::BTreeMap<SemanticId, SemanticId>,
+) {
+    if bindings.is_empty() {
+        return;
+    }
+    if let Some(lineage) = &mut diagnostic.validity {
+        if lineage.layer == crate::generated::enums::ModelingValidityLayer::Closure {
+            // These roles independently contribute sources. Equality to a local token
+            // never changes their authored identity or removes their source attribution.
+            let mut independent = std::collections::BTreeSet::from([lineage.source]);
+            independent.extend(lineage.form);
+            independent.extend(&lineage.sets);
+            independent.extend(diagnostic.locations.iter().map(|location| location.source));
+            for observation in &diagnostic.applicability {
+                let claim = &observation.claim;
+                independent.extend(claim.id);
+                independent.extend(claim.coverage);
+                independent.extend([claim.owner, claim.form, claim.call]);
+                independent.extend(&claim.owner_lineage);
+                independent.extend(claim.evidence);
+                independent.extend(&claim.records);
+                independent.extend(&claim.dependencies);
+                independent.extend(observation.instance);
+                independent.extend(observation.inputs.iter().map(|input| input.quantity_type));
+                for permission in &observation.permissions {
+                    independent.extend([permission.id, permission.scope]);
+                    independent.extend(&permission.targets);
+                }
+            }
+            for observation in diagnostic.observations.values() {
+                match observation {
+                    Observation::Physical(value) => {
+                        independent.extend([value.quantity, value.unit]);
+                    }
+                    Observation::Contracts(contracts) => {
+                        for contract in contracts {
+                            independent.insert(SemanticId::from_bytes(contract.quantity));
+                            for index in &contract.indices {
+                                independent
+                                    .extend(index.iter().copied().map(SemanticId::from_bytes));
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            // Build the member-derived source projection from the original envelope.
+            // A newly added actual ID may itself be another local token; removing each
+            // old source first prevents A→B, B→C from deleting the newly projected B.
+            let additions = lineage
+                .members
+                .iter()
+                .filter_map(|member| {
+                    bindings
+                        .get(member)
+                        .filter(|_| diagnostic.sources.contains(member))
+                        .copied()
+                })
+                .collect::<Vec<_>>();
+            let removals = lineage
+                .members
+                .iter()
+                .filter(|&&member| bindings.contains_key(&member) && !independent.contains(&member))
+                .copied()
+                .collect::<std::collections::BTreeSet<_>>();
+            for member in &mut lineage.members {
+                if let Some(actual) = bindings.get(member) {
+                    *member = *actual;
+                }
+            }
+            diagnostic
+                .sources
+                .retain(|source| !removals.contains(source));
+            diagnostic.sources.extend(additions);
+            diagnostic.sources.sort_unstable();
+            diagnostic.sources.dedup();
+        }
+    }
+    for cause in &mut diagnostic.causes {
+        rebind_checked_members(cause, bindings);
+    }
+}
+
 /// Recursively retain every aggregate occurrence in source order, including mixed codes.
 pub fn project_typed(
     error: &dyn pse_diagnostics::TypedDiagnostic,
@@ -457,6 +555,64 @@ impl DiagnosticProjection for BoundaryDiagnostic {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn retained_checked_member_sources_are_projected_simultaneously() {
+        use crate::generated::enums::ModelingValidityLayer;
+        use std::collections::BTreeMap;
+        let a = SemanticId::from_bytes([1; 16]);
+        let b = SemanticId::from_bytes([2; 16]);
+        let c = SemanticId::from_bytes([3; 16]);
+        let source = SemanticId::from_bytes([4; 16]);
+        for preserve_a in [false, true] {
+            let mut original = BoundaryDiagnostic::new(
+                BoundaryClass::TrialRejected,
+                DiagnosticStage::Evaluation,
+                [a, b, source],
+                DiagnosticRule::MathValidity,
+            );
+            original.validity = Some(ValidityLineage {
+                layer: ModelingValidityLayer::Closure,
+                source,
+                form: None,
+                sets: vec![],
+                variables: vec![],
+                members: vec![a, b],
+            });
+            if preserve_a {
+                original.locations.push(SourceLocation {
+                    source: a,
+                    revision: Some(ContentHash::from_bytes([5; 32])),
+                    path: "authored.pse".into(),
+                    name: None,
+                    start: Some(0),
+                    end: Some(1),
+                });
+            }
+            original.causes = vec![original.clone()];
+            let projected = original.boundary_diagnostic_with_members(
+                DiagnosticStage::Evaluation,
+                &BTreeMap::from([(a, b), (b, c)]),
+            );
+            for envelope in [&projected, &projected.causes[0]] {
+                assert_eq!(envelope.validity.as_ref().unwrap().members, vec![b, c]);
+                assert!(
+                    envelope.sources.contains(&b),
+                    "A's actual member remains after removing old B"
+                );
+                assert!(envelope.sources.contains(&c));
+                assert!(envelope.sources.contains(&source));
+                assert_eq!(
+                    envelope.sources.contains(&a),
+                    preserve_a,
+                    "only the independent location role retains A"
+                );
+            }
+            assert_eq!(original.validity.as_ref().unwrap().members, vec![a, b]);
+            assert!(original.sources.contains(&a));
+            assert!(!original.sources.contains(&c));
+        }
+    }
+
     #[test]
     fn diagnostic_codec_preserves_tagged_nonfinite_and_missing_observations() {
         for value in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
@@ -610,8 +766,10 @@ impl DiagnosticCause {
     pub fn as_error(&self) -> &(dyn std::error::Error + 'static) {
         self.0.as_ref()
     }
+}
+impl AsRef<dyn DiagnosticProjection + Send + Sync> for DiagnosticCause {
     /// Borrow the original source owner's projection.
-    pub fn as_ref(&self) -> &(dyn DiagnosticProjection + Send + Sync) {
+    fn as_ref(&self) -> &(dyn DiagnosticProjection + Send + Sync + 'static) {
         self.0.as_ref()
     }
 }
@@ -632,5 +790,12 @@ pse_diagnostics::impl_diagnostic! {
 impl DiagnosticProjection for DiagnosticCause {
     fn boundary_diagnostic(&self, stage: DiagnosticStage) -> BoundaryDiagnostic {
         self.0.boundary_diagnostic(stage)
+    }
+    fn boundary_diagnostic_with_members(
+        &self,
+        stage: DiagnosticStage,
+        bindings: &std::collections::BTreeMap<SemanticId, SemanticId>,
+    ) -> BoundaryDiagnostic {
+        self.0.boundary_diagnostic_with_members(stage, bindings)
     }
 }

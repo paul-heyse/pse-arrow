@@ -172,7 +172,7 @@ Dependencies point from foundations towards orchestration. Crate roles are owned
 |---|---|---|---|
 | Foundations | `pse-diagnostics`, `pse-ids`, `pse-vocabulary`, `pse-quantity`, `pse-columnar` | Diagnostic vocabulary, identity and canonical hashing, the registry's platform vocabularies, physical quantities and functions, owned Arrow buffers | Nothing above this layer |
 | Declaration | `pse-schema`, `pse-model`, `pse-relations` | Registry; generated library-neutral values; typed Arrow views and validators | Foundations |
-| Data | `pse-engine`, `pse-catalog`, `pse-rules`, `pse-operations` | DataFusion sessions and caches; Delta member I/O and maintenance; registry invariant checks; the PostgreSQL operational store and publication catalog, with its generated query crate `pse-operations-queries` | Declaration; `pse-operations` only `pse-model`, `pse-ids`, `pse-diagnostics` and its query crate |
+| Data | `pse-engine`, `pse-catalog`, `pse-rules`, `pse-operations` | DataFusion sessions and caches; Delta member I/O and maintenance; explicit registry inspection and shared source/physical predicates; the PostgreSQL operational store and publication catalog, with its generated query crate `pse-operations-queries` | Declaration; `pse-operations` only `pse-model`, `pse-ids`, `pse-diagnostics` and its query crate |
 | Mathematics | `pse-kernels`, `pse-math`, `pse-structural`, `pse-authoring`, `pse-modeling`, `pse-compiler`, `pse-backend-native`, `pse-ipopt-sys` | External functions; library mathematics; graph projections; syntax; generic checking and specialization; Salsa preparation; native solver adapters | Foundations, `pse-model`, `pse-buildinfo` |
 | Orchestration | `pse-runtime` | Selected admission, workflow jobs, resources, results and publication | All of the above |
 | Boundary | `pse-py` | Python extension over the workflow and inspection | `pse-runtime` and the crates whose types it exposes |
@@ -188,7 +188,7 @@ state cannot leak into storage.
 | Representation | Current forms | Owner | Consumers |
 |---|---|---|---|
 | Authored definitions and the selected revision | Modeling documents, checked package revisions, cases and analysis declarations; generic `authored` and physical `reference` relations | `pse-authoring`, `pse-modeling`, runtime modeling admission, registry | Compiler and inspection |
-| Prepared immutable products | Compiler `Inputs`, `CaseStructure`, `PreparedCase`, `BodySpec`, `CasePlan`, compiled bodies, artifact requests, eligibility | `pse-compiler`, `pse-math`, `pse-backend-native::routing` | Attempt workers and native adapters |
+| Prepared immutable products | Checked modeling revision/context, `CaseStructure`, `PreparedCase`, `BodySpec`, `CasePlan`, compiled bodies, artifact requests, eligibility | `pse-compiler`, `pse-math`, `pse-backend-native::routing` | Attempt workers and native adapters |
 | Attempts and results | Run handles, workers and native adapter state; durable attempts, jobs and studies; `RunResult`, `Completion`, Arrow result tables, publication attempts and settlements | `pse-runtime`, `pse-operations`, `pse-catalog` | Rust, Arrow and Python readers; exact publication |
 
 Nothing flows backward: a derived product or result never writes into authored

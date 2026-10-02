@@ -17,8 +17,32 @@ import pyarrow.parquet as pq
 
 import pse
 from pse import conformance
-from pse.contracts.documents import PointOverlay, SolveControls, SolveSettings
-from pse.contracts.enums import NativeBackend, NativeSolveIntent, NativeTermination
+from pse.contracts.documents import (
+    BindingAssignment,
+    BindingQuantity,
+    BindingTargetPath,
+    CaseOperation,
+    EvaluationLimits,
+    Limits,
+    OperationRequestDeclaredCase,
+    Optimization,
+    PointOverlay,
+    PreparationSettings,
+    SolveControls,
+    SolveSettings,
+    StartPolicyFresh,
+    StudyCompilerProfile,
+    StudyPoint,
+    StudyPointPolicy,
+    StudyRequest,
+    StudyRunControls,
+)
+from pse.contracts.enums import (
+    ModelingAnalysisRoute,
+    NativeBackend,
+    NativeSolveIntent,
+    NativeTermination,
+)
 from scripts.thermodynamic_feeds import COUNT, FEEDS, ROOT
 
 
@@ -29,6 +53,14 @@ def documents(path: Path) -> dict[str, str | bytes]:
         if file.is_file()
         and file.suffix in {".toml", ".pse", ".yaml", ".yml", ".parquet"}
     }
+
+
+def binary_hex(value: object) -> str:
+    """Retain Arrow binary identity/hash cells as hexadecimal in JSON receipts."""
+    if isinstance(value, bytes):
+        return value.hex()
+    message = f"unsupported campaign JSON value: {type(value).__name__}"
+    raise TypeError(message)
 
 
 def measure(output: Path, selected: str) -> None:
@@ -65,6 +97,56 @@ def measure(output: Path, selected: str) -> None:
             intent=NativeSolveIntent.FEASIBLE_POINT,
             controls=SolveControls(time_limit=600, threads=1, history=4096),
         )
+        # Campaign-owned bounds are explicit inputs to admission, not production defaults.
+        preparation = PreparationSettings(
+            compiler=StudyCompilerProfile(
+                optimization=Optimization(
+                    cores=1, horner_iterations=10, cpe_iterations=10
+                ),
+                evaluation=EvaluationLimits(
+                    derivative_components=1_000_000,
+                    operations=100_000_000,
+                    scratch_bytes=1 << 30,
+                    provider_calls=1_000_000,
+                ),
+            ),
+            limits=Limits(
+                depth=64, items=1_000_000, members=1_000_000, body_occurrences=65536
+            ),
+        )
+        physical_text = (base / spec.physical / "materials/physical.yaml").read_text()
+        physical_document = msgspec.json.decode(
+            "\n".join(
+                line for line in physical_text.splitlines() if not line.startswith("#")
+            ),
+            type=dict[str, object],
+        )
+        quantities = msgspec.convert(
+            physical_document["quantity_types"], type=list[dict[str, object]]
+        )
+        units = msgspec.convert(
+            physical_document["units"], type=list[dict[str, object]]
+        )
+
+        def assignment(
+            target: str, magnitude: float, quantity: str, symbol: str
+        ) -> BindingAssignment:
+            quantity_id = next(
+                row["quantity_type_id"]
+                for row in quantities
+                if row.get("name") == quantity
+            )
+            unit_id = next(row["unit_id"] for row in units if row["symbol"] == symbol)
+            if not isinstance(quantity_id, str) or not isinstance(unit_id, str):
+                message = "reference physical identities must be declared strings"
+                raise TypeError(message)
+            return BindingAssignment(
+                target=BindingTargetPath(value=target),
+                value=BindingQuantity(
+                    magnitude=magnitude, quantity=quantity_id, unit=unit_id
+                ),
+            )
+
         phases = (
             ("measurement_smooth", "measurement_nested")
             if selected == "flash"
@@ -75,78 +157,134 @@ def measure(output: Path, selected: str) -> None:
             overlays = (
                 tuple(
                     PointOverlay(
-                        values={
-                            "root.inlet.T": row["temperature"],
-                            "root.inlet.pressure": row["pressure"],
-                            "root.inlet.z[chem.benzene]": row["benzene"],
-                            "root.inlet.z[chem.toluene]": 1.0 - row["benzene"],
-                        }
+                        assignments=(
+                            assignment(
+                                "root.inlet.T", row["temperature"], "Temperature", "K"
+                            ),
+                            assignment(
+                                "root.inlet.pressure", row["pressure"], "Pressure", "Pa"
+                            ),
+                            assignment(
+                                "root.inlet.z[chem.benzene]",
+                                row["benzene"],
+                                "MoleFraction",
+                                "1",
+                            ),
+                            assignment(
+                                "root.inlet.z[chem.toluene]",
+                                1.0 - row["benzene"],
+                                "MoleFraction",
+                                "1",
+                            ),
+                        )
                     )
                     for row in feeds
                 )
                 if selected == "flash"
                 else tuple(
-                    PointOverlay(values={"root.inlet.T": 360.0 + 10.0 * index / 999})
+                    PointOverlay(
+                        assignments=(
+                            assignment(
+                                "root.inlet.T",
+                                360.0 + 10.0 * index / 999,
+                                "Temperature",
+                                "K",
+                            ),
+                        )
+                    )
                     for index in range(1000)
                 )
             )
             started = time.perf_counter()
+            definition = package.admit_study(
+                StudyRequest(
+                    points=tuple(
+                        StudyPoint(
+                            operation=OperationRequestDeclaredCase(
+                                request=CaseOperation(
+                                    case=cases[name].to_hex(),
+                                    route=ModelingAnalysisRoute.STEADY,
+                                    settings=settings,
+                                )
+                            ),
+                            preparation=preparation,
+                            overlay=overlay,
+                            policy=StudyPointPolicy(
+                                key=index,
+                                dependencies=(),
+                                start=StartPolicyFresh(),
+                                attempt_limit=1,
+                            ),
+                        )
+                        for index, overlay in enumerate(overlays)
+                    )
+                )
+            )
             study = package.study(
-                tuple(cases[name] for _ in overlays),
-                settings,
-                overlays=overlays,
-                maximum_points=len(overlays),
+                definition,
+                controls=StudyRunControls(maximum_points=len(overlays)),
             )
             elapsed = time.perf_counter() - started
             resources = runtime.resource_usage()
-            successful = accepted = 0
+            successful = usable = 0
             with (output / f"{name}.jsonl").open("w") as stream:
                 for index in range(study.count):
                     result = study.result(index)
-                    attempt = None if result is None else result.attempt()
-                    failure = (
-                        study.failure(index) if result is None else result.failure()
-                    )
-                    native_success = attempt is not None and attempt.termination in (
-                        NativeTermination.SUCCESS,
-                        NativeTermination.ACCEPTABLE,
+                    completion = None if result is None else result.completion
+                    native_success = (
+                        completion is not None
+                        and bool(completion.solves)
+                        and all(
+                            solve.termination
+                            in (NativeTermination.SUCCESS, NativeTermination.ACCEPTABLE)
+                            for solve in completion.solves
+                        )
                     )
                     successful += int(native_success)
-                    accepted += int(result is not None and result.accepted)
-                    events, dropped = ([], 0) if attempt is None else attempt.progress()
+                    usable += int(result is not None and result.usable)
+                    failure = study.failure(index)
+                    diagnostics = () if result is None else result.diagnostics()
+                    # These final tables retain every solve and metric, including failed
+                    # and unattempted steps. Progress is persisted as event.<seq>.<phase>
+                    # namespaces, with drop counts in the progress namespace.
+                    tables = (
+                        {}
+                        if result is None
+                        else {
+                            table_name: pa.table(result.table(table_name)).to_pylist()
+                            for table_name in (
+                                "runtime.solve_runs",
+                                "runtime.solve_metrics",
+                            )
+                        }
+                    )
                     record = {
                         "index": index,
                         "feed": feeds[index]
                         if selected == "flash"
                         else {"temperature": 360.0 + 10.0 * index / 999},
-                        "accepted": result is not None and result.accepted,
+                        "usable": result is not None and result.usable,
                         "native_success": native_success,
-                        "termination": None if attempt is None else attempt.termination,
-                        "native_status": None
-                        if attempt is None
-                        else attempt.native_status,
-                        "metrics": None
-                        if attempt is None
-                        else attempt.metrics().values(),
-                        "progress": [
+                        "outcome": msgspec.to_builtins(study.outcome(index)),
+                        "completion": msgspec.to_builtins(completion),
+                        "tables": tables,
+                        "diagnostics": [
                             {
-                                "step": event.step,
-                                "phase": event.phase,
-                                "elapsed_seconds": event.elapsed_seconds,
-                                "values": event.values(),
+                                "message": diagnostic.message,
+                                "envelope": msgspec.to_builtins(diagnostic.envelope),
                             }
-                            for event in events
+                            for diagnostic in diagnostics
                         ],
-                        "dropped_events": dropped,
                         "failure": None
                         if failure is None
                         else {
-                            "code": failure.code,
                             "message": failure.message,
-                            "stage": failure.stage,
+                            "envelope": msgspec.to_builtins(failure.envelope),
                         },
                     }
-                    stream.write(json.dumps(record, allow_nan=False) + "\n")
+                    stream.write(
+                        json.dumps(record, allow_nan=False, default=binary_hex) + "\n"
+                    )
             pq.write_table(pa.table(study.table()), output / f"{name}.parquet")
             findings = pa.table(study.findings())
             with (
@@ -160,7 +298,8 @@ def measure(output: Path, selected: str) -> None:
                     "count": study.count,
                     "unattempted": study.unattempted,
                     "native_success": successful,
-                    "accepted": accepted,
+                    "usable": usable,
+                    "conclusion": msgspec.to_builtins(study.conclusion),
                     "seconds": elapsed,
                     "preparations": msgspec.to_builtins(study.preparations),
                     "memory": {

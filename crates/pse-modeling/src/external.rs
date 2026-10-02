@@ -41,6 +41,7 @@ impl External {
     pub(crate) fn check(
         v:&pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueFunctionExternal,
         at: DeclarationId,
+        output: &Expr,
     ) -> Result<Self> {
         if v.implementation.is_empty()
             || !(0..=2).contains(&v.derivatives)
@@ -56,8 +57,7 @@ impl External {
             revision: ContentHash::parse_hex(&v.revision)
                 .map_err(|e| invalid(at, e.to_string()))?,
             data: ContentHash::parse_hex(&v.data).map_err(|e| invalid(at, e.to_string()))?,
-            output: pse_authoring::dsl::parse_expr(&v.output)
-                .map_err(|e| invalid(at, e.to_string()))?,
+            output: output.clone(),
             derivative_source: v.derivative_source,
             derivatives: v.derivatives as u8,
             smoothness: v.smoothness as u8,

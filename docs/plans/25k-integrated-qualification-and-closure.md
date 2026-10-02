@@ -1,6 +1,6 @@
 ---
 title: "25k: Integrated qualification and closure"
-status: draft
+status: in-progress
 date: 2026-09-30
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_codebase-domain-alignment_2026-09-30.md, docs/design_review/reviews/design_review_codebase-domain-alignment-follow-up_2026-09-30.md]
@@ -18,8 +18,8 @@ section or document boundaries. This plan starts after all their functional pack
 
 The coordinator owns finding dispositions. This document owns the assembled system's eventual
 qualification evidence. A passed packet, an accepted ADR and a historical Plan 23 result are
-different evidence from a qualified Plan 25 implementation. All work and expected results below
-are **Proposed**; no campaign has run as part of authoring these plans.
+different evidence from a qualified Plan 25 implementation. The execution checkpoints below
+record current readiness; the Outcome will record the completed campaign and its limits.
 
 ## Decisions
 
@@ -59,13 +59,32 @@ and fixture inputs authored alongside the implementation that supplies the behav
 
 | Packet | Prerequisite | Responsibility and acceptance | Status |
 |---|---|---|---|
-| <a id="k1"></a>K1 Functional readiness | All functional packets in 25a–25j | Confirm target consumers are migrated, replacement/deletion obligations are complete, required decision routes are satisfied and fixtures exist for the journeys above. Resolve remaining functional work in its owning plan before starting K2 | planned |
-| <a id="k2"></a>K2 Format and static qualification | K1 | Run the single series-wide formatting/lint pass and relevant Rust/Python compilation, generation, family, governance and documentation checks; repair to zero | planned |
-| <a id="k3"></a>K3 Behavioral and scientific qualification | K2 | Run the selected Rust, native, Python, conformance and compatibility journeys; independently assess physical closure, domains, original-space residuals, outcome truth and durable lifecycle | planned |
+| <a id="k1"></a>K1 Functional readiness | All functional packets in 25a–25j | Confirm target consumers are migrated, replacement/deletion obligations are complete, required decision routes are satisfied and fixtures exist for the journeys above. Resolve remaining functional work in its owning plan before starting K2 | done |
+| <a id="k2"></a>K2 Format and static qualification | K1 | Run the single series-wide formatting/lint pass and relevant Rust/Python compilation, generation, family, governance and documentation checks; repair to zero | done |
+| <a id="k3"></a>K3 Behavioral and scientific qualification | K2 | Run the selected Rust, native, Python, conformance and compatibility journeys; independently assess physical closure, domains, original-space residuals, outcome truth and durable lifecycle | in progress |
 | <a id="k4"></a>K4 Reuse and performance measurement | K3 | Measure cold/warm preparation, one-body edits, in-process/durable value studies, retention after eviction and worker admission; report counts, timing distributions, memory and all refusals/failures | planned |
 | <a id="k5"></a>K5 Architectural assessment and closure | K3/K4 | Conduct one bounded target-design review of the assembled change, reconcile every finding with its evidence, update enduring owners and close only demonstrated scope | planned |
 
 ### K1 — Readiness without a new governance framework
+
+Execution checkpoint, 2026-10-02: the completed 25a–25j working tree is the preserved
+baseline. Existing controls cover much of the required storage, response and lifetime
+matrix. Readiness work adds actual connected process/recycle and mixed durable journeys,
+and prepares measurement workloads before the comprehensive functional receipt. K4 uses
+the existing dev profile, as selected by the maintainer. Native campaigns remain capped
+at 120 GiB, with bounded test scheduling and one BLAS/OpenMP thread. Heavy campaigns and
+timing runs are serialized. Proposed ADRs retain their decision-PR status; no commit,
+push or publication is part of this execution.
+
+Readiness is complete. Actual indexed conditional recycle and dynamic inventory controls,
+mixed durable recovery/continuation/cancellation, and nonoptimal incumbent acceptance are
+registered in their existing harnesses. The mixed durable journey corrected nullable retry
+classification and premature refusal before explicitly permitted fallback acquisition in
+their existing store/policy owners. The five K4 workloads now have untimed controls through
+`just bench-case-smoke`; this mode creates no measurement receipt and does not relax
+`just case-measure`'s comprehensive functional prerequisite. Measurement instrumentation
+counts actual body admissions, value rebinds and Delta write attempts. The next work is the
+format/static pass, then the comprehensive functional receipt and selected dev measurements.
 
 Use the existing plan ledger, source inspection and packet evidence. Do not create a source seal,
 mandatory symbol manifest or automated architecture score. An intentional retained component
@@ -73,6 +92,54 @@ must still have a current target responsibility; deleted-path tests are not hist
 to preserve. Legitimate independent oracles and native-library adapters remain.
 
 ### K2/K3 — Recipe selection and reporting
+
+Execution checkpoint, 2026-10-02: static repairs are complete. Registry-owned enum defaults,
+generated tuple-key projection, explicit store fences and receipt groups, current Python/native
+consumers and invariant fixtures now agree with the target. The feature recipes retain workspace
+unification and the complete declared combinations while supplying native math paths and qualifying
+member feature names. Native helper compile conditions follow their actual consumers.
+
+The imported future-compatibility repair uses the published validator/derive releases through the
+existing generated Delta override, with one root version pin and the workspace lock as build
+authority. A provisional Cargo patch was rejected by governance and removed; no governance rule
+or warning was suppressed. Imported metadata boundary controls preserve schema, length and Unicode
+semantics. The remaining work is the full behavioral/scientific campaign, then dev measurements
+and the bounded architectural verdict. Source inputs stay unchanged from the comprehensive receipt
+through measurement; closure documentation follows afterward. Parity runs before the ordinary
+linked extension is refreshed for that receipt.
+
+The first complete assessment exposed scientific lowering, initialization ownership and
+recorded-contract defects, as well as fixtures still expecting replaced contracts. Repairs
+retain authored temporal occurrence positions and resolved axis ownership, actual dependency
+closure through validity/evidence, datum-point subtraction before reference translation,
+and the admitted physical types of static conditional branches. Block binding now retains
+existing shared parents while charging its new products. Recorded contracts select exact
+versions and provenance; fault-proxy shutdown awaits owned relays and backend completion.
+The local operational store has completed its preserving V1–V7 transition without reset.
+Targeted checks precede the repaired integrated campaign. The default Rust and doctest scopes
+will inherit the existing native execution environment explicitly, including the Symbolica
+licence, rather than relying on an interactive shell's direnv activation. K4 and the final
+review remain pending successful qualification; the campaign will be reported as composite.
+
+The full authored seed closure exposed additional campaign consumers beyond the earlier
+focused roots. Their migration preserves nominal reduced quantities, directed transfer
+owners, explicit indexed arguments and the original independent oracles. Concrete analyses
+must declare narrow permission for selected records with unknown applicability; the evidence
+remains unknown and extrapolation remains forbidden. Qualification also checks fixture
+binding against the actual refined physical target and bounds actual sparse support
+construction rather than refusing an otherwise lawful body solely for its support width.
+Repeated PFR instances also exposed occurrence-specific validity targets in mathematical
+identity. The ADR-0150 correction separates body-local checked members from each instance's
+total attribution binding, retains complete ranges and physical context, and versions the
+changed current frames without altering historical bytes. Typed diagnostic composition must
+apply that binding before wrappers contribute independent source identities.
+
+Positive Peng–Robinson flowsheets now explicitly select the original density relation in the
+outer problem. ADR-0144 distinguishes this authored relational formulation from the retained
+operational selector; an unproved nonlinear selector remains value-only and its derivative
+refusal retains a typed capability cause. Intensive fixtures declare finite construction/support
+allowances rather than changing global defaults. Original independent expectations remain.
+The complete seed campaign and assembled receipt must pass before measurement begins.
 
 Use the current `just --list` contract at execution time. The initial selection is `just fmt`,
 `just ci-fast`, `just quality`, `just governance`, `just adr-lint`, and `just docs`, with
@@ -98,6 +165,24 @@ foreign overlapping intent protection and queued lease renewal, plus native migr
 changed-map recovery refusal and actual restart/discovery/reclaim. The existing `just native-test`
 workspace harness discovers these targets; `just db-test` selects the isolated operations journeys.
 Do not count their earlier all-target compilation as execution.
+
+The integrated 25h/25i/25j handoff adds the frozen `test-fixtures/plan25g/` operational
+source and the appended V7 operational identity/frame transition. Focused preserving migration
+controls have run against isolated PostgreSQL; K3 still owns actual restart, mixed-operation
+and recovery composition. Historical digests retain their bytes and nullable frame provenance;
+an unknown historical frame cannot become a current operational cache key.
+
+Generated native-boundary fixtures under
+`python/pse/tests/fixtures/generated-native-boundaries/` cover partial/cancelled outcomes,
+pre-result refusal, failed attempts, incumbents and event-ended trajectories. Their isolated
+Python decoding checks establish transport distinctions, not solver or storage outcomes. K3
+must exercise those distinctions through the actual assembled workflows.
+
+The 25i handoff supplies complete-context body/package reuse, nested escaped-allocation owners
+and injected profile dispatch/panic controls. K4 must measure these mechanisms under actual
+in-process and durable workloads; focused reuse counts are not timing or RSS evidence. K2
+also owns the recorded imported `proc-macro-error2` future-compatibility advisory alongside
+the zero source-warning target.
 
 Each executed result names command, mode/features, fixture scope, conditions, failure count
 against zero, and remaining exclusions. K2/K3 commands are a proposed selection, not claims

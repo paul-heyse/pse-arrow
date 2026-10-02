@@ -9,10 +9,14 @@
 //! branch on the class without knowing which layer produced it.
 
 use pse_ids::ContentHash;
+use std::sync::Arc;
 
 /// A batch, field or metadata value that does not meet its declared contract.
 #[derive(Debug, thiserror::Error)]
 pub enum RelationError {
+    /// Shared native preparation failure retaining its typed cause.
+    #[error(transparent)]
+    Preparation(Arc<RelationError>),
     /// Durable interpretation failure retains its typed migration outcome.
     #[error(transparent)]
     Model(pse_model::ModelError),
@@ -183,6 +187,7 @@ pse_diagnostics::impl_diagnostic! {
             _ => None,
         } },
     forward(this) { match this {
+            Self::Preparation(error) => Some(error.as_ref()),
             Self::Engine(error) => Some(error),
             Self::Canon(value) => Some(value),
             Self::Schema(value) => Some(value),

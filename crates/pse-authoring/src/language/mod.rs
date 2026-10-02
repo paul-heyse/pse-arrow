@@ -3,6 +3,7 @@
 
 //! Version-one modeling language over registry-generated semantic declarations.
 mod cells;
+mod field_spans;
 mod parser;
 mod render;
 mod static_value;
@@ -18,7 +19,7 @@ pub use cells::{
     CellUnitFactor, CellValue, KeyCell, KeyCellKind, KeyCellSelected, ModelingUncertaintyKind,
     cell, key_cell, key_cell_value, parse_cell, render_cell, unit_factors, unit_product,
 };
-pub use parser::{IdentityPolicy, assign_ids, assign_ids_with, parse};
+pub use parser::{IdentityPolicy, assign_ids, assign_ids_with, parse, parse_with_spans};
 pub use pse_model::generated::authored::modeling_declarations::*;
 pub use pse_model::generated::authored::modeling_declarations::{
     AuthoredModelingDeclarationsFieldValue as Value,

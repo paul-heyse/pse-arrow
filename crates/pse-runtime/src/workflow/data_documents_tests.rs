@@ -113,6 +113,7 @@ fn load(
         pse_authoring::ParseBudget::default(),
         &pool,
         &token,
+        &rt.validation_context().unwrap(),
     )?;
     let documents = OwnedDocumentSet::try_from_bundles(vec![bundle], &pool, &token)?;
     rt.modeling_from_documents(&documents, physical())
@@ -350,6 +351,7 @@ fn data_bytes_enter_package_checksum_and_source_revision() {
             pse_authoring::ParseBudget::default(),
             &rt.shared.pool(),
             &pse_columnar::CancellationToken::new(),
+            &rt.validation_context().unwrap(),
         )
         .unwrap()
         .bundle()
@@ -457,7 +459,7 @@ async fn knowledge_projection_is_bounded_readonly_and_retains_binary_revision() 
     assert_ne!(knowledge.source_revision(), current.source_revision());
     assert_eq!(
         KnowledgeRow::rows(knowledge.table()).unwrap()[0].source_revision,
-        knowledge.source_revision()
+        knowledge.source_revision().as_id()
     );
     let session = knowledge.query_session(&cancel).unwrap();
     let batches = session

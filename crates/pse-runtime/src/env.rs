@@ -139,7 +139,7 @@ impl SharedRuntime {
             limit_bytes: self.budget.memory_limit_bytes.get(),
             pool_peak_bytes: self.peak.max_reserved(),
             pool_reserved_now: self.peak.reserved(),
-            top_consumers: consumers,
+            top_consumers: consumers.into_iter().map(Into::into).collect(),
             process_peak_rss_bytes: crate::peak::process_peak_rss()?,
             caches: self.caches.native().report(),
         })

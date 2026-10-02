@@ -27,7 +27,6 @@ pub async fn conform_pure_documents(
     documents: Vec<BTreeMap<String, Vec<u8>>>,
     physical_documents: BTreeMap<String, Vec<u8>>,
     budget: crate::ResourceBudget,
-    requirements: Arc<dyn pse_engine::session::policy::RequirementPlanner>,
     selection: ModelingFixtureSelection,
     maximum_fixtures: usize,
     maximum_checks: usize,
@@ -61,8 +60,8 @@ pub async fn conform_pure_documents(
         budget.threads,
         pse_engine::session::native_engine_profile(),
     )?
-    .with_cache_service(resources.caches.clone())
-    .with_requirement_planner(requirements);
+    .with_cache_service(resources.caches.clone());
+    let validation = sessions.validation_context(&registry)?;
     let token = cancel.token();
     let load = |documents: &[BTreeMap<String, Vec<u8>>]| {
         let bundles = documents
@@ -74,6 +73,7 @@ pub async fn conform_pure_documents(
                     pse_authoring::ParseBudget::default(),
                     &resources.pool,
                     &token,
+                    &validation,
                 )
             })
             .collect::<Result<Vec<_>, _>>()?;
@@ -123,6 +123,7 @@ pub async fn conform_pure_documents(
     let mut report = ModelingConformanceReport::new(
         registry,
         resources.pool.clone(),
+        validation,
         &fixture_ids,
         maximum_checks,
     )?;
@@ -132,7 +133,7 @@ pub async fn conform_pure_documents(
     let task = tokio::task::spawn_blocking(
         move || -> Result<ModelingConformanceReport, WorkflowError> {
             let _workspace_owner = workspace_owner;
-            let inputs = compiler_inputs(&physical, &BTreeMap::new());
+            let inputs = compiler_context(&physical, &BTreeMap::new());
             let mut compiler = pse_compiler::workspace::CompilerWorkspace::new(
                 inputs,
                 WorkspaceLimits {

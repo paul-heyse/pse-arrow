@@ -20,8 +20,8 @@ pub struct AlgebraicOracle {
     bounds: Vec<(f64, f64)>,
     facts: crate::DerivativeFacts,
     normalization: Option<pse_math::normalization::Normalization>,
-    presolve: Option<std::sync::Arc<pse_math::presolve::Facts>>,
-    structure: Option<std::sync::Arc<pse_structural::incidence::StructuralAnalysis>>,
+    presolve: Option<pse_math::SharedAllocation<pse_math::presolve::Facts>>,
+    structure: Option<pse_math::SharedAllocation<pse_structural::incidence::StructuralAnalysis>>,
 }
 impl AlgebraicOracle {
     /// Admit continuous NLP/NLE variables. All-fixed cases stay on constant evaluation.
@@ -99,7 +99,7 @@ impl AlgebraicOracle {
     /// witness against the current IDs, equality classification and sparse edges.
     pub fn with_structural_analysis(
         mut self,
-        analysis: std::sync::Arc<pse_structural::incidence::StructuralAnalysis>,
+        analysis: pse_math::SharedAllocation<pse_structural::incidence::StructuralAnalysis>,
     ) -> Self {
         self.structure = Some(analysis);
         self
@@ -133,7 +133,7 @@ impl AlgebraicOracle {
     /// Attach compiler facts only when their complete assumptions still match.
     pub fn with_presolve_facts(
         mut self,
-        facts: std::sync::Arc<pse_math::presolve::Facts>,
+        facts: pse_math::SharedAllocation<pse_math::presolve::Facts>,
     ) -> Result<Self, ProblemError> {
         if !facts.matches(self.worker.assembly(), &self.values) {
             return Err(ProblemError::Contract("stale presolve facts".into()));

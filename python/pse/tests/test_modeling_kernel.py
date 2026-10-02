@@ -13,6 +13,7 @@ import pyarrow.parquet as pq
 import pytest
 
 import pse
+from pse import codec
 from pse.conformance import RunSummary, load_manifest
 from pse.conformance import main as conformance_main
 from pse.contracts.enums import NativeBackend, NativeSolveIntent
@@ -52,7 +53,9 @@ def test_conformance_runs_the_declared_reference_set(
     )
     source = """package pure {
       fn square(x:Scalar)->Scalar=x*x;
-      test positive fixture {dof 0; route steady; procedure check; policy { limits items(1000); }} {
+      test positive fixture {
+        dof 0; route steady; procedure check; policy { limits items(1000); }
+      } {
         expect square(2)==4 tolerance 1e-12 relative 1e-8;
       }
     }"""
@@ -132,13 +135,19 @@ def test_conformance_runs_only_selected_fixtures(
     (package / "models/pure.pse").write_text(
         f"""package pure {{
       fn square(x:Scalar)->Scalar=x*x;
-      @id("{first.to_hex()}") test first fixture {{dof 0; route steady; procedure check;}} {{
+      @id("{first.to_hex()}") test first fixture {{
+        dof 0; route steady; procedure check;
+      }} {{
         expect square(2)==4 tolerance 1e-12;
       }}
-      @id("{second.to_hex()}") test second fixture {{dof 0; route steady; procedure check;}} {{
+      @id("{second.to_hex()}") test second fixture {{
+        dof 0; route steady; procedure check;
+      }} {{
         expect square(3)==9 tolerance 1e-12;
       }}
-      @id("{wrong.to_hex()}") test wrong fixture {{dof 0; route steady; procedure check;}} {{
+      @id("{wrong.to_hex()}") test wrong fixture {{
+        dof 0; route steady; procedure check;
+      }} {{
         expect square(1)==2 tolerance 1e-12;
       }}
     }}"""
@@ -606,21 +615,21 @@ def test_modeling_diagnostics_inspect_singular_case_without_solver_admission(
         pse.SolveSettings(intent=NativeSolveIntent.ROOT),
         reference,
         ((identity(230), {}), (identity(231), {})),
-        maximum_samples=1,
+        controls=pse.DiagnosticSamplesControls(maximum_samples=1),
     )
     assert capped.stop == "sample_limit"
     assert capped.unattempted == 1
     native = package.diagnose_jacobian(
         declaration(220),
         pse.SolveSettings(intent=NativeSolveIntent.ROOT),
-        maximum_attempts=4,
+        controls=pse.JacobianDiagnosticControls(maximum_attempts=4),
     )
     assert len(native.attempts()) == 4
     native_table = native.table()
     limited = package.diagnose_jacobian(
         declaration(220),
         pse.SolveSettings(intent=NativeSolveIntent.ROOT),
-        maximum_attempts=1,
+        controls=pse.JacobianDiagnosticControls(maximum_attempts=1),
     )
     limited_row = pa.table(limited.table()).to_pylist()[0]
     assert not limited_row["complete"]
@@ -738,7 +747,11 @@ def test_modeling_native_linear_diagnostics_preserve_scope_and_source_coordinate
         backend=NativeBackend.HIGHS, controls=pse.SolveControls(time_limit=30)
     )
     bad = package.diagnose_linear(
-        cases["bad"], settings, iis=True, rays=True, relaxation=(-1, -1, 1)
+        cases["bad"],
+        settings,
+        controls=pse.LinearDiagnosticControls(
+            iis=True, rays=True, relaxation=(-1, -1, 1)
+        ),
     )
     assert bad.relation == "runtime.modeling_linear_diagnostics"
     assert bad.attempts()[0].termination == "infeasible"
@@ -753,11 +766,19 @@ def test_modeling_native_linear_diagnostics_preserve_scope_and_source_coordinate
     assert row["attempt"]["termination"]["category"] == "infeasible"
     with pytest.raises(pse.InspectionError, match="every source coordinate"):
         package.diagnose_linear(
-            cases["bad"], settings, relaxation=(-1, -1, 1), row_penalties={}
+            cases["bad"],
+            settings,
+            controls=pse.LinearDiagnosticControls(
+                relaxation=(-1, -1, 1), row_penalties={}
+            ),
         )
     with pytest.raises(pse.InspectionError, match="affine coefficient"):
-        package.diagnose_linear(cases["curved"], settings, iis=True)
-    ranged = package.diagnose_linear(cases["good"], settings, ranging=True)
+        package.diagnose_linear(
+            cases["curved"], settings, controls=pse.LinearDiagnosticControls(iis=True)
+        )
+    ranged = package.diagnose_linear(
+        cases["good"], settings, controls=pse.LinearDiagnosticControls(ranging=True)
+    )
     ranges = ranged.table()
     del bad, ranged, package, runtime
     ranged_row = pa.table(ranges).to_pylist()[0]
@@ -815,7 +836,9 @@ def test_modeling_authored_fixture_shared_checks_and_owned_tables(
     assert result.outcome_kind == "constant_evaluation"
     assert result.attempt() is None
     assert result.failure() is None
-    conformance = package.conform(settings, maximum_checks=64)
+    conformance = package.conform(
+        settings, controls=pse.ConformanceControls(maximum_checks=64)
+    )
     checks = pa.table(conformance.table())
     assert conformance.passed, checks.to_pylist()
     assert conformance.complete, checks.to_pylist()
@@ -828,16 +851,16 @@ def test_modeling_authored_fixture_shared_checks_and_owned_tables(
     with pytest.raises(pse.InspectionError, match="admission table absent"):
         conformance.admission("runtime.modeling_checks")
     assert (
-        package.inspect(declaration(207), settings)["execution"]["procedure"]
-        == "initialize"
+        package.inspect(declaration(207), settings).execution.procedure == "initialize"
     )
-    assert (
-        package.inspect(declaration(207), settings)["execution"]["route"]
-        == "simultaneous"
-    )
+    assert package.inspect(declaration(207), settings).execution.route == "simultaneous"
     with pytest.raises(pse.InspectionError, match="authored solve procedure"):
         package.prepare_solve(declaration(207), settings)
-    initialized = package.initialize(declaration(207), settings, maximum_attempts=2)
+    initialized = package.initialize(
+        declaration(207),
+        settings,
+        overrides=pse.InitializationOverrides(maximum_attempts=2),
+    )
     assert initialized.completed
     assert initialized.failure is None
     history = initialized.attempts()
@@ -956,10 +979,17 @@ def test_modeling_nonlinear_explanation_retains_local_evidence(
     explanation = package.explain_nonlinear(
         case,
         settings,
-        dict.fromkeys(rows, 1.0),
-        penalty_tolerance=1e-6,
-        maximum_attempts=4,
-        time_limit=30,
+        codec.decode_json(
+            codec.encode_json(
+                {
+                    "nominals": {row.to_hex(): 1.0 for row in rows},
+                    "penalty_tolerance": 1e-6,
+                    "maximum_attempts": 4,
+                    "time_limit": {"secs": 30, "nanos": 0},
+                }
+            ),
+            pse.ModelingNonlinearPolicy,
+        ),
     )
     assert explanation.complete
     assert len(explanation.candidate_rows()) == 2
@@ -970,10 +1000,17 @@ def test_modeling_nonlinear_explanation_retains_local_evidence(
     limited = package.explain_nonlinear(
         case,
         settings,
-        dict.fromkeys(rows, 1.0),
-        penalty_tolerance=1e-6,
-        maximum_attempts=1,
-        time_limit=30,
+        codec.decode_json(
+            codec.encode_json(
+                {
+                    "nominals": {row.to_hex(): 1.0 for row in rows},
+                    "penalty_tolerance": 1e-6,
+                    "maximum_attempts": 1,
+                    "time_limit": {"secs": 30, "nanos": 0},
+                }
+            ),
+            pse.ModelingNonlinearPolicy,
+        ),
     )
     assert not limited.complete
     assert limited.stop is not None
@@ -1034,7 +1071,8 @@ def test_pure_conformance_has_no_process_runtime_and_retains_findings(
         expect square(2)==4 tolerance 1e-12 relative 1e-8;
       }
       test negative fixture {
-        dof 0; route steady; procedure check; failure trial_rejected validity(form) form(root) variable(x);
+        dof 0; route steady; procedure check;
+        failure trial_rejected validity(form) form(root) variable(x);
       } {expect root(-1)==1 tolerance 0;}
     }"""
     documents = {"package.toml": manifest, "models/pure.pse": source}
@@ -1051,7 +1089,7 @@ def test_pure_conformance_has_no_process_runtime_and_retains_findings(
                 max_spill_bytes=1 << 30,
                 batch_size=1024,
             ),
-            maximum_checks=32,
+            controls=pse.PureConformanceControls(maximum_checks=32),
         )
         assert result.passed
         assert result.complete
@@ -1078,7 +1116,7 @@ def test_pure_conformance_has_no_process_runtime_and_retains_findings(
             max_spill_bytes=1 << 30,
             batch_size=1024,
         ),
-        maximum_checks=1,
+        controls=pse.PureConformanceControls(maximum_checks=1),
     )
     assert not limited.complete
     assert not limited.passed
@@ -1138,7 +1176,9 @@ def test_knowledge_inspects_admitted_values_and_refuses_writes(
     sample = next(
         row.declaration_id for row in package.declarations() if row.name == "a"
     )
-    knowledge = package.knowledge(sample, maximum_cells=1)
+    knowledge = package.knowledge(
+        sample, controls=pse.KnowledgeControls(maximum_cells=1)
+    )
     row = pa.table(knowledge.table()).to_pylist()[0]
     assert row["owner_id"] == bytes(sample)
     assert row["value"][-1]["magnitude"] == 2.5
@@ -1155,4 +1195,4 @@ def test_knowledge_inspects_admitted_values_and_refuses_writes(
     with pytest.raises(pse.InspectionError):
         knowledge.query("DELETE FROM workspace.runtime.modeling_knowledge")
     with pytest.raises(pse.InspectionError, match="maximum_bytes"):
-        package.knowledge(sample, maximum_bytes=128)
+        package.knowledge(sample, controls=pse.KnowledgeControls(maximum_bytes=128))

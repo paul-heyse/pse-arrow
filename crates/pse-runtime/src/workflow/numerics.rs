@@ -522,8 +522,10 @@ impl RunResult {
         batches: &mut BTreeMap<SemanticId, pse_relations::columnar::FieldCheckedBatch>,
     ) -> Result<(), WorkflowError> {
         let registry = &self.runtime.registry;
-        let mut candidates = assessments::Builder::with_registry(registry, self.assessments.len())
-            .map_err(relation)?;
+        let validation = self.runtime.validation_context()?;
+        let mut candidates =
+            assessments::Builder::with_registry(registry, self.assessments.len(), &validation)
+                .map_err(relation)?;
         for row in &self.assessments {
             candidates.push(row.clone()).map_err(relation)?;
         }
@@ -538,7 +540,8 @@ impl RunResult {
             RunRequest::Shooting { problem: p, .. } => vec![p.numerics()],
             RunRequest::Modeling(p) => p.iter().map(|p| p.solve.numerics()).collect(),
         };
-        let mut resolved = resolved::Builder::with_registry(registry, 0).map_err(relation)?;
+        let mut resolved =
+            resolved::Builder::with_registry(registry, 0, &validation).map_err(relation)?;
         for (step, policy) in policies.iter().enumerate() {
             for t in &policy.targets {
                 resolved

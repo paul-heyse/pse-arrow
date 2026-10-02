@@ -29,6 +29,17 @@ pub fn declare(builder: &mut RegistryBuilder) {
             .map(crate::model::provider::OperationEffect::as_str),
     );
     super::declarations::enumeration(builder, "BoundKind", ["finite", "unbounded"]);
+    super::declarations::enumeration(builder, "TearPolicy", ["free", "mandatory", "forbidden"]);
+    super::declarations::enumeration(
+        builder,
+        "BoundActivity",
+        ["inactive", "at_lower", "at_upper", "fixed"],
+    );
+    super::declarations::enumeration(
+        builder,
+        "RowActivity",
+        ["inactive", "at_lower", "at_upper", "equality"],
+    );
     declare_schema_vocabularies(builder);
     declare_rule_vocabularies(builder);
     declare_identity_vocabularies(builder);

@@ -71,6 +71,12 @@ fn declared(spec: &crate::model::EnumSpec) -> TokenStream {
         .iter()
         .map(|member| member.doc)
         .collect::<Vec<_>>();
+    let default_derive = spec.default_member.map(|_| quote!(#[derive(Default)]));
+    let defaults = spec
+        .members
+        .iter()
+        .map(|member| (Some(member.name) == spec.default_member).then(|| quote!(#[default])))
+        .collect::<Vec<_>>();
     let idaes = spec
         .members
         .iter()
@@ -82,19 +88,27 @@ fn declared(spec: &crate::model::EnumSpec) -> TokenStream {
             }
         })
         .collect::<Vec<_>>();
-    let ordinals = (0..variants.len()).collect::<Vec<_>>();
     let length = variants.len();
+    let ordinals = (0..variants.len()).collect::<Vec<_>>();
     quote! {
         /// A string enumeration projected from the registry.
-        #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize)]
+        #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, strum::EnumString, strum::Display, strum::VariantArray, strum::IntoStaticStr, serde::Serialize, serde::Deserialize)]
+        #default_derive
+        #[allow(missing_docs, reason = "strum emits the const spelling conversion; documented as_str is the public contract")]
+        #[strum(const_into_str, parse_err_ty = pse_diagnostics::VocabularyError, parse_err_fn = Self::unknown_member)]
         #[allow(clippy::enum_variant_names, reason = "closed enum spellings preserve registry and sanctioned parity names")]
-        pub enum #name { #(#[doc = #docs] #[serde(rename = #members)] #variants,)* }
+        pub enum #name { #(#[doc = #docs] #[serde(rename = #members)] #[strum(serialize = #members)] #defaults #variants,)* }
         impl crate::SemanticEq for #name { fn semantic_eq(&self, other: &Self) -> bool { self == other } }
         impl #name {
             /// All members in declaration order; the ordinal is presentation only.
-            pub const ALL: [Self; #length] = [#(Self::#variants),*];
+            pub const ALL: [Self; #length] = {
+                match <Self as strum::VariantArray>::VARIANTS.first_chunk::<#length>() {
+                    Some(members) => *members,
+                    None => panic!("strum variant count disagrees with registry"),
+                }
+            };
             /// The declared member spelling.
-            pub const fn as_str(self) -> &'static str { match self { #(Self::#variants => #members,)* } }
+            pub const fn as_str(self) -> &'static str { self.into_str() }
             /// The presentation ordinal, never a semantic identity.
             pub const fn ordinal(self) -> usize { match self { #(Self::#variants => #ordinals,)* } }
             /// The sanctioned IDAES member name, where applicable.
@@ -110,12 +124,9 @@ fn declared(spec: &crate::model::EnumSpec) -> TokenStream {
                 schemars::json_schema!({ "type": "string", "enum": [#(#members),*] })
             }
         }
-        impl core::str::FromStr for #name {
-            type Err = crate::RelationError;
-            fn from_str(value: &str) -> Result<Self, Self::Err> {
-                match value { #(#members => Ok(Self::#variants),)*
-                    _ => Err(crate::RelationError::EnumMember { field: stringify!(#name).to_owned(), enumeration: stringify!(#name).to_owned(), value: value.to_owned() })
-                }
+        impl #name {
+            fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+                pse_diagnostics::VocabularyError::UnknownMember { vocabulary: stringify!(#name), value: value.to_owned() }
             }
         }
         impl crate::columnar::ArrowValue for #name {
@@ -126,7 +137,10 @@ fn declared(spec: &crate::model::EnumSpec) -> TokenStream {
                 crate::columnar::append_string(output, None)
             }
             fn read(input: &dyn arrow_array::Array, index: usize) -> Result<Self, crate::RelationError> {
-                crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+                crate::columnar::read_string(input, index)?.parse().map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                    field: stringify!(#name).to_owned(), enumeration: stringify!(#name).to_owned(),
+                    value: match error { pse_diagnostics::VocabularyError::UnknownMember { value, .. } => value },
+                })
             }
         }
     }

@@ -42,8 +42,7 @@ pub(crate) fn acquire(settings: &EngineSettings) -> Result<Arc<Runtime>, EngineE
     let sessions = Arc::new(
         shared
             .session_factory(native_engine_profile())
-            .map_err(|error| EngineError::Semantic(Arc::new(error)))?
-            .with_requirement_planner(Arc::new(pse_rules::invariants::RegistryRequirementPlanner)),
+            .map_err(|error| EngineError::Semantic(Arc::new(error)))?,
     );
     let executor = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(settings.budget.threads.pool_threads.get())

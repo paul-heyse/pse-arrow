@@ -25,7 +25,7 @@ pub struct RuntimeParametricSensitivitiesRow {
     pub r#target_unit_id: pse_ids::SemanticId,
     ///For a variable, dx/dp in its unit per parameter unit; for the objective, df*/dp in the authored sense; absent for a row.
     pub r#primal: Option<f64>,
-    ///For a row, the derivative of its multiplier; for a variable, of its bound multiplier z_L − z_U; both in the minimization convention of `solve_constraints.dual`, zero where the constraint is inactive; absent for the objective.
+    ///For a row, the derivative of its multiplier; for a variable, of its bound multiplier z_L - z_U; both in the minimization convention of `solve_constraints.dual`, zero where the constraint is inactive; absent for the objective.
     pub r#dual: Option<f64>,
 }
 impl crate::SemanticEq for RuntimeParametricSensitivitiesRow {
