@@ -54,8 +54,9 @@ Reviews remain proportional to the binding; fresh reviewers receive concrete cri
 Process skills are canonical in `.codex/skills/`, with `.claude/skills` and `.agents/skills` as
 aliases. The existing alias synchronizer never generates or modifies native agent definitions.
 These workflow/configuration surfaces are Implemented (2026-09-30; evidence write scope 2026-10-01). The selected defaults raise
-Codex implementation review to Sol/high and Claude evidence roles to Sonnet/medium, while Claude
-design review uses Opus/high. Model-allocation quality and native agent behavior remain unmeasured;
+Codex implementation review to Sol/high and run Codex library research on Sol/medium; Claude runs
+code mapping on Sonnet/medium, library research, execution, implementation review and testing on
+Opus/medium, and design review on Opus/high. Model-allocation quality and native agent behavior remain unmeasured;
 no calibration exercise or recurring telemetry is required. The current-work index routes to the active plan or packet
 checkpoint for execution and handoff; no root STATUS file or second status owner is introduced.
 

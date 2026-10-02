@@ -19,7 +19,7 @@ is not a shell sandbox. Do not ask again for actions already authorized by the u
 Path-scoped guidance is in `.claude/rules/`. Shared role behavior is in
 `.agents/roles/`; `.claude/agents/` and `.codex/agents/` are independent native adapters.
 Use the named Claude roles from the shared routing table: `implementer` is the executor adapter
-on Sonnet, and `design-reviewer` runs on Opus. The coordinator owns design, integration and
+on Opus/medium, and `design-reviewer` runs on Opus/high. The coordinator owns design, integration and
 acceptance; explicit user runtime choices take precedence. Native definitions load shared
 contracts rather than copying role behavior between runtimes.
 
