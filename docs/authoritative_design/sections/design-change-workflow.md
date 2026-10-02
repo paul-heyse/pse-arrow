@@ -10,7 +10,7 @@ status: current
 > Decision: [ADR-0094](../../adr/0094-architecture-first-design-review.md),
 > [ADR-0096](../../adr/0096-current-rationale-and-selective-retirement.md),
 > [ADR-0129](../../adr/0129-domain-model-review-scope.md),
-> [ADR-0147](../../adr/0147-library-research-writes.md).
+> [ADR-0149](../../adr/0149-agent-permissions-by-contract.md).
 
 The [selected design standard](../../design_review/design_principles/standard.toml) governs
 architecture review. Its core foundations organize assessment around separation of concerns,
@@ -37,9 +37,9 @@ sequence. That focused assessment does not certify an enclosing subsystem or ini
 model assessment during ordinary implementation.
 
 The [shared roles](../../../.agents/roles/README.md) own reusable worker behavior, coordination
-and each role's permitted effects; the separate native adapters own model, effort and tool
-defaults. Codex roles inherit the session's sandbox and approval settings (Codex ignores sandbox
-keys in role files), so no adapter declares one. `library-research` may write new dated folders
+and each role's permitted effects; the separate native adapters own model and effort defaults
+only. Codex roles inherit the session's sandbox and approval settings (Codex ignores sandbox keys
+in role files) and Claude roles the session's tools, so no adapter declares either. `library-research` may write new dated folders
 in the evidence locations AGENTS.md names and the shared library skill its brief assigns, and
 lists every file written; the other evidence roles stay read-only. These scopes are instructions,
 not runtime enforcement; the edit-protection hook still applies to every role. The root coordinator retains

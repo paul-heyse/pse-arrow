@@ -364,12 +364,12 @@ packet checkpoint for the baseline and handoff. Existing plans own status and fi
   remain local and tracked. Set `LIBRARY_SKILLS_ROOT` if the shared store is elsewhere.
   A new worktree gets its links when its first turn ends. Windows needs directory symlink support for the
   shared bundles; `just agent-config-sync` preserves their links when copying local aliases.
-- Shared role behavior lives in [.agents/roles/](.agents/roles/README.md) (ADR-0147).
+- Shared role behavior lives in [.agents/roles/](.agents/roles/README.md) (ADR-0149).
   `library-research` may write new `docs/design_review/evidence/<topic>-<YYYY-MM-DD>/` folders and
   the shared library skill its brief assigns; [its contract](.agents/roles/library-research.md)
   bounds those writes. Capability-map evidence (`just evidence-regen`) stays with the coordinator.
-  Native adapters in `.codex/agents/` and `.claude/agents/` own model, effort and tool defaults;
-  they are maintained separately. Claude `implementer` adapts the executor role; Codex uses
+  Native adapters in `.codex/agents/` and `.claude/agents/` own model and effort defaults and carry
+  no tool lists or sandbox settings; they are maintained separately. Claude `implementer` adapts the executor role; Codex uses
   `executor`. `just agent-config-sync` only materializes skill aliases and never changes agents.
   The Codex coordinator defaults to Astra/high, with Sol/high as the generic worker fallback;
   explicit user runtime choices take precedence.
